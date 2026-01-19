@@ -28,6 +28,11 @@ using RhPortal.Api.Auditing.Context;
 using RhPortal.Api.Auditing.EF;
 using RhPortal.Api.Auditing.Middleware;
 using RhPortal.Api.Auditing.Services;
+using RhPortal.Api.Logging.Context;
+using RhPortal.Api.Logging.Filters;
+using RhPortal.Api.Logging.Logger;
+using RhPortal.Api.Logging.Middleware;
+using RhPortal.Api.Logging.Writer;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Security;
@@ -39,7 +44,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 
 builder.Services
-    .AddControllers()
+    .AddControllers(options => { options.Filters.Add<ProblemDetailsLoggingFilter>(); })
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddEndpointsApiExplorer();
@@ -62,6 +67,15 @@ builder.Services.AddScoped<IAuditContextAccessor, AuditContextAccessor>();
 builder.Services.AddScoped<AuditMiddleware>();
 builder.Services.AddScoped<AuditSaveChangesInterceptor>();
 builder.Services.AddSingleton<AuditWriter>();
+
+// Logging (separate from audit)
+builder.Services.AddSingleton<ILogContextAccessor, LogContextAccessor>();
+builder.Services.AddScoped<RequestLogMiddleware>();
+builder.Services.AddScoped<ExceptionLoggingMiddleware>();
+builder.Services.AddSingleton(DbLogQueue.Create());
+builder.Services.AddSingleton<DbLoggerProvider>();
+builder.Services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<DbLoggerProvider>());
+builder.Services.AddHostedService<DbLogWriterService>();
 
 // PostgreSQL + EF Core
 builder.Services.AddDbContext<AppDbContext>((sp, options) =>
@@ -218,6 +232,8 @@ app.UseMiddleware<TenantMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<RequestLogMiddleware>();
+app.UseMiddleware<ExceptionLoggingMiddleware>();
 app.UseMiddleware<AuditMiddleware>();
 
 app.MapHealthChecks("/health", new HealthCheckOptions

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Auditing.Entities;
+using RhPortal.Api.Logging.Entities;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Entities;
 
@@ -23,6 +24,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<AuditEntityChange> AuditEntityChanges => Set<AuditEntityChange>();
     public DbSet<AuditEntityPropertyChange> AuditEntityPropertyChanges => Set<AuditEntityPropertyChange>();
+    public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
+    public DbSet<LogEntry> LogEntries => Set<LogEntry>();
+    public DbSet<ExceptionLog> ExceptionLogs => Set<ExceptionLog>();
     public DbSet<Menu> Menus => Set<Menu>();
     public DbSet<RoleMenu> RoleMenus => Set<RoleMenu>();
 
@@ -643,6 +647,113 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.Cascade);
 
             b.HasIndex(x => x.AuditEntityChangeId);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RequestLog>(b =>
+        {
+            b.ToTable("RequestLogs");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TransactionId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.CorrelationId).HasMaxLength(200);
+            b.Property(x => x.TraceId).HasMaxLength(200);
+            b.Property(x => x.EnvironmentName).HasMaxLength(40).IsRequired();
+            b.Property(x => x.EnvironmentNormalized).HasMaxLength(16).IsRequired();
+            b.Property(x => x.DeviceId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.DeviceType).HasMaxLength(20);
+            b.Property(x => x.Platform).HasMaxLength(20);
+            b.Property(x => x.Browser).HasMaxLength(20);
+            b.Property(x => x.DeviceAppVersion).HasMaxLength(60);
+            b.Property(x => x.Locale).HasMaxLength(40);
+            b.Property(x => x.Method).HasMaxLength(16).IsRequired();
+            b.Property(x => x.Path).HasMaxLength(512).IsRequired();
+            b.Property(x => x.QueryString).HasMaxLength(1024);
+            b.Property(x => x.UserId).HasMaxLength(120);
+            b.Property(x => x.UserName).HasMaxLength(200);
+            b.Property(x => x.ClientId).HasMaxLength(120);
+            b.Property(x => x.Ip).HasMaxLength(80);
+            b.Property(x => x.UserAgent).HasMaxLength(400);
+            b.Property(x => x.Host).HasMaxLength(200);
+            b.Property(x => x.Controller).HasMaxLength(120);
+            b.Property(x => x.Action).HasMaxLength(120);
+            b.Property(x => x.RouteTemplate).HasMaxLength(512);
+            b.Property(x => x.RequestBodySnippet).HasMaxLength(4096);
+            b.Property(x => x.ResponseBodySnippet).HasMaxLength(4096);
+
+            b.HasIndex(x => new { x.TenantId, x.StartedAt });
+            b.HasIndex(x => new { x.TenantId, x.TransactionId });
+            b.HasIndex(x => new { x.TenantId, x.EnvironmentNormalized, x.StartedAt });
+            b.HasIndex(x => new { x.TenantId, x.DeviceId, x.StartedAt });
+            b.HasIndex(x => new { x.TenantId, x.Path });
+            b.HasIndex(x => new { x.TenantId, x.StatusCode });
+            b.HasIndex(x => new { x.TenantId, x.UserId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<LogEntry>(b =>
+        {
+            b.ToTable("LogEntries");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TransactionId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.EnvironmentName).HasMaxLength(40).IsRequired();
+            b.Property(x => x.EnvironmentNormalized).HasMaxLength(16).IsRequired();
+            b.Property(x => x.DeviceId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.DeviceType).HasMaxLength(20);
+            b.Property(x => x.Platform).HasMaxLength(20);
+            b.Property(x => x.Browser).HasMaxLength(20);
+            b.Property(x => x.DeviceAppVersion).HasMaxLength(60);
+            b.Property(x => x.Locale).HasMaxLength(40);
+            b.Property(x => x.Level).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Category).HasMaxLength(200).IsRequired();
+            b.Property(x => x.EventName).HasMaxLength(200);
+            b.Property(x => x.Message).HasMaxLength(8192).IsRequired();
+            b.Property(x => x.ExceptionType).HasMaxLength(300);
+            b.Property(x => x.ExceptionMessage).HasMaxLength(8192);
+            b.Property(x => x.ExceptionStackTrace).HasMaxLength(16384);
+            b.Property(x => x.PropertiesJson).HasColumnType("jsonb");
+
+            b.HasIndex(x => new { x.TenantId, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.Level });
+            b.HasIndex(x => new { x.TenantId, x.Category });
+            b.HasIndex(x => new { x.TenantId, x.EnvironmentNormalized, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.DeviceId, x.OccurredAt });
+            b.HasIndex(x => new { x.RequestLogId, x.Order });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<ExceptionLog>(b =>
+        {
+            b.ToTable("ExceptionLogs");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TransactionId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.EnvironmentName).HasMaxLength(40).IsRequired();
+            b.Property(x => x.EnvironmentNormalized).HasMaxLength(16).IsRequired();
+            b.Property(x => x.DeviceId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.DeviceType).HasMaxLength(20);
+            b.Property(x => x.Platform).HasMaxLength(20);
+            b.Property(x => x.Browser).HasMaxLength(20);
+            b.Property(x => x.DeviceAppVersion).HasMaxLength(60);
+            b.Property(x => x.Locale).HasMaxLength(40);
+            b.Property(x => x.ExceptionType).HasMaxLength(300).IsRequired();
+            b.Property(x => x.Message).HasMaxLength(4096).IsRequired();
+            b.Property(x => x.StackTrace).HasMaxLength(16384);
+            b.Property(x => x.InnerExceptionType).HasMaxLength(300);
+            b.Property(x => x.InnerMessage).HasMaxLength(4096);
+            b.Property(x => x.ProblemTitle).HasMaxLength(4096);
+            b.Property(x => x.ProblemDetail).HasMaxLength(4096);
+            b.Property(x => x.ProblemType).HasMaxLength(200);
+            b.Property(x => x.ValidationErrorsJson).HasColumnType("jsonb");
+            b.Property(x => x.Tags).HasMaxLength(200);
+
+            b.HasIndex(x => new { x.TenantId, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.ExceptionType });
+            b.HasIndex(x => new { x.TenantId, x.StatusCode });
+            b.HasIndex(x => new { x.TenantId, x.EnvironmentNormalized, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.DeviceId, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.TransactionId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

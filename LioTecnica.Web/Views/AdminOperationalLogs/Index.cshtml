@@ -1,15 +1,15 @@
-@model LioTecnica.Web.ViewModels.Admin.AuditLogsPageViewModel
+@model LioTecnica.Web.ViewModels.Admin.OperationalLogsPageViewModel
 @{
-    ViewData["Title"] = "Portal RH - Logs Transacionais";
-    ViewData["SidebarSubtitle"] = "Logs";
+    ViewData["Title"] = "Portal RH - Logs Operacionais";
+    ViewData["SidebarSubtitle"] = "Logs Operacionais";
 }
 
 @section Topbar {
-    @await Html.PartialAsync("_TopbarBrand", "Tela: Logs Transacionais")
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Logs Operacionais")
 
     <div class="searchbox position-relative d-none d-md-block">
         <i class="bi bi-search"></i>
-        <input id="globalSearchLogs" class="form-control" placeholder="Buscar transacao, rota..." />
+        <input id="globalSearchOpLogs" class="form-control" placeholder="Buscar transacao, rota..." />
     </div>
 
     <div class="d-flex align-items-center gap-2">
@@ -21,7 +21,7 @@
     <div class="page-title">
         <div>
             <h4>@Model.Title</h4>
-            <div class="subtitle">Acompanhe requisicoes HTTP e mudancas no banco.</div>
+            <div class="subtitle">Logs gerais, warnings e erros do app.</div>
         </div>
         <div class="d-flex align-items-center gap-2">
             <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">-</span></span>
@@ -32,7 +32,7 @@
     <div class="card-soft p-3 mb-3">
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
             <div>
-                <div class="fw-bold">Transacoes recentes</div>
+                <div class="fw-bold">Requisicoes monitoradas</div>
                 <div class="text-muted small">Clique em uma linha para ver detalhes.</div>
             </div>
             <div class="d-flex flex-wrap gap-2 justify-content-end">
@@ -40,24 +40,24 @@
                     <label class="form-label small mb-1">Buscar</label>
                     <div class="input-group">
                         <span class="input-group-text" style="background:rgba(255,255,255,.65)"><i class="bi bi-search"></i></span>
-                        <input class="form-control" id="logsSearch" placeholder="rota, usuario, tx...">
+                        <input class="form-control" id="opLogsSearch" placeholder="rota, usuario, tx...">
                     </div>
                 </div>
                 <div>
-                    <label class="form-label small mb-1">Status</label>
-                    <select class="form-select" id="logsStatus">
+                    <label class="form-label small mb-1">Nivel</label>
+                    <select class="form-select" id="opLogsLevel">
                         <option value="">Todos</option>
-                        <option value="success">Sucesso</option>
-                        <option value="error">Erro</option>
+                        <option value="warning">Warning</option>
+                        <option value="error">Error</option>
                     </select>
                 </div>
                 <div>
                     <label class="form-label small mb-1">De</label>
-                    <input class="form-control" type="datetime-local" id="logsFrom">
+                    <input class="form-control" type="datetime-local" id="opLogsFrom">
                 </div>
                 <div>
                     <label class="form-label small mb-1">Ate</label>
-                    <input class="form-control" type="datetime-local" id="logsTo">
+                    <input class="form-control" type="datetime-local" id="opLogsTo">
                 </div>
                 <div>
                     <label class="form-label small mb-1">&nbsp;</label>
@@ -73,9 +73,9 @@
                 <thead>
                     <tr>
                         <th class="fit">Quando</th>
+                        <th class="fit">Nivel</th>
                         <th class="fit">Metodo</th>
                         <th>Rota</th>
-                        <th class="fit">Status</th>
                         <th class="fit">Usuario</th>
                         <th class="fit text-end">Duracao</th>
                     </tr>
@@ -95,12 +95,12 @@
     </div>
 </section>
 
-<div class="modal fade" id="modalAuditDetail" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalOperationalDetail" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <div class="text-muted small">Detalhes da transacao</div>
+                    <div class="text-muted small">Detalhes da requisicao</div>
                     <h5 class="modal-title">Transacao <span class="mono" id="detailTxId">-</span></h5>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
@@ -109,35 +109,34 @@
                 <div class="row g-3">
                     <div class="col-12 col-lg-6">
                         <div class="card-soft p-3 h-100">
-                            <div class="fw-bold mb-2">HTTP</div>
+                            <div class="fw-bold mb-2">Resumo</div>
                             <div class="small text-muted mono" id="detailRoute">-</div>
                             <div class="small text-muted" id="detailMeta">-</div>
                             <hr class="my-2">
-                            <div class="small" id="detailRequest">-</div>
+                            <div class="small" id="detailUser">-</div>
                         </div>
                     </div>
                     <div class="col-12 col-lg-6">
                         <div class="card-soft p-3 h-100">
-                            <div class="fw-bold mb-2">Eventos</div>
-                            <ul class="list-unstyled mb-0" id="detailEvents"></ul>
+                            <div class="fw-bold mb-2">Erros/Warnings</div>
+                            <ul class="list-unstyled mb-0" id="detailExceptions"></ul>
                         </div>
                     </div>
                 </div>
 
                 <div class="card-soft p-3 mt-3">
-                    <div class="fw-bold mb-2">Mudancas no banco</div>
+                    <div class="fw-bold mb-2">Log entries</div>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
                             <thead>
                                 <tr>
-                                    <th>Entidade</th>
-                                    <th>Estado</th>
-                                    <th>Chaves</th>
-                                    <th>Colunas</th>
-                                    <th>Horario</th>
+                                    <th class="fit">Nivel</th>
+                                    <th>Categoria</th>
+                                    <th>Mensagem</th>
+                                    <th class="fit">Horario</th>
                                 </tr>
                             </thead>
-                            <tbody id="detailChanges"></tbody>
+                            <tbody id="detailEntries"></tbody>
                         </table>
                     </div>
                 </div>
@@ -150,14 +149,14 @@
 </div>
 
 @section Scripts {
-    <script src="~/js/views/admin-logs.js"></script>
+    <script src="~/js/views/admin-operational-logs.js"></script>
 }
 
 @section Footer {
     @{
         var footerItems = new[]
         {
-            new { Icon = "bi-activity", Text = "Logs", Id = "", Class = "" },
+            new { Icon = "bi-journal-text", Text = "Logs", Id = "", Class = "" },
             new { Icon = "bi-shield-check", Text = "LGPD", Id = "", Class = "" },
             new { Icon = "", Text = "build: api", Id = "buildId", Class = "mono muted" }
         };
@@ -184,6 +183,18 @@
   .logs-row-error .logs-method {
     border: 1px solid rgba(176, 42, 55, 0.2);
   }
+
+  .logs-level {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 64px;
+    font-weight: 600;
+  }
+
+  .logs-level.error { background: #ffe3e3; color: #dc3545; }
+  .logs-level.warning { background: #fff4e6; color: #f59f00; }
+  .logs-level.info { background: #e8f2ff; color: #0d6efd; }
 
   .logs-method {
     display: inline-flex;
