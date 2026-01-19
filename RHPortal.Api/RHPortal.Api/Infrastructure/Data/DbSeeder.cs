@@ -1815,7 +1815,7 @@ BuildDemoRequisitos(string areaCode)
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Roles",
+                DisplayName = "Perfis",
                 Route = "/Admin/Roles",
                 Icon = "bi-shield-lock",
                 Order = 81,
@@ -1835,7 +1835,7 @@ BuildDemoRequisitos(string areaCode)
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Accesses",
+                DisplayName = "Acessos",
                 Route = "/Admin/Accesses",
                 Icon = "bi-key",
                 Order = 83,
