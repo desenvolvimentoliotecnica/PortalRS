@@ -31,4 +31,17 @@ public sealed class OperationalLogsApiClient
             return null;
         return await response.Content.ReadFromJsonAsync<RequestLogDetailResponse>(JsonOptions, ct);
     }
+
+    public async Task<RequestLogSummaryResponse?> GetSummaryAsync(DateTimeOffset? from, DateTimeOffset? to, int top, CancellationToken ct)
+    {
+        var qs = new List<string>();
+        if (from.HasValue) qs.Add($"from={Uri.EscapeDataString(from.Value.ToString("O"))}");
+        if (to.HasValue) qs.Add($"to={Uri.EscapeDataString(to.Value.ToString("O"))}");
+        qs.Add($"top={top}");
+        var url = $"api/logs/summary?{string.Join("&", qs)}";
+        using var response = await _http.GetAsync(url, ct);
+        if (!response.IsSuccessStatusCode)
+            return null;
+        return await response.Content.ReadFromJsonAsync<RequestLogSummaryResponse>(JsonOptions, ct);
+    }
 }

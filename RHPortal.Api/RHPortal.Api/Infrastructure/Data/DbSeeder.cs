@@ -1805,7 +1805,7 @@ BuildDemoRequisitos(string areaCode)
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Users",
+                DisplayName = "Usuarios",
                 Route = "/Admin/Users",
                 Icon = "bi-people",
                 Order = 80,

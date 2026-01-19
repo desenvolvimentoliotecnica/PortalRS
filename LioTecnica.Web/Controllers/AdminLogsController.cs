@@ -38,4 +38,17 @@ public sealed class AdminLogsController : Controller
             return NotFound();
         return Ok(response);
     }
+
+    [HttpGet("/Admin/Logs/_api/summary")]
+    public async Task<ActionResult<AuditSummaryResponse>> Summary(
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
+        [FromQuery] int top = 6,
+        CancellationToken ct = default)
+    {
+        var response = await _api.GetSummaryAsync(from, to, top, ct);
+        if (response is null)
+            return NotFound();
+        return Ok(response);
+    }
 }

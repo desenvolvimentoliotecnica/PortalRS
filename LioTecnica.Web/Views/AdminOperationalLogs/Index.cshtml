@@ -29,6 +29,74 @@
         </div>
     </div>
 
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft p-3 h-100 d-flex align-items-center gap-3">
+                <div class="kpi-icon text-bg-primary">
+                    <i class="bi bi-receipt"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Requisicoes</div>
+                    <div class="fw-bold" id="kpiReq">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft p-3 h-100 d-flex align-items-center gap-3">
+                <div class="kpi-icon text-bg-danger">
+                    <i class="bi bi-bug"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Erros (5xx)</div>
+                    <div class="fw-bold" id="kpiErrors">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft p-3 h-100 d-flex align-items-center gap-3">
+                <div class="kpi-icon text-bg-warning">
+                    <i class="bi bi-exclamation-diamond"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Warnings (4xx)</div>
+                    <div class="fw-bold" id="kpiWarnings">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft p-3 h-100 d-flex align-items-center gap-3">
+                <div class="kpi-icon text-bg-info">
+                    <i class="bi bi-speedometer2"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Duracao media</div>
+                    <div class="fw-bold" id="kpiAvg">0 ms</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-lg-6">
+            <div class="card-soft p-3 h-100 summary-card">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="fw-bold">Rotas mais acessadas</div>
+                    <span class="summary-pill"><i class="bi bi-arrow-up-right me-1"></i>Top 6</span>
+                </div>
+                <div id="topRoutes" class="summary-list">-</div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="card-soft p-3 h-100 summary-card">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="fw-bold">Usuarios mais ativos</div>
+                    <span class="summary-pill"><i class="bi bi-people me-1"></i>Top 6</span>
+                </div>
+                <div id="topUsers" class="summary-list">-</div>
+            </div>
+        </div>
+    </div>
+
     <div class="card-soft p-3 mb-3">
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
             <div>
@@ -149,7 +217,7 @@
 </div>
 
 @section Scripts {
-    <script src="~/js/views/admin-operational-logs.js"></script>
+    <script src="~/js/views/admin-operational-logs.js" asp-append-version="true"></script>
 }
 
 @section Footer {
@@ -169,11 +237,19 @@
   .logs-table td.fit {
     white-space: nowrap;
     width: 1%;
+    text-align: center;
+  }
+
+  .logs-table th,
+  .logs-table td {
+    text-align: center;
+    vertical-align: middle;
   }
 
   .logs-table td.route {
     width: auto;
     max-width: 520px;
+    text-align: left;
   }
 
   .logs-row-error td {
@@ -210,4 +286,68 @@
   .logs-method.put { background: #f59f00; color: #1f1400; }
   .logs-method.patch { background: #d63384; color: #fff0f6; }
   .logs-method.delete { background: #dc3545; color: #fff5f5; }
+
+  .kpi-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+  }
+
+  .summary-card {
+    background: linear-gradient(135deg, #f8fbff 0%, #eef3f9 100%);
+    border: 1px solid rgba(13, 110, 253, 0.08);
+  }
+
+  .summary-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #0d6efd;
+    background: rgba(13, 110, 253, 0.12);
+  }
+
+  .summary-list {
+    display: grid;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #0f172a;
+  }
+
+  .summary-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .summary-label {
+    font-weight: 600;
+    color: #0f172a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .summary-count {
+    min-width: 42px;
+    text-align: center;
+    font-weight: 700;
+    color: #0d6efd;
+    background: rgba(13, 110, 253, 0.12);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
 </style>

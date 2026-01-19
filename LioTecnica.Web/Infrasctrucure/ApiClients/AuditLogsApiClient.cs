@@ -31,4 +31,17 @@ public sealed class AuditLogsApiClient
             return null;
         return await response.Content.ReadFromJsonAsync<AuditTransactionDetailResponse>(JsonOptions, ct);
     }
+
+    public async Task<AuditSummaryResponse?> GetSummaryAsync(DateTimeOffset? from, DateTimeOffset? to, int top, CancellationToken ct)
+    {
+        var qs = new List<string>();
+        if (from.HasValue) qs.Add($"from={Uri.EscapeDataString(from.Value.ToString("O"))}");
+        if (to.HasValue) qs.Add($"to={Uri.EscapeDataString(to.Value.ToString("O"))}");
+        qs.Add($"top={top}");
+        var url = $"api/audit/summary?{string.Join("&", qs)}";
+        using var response = await _http.GetAsync(url, ct);
+        if (!response.IsSuccessStatusCode)
+            return null;
+        return await response.Content.ReadFromJsonAsync<AuditSummaryResponse>(JsonOptions, ct);
+    }
 }

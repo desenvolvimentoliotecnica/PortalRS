@@ -112,3 +112,11 @@ public sealed record RequestLogDetailResponse(
 );
 
 public sealed record OperationalLogsPageViewModel(string Title);
+
+public sealed record RequestLogSummaryItem(string Key, int Count, long AvgMs);
+public sealed record RequestLogStatusItem(int StatusCode, int Count);
+public sealed record RequestLogSummaryResponse(
+    IReadOnlyList<RequestLogSummaryItem> TopRoutes,
+    IReadOnlyList<RequestLogSummaryItem> TopUsers,
+    IReadOnlyList<RequestLogStatusItem> Statuses
+);

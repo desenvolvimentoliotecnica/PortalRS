@@ -157,4 +157,51 @@ public sealed class LoggingController : ControllerBase
             exceptions
         ));
     }
+
+    [RequirePermission("logs.view")]
+    [HttpGet("summary")]
+    public async Task<ActionResult<RequestLogSummaryResponse>> Summary(
+        [FromServices] AppDbContext db,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] int top = 6,
+        CancellationToken ct = default)
+    {
+        top = Math.Clamp(top, 3, 12);
+        var query = db.RequestLogs.AsNoTracking().Where(x => x.EndedAt != null);
+
+        if (from.HasValue)
+            query = query.Where(x => x.StartedAt >= from.Value);
+        if (to.HasValue)
+            query = query.Where(x => x.StartedAt <= to.Value);
+
+        var topRoutes = await query
+            .GroupBy(x => x.Path)
+            .OrderByDescending(g => g.Count())
+            .Take(top)
+            .Select(g => new RequestLogSummaryItem(
+                g.Key,
+                g.Count(),
+                (long)g.Average(x => x.DurationMs)))
+            .ToListAsync(ct);
+
+        var topUsers = await query
+            .Where(x => x.UserName != null && x.UserName != "")
+            .GroupBy(x => x.UserName!)
+            .OrderByDescending(g => g.Count())
+            .Take(top)
+            .Select(g => new RequestLogSummaryItem(
+                g.Key,
+                g.Count(),
+                (long)g.Average(x => x.DurationMs)))
+            .ToListAsync(ct);
+
+        var statuses = await query
+            .GroupBy(x => x.StatusCode ?? 0)
+            .OrderByDescending(g => g.Count())
+            .Select(g => new RequestLogStatusItem(g.Key, g.Count()))
+            .ToListAsync(ct);
+
+        return Ok(new RequestLogSummaryResponse(topRoutes, topUsers, statuses));
+    }
 }

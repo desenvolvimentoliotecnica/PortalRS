@@ -127,3 +127,11 @@ public sealed record AuditTransactionDetailResponse(
 );
 
 public sealed record AuditLogsPageViewModel(string Title);
+
+public sealed record AuditSummaryItem(string Key, int Count, long AvgMs);
+public sealed record AuditStatusItem(int StatusCode, int Count);
+public sealed record AuditSummaryResponse(
+    IReadOnlyList<AuditSummaryItem> TopRoutes,
+    IReadOnlyList<AuditSummaryItem> TopUsers,
+    IReadOnlyList<AuditStatusItem> Statuses
+);
