@@ -75,8 +75,6 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             .Where(e => !e.Metadata.IsOwned())
             .ToList();
 
-        AuditFileLogger.TryAppend(_env.ContentRootPath, $"DB capture start entries={entries.Count} tx={_accessor.Current?.TransactionId}");
-
         if (entries.Count == 0) return;
 
         var pending = new List<PendingAuditEntry>();
@@ -130,7 +128,6 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
         if (pending.Count > 0)
         {
             Pending[context] = pending;
-            AuditFileLogger.TryAppend(_env.ContentRootPath, $"DB capture entries={pending.Count} tx={_accessor.Current?.TransactionId}");
         }
     }
 
@@ -149,7 +146,6 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             var tenantId = string.IsNullOrWhiteSpace(auditContext.TenantId) ? "system" : auditContext.TenantId;
             var transactionId = await _writer.EnsureTransactionAsync(auditContext, ct);
             auditContext.AuditTransactionId = transactionId;
-            AuditFileLogger.TryAppend(_env.ContentRootPath, $"DB persist tx={auditContext.TransactionId} tenant={tenantId} changes={pending.Count}");
 
             var order = _accessor.NextOrder();
             var auditEvent = new AuditEvent

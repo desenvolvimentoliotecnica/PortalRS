@@ -66,7 +66,6 @@ public sealed class AuditMiddleware : IMiddleware
         var auditContext = CreateContext(context);
         using var scope = _accessor.BeginScope(auditContext);
         var httpOrder = auditContext.NextOrder();
-        AuditFileLogger.TryAppend(_env.ContentRootPath, $"HTTP start {context.Request.Method} {context.Request.Path} tx={auditContext.TransactionId} tenant={auditContext.TenantId}");
 
         var transactionId = auditContext.TransactionId;
         var startedAt = auditContext.StartedAt;
@@ -123,8 +122,6 @@ public sealed class AuditMiddleware : IMiddleware
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Audit middleware failed to persist logs.");
-                var inner = ex.InnerException?.Message;
-                AuditFileLogger.TryAppend(_env.ContentRootPath, $"HTTP persist failed tx={auditContext.TransactionId} err={ex.Message} inner={inner}");
             }
         }
     }
@@ -224,7 +221,6 @@ public sealed class AuditMiddleware : IMiddleware
         }
 
         await _writer.WriteHttpAsync(transaction, events, context.RequestAborted);
-        AuditFileLogger.TryAppend(_env.ContentRootPath, $"HTTP persisted tx={auditContext.TransactionId} status={context.Response.StatusCode}");
     }
 
     private AuditContext CreateContext(HttpContext context)
