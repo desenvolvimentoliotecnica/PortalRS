@@ -1,0 +1,194 @@
+@model LioTecnica.Web.ViewModels.Admin.AuditLogsPageViewModel
+@{
+    ViewData["Title"] = "Portal RH - Logs Transacionais";
+    ViewData["SidebarSubtitle"] = "Logs";
+}
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Logs Transacionais")
+
+    <div class="searchbox position-relative d-none d-md-block">
+        <i class="bi bi-search"></i>
+        <input id="globalSearchLogs" class="form-control" placeholder="Buscar transacao, rota..." />
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        @await Html.PartialAsync("_TopbarUserMenu", "Admin")
+    </div>
+}
+
+<section class="content">
+    <div class="page-title">
+        <div>
+            <h4>@Model.Title</h4>
+            <div class="subtitle">Acompanhe requisicoes HTTP e mudancas no banco.</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">-</span></span>
+            <span class="badge-soft"><i class="bi bi-hdd me-1"></i>API</span>
+        </div>
+    </div>
+
+    <div class="card-soft p-3 mb-3">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
+            <div>
+                <div class="fw-bold">Transacoes recentes</div>
+                <div class="text-muted small">Clique em uma linha para ver detalhes.</div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 justify-content-end">
+                <div style="min-width:220px;">
+                    <label class="form-label small mb-1">Buscar</label>
+                    <div class="input-group">
+                        <span class="input-group-text" style="background:rgba(255,255,255,.65)"><i class="bi bi-search"></i></span>
+                        <input class="form-control" id="logsSearch" placeholder="rota, usuario, tx...">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label small mb-1">Status</label>
+                    <select class="form-select" id="logsStatus">
+                        <option value="">Todos</option>
+                        <option value="success">Sucesso</option>
+                        <option value="error">Erro</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label small mb-1">De</label>
+                    <input class="form-control" type="datetime-local" id="logsFrom">
+                </div>
+                <div>
+                    <label class="form-label small mb-1">Ate</label>
+                    <input class="form-control" type="datetime-local" id="logsTo">
+                </div>
+                <div>
+                    <label class="form-label small mb-1">&nbsp;</label>
+                    <button class="btn btn-outline-primary" id="btnApplyFilters"><i class="bi bi-funnel me-1"></i>Aplicar</button>
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-3 divider">
+
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0 logs-table">
+                <thead>
+                    <tr>
+                        <th class="fit">Quando</th>
+                        <th class="fit">Metodo</th>
+                        <th>Rota</th>
+                        <th class="fit">Status</th>
+                        <th class="fit">Usuario</th>
+                        <th class="fit text-end">Duracao</th>
+                    </tr>
+                </thead>
+                <tbody id="logsTbody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mt-2">
+            <div class="text-muted small" id="logsHint">-</div>
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-secondary" id="logsPrev">Anterior</button>
+                <span class="pill">Pag <span id="logsPage">1</span>/<span id="logsPages">1</span></span>
+                <button class="btn btn-sm btn-outline-secondary" id="logsNext">Proxima</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade" id="modalAuditDetail" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <div class="text-muted small">Detalhes da transacao</div>
+                    <h5 class="modal-title">Transacao <span class="mono" id="detailTxId">-</span></h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12 col-lg-6">
+                        <div class="card-soft p-3 h-100">
+                            <div class="fw-bold mb-2">HTTP</div>
+                            <div class="small text-muted mono" id="detailRoute">-</div>
+                            <div class="small text-muted" id="detailMeta">-</div>
+                            <hr class="my-2">
+                            <div class="small" id="detailRequest">-</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6">
+                        <div class="card-soft p-3 h-100">
+                            <div class="fw-bold mb-2">Eventos</div>
+                            <ul class="list-unstyled mb-0" id="detailEvents"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-soft p-3 mt-3">
+                    <div class="fw-bold mb-2">Mudancas no banco</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Entidade</th>
+                                    <th>Estado</th>
+                                    <th>Chaves</th>
+                                    <th>Colunas</th>
+                                    <th>Horario</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailChanges"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/views/admin-logs.js"></script>
+}
+
+@section Footer {
+    @{
+        var footerItems = new[]
+        {
+            new { Icon = "bi-activity", Text = "Logs", Id = "", Class = "" },
+            new { Icon = "bi-shield-check", Text = "LGPD", Id = "", Class = "" },
+            new { Icon = "", Text = "build: api", Id = "buildId", Class = "mono muted" }
+        };
+    }
+    @await Html.PartialAsync("_Footer", footerItems)
+}
+
+<style>
+  .logs-table th.fit,
+  .logs-table td.fit {
+    white-space: nowrap;
+    width: 1%;
+  }
+
+  .logs-table td.route {
+    width: auto;
+    max-width: 520px;
+  }
+
+  .logs-method {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    font-weight: 600;
+    letter-spacing: .3px;
+  }
+
+  .logs-method.get { background: #e8f2ff; color: #0d6efd; }
+  .logs-method.post { background: #e6f6ee; color: #198754; }
+  .logs-method.put { background: #fff4e6; color: #f59f00; }
+  .logs-method.patch { background: #fff0f6; color: #d63384; }
+  .logs-method.delete { background: #ffe3e3; color: #dc3545; }
+</style>

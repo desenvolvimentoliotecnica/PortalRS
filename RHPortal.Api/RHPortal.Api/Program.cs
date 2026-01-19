@@ -24,6 +24,10 @@ using RhPortal.Api.Application.Units.Handlers;
 using RhPortal.Api.Application.Users;
 using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Application.Vagas.Handlers;
+using RhPortal.Api.Auditing.Context;
+using RhPortal.Api.Auditing.EF;
+using RhPortal.Api.Auditing.Middleware;
+using RhPortal.Api.Auditing.Services;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Security;
@@ -52,11 +56,19 @@ builder.Services.AddHealthChecks()
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddScoped<TenantMiddleware>();
 
+// Auditing
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuditContextAccessor, AuditContextAccessor>();
+builder.Services.AddScoped<AuditMiddleware>();
+builder.Services.AddScoped<AuditSaveChangesInterceptor>();
+builder.Services.AddSingleton<AuditWriter>();
+
 // PostgreSQL + EF Core
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 {
     var conn = builder.Configuration.GetConnectionString("Default");
     options.UseNpgsql(conn);
+    options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
 });
 
 // Identity
@@ -206,6 +218,7 @@ app.UseMiddleware<TenantMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<AuditMiddleware>();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {

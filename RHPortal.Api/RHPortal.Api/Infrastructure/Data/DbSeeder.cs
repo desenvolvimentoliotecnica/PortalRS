@@ -1841,6 +1841,16 @@ BuildDemoRequisitos(string areaCode)
                 Order = 83,
                 PermissionKey = "access.manage",
                 IsActive = true
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = "Logs Transacionais",
+                Route = "/Admin/Logs",
+                Icon = "bi-activity",
+                Order = 84,
+                PermissionKey = "audit.view",
+                IsActive = true
             }
         };
     }

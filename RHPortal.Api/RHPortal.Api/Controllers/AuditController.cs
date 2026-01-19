@@ -1,0 +1,177 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Contracts.Auditing;
+using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Security;
+
+namespace RhPortal.Api.Controllers;
+
+[ApiController]
+[Route("api/audit")]
+public sealed class AuditController : ControllerBase
+{
+    [RequirePermission("audit.view")]
+    [HttpGet("transactions")]
+    public async Task<ActionResult<AuditTransactionListResponse>> List(
+        [FromServices] AppDbContext db,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 10, 200);
+
+        var query = db.AuditTransactions.AsNoTracking();
+
+        if (from.HasValue)
+            query = query.Where(x => x.StartedAt >= from.Value);
+        if (to.HasValue)
+            query = query.Where(x => x.StartedAt <= to.Value);
+
+        var statusFilter = (status ?? string.Empty).Trim().ToLowerInvariant();
+        if (statusFilter == "success")
+            query = query.Where(x => x.IsSuccess);
+        else if (statusFilter == "error")
+            query = query.Where(x => !x.IsSuccess);
+
+        var searchText = (search ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            query = query.Where(x =>
+                x.TransactionId.Contains(searchText) ||
+                (x.Path != null && x.Path.Contains(searchText)) ||
+                (x.UserName != null && x.UserName.Contains(searchText)) ||
+                (x.Method != null && x.Method.Contains(searchText)));
+        }
+
+        var totalItems = await query.CountAsync(ct);
+        var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+        var items = await query
+            .OrderByDescending(x => x.StartedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new AuditTransactionListItem(
+                x.Id,
+                x.TransactionId,
+                x.CorrelationId,
+                x.StartedAt,
+                x.DurationMs,
+                x.UserName,
+                x.Method,
+                x.Path,
+                x.StatusCode,
+                x.IsSuccess
+            ))
+            .ToListAsync(ct);
+
+        return Ok(new AuditTransactionListResponse(items, page, pageSize, totalItems, totalPages));
+    }
+
+    [RequirePermission("audit.view")]
+    [HttpGet("transactions/{id:guid}")]
+    public async Task<ActionResult<AuditTransactionDetailResponse>> GetById(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var transaction = await db.AuditTransactions.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (transaction is null)
+            return NotFound();
+
+        var events = await db.AuditEvents.AsNoTracking()
+            .Where(x => x.AuditTransactionId == id)
+            .OrderBy(x => x.Order)
+            .Select(x => new AuditEventItem(
+                x.Id,
+                x.Order,
+                x.EventType,
+                x.Name,
+                x.OccurredAt,
+                x.DataJson
+            ))
+            .ToListAsync(ct);
+
+        var changes = await db.AuditEntityChanges.AsNoTracking()
+            .Where(x => x.AuditTransactionId == id)
+            .OrderBy(x => x.Order)
+            .ThenBy(x => x.EntityName)
+            .Select(x => new AuditEntityChangeItem(
+                x.Id,
+                x.Order,
+                x.EntityName,
+                x.TableName,
+                x.State,
+                x.PrimaryKeyJson,
+                x.BeforeJson,
+                x.AfterJson,
+                x.ChangedColumns,
+                x.DataJson,
+                x.OccurredAt
+            ))
+            .ToListAsync(ct);
+
+        var changeIds = changes.Select(x => x.Id).ToArray();
+        var properties = changeIds.Length == 0
+            ? new List<AuditPropertyChangeItem>()
+            : await db.AuditEntityPropertyChanges.AsNoTracking()
+                .Where(x => changeIds.Contains(x.AuditEntityChangeId))
+                .Select(x => new AuditPropertyChangeItem(
+                    x.Id,
+                    x.PropertyName,
+                    x.BeforeValue,
+                    x.AfterValue,
+                    x.IsSensitive
+                ))
+                .ToListAsync(ct);
+
+        return Ok(new AuditTransactionDetailResponse(
+            transaction.Id,
+            transaction.TransactionId,
+            transaction.CorrelationId,
+            transaction.TraceId,
+            transaction.SpanId,
+            transaction.ParentSpanId,
+            transaction.Environment,
+            transaction.AppVersion,
+            transaction.StartedAt,
+            transaction.EndedAt,
+            transaction.DurationMs,
+            transaction.UserId,
+            transaction.UserName,
+            transaction.ClientId,
+            transaction.Ip,
+            transaction.UserAgent,
+            transaction.Host,
+            transaction.Method,
+            transaction.Path,
+            transaction.QueryString,
+            transaction.RouteTemplate,
+            transaction.Controller,
+            transaction.Action,
+            transaction.StatusCode,
+            transaction.IsSuccess,
+            transaction.RequestContentType,
+            transaction.ResponseContentType,
+            transaction.RequestBody,
+            transaction.ResponseBody,
+            transaction.RequestBodyHash,
+            transaction.ResponseBodyHash,
+            transaction.RequestIsTruncated,
+            transaction.ResponseIsTruncated,
+            transaction.RequestTruncatedBytes,
+            transaction.ResponseTruncatedBytes,
+            transaction.ErrorMessage,
+            transaction.ErrorStackTrace,
+            events,
+            changes,
+            properties
+        ));
+    }
+}

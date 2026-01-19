@@ -118,6 +118,11 @@ builder.Services.AddHttpClient<MenusApiClient>(http =>
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
+builder.Services.AddHttpClient<AuditLogsApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
 builder.Services.AddHttpClient<AgendasApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);

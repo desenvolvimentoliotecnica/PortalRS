@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Auditing.Entities;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Entities;
 
@@ -18,6 +19,10 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<AuditTransaction> AuditTransactions => Set<AuditTransaction>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<AuditEntityChange> AuditEntityChanges => Set<AuditEntityChange>();
+    public DbSet<AuditEntityPropertyChange> AuditEntityPropertyChanges => Set<AuditEntityPropertyChange>();
     public DbSet<Menu> Menus => Set<Menu>();
     public DbSet<RoleMenu> RoleMenus => Set<RoleMenu>();
 
@@ -536,6 +541,108 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.Restrict);
 
             b.HasIndex(x => new { x.TenantId, x.StartAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AuditTransaction>(b =>
+        {
+            b.ToTable("AuditTransactions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TransactionId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.CorrelationId).HasMaxLength(200);
+            b.Property(x => x.TraceId).HasMaxLength(200);
+            b.Property(x => x.SpanId).HasMaxLength(200);
+            b.Property(x => x.ParentSpanId).HasMaxLength(200);
+            b.Property(x => x.Environment).HasMaxLength(40);
+            b.Property(x => x.AppVersion).HasMaxLength(40);
+            b.Property(x => x.Method).HasMaxLength(16).IsRequired();
+            b.Property(x => x.Path).HasMaxLength(512).IsRequired();
+            b.Property(x => x.QueryString).HasMaxLength(1024);
+            b.Property(x => x.RouteTemplate).HasMaxLength(512);
+            b.Property(x => x.Controller).HasMaxLength(120);
+            b.Property(x => x.Action).HasMaxLength(120);
+            b.Property(x => x.UserId).HasMaxLength(120);
+            b.Property(x => x.UserName).HasMaxLength(200);
+            b.Property(x => x.ClientId).HasMaxLength(120);
+            b.Property(x => x.Ip).HasMaxLength(80);
+            b.Property(x => x.UserAgent).HasMaxLength(400);
+            b.Property(x => x.Host).HasMaxLength(200);
+            b.Property(x => x.RequestBodyHash).HasMaxLength(64);
+            b.Property(x => x.ResponseBodyHash).HasMaxLength(64);
+
+            b.HasIndex(x => x.TransactionId).IsUnique();
+            b.HasIndex(x => x.StartedAt);
+            b.HasIndex(x => new { x.TenantId, x.StartedAt });
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.Path);
+            b.HasIndex(x => x.StatusCode);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AuditEvent>(b =>
+        {
+            b.ToTable("AuditEvents");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.EventType).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            b.Property(x => x.DataJson).HasColumnType("jsonb");
+
+            b.HasOne(x => x.Transaction)
+                .WithMany(t => t.Events)
+                .HasForeignKey(x => x.AuditTransactionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.AuditTransactionId, x.Order });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AuditEntityChange>(b =>
+        {
+            b.ToTable("AuditEntityChanges");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.EntityName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.TableName).HasMaxLength(200);
+            b.Property(x => x.State).HasMaxLength(20).IsRequired();
+            b.Property(x => x.PrimaryKeyJson).HasColumnType("jsonb").IsRequired();
+            b.Property(x => x.BeforeJson).HasColumnType("jsonb");
+            b.Property(x => x.AfterJson).HasColumnType("jsonb");
+            b.Property(x => x.ChangedColumns).HasMaxLength(500);
+            b.Property(x => x.DataJson).HasColumnType("jsonb");
+
+            b.HasOne(x => x.Transaction)
+                .WithMany()
+                .HasForeignKey(x => x.AuditTransactionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Event)
+                .WithMany(e => e.EntityChanges)
+                .HasForeignKey(x => x.AuditEventId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.EntityName });
+            b.HasIndex(x => new { x.TenantId, x.OccurredAt });
+            b.HasIndex(x => x.AuditTransactionId);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AuditEntityPropertyChange>(b =>
+        {
+            b.ToTable("AuditEntityPropertyChanges");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.PropertyName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.BeforeValue).HasMaxLength(2000);
+            b.Property(x => x.AfterValue).HasMaxLength(2000);
+
+            b.HasOne(x => x.EntityChange)
+                .WithMany(c => c.PropertyChanges)
+                .HasForeignKey(x => x.AuditEntityChangeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.AuditEntityChangeId);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
