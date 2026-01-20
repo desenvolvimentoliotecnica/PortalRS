@@ -94,7 +94,8 @@ public sealed class InboxController : ControllerBase
             ProcessamentoEtapa = request.Processamento?.Etapa,
             ProcessamentoTentativas = request.Processamento?.Tentativas ?? 0,
             ProcessamentoUltimoErro = request.Processamento?.UltimoErro,
-            ProcessamentoLogRaw = SerializeLog(request.Processamento?.Log)
+            ProcessamentoLogRaw = SerializeLog(request.Processamento?.Log),
+            SuggestedVagasJson = SerializeSuggestions(request.SuggestedVagas)
         };
 
         if (request.Anexos is { Count: > 0 })
@@ -150,6 +151,7 @@ public sealed class InboxController : ControllerBase
         entity.ProcessamentoTentativas = request.Processamento?.Tentativas ?? 0;
         entity.ProcessamentoUltimoErro = request.Processamento?.UltimoErro;
         entity.ProcessamentoLogRaw = SerializeLog(request.Processamento?.Log);
+        entity.SuggestedVagasJson = SerializeSuggestions(request.SuggestedVagas);
 
         entity.Anexos.Clear();
         if (request.Anexos is { Count: > 0 })
@@ -212,6 +214,7 @@ public sealed class InboxController : ControllerBase
             : null;
 
         var anexos = item.Anexos.Select(a => new InboxAnexoDto(a.Id, a.Nome, a.Tipo, a.TamanhoKB, a.Hash)).ToList();
+        var suggestions = DeserializeSuggestions(item.SuggestedVagasJson);
 
         return new InboxResponse(
             item.Id,
@@ -225,6 +228,7 @@ public sealed class InboxController : ControllerBase
             item.PreviewText,
             processamento,
             anexos,
+            suggestions,
             item.CreatedAtUtc,
             item.UpdatedAtUtc);
     }
@@ -245,6 +249,25 @@ public sealed class InboxController : ControllerBase
         catch
         {
             return Array.Empty<string>();
+        }
+    }
+
+    private static string? SerializeSuggestions(IReadOnlyList<InboxSuggestedVagaDto>? items)
+    {
+        if (items is null || items.Count == 0) return null;
+        return JsonSerializer.Serialize(items);
+    }
+
+    private static IReadOnlyList<InboxSuggestedVagaDto> DeserializeSuggestions(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return Array.Empty<InboxSuggestedVagaDto>();
+        try
+        {
+            return JsonSerializer.Deserialize<List<InboxSuggestedVagaDto>>(raw) ?? new List<InboxSuggestedVagaDto>();
+        }
+        catch
+        {
+            return Array.Empty<InboxSuggestedVagaDto>();
         }
     }
 }

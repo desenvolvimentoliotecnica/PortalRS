@@ -35,6 +35,7 @@ using RhPortal.Api.Logging.Middleware;
 using RhPortal.Api.Logging.Writer;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Inbox;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Swagger;
@@ -76,6 +77,11 @@ builder.Services.AddSingleton(DbLogQueue.Create());
 builder.Services.AddSingleton<DbLoggerProvider>();
 builder.Services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<DbLoggerProvider>());
 builder.Services.AddHostedService<DbLogWriterService>();
+
+// Inbox folder watcher
+builder.Services.Configure<InboxFolderOptions>(builder.Configuration.GetSection("InboxFolder"));
+builder.Services.AddScoped<InboxFileProcessor>();
+builder.Services.AddHostedService<InboxFolderWatcherService>();
 
 // PostgreSQL + EF Core
 builder.Services.AddDbContext<AppDbContext>((sp, options) =>

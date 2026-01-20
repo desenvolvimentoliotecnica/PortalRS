@@ -18,6 +18,12 @@ public sealed record InboxAnexoDto(
     [MaxLength(120)] string? Hash
 );
 
+public sealed record InboxSuggestedVagaDto(
+    Guid VagaId,
+    string? Titulo,
+    int Score
+);
+
 public sealed record InboxCreateRequest(
     [Required] string Origem,
     [Required] string Status,
@@ -28,7 +34,8 @@ public sealed record InboxCreateRequest(
     Guid? VagaId,
     string? PreviewText,
     InboxProcessamentoDto? Processamento,
-    IReadOnlyList<InboxAnexoDto>? Anexos
+    IReadOnlyList<InboxAnexoDto>? Anexos,
+    IReadOnlyList<InboxSuggestedVagaDto>? SuggestedVagas
 );
 
 public sealed record InboxUpdateRequest(
@@ -41,7 +48,8 @@ public sealed record InboxUpdateRequest(
     Guid? VagaId,
     string? PreviewText,
     InboxProcessamentoDto? Processamento,
-    IReadOnlyList<InboxAnexoDto>? Anexos
+    IReadOnlyList<InboxAnexoDto>? Anexos,
+    IReadOnlyList<InboxSuggestedVagaDto>? SuggestedVagas
 );
 
 public sealed record InboxResponse(
@@ -56,6 +64,7 @@ public sealed record InboxResponse(
     string? PreviewText,
     InboxProcessamentoDto? Processamento,
     IReadOnlyList<InboxAnexoDto> Anexos,
+    IReadOnlyList<InboxSuggestedVagaDto> SuggestedVagas,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );

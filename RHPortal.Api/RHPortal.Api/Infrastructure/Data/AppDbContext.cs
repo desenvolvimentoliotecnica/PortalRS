@@ -501,6 +501,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Destinatario).HasMaxLength(200);
             b.Property(x => x.ProcessamentoEtapa).HasMaxLength(120);
             b.Property(x => x.ProcessamentoUltimoErro).HasMaxLength(400);
+            b.Property(x => x.SuggestedVagasJson).HasColumnType("jsonb");
 
             b.HasIndex(x => new { x.TenantId, x.Origem });
             b.HasIndex(x => new { x.TenantId, x.Status });

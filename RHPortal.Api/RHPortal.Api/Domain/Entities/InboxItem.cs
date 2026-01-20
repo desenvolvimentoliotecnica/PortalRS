@@ -39,6 +39,8 @@ public sealed class InboxItem : ITenantEntity
 
     public string? ProcessamentoLogRaw { get; set; }
 
+    public string? SuggestedVagasJson { get; set; }
+
     public List<InboxAnexo> Anexos { get; set; } = new();
 
     public DateTimeOffset CreatedAtUtc { get; set; }
