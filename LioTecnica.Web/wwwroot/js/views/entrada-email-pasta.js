@@ -11,6 +11,23 @@
       filters: { q:"", origem:"all", status:"all" }
     };
 
+
+    let detailModal = null;
+
+    function getDetailModal(){
+      const el = document.getElementById("inboxDetailModal");
+      if(!el || !window.bootstrap) return null;
+      if(!detailModal){
+        detailModal = new bootstrap.Modal(el);
+      }
+      return detailModal;
+    }
+
+    function isDetailModalOpen(){
+      const el = document.getElementById("inboxDetailModal");
+      return !!(el && el.classList.contains("show"));
+    }
+
     async function apiFetchJson(url, options = {}){
       const opts = { ...options };
       opts.headers = { "Accept": "application/json", ...(opts.headers || {}) };
@@ -35,6 +52,10 @@
       state.selectedId = id;
       renderList();
       renderDetail(findInbox(id));
+      const modal = getDetailModal();
+      if(modal){
+        modal.show();
+      }
     }
 
     function findVaga(id){ return state.vagas.find(v => v.id === id) || null; }
@@ -161,7 +182,9 @@
     function renderAll(){
       renderKPIs();
       renderList();
-      renderDetail(state.selectedId ? findInbox(state.selectedId) : null);
+      if(state.selectedId && isDetailModalOpen()){
+        renderDetail(findInbox(state.selectedId));
+      }
     }
 
     function renderKPIs(){

@@ -117,14 +117,16 @@
             <div class="text-muted small mt-2" id="queueHint"></div>
           </div>
 
-          <!-- Details -->
-          <div class="panel" id="detailHost">
-            <div class="empty">
-              <div class="d-flex align-items-start gap-2">
-                <i class="bi bi-info-circle mt-1"></i>
-                <div>
-                  <div class="fw-bold">Selecione um item da fila</div>
-                  <div class="small mt-1">Aqui você verá¡ metadados, anexos e ações (processar, reprocessar, criar candidato, etc.).</div>
+          <div class="card-soft p-3">
+            <div class="d-flex align-items-start gap-2">
+              <i class="bi bi-info-circle mt-1"></i>
+              <div>
+                <div class="fw-bold">Detalhes em modal</div>
+                <div class="small mt-1">Clique em um item da fila para abrir os detalhes em uma janela.</div>
+              </div>
+            </div>
+          </div>
+<div class="small mt-1">Aqui você verá¡ metadados, anexos e ações (processar, reprocessar, criar candidato, etc.).</div>
                 </div>
               </div>
             </div>
@@ -156,6 +158,24 @@
 @section Scripts {
   <script src="~/js/views/entrada-email-pasta.js" asp-append-version="true"></script>
 }
+
+<!-- Inbox detail modal -->
+<div class="modal fade" id="inboxDetailModal" tabindex="-1" aria-labelledby="inboxDetailLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius: 18px;">
+      <div class="modal-header">
+        <div>
+          <div class="small text-muted">Detalhe da entrada</div>
+          <h5 class="modal-title" id="inboxDetailLabel">Inbox</h5>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="detailHost"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 
