@@ -60,6 +60,14 @@ public class TriagemController : Controller
         return ToContentResult(resp);
     }
 
+    [HttpGet("/Triagem/_api/candidatos/{id:guid}/status-history")]
+    public async Task<IActionResult> GetCandidatoStatusHistory(Guid id, CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _candidatosApi.GetCandidatoStatusHistoryRawAsync(tenantId, id, ct);
+        return ToContentResult(resp);
+    }
+
     [HttpPut("/Triagem/_api/candidatos/{id:guid}")]
     public async Task<IActionResult> UpdateCandidato(Guid id, [FromBody] JsonElement payload, CancellationToken ct)
     {

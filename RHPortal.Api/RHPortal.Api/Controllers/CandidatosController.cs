@@ -146,4 +146,14 @@ public sealed class CandidatosController : ControllerBase
         var deleted = await service.DeleteDocumentoAsync(id, documentoId, ct);
         return deleted ? NoContent() : NotFound();
     }
+
+    [HttpGet("{id:guid}/status-history")]
+    public async Task<ActionResult<IReadOnlyList<CandidatoStatusHistoryItemResponse>>> GetStatusHistory(
+        [FromRoute] Guid id,
+        [FromServices] ICandidatoService service,
+        CancellationToken ct)
+    {
+        var items = await service.ListStatusHistoryAsync(id, ct);
+        return Ok(items);
+    }
 }

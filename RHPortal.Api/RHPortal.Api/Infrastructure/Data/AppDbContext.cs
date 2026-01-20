@@ -44,6 +44,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<VagaPergunta> VagaPerguntas => Set<VagaPergunta>();
     public DbSet<Candidato> Candidatos => Set<Candidato>();
     public DbSet<CandidatoDocumento> CandidatoDocumentos => Set<CandidatoDocumento>();
+    public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<InboxItem> InboxItems => Set<InboxItem>();
     public DbSet<InboxAnexo> InboxAttachments => Set<InboxAnexo>();
     public DbSet<AgendaEventType> AgendaEventTypes => Set<AgendaEventType>();
@@ -464,6 +465,28 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Url).HasMaxLength(400);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoStatusHistory>(b =>
+        {
+            b.ToTable("CandidatoStatusHistories");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Reason).HasMaxLength(120);
+            b.Property(x => x.Note).HasMaxLength(400);
+            b.Property(x => x.Source).HasMaxLength(60);
+            b.Property(x => x.UserId).HasMaxLength(120);
+            b.Property(x => x.UserName).HasMaxLength(200);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId, x.CreatedAtUtc });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -902,6 +925,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) cd.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) cd.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoStatusHistory history)
+            {
+                if (entry.State == EntityState.Added) history.CreatedAtUtc = now;
             }
 
             if (entry.Entity is InboxItem inbox)

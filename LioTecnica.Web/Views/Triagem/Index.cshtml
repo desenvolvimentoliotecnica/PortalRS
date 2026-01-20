@@ -18,16 +18,8 @@
 	@await Html.PartialAsync("_TopbarBrand", "Tela: Triagem (pipeline + decisão rápida)")
 
 	<div class="d-flex align-items-center gap-2">
-		<button class="btn btn-ghost" type="button" id="btnClearHistory" title="Limpar historico">
-			<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Limpar historico</span>
-		</button>
-
 		<button class="btn btn-ghost" type="button" id="btnExportJson" title="Exportar triagem (JSON)">
 			<i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
-		</button>
-
-		<button class="btn btn-ghost" type="button" id="btnImportJson" title="Importar (JSON)">
-			<i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">Importar</span>
 		</button>
 
 		<button class="btn btn-brand" type="button" id="btnAutoTriage">
@@ -259,7 +251,7 @@
 		<hr class="my-3" style="border-color: rgba(16,82,144,.14);">
 
 		<div class="fw-bold mb-1">Historico de triagem</div>
-		<div class="text-muted small mb-2">Historico local de triagem.</div>
+		<div class="text-muted small mb-2">Historico registrado nas movimentacoes.</div>
 
 		<lt-list class="list-group" style="border-radius: 14px; overflow:hidden;" data-role="tri-log-list"></lt-list>
 	</div>

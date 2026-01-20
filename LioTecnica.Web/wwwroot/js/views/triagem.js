@@ -2,6 +2,7 @@
     const LOGO_DATA_URI = "data:image/webp;base64,UklGRngUAABXRUJQVlA4IGwUAAAQYwCdASpbAVsBPlEokUajoqGhIpNoyHAK7AQYJjYQmG9Dtu/6p6QZ4lQd6lPde+Jk3i3kG2EoP+QW0c0h8Oe3jW2C5zE0o9jzZ1x2fX9cZlX0d7rW8r0vQ9p3d2nJ1bqzQfQZxVwTt7mJvU8j1GqF4oJc8Qb+gq+oQyHcQyYc2b9u2fYf0Rj9x9hRZp2Y2xK0yVQ8Hj4p6w8B1K2cKk2mY9m2r8kz3a4m7xG4xg9m5VjzP3E4RjQH8fYkC4mB8g0vR3c5h1D0yE8Qzv7t7gQj0Z9yKk3cWZgVnq3l1kq6rE8oWc4z6oZk8k0b1o9m8p2m+QJ3nJm6GgA=";
     const VAGAS_API_URL = window.__triagemVagasApiUrl || "/Triagem/_api/vagas";
     const CANDIDATOS_API_URL = window.__triagemCandidatosApiUrl || "/Triagem/_api/candidatos";
+    const CANDIDATOS_HISTORY_URL = window.__triagemCandidatosHistoryApiUrl || "/Triagem/_api/candidatos";
 
     function enumFirstCode(key, fallback){
       const list = getEnumOptions(key);
@@ -62,32 +63,13 @@
       return getEnumText("triagemDecisionReason", code, code);
     }
 
-    // ========= Storage keys (triagem local)
-    const TRIAGE_KEY = "lt_rh_triagem_v1";
-
     const state = {
       vagas: [],
       candidatos: [],
-      triageLog: [],
+      historyByCandidate: {},
       selectedId: null,
       filters: { q:"", vagaId:"all", sla:"all" }
     };
-
-    function loadTriageLog(){
-      try{
-        const raw = localStorage.getItem(TRIAGE_KEY);
-        if(!raw) return;
-        const data = JSON.parse(raw);
-        if(!data || !Array.isArray(data.log)) return;
-        state.triageLog = data.log;
-      }catch{}
-    }
-
-    function saveTriageLog(){
-      localStorage.setItem(TRIAGE_KEY, JSON.stringify({
-        log: state.triageLog
-      }));
-    }
 
     async function apiFetchJson(url, options = {}){
       const opts = { ...options };
@@ -196,7 +178,8 @@
           atUtc: c.lastMatch.at ?? null,
           vagaId: c.lastMatch.vagaId ?? null
         } : null,
-        documentos: null
+        documentos: null,
+        statusChange: c.statusChange || null
       };
     }
 
@@ -249,6 +232,16 @@
         state.candidatos = state.candidatos.map(c => c.id === mapped.id ? mapped : c);
       }
       return mapped;
+    }
+
+    async function loadHistory(candId){
+      if(!candId) return;
+      try{
+        const items = await apiFetchJson(`${CANDIDATOS_HISTORY_URL}/${candId}/status-history`, { method: "GET" });
+        state.historyByCandidate[candId] = Array.isArray(items) ? items : [];
+      }catch{
+        state.historyByCandidate[candId] = [];
+      }
     }
 
     function findVaga(id){
@@ -522,7 +515,7 @@
           ev.preventDefault();
           const id = ev.dataTransfer.getData("text/plain") || dragId;
           if(!id) return;
-          void moveStage(id, z.stage, { reason:"Drag&Drop", note:"Movido no board." });
+          void moveStage(id, z.stage, { reason:"Drag&Drop", note:"Movido no board.", source:"board" });
         });
       });
     }
@@ -538,24 +531,19 @@
         ...c,
         ...patch,
         status: newStage,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        statusChange: {
+          reason: meta?.reason || null,
+          note: meta?.note || null,
+          source: meta?.source || "triagem"
+        }
       };
 
       try{
         const saved = await saveCandToApi(updated);
         if(!saved) throw new Error("Resposta invalida da API.");
 
-        state.triageLog.unshift({
-          id: uid(),
-          candId: saved.id,
-          from: prev,
-          to: newStage,
-          at: updated.updatedAt,
-          reason: meta?.reason || "",
-          note: meta?.note || ""
-        });
-        saveTriageLog();
-
+        await loadHistory(saved.id);
         state.selectedId = saved.id;
         renderBoard();
         renderDetail();
@@ -601,7 +589,7 @@
       const miss = (m.missMandatory||[]).map(r=>r.termo).slice(0,12);
       const hit = (m.hits||[]).map(r=>r.termo).slice(0,12);
 
-      const log = state.triageLog.filter(x => x.candId === c.id).slice(0, 10);
+      const log = (state.historyByCandidate[c.id] || []).slice(0, 10);
 
       const slaTxt = si.has ? (si.late ? "Atrasado" : `Faltam ~${Math.ceil(si.leftH)}h`) : "Sem SLA";
 
@@ -656,12 +644,12 @@
           log.forEach(x => {
             const item = cloneTemplate("tpl-tri-log-item");
             if(!item) return;
-            const title = `${labelStage(x.from)} -> ${labelStage(x.to)}`;
+            const title = `${labelStage(x.fromStatus)} -> ${labelStage(x.toStatus)}`;
             const reasonTxt = formatDecisionReason(x.reason) || "-";
             const noteTxt = x.note ? `${BULLET} ${x.note}` : "";
             setText(item, "log-title", title);
             setText(item, "log-note", `${reasonTxt} ${noteTxt}`.trim());
-            setText(item, "log-time", new Date(x.at).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }));
+            setText(item, "log-time", new Date(x.createdAtUtc).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }));
             logHost.appendChild(item);
           });
         }else{
@@ -685,17 +673,18 @@
       });
     }
 
-    function openDetails(candId){
+    async function openDetails(candId){
       const c = findCand(candId);
       if(!c) return;
       state.selectedId = c.id;
+      await loadHistory(c.id);
       renderBoard();
       renderDetail();
       bootstrap.Modal.getOrCreateInstance($("#modalTriagemDetails")).show();
     }
 
     window.__openDetails = (id) => {
-      openDetails(id);
+      void openDetails(id);
     };
 
     // ========= Decision modal
@@ -752,7 +741,8 @@
 
       await moveStage(id, action, {
         reason: reason || "Decisao",
-        note: obs || ""
+        note: obs || "",
+        source: "decision"
       }, { obs: mergedObs });
 
       bootstrap.Modal.getOrCreateInstance($("#modalDecision")).hide();
@@ -799,7 +789,7 @@
         const sug = suggestDecision(c, v, m);
 
         if(sug.action && sug.action !== "triagem"){
-          await moveStage(c.id, sug.action, { reason: "Auto-triagem", note: formatDecisionReason(sug.reason) || "" });
+          await moveStage(c.id, sug.action, { reason: "Auto-triagem", note: formatDecisionReason(sug.reason) || "", source: "auto" });
           moved++;
         }
       }
@@ -809,10 +799,11 @@
 
     // ========= Import/Export
     function exportJson(){
+      const history = state.selectedId ? (state.historyByCandidate[state.selectedId] || []) : [];
       const payload = {
         version: 1,
         exportedAt: new Date().toISOString(),
-        triageLog: state.triageLog
+        triageLog: history
       };
       const json = JSON.stringify(payload, null, 2);
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
@@ -828,31 +819,7 @@
     }
 
     function importJson(){
-      const inp = document.createElement("input");
-      inp.type = "file";
-      inp.accept = "application/json";
-      inp.onchange = () => {
-        const file = inp.files && inp.files[0];
-        if(!file) return;
-
-        const reader = new FileReader();
-        reader.onload = () => {
-          try{
-            const data = JSON.parse(reader.result);
-            if(data && Array.isArray(data.triageLog)){
-              state.triageLog = data.triageLog;
-              saveTriageLog();
-              renderDetail();
-            }
-            toast("Importacao concluida.");
-          }catch(e){
-            console.error(e);
-            alert("Falha ao importar JSON. Verifique o arquivo.");
-          }
-        };
-        reader.readAsText(file);
-      };
-      inp.click();
+      toast("Importacao local desativada.");
     }
 
     // ========= UI wiring
@@ -902,19 +869,6 @@
       $("#btnAutoTriage").addEventListener("click", () => { void autoTriage(); });
 
       $("#btnExportJson").addEventListener("click", exportJson);
-      $("#btnImportJson").addEventListener("click", importJson);
-
-      const clearBtn = $("#btnClearHistory");
-      if(clearBtn){
-        clearBtn.addEventListener("click", () => {
-          const ok = confirm("Limpar historico local de triagem?");
-          if(!ok) return;
-          localStorage.removeItem(TRIAGE_KEY);
-          state.triageLog = [];
-          renderDetail();
-          toast("Historico limpo.");
-        });
-      }
     }
 
     function refreshEnumDefaults(){
@@ -932,8 +886,6 @@
       refreshEnumDefaults();
       applyEnumSelects();
 
-      loadTriageLog();
-
       try{
         await syncVagasSummary();
         await syncCandidatosFromApi();
@@ -941,6 +893,10 @@
       }catch(err){
         console.error(err);
         toast("Falha ao carregar candidatos/vagas.");
+      }
+
+      if(state.selectedId){
+        await loadHistory(state.selectedId);
       }
 
       renderVagaFilter();

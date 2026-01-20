@@ -31,7 +31,8 @@ public sealed record CandidatoUpdateRequest(
     [MaxLength(2000)] string? Obs,
     string? CvText,
     CandidatoMatchRequest? LastMatch,
-    IReadOnlyList<CandidatoDocumentoRequest>? Documentos
+    IReadOnlyList<CandidatoDocumentoRequest>? Documentos,
+    CandidatoStatusChangeRequest? StatusChange
 );
 
 public sealed record CandidatoListItemResponse(
@@ -112,4 +113,22 @@ public sealed record CandidatoDocumentoResponse(
     string? Url,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
+);
+
+public sealed record CandidatoStatusChangeRequest(
+    [MaxLength(120)] string? Reason,
+    [MaxLength(400)] string? Note,
+    [MaxLength(60)] string? Source
+);
+
+public sealed record CandidatoStatusHistoryItemResponse(
+    Guid Id,
+    CandidatoStatus FromStatus,
+    CandidatoStatus ToStatus,
+    string? Reason,
+    string? Note,
+    string? Source,
+    string? UserId,
+    string? UserName,
+    DateTimeOffset CreatedAtUtc
 );

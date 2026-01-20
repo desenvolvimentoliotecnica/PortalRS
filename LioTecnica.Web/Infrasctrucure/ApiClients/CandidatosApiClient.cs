@@ -26,6 +26,12 @@ public sealed class CandidatosApiClient
         return SendAsync(req, ct);
     }
 
+    public Task<ApiRawResponse> GetCandidatoStatusHistoryRawAsync(string tenantId, Guid id, CancellationToken ct)
+    {
+        var req = BuildRequest(HttpMethod.Get, $"api/candidatos/{id}/status-history", tenantId);
+        return SendAsync(req, ct);
+    }
+
     public Task<ApiRawResponse> CreateRawAsync(string tenantId, JsonElement payload, CancellationToken ct)
     {
         var json = JsonSerializer.Serialize(payload, JsonOpts);

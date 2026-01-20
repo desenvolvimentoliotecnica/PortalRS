@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
@@ -16,6 +17,7 @@ public interface ICandidatoService
     Task<CandidatoResponse> CreateAsync(CandidatoCreateRequest request, CancellationToken ct);
     Task<CandidatoResponse?> UpdateAsync(Guid id, CandidatoUpdateRequest request, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<CandidatoStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct);
     Task<CandidatoDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidatoDocumentoTipo tipo, string? descricao, IFormFile arquivo, CancellationToken ct);
     Task<CandidatoDocumentoFileResult?> GetDocumentoFileAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
@@ -28,12 +30,14 @@ public sealed class CandidatoService : ICandidatoService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IHostEnvironment _hostEnvironment;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public CandidatoService(AppDbContext db, ITenantContext tenantContext, IHostEnvironment hostEnvironment)
+    public CandidatoService(AppDbContext db, ITenantContext tenantContext, IHostEnvironment hostEnvironment, IHttpContextAccessor httpContextAccessor)
     {
         _db = db;
         _tenantContext = tenantContext;
         _hostEnvironment = hostEnvironment;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<IReadOnlyList<CandidatoListItemResponse>> ListAsync(CandidatoListQuery query, CancellationToken ct)
@@ -146,6 +150,8 @@ public sealed class CandidatoService : ICandidatoService
 
         await EnsureVagaAsync(request.VagaId, ct);
 
+        var previousStatus = entity.Status;
+
         entity.Nome = (request.Nome ?? string.Empty).Trim();
         entity.Email = NormalizeEmail(request.Email);
         entity.Fone = TrimOrNull(request.Fone);
@@ -167,8 +173,47 @@ public sealed class CandidatoService : ICandidatoService
             entity.Documentos = BuildDocumentos(request.Documentos, entity.Id);
         }
 
+        if (previousStatus != request.Status)
+        {
+            var (userId, userName) = GetUserInfo();
+            var change = request.StatusChange;
+
+            _db.CandidatoStatusHistories.Add(new CandidatoStatusHistory
+            {
+                Id = Guid.NewGuid(),
+                CandidatoId = entity.Id,
+                FromStatus = previousStatus,
+                ToStatus = request.Status,
+                Reason = change?.Reason,
+                Note = change?.Note,
+                Source = change?.Source,
+                UserId = userId,
+                UserName = userName
+            });
+        }
+
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<IReadOnlyList<CandidatoStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct)
+    {
+        return await _db.CandidatoStatusHistories
+            .AsNoTracking()
+            .Where(x => x.CandidatoId == candidatoId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Select(x => new CandidatoStatusHistoryItemResponse(
+                x.Id,
+                x.FromStatus,
+                x.ToStatus,
+                x.Reason,
+                x.Note,
+                x.Source,
+                x.UserId,
+                x.UserName,
+                x.CreatedAtUtc
+            ))
+            .ToListAsync(ct);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
@@ -473,4 +518,15 @@ public sealed class CandidatoService : ICandidatoService
 
     private static string? TrimOrNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private (string? userId, string? userName) GetUserInfo()
+    {
+        var user = _httpContextAccessor.HttpContext?.User;
+        if (user is null || user.Identity?.IsAuthenticated != true)
+            return (null, null);
+
+        var id = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+        var name = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+        return (id, name);
+    }
 }
