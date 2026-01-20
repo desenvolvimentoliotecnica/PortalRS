@@ -104,6 +104,11 @@
           tipo: a.tipo || null,
           tamanhoKB: a.tamanhoKB || 0,
           hash: a.hash || null
+        })),
+        suggestedVagas: (item.suggestedVagas || []).map(s => ({
+          vagaId: s.vagaId,
+          titulo: s.titulo || null,
+          score: s.score || 0
         }))
       };
     }
@@ -247,6 +252,18 @@
         ? `<ul class="mb-0 small">${log.map(l => `<li>${escapeHtml(l)}</li>`).join("")}</ul>`
         : `<div class="text-muted small">Sem logs ainda.</div>`;
 
+      const suggested = (x.suggestedVagas || []).length
+        ? (x.suggestedVagas || []).map(s => `
+            <div class="suggest-item">
+              <div>
+                <div class="fw-semibold">${escapeHtml(s.titulo || "Vaga sugerida")}</div>
+                <div class="text-muted small mono">${escapeHtml(s.vagaId)}</div>
+              </div>
+              <span class="badge bg-primary-subtle text-primary">${escapeHtml(s.score)}</span>
+            </div>
+          `).join("")
+        : `<div class="text-muted small">Sem sugestoes ainda.</div>`;
+
       const errorBox = x.processamento?.ultimoErro
         ? `<div class="alert alert-danger mt-3 mb-0" style="border-radius:14px;">
              <div class="d-flex align-items-start gap-2">
@@ -300,6 +317,11 @@
             <span class="pill mono">${escapeHtml(vaga?.codigo || "—")}</span>
             <span class="pill"><i class="bi bi-paperclip"></i>Anexos: <strong class="ms-1">${(x.anexos||[]).length}</strong></span>
             <span class="pill"><i class="bi bi-arrow-counterclockwise"></i>Tentativas: <strong class="ms-1">${escapeHtml(x.processamento?.tentativas ?? 0)}</strong></span>
+          </div>
+
+          <div class="card-soft p-3 mb-3" style="box-shadow:none;">
+            <div class="fw-bold mb-2"><i class="bi bi-stars me-1"></i>Vagas sugeridas</div>
+            <div class="suggest-list">${suggested}</div>
           </div>
 
           <div class="row g-2">
