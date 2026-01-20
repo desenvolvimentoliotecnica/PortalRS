@@ -220,6 +220,11 @@
 					<i class="bi bi-sliders me-1"></i>Pesos &amp; Match
 				</button>
 			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabCands" type="button" role="tab">
+					<i class="bi bi-people me-1"></i>Candidatos
+				</button>
+			</li>
 		</ul>
 
 		<div class="tab-content">
@@ -362,6 +367,29 @@
 
 				<div class="mt-2" id="simResult"></div>
 			</div>
+
+			<!-- CANDIDATOS -->
+			<div class="tab-pane fade" id="tabCands" role="tabpanel">
+				<div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+					<div>
+						<div class="fw-semibold">Candidatos vinculados</div>
+						<div class="text-muted small">Total: <span id="vagaCandsCount">0</span></div>
+					</div>
+					<span class="badge-soft"><i class="bi bi-people me-1"></i>Relacionados</span>
+				</div>
+
+				<lt-grid table-class="table align-middle mb-0" body-id="tblVagaCands">
+					<lt-grid-header>
+						<tr>
+							<th style="min-width: 220px;">Candidato</th>
+							<th style="min-width: 200px;">Email</th>
+							<th style="min-width: 120px;">Status</th>
+							<th style="min-width: 110px;">Match</th>
+							<th class="text-end" style="min-width: 120px;">Acoes</th>
+						</tr>
+					</lt-grid-header>
+				</lt-grid>
+			</div>
 		</div>
 	</div>
 </template>
@@ -395,6 +423,31 @@
 			<button class="btn btn-ghost btn-sm text-danger" data-ract="del">
 				<i class="bi bi-trash3"></i>
 			</button>
+		</td>
+	</tr>
+</template>
+
+<template id="tpl-vaga-cand-empty-row">
+	<tr>
+		<td colspan="5" class="text-center text-muted py-3">Nenhum candidato vinculado.</td>
+	</tr>
+</template>
+
+<template id="tpl-vaga-cand-row">
+	<tr>
+		<td>
+			<div class="fw-semibold" data-role="cand-nome"></div>
+			<div class="text-muted small" data-role="cand-fonte"></div>
+		</td>
+		<td data-role="cand-email"></td>
+		<td data-role="cand-status"></td>
+		<td>
+			<span class="badge-soft" data-role="cand-match"></span>
+		</td>
+		<td class="text-end">
+			<a class="btn btn-ghost btn-sm" data-role="cand-open">
+				<i class="bi bi-box-arrow-up-right me-1"></i>Abrir
+			</a>
 		</td>
 	</tr>
 </template>
@@ -461,6 +514,7 @@
 @section Scripts {
 	<script>
 		window.__vagasApiUrl = "@Url.Content("~/api/vagas")";
+		window.__candidatosApiUrl = "@Url.Content("~/api/candidatos")";
 		window.__areasApiUrl = "@Url.Content("~/api/lookup/areas")";
 		window.__departmentsApiUrl = "@Url.Content("~/api/lookup/departments")";
 </script>

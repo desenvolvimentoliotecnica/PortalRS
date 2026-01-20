@@ -1,6 +1,7 @@
 ﻿// ========= Logo (embutido em Data URI - auto contido)
     // Observação: o arquivo fornecido veio como WebP (mesmo com nome .png).
 const VAGAS_API_URL = window.__vagasApiUrl || "/api/vagas";
+const CANDIDATOS_API_URL = window.__candidatosApiUrl || "/api/candidatos";
 const AREAS_API_URL = window.__areasApiUrl || "/api/lookup/areas";
 const DEPARTMENTS_API_URL = window.__departmentsApiUrl || "/api/lookup/departments";
 const NORMALIZE_ENUM = (value) => (value ?? "").toString().trim().toLowerCase();
@@ -49,6 +50,7 @@ function enumFirstCode(key, fallback){
     let DEFAULT_PUBLICACAO = enumFirstCode("vagaPublicacaoVisibilidade", "");
     let DEFAULT_GENERO = enumFirstCode("vagaGeneroPreferencia", "");
     const EMPTY_TEXT = "—";
+    const CANDIDATO_URL_BASE = "/Candidatos?open=";
 
     function refreshEnumDefaults(){
       DEFAULT_MODALIDADE = enumFirstCode("vagaModalidade", "presencial");
@@ -787,6 +789,12 @@ function fmtStatus(s){
       // bind detail actions + render req table + bind sliders
       bindDetailActions(v);
       renderReqTable(v);
+      void fetchCandidatesByVaga(v.id).then(list => {
+        renderVagaCandidates("#detailHost", list, {
+          bodySelector: "#tblVagaCands",
+          countSelector: "#vagaCandsCount"
+        });
+      });
     }
 
     function bindDetailActions(v){
@@ -900,6 +908,55 @@ function fmtStatus(s){
     }
 
     
+    async function fetchCandidatesByVaga(vagaId){
+      if(!vagaId) return [];
+      try{
+        const res = await fetch(`${CANDIDATOS_API_URL}?vagaId=${encodeURIComponent(vagaId)}`, {
+          headers: { "Accept": "application/json" }
+        });
+        if(!res.ok) throw new Error(`Falha ao buscar candidatos: ${res.status}`);
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      }catch(e){
+        console.error("Falha ao carregar candidatos da vaga:", e);
+        return [];
+      }
+    }
+
+    function renderVagaCandidates(hostSelector, list, target){
+      const host = hostSelector ? document.querySelector(hostSelector) : document;
+      if(!host) return;
+      const tbody = host.querySelector(target.bodySelector);
+      const countEl = host.querySelector(target.countSelector);
+      if(countEl) countEl.textContent = list.length;
+      if(!tbody) return;
+
+      tbody.replaceChildren();
+      if(!list.length){
+        const emptyRow = cloneTemplate("tpl-vaga-cand-empty-row");
+        if(emptyRow) tbody.appendChild(emptyRow);
+        return;
+      }
+
+      list.forEach(c => {
+        const tr = cloneTemplate("tpl-vaga-cand-row");
+        if(!tr) return;
+        setText(tr, "cand-nome", c.nome);
+        setText(tr, "cand-fonte", c.fonte || EMPTY_TEXT);
+        setText(tr, "cand-email", c.email || EMPTY_TEXT);
+        setText(tr, "cand-status", c.status || EMPTY_TEXT);
+        const score = c.lastMatch?.score ?? "";
+        setText(tr, "cand-match", score !== "" ? `${score}%` : EMPTY_TEXT);
+
+        const openBtn = tr.querySelector('[data-role="cand-open"]');
+        if(openBtn){
+          openBtn.href = `${CANDIDATO_URL_BASE}${encodeURIComponent(c.id)}`;
+        }
+
+        tbody.appendChild(tr);
+      });
+    }
+
     function newBenefit(){
       return {
         tipo: DEFAULT_BENEFICIO_TIPO,
@@ -1175,6 +1232,10 @@ function fmtStatus(s){
       const isEdit = mode === "edit";
       $("#modalVagaTitle").textContent = isEdit ? "Editar vaga" : "Nova vaga";
       applyVagaEnumOptions();
+      const tabBtn = document.querySelector('#vagaModalTabs [data-bs-target="#tabVagaForm"]');
+      if(tabBtn){
+        bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+      }
 
       if(isEdit){
         const v = await ensureVagaDetail(id);
@@ -1284,6 +1345,12 @@ function fmtStatus(s){
         renderModalReqList(Array.isArray(requisitosExtras.requisitosDetalhados) ? requisitosExtras.requisitosDetalhados : []);
         renderStageList(Array.isArray(processo.etapas) ? processo.etapas : []);
         renderQuestionList(Array.isArray(processo.perguntas) ? processo.perguntas : []);
+        void fetchCandidatesByVaga(v.id).then(list => {
+          renderVagaCandidates("#modalVaga", list, {
+            bodySelector: "#tblVagaEditCands",
+            countSelector: "#vagaEditCandsCount"
+          });
+        });
       }else{
         $("#vagaId").value = "";
         $("#vagaCodigo").value = "";

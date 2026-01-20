@@ -14,6 +14,9 @@
     <Content Update="wwwroot\images\4c9acf59-fb3c-4219-a01e-bb06de70ff5e.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Update="wwwroot\js\views\vagas.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

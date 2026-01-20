@@ -95,8 +95,20 @@
       if(opts.body && !opts.headers["Content-Type"] && !isFormData){
         opts.headers["Content-Type"] = "application/json";
       }
+      opts.credentials = "include";
+      opts.mode = "same-origin";
 
-      const res = await fetch(url, opts);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      opts.signal = controller.signal;
+      const baseUrl = (window.__apiBaseUrl || "").replace(/\/$/, "");
+      const targetUrl = (baseUrl && url.startsWith("/")) ? `${baseUrl}${url}` : url;
+      let res;
+      try{
+        res = await fetch(targetUrl, opts);
+      }finally{
+        clearTimeout(timeout);
+      }
       if(!res.ok){
         const message = await res.text();
         throw new Error(message || `Falha na API (${res.status}).`);
@@ -1277,6 +1289,37 @@
       $("#logoMobile").src = LOGO_DATA_URI;
     }
 
+    function consumeOpenCandidateQuery(){
+      const params = new URLSearchParams(window.location.search || "");
+      let openId = params.get("open");
+      if(!openId){
+        const match = (window.location.href || "").match(/[?&]open=([^&]+)/i);
+        openId = match ? decodeURIComponent(match[1]) : null;
+      }
+      if(!openId) return null;
+      params.delete("open");
+      const next = params.toString();
+      const nextUrl = next ? `${window.location.pathname}?${next}` : window.location.pathname;
+      window.history.replaceState({}, document.title, nextUrl);
+      return openId;
+    }
+
+    function tryOpenCandidateFromQuery(){
+      const openId = consumeOpenCandidateQuery();
+      if(!openId) return false;
+      const cand = findCand(openId);
+      if(!cand) return false;
+      selectCand(openId);
+      const modalEl = $("#modalCandDetalhes");
+      if(modalEl){
+        requestAnimationFrame(() => {
+          const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+          modal.show();
+        });
+      }
+      return true;
+    }
+
     // ========= Init
     (async function init(){
       initLogo();
@@ -1286,26 +1329,41 @@
       refreshEnumDefaults();
       applyEnumSelects();
 
+      let ready = false;
       try{
         await syncVagasSummary();
         await syncCandidatosFromApi();
         await syncVagaDetailsForCandidates();
+        ready = true;
       }catch(err){
         console.error(err);
         toast("Falha ao carregar candidatos/vagas.");
       }
 
-      renderVagaFilters();
-      updateKpis();
-      renderList();
-      renderDetail();
+      if(ready){
+        renderVagaFilters();
+        updateKpis();
+        renderList();
+        renderDetail();
+      }else{
+        renderVagaFilters();
+        updateKpis();
+        renderList();
+        document.getElementById("globalLoading")?.classList.remove("active");
+      }
 
       wireFilters();
       wireButtons();
 
-      if(!state.selectedId && state.candidatos.length){
+      const opened = tryOpenCandidateFromQuery();
+
+      if(!opened && !state.selectedId && state.candidatos.length){
         state.selectedId = state.candidatos[0].id;
         renderList();
         renderDetail();
+      }
+
+      if(window.LioTecnicaLoading?.end){
+        setTimeout(() => window.LioTecnicaLoading.end(), 600);
       }
     })();

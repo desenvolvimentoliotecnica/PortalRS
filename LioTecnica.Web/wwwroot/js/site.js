@@ -264,6 +264,17 @@
   if (window.fetch) {
     const originalFetch = window.fetch.bind(window);
     window.fetch = (...args) => {
+      const input = args[0];
+      let init = args[1] || {};
+      const url = typeof input === "string" ? input : input?.url;
+      if (url && url.startsWith(window.location.origin)) {
+        const nextInit = { ...init, credentials: "include", mode: "same-origin" };
+        if (input instanceof Request) {
+          args[0] = new Request(input, nextInit);
+        } else {
+          args[1] = nextInit;
+        }
+      }
       const track = shouldTrack(args[0], args[1]);
       if (track) begin();
       return originalFetch(...args).then((res) => {

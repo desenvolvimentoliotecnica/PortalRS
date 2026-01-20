@@ -12,7 +12,22 @@
       <div class="modal-body">
         <input type="hidden" id="vagaId">
 
-        <div class="row g-2">
+        <ul class="nav nav-pills gap-2 mb-3" id="vagaModalTabs" role="tablist" style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaForm" type="button" role="tab">
+              <i class="bi bi-card-text me-1"></i>Dados
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaCands" type="button" role="tab">
+              <i class="bi bi-people me-1"></i>Candidatos
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="tabVagaForm" role="tabpanel">
+            <div class="row g-2">
           <div class="col-12">
             <div class="fw-semibold">Identificacao e contexto</div>
             <div class="text-muted small">Dados principais e internos da vaga.</div>
@@ -679,6 +694,30 @@
             </div>
           </div>
         </template>
+          </div>
+
+          <div class="tab-pane fade" id="tabVagaCands" role="tabpanel">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+              <div>
+                <div class="fw-semibold">Candidatos vinculados</div>
+                <div class="text-muted small">Total: <span id="vagaEditCandsCount">0</span></div>
+              </div>
+              <span class="badge-soft"><i class="bi bi-people me-1"></i>Relacionados</span>
+            </div>
+
+            <lt-grid table-class="table align-middle mb-0" body-id="tblVagaEditCands">
+              <lt-grid-header>
+                <tr>
+                  <th style="min-width: 220px;">Candidato</th>
+                  <th style="min-width: 200px;">Email</th>
+                  <th style="min-width: 120px;">Status</th>
+                  <th style="min-width: 110px;">Match</th>
+                  <th class="text-end" style="min-width: 120px;">Acoes</th>
+                </tr>
+              </lt-grid-header>
+            </lt-grid>
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">

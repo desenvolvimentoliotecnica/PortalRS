@@ -427,6 +427,7 @@
   <script>
     window.__candidatosApiUrl = "@Url.Content("~/api/candidatos")";
     window.__vagasApiUrl = "@Url.Content("~/api/vagas")";
+    window.__apiBaseUrl = "@Url.Content("~/")".replace(/\/$/, "");
   </script>
   <script src="~/js/views/candidatos.js" asp-append-version="true"></script>
 }
