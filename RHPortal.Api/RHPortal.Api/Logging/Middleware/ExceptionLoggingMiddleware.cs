@@ -27,6 +27,13 @@ public sealed class ExceptionLoggingMiddleware : IMiddleware
         }
         catch (Exception ex)
         {
+            // Request cancelled by client: do not emit error logs.
+            if (context.RequestAborted.IsCancellationRequested
+                && (ex is OperationCanceledException || ex is TaskCanceledException))
+            {
+                throw;
+            }
+
             if (context.Items.ContainsKey("__exception_logged"))
                 throw;
 

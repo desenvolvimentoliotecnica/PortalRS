@@ -1,4 +1,6 @@
 @model PageSeedViewModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@inject LioTecnica.Web.Infrastructure.Security.PortalTenantContext TenantContext
 @{
     ViewData["Title"] = "Portal RH • Devcraft Studio • Entrada (Email/Pasta)";
     ViewData["SidebarSubtitle"] = "Entrada (Email/Pasta)";
@@ -156,6 +158,12 @@
   <!-- Bootstrap JS (CDN) -->
 
 @section Scripts {
+
+  <script>
+    window.__inboxHubUrl = "@((Configuration["Endpoints:RhApi"] ?? string.Empty).TrimEnd('/') + "/hubs/inbox")";
+    window.__tenantId = "@(TenantContext.TenantId)";
+  </script>
+  <script src="~/lib/signalr/signalr.min.js"></script>
   <script src="~/js/views/entrada-email-pasta.js" asp-append-version="true"></script>
 }
 

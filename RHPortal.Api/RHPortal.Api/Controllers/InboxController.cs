@@ -1,12 +1,14 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using RhPortal.Api.Contracts.Inbox;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Inbox;
 
 namespace RhPortal.Api.Controllers;
 
@@ -74,6 +76,7 @@ public sealed class InboxController : ControllerBase
         [FromBody] InboxCreateRequest request,
         [FromServices] AppDbContext db,
         [FromServices] RhPortal.Api.Infrastructure.Tenancy.ITenantContext tenantContext,
+        [FromServices] IHubContext<InboxHub> hub,
         CancellationToken ct)
     {
         if (!TryParseEnum<InboxOrigem>(request.Origem, out var origem))
@@ -121,6 +124,7 @@ public sealed class InboxController : ControllerBase
         db.InboxItems.Add(entity);
         await db.SaveChangesAsync(ct);
 
+        await SendInboxEventAsync(hub, tenantContext.TenantId, "created", entity, ct);
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapResponse(entity));
     }
 
@@ -130,6 +134,7 @@ public sealed class InboxController : ControllerBase
         [FromBody] InboxUpdateRequest request,
         [FromServices] AppDbContext db,
         [FromServices] RhPortal.Api.Infrastructure.Tenancy.ITenantContext tenantContext,
+        [FromServices] IHubContext<InboxHub> hub,
         CancellationToken ct)
     {
         if (!TryParseEnum<InboxOrigem>(request.Origem, out var origem))
@@ -201,6 +206,7 @@ public sealed class InboxController : ControllerBase
 
         await db.SaveChangesAsync(ct);
 
+        await SendInboxEventAsync(hub, tenantContext.TenantId, "updated", entity, ct);
         return Ok(MapResponse(entity));
     }
 
@@ -208,6 +214,7 @@ public sealed class InboxController : ControllerBase
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,
+        [FromServices] IHubContext<InboxHub> hub,
         CancellationToken ct)
     {
         var entity = await db.InboxItems.FirstOrDefaultAsync(x => x.Id == id, ct);
@@ -215,6 +222,8 @@ public sealed class InboxController : ControllerBase
 
         db.InboxItems.Remove(entity);
         await db.SaveChangesAsync(ct);
+        await hub.Clients.Group(InboxHub.GetTenantGroup(entity.TenantId))
+            .SendAsync("inbox.deleted", new InboxRealtimeMessage("deleted", entity.Id, MapStatus(entity.Status), entity.RecebidoEm, entity.Assunto, entity.Remetente), ct);
         return NoContent();
     }
 
@@ -299,6 +308,21 @@ public sealed class InboxController : ControllerBase
         {
             return Array.Empty<InboxSuggestedVagaDto>();
         }
+    }
+
+    private static Task SendInboxEventAsync(IHubContext<InboxHub> hub, string tenantId, string action, InboxItem entity, CancellationToken ct)
+    {
+        var message = new InboxRealtimeMessage(
+            action,
+            entity.Id,
+            MapStatus(entity.Status),
+            entity.RecebidoEm,
+            entity.Assunto,
+            entity.Remetente);
+
+        // Publica para todos os clientes conectados no grupo do tenant.
+        return hub.Clients.Group(InboxHub.GetTenantGroup(tenantId))
+            .SendAsync($"inbox.{action}", message, ct);
     }
 
     private static async Task<Guid> GetOrCreateInboxVagaIdAsync(AppDbContext db, CancellationToken ct)

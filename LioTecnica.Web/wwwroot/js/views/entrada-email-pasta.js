@@ -4,6 +4,65 @@
     const VAGAS_API_URL = "/EntradaEmailPasta/_api/vagas";
     const CANDIDATOS_API_URL = "/EntradaEmailPasta/_api/candidatos";
 
+
+    // ======= SignalR (push) para atualizar a fila sem refresh manual
+    // A URL do hub e o tenant s?o injetados pelo Razor em window.__inboxHubUrl / window.__tenantId.
+    let inboxHubConnection = null;
+    let inboxHubRefreshTimer = null;
+
+    function scheduleInboxRefresh(){
+      if(inboxHubRefreshTimer) clearTimeout(inboxHubRefreshTimer);
+      // Debounce simples para evitar varias atualizacoes em sequencia.
+      inboxHubRefreshTimer = setTimeout(async () => {
+        try{
+          await loadInbox(true);
+          renderAll();
+        }catch(err){
+          console.error(err);
+        }
+      }, 400);
+    }
+
+    async function startInboxHub(){
+      if(!window.signalR || !window.__inboxHubUrl || !window.__tenantId){
+        console.warn("SignalR nao disponivel ou tenant ausente.");
+        return;
+      }
+      if(inboxHubConnection) return;
+
+      const hubUrl = `${window.__inboxHubUrl}?tenantId=${encodeURIComponent(window.__tenantId)}`;
+      console.info("InboxHub conectando...", hubUrl);
+      const connection = new signalR.HubConnectionBuilder()
+        .withUrl(hubUrl)
+        // Reconnect automatico para manter a fila viva mesmo com queda de rede.
+        .withAutomaticReconnect([0, 2000, 5000, 10000])
+        .build();
+
+      const onAnyInboxEvent = (payload) => {
+        console.info("InboxHub evento", payload);
+        scheduleInboxRefresh();
+      };
+
+      // Eventos disparados pela API (InboxController / InboxFileProcessor).
+      connection.on("inbox.created", onAnyInboxEvent);
+      connection.on("inbox.updated", onAnyInboxEvent);
+      connection.on("inbox.processed", onAnyInboxEvent);
+      connection.on("inbox.failed", onAnyInboxEvent);
+      connection.on("inbox.deleted", onAnyInboxEvent);
+
+      connection.onclose(err => {
+        if(err) console.warn("InboxHub desconectado", err);
+      });
+
+      try{
+        await connection.start();
+        inboxHubConnection = connection;
+        console.info("InboxHub conectado");
+      }catch(err){
+        console.error("InboxHub falhou", err);
+      }
+    }
+
     const state = {
       vagas: [],
       inbox: [],
@@ -96,8 +155,9 @@
       state.vagas = Array.isArray(list) ? list.map(mapVagaFromApi) : [];
     }
 
-    async function loadInbox(){
-      const list = await apiFetchJson(INBOX_API_URL, { method: "GET" });
+    async function loadInbox(silent){
+      const headers = silent ? { "X-LT-Silent": "1" } : undefined;
+      const list = await apiFetchJson(INBOX_API_URL, { method: "GET", headers });
       state.inbox = Array.isArray(list) ? list : [];
       state.selectedId = state.inbox[0]?.id || null;
     }
@@ -672,7 +732,7 @@
                 await createInboxItem(item);
               }
             }
-            await loadInbox();
+            await loadInbox(true);
             renderAll();
             toast("Importação concluída.");
           }catch(e){
@@ -805,6 +865,7 @@
       try{
         await Promise.all([loadVagas(), loadInbox()]);
         renderAll();
+        await startInboxHub();
       }catch(err){
         console.error(err);
         toast("Falha ao carregar inbox.");

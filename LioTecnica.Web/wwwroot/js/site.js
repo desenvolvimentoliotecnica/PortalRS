@@ -192,7 +192,16 @@
   let activeCount = 0;
   let shownAt = 0;
   let hideTimer = null;
-  const shouldTrack = (input) => {
+  const hasSilentHeader = (input, init) => {
+    if (init?.headers?.["X-LT-Silent"] || init?.headers?.["x-lt-silent"]) return true;
+    if (input && typeof input !== "string" && input.headers) {
+      return input.headers.get?.("X-LT-Silent") === "1";
+    }
+    return false;
+  };
+
+  const shouldTrack = (input, init) => {
+    if (hasSilentHeader(input, init)) return false;
     const url = typeof input === "string" ? input : input?.url;
     if (!url) return true;
     return !url.includes("/api/health");
@@ -255,7 +264,7 @@
   if (window.fetch) {
     const originalFetch = window.fetch.bind(window);
     window.fetch = (...args) => {
-      const track = shouldTrack(args[0]);
+      const track = shouldTrack(args[0], args[1]);
       if (track) begin();
       return originalFetch(...args).then((res) => {
         if (track) end();

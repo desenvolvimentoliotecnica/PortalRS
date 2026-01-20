@@ -49,6 +49,17 @@ builder.Services
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSignalR();
+builder.Services.AddCors(options =>
+{
+    // Necessario para o SignalR funcionar quando o front roda em outro host/porta.
+    var webOrigin = builder.Configuration["Cors:WebOrigin"] ?? "https://localhost:7091";
+    options.AddPolicy("WebApp", policy =>
+        policy.WithOrigins(webOrigin)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
+});
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -234,6 +245,7 @@ app.UseExceptionHandler();
 
 app.UseHttpsRedirection();
 
+app.UseCors("WebApp");
 app.UseMiddleware<TenantMiddleware>();
 
 app.UseAuthentication();
@@ -262,4 +274,6 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 }).AllowAnonymous();
 
 app.MapControllers();
+// SignalR hub usado pela Inbox para push em tempo real.
+app.MapHub<InboxHub>("/hubs/inbox");
 app.Run();

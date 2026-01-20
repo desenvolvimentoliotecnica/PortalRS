@@ -106,22 +106,28 @@ public sealed class AuditMiddleware : IMiddleware
             sw.Stop();
             context.Response.Body = originalBody;
 
-            responseBuffer.Seek(0, SeekOrigin.Begin);
-            AuditBodyCapture? responseBody = null;
-            if (ShouldCaptureResponseBody(context.Response))
-            {
-                responseBody = await AuditBodyReader.ReadAsync(responseBuffer, MaxBodyBytes, context.RequestAborted);
-            }
-            responseBuffer.Seek(0, SeekOrigin.Begin);
-            await responseBuffer.CopyToAsync(originalBody, context.RequestAborted);
+            // Client disconnected or request was cancelled: avoid noisy audit failures.
+            var canceled = IsCancellation(exception, context);
 
-            try
+            if (!canceled)
             {
-                await PersistAuditAsync(context, auditContext, httpOrder, startedAt, sw.Elapsed, requestBody, responseBody, exception);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Audit middleware failed to persist logs.");
+                responseBuffer.Seek(0, SeekOrigin.Begin);
+                AuditBodyCapture? responseBody = null;
+                if (ShouldCaptureResponseBody(context.Response))
+                {
+                    responseBody = await AuditBodyReader.ReadAsync(responseBuffer, MaxBodyBytes, CancellationToken.None);
+                }
+                responseBuffer.Seek(0, SeekOrigin.Begin);
+                await responseBuffer.CopyToAsync(originalBody, CancellationToken.None);
+
+                try
+                {
+                    await PersistAuditAsync(context, auditContext, httpOrder, startedAt, sw.Elapsed, requestBody, responseBody, exception);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Audit middleware failed to persist logs.");
+                }
             }
         }
     }
@@ -291,4 +297,9 @@ public sealed class AuditMiddleware : IMiddleware
 
     private static string? Limit(string? value, int max)
         => string.IsNullOrWhiteSpace(value) ? value : (value.Length <= max ? value : value[..max]);
+
+    private static bool IsCancellation(Exception? ex, HttpContext context)
+        => context.RequestAborted.IsCancellationRequested
+           || ex is OperationCanceledException
+           || ex is TaskCanceledException;
 }

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Inbox;
 using RhPortal.Api.Domain.Entities;
@@ -22,12 +23,14 @@ public sealed class InboxFileProcessor
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IHostEnvironment _env;
+    private readonly IHubContext<InboxHub> _hub;
 
-    public InboxFileProcessor(AppDbContext db, ITenantContext tenantContext, IHostEnvironment env)
+    public InboxFileProcessor(AppDbContext db, ITenantContext tenantContext, IHostEnvironment env, IHubContext<InboxHub> hub)
     {
         _db = db;
         _tenantContext = tenantContext;
         _env = env;
+        _hub = hub;
     }
 
     public async Task ProcessAsync(string tenantId, string filePath, InboxFolderOptions options, CancellationToken ct)
@@ -154,6 +157,7 @@ public sealed class InboxFileProcessor
             _db.InboxItems.Add(inbox);
             await _db.SaveChangesAsync(ct);
 
+            await PublishRealtimeAsync("processed", inbox, ct);
             MoveToFolder(filePath, tenantId, options.ProcessedFolderName, options);
         }
         catch (Exception ex)
@@ -164,6 +168,7 @@ public sealed class InboxFileProcessor
             inbox.ProcessamentoLogRaw = JsonSerializer.Serialize(log.Concat(new[] { ex.Message }));
             _db.InboxItems.Add(inbox);
             await _db.SaveChangesAsync(ct);
+            await PublishRealtimeAsync("failed", inbox, ct);
             MoveToFolder(filePath, tenantId, options.ErrorFolderName, options);
         }
     }
@@ -329,5 +334,20 @@ public sealed class InboxFileProcessor
         {
             // Best-effort
         }
+    }
+
+    private Task PublishRealtimeAsync(string action, InboxItem inbox, CancellationToken ct)
+    {
+        var message = new InboxRealtimeMessage(
+            action,
+            inbox.Id,
+            inbox.Status.ToString().ToLowerInvariant(),
+            inbox.RecebidoEm,
+            inbox.Assunto,
+            inbox.Remetente);
+
+        // Publica para todos os clientes conectados no grupo do tenant.
+        return _hub.Clients.Group(InboxHub.GetTenantGroup(_tenantContext.TenantId))
+            .SendAsync($"inbox.{action}", message, ct);
     }
 }

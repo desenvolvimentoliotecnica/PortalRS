@@ -140,7 +140,16 @@ public sealed class RequestLogMiddleware : IMiddleware
             // best-effort
         }
 
-        await next(context);
+        try
+        {
+            await next(context);
+        }
+        catch (Exception ex) when (context.RequestAborted.IsCancellationRequested
+            && (ex is OperationCanceledException || ex is TaskCanceledException))
+        {
+            // Client cancelled the request: skip updating the request log.
+            return;
+        }
 
         sw.Stop();
         requestLog.EndedAt = startedAt.Add(sw.Elapsed);

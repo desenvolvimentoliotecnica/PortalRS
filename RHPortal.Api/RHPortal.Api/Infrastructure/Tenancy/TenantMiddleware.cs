@@ -28,17 +28,26 @@ public sealed class TenantMiddleware : IMiddleware
             return;
         }
 
+        // SignalR/WebSocket clients cannot reliably send custom headers.
+        // For hub connections we allow the tenant id to come from the query string.
+        string rawTenantId;
         if (!context.Request.Headers.TryGetValue(TenantHeaderName, out var tenantValues))
         {
-            await WriteProblemAsync(
-                context,
-                StatusCodes.Status400BadRequest,
-                "Tenant header is required.",
-                $"Missing header: {TenantHeaderName}");
-            return;
+            rawTenantId = context.Request.Query["tenantId"].ToString().Trim();
+            if (string.IsNullOrWhiteSpace(rawTenantId))
+            {
+                await WriteProblemAsync(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "Tenant header is required.",
+                    $"Missing header: {TenantHeaderName}");
+                return;
+            }
         }
-
-        var rawTenantId = tenantValues.ToString().Trim();
+        else
+        {
+            rawTenantId = tenantValues.ToString().Trim();
+        }
         if (string.IsNullOrWhiteSpace(rawTenantId))
         {
             await WriteProblemAsync(
