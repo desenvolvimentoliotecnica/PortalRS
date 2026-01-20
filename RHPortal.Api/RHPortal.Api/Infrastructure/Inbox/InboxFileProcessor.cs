@@ -95,6 +95,7 @@ public sealed class InboxFileProcessor
 
             log.Add($"Email: {email}");
             log.Add($"Nome: {nome}");
+            inbox.Remetente = email;
 
             var vagaId = await GetOrCreateInboxVagaAsync(ct);
             if (vagaId == Guid.Empty)
@@ -139,6 +140,7 @@ public sealed class InboxFileProcessor
             inbox.ProcessamentoEtapa = "concluido";
             inbox.ProcessamentoPct = 100;
             inbox.ProcessamentoLogRaw = JsonSerializer.Serialize(log);
+            inbox.CandidatoId = candidato.Id;
             inbox.Anexos.Add(new InboxAnexo
             {
                 Id = Guid.NewGuid(),

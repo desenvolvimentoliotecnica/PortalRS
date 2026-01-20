@@ -24,6 +24,8 @@ public sealed class InboxItem : ITenantEntity
 
     public Guid? VagaId { get; set; }
     public RHPortal.Api.Domain.Entities.Vaga? Vaga { get; set; }
+    public Guid? CandidatoId { get; set; }
+    public Candidato? Candidato { get; set; }
 
     public string? PreviewText { get; set; }
 

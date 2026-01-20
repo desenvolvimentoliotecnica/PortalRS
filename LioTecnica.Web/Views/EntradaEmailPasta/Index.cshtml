@@ -193,5 +193,24 @@
     border-radius: 12px;
     background: #ffffff;
     border: 1px solid rgba(15, 23, 42, 0.08);
+    transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  }
+  .suggest-item.is-assigned {
+    background: #ecfff1;
+    border-color: rgba(18, 140, 78, 0.25);
+    box-shadow: 0 10px 24px rgba(18, 140, 78, 0.08);
+    animation: suggestFall 420ms cubic-bezier(0.2, 0.8, 0.2, 1.2);
+  }
+  .suggest-item.is-assigned .badge {
+    background: rgba(18, 140, 78, 0.12) !important;
+    color: #0f7a45 !important;
+  }
+  .suggest-item.is-assigned .btn-link-suggested {
+    cursor: default;
+  }
+  @@keyframes suggestFall {
+    0% { transform: translateY(-6px) scale(0.98); }
+    60% { transform: translateY(4px) scale(1.01); }
+    100% { transform: translateY(0) scale(1); }
   }
 </style>

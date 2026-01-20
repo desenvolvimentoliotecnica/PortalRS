@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Inbox;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Entities;
+using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 
 namespace RhPortal.Api.Controllers;
@@ -71,6 +73,7 @@ public sealed class InboxController : ControllerBase
     public async Task<ActionResult<InboxResponse>> Create(
         [FromBody] InboxCreateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] RhPortal.Api.Infrastructure.Tenancy.ITenantContext tenantContext,
         CancellationToken ct)
     {
         if (!TryParseEnum<InboxOrigem>(request.Origem, out var origem))
@@ -82,6 +85,7 @@ public sealed class InboxController : ControllerBase
         var entity = new InboxItem
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantContext.TenantId,
             Origem = origem,
             Status = status,
             RecebidoEm = request.RecebidoEm == default ? DateTimeOffset.UtcNow : request.RecebidoEm,
@@ -105,6 +109,7 @@ public sealed class InboxController : ControllerBase
                 entity.Anexos.Add(new InboxAnexo
                 {
                     Id = a.Id ?? Guid.NewGuid(),
+                    TenantId = tenantContext.TenantId,
                     Nome = a.Nome,
                     Tipo = a.Tipo,
                     TamanhoKB = a.TamanhoKB,
@@ -124,6 +129,7 @@ public sealed class InboxController : ControllerBase
         [FromRoute] Guid id,
         [FromBody] InboxUpdateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] RhPortal.Api.Infrastructure.Tenancy.ITenantContext tenantContext,
         CancellationToken ct)
     {
         if (!TryParseEnum<InboxOrigem>(request.Origem, out var origem))
@@ -152,6 +158,7 @@ public sealed class InboxController : ControllerBase
         entity.ProcessamentoUltimoErro = request.Processamento?.UltimoErro;
         entity.ProcessamentoLogRaw = SerializeLog(request.Processamento?.Log);
         entity.SuggestedVagasJson = SerializeSuggestions(request.SuggestedVagas);
+        entity.TenantId = tenantContext.TenantId;
 
         entity.Anexos.Clear();
         if (request.Anexos is { Count: > 0 })
@@ -161,11 +168,34 @@ public sealed class InboxController : ControllerBase
                 entity.Anexos.Add(new InboxAnexo
                 {
                     Id = a.Id ?? Guid.NewGuid(),
+                    TenantId = tenantContext.TenantId,
                     Nome = a.Nome,
                     Tipo = a.Tipo,
                     TamanhoKB = a.TamanhoKB,
                     Hash = a.Hash
                 });
+            }
+        }
+
+        if (!entity.CandidatoId.HasValue)
+        {
+            var email = request.Remetente ?? entity.Remetente;
+            if (!string.IsNullOrWhiteSpace(email) && email.Contains("@"))
+            {
+                var cand = await db.Candidatos.FirstOrDefaultAsync(x => x.Email == email, ct);
+                if (cand is not null)
+                    entity.CandidatoId = cand.Id;
+            }
+        }
+
+        if (entity.CandidatoId.HasValue)
+        {
+            var candidato = await db.Candidatos.FirstOrDefaultAsync(x => x.Id == entity.CandidatoId.Value, ct);
+            if (candidato is not null)
+            {
+                var targetVagaId = request.VagaId ?? await GetOrCreateInboxVagaIdAsync(db, ct);
+                if (targetVagaId != Guid.Empty)
+                    candidato.VagaId = targetVagaId;
             }
         }
 
@@ -269,5 +299,36 @@ public sealed class InboxController : ControllerBase
         {
             return Array.Empty<InboxSuggestedVagaDto>();
         }
+    }
+
+    private static async Task<Guid> GetOrCreateInboxVagaIdAsync(AppDbContext db, CancellationToken ct)
+    {
+        const string code = "BANCO-TALENTOS";
+        var existing = await db.Vagas.FirstOrDefaultAsync(x => x.Codigo == code, ct);
+        if (existing is not null)
+            return existing.Id;
+
+        var area = await db.Areas.FirstOrDefaultAsync(ct);
+        var dep = await db.Departments.FirstOrDefaultAsync(ct);
+        if (area is null || dep is null)
+            return Guid.Empty;
+
+        var vaga = new Vaga
+        {
+            Id = Guid.NewGuid(),
+            Codigo = code,
+            Titulo = "Banco de Talentos (Triagem)",
+            AreaId = area.Id,
+            DepartmentId = dep.Id,
+            Status = VagaStatus.Rascunho,
+            QuantidadeVagas = 1,
+            MatchMinimoPercentual = 70,
+            DescricaoInterna = "Vaga base para triagem automatica de curriculos.",
+            Visibilidade = VagaPublicacaoVisibilidade.Interna
+        };
+
+        db.Vagas.Add(vaga);
+        await db.SaveChangesAsync(ct);
+        return vaga.Id;
     }
 }

@@ -260,6 +260,7 @@
               </div>
             </div>
           </div>`;
+
         return;
       }
 
@@ -275,16 +276,42 @@
         ? `<ul class="mb-0 small">${log.map(l => `<li>${escapeHtml(l)}</li>`).join("")}</ul>`
         : `<div class="text-muted small">Sem logs ainda.</div>`;
 
-      const suggested = (x.suggestedVagas || []).length
-        ? (x.suggestedVagas || []).map(s => `
-            <div class="suggest-item">
+      const suggestedList = (x.suggestedVagas || []).map(s => ({
+        ...s,
+        isAssigned: x.vagaId && s.vagaId === x.vagaId
+      }));
+
+      const hasAssigned = !!x.vagaId;
+
+      suggestedList.sort((a, b) => {
+        if (a.isAssigned === b.isAssigned) return 0;
+        return a.isAssigned ? 1 : -1; // assigned goes to end
+      });
+
+      const suggested = suggestedList.length
+        ? suggestedList.map(s => {
+            const stateCls = s.isAssigned ? "is-assigned" : "";
+            const btnCls = s.isAssigned ? "btn-danger" : "btn-ghost";
+            const btnLabel = s.isAssigned
+              ? `<i class="bi bi-x-circle me-1"></i>Desvincular`
+              : `<i class="bi bi-link-45deg me-1"></i>Vincular`;
+            const disabled = (!s.isAssigned && hasAssigned) ? "disabled" : "";
+            const disabledHint = (!s.isAssigned && hasAssigned) ? "title=\"Ja existe uma vaga vinculada\"" : "";
+            return `
+            <div class="suggest-item ${stateCls}" data-vaga-id="${escapeHtml(s.vagaId)}">
               <div>
                 <div class="fw-semibold">${escapeHtml(s.titulo || "Vaga sugerida")}</div>
                 <div class="text-muted small mono">${escapeHtml(s.vagaId)}</div>
               </div>
-              <span class="badge bg-primary-subtle text-primary">${escapeHtml(s.score)}</span>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary-subtle text-primary">${escapeHtml(s.score)}</span>
+                <button class="btn ${btnCls} btn-sm btn-link-suggested" data-vaga-id="${escapeHtml(s.vagaId)}" type="button" ${disabled} ${disabledHint}>
+                  ${btnLabel}
+                </button>
+              </div>
             </div>
-          `).join("")
+          `;
+          }).join("")
         : `<div class="text-muted small">Sem sugestoes ainda.</div>`;
 
       const errorBox = x.processamento?.ultimoErro
@@ -680,6 +707,34 @@
       });
     }
 
+
+    function wireDetailActions(){
+      const host = $("#detailHost");
+      if(!host) return;
+      host.addEventListener("click", async (ev) => {
+        const btn = ev.target.closest(".btn-link-suggested");
+        if(!btn) return;
+        ev.preventDefault();
+        const vagaId = btn.dataset.vagaId;
+        if(!vagaId) return;
+        const item = state.selectedId ? findInbox(state.selectedId) : null;
+        if(!item) return;
+        const isAssigned = item.vagaId && item.vagaId === vagaId;
+        if(!isAssigned && item.vagaId){
+          return;
+        }
+        item.vagaId = isAssigned ? null : vagaId;
+        try{
+          await saveInboxItem(item);
+          toast(isAssigned ? "Vaga desvinculada." : "Vaga vinculada.");
+          renderAll();
+        }catch(err){
+          console.error(err);
+          toast(isAssigned ? "Falha ao desvincular vaga." : "Falha ao vincular vaga.");
+        }
+      });
+    }
+
     function wireButtons(){
       $("#btnAddUpload").addEventListener("click", () => $("#filePicker").click());
 
@@ -742,6 +797,7 @@
       initLogo();
       wireFilters();
       wireButtons();
+      wireDetailActions();
 
       await ensureEnumData();
       applyEnumSelects();

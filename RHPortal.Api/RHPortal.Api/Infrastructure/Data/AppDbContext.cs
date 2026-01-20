@@ -512,6 +512,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.VagaId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             b.HasMany(x => x.Anexos)
                 .WithOne(x => x.InboxItem)
                 .HasForeignKey(x => x.InboxItemId)

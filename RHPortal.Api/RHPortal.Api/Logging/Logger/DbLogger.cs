@@ -92,10 +92,28 @@ public sealed class DbLogger : ILogger
         foreach (var kv in props)
         {
             if (kv.Key == "{OriginalFormat}") continue;
-            dict[kv.Key] = MaskingAndTruncation.IsSensitive(kv.Key) ? "***" : kv.Value;
+            dict[kv.Key] = MaskingAndTruncation.IsSensitive(kv.Key) ? "***" : NormalizeValue(kv.Value);
         }
 
         if (dict.Count == 0) return null;
-        return JsonSerializer.Serialize(dict, JsonOptions);
+        try
+        {
+            return JsonSerializer.Serialize(dict, JsonOptions);
+        }
+        catch (NotSupportedException)
+        {
+            var fallback = dict.ToDictionary(k => k.Key, v => v.Value?.ToString());
+            return JsonSerializer.Serialize(fallback, JsonOptions);
+        }
+    }
+
+    private static object? NormalizeValue(object? value)
+    {
+        if (value is null) return null;
+        if (value is Type type) return type.FullName ?? type.Name;
+        if (value is Exception ex) return ex.Message;
+        if (value is DateTime dt) return dt.ToString("O");
+        if (value is DateTimeOffset dto) return dto.ToString("O");
+        return value;
     }
 }
