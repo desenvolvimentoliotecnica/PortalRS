@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 using RhPortal.Api.Contracts.Inbox;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -126,6 +127,39 @@ public sealed class InboxController : ControllerBase
 
         await SendInboxEventAsync(hub, tenantContext.TenantId, "created", entity, ct);
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapResponse(entity));
+    }
+
+    [HttpPost("upload")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Upload(
+        [FromForm] IFormFile file,
+        [FromServices] InboxFileProcessor processor,
+        [FromServices] RhPortal.Api.Infrastructure.Tenancy.ITenantContext tenantContext,
+        [FromServices] IOptions<InboxFolderOptions> options,
+        CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "Arquivo obrigatorio." });
+
+        var tenantId = tenantContext.TenantId;
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return BadRequest(new { message = "Tenant nao encontrado." });
+
+        var inboxOptions = options.Value;
+        var safeName = Path.GetFileName(file.FileName);
+        var ext = Path.GetExtension(safeName);
+        var uniqueName = $"{Guid.NewGuid():N}{ext}";
+        var tenantFolder = Path.Combine(inboxOptions.RootPath, tenantId, inboxOptions.IncomingFolderName);
+        Directory.CreateDirectory(tenantFolder);
+
+        var filePath = Path.Combine(tenantFolder, uniqueName);
+        await using (var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            await file.CopyToAsync(stream, ct);
+        }
+
+        await processor.ProcessAsync(tenantId, filePath, inboxOptions, InboxOrigem.Upload, ct);
+        return Ok(new { status = "queued" });
     }
 
     [HttpPut("{id:guid}")]

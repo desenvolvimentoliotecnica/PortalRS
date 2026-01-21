@@ -90,7 +90,8 @@
     async function apiFetchJson(url, options = {}){
       const opts = { ...options };
       opts.headers = { "Accept": "application/json", ...(opts.headers || {}) };
-      if(opts.body && !opts.headers["Content-Type"]){
+      const isFormData = typeof FormData !== "undefined" && opts.body instanceof FormData;
+      if(opts.body && !opts.headers["Content-Type"] && !isFormData){
         opts.headers["Content-Type"] = "application/json";
       }
 
@@ -667,41 +668,25 @@
     async function addUploads(files){
       if(!files || !files.length) return;
 
-      const vagaId = state.vagas[0]?.id || null;
-
       for(const f of files){
-        const name = f.name || "arquivo";
-        const ext = (name.split(".").pop() || "").toLowerCase();
-        const tipo = ["pdf","doc","docx","txt"].includes(ext) ? ext : "file";
-
-        const item = {
-          origem: "upload",
-          status: "novo",
-          recebidoEm: new Date().toISOString(),
-          remetente: "upload@local",
-          assunto: "Upload manual",
-          destinatario: "Portal RH",
-          vagaId,
-          anexos: [{ nome: name, tipo, tamanhoKB: Math.max(1, Math.round((f.size||1024)/1024)), hash: "up-"+Math.random().toString(16).slice(2,10) }],
-          processamento: { pct: 0, etapa: "Aguardando", log: ["Arquivo anexado via upload."], tentativas: 0, ultimoErro: null },
-          previewText: ""
-        };
-
         try{
-          const saved = await createInboxItem(item);
-          if(!state.selectedId && saved?.id){
-            state.selectedId = saved.id;
-          }
+          const data = new FormData();
+          data.append("file", f, f.name);
+          await apiFetchJson("/EntradaEmailPasta/_api/upload", {
+            method: "POST",
+            body: data
+          });
         }catch(err){
           console.error(err);
-          toast("Falha ao registrar upload.");
+          toast("Falha ao enviar upload.");
         }
       }
 
+      await loadInbox(true);
       renderAll();
     }
 
-    function exportJson(){
+function exportJson(){
       const payload = { exportedAt: new Date().toISOString(), inbox: state.inbox };
       const json = JSON.stringify(payload, null, 2);
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });

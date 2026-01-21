@@ -21,6 +21,18 @@ public sealed class InboxApiClient
     public Task<ApiRawResponse> DeleteRawAsync(string tenantId, Guid id, CancellationToken ct)
         => SendAsync(BuildRequest(HttpMethod.Delete, $"api/inbox/{id}", tenantId), ct);
 
+    public async Task<ApiRawResponse> UploadAsync(string tenantId, Stream fileStream, string fileName, string contentType, CancellationToken ct)
+    {
+        using var content = new MultipartFormDataContent();
+        var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        content.Add(streamContent, "file", fileName);
+
+        using var req = BuildRequest(HttpMethod.Post, "api/inbox/upload", tenantId);
+        req.Content = content;
+        return await SendAsync(req, ct);
+    }
+
     private static HttpRequestMessage BuildRequest(HttpMethod method, string url, string tenantId, string? jsonBody = null)
     {
         var req = new HttpRequestMessage(method, url);

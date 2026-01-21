@@ -37,7 +37,7 @@ public sealed class InboxFolderWatcherService : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var processor = scope.ServiceProvider.GetRequiredService<InboxFileProcessor>();
             var options = scope.ServiceProvider.GetRequiredService<IOptions<InboxFolderOptions>>().Value;
-            await processor.ProcessAsync(tenantId, filePath, options, stoppingToken);
+            await processor.ProcessAsync(tenantId, filePath, options, InboxOrigem.Pasta, stoppingToken);
         }
     }
 

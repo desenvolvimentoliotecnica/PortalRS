@@ -33,7 +33,12 @@ public sealed class InboxFileProcessor
         _hub = hub;
     }
 
-    public async Task ProcessAsync(string tenantId, string filePath, InboxFolderOptions options, CancellationToken ct)
+    public async Task ProcessAsync(
+        string tenantId,
+        string filePath,
+        InboxFolderOptions options,
+        InboxOrigem origem,
+        CancellationToken ct)
     {
         _tenantContext.SetTenantId(tenantId);
 
@@ -41,7 +46,7 @@ public sealed class InboxFileProcessor
         var inbox = new InboxItem
         {
             Id = Guid.NewGuid(),
-            Origem = InboxOrigem.Pasta,
+            Origem = origem,
             Status = InboxStatus.Processando,
             RecebidoEm = DateTimeOffset.UtcNow,
             Assunto = Path.GetFileName(filePath),

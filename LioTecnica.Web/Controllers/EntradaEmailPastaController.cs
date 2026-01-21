@@ -61,6 +61,19 @@ public class EntradaEmailPastaController : Controller
         return ToContentResult(resp);
     }
 
+    [HttpPost("/EntradaEmailPasta/_api/upload")]
+    public async Task<IActionResult> Upload(IFormFile file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "Arquivo obrigatorio." });
+
+        var tenantId = _tenantContext.TenantId;
+        await using var stream = file.OpenReadStream();
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType;
+        var resp = await _inboxApi.UploadAsync(tenantId, stream, file.FileName, contentType, ct);
+        return ToContentResult(resp);
+    }
+
     [HttpPut("/EntradaEmailPasta/_api/inbox/{id:guid}")]
     public async Task<IActionResult> UpdateInbox(Guid id, [FromBody] JsonElement payload, CancellationToken ct)
     {
