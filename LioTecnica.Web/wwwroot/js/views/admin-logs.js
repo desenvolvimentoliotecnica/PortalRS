@@ -25,10 +25,18 @@
     params.set("pageSize", state.pageSize.toString());
     const search = ui("logsSearch")?.value?.trim();
     const status = ui("logsStatus")?.value?.trim();
+    const method = ui("logsMethod")?.value?.trim();
     const from = ui("logsFrom")?.value;
     const to = ui("logsTo")?.value;
     if (search) params.set("search", search);
     if (status) params.set("status", status);
+    if (method) {
+      if (method === "nonget") {
+        params.set("methods", "POST,PUT,PATCH,DELETE");
+      } else {
+        params.set("methods", method);
+      }
+    }
     if (from) params.set("from", new Date(from).toISOString());
     if (to) params.set("to", new Date(to).toISOString());
     return params.toString();

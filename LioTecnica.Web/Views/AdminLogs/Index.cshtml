@@ -120,6 +120,18 @@
                     </select>
                 </div>
                 <div>
+                    <label class="form-label small mb-1">Metodo</label>
+                    <select class="form-select" id="logsMethod">
+                        <option value="nonget" selected>Sem GET</option>
+                        <option value="">Todos</option>
+                        <option value="GET">Somente GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="PATCH">PATCH</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                </div>
+                <div>
                     <label class="form-label small mb-1">De</label>
                     <input class="form-control" type="datetime-local" id="logsFrom">
                 </div>

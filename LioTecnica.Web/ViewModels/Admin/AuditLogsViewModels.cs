@@ -8,6 +8,7 @@ public sealed class AuditLogsQuery
     public DateTimeOffset? To { get; set; }
     public string? Search { get; set; }
     public string? Status { get; set; }
+    public string? Methods { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 50;
 
@@ -25,6 +26,7 @@ public sealed class AuditLogsQuery
         add("to", To?.ToString("O"));
         add("search", Search);
         add("status", Status);
+        add("methods", Methods);
         add("page", Page.ToString());
         add("pageSize", PageSize.ToString());
         return sb.ToString();

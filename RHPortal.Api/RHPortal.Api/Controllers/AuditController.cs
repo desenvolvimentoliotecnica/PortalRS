@@ -18,6 +18,7 @@ public sealed class AuditController : ControllerBase
         [FromQuery] DateTimeOffset? to = null,
         [FromQuery] string? search = null,
         [FromQuery] string? status = null,
+        [FromQuery] string? methods = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
@@ -47,6 +48,15 @@ public sealed class AuditController : ControllerBase
                 (x.Path != null && x.Path.Contains(searchText)) ||
                 (x.UserName != null && x.UserName.Contains(searchText)) ||
                 (x.Method != null && x.Method.Contains(searchText)));
+        }
+
+        var methodsFilter = (methods ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.ToUpperInvariant())
+            .ToArray();
+        if (methodsFilter.Length > 0)
+        {
+            query = query.Where(x => x.Method != null && methodsFilter.Contains(x.Method.ToUpper()));
         }
 
         var totalItems = await query.CountAsync(ct);
