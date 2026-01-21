@@ -90,31 +90,36 @@
 
     async function apiFetchJson(url, options = {}){
       const opts = { ...options };
-      opts.headers = { "Accept": "application/json", ...(opts.headers || {}) };
+      const headers = { "Accept": "application/json", ...(opts.headers || {}) };
       const isFormData = typeof FormData !== "undefined" && opts.body instanceof FormData;
-      if(opts.body && !opts.headers["Content-Type"] && !isFormData){
-        opts.headers["Content-Type"] = "application/json";
+      if(opts.body && !headers["Content-Type"] && !isFormData){
+        headers["Content-Type"] = "application/json";
       }
-      opts.credentials = "include";
-      opts.mode = "same-origin";
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
-      opts.signal = controller.signal;
       const baseUrl = (window.__apiBaseUrl || "").replace(/\/$/, "");
       const targetUrl = (baseUrl && url.startsWith("/")) ? `${baseUrl}${url}` : url;
-      let res;
-      try{
-        res = await fetch(targetUrl, opts);
-      }finally{
-        clearTimeout(timeout);
-      }
-      if(!res.ok){
-        const message = await res.text();
-        throw new Error(message || `Falha na API (${res.status}).`);
-      }
-      if(res.status === 204) return null;
-      return res.json();
+
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(opts.method || "GET", targetUrl, true);
+        xhr.withCredentials = true;
+        Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+        xhr.timeout = 20000;
+        xhr.onload = () => {
+          const status = xhr.status;
+          if(status >= 200 && status < 300){
+            if(status === 204 || !xhr.responseText) return resolve(null);
+            try{
+              return resolve(JSON.parse(xhr.responseText));
+            }catch(err){
+              return reject(err);
+            }
+          }
+          return reject(new Error(xhr.responseText || `Falha na API (${status}).`));
+        };
+        xhr.onerror = () => reject(new Error("Falha de rede."));
+        xhr.ontimeout = () => reject(new Error("Timeout ao chamar API."));
+        xhr.send(opts.body || null);
+      });
     }
 
     function mapPesoToNumber(peso){
