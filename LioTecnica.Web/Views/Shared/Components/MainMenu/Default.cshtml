@@ -5,13 +5,19 @@
 }
 
 <nav class="nav flex-column">
-    @foreach (var menu in Model)
+@foreach (var menu in Model)
+{
+    var openInNewTab = menu.OpenInNewTab;
+    var target = openInNewTab ? "_blank" : null;
+    var rel = openInNewTab ? "noopener" : null;
+    var tenantId = User?.FindFirst("tenant")?.Value;
+    var href = menu.Route;
+    if (!string.IsNullOrWhiteSpace(tenantId) && string.Equals(menu.Route, "/PortalVagas", StringComparison.OrdinalIgnoreCase))
     {
-        var openInNewTab = menu.OpenInNewTab;
-        var target = openInNewTab ? "_blank" : null;
-        var rel = openInNewTab ? "noopener" : null;
-        <a class="@linkClass @ViewHelpers.NavActiveByPath(ViewContext, menu.Route)" href="@menu.Route" target="@target" rel="@rel">
-            <i class="bi @menu.Icon"></i>@menu.DisplayName
-        </a>
+        href = $"{menu.Route}?tenantId={tenantId}";
     }
+    <a class="@linkClass @ViewHelpers.NavActiveByPath(ViewContext, menu.Route)" href="@href" target="@target" rel="@rel">
+        <i class="bi @menu.Icon"></i>@menu.DisplayName
+    </a>
+}
 </nav>

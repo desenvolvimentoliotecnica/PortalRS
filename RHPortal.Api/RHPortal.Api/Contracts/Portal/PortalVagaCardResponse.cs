@@ -1,0 +1,21 @@
+using RHPortal.Api.Domain.Enums;
+
+namespace RhPortal.Api.Contracts.Portal;
+
+public sealed record PortalVagaCardResponse(
+    Guid Id,
+    string Titulo,
+    string? Area,
+    VagaModalidade? Modalidade,
+    VagaTipoContratacao? TipoContratacao,
+    VagaSenioridade? Senioridade,
+    string? Cidade,
+    string? Uf,
+    string? TagsKeywordsRaw,
+    string? TagsStackRaw,
+    string? TagsResponsabilidadesRaw,
+    decimal? SalarioMinimo,
+    decimal? SalarioMaximo,
+    DateTimeOffset CreatedAtUtc,
+    string? TenantName
+);

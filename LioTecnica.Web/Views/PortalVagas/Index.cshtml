@@ -1,4 +1,5 @@
 @{ Layout = null; }
+@inject IConfiguration Configuration
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -309,271 +310,10 @@
         </section>
 
         <section class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-4" id="jobsGrid" aria-label="Lista de vagas">
-            <!-- Card 1 -->
-            <div class="col job-item"
-                 data-id="vaga-001"
-                 data-title="Desenvolvedor(a) .NET"
-                 data-company="Aurora Tech"
-                 data-location="São Paulo, SP"
-                 data-mode="Híbrido"
-                 data-type="CLT"
-                 data-level="Pleno"
-                 data-area="Engenharia"
-                 data-tags="C#, .NET, ASP.NET, PostgreSQL, Azure"
-                 data-salary-min="9000"
-                 data-salary-max="14000"
-                 data-date="2026-01-15">
-                <article class="card job-card h-100">
-                    <div class="job-hero"
-                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%231e3a8a%22/><stop offset=%221%22 stop-color=%22%230ea5e9%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><circle cx=%22720%22 cy=%22120%22 r=%22120%22 fill=%22rgba(255,255,255,0.18)%22/><circle cx=%22220%22 cy=%22300%22 r=%22160%22 fill=%22rgba(255,255,255,0.12)%22/></svg>');">
-                        <div class="job-badge-row">
-                            <span class="badge rounded-pill">Híbrido</span>
-                            <span class="badge rounded-pill">CLT</span>
-                            <span class="badge rounded-pill">Pleno</span>
-                        </div>
-                    </div>
-
-                    <div class="card-body">
-                        <h3 class="h5 fw-semibold mb-1">Desenvolvedor(a) .NET</h3>
-                        <div class="text-secondary mb-2">Aurora Tech</div>
-
-                        <div class="job-meta text-secondary small mb-3">
-                            <span>São Paulo, SP</span><span class="dot" aria-hidden="true"></span>
-                            <span>Engenharia</span>
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2 mb-2">
-                            <span class="badge text-bg-light border">C#</span>
-                            <span class="badge text-bg-light border">ASP.NET</span>
-                            <span class="badge text-bg-light border">PostgreSQL</span>
-                            <span class="badge text-bg-light border">Azure</span>
-                        </div>
-
-                        <div class="text-secondary small">Faixa: R$ 9.000 – 14.000</div>
-                        <a class="stretched-link job-link" href="#vaga-001" aria-label="Ver detalhes da vaga Desenvolvedor(a) .NET"></a>
-                    </div>
-                </article>
-            </div>
-
-            <!-- Card 2 -->
-            <div class="col job-item"
-                 data-id="vaga-002"
-                 data-title="Engenheiro(a) de Dados"
-                 data-company="Norte Analytics"
-                 data-location="Remoto (Brasil)"
-                 data-mode="Remoto"
-                 data-type="CLT"
-                 data-level="Sênior"
-                 data-area="Dados"
-                 data-tags="Python, SQL, Spark, Airflow, Databricks"
-                 data-salary-min="16000"
-                 data-salary-max="23000"
-                 data-date="2026-01-10">
-                <article class="card job-card h-100">
-                    <div class="job-hero"
-                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%230f766e%22/><stop offset=%221%22 stop-color=%22%2322c55e%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><path d=%22M0 280 C 180 220, 320 340, 520 280 S 820 220, 900 280 V 400 H 0 Z%22 fill=%22rgba(255,255,255,0.14)%22/></svg>');">
-                        <div class="job-badge-row">
-                            <span class="badge rounded-pill">Remoto</span>
-                            <span class="badge rounded-pill">CLT</span>
-                            <span class="badge rounded-pill">Sênior</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="h5 fw-semibold mb-1">Engenheiro(a) de Dados</h3>
-                        <div class="text-secondary mb-2">Norte Analytics</div>
-
-                        <div class="job-meta text-secondary small mb-3">
-                            <span>Remoto (Brasil)</span><span class="dot" aria-hidden="true"></span>
-                            <span>Dados</span>
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2 mb-2">
-                            <span class="badge text-bg-light border">Python</span>
-                            <span class="badge text-bg-light border">Spark</span>
-                            <span class="badge text-bg-light border">Airflow</span>
-                            <span class="badge text-bg-light border">SQL</span>
-                        </div>
-
-                        <div class="text-secondary small">Faixa: R$ 16.000 – 23.000</div>
-                        <a class="stretched-link job-link" href="#vaga-002" aria-label="Ver detalhes da vaga Engenheiro(a) de Dados"></a>
-                    </div>
-                </article>
-            </div>
-
-            <!-- Card 3 -->
-            <div class="col job-item"
-                 data-id="vaga-003"
-                 data-title="Product Manager"
-                 data-company="Vértice Pay"
-                 data-location="Rio de Janeiro, RJ"
-                 data-mode="Híbrido"
-                 data-type="CLT"
-                 data-level="Pleno"
-                 data-area="Produto"
-                 data-tags="Discovery, Roadmap, Métricas, Fintech, Experimentos"
-                 data-salary-min="13000"
-                 data-salary-max="18000"
-                 data-date="2026-01-05">
-                <article class="card job-card h-100">
-                    <div class="job-hero"
-                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%237c2d12%22/><stop offset=%221%22 stop-color=%22%23f97316%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><rect x=%2250%22 y=%2270%22 width=%22180%22 height=%22180%22 rx=%2224%22 fill=%22rgba(255,255,255,0.14)%22/><rect x=%22270%22 y=%22110%22 width=%22180%22 height=%22180%22 rx=%2224%22 fill=%22rgba(255,255,255,0.10)%22/></svg>');">
-                        <div class="job-badge-row">
-                            <span class="badge rounded-pill">Híbrido</span>
-                            <span class="badge rounded-pill">CLT</span>
-                            <span class="badge rounded-pill">Pleno</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="h5 fw-semibold mb-1">Product Manager</h3>
-                        <div class="text-secondary mb-2">Vértice Pay</div>
-
-                        <div class="job-meta text-secondary small mb-3">
-                            <span>Rio de Janeiro, RJ</span><span class="dot" aria-hidden="true"></span>
-                            <span>Produto</span>
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2 mb-2">
-                            <span class="badge text-bg-light border">Discovery</span>
-                            <span class="badge text-bg-light border">Métricas</span>
-                            <span class="badge text-bg-light border">Fintech</span>
-                        </div>
-
-                        <div class="text-secondary small">Faixa: R$ 13.000 – 18.000</div>
-                        <a class="stretched-link job-link" href="#vaga-003" aria-label="Ver detalhes da vaga Product Manager"></a>
-                    </div>
-                </article>
-            </div>
-
-            <!-- Card 4 -->
-            <div class="col job-item"
-                 data-id="vaga-004"
-                 data-title="Designer de Produto"
-                 data-company="Linha Clara"
-                 data-location="Curitiba, PR"
-                 data-mode="Presencial"
-                 data-type="CLT"
-                 data-level="Pleno"
-                 data-area="Design"
-                 data-tags="Figma, Design System, Acessibilidade, Pesquisa"
-                 data-salary-min="8500"
-                 data-salary-max="12500"
-                 data-date="2026-01-18">
-                <article class="card job-card h-100">
-                    <div class="job-hero"
-                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%234b0082%22/><stop offset=%221%22 stop-color=%22%23a855f7%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><circle cx=%22300%22 cy=%22180%22 r=%22140%22 fill=%22rgba(255,255,255,0.14)%22/><path d=%22M520 90 h260 v220 h-260 z%22 fill=%22rgba(255,255,255,0.10)%22/></svg>');">
-                        <div class="job-badge-row">
-                            <span class="badge rounded-pill">Presencial</span>
-                            <span class="badge rounded-pill">CLT</span>
-                            <span class="badge rounded-pill">Pleno</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="h5 fw-semibold mb-1">Designer de Produto</h3>
-                        <div class="text-secondary mb-2">Linha Clara</div>
-
-                        <div class="job-meta text-secondary small mb-3">
-                            <span>Curitiba, PR</span><span class="dot" aria-hidden="true"></span>
-                            <span>Design</span>
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2 mb-2">
-                            <span class="badge text-bg-light border">Figma</span>
-                            <span class="badge text-bg-light border">Acessibilidade</span>
-                            <span class="badge text-bg-light border">Design System</span>
-                        </div>
-
-                        <div class="text-secondary small">Faixa: R$ 8.500 – 12.500</div>
-                        <a class="stretched-link job-link" href="#vaga-004" aria-label="Ver detalhes da vaga Designer de Produto"></a>
-                    </div>
-                </article>
-            </div>
-
-            <!-- Card 5 -->
-            <div class="col job-item"
-                 data-id="vaga-005"
-                 data-title="Especialista em Segurança"
-                 data-company="Sentinel Cloud"
-                 data-location="São Paulo, SP"
-                 data-mode="Híbrido"
-                 data-type="PJ"
-                 data-level="Sênior"
-                 data-area="Segurança"
-                 data-tags="AppSec, Threat Modeling, OWASP, CI/CD"
-                 data-salary-min="20000"
-                 data-salary-max="28000"
-                 data-date="2026-01-02">
-                <article class="card job-card h-100">
-                    <div class="job-hero"
-                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%23111827%22/><stop offset=%221%22 stop-color=%22%23374151%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><path d=%22M120 320 L220 100 L320 320 Z%22 fill=%22rgba(255,255,255,0.14)%22/><path d=%22M360 320 L460 140 L560 320 Z%22 fill=%22rgba(255,255,255,0.10)%22/></svg>');">
-                        <div class="job-badge-row">
-                            <span class="badge rounded-pill">Híbrido</span>
-                            <span class="badge rounded-pill">PJ</span>
-                            <span class="badge rounded-pill">Sênior</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="h5 fw-semibold mb-1">Especialista em Segurança</h3>
-                        <div class="text-secondary mb-2">Sentinel Cloud</div>
-
-                        <div class="job-meta text-secondary small mb-3">
-                            <span>São Paulo, SP</span><span class="dot" aria-hidden="true"></span>
-                            <span>Segurança</span>
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2 mb-2">
-                            <span class="badge text-bg-light border">AppSec</span>
-                            <span class="badge text-bg-light border">OWASP</span>
-                            <span class="badge text-bg-light border">CI/CD</span>
-                        </div>
-
-                        <div class="text-secondary small">Faixa: R$ 20.000 – 28.000</div>
-                        <a class="stretched-link job-link" href="#vaga-005" aria-label="Ver detalhes da vaga Especialista em Segurança"></a>
-                    </div>
-                </article>
-            </div>
-
-            <!-- Card 6 -->
-            <div class="col job-item"
-                 data-id="vaga-006"
-                 data-title="Analista de Operações"
-                 data-company="Atlas Log"
-                 data-location="Belo Horizonte, MG"
-                 data-mode="Presencial"
-                 data-type="CLT"
-                 data-level="Júnior"
-                 data-area="Operações"
-                 data-tags="Processos, SLA, Atendimento, Rotinas"
-                 data-salary-min="3500"
-                 data-salary-max="5200"
-                 data-date="2026-01-12">
-                <article class="card job-card h-100">
-                    <div class="job-hero"
-                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%230b3b7a%22/><stop offset=%221%22 stop-color=%22%2314b8a6%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><rect x=%2250%22 y=%22240%22 width=%22800%22 height=%2290%22 rx=%2245%22 fill=%22rgba(255,255,255,0.14)%22/></svg>');">
-                        <div class="job-badge-row">
-                            <span class="badge rounded-pill">Presencial</span>
-                            <span class="badge rounded-pill">CLT</span>
-                            <span class="badge rounded-pill">Júnior</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="h5 fw-semibold mb-1">Analista de Operações</h3>
-                        <div class="text-secondary mb-2">Atlas Log</div>
-
-                        <div class="job-meta text-secondary small mb-3">
-                            <span>Belo Horizonte, MG</span><span class="dot" aria-hidden="true"></span>
-                            <span>Operações</span>
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2 mb-2">
-                            <span class="badge text-bg-light border">Processos</span>
-                            <span class="badge text-bg-light border">SLA</span>
-                            <span class="badge text-bg-light border">Atendimento</span>
-                        </div>
-
-                        <div class="text-secondary small">Faixa: R$ 3.500 – 5.200</div>
-                        <a class="stretched-link job-link" href="#vaga-006" aria-label="Ver detalhes da vaga Analista de Operações"></a>
-                    </div>
-                </article>
+            <div class="col-12 d-flex justify-content-center py-5" id="jobsLoading">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
             </div>
         </section>
     </main>
@@ -787,6 +527,11 @@
         </div>
     </div>
 
+    <script>
+      window.__portalApiUrl = "@(Configuration["Endpoints:RhApi"] ?? string.Empty)".replace(/\/$/, "");
+      window.__portalTenantId = "@(Context.Request.Query["tenantId"].ToString())";
+      window.__portalTenantFromClaim = "@(User?.FindFirst("tenant")?.Value ?? string.Empty)";
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
@@ -796,11 +541,18 @@
      * - Sem engolir erro: toda falha resulta em alerta visível.
      * - Mantém a seleção da vaga atual para preencher o modal de candidatura.
      */
-    (function () {
+    (async function () {
       const elAlert = document.getElementById("appAlert");
       const overlay = document.getElementById("loadingOverlay");
+      const apiBase = (window.__portalApiUrl || "").replace(/\/$/, "");
+      const tenantId = window.__portalTenantId
+        || window.__portalTenantFromClaim
+        || new URLSearchParams(window.location.search).get("tenantId")
+        || new URLSearchParams(window.location.search).get("tenant")
+        || "";
       const grid = document.getElementById("jobsGrid");
-      const items = Array.from(document.querySelectorAll(".job-item"));
+      const gridLoading = document.getElementById("jobsLoading");
+      let items = [];
       const resultsCount = document.getElementById("resultsCount");
       const emptyState = document.getElementById("emptyState");
 
@@ -829,6 +581,20 @@
 
       // Mantém a vaga atual selecionada (para candidatura)
       let currentJob = null;
+
+      const heroGradients = [
+        "linear-gradient(135deg, #1e3a8a, #0ea5e9)",
+        "linear-gradient(135deg, #0f766e, #22c55e)",
+        "linear-gradient(135deg, #7c3aed, #ec4899)",
+        "linear-gradient(135deg, #d97706, #f97316)",
+        "linear-gradient(135deg, #1d4ed8, #38bdf8)",
+        "linear-gradient(135deg, #4f46e5, #6366f1)"
+      ];
+
+      function setGridLoading(isLoading) {
+        if (!gridLoading) return;
+        gridLoading.classList.toggle("d-none", !isLoading);
+      }
 
       function showAppAlert(type, message) {
         // type: "success" | "danger"
@@ -870,6 +636,142 @@
       function parseNumber(value) {
         const n = Number(value);
         return Number.isFinite(n) ? n : null;
+      }
+
+      function parseTags(raw) {
+        if (!raw) return [];
+        return raw
+          .split(/[;,]/)
+          .map(x => x.trim())
+          .filter(Boolean);
+      }
+
+      function buildTags(job) {
+        const tags = [
+          ...parseTags(job.tagsKeywordsRaw),
+          ...parseTags(job.tagsStackRaw),
+          ...parseTags(job.tagsResponsabilidadesRaw)
+        ];
+        return Array.from(new Set(tags));
+      }
+
+      function formatLocation(job) {
+        const city = (job.cidade || "").trim();
+        const uf = (job.uf || "").trim();
+        if (city && uf) return `${city}, ${uf}`;
+        if (city) return city;
+        if (uf) return uf;
+        return job.modalidade || "Nao informado";
+      }
+
+      function normalizeEnum(value) {
+        return value || "Nao informado";
+      }
+
+      function buildJobCard(job, index) {
+        const tags = buildTags(job);
+        const company = job.tenantName || "Portal RH";
+        const location = formatLocation(job);
+        const mode = normalizeEnum(job.modalidade);
+        const type = normalizeEnum(job.tipoContratacao);
+        const level = normalizeEnum(job.senioridade);
+        const area = job.area || "Geral";
+        const salaryMin = job.salarioMinimo || 0;
+        const salaryMax = job.salarioMaximo || 0;
+        const createdAt = job.createdAtUtc ? new Date(job.createdAtUtc) : new Date();
+        const dateIso = createdAt.toISOString().slice(0, 10);
+
+        const col = document.createElement("div");
+        col.className = "col job-item";
+        col.dataset.id = job.id;
+        col.dataset.title = job.titulo || "Vaga";
+        col.dataset.company = company;
+        col.dataset.location = location;
+        col.dataset.mode = mode;
+        col.dataset.type = type;
+        col.dataset.level = level;
+        col.dataset.area = area;
+        col.dataset.tags = tags.join(", ");
+        col.dataset.salaryMin = String(salaryMin);
+        col.dataset.salaryMax = String(salaryMax);
+        col.dataset.date = dateIso;
+
+        const badgeHtml = [mode, type, level]
+          .filter(Boolean)
+          .map(item => `<span class="badge rounded-pill">${item}</span>`)
+          .join("");
+
+        const tagHtml = tags.slice(0, 6)
+          .map(tag => `<span class="badge text-bg-light border">${tag}</span>`)
+          .join("");
+
+        const salaryLine = salaryMax ? `Faixa: ${formatMoney(salaryMin, salaryMax)}` : "Faixa: a combinar";
+        const hero = heroGradients[index % heroGradients.length];
+
+        col.innerHTML = `
+          <article class="card job-card h-100">
+            <div class="job-hero" style="background-image:${hero};">
+              <div class="job-badge-row">
+                ${badgeHtml}
+              </div>
+            </div>
+            <div class="card-body">
+              <h3 class="h5 fw-semibold mb-1">${col.dataset.title}</h3>
+              <div class="text-secondary mb-2">${company}</div>
+              <div class="job-meta text-secondary small mb-3">
+                <span>${location}</span><span class="dot" aria-hidden="true"></span>
+                <span>${area}</span>
+              </div>
+              <div class="d-flex flex-wrap gap-2 mb-2">
+                ${tagHtml || "<span class=\"badge text-bg-light border\">Geral</span>"}
+              </div>
+              <div class="text-secondary small">${salaryLine}</div>
+              <a class="stretched-link job-link" href="#${col.dataset.id}"
+                 aria-label="Ver detalhes da vaga ${col.dataset.title}"></a>
+            </div>
+          </article>`;
+
+        return col;
+      }
+
+      async function loadJobs() {
+        if (!apiBase) {
+          showAppAlert("danger", "Nao foi possivel carregar as vagas. URL da API nao configurada.");
+          setGridLoading(false);
+          grid.replaceChildren();
+          return;
+        }
+        if (!tenantId) {
+          showAppAlert("danger", "Tenant nao informado. Use o parametro tenantId na URL.");
+          setGridLoading(false);
+          grid.replaceChildren();
+          return;
+        }
+
+        if (gridLoading) {
+          grid.replaceChildren(gridLoading);
+        }
+        setGridLoading(true);
+        try {
+          const url = `${apiBase}/api/public/vagas?tenantId=${encodeURIComponent(tenantId)}`;
+          const res = await fetch(url, { headers: { "accept": "application/json" } });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          const fragment = document.createDocumentFragment();
+          data.forEach((job, index) => {
+            fragment.appendChild(buildJobCard(job, index));
+          });
+          grid.replaceChildren();
+          grid.appendChild(fragment);
+          items = Array.from(grid.querySelectorAll(".job-item"));
+        } catch (err) {
+          console.error(err);
+          showAppAlert("danger", "Nao foi possivel carregar as vagas. Tente novamente.");
+        } finally {
+          setGridLoading(false);
+        }
       }
 
       function getFilters() {
@@ -1246,6 +1148,7 @@
 
       // Render inicial
       try {
+        await loadJobs();
         render(getFilters());
       } catch (err) {
         console.error(err);
