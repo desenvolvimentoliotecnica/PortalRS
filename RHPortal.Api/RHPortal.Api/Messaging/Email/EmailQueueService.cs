@@ -1,0 +1,122 @@
+using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Tenancy;
+
+namespace RhPortal.Api.Messaging.Email;
+
+public interface IEmailQueueService
+{
+    Task<EmailMessage> EnqueueTemplateAsync(
+        string templateName,
+        string to,
+        IReadOnlyDictionary<string, string?> tokens,
+        bool isSystem,
+        string? source,
+        CancellationToken ct);
+
+    Task<EmailMessage> EnqueueRawAsync(
+        string to,
+        string subject,
+        string bodyHtml,
+        string? bodyText,
+        bool isSystem,
+        string? source,
+        CancellationToken ct);
+}
+
+public sealed class EmailQueueService : IEmailQueueService
+{
+    private readonly AppDbContext _db;
+    private readonly ITenantContext _tenantContext;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public EmailQueueService(AppDbContext db, ITenantContext tenantContext, IHttpContextAccessor httpContextAccessor)
+    {
+        _db = db;
+        _tenantContext = tenantContext;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    public async Task<EmailMessage> EnqueueTemplateAsync(
+        string templateName,
+        string to,
+        IReadOnlyDictionary<string, string?> tokens,
+        bool isSystem,
+        string? source,
+        CancellationToken ct)
+    {
+        var template = await _db.EmailTemplates
+            .Where(x => x.Name == templateName && x.IsActive)
+            .OrderByDescending(x => x.Version)
+            .FirstOrDefaultAsync(ct);
+
+        if (template is null)
+            throw new InvalidOperationException($"Email template '{templateName}' not found.");
+
+        var subject = EmailTemplateRenderer.Render(template.SubjectTemplate, tokens);
+        var body = EmailTemplateRenderer.Render(template.BodyHtml, tokens);
+
+        var message = BuildMessage(to, subject, body, null, isSystem, source);
+        message.TemplateId = template.Id;
+        message.TemplateName = template.Name;
+        message.TemplateVersion = template.Version;
+        message.PayloadJson = EmailTemplateRenderer.ToJson(tokens);
+
+        _db.EmailMessages.Add(message);
+        await _db.SaveChangesAsync(ct);
+        return message;
+    }
+
+    public async Task<EmailMessage> EnqueueRawAsync(
+        string to,
+        string subject,
+        string bodyHtml,
+        string? bodyText,
+        bool isSystem,
+        string? source,
+        CancellationToken ct)
+    {
+        var message = BuildMessage(to, subject, bodyHtml, bodyText, isSystem, source);
+        _db.EmailMessages.Add(message);
+        await _db.SaveChangesAsync(ct);
+        return message;
+    }
+
+    private EmailMessage BuildMessage(string to, string subject, string bodyHtml, string? bodyText, bool isSystem, string? source)
+    {
+        var (userId, userName) = GetUser();
+        var now = DateTimeOffset.UtcNow;
+
+        return new EmailMessage
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            OwnerUserId = isSystem ? null : userId,
+            OwnerUserName = isSystem ? null : userName,
+            IsSystem = isSystem,
+            Source = source,
+            To = to.Trim(),
+            Subject = subject.Trim(),
+            BodyHtml = bodyHtml,
+            BodyText = bodyText,
+            Status = EmailMessageStatus.Queued,
+            AttemptCount = 0,
+            MaxAttempts = 3,
+            NextAttemptAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+    }
+
+    private (string? userId, string? userName) GetUser()
+    {
+        var user = _httpContextAccessor.HttpContext?.User;
+        if (user is null) return (null, null);
+        var id = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        var name = user.Identity?.Name ?? user.FindFirstValue(ClaimTypes.Name);
+        return (id, name);
+    }
+}

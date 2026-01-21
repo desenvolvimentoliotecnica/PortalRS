@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Contracts.Candidatos;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Controllers;
 
@@ -19,6 +22,8 @@ public sealed class PublicCandidaturasController : ControllerBase
     public async Task<ActionResult<CandidatoResponse>> Create(
         [FromForm] PortalCandidaturaRequest request,
         [FromServices] ICandidatoService service,
+        [FromServices] AppDbContext db,
+        [FromServices] IEmailQueueService emailQueue,
         CancellationToken ct)
     {
         if (request.VagaId == Guid.Empty)
@@ -53,6 +58,32 @@ public sealed class PublicCandidaturasController : ControllerBase
                     "CV enviado pelo portal",
                     request.Arquivo,
                     ct);
+            }
+
+            try
+            {
+                var candidate = await db.Candidatos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == created.Id, ct);
+                if (candidate is not null && !string.IsNullOrWhiteSpace(candidate.PortalAccessKey))
+                {
+                    var tokens = new Dictionary<string, string?>
+                    {
+                        ["Nome"] = candidate.Nome,
+                        ["VagaTitulo"] = created.VagaTitulo ?? "Vaga",
+                        ["PortalAccessKey"] = candidate.PortalAccessKey
+                    };
+
+                    await emailQueue.EnqueueTemplateAsync(
+                        "CandidaturaConfirmacao",
+                        candidate.Email,
+                        tokens,
+                        isSystem: true,
+                        source: "PortalCandidatura",
+                        ct);
+                }
+            }
+            catch
+            {
+                // Best-effort: falha no envio nao impede a candidatura.
             }
 
             return CreatedAtAction(

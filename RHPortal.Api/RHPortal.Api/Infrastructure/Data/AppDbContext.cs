@@ -45,6 +45,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<Candidato> Candidatos => Set<Candidato>();
     public DbSet<CandidatoDocumento> CandidatoDocumentos => Set<CandidatoDocumento>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
+    public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
+    public DbSet<EmailAttempt> EmailAttempts => Set<EmailAttempt>();
+    public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<InboxItem> InboxItems => Set<InboxItem>();
     public DbSet<InboxAnexo> InboxAttachments => Set<InboxAnexo>();
     public DbSet<AgendaEventType> AgendaEventTypes => Set<AgendaEventType>();
@@ -488,6 +491,59 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
             b.HasIndex(x => new { x.TenantId, x.CandidatoId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmailMessage>(b =>
+        {
+            b.ToTable("EmailMessages");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.OwnerUserId).HasMaxLength(120);
+            b.Property(x => x.OwnerUserName).HasMaxLength(200);
+            b.Property(x => x.Source).HasMaxLength(120);
+            b.Property(x => x.To).HasMaxLength(320).IsRequired();
+            b.Property(x => x.Cc).HasMaxLength(640);
+            b.Property(x => x.Bcc).HasMaxLength(640);
+            b.Property(x => x.Subject).HasMaxLength(260).IsRequired();
+            b.Property(x => x.TemplateName).HasMaxLength(120);
+            b.Property(x => x.LastError).HasMaxLength(1200);
+
+            b.HasMany(x => x.Attempts)
+                .WithOne(x => x.EmailMessage)
+                .HasForeignKey(x => x.EmailMessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.OwnerUserId });
+            b.HasIndex(x => new { x.TenantId, x.IsSystem });
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmailAttempt>(b =>
+        {
+            b.ToTable("EmailAttempts");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Provider).HasMaxLength(40).IsRequired();
+            b.Property(x => x.ErrorMessage).HasMaxLength(1200);
+            b.Property(x => x.ErrorStackTrace).HasMaxLength(2000);
+            b.HasIndex(x => new { x.TenantId, x.EmailMessageId });
+            b.HasIndex(x => new { x.TenantId, x.StartedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmailTemplate>(b =>
+        {
+            b.ToTable("EmailTemplates");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.SubjectTemplate).HasMaxLength(200).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.Name, x.Version });
+            b.HasIndex(x => new { x.TenantId, x.Name, x.IsActive });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

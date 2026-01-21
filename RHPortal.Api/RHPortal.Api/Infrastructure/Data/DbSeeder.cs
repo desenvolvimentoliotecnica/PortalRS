@@ -1646,6 +1646,120 @@ BuildDemoRequisitos(string areaCode)
             db.RoleMenus.AddRange(toAdd);
             await db.SaveChangesAsync();
         }
+
+        await EnsureEmailTemplatesAsync(db);
+        await EnsureEmailMessagesSeedAsync(db, tenantId);
+    }
+
+    private static async Task EnsureEmailTemplatesAsync(AppDbContext db)
+    {
+        var exists = await db.EmailTemplates.AnyAsync(x => x.Name == "CandidaturaConfirmacao" && x.IsActive);
+        if (exists) return;
+
+        db.EmailTemplates.Add(new EmailTemplate
+        {
+            Id = Guid.NewGuid(),
+            Name = "CandidaturaConfirmacao",
+            SubjectTemplate = "Confirmacao da sua candidatura - {{VagaTitulo}}",
+            BodyHtml = @"<div style=""font-family:Arial,sans-serif;line-height:1.6"">
+                <h2>Obrigado pela candidatura, {{Nome}}!</h2>
+                <p>Recebemos sua candidatura para a vaga <strong>{{VagaTitulo}}</strong>.</p>
+                <p>Guarde sua chave unica de acesso ao portal:</p>
+                <p style=""font-size:18px;font-weight:bold"">{{PortalAccessKey}}</p>
+                <p>Em breve voce recebera novidades sobre o processo seletivo.</p>
+                <p>Equipe RH</p>
+            </div>",
+            Version = 1,
+            IsActive = true,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureEmailMessagesSeedAsync(AppDbContext db, string tenantId)
+    {
+        var exists = await db.EmailMessages.AnyAsync(x => x.TenantId == tenantId);
+        if (exists) return;
+
+        var now = DateTimeOffset.UtcNow;
+        var random = new Random(42);
+        var subjects = new[]
+        {
+            "Confirmacao de candidatura",
+            "Convite para entrevista",
+            "Retorno sobre candidatura",
+            "Atualizacao do processo seletivo",
+            "Lembrete de documentacao",
+            "Feedback da vaga"
+        };
+
+        var sources = new[] { "portal", "sistema", "triagem", "agenda" };
+        var owners = new[]
+        {
+            new { Id = "user-1", Name = "LIOTECNICA Admin" },
+            new { Id = "user-2", Name = "Recrutadora Ana" }
+        };
+
+        var messages = new List<EmailMessage>();
+        for (var i = 0; i < 40; i++)
+        {
+            var owner = owners[random.Next(owners.Length)];
+            var isSystem = i % 7 == 0;
+            var status = (EmailMessageStatus)random.Next(0, 4);
+            var created = now.AddMinutes(-random.Next(15, 6000));
+            var attemptCount = status switch
+            {
+                EmailMessageStatus.Sent => random.Next(1, 3),
+                EmailMessageStatus.Failed => random.Next(2, 4),
+                _ => random.Next(0, 2)
+            };
+
+            var msg = new EmailMessage
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                OwnerUserId = isSystem ? null : owner.Id,
+                OwnerUserName = isSystem ? null : owner.Name,
+                IsSystem = isSystem,
+                Source = sources[random.Next(sources.Length)],
+                To = $"candidato{i + 1}@email.com",
+                Subject = subjects[random.Next(subjects.Length)],
+                BodyHtml = "<p>Mensagem de teste para validacao do layout.</p>",
+                Status = status,
+                AttemptCount = attemptCount,
+                MaxAttempts = 3,
+                NextAttemptAtUtc = status == EmailMessageStatus.Queued || status == EmailMessageStatus.InProgress
+                    ? created.AddMinutes(5)
+                    : null,
+                LastError = status == EmailMessageStatus.Failed ? "Falha ao enviar email (SMTP)." : null,
+                CreatedAtUtc = created,
+                UpdatedAtUtc = created.AddMinutes(random.Next(1, 120))
+            };
+
+            for (var a = 1; a <= attemptCount; a++)
+            {
+                var attempt = new EmailAttempt
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    EmailMessageId = msg.Id,
+                    AttemptNumber = a,
+                    Provider = "smtp",
+                    StartedAtUtc = created.AddMinutes(a),
+                    CompletedAtUtc = created.AddMinutes(a).AddSeconds(20),
+                    IsSuccess = status == EmailMessageStatus.Sent && a == attemptCount,
+                    ErrorMessage = status == EmailMessageStatus.Failed ? "Timeout no servidor SMTP." : null
+                };
+                msg.Attempts.Add(attempt);
+            }
+
+            messages.Add(msg);
+        }
+
+        db.EmailMessages.AddRange(messages);
+        await db.SaveChangesAsync();
     }
 
     private static List<Menu> BuildDefaultMenus()
@@ -1871,6 +1985,26 @@ BuildDemoRequisitos(string areaCode)
                 Icon = "bi-journal-text",
                 Order = 85,
                 PermissionKey = "logs.view",
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = "Templates de Email",
+                Route = "/Admin/EmailTemplates",
+                Icon = "bi-envelope-paper",
+                Order = 86,
+                PermissionKey = "email-templates.manage",
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = "Emails",
+                Route = "/Admin/Emails",
+                Icon = "bi-envelope",
+                Order = 87,
+                PermissionKey = "emails.manage",
                 IsActive = true
             }
         };

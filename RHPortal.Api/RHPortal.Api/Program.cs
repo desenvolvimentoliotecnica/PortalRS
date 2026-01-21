@@ -39,6 +39,7 @@ using RhPortal.Api.Infrastructure.Inbox;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Swagger;
+using RhPortal.Api.Messaging.Email;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,6 +94,12 @@ builder.Services.AddHostedService<DbLogWriterService>();
 builder.Services.Configure<InboxFolderOptions>(builder.Configuration.GetSection("InboxFolder"));
 builder.Services.AddScoped<InboxFileProcessor>();
 builder.Services.AddHostedService<InboxFolderWatcherService>();
+
+// Email messaging (queue + SMTP/SES)
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddHostedService<EmailDispatchWorker>();
 
 // PostgreSQL + EF Core
 builder.Services.AddDbContext<AppDbContext>((sp, options) =>

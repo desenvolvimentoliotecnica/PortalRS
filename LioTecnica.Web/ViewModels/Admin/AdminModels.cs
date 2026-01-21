@@ -183,3 +183,90 @@ public sealed class AccessesFormModel
 
     public List<string> SelectedPermissions { get; set; } = new();
 }
+
+public sealed record EmailTemplateListItemViewModel(
+    Guid Id,
+    string Name,
+    int Version,
+    bool IsActive,
+    string SubjectTemplate,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc
+);
+
+public sealed record EmailTemplateResponseViewModel(
+    Guid Id,
+    string Name,
+    int Version,
+    bool IsActive,
+    string SubjectTemplate,
+    string BodyHtml,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc
+);
+
+public sealed record EmailTemplateCreateViewModel(
+    [Required, MaxLength(120)] string Name,
+    [Required, MaxLength(200)] string SubjectTemplate,
+    [Required] string BodyHtml
+);
+
+public sealed record EmailTemplateUpdateViewModel(
+    [Required, MaxLength(200)] string SubjectTemplate,
+    [Required] string BodyHtml
+);
+
+public sealed record EmailMessageListItemViewModel(
+    Guid Id,
+    string To,
+    string Subject,
+    string Status,
+    int AttemptCount,
+    int MaxAttempts,
+    bool IsSystem,
+    string? OwnerUserName,
+    string? Source,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc
+);
+
+public sealed record EmailMessageListResponseViewModel(
+    IReadOnlyList<EmailMessageListItemViewModel> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    int TotalPages
+);
+
+public sealed record EmailAttemptItemViewModel(
+    Guid Id,
+    int AttemptNumber,
+    string Provider,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset? CompletedAtUtc,
+    bool IsSuccess,
+    string? ErrorMessage
+);
+
+public sealed record EmailMessageDetailViewModel(
+    Guid Id,
+    string To,
+    string Subject,
+    string BodyHtml,
+    string Status,
+    int AttemptCount,
+    int MaxAttempts,
+    bool IsSystem,
+    string? OwnerUserName,
+    string? Source,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc,
+    IReadOnlyList<EmailAttemptItemViewModel> Attempts
+);
+
+public sealed record EmailSummaryViewModel(
+    int Total,
+    int InQueue,
+    int Failed,
+    int SentToday
+);
