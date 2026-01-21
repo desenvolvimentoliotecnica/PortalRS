@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Messaging.Email;
 
@@ -10,13 +10,11 @@ public sealed class EmailDispatchWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<EmailDispatchWorker> _logger;
-    private readonly EmailOptions _options;
 
-    public EmailDispatchWorker(IServiceScopeFactory scopeFactory, ILogger<EmailDispatchWorker> logger, IOptions<EmailOptions> options)
+    public EmailDispatchWorker(IServiceScopeFactory scopeFactory, ILogger<EmailDispatchWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
-        _options = options.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -41,9 +39,12 @@ public sealed class EmailDispatchWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+        var configService = scope.ServiceProvider.GetRequiredService<IEmailConfigService>();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
 
         var now = DateTimeOffset.UtcNow;
         var pending = await db.EmailMessages
+            .IgnoreQueryFilters()
             .Where(x => (x.Status == EmailMessageStatus.Queued || x.Status == EmailMessageStatus.Failed)
                         && x.AttemptCount < x.MaxAttempts
                         && (x.NextAttemptAtUtc == null || x.NextAttemptAtUtc <= now))
@@ -53,13 +54,15 @@ public sealed class EmailDispatchWorker : BackgroundService
 
         foreach (var msg in pending)
         {
-            await SendOneAsync(db, sender, msg, ct);
+            tenantContext.SetTenantId(msg.TenantId);
+            var config = await configService.GetAsync(ct);
+            var providerName = string.IsNullOrWhiteSpace(config?.Provider) ? "smtp" : config.Provider.Trim().ToLowerInvariant();
+            await SendOneAsync(db, sender, msg, providerName, ct);
         }
     }
 
-    private async Task SendOneAsync(AppDbContext db, IEmailSender sender, EmailMessage msg, CancellationToken ct)
+    private async Task SendOneAsync(AppDbContext db, IEmailSender sender, EmailMessage msg, string providerName, CancellationToken ct)
     {
-        var providerName = string.IsNullOrWhiteSpace(_options.Provider) ? "smtp" : _options.Provider.Trim().ToLowerInvariant();
         msg.Status = EmailMessageStatus.InProgress;
         msg.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);

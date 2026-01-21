@@ -270,3 +270,54 @@ public sealed record EmailSummaryViewModel(
     int Failed,
     int SentToday
 );
+
+public sealed class EmailConfigViewModel
+{
+    public string Provider { get; set; } = "smtp";
+    public string? SmtpHost { get; set; }
+    public int SmtpPort { get; set; } = 587;
+    public bool SmtpEnableSsl { get; set; } = true;
+    public string? SmtpUserName { get; set; }
+    public bool SmtpHasPassword { get; set; }
+    public string? SmtpFromName { get; set; }
+    public string? SmtpFromAddress { get; set; }
+    public string? ImapHost { get; set; }
+    public int ImapPort { get; set; } = 993;
+    public bool ImapEnableSsl { get; set; } = true;
+    public string? ImapUserName { get; set; }
+    public bool ImapHasPassword { get; set; }
+}
+
+public sealed class EmailConfigRequest
+{
+    public string Provider { get; set; } = "smtp";
+    public string? SmtpHost { get; set; }
+    public int SmtpPort { get; set; } = 587;
+    public bool SmtpEnableSsl { get; set; } = true;
+    public string? SmtpUserName { get; set; }
+    public string? SmtpPassword { get; set; }
+    public string? SmtpFromName { get; set; }
+    public string? SmtpFromAddress { get; set; }
+    public string? ImapHost { get; set; }
+    public int ImapPort { get; set; } = 993;
+    public bool ImapEnableSsl { get; set; } = true;
+    public string? ImapUserName { get; set; }
+    public string? ImapPassword { get; set; }
+}
+
+public sealed class EmailConfigTestRequest
+{
+    public string? SmtpHost { get; set; }
+    public int? SmtpPort { get; set; }
+    public bool? SmtpEnableSsl { get; set; }
+    public string? SmtpUserName { get; set; }
+    public string? SmtpPassword { get; set; }
+    public string? FromAddress { get; set; }
+    public string? FromName { get; set; }
+    public string? TestTo { get; set; }
+    public string? ImapHost { get; set; }
+    public int? ImapPort { get; set; }
+    public bool? ImapEnableSsl { get; set; }
+    public string? ImapUserName { get; set; }
+    public string? ImapPassword { get; set; }
+}

@@ -1,0 +1,141 @@
+@{
+    ViewData["Title"] = "Configuracao de Email";
+    ViewData["SidebarSubtitle"] = "Admin";
+}
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Configuracao de Email")
+
+    <div class="d-flex align-items-center gap-2">
+        @await Html.PartialAsync("_TopbarUserMenu", "Admin")
+    </div>
+}
+
+<section class="content">
+    <div class="container-fluid pb-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div>
+                <h1 class="h4 mb-1">Configuracao SMTP/IMAP</h1>
+                <div class="text-muted">Configure envio e recebimento por tenant.</div>
+            </div>
+            <div class="d-flex gap-2">
+                <button id="btnSaveConfig" class="btn btn-brand">
+                    <i class="bi bi-save me-1"></i>Salvar
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-6">
+                <div class="card-soft p-3 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div>
+                            <p class="mini-title mb-1">SMTP</p>
+                            <div class="fw-bold">Envio de emails</div>
+                        </div>
+                        <button id="btnTestSmtp" class="btn btn-ghost btn-sm">
+                            <i class="bi bi-plug me-1"></i>Testar SMTP
+                        </button>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-12 col-md-8">
+                            <label class="form-label">Host</label>
+                            <input id="smtpHost" class="form-control" placeholder="smtp.gmail.com" />
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label">Porta</label>
+                            <input id="smtpPort" type="number" class="form-control" value="587" />
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label">SSL</label>
+                            <select id="smtpSsl" class="form-select">
+                                <option value="true" selected>Sim</option>
+                                <option value="false">Nao</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Usuario</label>
+                            <input id="smtpUser" class="form-control" placeholder="usuario@gmail.com" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Senha (App Password)</label>
+                            <input id="smtpPass" type="password" class="form-control" placeholder="********" />
+                            <div id="smtpHasPass" class="form-text text-muted"></div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">From (Nome)</label>
+                            <input id="smtpFromName" class="form-control" placeholder="Portal RH" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">From (Email)</label>
+                            <input id="smtpFromAddress" class="form-control" placeholder="usuario@gmail.com" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Email de teste</label>
+                            <input id="smtpTestTo" class="form-control" placeholder="destino@exemplo.com" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+                <div class="card-soft p-3 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div>
+                            <p class="mini-title mb-1">IMAP</p>
+                            <div class="fw-bold">Recebimento de emails</div>
+                        </div>
+                        <button id="btnTestImap" class="btn btn-ghost btn-sm">
+                            <i class="bi bi-inbox me-1"></i>Testar IMAP
+                        </button>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-12 col-md-8">
+                            <label class="form-label">Host</label>
+                            <input id="imapHost" class="form-control" placeholder="imap.gmail.com" />
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label">Porta</label>
+                            <input id="imapPort" type="number" class="form-control" value="993" />
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label">SSL</label>
+                            <select id="imapSsl" class="form-select">
+                                <option value="true" selected>Sim</option>
+                                <option value="false">Nao</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Usuario</label>
+                            <input id="imapUser" class="form-control" placeholder="usuario@gmail.com" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Senha (App Password)</label>
+                            <input id="imapPass" type="password" class="form-control" placeholder="********" />
+                            <div id="imapHasPass" class="form-text text-muted"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="~/js/views/admin-email-config.js" asp-append-version="true"></script>
+}
+
+@section Footer {
+    @{
+        var footerItems = new[]
+        {
+            new { Icon = "bi-envelope", Text = "Emails", Id = "", Class = "" },
+            new { Icon = "bi-gear", Text = "Config", Id = "", Class = "" },
+            new { Icon = "", Text = "build: web", Id = "buildId", Class = "mono muted" }
+        };
+    }
+    @await Html.PartialAsync("_Footer", footerItems)
+}

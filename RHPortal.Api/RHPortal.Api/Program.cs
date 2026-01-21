@@ -95,10 +95,11 @@ builder.Services.Configure<InboxFolderOptions>(builder.Configuration.GetSection(
 builder.Services.AddScoped<InboxFileProcessor>();
 builder.Services.AddHostedService<InboxFolderWatcherService>();
 
-// Email messaging (queue + SMTP/SES)
-builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+// Email messaging (queue + SMTP/IMAP)
+builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
+builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
 builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
-builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<EmailDispatchWorker>();
 
 // PostgreSQL + EF Core

@@ -2071,6 +2071,16 @@ BuildDemoRequisitos(string areaCode)
                 Order = 87,
                 PermissionKey = "emails.manage",
                 IsActive = true
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = "Config Email",
+                Route = "/Admin/EmailConfig",
+                Icon = "bi-gear",
+                Order = 88,
+                PermissionKey = "email-config.manage",
+                IsActive = true
             }
         };
     }

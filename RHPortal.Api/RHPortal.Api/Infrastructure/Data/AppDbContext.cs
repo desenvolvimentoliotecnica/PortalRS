@@ -45,6 +45,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<Candidato> Candidatos => Set<Candidato>();
     public DbSet<CandidatoDocumento> CandidatoDocumentos => Set<CandidatoDocumento>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
+    public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
     public DbSet<EmailAttempt> EmailAttempts => Set<EmailAttempt>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
@@ -519,6 +520,24 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasIndex(x => new { x.TenantId, x.OwnerUserId });
             b.HasIndex(x => new { x.TenantId, x.IsSystem });
             b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmailConfig>(b =>
+        {
+            b.ToTable("EmailConfigs");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Provider).HasMaxLength(20).IsRequired();
+            b.Property(x => x.SmtpHost).HasMaxLength(200);
+            b.Property(x => x.SmtpUserName).HasMaxLength(200);
+            b.Property(x => x.SmtpFromName).HasMaxLength(200);
+            b.Property(x => x.SmtpFromAddress).HasMaxLength(200);
+            b.Property(x => x.ImapHost).HasMaxLength(200);
+            b.Property(x => x.ImapUserName).HasMaxLength(200);
+
+            b.HasIndex(x => new { x.TenantId }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

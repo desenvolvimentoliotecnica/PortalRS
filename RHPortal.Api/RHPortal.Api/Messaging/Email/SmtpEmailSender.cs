@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Mail;
-using Microsoft.Extensions.Options;
 
 namespace RhPortal.Api.Messaging.Email;
 
@@ -19,30 +18,30 @@ public sealed record EmailSendRequest(
 
 public sealed class SmtpEmailSender : IEmailSender
 {
-    private readonly EmailOptions _options;
+    private readonly IEmailConfigService _configService;
 
-    public SmtpEmailSender(IOptions<EmailOptions> options)
+    public SmtpEmailSender(IEmailConfigService configService)
     {
-        _options = options.Value;
+        _configService = configService;
     }
 
     public async Task SendAsync(EmailSendRequest request, CancellationToken ct)
     {
-        var provider = (_options.Provider ?? "smtp").Trim().ToLowerInvariant();
-        var settings = provider == "ses" ? _options.Ses : _options.Smtp;
+        var config = await _configService.GetDecryptedAsync(ct);
+        if (config is null || string.IsNullOrWhiteSpace(config.SmtpHost))
+            throw new InvalidOperationException("SMTP not configured.");
 
-        if (string.IsNullOrWhiteSpace(settings.Host))
-            throw new InvalidOperationException("SMTP host not configured.");
-
-        using var client = new SmtpClient(settings.Host, settings.Port)
+        using var client = new SmtpClient(config.SmtpHost, config.SmtpPort)
         {
-            EnableSsl = settings.EnableSsl,
-            Credentials = new NetworkCredential(settings.UserName, settings.Password)
+            EnableSsl = config.SmtpEnableSsl
         };
+
+        if (!string.IsNullOrWhiteSpace(config.SmtpUserName) && !string.IsNullOrWhiteSpace(config.SmtpPassword))
+            client.Credentials = new NetworkCredential(config.SmtpUserName, config.SmtpPassword);
 
         using var msg = new MailMessage
         {
-            From = new MailAddress(settings.FromAddress, settings.FromName),
+            From = new MailAddress(config.SmtpFromAddress ?? config.SmtpUserName ?? "no-reply@localhost", config.SmtpFromName),
             Subject = request.Subject,
             Body = request.BodyHtml,
             IsBodyHtml = true

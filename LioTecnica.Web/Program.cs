@@ -142,6 +142,11 @@ builder.Services.AddHttpClient<EmailMessagesApiClient>(http =>
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
+builder.Services.AddHttpClient<EmailConfigApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
 builder.Services.AddHttpClient<AgendasApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
