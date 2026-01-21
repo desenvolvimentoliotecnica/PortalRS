@@ -306,6 +306,44 @@
 })();
 
 (() => {
+  const STORAGE_KEY = "lt_sidebar_scroll";
+  const STORAGE_KEY_MOBILE = "lt_sidebar_scroll_mobile";
+  const desktopScroll = document.querySelector(".sidebar .sidebar-scroll");
+  const mobileScroll = document.querySelector("#offcanvasSidebar .sidebar-scroll");
+
+  const restoreScroll = (el, key) => {
+    if (!el) return;
+    const raw = sessionStorage.getItem(key);
+    const value = raw ? Number(raw) : 0;
+    if (!Number.isFinite(value) || value <= 0) return;
+    requestAnimationFrame(() => {
+      el.scrollTop = value;
+    });
+  };
+
+  const bindScroll = (el, key) => {
+    if (!el) return;
+    el.addEventListener("scroll", () => {
+      sessionStorage.setItem(key, String(el.scrollTop));
+    });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      restoreScroll(desktopScroll, STORAGE_KEY);
+      restoreScroll(mobileScroll, STORAGE_KEY_MOBILE);
+      bindScroll(desktopScroll, STORAGE_KEY);
+      bindScroll(mobileScroll, STORAGE_KEY_MOBILE);
+    }, { once: true });
+  } else {
+    restoreScroll(desktopScroll, STORAGE_KEY);
+    restoreScroll(mobileScroll, STORAGE_KEY_MOBILE);
+    bindScroll(desktopScroll, STORAGE_KEY);
+    bindScroll(mobileScroll, STORAGE_KEY_MOBILE);
+  }
+})();
+
+(() => {
   const root = document.getElementById("footerHealth");
   if (!root) return;
 
