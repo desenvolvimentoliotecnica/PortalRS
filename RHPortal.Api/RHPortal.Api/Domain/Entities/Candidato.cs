@@ -34,6 +34,9 @@ public sealed class Candidato : ITenantEntity
 
     public string? CvText { get; set; }
 
+    [StringLength(80)]
+    public string? PortalAccessKey { get; set; }
+
     public int? LastMatchScore { get; set; }
     public bool? LastMatchPass { get; set; }
     public DateTimeOffset? LastMatchAtUtc { get; set; }

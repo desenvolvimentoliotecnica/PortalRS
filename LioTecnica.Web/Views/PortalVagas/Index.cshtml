@@ -8,6 +8,7 @@
     <title>Portal de Vagas</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         :root {
@@ -450,10 +451,20 @@
                                 <div class="invalid-feedback">Informe um telefone para contato.</div>
                             </div>
 
+                                                        <div class="col-12 col-md-6">
+                                <label for="candidateUf" class="form-label">UF</label>
+                                <select id="candidateUf" name="candidateUf" class="form-select" required>
+                                    <option value="" selected>Selecione</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione a UF.</div>
+                            </div>
+
                             <div class="col-12 col-md-6">
-                                <label for="candidateLocation" class="form-label">Cidade/UF</label>
-                                <input id="candidateLocation" name="candidateLocation" class="form-control" type="text" required placeholder="Ex.: São Paulo, SP" />
-                                <div class="invalid-feedback">Informe sua localização.</div>
+                                <label for="candidateCity" class="form-label">Cidade</label>
+                                <select id="candidateCity" name="candidateCity" class="form-select" required disabled>
+                                    <option value="" selected>Selecione a UF primeiro</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione a cidade.</div>
                             </div>
 
                             <div class="col-12 col-md-6">
@@ -480,10 +491,10 @@
                                 <div class="invalid-feedback">Informe um número válido.</div>
                             </div>
 
-                            <div class="col-12 col-md-6">
-                                <label for="salaryExpectation" class="form-label">Pretensão (R$)</label>
-                                <input id="salaryExpectation" name="salaryExpectation" class="form-control" type="number" min="0" step="500" required placeholder="Ex.: 12000" />
-                                <div class="invalid-feedback">Informe sua pretensão salarial.</div>
+                                                        <div class="col-12 col-md-6">
+                                <label for="salaryExpectation" class="form-label">Pretensao (R$)</label>
+                                <input id="salaryExpectation" name="salaryExpectation" class="form-control" type="text" required placeholder="Ex.: 12000" />
+                                <div class="invalid-feedback">Informe sua pretensao salarial.</div>
                             </div>
 
                             <div class="col-12 col-md-6">
@@ -598,6 +609,11 @@
 
       const attachmentInput = document.getElementById("attachment");
       const attachmentInvalid = document.getElementById("attachmentInvalid");
+      const ufSelect = document.getElementById("candidateUf");
+      const citySelect = document.getElementById("candidateCity");
+      const phoneInput = document.getElementById("phone");
+      const salaryInput = document.getElementById("salaryExpectation");
+      const emailInput = document.getElementById("email");
 
       let currentSort = "recent";
       const pageSize = 12;
@@ -654,6 +670,126 @@
         sendBtn.disabled = isLoading;
         sendBtnSpinner.classList.toggle("d-none", !isLoading);
         sendBtnText.textContent = isLoading ? "Enviando..." : "Enviar candidatura";
+      }
+
+      const UF_OPTIONS = [
+        "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
+        "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
+        "RS","RO","RR","SC","SP","SE","TO"
+      ];
+
+      function populateUfSelect() {
+        if (!ufSelect) return;
+        ufSelect.innerHTML = '<option value="" selected>Selecione</option>';
+        UF_OPTIONS.forEach(uf => {
+          const opt = document.createElement("option");
+          opt.value = uf;
+          opt.textContent = uf;
+          ufSelect.appendChild(opt);
+        });
+      }
+
+      function setCityLoading(label, disabled = true) {
+        if (!citySelect) return;
+        citySelect.disabled = disabled;
+        citySelect.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = label;
+        citySelect.appendChild(opt);
+      }
+
+      async function loadCitiesForUf(uf) {
+        if (!uf) {
+          setCityLoading("Selecione a UF primeiro", true);
+          return;
+        }
+        setCityLoading("Carregando municipios...", true);
+        try {
+          const url = `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const cities = (Array.isArray(data) ? data : [])
+            .map(x => x?.nome)
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b, "pt-BR"));
+          citySelect.disabled = false;
+          citySelect.innerHTML = '<option value="" selected>Selecione</option>';
+          cities.forEach(name => {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            citySelect.appendChild(opt);
+          });
+        } catch (err) {
+          console.error(err);
+          setCityLoading("Nao foi possivel carregar cidades", true);
+        }
+      }
+
+      function digitsOnly(value) {
+        return (value || "").replace(/\D/g, "");
+      }
+
+      function formatPhone(value) {
+        const digits = digitsOnly(value).slice(0, 11);
+        if (!digits) return "";
+        const ddd = digits.slice(0, 2);
+        const part1 = digits.length > 2 ? digits.slice(2, digits.length > 6 ? 7 : 6) : "";
+        const part2 = digits.length > 6 ? digits.slice(7) : "";
+        if (digits.length <= 6) return `(${ddd}) ${digits.slice(2)}`;
+        return `(${ddd}) ${part1}-${part2}`;
+      }
+
+      function formatMoneyInput(value) {
+        const digits = digitsOnly(value);
+        if (!digits) return "";
+        const num = Number(digits);
+        if (!Number.isFinite(num)) return "";
+        return num.toLocaleString("pt-BR");
+      }
+
+      function setupApplyMasks() {
+        if (phoneInput) {
+          phoneInput.addEventListener("input", () => {
+            const formatted = formatPhone(phoneInput.value);
+            phoneInput.value = formatted;
+            const digits = digitsOnly(formatted);
+            phoneInput.setCustomValidity(digits.length >= 10 ? "" : "Telefone invalido.");
+          });
+        }
+
+        if (salaryInput) {
+          salaryInput.addEventListener("input", () => {
+            const digits = digitsOnly(salaryInput.value);
+            salaryInput.dataset.raw = digits;
+            salaryInput.value = formatMoneyInput(digits);
+            salaryInput.setCustomValidity(digits ? "" : "Pretensao invalida.");
+          });
+        }
+
+        if (emailInput) {
+          emailInput.addEventListener("input", () => {
+            // Reseta custom validity e deixa o browser validar o formato
+            emailInput.setCustomValidity("");
+          });
+        }
+      }
+
+      function scrollToFirstInvalid() {
+        const invalid = applyForm.querySelector(":invalid");
+        if (!invalid) {
+          applyModalEl?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+          return;
+        }
+        invalid.scrollIntoView({ behavior: "smooth", block: "center" });
+        invalid.focus({ preventScroll: true });
+      }
+
+      function resetApplyLocation() {
+        populateUfSelect();
+        setCityLoading("Selecione a UF primeiro", true);
       }
 
       function normalize(str) {
@@ -973,6 +1109,8 @@
         applyForm.classList.remove("was-validated");
         applyForm.reset();
         setSendLoading(false);
+        resetApplyLocation();
+        if (salaryInput) salaryInput.dataset.raw = "";
 
         document.getElementById("applyJobTitle").value = currentJob.dataset.title;
         document.getElementById("applyCompany").value = currentJob.dataset.company;
@@ -997,6 +1135,124 @@
 
       jobModalApplyBtn.addEventListener("click", () => {
         openApplyModalFromCurrentJob();
+      });
+
+      function validateAttachment() {
+        const file = attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
+        attachmentInput.classList.remove("is-invalid");
+
+        if (!file) return true;
+
+        const maxBytes = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxBytes) {
+          attachmentInvalid.textContent = "O arquivo excede 5MB. Selecione um arquivo menor.";
+          attachmentInput.classList.add("is-invalid");
+          return false;
+        }
+
+        const allowedExt = [".pdf", ".doc", ".docx"];
+        const name = (file.name || "").toLowerCase();
+        const okExt = allowedExt.some(ext => name.endsWith(ext));
+
+        if (!okExt) {
+          attachmentInvalid.textContent = "Formato nao aceito. Use PDF, DOC ou DOCX.";
+          attachmentInput.classList.add("is-invalid");
+          return false;
+        }
+
+        return true;
+      }
+
+      attachmentInput.addEventListener("change", () => {
+        try {
+          validateAttachment();
+        } catch (err) {
+          console.error(err);
+          showApplyAlert("Nao foi possivel validar o arquivo selecionado.");
+        }
+      });
+
+      applyForm.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        try {
+          clearApplyAlert();
+          applyForm.classList.add("was-validated");
+
+          const isFormValid = applyForm.checkValidity();
+          const isAttachmentValid = validateAttachment();
+
+          if (!isFormValid || !isAttachmentValid) {
+            showApplyAlert("Revise os campos destacados antes de enviar.");
+            scrollToFirstInvalid();
+            return;
+          }
+
+          setSendLoading(true);
+
+          const formData = new FormData();
+          formData.append("vagaId", currentJob?.dataset?.id || "");
+          formData.append("nome", document.getElementById("fullName").value || "");
+          formData.append("email", document.getElementById("email").value || "");
+          formData.append("fone", document.getElementById("phone").value || "");
+          const uf = document.getElementById("candidateUf").value || "";
+          const city = document.getElementById("candidateCity").value || "";
+          const cidadeUf = (city && uf) ? `${city}, ${uf}` : (city || uf);
+          formData.append("cidadeUf", cidadeUf);
+          formData.append("linkedin", document.getElementById("linkedin").value || "");
+          formData.append("portfolio", document.getElementById("portfolio").value || "");
+          formData.append("cargoAtual", document.getElementById("currentRole").value || "");
+          formData.append("anosExperiencia", document.getElementById("experienceYears").value || "");
+
+          const obsParts = [];
+          const highlights = document.getElementById("highlights").value || "";
+          const notes = document.getElementById("recruiterNotes").value || "";
+          const salaryRaw = salaryInput?.dataset?.raw || digitsOnly(salaryInput?.value || "");
+          const salary = salaryRaw ? `R$ ${Number(salaryRaw).toLocaleString("pt-BR")}` : "";
+          const availability = document.getElementById("availability").value || "";
+
+          if (highlights) obsParts.push(`Resumo: ${highlights}`);
+          if (notes) obsParts.push(`Info: ${notes}`);
+          if (salary) obsParts.push(`Pretensao salarial: ${salary}`);
+          if (availability) obsParts.push(`Disponibilidade: ${availability}`);
+
+          formData.append("observacoes", obsParts.join(" | "));
+
+          if (attachmentInput.files?.[0]) {
+            formData.append("arquivo", attachmentInput.files[0]);
+          }
+
+          const url = `${apiBase}/api/public/candidaturas?tenantId=${encodeURIComponent(tenantId)}`;
+          const response = await fetch(url, {
+            method: "POST",
+            body: formData
+          });
+
+          if (!response.ok) {
+            const body = await response.text();
+            throw new Error(body || `HTTP ${response.status}`);
+          }
+
+          applyModal.hide();
+          if (window.Swal && typeof window.Swal.fire === "function") {
+            window.Swal.fire({
+              icon: "success",
+              title: "Candidatura enviada",
+              text: "Em breve voce recebera um email com uma chave unica para acessar o portal futuramente.",
+              confirmButtonText: "Ok"
+            });
+          } else {
+            showAppAlert("success", "Candidatura enviada com sucesso. Voce recebera um email com uma chave unica para acessar o portal futuramente.");
+          }
+
+          document.querySelector("main")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (err) {
+          console.error(err);
+          showApplyAlert("Ocorreu um erro ao enviar sua candidatura. Tente novamente.");
+        } finally {
+          setSendLoading(false);
+        }
       });
 
       // Aplicar filtros
@@ -1056,6 +1312,15 @@
           showAppAlert("danger", "Ocorreu um erro ao ordenar os resultados. Tente novamente.");
         }
       });
+
+      if (ufSelect) {
+        ufSelect.addEventListener("change", () => {
+          loadCitiesForUf(ufSelect.value);
+        });
+      }
+
+      setupApplyMasks();
+      resetApplyLocation();
 
       // Render inicial
       try {

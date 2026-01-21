@@ -437,6 +437,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Cidade).HasMaxLength(120);
             b.Property(x => x.Uf).HasMaxLength(2);
             b.Property(x => x.Obs).HasMaxLength(2000);
+            b.Property(x => x.PortalAccessKey).HasMaxLength(80);
 
             b.HasIndex(x => new { x.TenantId, x.Email });
             b.HasIndex(x => new { x.TenantId, x.VagaId });

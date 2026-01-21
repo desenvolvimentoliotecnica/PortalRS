@@ -65,6 +65,26 @@
       el.textContent = (value ?? fallback);
     }
 
+    function setTextLines(root, role, value){
+      if(!root) return;
+      const el = root.querySelector(`[data-role="${role}"]`);
+      if(!el) return;
+      const raw = (value ?? "").toString();
+      const parts = raw
+        .split(/\r?\n|\s*\|\s*/g)
+        .map(item => item.trim())
+        .filter(Boolean);
+      if(!parts.length){
+        el.textContent = EMPTY_TEXT;
+        return;
+      }
+      el.replaceChildren(...parts.map(text => {
+        const line = document.createElement("div");
+        line.textContent = text;
+        return line;
+      }));
+    }
+
     function buildStatusTag(status){
       const key = (status || "").toString().toLowerCase();
       const map = {
@@ -774,7 +794,7 @@
       toggleRole(root, "detail-vaga-code-wrap", !!v);
       toggleRole(root, "detail-vaga-thr-wrap", !!v);
 
-      setText(root, "detail-obs", c.obs);
+      setTextLines(root, "detail-obs", c.obs);
 
       const statusSel = root.querySelector("#detailStatus");
       fillSelectFromEnum(statusSel, "candidatoStatus", c.status);

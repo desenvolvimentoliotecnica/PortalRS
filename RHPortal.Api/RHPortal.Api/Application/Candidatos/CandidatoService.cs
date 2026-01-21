@@ -127,7 +127,8 @@ public sealed class CandidatoService : ICandidatoService
             Status = request.Status,
             VagaId = request.VagaId,
             Obs = TrimOrNull(request.Obs),
-            CvText = TrimOrNull(request.CvText)
+            CvText = TrimOrNull(request.CvText),
+            PortalAccessKey = GeneratePortalAccessKey()
         };
 
         entity.Documentos = BuildDocumentos(request.Documentos, entity.Id);
@@ -329,6 +330,12 @@ public sealed class CandidatoService : ICandidatoService
     {
         var exists = await _db.Vagas.AnyAsync(v => v.Id == vagaId, ct);
         if (!exists) throw new InvalidOperationException("Vaga invalida.");
+    }
+
+    private static string GeneratePortalAccessKey()
+    {
+        var raw = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        return raw.TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
     private static CandidatoResponse MapToResponse(Candidato c)
