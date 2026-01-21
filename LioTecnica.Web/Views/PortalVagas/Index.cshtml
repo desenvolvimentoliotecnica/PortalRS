@@ -111,6 +111,24 @@
                 transform: translateY(-1px);
             }
 
+
+        .filters-form {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .filters-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: .25rem;
+        }
+
+        .filters-footer {
+            border-top: 1px solid rgba(0,0,0,.08);
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
         .empty-state {
             border: 1px dashed rgba(0,0,0,.20);
             border-radius: .75rem;
@@ -179,92 +197,94 @@
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
         </div>
 
-        <div class="offcanvas-body">
-            <form id="filtersForm" novalidate>
-                <div class="mb-3">
-                    <label for="q" class="form-label">Buscar</label>
-                    <input id="q" name="q" type="search" class="form-control"
-                           placeholder="Cargo, empresa, tecnologia..."
-                           autocomplete="off" />
-                    <div class="form-text" id="qHint">Dica: “C#”, “Produto”, “Dados”, “UX”.</div>
+        <div class="offcanvas-body d-flex flex-column">
+            <form id="filtersForm" novalidate class="filters-form">
+                <div class="filters-scroll">
+                    <div class="mb-3">
+                        <label for="q" class="form-label">Buscar</label>
+                        <input id="q" name="q" type="search" class="form-control"
+                               placeholder="Cargo, empresa, tecnologia..."
+                               autocomplete="off" />
+                        <div class="form-text" id="qHint">Dica: &ldquo;C#&rdquo;, &ldquo;Produto&rdquo;, &ldquo;Dados&rdquo;, &ldquo;UX&rdquo;.</div>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label for="location" class="form-label">Local</label>
+                            <select id="location" name="location" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>S&atilde;o Paulo, SP</option>
+                                <option>Rio de Janeiro, RJ</option>
+                                <option>Belo Horizonte, MG</option>
+                                <option>Curitiba, PR</option>
+                                <option>Remoto (Brasil)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="mode" class="form-label">Formato</label>
+                            <select id="mode" name="mode" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>Remoto</option>
+                                <option>H&iacute;brido</option>
+                                <option>Presencial</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="type" class="form-label">Tipo</label>
+                            <select id="type" name="type" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>CLT</option>
+                                <option>PJ</option>
+                                <option>Est&aacute;gio</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="level" class="form-label">Senioridade</label>
+                            <select id="level" name="level" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>J&uacute;nior</option>
+                                <option>Pleno</option>
+                                <option>S&ecirc;nior</option>
+                                <option>Lideran&ccedil;a</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="area" class="form-label">&Aacute;rea</label>
+                            <select id="area" name="area" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>Engenharia</option>
+                                <option>Dados</option>
+                                <option>Produto</option>
+                                <option>Design</option>
+                                <option>Seguran&ccedil;a</option>
+                                <option>Opera&ccedil;&otilde;es</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="mb-3">
+                        <label for="minSalary" class="form-label">Sal&aacute;rio m&iacute;nimo (R$)</label>
+                        <input id="minSalary" name="minSalary" type="number" class="form-control"
+                               inputmode="numeric" min="0" step="500" placeholder="Ex.: 8000" />
+                        <div class="form-text">Filtra por vagas cuja faixa m&aacute;xima seja compat&iacute;vel</div>
+                    </div>
+
+                    <div class="mt-4 small text-secondary" aria-hidden="true">
+                        Use Tab para navegar e Enter para aplicar.
+                    </div>
                 </div>
 
-                <div class="row g-2">
-                    <div class="col-12">
-                        <label for="location" class="form-label">Local</label>
-                        <select id="location" name="location" class="form-select">
-                            <option value="">Qualquer</option>
-                            <option>São Paulo, SP</option>
-                            <option>Rio de Janeiro, RJ</option>
-                            <option>Belo Horizonte, MG</option>
-                            <option>Curitiba, PR</option>
-                            <option>Remoto (Brasil)</option>
-                        </select>
-                    </div>
-
-                    <div class="col-12">
-                        <label for="mode" class="form-label">Formato</label>
-                        <select id="mode" name="mode" class="form-select">
-                            <option value="">Qualquer</option>
-                            <option>Remoto</option>
-                            <option>Híbrido</option>
-                            <option>Presencial</option>
-                        </select>
-                    </div>
-
-                    <div class="col-12">
-                        <label for="type" class="form-label">Tipo</label>
-                        <select id="type" name="type" class="form-select">
-                            <option value="">Qualquer</option>
-                            <option>CLT</option>
-                            <option>PJ</option>
-                            <option>Estágio</option>
-                        </select>
-                    </div>
-
-                    <div class="col-12">
-                        <label for="level" class="form-label">Senioridade</label>
-                        <select id="level" name="level" class="form-select">
-                            <option value="">Qualquer</option>
-                            <option>Júnior</option>
-                            <option>Pleno</option>
-                            <option>Sênior</option>
-                            <option>Liderança</option>
-                        </select>
-                    </div>
-
-                    <div class="col-12">
-                        <label for="area" class="form-label">Área</label>
-                        <select id="area" name="area" class="form-select">
-                            <option value="">Qualquer</option>
-                            <option>Engenharia</option>
-                            <option>Dados</option>
-                            <option>Produto</option>
-                            <option>Design</option>
-                            <option>Segurança</option>
-                            <option>Operações</option>
-                        </select>
-                    </div>
-                </div>
-
-                <hr class="my-4">
-
-                <div class="mb-3">
-                    <label for="minSalary" class="form-label">Salário mínimo (R$)</label>
-                    <input id="minSalary" name="minSalary" type="number" class="form-control"
-                           inputmode="numeric" min="0" step="500" placeholder="Ex.: 8000" />
-                    <div class="form-text">Filtra por vagas cuja faixa máxima seja compatível.</div>
-                </div>
-
-                <div class="d-grid gap-2">
+                <div class="filters-footer d-grid gap-2">
                     <button id="applyBtn" class="btn btn-primary" type="submit">Aplicar</button>
                     <button id="clearBtn" class="btn btn-outline-secondary" type="button">Limpar filtros</button>
                 </div>
             </form>
-
-            <div class="mt-4 small text-secondary" aria-hidden="true">
-                Use Tab para navegar e Enter para aplicar.
-            </div>
         </div>
     </div>
 
@@ -308,14 +328,14 @@
             <p class="text-secondary mb-3">Tente remover alguns filtros ou refinar o texto de busca.</p>
             <button class="btn btn-outline-secondary" type="button" id="emptyClearBtn">Limpar filtros</button>
         </section>
-
-        <section class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-4" id="jobsGrid" aria-label="Lista de vagas">
+<section class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-4" id="jobsGrid" aria-label="Lista de vagas">
             <div class="col-12 d-flex justify-content-center py-5" id="jobsLoading">
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Carregando...</span>
                 </div>
             </div>
         </section>
+        <div id="jobsSentinel" class="py-2"></div>
     </main>
 
     <!-- Modal de detalhes -->
@@ -551,6 +571,7 @@
         || new URLSearchParams(window.location.search).get("tenant")
         || "";
       const grid = document.getElementById("jobsGrid");
+      const sentinel = document.getElementById("jobsSentinel");
       const gridLoading = document.getElementById("jobsLoading");
       let items = [];
       const resultsCount = document.getElementById("resultsCount");
@@ -559,6 +580,7 @@
       const filtersForm = document.getElementById("filtersForm");
       const clearBtn = document.getElementById("clearBtn");
       const emptyClearBtn = document.getElementById("emptyClearBtn");
+      const filtersDrawerEl = document.getElementById("filtersDrawer");
 
       const jobModalEl = document.getElementById("jobModal");
       const jobModal = new bootstrap.Modal(jobModalEl, { backdrop: true, keyboard: true });
@@ -578,6 +600,11 @@
       const attachmentInvalid = document.getElementById("attachmentInvalid");
 
       let currentSort = "recent";
+      const pageSize = 12;
+      let currentPage = 1;
+      let totalPages = 1;
+      let totalItems = 0;
+      let isLoadingPage = false;
 
       // Mantém a vaga atual selecionada (para candidatura)
       let currentJob = null;
@@ -668,6 +695,18 @@
         return value || "Nao informado";
       }
 
+      function closeFiltersDrawer() {
+        if (!filtersDrawerEl) return;
+        const instance = bootstrap.Offcanvas.getInstance(filtersDrawerEl)
+          || new bootstrap.Offcanvas(filtersDrawerEl);
+        instance.hide();
+      }
+
+      function formatMoney(min, max) {
+        const f = (n) => Number(n || 0).toLocaleString("pt-BR");
+        return `R$ ${f(min)} - ${f(max)}`;
+      }
+
       function buildJobCard(job, index) {
         const tags = buildTags(job);
         const company = job.tenantName || "Portal RH";
@@ -734,7 +773,7 @@
         return col;
       }
 
-      async function loadJobs() {
+      async function loadJobs(reset = false) {
         if (!apiBase) {
           showAppAlert("danger", "Nao foi possivel carregar as vagas. URL da API nao configurada.");
           setGridLoading(false);
@@ -747,30 +786,53 @@
           grid.replaceChildren();
           return;
         }
+        if (isLoadingPage) return;
 
-        if (gridLoading) {
-          grid.replaceChildren(gridLoading);
+        if (reset) {
+          currentPage = 1;
+          totalPages = 1;
+          totalItems = 0;
+          if (gridLoading) {
+            grid.replaceChildren(gridLoading);
+          } else {
+            grid.replaceChildren();
+          }
         }
+
+        isLoadingPage = true;
         setGridLoading(true);
         try {
-          const url = `${apiBase}/api/public/vagas?tenantId=${encodeURIComponent(tenantId)}`;
+          const query = buildQuery();
+          const url = `${apiBase}/api/public/vagas?tenantId=${encodeURIComponent(tenantId)}&${query}`;
           const res = await fetch(url, { headers: { "accept": "application/json" } });
           if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
+            const body = await res.text();
+            throw new Error(`HTTP ${res.status} ${res.statusText} :: ${body}`);
           }
           const data = await res.json();
+          if (!data || !Array.isArray(data.items)) {
+            throw new Error("Resposta invalida da API.");
+          }
+          totalItems = data.totalItems ?? 0;
+          totalPages = data.totalPages ?? 1;
+
           const fragment = document.createDocumentFragment();
-          data.forEach((job, index) => {
-            fragment.appendChild(buildJobCard(job, index));
+          (data.items || []).forEach((job, index) => {
+            fragment.appendChild(buildJobCard(job, index + (currentPage - 1) * pageSize));
           });
-          grid.replaceChildren();
+          if (reset) {
+            grid.replaceChildren();
+          }
           grid.appendChild(fragment);
           items = Array.from(grid.querySelectorAll(".job-item"));
+          render();
         } catch (err) {
           console.error(err);
-          showAppAlert("danger", "Nao foi possivel carregar as vagas. Tente novamente.");
+          const message = err && err.message ? err.message : "Erro desconhecido";
+          showAppAlert("danger", `Nao foi possivel carregar as vagas. ${message}`);
         } finally {
           setGridLoading(false);
+          isLoadingPage = false;
         }
       }
 
@@ -786,114 +848,73 @@
         return { q, location, mode, type, level, area, minSalary };
       }
 
+      function buildQuery() {
+        const filters = getFilters();
+        const params = new URLSearchParams();
+        if (filters.q) params.set("q", filters.q);
+        if (filters.location) params.set("location", filters.location);
+        if (filters.mode) params.set("mode", filters.mode);
+        if (filters.type) params.set("type", filters.type);
+        if (filters.level) params.set("level", filters.level);
+        if (filters.area) params.set("area", filters.area);
+        if (filters.minSalary !== null) params.set("minSalary", filters.minSalary);
+        params.set("sort", currentSort);
+        params.set("page", currentPage);
+        params.set("pageSize", pageSize);
+        return params.toString();
+      }
+
       function matchesFilters(item, f) {
-        const haystack = normalize(
-          item.dataset.title + " " + item.dataset.company + " " + item.dataset.tags
-        );
-
-        if (f.q && !haystack.includes(f.q)) return false;
-        if (f.location && item.dataset.location !== f.location) return false;
-        if (f.mode && item.dataset.mode !== f.mode) return false;
-        if (f.type && item.dataset.type !== f.type) return false;
-        if (f.level && item.dataset.level !== f.level) return false;
-        if (f.area && item.dataset.area !== f.area) return false;
-
-        if (f.minSalary !== null) {
-          const max = parseNumber(item.dataset.salaryMax);
-          if (max === null) return false;
-          if (max < f.minSalary) return false;
-        }
-
         return true;
       }
 
       function sortItems(visibleItems) {
-        const sorted = [...visibleItems];
-
-        if (currentSort === "recent") {
-          sorted.sort((a, b) => (b.dataset.date || "").localeCompare(a.dataset.date || ""));
-        } else if (currentSort === "salaryDesc") {
-          sorted.sort((a, b) => (Number(b.dataset.salaryMax) || 0) - (Number(a.dataset.salaryMax) || 0));
-        } else if (currentSort === "companyAsc") {
-          sorted.sort((a, b) => (a.dataset.company || "").localeCompare(b.dataset.company || "", "pt-BR"));
-        }
-
-        return sorted;
+        return visibleItems;
       }
 
       function render(filters) {
-        clearAppAlert();
-
-        const visible = items.filter(i => matchesFilters(i, filters));
-        const sorted = sortItems(visible);
-
-        const fragment = document.createDocumentFragment();
-        sorted.forEach(el => fragment.appendChild(el));
-        items
-          .filter(el => !visible.includes(el))
-          .forEach(el => fragment.appendChild(el));
-
-        grid.appendChild(fragment);
-
-        items.forEach(el => {
-          el.classList.toggle("d-none", !visible.includes(el));
-        });
-
-        resultsCount.textContent = String(visible.length);
-        emptyState.classList.toggle("d-none", visible.length !== 0);
+        resultsCount.textContent = String(totalItems);
+        emptyState.classList.toggle("d-none", totalItems !== 0);
       }
 
       function resetFilters() {
         filtersForm.reset();
         currentSort = "recent";
-        render(getFilters());
       }
 
-      function formatMoney(min, max) {
-        const f = (n) => n.toLocaleString("pt-BR");
-        return `R$ ${f(min)} – ${f(max)}`;
+      function resetPaging() {
+        currentPage = 1;
+        totalPages = 1;
+        totalItems = 0;
+      }
+
+      function loadMore() {
+        if (currentPage >= totalPages) return;
+        currentPage += 1;
+        loadJobs();
+      }
+
+      if (sentinel) {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              loadMore();
+            }
+          });
+        }, { rootMargin: "200px" });
+        observer.observe(sentinel);
       }
 
       function buildSummary(item) {
         const title = item.dataset.title;
         const company = item.dataset.company;
         const tags = (item.dataset.tags || "").split(",").map(x => x.trim()).filter(Boolean);
-        return `${title} em ${company}, com foco em ${tags.slice(0, 3).join(", ")}. Atuação ${item.dataset.mode.toLowerCase()} e colaboração com time multidisciplinar para entregar valor contínuo.`;
-      }
-
-      function buildResponsibilities(item) {
-        const area = item.dataset.area;
-        const base = [
-          "Participar de planejamento e refinamento, alinhando escopo e qualidade",
-          "Implementar melhorias com atenção a performance, segurança e manutenção",
-          "Garantir comunicação clara com áreas parceiras e registrar decisões relevantes"
-        ];
-
-        if (area === "Engenharia") {
-          base.unshift("Desenvolver e evoluir serviços e interfaces com testes e revisão de código");
-          base.push("Apoiar observabilidade (logs/métricas) e correção de incidentes com causa raiz");
-        } else if (area === "Dados") {
-          base.unshift("Construir e manter pipelines e modelos de dados com rastreabilidade");
-          base.push("Definir padrões de qualidade e monitoramento de dados (alertas e validações)");
-        } else if (area === "Produto") {
-          base.unshift("Conduzir discovery, alinhar objetivos e priorizar roadmap orientado a métricas");
-          base.push("Desenhar e acompanhar experimentos, com aprendizado documentado");
-        } else if (area === "Design") {
-          base.unshift("Desenhar fluxos e interfaces com acessibilidade e consistência visual");
-          base.push("Evoluir design system e conduzir pesquisa com usuários quando necessário");
-        } else if (area === "Segurança") {
-          base.unshift("Atuar em AppSec e revisão de riscos (ameaças e vulnerabilidades)");
-          base.push("Definir guardrails de segurança em CI/CD e apoiar squads na adoção");
-        } else if (area === "Operações") {
-          base.unshift("Padronizar rotinas e processos para elevar eficiência e previsibilidade");
-          base.push("Acompanhar indicadores e sugerir melhorias contínuas (SLA/qualidade)");
-        }
-
-        return base.slice(0, 6);
+        if (!tags.length) return `${title} em ${company}.`;
+        return `${title} em ${company}, com foco em ${tags.slice(0, 3).join(", ")}.`;
       }
 
       function openJobModal(item) {
-        currentJob = item; // seleciona vaga atual
+        currentJob = item;
 
         document.getElementById("jobModalLabel").textContent = item.dataset.title;
         document.getElementById("jobModalCompany").textContent = item.dataset.company;
@@ -907,7 +928,7 @@
 
         const min = Number(item.dataset.salaryMin) || 0;
         const max = Number(item.dataset.salaryMax) || 0;
-        document.getElementById("jobModalSalary").textContent = formatMoney(min, max);
+        document.getElementById("jobModalSalary").textContent = max ? formatMoney(min, max) : "A combinar";
 
         const tagsWrap = document.getElementById("jobModalTags");
         tagsWrap.innerHTML = "";
@@ -926,7 +947,11 @@
 
         const ul = document.getElementById("jobModalResp");
         ul.innerHTML = "";
-        buildResponsibilities(item).forEach(r => {
+        [
+          "Atuar em colabora??o com times parceiros.",
+          "Executar atividades alinhadas ao escopo da vaga.",
+          "Cumprir prazos e padr?es de qualidade definidos."
+        ].forEach(r => {
           const li = document.createElement("li");
           li.textContent = r;
           ul.appendChild(li);
@@ -940,159 +965,38 @@
 
       function openApplyModalFromCurrentJob() {
         if (!currentJob) {
-          // Sem fallback silencioso: mostra erro claro e loga contexto
-          console.error("Candidatura solicitada sem currentJob definido.");
-          showAppAlert("danger", "Não foi possível iniciar a candidatura. Abra os detalhes de uma vaga e tente novamente.");
+          showAppAlert("danger", "Nao foi possivel iniciar a candidatura. Abra os detalhes de uma vaga e tente novamente.");
           return;
         }
 
-        // Limpa mensagens/validação anterior
         clearApplyAlert();
         applyForm.classList.remove("was-validated");
         applyForm.reset();
         setSendLoading(false);
 
-        // Preenche dados da vaga
         document.getElementById("applyJobTitle").value = currentJob.dataset.title;
         document.getElementById("applyCompany").value = currentJob.dataset.company;
         document.getElementById("applyModalJobLine").textContent =
-          `${currentJob.dataset.title} • ${currentJob.dataset.company} • ${currentJob.dataset.mode}`;
+          `${currentJob.dataset.title} ? ${currentJob.dataset.company} ? ${currentJob.dataset.mode}`;
 
-        // Reseta validação do anexo
         attachmentInput.classList.remove("is-invalid");
-        attachmentInvalid.textContent = "Arquivo inválido.";
+        attachmentInvalid.textContent = "Arquivo invalido.";
 
-        // Fecha detalhes e abre candidatura (fluxo claro)
         jobModal.hide();
         applyModal.show();
       }
 
-      function validateAttachment() {
-        // Regra: upload opcional, mas se houver arquivo, validar tipo e tamanho
-        const file = attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
-        attachmentInput.classList.remove("is-invalid");
-
-        if (!file) return true;
-
-        const maxBytes = 5 * 1024 * 1024; // 5MB
-        if (file.size > maxBytes) {
-          attachmentInvalid.textContent = "O arquivo excede 5MB. Selecione um arquivo menor.";
-          attachmentInput.classList.add("is-invalid");
-          return false;
-        }
-
-        const allowedExt = [".pdf", ".doc", ".docx"];
-        const name = (file.name || "").toLowerCase();
-        const okExt = allowedExt.some(ext => name.endsWith(ext));
-
-        if (!okExt) {
-          attachmentInvalid.textContent = "Formato não aceito. Use PDF, DOC ou DOCX.";
-          attachmentInput.classList.add("is-invalid");
-          return false;
-        }
-
-        return true;
-      }
-
-      // Clique nos cards
       grid.addEventListener("click", (ev) => {
         const link = ev.target.closest("a.job-link");
         if (!link) return;
-
         ev.preventDefault();
         const jobItem = ev.target.closest(".job-item");
         if (!jobItem) return;
-
-        try {
-          openJobModal(jobItem);
-        } catch (err) {
-          console.error(err);
-          showAppAlert("danger", "Ocorreu um erro ao abrir os detalhes da vaga. Recarregue a página e tente novamente.");
-        }
+        openJobModal(jobItem);
       });
 
-      // Botão "Candidatar-se" no modal de detalhes
       jobModalApplyBtn.addEventListener("click", () => {
-        try {
-          openApplyModalFromCurrentJob();
-        } catch (err) {
-          console.error(err);
-          showAppAlert("danger", "Ocorreu um erro ao iniciar a candidatura. Recarregue a página e tente novamente.");
-        }
-      });
-
-      // Validação do anexo ao mudar o arquivo
-      attachmentInput.addEventListener("change", () => {
-        try {
-          validateAttachment();
-        } catch (err) {
-          console.error(err);
-          // Não bloqueia a UI, mas avisa de forma explícita
-          showApplyAlert("Não foi possível validar o arquivo selecionado. Tente novamente.");
-        }
-      });
-
-      // Envio da candidatura
-      applyForm.addEventListener("submit", async (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-
-        try {
-          clearApplyAlert();
-
-          // Bootstrap validation
-          applyForm.classList.add("was-validated");
-
-          const isFormValid = applyForm.checkValidity();
-          const isAttachmentValid = validateAttachment();
-
-          if (!isFormValid || !isAttachmentValid) {
-            showApplyAlert("Revise os campos destacados antes de enviar.");
-            return;
-          }
-
-          setSendLoading(true);
-
-          // Monta payload com FormData (inclui arquivo)
-          const formData = new FormData(applyForm);
-          formData.append("jobId", currentJob?.dataset?.id || "");
-          formData.append("jobTitle", currentJob?.dataset?.title || "");
-          formData.append("company", currentJob?.dataset?.company || "");
-
-          /**
-           * Intenção:
-           * - Aqui você chamaria um endpoint real (fetch POST).
-           * - Como é um HTML estático, registramos o envio e damos feedback ao usuário.
-           */
-          await new Promise(resolve => window.setTimeout(resolve, 650));
-
-          // Registro mínimo em memória (útil para debug local sem poluir a UI)
-          // Regra: não esconder erro; console é só complemento.
-          const sent = {
-            jobId: formData.get("jobId"),
-            jobTitle: formData.get("jobTitle"),
-            company: formData.get("company"),
-            fullName: formData.get("fullName"),
-            email: formData.get("email"),
-            phone: formData.get("phone"),
-            attachmentName: attachmentInput.files?.[0]?.name || null
-          };
-          console.info("Candidatura enviada:", sent);
-
-          applyModal.hide();
-          showAppAlert("success", "Candidatura enviada com sucesso. Você pode continuar navegando pelas vagas.");
-
-          // Boa prática: volta foco para um ponto previsível após fechar modal
-          document.querySelector("main")?.scrollIntoView({ behavior: "smooth", block: "start" });
-
-        } catch (err) {
-          console.error(err);
-          setSendLoading(false);
-          showApplyAlert("Ocorreu um erro ao enviar sua candidatura. Tente novamente.");
-        } finally {
-          // Se deu certo, o modal fecha e o botão some; se deu erro, reabilita aqui.
-          setSendLoading(false);
-        }
+        openApplyModalFromCurrentJob();
       });
 
       // Aplicar filtros
@@ -1100,10 +1004,12 @@
         ev.preventDefault();
         try {
           setLoading(true);
-          window.setTimeout(() => {
-            render(getFilters());
+          (async () => {
+            resetPaging();
+            await loadJobs(true);
             setLoading(false);
-          }, 250);
+            closeFiltersDrawer();
+          })();
         } catch (err) {
           setLoading(false);
           console.error(err);
@@ -1115,10 +1021,13 @@
       clearBtn.addEventListener("click", () => {
         try {
           setLoading(true);
-          window.setTimeout(() => {
+          (async () => {
+            resetPaging();
             resetFilters();
+            await loadJobs(true);
             setLoading(false);
-          }, 150);
+            closeFiltersDrawer();
+          })();
         } catch (err) {
           setLoading(false);
           console.error(err);
@@ -1135,10 +1044,12 @@
         try {
           currentSort = btn.getAttribute("data-sort");
           setLoading(true);
-          window.setTimeout(() => {
-            render(getFilters());
+          (async () => {
+            resetPaging();
+            await loadJobs(true);
             setLoading(false);
-          }, 150);
+            closeFiltersDrawer();
+          })();
         } catch (err) {
           setLoading(false);
           console.error(err);
@@ -1148,8 +1059,7 @@
 
       // Render inicial
       try {
-        await loadJobs();
-        render(getFilters());
+        await loadJobs(true);
       } catch (err) {
         console.error(err);
         showAppAlert("danger", "Ocorreu um erro ao carregar a página. Recarregue e tente novamente.");
