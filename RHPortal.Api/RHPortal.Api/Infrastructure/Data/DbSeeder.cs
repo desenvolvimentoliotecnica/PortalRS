@@ -19,6 +19,7 @@ public static class DbSeeder
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
 
+        var seedEnabled = config.GetValue<bool?>("Seed:Enabled") ?? true;
         var resetDb = config.GetValue<bool>("Seed:ResetDatabase");
 
         // MUITO IMPORTANTE: proteja para não apagar em produção
@@ -40,12 +41,15 @@ public static class DbSeeder
 
         await db.Database.MigrateAsync(ct);
 
+        if (!seedEnabled)
+            return;
+
         var adminPassword = config.GetValue<string>("Seed:AdminPassword");
         if (string.IsNullOrWhiteSpace(adminPassword))
             throw new InvalidOperationException("Seed:AdminPassword is required.");
 
-        await SeedTenantAsync(db, tenantContext, userManager, roleManager, "liotecnica", "Liotecnica", adminPassword);
-        await SeedTenantAsync(db, tenantContext, userManager, roleManager, "dev", "Development", adminPassword);
+        await SeedTenantAsync(db, tenantContext, userManager, roleManager, "liotecnica", "Liotecnica", adminPassword, ct);
+        await SeedTenantAsync(db, tenantContext, userManager, roleManager, "dev", "Development", adminPassword, ct);
     }
 
     private sealed record DepartmentSeed(
@@ -74,7 +78,8 @@ public static class DbSeeder
         RoleManager<ApplicationRole> roleManager,
         string tenantId,
         string tenantName,
-        string adminPassword)
+        string adminPassword,
+        CancellationToken ct)
     {
         await EnsureTenantAsync(db, tenantId, tenantName);
         tenantContext.SetTenantId(tenantId);
@@ -83,24 +88,10 @@ public static class DbSeeder
             ? "liotecnica.com.br"
             : "dev.local";
 
-        await EnsureAdminAccessAsync(db, userManager, roleManager, tenantId, emailDomain, adminPassword);
+        await EnsureAdminAccessAsync(db, userManager, roleManager, tenantId, emailDomain, adminPassword, ct);
 
-        // Áreas (bem realistas pra indústria alimentícia)
-        var areas = new (string Code, string Name)[]
-        {
-            ("ADM","Administrativo"),
-            ("FIN","Financeiro & Controladoria"),
-            ("RH","Gente & Gestão"),
-            ("OPS","Operações Industriais"),
-            ("QUA","Qualidade & Segurança de Alimentos"),
-            ("ENG","Engenharia & Manutenção"),
-            ("PDI","Pesquisa & Desenvolvimento"),
-            ("SCM","Supply Chain"),
-            ("COM","Comercial & Marketing"),
-            ("TEC","Tecnologia (TI & Dados)")
-        };
-
-        await EnsureAreasAsync(db, areas);
+        // Areas, departamentos, requisitos e centros de custo
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.AreaDepartmentSeeder.EnsureAsync(db, emailDomain, ct);
 
         var agendaTypes = new (string Code, string Label, string Color, string Icon, int SortOrder)[]
         {
@@ -112,287 +103,14 @@ public static class DbSeeder
             ("outro", "Outro", "#6b7280", "bi-calendar", 6)
         };
 
-        await EnsureAgendaTypesAsync(db, agendaTypes);
-        await EnsureAgendaEventsSeedAsync(db, tenantId);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.AgendaTypeSeeder.EnsureAsync(db, agendaTypes, ct);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.AgendaEventSeeder.EnsureEventsAsync(db, tenantId, ct);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.UnitSeeder.EnsureAsync(db, ct);
 
-        var requisitoCategorias = new RequisitoCategoriaSeed[]
-        {
-            new("competencia", "Competencia", "Habilidades comportamentais e competencias."),
-            new("experiencia", "Experiencia", "Tempo e tipo de experiencia profissional."),
-            new("formacao", "Formacao", "Formacao academica e cursos."),
-            new("ferramenta_tecnologia", "Ferramenta/Tecnologia", "Conhecimentos tecnicos e ferramentas."),
-            new("idioma", "Idioma", "Idiomas e niveis requeridos."),
-            new("certificacao", "Certificacao", "Certificacoes exigidas ou desejaveis."),
-            new("localidade", "Localidade", "Disponibilidade geografica e deslocamento."),
-            new("outros", "Outros", "Requisitos adicionais.")
-        };
+        // Seed de Cargos (JobPositions)
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.JobPositionSeeder.EnsureAsync(db, ct);
 
-        await EnsureRequisitoCategoriasAsync(db, requisitoCategorias);
-
-        var areaByCode = await db.Areas
-            .AsNoTracking()
-            .ToDictionaryAsync(a => a.Code, a => a.Id);
-
-        // Seeds (50 departamentos)
-        var seeds = BuildFoodIndustryDepartments();
-
-        // Se existir só o "DEP-001" antigo, remove pra ficar limpo e entrar o pacote completo de 50
-        var existingDepts = await db.Departments.ToListAsync();
-        if (existingDepts.Count == 1 && string.Equals(existingDepts[0].Code, "DEP-001", StringComparison.OrdinalIgnoreCase))
-        {
-            db.Departments.Remove(existingDepts[0]);
-            await db.SaveChangesAsync();
-            existingDepts.Clear();
-        }
-
-        // Se estiver vazio, cria os 50; se já existir coisa, só garante os seeds (não destrutivo)
-        if (existingDepts.Count == 0)
-        {
-            await InsertDepartmentsAsync(db, areaByCode, seeds, emailDomain);
-        }
-        else
-        {
-            await EnsureDepartmentsAsync(db, areaByCode, seeds, emailDomain);
-        }
-
-        await EnsureCostCentersFromDepartmentsAsync(db);
-
-        var hasAnyUnit = await db.Units.AnyAsync();
-        if (!hasAnyUnit)
-        {
-            db.Units.AddRange(
-                new Unit
-                {
-                    Id = Guid.NewGuid(),
-                    Code = "UNI-EMB",
-                    Name = "Embu das Artes - SP",
-                    Status = Domain.Enums.UnitStatus.Active,
-                    City = "Embu das Artes",
-                    Uf = "SP",
-                    AddressLine = "Rua Exemplo, 100",
-                    Neighborhood = "Industrial",
-                    ZipCode = "06800-000",
-                    Email = "embu@liotecnica.com.br",
-                    Phone = "(11) 4001-1001",
-                    ResponsibleName = "Responsável EMB",
-                    Type = "Industria / Matriz",
-                    Headcount = 420,
-                    Notes = "Unidade principal."
-                },
-                new Unit
-                {
-                    Id = Guid.NewGuid(),
-                    Code = "UNI-SPC",
-                    Name = "São Paulo - SP",
-                    Status = Domain.Enums.UnitStatus.Active,
-                    City = "São Paulo",
-                    Uf = "SP",
-                    Email = "sp@liotecnica.com.br",
-                    Phone = "(11) 4001-1002",
-                    ResponsibleName = "Responsável SPC",
-                    Type = "Escritório / Administrativo",
-                    Headcount = 180,
-                    Notes = "Unidade administrativa."
-                }
-            );
-
-            await db.SaveChangesAsync();
-        }
-
-        // =========================
-        // Seed de Cargos (JobPositions) - 50 cargos (Indústria Alimentícia)
-        // =========================
-
-        var areaIdByCode = await db.Areas
-            .AsNoTracking()
-            .ToDictionaryAsync(a => a.Code, a => a.Id);
-
-        Guid GetAreaId(string areaCode)
-        {
-            if (!areaIdByCode.TryGetValue(areaCode, out var id))
-                throw new InvalidOperationException($"Área '{areaCode}' não foi encontrada no seed.");
-            return id;
-        }
-
-        // Códigos desejados (evita duplicar)
-        var existingCodes = await db.JobPositions
-            .AsNoTracking()
-            .Select(x => x.Code)
-            .ToListAsync();
-
-        var existingCodesSet = existingCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // helper para padronizar código
-        static string MakeCode(string areaCode, int seq) => $"CAR-{areaCode}-{seq:000}";
-
-        // Lista de 50 cargos (com contexto de indústria alimentícia)
-        var cargos = new (string AreaCode, string Name, SeniorityLevel Seniority, string Type, string Description)[]
-        {
-            // OPS - Operações Industriais
-            ("OPS","Operador de Produção (Linha)", SeniorityLevel.Junior, "Operacional", "Operação de linha de envase/embalagem e rotina 5S."),
-            ("OPS","Operador de Máquina de Envase", SeniorityLevel.Pleno, "Operacional", "Setup, ajuste e operação de máquinas de envase."),
-            ("OPS","Líder de Turno (Produção)", SeniorityLevel.Coordenacao, "Liderança", "Gestão do turno, metas, segurança e qualidade na produção."),
-            ("OPS","Supervisor de Produção", SeniorityLevel.Gerencia, "Gestão", "Acompanha indicadores (OEE, perdas, paradas) e produtividade."),
-            ("OPS","Técnico de Processos (Chão de fábrica)", SeniorityLevel.Pleno, "Técnico", "Padronização de processos e melhoria contínua (Kaizen)."),
-            ("OPS","Analista de PCP (Operações)", SeniorityLevel.Pleno, "Administrativo", "Planejamento e controle de produção, sequenciamento e apontamentos."),
-            ("OPS","Encarregado de Embalagem", SeniorityLevel.Coordenacao, "Liderança", "Coordena equipe de embalagem e controle de consumo."),
-            ("OPS","Operador de Caldeira", SeniorityLevel.Senior, "Operacional", "Operação e rotinas de segurança em caldeiras/utilidades."),
-            ("OPS","Operador de Câmara Fria", SeniorityLevel.Junior, "Operacional", "Controle de armazenagem refrigerada e FIFO/FEFO."),
-            ("OPS","Analista de Eficiência (OEE)", SeniorityLevel.Especialista, "Especialista", "Análise de perdas, paradas e planos de ação."),
-
-            // QUA - Qualidade & Segurança de Alimentos
-            ("QUA","Assistente de Qualidade", SeniorityLevel.Junior, "Administrativo", "Registros, tratativas de não conformidade e suporte à qualidade."),
-            ("QUA","Técnico de Controle de Qualidade", SeniorityLevel.Pleno, "Técnico", "Inspeções em processo, coleta e análises básicas."),
-            ("QUA","Analista de Qualidade", SeniorityLevel.Senior, "Especialista", "Garantia da qualidade, indicadores e auditorias internas."),
-            ("QUA","Especialista em BPF/APPCC", SeniorityLevel.Especialista, "Especialista", "Implantação e manutenção de BPF/APPCC."),
-            ("QUA","Coordenador de Qualidade", SeniorityLevel.Coordenacao, "Gestão", "Coordena rotina de qualidade e segurança de alimentos."),
-            ("QUA","Analista de Rastreabilidade", SeniorityLevel.Pleno, "Administrativo", "Controle de lotes, rastreabilidade e simulado de recall."),
-            ("QUA","Auditor Interno de Qualidade", SeniorityLevel.Senior, "Especialista", "Auditorias internas e suporte a certificações."),
-            ("QUA","Analista de Laboratório (Microbiologia)", SeniorityLevel.Pleno, "Técnico", "Análises microbiológicas e liberação de produto."),
-            ("QUA","Analista de Laboratório (Físico-Químico)", SeniorityLevel.Pleno, "Técnico", "Análises físico-químicas e controle de especificações."),
-            ("QUA","Gerente de Qualidade & Segurança de Alimentos", SeniorityLevel.Diretoria, "Gestão", "Estratégia de qualidade, compliance e governança."),
-
-            // ENG - Engenharia & Manutenção
-            ("ENG","Técnico de Manutenção (Mecânica)", SeniorityLevel.Pleno, "Técnico", "Manutenção preventiva/corretiva em equipamentos industriais."),
-            ("ENG","Técnico de Manutenção (Elétrica)", SeniorityLevel.Pleno, "Técnico", "Manutenção elétrica, painéis e comandos."),
-            ("ENG","Analista de Manutenção (PCM)", SeniorityLevel.Senior, "Administrativo", "Planejamento, ordens de serviço, MTBF/MTTR."),
-            ("ENG","Engenheiro de Manutenção", SeniorityLevel.Gerencia, "Gestão", "Gestão de manutenção, confiabilidade e orçamento."),
-            ("ENG","Engenheiro de Processos", SeniorityLevel.Senior, "Especialista", "Otimização de processos, perdas e produtividade."),
-            ("ENG","Técnico de Automação", SeniorityLevel.Senior, "Técnico", "CLPs, IHMs e instrumentação industrial."),
-            ("ENG","Coordenador de Engenharia", SeniorityLevel.Coordenacao, "Gestão", "Coordena projetos, melhorias e capex."),
-            ("ENG","Analista de Utilidades", SeniorityLevel.Pleno, "Técnico", "Gestão de utilidades: vapor, ar comprimido, água gelada."),
-            ("ENG","Especialista em Confiabilidade", SeniorityLevel.Especialista, "Especialista", "RCM, análise de falhas e planos de confiabilidade."),
-            ("ENG","Supervisor de Manutenção", SeniorityLevel.Gerencia, "Gestão", "Coordena equipe, paradas programadas e indicadores."),
-
-            // SCM - Supply Chain
-            ("SCM","Analista de Logística", SeniorityLevel.Pleno, "Administrativo", "Recebimento, armazenagem, expedição e transporte."),
-            ("SCM","Comprador (Matéria-prima)", SeniorityLevel.Pleno, "Administrativo", "Compras de insumos e negociações com fornecedores."),
-            ("SCM","Comprador Sênior", SeniorityLevel.Senior, "Administrativo", "Estratégia de compras, contratos e redução de custos."),
-            ("SCM","Planejador de Demanda", SeniorityLevel.Senior, "Especialista", "Previsão de demanda e S&OP."),
-            ("SCM","Analista de Estoques", SeniorityLevel.Pleno, "Administrativo", "Acuracidade, inventário e giro de estoque."),
-            ("SCM","Supervisor de Expedição", SeniorityLevel.Coordenacao, "Liderança", "Coordena expedição, carregamento e SLA."),
-            ("SCM","Coordenador de Supply Chain", SeniorityLevel.Gerencia, "Gestão", "Integra compras, PCP e logística."),
-            ("SCM","Analista de Transporte", SeniorityLevel.Pleno, "Administrativo", "Roteirização, frete e performance de transportadoras."),
-            ("SCM","Analista de Armazém", SeniorityLevel.Junior, "Operacional", "Rotinas de armazém, conferência e endereçamento."),
-            ("SCM","Gerente de Supply Chain", SeniorityLevel.Diretoria, "Gestão", "Estratégia e governança de supply chain."),
-
-            // PDI - Pesquisa & Desenvolvimento
-            ("PDI","Técnico de P&D", SeniorityLevel.Pleno, "Técnico", "Testes piloto, preparo de amostras e documentação."),
-            ("PDI","Analista de P&D (Produtos)", SeniorityLevel.Senior, "Especialista", "Desenvolvimento de produtos, formulação e testes."),
-            ("PDI","Especialista em Formulação", SeniorityLevel.Especialista, "Especialista", "Formulações, estabilidade e redução de custo."),
-            ("PDI","Coordenador de P&D", SeniorityLevel.Coordenacao, "Gestão", "Coordena portfólio e pipelines de inovação."),
-            ("PDI","Gerente de P&D", SeniorityLevel.Gerencia, "Gestão", "Estratégia de inovação e governança de projetos."),
-
-            // COM - Comercial & Marketing
-            ("COM","Executivo de Vendas (Key Account)", SeniorityLevel.Senior, "Comercial", "Gestão de contas, negociações e crescimento de receita."),
-            ("COM","Analista de Trade Marketing", SeniorityLevel.Pleno, "Marketing", "Ações em PDV, campanhas e materiais."),
-            ("COM","Coordenador Comercial", SeniorityLevel.Coordenacao, "Gestão", "Coordena time comercial e metas."),
-            ("COM","Gerente Comercial", SeniorityLevel.Gerencia, "Gestão", "Estratégia comercial, pricing e expansão."),
-            ("COM","Analista de Marketing", SeniorityLevel.Junior, "Marketing", "Suporte a campanhas e comunicação."),
-
-            // ADM / FIN / RH / TEC
-            ("ADM","Assistente Administrativo (Planta)", SeniorityLevel.Junior, "Administrativo", "Rotinas administrativas da planta e apoio às áreas."),
-            ("FIN","Analista Financeiro", SeniorityLevel.Pleno, "Financeiro", "Fluxo de caixa, contas a pagar/receber e conciliações."),
-            ("RH","Analista de RH (Generalista)", SeniorityLevel.Pleno, "RH", "Recrutamento, treinamento e apoio a lideranças."),
-            ("TEC","Analista de Dados (BI)", SeniorityLevel.Senior, "Tecnologia", "Dashboards (KPI), qualidade de dados e governança."),
-            ("TEC","Desenvolvedor de Sistemas (ERP/Integrações)", SeniorityLevel.Pleno, "Tecnologia", "APIs, integrações e suporte ao ERP industrial."),
-        };
-
-        // Cria/insere 50 cargos com códigos determinísticos: CAR-{AREA}-{001..050}
-        var seq = 1;
-        foreach (var c in cargos)
-        {
-            var code = MakeCode(c.AreaCode, seq);
-
-            if (!existingCodesSet.Contains(code))
-            {
-                db.JobPositions.Add(new Domain.Entities.JobPosition
-                {
-                    Id = Guid.NewGuid(),
-                    Code = code,
-                    Name = c.Name,
-                    AreaId = GetAreaId(c.AreaCode),
-                    Status = Domain.Enums.CargoStatus.Active,
-                    Seniority = c.Seniority,
-                    Type = c.Type,
-                    Description = c.Description
-                });
-
-                existingCodesSet.Add(code);
-            }
-
-            seq++;
-        }
-
-        await db.SaveChangesAsync();
-
-        var hasAnyManager = await db.Managers.AnyAsync();
-        if (!hasAnyManager)
-        {
-            var units = await db.Units.AsNoTracking().ToListAsync();
-            var areasManagers = await db.Areas.AsNoTracking().ToListAsync();
-            var cargosManagers = await db.JobPositions.AsNoTracking().ToListAsync();
-
-            if (units.Count == 0) return; // ou throw, como preferir
-
-            Guid PickArea(string code) => areasManagers.First(a => a.Code == code).Id;
-
-            Guid PickCargoByArea(string areaCode)
-            {
-                var areaId = PickArea(areaCode);
-                return cargosManagers.First(c => c.AreaId == areaId).Id;
-            }
-
-            // Random determinístico (sempre a mesma distribuição)
-            var rng = new Random(42);
-
-            // Embaralha as unidades e distribui em round-robin
-            var shuffledUnits = units
-                .OrderBy(_ => rng.Next())
-                .ToList();
-
-            Guid PickRandomUnitId(int index)
-                => shuffledUnits[index % shuffledUnits.Count].Id;
-
-            var seed = new[]
-            {
-                new { Name="Marina Souza",   Email="marina.souza@empresa.com",   Phone="(11) 90000-0001", Area="OPS", Headcount = 5 },
-                new { Name="Carlos Lima",    Email="carlos.lima@empresa.com",    Phone="(11) 90000-0002", Area="QUA", Headcount = 7 },
-                new { Name="Fernanda Rocha", Email="fernanda.rocha@empresa.com", Phone="(11) 90000-0003", Area="ENG", Headcount = 4 },
-                new { Name="Bruno Alves",    Email="bruno.alves@empresa.com",    Phone="(11) 90000-0004", Area="SCM", Headcount = 8 },
-                new { Name="Juliana Martins",Email="juliana.martins@empresa.com",Phone="(11) 90000-0005", Area="PDI", Headcount = 23 },
-                new { Name="Rafael Pereira", Email="rafael.pereira@empresa.com", Phone="(11) 90000-0006", Area="COM", Headcount = 14 },
-                new { Name="Paula Santos",   Email="paula.santos@empresa.com",   Phone="(11) 90000-0007", Area="RH",  Headcount = 4 },
-                new { Name="Diego Oliveira", Email="diego.oliveira@empresa.com", Phone="(11) 90000-0008", Area="FIN", Headcount = 2 },
-                new { Name="Aline Costa",    Email="aline.costa@empresa.com",    Phone="(11) 90000-0009", Area="TEC", Headcount = 9 },
-                new { Name="João Mendes",    Email="joao.mendes@empresa.com",    Phone="(11) 90000-0010", Area="ADM", Headcount = 11 },
-            };
-
-            for (var i = 0; i < seed.Length; i++)
-            {
-                var s = seed[i];
-
-                var areaId = PickArea(s.Area);
-                var cargoId = PickCargoByArea(s.Area);
-                var unitId = PickRandomUnitId(i); // <-- aqui distribui
-
-                db.Managers.Add(new Domain.Entities.Manager
-                {
-                    Id = Guid.NewGuid(),
-                    Name = s.Name,
-                    Email = s.Email,
-                    Phone = s.Phone,
-                    Status = ManagerStatus.Active,
-                    UnitId = unitId,
-                    AreaId = areaId,
-                    Headcount = s.Headcount,
-                    JobPositionId = cargoId,
-                    Notes = "Seed inicial de gestor"
-                });
-            }
-
-            await db.SaveChangesAsync();
-        }
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.ManagerSeeder.EnsureAsync(db, ct);
 
         await EnsureFoodIndustryVagasAsync(db, tenantId);
         await EnsureFoodIndustryCandidatosAsync(db, tenantId, emailDomain);
@@ -1557,7 +1275,8 @@ BuildDemoRequisitos(string areaCode)
         RoleManager<ApplicationRole> roleManager,
         string tenantId,
         string emailDomain,
-        string adminPassword)
+        string adminPassword,
+        CancellationToken ct)
     {
         var adminRole = await roleManager.Roles.FirstOrDefaultAsync(x => x.Name == "Admin");
         if (adminRole is null)
@@ -1601,56 +1320,11 @@ BuildDemoRequisitos(string areaCode)
                 throw new InvalidOperationException(string.Join("; ", addToRole.Errors.Select(x => x.Description)));
         }
 
-        var menus = BuildDefaultMenus();
-        foreach (var menu in menus)
-        {
-            var exists = await db.Menus.AnyAsync(x => x.PermissionKey == menu.PermissionKey);
-            if (!exists)
-            {
-                db.Menus.Add(menu);
-            }
-        }
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuSeeder.EnsureAsync(db, adminRole, ct);
 
-        await db.SaveChangesAsync();
-
-        var menuByKey = await db.Menus.ToDictionaryAsync(x => x.PermissionKey, x => x);
-
-        var adminMenuAssignments = menuByKey.Values
-            .Select(x => (MenuId: x.Id, x.PermissionKey))
-            .ToList();
-
-        if (menuByKey.TryGetValue("users.read", out var usersMenu))
-            adminMenuAssignments.Add((usersMenu.Id, "users.write"));
-
-        var existingAssignments = await db.RoleMenus
-            .Where(x => x.RoleId == adminRole.Id)
-            .Select(x => new { x.MenuId, x.PermissionKey })
-            .ToListAsync();
-
-        var existingKeys = existingAssignments
-            .Select(x => $"{x.MenuId}:{x.PermissionKey}")
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var toAdd = adminMenuAssignments
-            .Where(x => !existingKeys.Contains($"{x.MenuId}:{x.PermissionKey}"))
-            .Select(x => new RoleMenu
-            {
-                Id = Guid.NewGuid(),
-                RoleId = adminRole.Id,
-                MenuId = x.MenuId,
-                PermissionKey = x.PermissionKey
-            })
-            .ToList();
-
-        if (toAdd.Count() > 0)
-        {
-            db.RoleMenus.AddRange(toAdd);
-            await db.SaveChangesAsync();
-        }
-
-        await EnsureEmailTemplatesAsync(db);
-        await EnsureEmailMessagesSeedAsync(db, tenantId);
-        await EnsureEmailConfigSeedAsync(db, tenantId);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.EmailTemplateSeeder.EnsureAsync(db, ct);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.EmailMessageSeeder.EnsureAsync(db, tenantId, ct);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.EmailConfigSeeder.EnsureAsync(db, tenantId, ct);
     }
 
     private static async Task EnsureEmailTemplatesAsync(AppDbContext db)
