@@ -2,22 +2,51 @@
 @using LioTecnica.Web.Helpers
 @{
     var linkClass = ViewData["LinkClass"]?.ToString() ?? "nav-link";
+    var tenantId = User?.FindFirst("tenant")?.Value;
+    var adminItems = Model.Where(x => x.Route.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase)).ToList();
+    var operationalItems = Model.Where(x => !x.Route.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase)).ToList();
 }
 
 <nav class="nav flex-column">
-@foreach (var menu in Model)
-{
-    var openInNewTab = menu.OpenInNewTab;
-    var target = openInNewTab ? "_blank" : null;
-    var rel = openInNewTab ? "noopener" : null;
-    var tenantId = User?.FindFirst("tenant")?.Value;
-    var href = menu.Route;
-    if (!string.IsNullOrWhiteSpace(tenantId) && string.Equals(menu.Route, "/PortalVagas", StringComparison.OrdinalIgnoreCase))
+    @if (operationalItems.Count > 0)
     {
-        href = $"{menu.Route}?tenantId={tenantId}";
+        <div class="nav-section nav-section-title mt-2 mb-1">Operacional</div>
+        <div class="nav-group nav-group-operational">
+        @foreach (var menu in operationalItems)
+        {
+            var openInNewTab = menu.OpenInNewTab;
+            var target = openInNewTab ? "_blank" : null;
+            var rel = openInNewTab ? "noopener" : null;
+            var href = menu.Route;
+            if (!string.IsNullOrWhiteSpace(tenantId) && string.Equals(menu.Route, "/PortalVagas", StringComparison.OrdinalIgnoreCase))
+            {
+                href = $"{menu.Route}?tenantId={tenantId}";
+            }
+            <a class="@linkClass nav-child @ViewHelpers.NavActiveByPath(ViewContext, menu.Route)" href="@href" target="@target" rel="@rel">
+                <i class="bi @menu.Icon"></i>@menu.DisplayName
+            </a>
+        }
+        </div>
     }
-    <a class="@linkClass @ViewHelpers.NavActiveByPath(ViewContext, menu.Route)" href="@href" target="@target" rel="@rel">
-        <i class="bi @menu.Icon"></i>@menu.DisplayName
-    </a>
-}
+
+    @if (adminItems.Count > 0)
+    {
+        <div class="nav-section nav-section-title mt-3 mb-1">Admin / Configs</div>
+        <div class="nav-group nav-group-admin">
+        @foreach (var menu in adminItems)
+        {
+            var openInNewTab = menu.OpenInNewTab;
+            var target = openInNewTab ? "_blank" : null;
+            var rel = openInNewTab ? "noopener" : null;
+            var href = menu.Route;
+            if (!string.IsNullOrWhiteSpace(tenantId) && string.Equals(menu.Route, "/PortalVagas", StringComparison.OrdinalIgnoreCase))
+            {
+                href = $"{menu.Route}?tenantId={tenantId}";
+            }
+            <a class="@linkClass nav-child @ViewHelpers.NavActiveByPath(ViewContext, menu.Route)" href="@href" target="@target" rel="@rel">
+                <i class="bi @menu.Icon"></i>@menu.DisplayName
+            </a>
+        }
+        </div>
+    }
 </nav>

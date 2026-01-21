@@ -132,12 +132,13 @@ public sealed class InboxController : ControllerBase
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> Upload(
-        [FromForm] IFormFile file,
+        [FromForm] InboxUploadRequest request,
         [FromServices] InboxFileProcessor processor,
         [FromServices] RhPortal.Api.Infrastructure.Tenancy.ITenantContext tenantContext,
         [FromServices] IOptions<InboxFolderOptions> options,
         CancellationToken ct)
     {
+        var file = request.File;
         if (file is null || file.Length == 0)
             return BadRequest(new { message = "Arquivo obrigatorio." });
 

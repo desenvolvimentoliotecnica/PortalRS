@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Microsoft.Extensions.Options;
+using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Infrastructure.Inbox;

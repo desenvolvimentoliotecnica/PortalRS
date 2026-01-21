@@ -91,12 +91,20 @@
       opacity: .85;
     }
     .sidebar .nav-section{
-      padding: .35rem 1rem;
-      font-size: .72rem;
+      padding: .45rem 1rem .35rem;
+      font-size: .82rem;
       text-transform: uppercase;
-      letter-spacing: .12em;
-      opacity: .75;
-      margin-top: .35rem;
+      letter-spacing: .14em;
+      opacity: 1;
+      color: #fff;
+      font-weight: 700;
+    }
+    .sidebar .nav-section-title{
+      border-top: 1px solid rgba(255,255,255,.14);
+    }
+    .sidebar .nav-group .nav-child{
+      margin-left: 1.2rem;
+      margin-right: .6rem;
     }
     .sidebar .nav-link{
       color: rgba(255,255,255,.88);
