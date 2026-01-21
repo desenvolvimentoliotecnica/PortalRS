@@ -9,7 +9,8 @@ const state = {
     order: m.order,
     parentId: m.parentId,
     permissionKey: m.permissionKey,
-    isActive: !!m.isActive
+    isActive: !!m.isActive,
+    openInNewTab: !!m.openInNewTab
   })),
   filters: { q: "", status: "all" }
 };
@@ -154,7 +155,7 @@ function openDetailsModal(menuId) {
   apiFetchJson(`/UsuariosPerfis/_api/menus/${menuId}`, { method: "GET" })
     .then(detail => {
       if (!detail) return;
-      if (iconEl) iconEl.textContent = detail.icon || "-";
+  if (iconEl) iconEl.textContent = detail.icon || "-";
       if (parentEl) parentEl.textContent = detail.parentId || "-";
       if (createdEl) createdEl.textContent = detail.createdAtUtc ? fmtDate(detail.createdAtUtc) : "-";
       if (updatedEl) updatedEl.textContent = detail.updatedAtUtc ? fmtDate(detail.updatedAtUtc) : "-";
@@ -175,6 +176,10 @@ async function openEditModal(menuId) {
   $("#adminMenuOrder").value = detail.order ?? 0;
   $("#adminMenuPermission").value = detail.permissionKey || "";
   $("#adminMenuStatus").value = detail.isActive ? "active" : "inactive";
+  const entry = state.menus.find(m => m.id === detail.id);
+  if (entry) {
+    entry.openInNewTab = !!detail.openInNewTab;
+  }
 
   const modal = new bootstrap.Modal($("#modalAdminMenu"));
   modal.show();
@@ -190,6 +195,8 @@ async function saveMenu() {
   const status = $("#adminMenuStatus").value;
 
   if (!id || !name || !route || !permissionKey) return;
+  const entry = state.menus.find(m => m.id === id);
+  const openInNewTab = entry ? !!entry.openInNewTab : false;
 
   await apiFetchJson(`/UsuariosPerfis/_api/menus/${id}`, {
     method: "PUT",
@@ -200,11 +207,11 @@ async function saveMenu() {
       order,
       parentId: null,
       permissionKey,
-      isActive: status === "active"
+      isActive: status === "active",
+      openInNewTab
     })
   });
 
-  const entry = state.menus.find(m => m.id === id);
   if (entry) {
     entry.name = name;
     entry.route = route;

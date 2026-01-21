@@ -1,0 +1,1257 @@
+@{ Layout = null; }
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portal de Vagas</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <style>
+        :root {
+            color-scheme: light;
+        }
+
+        .job-hero {
+            height: 140px;
+            background-size: cover;
+            background-position: center;
+            border-top-left-radius: .75rem;
+            border-top-right-radius: .75rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .job-hero::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.55));
+            }
+
+        .job-badge-row {
+            position: absolute;
+            left: .75rem;
+            bottom: .75rem;
+            right: .75rem;
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap;
+            z-index: 1;
+        }
+
+            .job-badge-row .badge {
+                backdrop-filter: blur(4px);
+                background: rgba(255,255,255,.16);
+                border: 1px solid rgba(255,255,255,.20);
+                color: #fff;
+                font-weight: 600;
+            }
+
+        .job-card {
+            border-radius: .75rem;
+            overflow: hidden;
+            transition: transform .08s ease-in-out, box-shadow .08s ease-in-out;
+        }
+
+            .job-card:focus-within,
+            .job-card:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 .5rem 1.25rem rgba(0,0,0,.08);
+            }
+
+            .job-card a.job-link {
+                outline: none;
+            }
+
+                .job-card a.job-link:focus-visible {
+                    outline: 3px solid rgba(13,110,253,.45);
+                    outline-offset: 3px;
+                    border-radius: .5rem;
+                }
+
+        .filters-fab {
+            position: fixed;
+            right: 1rem;
+            bottom: 1rem;
+            z-index: 1030;
+            box-shadow: 0 .75rem 1.5rem rgba(0,0,0,.15);
+            border-radius: 999px;
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,.70);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1025;
+        }
+
+            .overlay[aria-hidden="false"] {
+                display: flex;
+            }
+
+        .job-meta {
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+            .job-meta .dot {
+                width: .25rem;
+                height: .25rem;
+                border-radius: 999px;
+                background: #6c757d;
+                display: inline-block;
+                transform: translateY(-1px);
+            }
+
+        .empty-state {
+            border: 1px dashed rgba(0,0,0,.20);
+            border-radius: .75rem;
+            padding: 2rem;
+            text-align: center;
+            background: rgba(0,0,0,.02);
+        }
+
+        /* Modal de candidatura: scroll interno no corpo, header/footer fixos */
+        #applyModal .modal-dialog {
+            /* Garante que o dialog respeite o viewport */
+            height: calc(100% - 2rem);
+            margin: 1rem auto;
+        }
+
+        #applyModal .modal-content {
+            /* Limita a altura total do modal ao viewport */
+            max-height: calc(100vh - 2rem);
+        }
+
+        #applyModal .modal-body {
+            /* Scroll vertical interno */
+            overflow-y: auto;
+        }
+
+        /* Em telas pequenas, melhora o encaixe */
+        @@media (max-width: 576px) {
+            #applyModal .modal-dialog {
+                margin: .5rem auto;
+                height: calc(100% - 1rem);
+            }
+
+            #applyModal .modal-content {
+                max-height: calc(100vh - 1rem);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-body-tertiary">
+
+    <!-- Alertas (erro/sucesso) -->
+    <div class="container py-3">
+        <div id="appAlert" class="alert d-none" role="alert" aria-live="polite"></div>
+    </div>
+
+    <header class="container pb-2">
+        <div class="text-center py-3 py-md-4">
+            <h1 class="display-6 fw-semibold mb-2">Vagas em Destaque</h1>
+            <p class="lead text-secondary mb-0">
+                Encontre oportunidades por área, nível, formato e localização.
+            </p>
+        </div>
+    </header>
+
+    <button class="btn btn-primary filters-fab px-3 py-2"
+            type="button"
+            data-bs-toggle="offcanvas" data-bs-target="#filtersDrawer"
+            aria-controls="filtersDrawer" aria-label="Abrir filtros">
+        <span class="me-2" aria-hidden="true">☰</span> Filtros
+    </button>
+
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="filtersDrawer" aria-labelledby="filtersDrawerLabel">
+        <div class="offcanvas-header">
+            <h2 class="offcanvas-title fs-5" id="filtersDrawerLabel">Filtros</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+        </div>
+
+        <div class="offcanvas-body">
+            <form id="filtersForm" novalidate>
+                <div class="mb-3">
+                    <label for="q" class="form-label">Buscar</label>
+                    <input id="q" name="q" type="search" class="form-control"
+                           placeholder="Cargo, empresa, tecnologia..."
+                           autocomplete="off" />
+                    <div class="form-text" id="qHint">Dica: “C#”, “Produto”, “Dados”, “UX”.</div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-12">
+                        <label for="location" class="form-label">Local</label>
+                        <select id="location" name="location" class="form-select">
+                            <option value="">Qualquer</option>
+                            <option>São Paulo, SP</option>
+                            <option>Rio de Janeiro, RJ</option>
+                            <option>Belo Horizonte, MG</option>
+                            <option>Curitiba, PR</option>
+                            <option>Remoto (Brasil)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label for="mode" class="form-label">Formato</label>
+                        <select id="mode" name="mode" class="form-select">
+                            <option value="">Qualquer</option>
+                            <option>Remoto</option>
+                            <option>Híbrido</option>
+                            <option>Presencial</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label for="type" class="form-label">Tipo</label>
+                        <select id="type" name="type" class="form-select">
+                            <option value="">Qualquer</option>
+                            <option>CLT</option>
+                            <option>PJ</option>
+                            <option>Estágio</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label for="level" class="form-label">Senioridade</label>
+                        <select id="level" name="level" class="form-select">
+                            <option value="">Qualquer</option>
+                            <option>Júnior</option>
+                            <option>Pleno</option>
+                            <option>Sênior</option>
+                            <option>Liderança</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label for="area" class="form-label">Área</label>
+                        <select id="area" name="area" class="form-select">
+                            <option value="">Qualquer</option>
+                            <option>Engenharia</option>
+                            <option>Dados</option>
+                            <option>Produto</option>
+                            <option>Design</option>
+                            <option>Segurança</option>
+                            <option>Operações</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="mb-3">
+                    <label for="minSalary" class="form-label">Salário mínimo (R$)</label>
+                    <input id="minSalary" name="minSalary" type="number" class="form-control"
+                           inputmode="numeric" min="0" step="500" placeholder="Ex.: 8000" />
+                    <div class="form-text">Filtra por vagas cuja faixa máxima seja compatível.</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button id="applyBtn" class="btn btn-primary" type="submit">Aplicar</button>
+                    <button id="clearBtn" class="btn btn-outline-secondary" type="button">Limpar filtros</button>
+                </div>
+            </form>
+
+            <div class="mt-4 small text-secondary" aria-hidden="true">
+                Use Tab para navegar e Enter para aplicar.
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="overlay" aria-hidden="true">
+        <div class="text-center">
+            <div class="spinner-border" role="status" aria-label="Carregando"></div>
+            <div class="mt-2 text-secondary">Atualizando resultados…</div>
+        </div>
+    </div>
+
+    <main class="container pb-5">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <div class="text-secondary">
+                <span id="resultsCount" class="fw-semibold">0</span> vagas encontradas
+            </div>
+
+            <div class="d-none d-md-inline-flex gap-2 align-items-center">
+                <button class="btn btn-sm btn-outline-primary"
+                        type="button"
+                        data-bs-toggle="offcanvas" data-bs-target="#filtersDrawer"
+                        aria-controls="filtersDrawer">
+                    Ajustar filtros
+                </button>
+
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        Ordenar
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><button class="dropdown-item" type="button" data-sort="recent">Mais recentes</button></li>
+                        <li><button class="dropdown-item" type="button" data-sort="salaryDesc">Faixa salarial (maior primeiro)</button></li>
+                        <li><button class="dropdown-item" type="button" data-sort="companyAsc">Empresa (A–Z)</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <section id="emptyState" class="empty-state d-none" aria-live="polite">
+            <h2 class="h5 fw-semibold mb-2">Nenhuma vaga encontrada</h2>
+            <p class="text-secondary mb-3">Tente remover alguns filtros ou refinar o texto de busca.</p>
+            <button class="btn btn-outline-secondary" type="button" id="emptyClearBtn">Limpar filtros</button>
+        </section>
+
+        <section class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-4" id="jobsGrid" aria-label="Lista de vagas">
+            <!-- Card 1 -->
+            <div class="col job-item"
+                 data-id="vaga-001"
+                 data-title="Desenvolvedor(a) .NET"
+                 data-company="Aurora Tech"
+                 data-location="São Paulo, SP"
+                 data-mode="Híbrido"
+                 data-type="CLT"
+                 data-level="Pleno"
+                 data-area="Engenharia"
+                 data-tags="C#, .NET, ASP.NET, PostgreSQL, Azure"
+                 data-salary-min="9000"
+                 data-salary-max="14000"
+                 data-date="2026-01-15">
+                <article class="card job-card h-100">
+                    <div class="job-hero"
+                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%231e3a8a%22/><stop offset=%221%22 stop-color=%22%230ea5e9%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><circle cx=%22720%22 cy=%22120%22 r=%22120%22 fill=%22rgba(255,255,255,0.18)%22/><circle cx=%22220%22 cy=%22300%22 r=%22160%22 fill=%22rgba(255,255,255,0.12)%22/></svg>');">
+                        <div class="job-badge-row">
+                            <span class="badge rounded-pill">Híbrido</span>
+                            <span class="badge rounded-pill">CLT</span>
+                            <span class="badge rounded-pill">Pleno</span>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <h3 class="h5 fw-semibold mb-1">Desenvolvedor(a) .NET</h3>
+                        <div class="text-secondary mb-2">Aurora Tech</div>
+
+                        <div class="job-meta text-secondary small mb-3">
+                            <span>São Paulo, SP</span><span class="dot" aria-hidden="true"></span>
+                            <span>Engenharia</span>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <span class="badge text-bg-light border">C#</span>
+                            <span class="badge text-bg-light border">ASP.NET</span>
+                            <span class="badge text-bg-light border">PostgreSQL</span>
+                            <span class="badge text-bg-light border">Azure</span>
+                        </div>
+
+                        <div class="text-secondary small">Faixa: R$ 9.000 – 14.000</div>
+                        <a class="stretched-link job-link" href="#vaga-001" aria-label="Ver detalhes da vaga Desenvolvedor(a) .NET"></a>
+                    </div>
+                </article>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="col job-item"
+                 data-id="vaga-002"
+                 data-title="Engenheiro(a) de Dados"
+                 data-company="Norte Analytics"
+                 data-location="Remoto (Brasil)"
+                 data-mode="Remoto"
+                 data-type="CLT"
+                 data-level="Sênior"
+                 data-area="Dados"
+                 data-tags="Python, SQL, Spark, Airflow, Databricks"
+                 data-salary-min="16000"
+                 data-salary-max="23000"
+                 data-date="2026-01-10">
+                <article class="card job-card h-100">
+                    <div class="job-hero"
+                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%230f766e%22/><stop offset=%221%22 stop-color=%22%2322c55e%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><path d=%22M0 280 C 180 220, 320 340, 520 280 S 820 220, 900 280 V 400 H 0 Z%22 fill=%22rgba(255,255,255,0.14)%22/></svg>');">
+                        <div class="job-badge-row">
+                            <span class="badge rounded-pill">Remoto</span>
+                            <span class="badge rounded-pill">CLT</span>
+                            <span class="badge rounded-pill">Sênior</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="h5 fw-semibold mb-1">Engenheiro(a) de Dados</h3>
+                        <div class="text-secondary mb-2">Norte Analytics</div>
+
+                        <div class="job-meta text-secondary small mb-3">
+                            <span>Remoto (Brasil)</span><span class="dot" aria-hidden="true"></span>
+                            <span>Dados</span>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <span class="badge text-bg-light border">Python</span>
+                            <span class="badge text-bg-light border">Spark</span>
+                            <span class="badge text-bg-light border">Airflow</span>
+                            <span class="badge text-bg-light border">SQL</span>
+                        </div>
+
+                        <div class="text-secondary small">Faixa: R$ 16.000 – 23.000</div>
+                        <a class="stretched-link job-link" href="#vaga-002" aria-label="Ver detalhes da vaga Engenheiro(a) de Dados"></a>
+                    </div>
+                </article>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="col job-item"
+                 data-id="vaga-003"
+                 data-title="Product Manager"
+                 data-company="Vértice Pay"
+                 data-location="Rio de Janeiro, RJ"
+                 data-mode="Híbrido"
+                 data-type="CLT"
+                 data-level="Pleno"
+                 data-area="Produto"
+                 data-tags="Discovery, Roadmap, Métricas, Fintech, Experimentos"
+                 data-salary-min="13000"
+                 data-salary-max="18000"
+                 data-date="2026-01-05">
+                <article class="card job-card h-100">
+                    <div class="job-hero"
+                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%237c2d12%22/><stop offset=%221%22 stop-color=%22%23f97316%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><rect x=%2250%22 y=%2270%22 width=%22180%22 height=%22180%22 rx=%2224%22 fill=%22rgba(255,255,255,0.14)%22/><rect x=%22270%22 y=%22110%22 width=%22180%22 height=%22180%22 rx=%2224%22 fill=%22rgba(255,255,255,0.10)%22/></svg>');">
+                        <div class="job-badge-row">
+                            <span class="badge rounded-pill">Híbrido</span>
+                            <span class="badge rounded-pill">CLT</span>
+                            <span class="badge rounded-pill">Pleno</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="h5 fw-semibold mb-1">Product Manager</h3>
+                        <div class="text-secondary mb-2">Vértice Pay</div>
+
+                        <div class="job-meta text-secondary small mb-3">
+                            <span>Rio de Janeiro, RJ</span><span class="dot" aria-hidden="true"></span>
+                            <span>Produto</span>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <span class="badge text-bg-light border">Discovery</span>
+                            <span class="badge text-bg-light border">Métricas</span>
+                            <span class="badge text-bg-light border">Fintech</span>
+                        </div>
+
+                        <div class="text-secondary small">Faixa: R$ 13.000 – 18.000</div>
+                        <a class="stretched-link job-link" href="#vaga-003" aria-label="Ver detalhes da vaga Product Manager"></a>
+                    </div>
+                </article>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="col job-item"
+                 data-id="vaga-004"
+                 data-title="Designer de Produto"
+                 data-company="Linha Clara"
+                 data-location="Curitiba, PR"
+                 data-mode="Presencial"
+                 data-type="CLT"
+                 data-level="Pleno"
+                 data-area="Design"
+                 data-tags="Figma, Design System, Acessibilidade, Pesquisa"
+                 data-salary-min="8500"
+                 data-salary-max="12500"
+                 data-date="2026-01-18">
+                <article class="card job-card h-100">
+                    <div class="job-hero"
+                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%234b0082%22/><stop offset=%221%22 stop-color=%22%23a855f7%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><circle cx=%22300%22 cy=%22180%22 r=%22140%22 fill=%22rgba(255,255,255,0.14)%22/><path d=%22M520 90 h260 v220 h-260 z%22 fill=%22rgba(255,255,255,0.10)%22/></svg>');">
+                        <div class="job-badge-row">
+                            <span class="badge rounded-pill">Presencial</span>
+                            <span class="badge rounded-pill">CLT</span>
+                            <span class="badge rounded-pill">Pleno</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="h5 fw-semibold mb-1">Designer de Produto</h3>
+                        <div class="text-secondary mb-2">Linha Clara</div>
+
+                        <div class="job-meta text-secondary small mb-3">
+                            <span>Curitiba, PR</span><span class="dot" aria-hidden="true"></span>
+                            <span>Design</span>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <span class="badge text-bg-light border">Figma</span>
+                            <span class="badge text-bg-light border">Acessibilidade</span>
+                            <span class="badge text-bg-light border">Design System</span>
+                        </div>
+
+                        <div class="text-secondary small">Faixa: R$ 8.500 – 12.500</div>
+                        <a class="stretched-link job-link" href="#vaga-004" aria-label="Ver detalhes da vaga Designer de Produto"></a>
+                    </div>
+                </article>
+            </div>
+
+            <!-- Card 5 -->
+            <div class="col job-item"
+                 data-id="vaga-005"
+                 data-title="Especialista em Segurança"
+                 data-company="Sentinel Cloud"
+                 data-location="São Paulo, SP"
+                 data-mode="Híbrido"
+                 data-type="PJ"
+                 data-level="Sênior"
+                 data-area="Segurança"
+                 data-tags="AppSec, Threat Modeling, OWASP, CI/CD"
+                 data-salary-min="20000"
+                 data-salary-max="28000"
+                 data-date="2026-01-02">
+                <article class="card job-card h-100">
+                    <div class="job-hero"
+                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%23111827%22/><stop offset=%221%22 stop-color=%22%23374151%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><path d=%22M120 320 L220 100 L320 320 Z%22 fill=%22rgba(255,255,255,0.14)%22/><path d=%22M360 320 L460 140 L560 320 Z%22 fill=%22rgba(255,255,255,0.10)%22/></svg>');">
+                        <div class="job-badge-row">
+                            <span class="badge rounded-pill">Híbrido</span>
+                            <span class="badge rounded-pill">PJ</span>
+                            <span class="badge rounded-pill">Sênior</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="h5 fw-semibold mb-1">Especialista em Segurança</h3>
+                        <div class="text-secondary mb-2">Sentinel Cloud</div>
+
+                        <div class="job-meta text-secondary small mb-3">
+                            <span>São Paulo, SP</span><span class="dot" aria-hidden="true"></span>
+                            <span>Segurança</span>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <span class="badge text-bg-light border">AppSec</span>
+                            <span class="badge text-bg-light border">OWASP</span>
+                            <span class="badge text-bg-light border">CI/CD</span>
+                        </div>
+
+                        <div class="text-secondary small">Faixa: R$ 20.000 – 28.000</div>
+                        <a class="stretched-link job-link" href="#vaga-005" aria-label="Ver detalhes da vaga Especialista em Segurança"></a>
+                    </div>
+                </article>
+            </div>
+
+            <!-- Card 6 -->
+            <div class="col job-item"
+                 data-id="vaga-006"
+                 data-title="Analista de Operações"
+                 data-company="Atlas Log"
+                 data-location="Belo Horizonte, MG"
+                 data-mode="Presencial"
+                 data-type="CLT"
+                 data-level="Júnior"
+                 data-area="Operações"
+                 data-tags="Processos, SLA, Atendimento, Rotinas"
+                 data-salary-min="3500"
+                 data-salary-max="5200"
+                 data-date="2026-01-12">
+                <article class="card job-card h-100">
+                    <div class="job-hero"
+                         style="background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22400%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop stop-color=%22%230b3b7a%22/><stop offset=%221%22 stop-color=%22%2314b8a6%22/></linearGradient></defs><rect width=%22900%22 height=%22400%22 fill=%22url(%23g)%22/><rect x=%2250%22 y=%22240%22 width=%22800%22 height=%2290%22 rx=%2245%22 fill=%22rgba(255,255,255,0.14)%22/></svg>');">
+                        <div class="job-badge-row">
+                            <span class="badge rounded-pill">Presencial</span>
+                            <span class="badge rounded-pill">CLT</span>
+                            <span class="badge rounded-pill">Júnior</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="h5 fw-semibold mb-1">Analista de Operações</h3>
+                        <div class="text-secondary mb-2">Atlas Log</div>
+
+                        <div class="job-meta text-secondary small mb-3">
+                            <span>Belo Horizonte, MG</span><span class="dot" aria-hidden="true"></span>
+                            <span>Operações</span>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <span class="badge text-bg-light border">Processos</span>
+                            <span class="badge text-bg-light border">SLA</span>
+                            <span class="badge text-bg-light border">Atendimento</span>
+                        </div>
+
+                        <div class="text-secondary small">Faixa: R$ 3.500 – 5.200</div>
+                        <a class="stretched-link job-link" href="#vaga-006" aria-label="Ver detalhes da vaga Analista de Operações"></a>
+                    </div>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal de detalhes -->
+    <div class="modal fade" id="jobModal" tabindex="-1" aria-labelledby="jobModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title h5 mb-0" id="jobModalLabel">Detalhes da vaga</h2>
+                        <div id="jobModalCompany" class="text-secondary small"></div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="p-3 bg-body-tertiary rounded-3 border">
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <span id="jobModalMode" class="badge text-bg-primary"></span>
+                                    <span id="jobModalType" class="badge text-bg-secondary"></span>
+                                    <span id="jobModalLevel" class="badge text-bg-dark"></span>
+                                    <span id="jobModalArea" class="badge text-bg-light border text-dark"></span>
+                                </div>
+                                <div class="mt-2 text-secondary">
+                                    <strong>Local:</strong> <span id="jobModalLocation"></span>
+                                    <span class="mx-2 text-secondary">•</span>
+                                    <strong>Faixa:</strong> <span id="jobModalSalary"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <h3 class="h6 fw-semibold">Tecnologias / Tags</h3>
+                            <div id="jobModalTags" class="d-flex flex-wrap gap-2"></div>
+                        </div>
+
+                        <div class="col-12">
+                            <h3 class="h6 fw-semibold">Resumo</h3>
+                            <p id="jobModalSummary" class="text-secondary mb-0"></p>
+                        </div>
+
+                        <div class="col-12">
+                            <h3 class="h6 fw-semibold">Principais responsabilidades</h3>
+                            <ul id="jobModalResp" class="mb-0 text-secondary"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a id="jobModalAnchor" class="btn btn-outline-secondary" href="#" role="button">
+                        Copiar link interno
+                    </a>
+
+                    <!-- NOVO: abrir modal de candidatura -->
+                    <button id="jobModalApplyBtn" type="button" class="btn btn-primary">
+                        Candidatar-se
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de candidatura -->
+    <div class="modal fade" id="applyModal" tabindex="-1" aria-labelledby="applyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <form id="applyForm" class="modal-content needs-validation" novalidate>
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="modal-title h5 mb-0" id="applyModalLabel">Enviar candidatura</h2>
+                            <div class="text-secondary small" id="applyModalJobLine"></div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <!-- Alerta interno do modal (erros de validação/envio) -->
+                        <div id="applyAlert" class="alert alert-danger d-none" role="alert" aria-live="polite"></div>
+
+                        <!-- Dados da vaga (readonly, para evitar erro humano) -->
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label for="applyJobTitle" class="form-label">Vaga</label>
+                                <input id="applyJobTitle" class="form-control" type="text" readonly />
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label for="applyCompany" class="form-label">Empresa</label>
+                                <input id="applyCompany" class="form-control" type="text" readonly />
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Dados do candidato -->
+                        <h3 class="h6 fw-semibold mb-3">Dados do candidato</h3>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label for="fullName" class="form-label">Nome completo</label>
+                                <input id="fullName" name="fullName" class="form-control" type="text" required />
+                                <div class="invalid-feedback">Informe seu nome completo.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="email" class="form-label">E-mail</label>
+                                <input id="email" name="email" class="form-control" type="email" required autocomplete="email" />
+                                <div class="invalid-feedback">Informe um e-mail válido.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="phone" class="form-label">Telefone / WhatsApp</label>
+                                <input id="phone" name="phone" class="form-control" type="tel" required placeholder="(DD) 9XXXX-XXXX" autocomplete="tel" />
+                                <div class="invalid-feedback">Informe um telefone para contato.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="candidateLocation" class="form-label">Cidade/UF</label>
+                                <input id="candidateLocation" name="candidateLocation" class="form-control" type="text" required placeholder="Ex.: São Paulo, SP" />
+                                <div class="invalid-feedback">Informe sua localização.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="linkedin" class="form-label">LinkedIn</label>
+                                <input id="linkedin" name="linkedin" class="form-control" type="url" placeholder="https://linkedin.com/in/..." />
+                                <div class="form-text">Opcional, mas ajuda bastante na triagem.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="portfolio" class="form-label">Portfólio / GitHub</label>
+                                <input id="portfolio" name="portfolio" class="form-control" type="url" placeholder="https://..." />
+                                <div class="form-text">Opcional (ideal para Design/Engenharia/Dados).</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="currentRole" class="form-label">Cargo atual</label>
+                                <input id="currentRole" name="currentRole" class="form-control" type="text" required />
+                                <div class="invalid-feedback">Informe seu cargo atual (ou último).</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="experienceYears" class="form-label">Anos de experiência</label>
+                                <input id="experienceYears" name="experienceYears" class="form-control" type="number" min="0" step="1" required />
+                                <div class="invalid-feedback">Informe um número válido.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="salaryExpectation" class="form-label">Pretensão (R$)</label>
+                                <input id="salaryExpectation" name="salaryExpectation" class="form-control" type="number" min="0" step="500" required placeholder="Ex.: 12000" />
+                                <div class="invalid-feedback">Informe sua pretensão salarial.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="availability" class="form-label">Disponibilidade para iniciar</label>
+                                <select id="availability" name="availability" class="form-select" required>
+                                    <option value="" selected>Selecione</option>
+                                    <option>Imediata</option>
+                                    <option>Até 15 dias</option>
+                                    <option>Até 30 dias</option>
+                                    <option>Mais de 30 dias</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione sua disponibilidade.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="highlights" class="form-label">Resumo profissional</label>
+                                <textarea id="highlights" name="highlights" class="form-control" rows="4" required
+                                          placeholder="Conte, em poucas linhas, os pontos mais relevantes: impacto, projetos, stack, resultados."></textarea>
+                                <div class="invalid-feedback">Escreva um breve resumo profissional.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="recruiterNotes" class="form-label">Informações adicionais</label>
+                                <textarea id="recruiterNotes" name="recruiterNotes" class="form-control" rows="3"
+                                          placeholder="Ex.: preferências de formato (remoto/híbrido), viagem/mudança, certificações, etc."></textarea>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="attachment" class="form-label">Anexo (opcional)</label>
+                                <input id="attachment" name="attachment" class="form-control" type="file"
+                                       accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                                <div class="form-text" id="attachmentHint">Tipos aceitos: PDF, DOC, DOCX. Tamanho máximo: 5MB.</div>
+                                <div class="invalid-feedback" id="attachmentInvalid">Arquivo inválido.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <!-- Regra importante: consentimento explícito -->
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="1" id="consent" name="consent" required>
+                                    <label class="form-check-label" for="consent">
+                                        Concordo em compartilhar meus dados para fins de recrutamento e seleção.
+                                    </label>
+                                    <div class="invalid-feedback">Você precisa concordar para enviar a candidatura.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Cancelar
+                        </button>
+
+                        <button id="sendApplicationBtn" type="submit" class="btn btn-primary">
+                            <span id="sendBtnText">Enviar candidatura</span>
+                            <span id="sendBtnSpinner" class="spinner-border spinner-border-sm ms-2 d-none" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+    /**
+     * Intenção:
+     * - Candidatura completa, com validação e upload opcional.
+     * - Sem engolir erro: toda falha resulta em alerta visível.
+     * - Mantém a seleção da vaga atual para preencher o modal de candidatura.
+     */
+    (function () {
+      const elAlert = document.getElementById("appAlert");
+      const overlay = document.getElementById("loadingOverlay");
+      const grid = document.getElementById("jobsGrid");
+      const items = Array.from(document.querySelectorAll(".job-item"));
+      const resultsCount = document.getElementById("resultsCount");
+      const emptyState = document.getElementById("emptyState");
+
+      const filtersForm = document.getElementById("filtersForm");
+      const clearBtn = document.getElementById("clearBtn");
+      const emptyClearBtn = document.getElementById("emptyClearBtn");
+
+      const jobModalEl = document.getElementById("jobModal");
+      const jobModal = new bootstrap.Modal(jobModalEl, { backdrop: true, keyboard: true });
+
+      const applyModalEl = document.getElementById("applyModal");
+      const applyModal = new bootstrap.Modal(applyModalEl, { backdrop: "static", keyboard: true }); // static para evitar perda acidental
+
+      const jobModalApplyBtn = document.getElementById("jobModalApplyBtn");
+
+      const applyForm = document.getElementById("applyForm");
+      const applyAlert = document.getElementById("applyAlert");
+      const sendBtn = document.getElementById("sendApplicationBtn");
+      const sendBtnText = document.getElementById("sendBtnText");
+      const sendBtnSpinner = document.getElementById("sendBtnSpinner");
+
+      const attachmentInput = document.getElementById("attachment");
+      const attachmentInvalid = document.getElementById("attachmentInvalid");
+
+      let currentSort = "recent";
+
+      // Mantém a vaga atual selecionada (para candidatura)
+      let currentJob = null;
+
+      function showAppAlert(type, message) {
+        // type: "success" | "danger"
+        elAlert.className = "alert alert-" + type;
+        elAlert.textContent = message;
+        elAlert.classList.remove("d-none");
+      }
+
+      function clearAppAlert() {
+        elAlert.textContent = "";
+        elAlert.classList.add("d-none");
+      }
+
+      function showApplyAlert(message) {
+        applyAlert.textContent = message;
+        applyAlert.classList.remove("d-none");
+      }
+
+      function clearApplyAlert() {
+        applyAlert.textContent = "";
+        applyAlert.classList.add("d-none");
+      }
+
+      function setLoading(isLoading) {
+        overlay.setAttribute("aria-hidden", isLoading ? "false" : "true");
+      }
+
+      function setSendLoading(isLoading) {
+        // Regra: evitar double-submit e dar feedback visual consistente
+        sendBtn.disabled = isLoading;
+        sendBtnSpinner.classList.toggle("d-none", !isLoading);
+        sendBtnText.textContent = isLoading ? "Enviando..." : "Enviar candidatura";
+      }
+
+      function normalize(str) {
+        return (str || "").toString().trim().toLowerCase();
+      }
+
+      function parseNumber(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+      }
+
+      function getFilters() {
+        const q = normalize(document.getElementById("q").value);
+        const location = document.getElementById("location").value.trim();
+        const mode = document.getElementById("mode").value.trim();
+        const type = document.getElementById("type").value.trim();
+        const level = document.getElementById("level").value.trim();
+        const area = document.getElementById("area").value.trim();
+        const minSalary = parseNumber(document.getElementById("minSalary").value);
+
+        return { q, location, mode, type, level, area, minSalary };
+      }
+
+      function matchesFilters(item, f) {
+        const haystack = normalize(
+          item.dataset.title + " " + item.dataset.company + " " + item.dataset.tags
+        );
+
+        if (f.q && !haystack.includes(f.q)) return false;
+        if (f.location && item.dataset.location !== f.location) return false;
+        if (f.mode && item.dataset.mode !== f.mode) return false;
+        if (f.type && item.dataset.type !== f.type) return false;
+        if (f.level && item.dataset.level !== f.level) return false;
+        if (f.area && item.dataset.area !== f.area) return false;
+
+        if (f.minSalary !== null) {
+          const max = parseNumber(item.dataset.salaryMax);
+          if (max === null) return false;
+          if (max < f.minSalary) return false;
+        }
+
+        return true;
+      }
+
+      function sortItems(visibleItems) {
+        const sorted = [...visibleItems];
+
+        if (currentSort === "recent") {
+          sorted.sort((a, b) => (b.dataset.date || "").localeCompare(a.dataset.date || ""));
+        } else if (currentSort === "salaryDesc") {
+          sorted.sort((a, b) => (Number(b.dataset.salaryMax) || 0) - (Number(a.dataset.salaryMax) || 0));
+        } else if (currentSort === "companyAsc") {
+          sorted.sort((a, b) => (a.dataset.company || "").localeCompare(b.dataset.company || "", "pt-BR"));
+        }
+
+        return sorted;
+      }
+
+      function render(filters) {
+        clearAppAlert();
+
+        const visible = items.filter(i => matchesFilters(i, filters));
+        const sorted = sortItems(visible);
+
+        const fragment = document.createDocumentFragment();
+        sorted.forEach(el => fragment.appendChild(el));
+        items
+          .filter(el => !visible.includes(el))
+          .forEach(el => fragment.appendChild(el));
+
+        grid.appendChild(fragment);
+
+        items.forEach(el => {
+          el.classList.toggle("d-none", !visible.includes(el));
+        });
+
+        resultsCount.textContent = String(visible.length);
+        emptyState.classList.toggle("d-none", visible.length !== 0);
+      }
+
+      function resetFilters() {
+        filtersForm.reset();
+        currentSort = "recent";
+        render(getFilters());
+      }
+
+      function formatMoney(min, max) {
+        const f = (n) => n.toLocaleString("pt-BR");
+        return `R$ ${f(min)} – ${f(max)}`;
+      }
+
+      function buildSummary(item) {
+        const title = item.dataset.title;
+        const company = item.dataset.company;
+        const tags = (item.dataset.tags || "").split(",").map(x => x.trim()).filter(Boolean);
+        return `${title} em ${company}, com foco em ${tags.slice(0, 3).join(", ")}. Atuação ${item.dataset.mode.toLowerCase()} e colaboração com time multidisciplinar para entregar valor contínuo.`;
+      }
+
+      function buildResponsibilities(item) {
+        const area = item.dataset.area;
+        const base = [
+          "Participar de planejamento e refinamento, alinhando escopo e qualidade",
+          "Implementar melhorias com atenção a performance, segurança e manutenção",
+          "Garantir comunicação clara com áreas parceiras e registrar decisões relevantes"
+        ];
+
+        if (area === "Engenharia") {
+          base.unshift("Desenvolver e evoluir serviços e interfaces com testes e revisão de código");
+          base.push("Apoiar observabilidade (logs/métricas) e correção de incidentes com causa raiz");
+        } else if (area === "Dados") {
+          base.unshift("Construir e manter pipelines e modelos de dados com rastreabilidade");
+          base.push("Definir padrões de qualidade e monitoramento de dados (alertas e validações)");
+        } else if (area === "Produto") {
+          base.unshift("Conduzir discovery, alinhar objetivos e priorizar roadmap orientado a métricas");
+          base.push("Desenhar e acompanhar experimentos, com aprendizado documentado");
+        } else if (area === "Design") {
+          base.unshift("Desenhar fluxos e interfaces com acessibilidade e consistência visual");
+          base.push("Evoluir design system e conduzir pesquisa com usuários quando necessário");
+        } else if (area === "Segurança") {
+          base.unshift("Atuar em AppSec e revisão de riscos (ameaças e vulnerabilidades)");
+          base.push("Definir guardrails de segurança em CI/CD e apoiar squads na adoção");
+        } else if (area === "Operações") {
+          base.unshift("Padronizar rotinas e processos para elevar eficiência e previsibilidade");
+          base.push("Acompanhar indicadores e sugerir melhorias contínuas (SLA/qualidade)");
+        }
+
+        return base.slice(0, 6);
+      }
+
+      function openJobModal(item) {
+        currentJob = item; // seleciona vaga atual
+
+        document.getElementById("jobModalLabel").textContent = item.dataset.title;
+        document.getElementById("jobModalCompany").textContent = item.dataset.company;
+
+        document.getElementById("jobModalMode").textContent = item.dataset.mode;
+        document.getElementById("jobModalType").textContent = item.dataset.type;
+        document.getElementById("jobModalLevel").textContent = item.dataset.level;
+        document.getElementById("jobModalArea").textContent = item.dataset.area;
+
+        document.getElementById("jobModalLocation").textContent = item.dataset.location;
+
+        const min = Number(item.dataset.salaryMin) || 0;
+        const max = Number(item.dataset.salaryMax) || 0;
+        document.getElementById("jobModalSalary").textContent = formatMoney(min, max);
+
+        const tagsWrap = document.getElementById("jobModalTags");
+        tagsWrap.innerHTML = "";
+        (item.dataset.tags || "")
+          .split(",")
+          .map(x => x.trim())
+          .filter(Boolean)
+          .forEach(tag => {
+            const span = document.createElement("span");
+            span.className = "badge text-bg-light border";
+            span.textContent = tag;
+            tagsWrap.appendChild(span);
+          });
+
+        document.getElementById("jobModalSummary").textContent = buildSummary(item);
+
+        const ul = document.getElementById("jobModalResp");
+        ul.innerHTML = "";
+        buildResponsibilities(item).forEach(r => {
+          const li = document.createElement("li");
+          li.textContent = r;
+          ul.appendChild(li);
+        });
+
+        const anchor = document.getElementById("jobModalAnchor");
+        anchor.href = "#" + item.dataset.id;
+
+        jobModal.show();
+      }
+
+      function openApplyModalFromCurrentJob() {
+        if (!currentJob) {
+          // Sem fallback silencioso: mostra erro claro e loga contexto
+          console.error("Candidatura solicitada sem currentJob definido.");
+          showAppAlert("danger", "Não foi possível iniciar a candidatura. Abra os detalhes de uma vaga e tente novamente.");
+          return;
+        }
+
+        // Limpa mensagens/validação anterior
+        clearApplyAlert();
+        applyForm.classList.remove("was-validated");
+        applyForm.reset();
+        setSendLoading(false);
+
+        // Preenche dados da vaga
+        document.getElementById("applyJobTitle").value = currentJob.dataset.title;
+        document.getElementById("applyCompany").value = currentJob.dataset.company;
+        document.getElementById("applyModalJobLine").textContent =
+          `${currentJob.dataset.title} • ${currentJob.dataset.company} • ${currentJob.dataset.mode}`;
+
+        // Reseta validação do anexo
+        attachmentInput.classList.remove("is-invalid");
+        attachmentInvalid.textContent = "Arquivo inválido.";
+
+        // Fecha detalhes e abre candidatura (fluxo claro)
+        jobModal.hide();
+        applyModal.show();
+      }
+
+      function validateAttachment() {
+        // Regra: upload opcional, mas se houver arquivo, validar tipo e tamanho
+        const file = attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
+        attachmentInput.classList.remove("is-invalid");
+
+        if (!file) return true;
+
+        const maxBytes = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxBytes) {
+          attachmentInvalid.textContent = "O arquivo excede 5MB. Selecione um arquivo menor.";
+          attachmentInput.classList.add("is-invalid");
+          return false;
+        }
+
+        const allowedExt = [".pdf", ".doc", ".docx"];
+        const name = (file.name || "").toLowerCase();
+        const okExt = allowedExt.some(ext => name.endsWith(ext));
+
+        if (!okExt) {
+          attachmentInvalid.textContent = "Formato não aceito. Use PDF, DOC ou DOCX.";
+          attachmentInput.classList.add("is-invalid");
+          return false;
+        }
+
+        return true;
+      }
+
+      // Clique nos cards
+      grid.addEventListener("click", (ev) => {
+        const link = ev.target.closest("a.job-link");
+        if (!link) return;
+
+        ev.preventDefault();
+        const jobItem = ev.target.closest(".job-item");
+        if (!jobItem) return;
+
+        try {
+          openJobModal(jobItem);
+        } catch (err) {
+          console.error(err);
+          showAppAlert("danger", "Ocorreu um erro ao abrir os detalhes da vaga. Recarregue a página e tente novamente.");
+        }
+      });
+
+      // Botão "Candidatar-se" no modal de detalhes
+      jobModalApplyBtn.addEventListener("click", () => {
+        try {
+          openApplyModalFromCurrentJob();
+        } catch (err) {
+          console.error(err);
+          showAppAlert("danger", "Ocorreu um erro ao iniciar a candidatura. Recarregue a página e tente novamente.");
+        }
+      });
+
+      // Validação do anexo ao mudar o arquivo
+      attachmentInput.addEventListener("change", () => {
+        try {
+          validateAttachment();
+        } catch (err) {
+          console.error(err);
+          // Não bloqueia a UI, mas avisa de forma explícita
+          showApplyAlert("Não foi possível validar o arquivo selecionado. Tente novamente.");
+        }
+      });
+
+      // Envio da candidatura
+      applyForm.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        try {
+          clearApplyAlert();
+
+          // Bootstrap validation
+          applyForm.classList.add("was-validated");
+
+          const isFormValid = applyForm.checkValidity();
+          const isAttachmentValid = validateAttachment();
+
+          if (!isFormValid || !isAttachmentValid) {
+            showApplyAlert("Revise os campos destacados antes de enviar.");
+            return;
+          }
+
+          setSendLoading(true);
+
+          // Monta payload com FormData (inclui arquivo)
+          const formData = new FormData(applyForm);
+          formData.append("jobId", currentJob?.dataset?.id || "");
+          formData.append("jobTitle", currentJob?.dataset?.title || "");
+          formData.append("company", currentJob?.dataset?.company || "");
+
+          /**
+           * Intenção:
+           * - Aqui você chamaria um endpoint real (fetch POST).
+           * - Como é um HTML estático, registramos o envio e damos feedback ao usuário.
+           */
+          await new Promise(resolve => window.setTimeout(resolve, 650));
+
+          // Registro mínimo em memória (útil para debug local sem poluir a UI)
+          // Regra: não esconder erro; console é só complemento.
+          const sent = {
+            jobId: formData.get("jobId"),
+            jobTitle: formData.get("jobTitle"),
+            company: formData.get("company"),
+            fullName: formData.get("fullName"),
+            email: formData.get("email"),
+            phone: formData.get("phone"),
+            attachmentName: attachmentInput.files?.[0]?.name || null
+          };
+          console.info("Candidatura enviada:", sent);
+
+          applyModal.hide();
+          showAppAlert("success", "Candidatura enviada com sucesso. Você pode continuar navegando pelas vagas.");
+
+          // Boa prática: volta foco para um ponto previsível após fechar modal
+          document.querySelector("main")?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        } catch (err) {
+          console.error(err);
+          setSendLoading(false);
+          showApplyAlert("Ocorreu um erro ao enviar sua candidatura. Tente novamente.");
+        } finally {
+          // Se deu certo, o modal fecha e o botão some; se deu erro, reabilita aqui.
+          setSendLoading(false);
+        }
+      });
+
+      // Aplicar filtros
+      filtersForm.addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        try {
+          setLoading(true);
+          window.setTimeout(() => {
+            render(getFilters());
+            setLoading(false);
+          }, 250);
+        } catch (err) {
+          setLoading(false);
+          console.error(err);
+          showAppAlert("danger", "Ocorreu um erro ao aplicar filtros. Verifique os campos e tente novamente.");
+        }
+      });
+
+      // Limpar filtros
+      clearBtn.addEventListener("click", () => {
+        try {
+          setLoading(true);
+          window.setTimeout(() => {
+            resetFilters();
+            setLoading(false);
+          }, 150);
+        } catch (err) {
+          setLoading(false);
+          console.error(err);
+          showAppAlert("danger", "Ocorreu um erro ao limpar filtros. Recarregue a página e tente novamente.");
+        }
+      });
+      emptyClearBtn.addEventListener("click", () => clearBtn.click());
+
+      // Ordenação
+      document.addEventListener("click", (ev) => {
+        const btn = ev.target.closest("[data-sort]");
+        if (!btn) return;
+
+        try {
+          currentSort = btn.getAttribute("data-sort");
+          setLoading(true);
+          window.setTimeout(() => {
+            render(getFilters());
+            setLoading(false);
+          }, 150);
+        } catch (err) {
+          setLoading(false);
+          console.error(err);
+          showAppAlert("danger", "Ocorreu um erro ao ordenar os resultados. Tente novamente.");
+        }
+      });
+
+      // Render inicial
+      try {
+        render(getFilters());
+      } catch (err) {
+        console.error(err);
+        showAppAlert("danger", "Ocorreu um erro ao carregar a página. Recarregue e tente novamente.");
+      }
+    })();
+    </script>
+</body>
+</html>

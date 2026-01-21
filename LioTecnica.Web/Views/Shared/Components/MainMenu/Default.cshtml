@@ -7,7 +7,10 @@
 <nav class="nav flex-column">
     @foreach (var menu in Model)
     {
-        <a class="@linkClass @ViewHelpers.NavActiveByPath(ViewContext, menu.Route)" href="@menu.Route">
+        var openInNewTab = menu.OpenInNewTab;
+        var target = openInNewTab ? "_blank" : null;
+        var rel = openInNewTab ? "noopener" : null;
+        <a class="@linkClass @ViewHelpers.NavActiveByPath(ViewContext, menu.Route)" href="@menu.Route" target="@target" rel="@rel">
             <i class="bi @menu.Icon"></i>@menu.DisplayName
         </a>
     }

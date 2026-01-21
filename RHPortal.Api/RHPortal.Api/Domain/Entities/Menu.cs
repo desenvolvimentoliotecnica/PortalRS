@@ -12,6 +12,7 @@ public sealed class Menu : ITenantEntity
     public Guid? ParentId { get; set; }
     public string PermissionKey { get; set; } = default!;
     public bool IsActive { get; set; } = true;
+    public bool OpenInNewTab { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }

@@ -1715,6 +1715,17 @@ BuildDemoRequisitos(string areaCode)
             new()
             {
                 Id = Guid.NewGuid(),
+                DisplayName = "Portal de Vagas",
+                Route = "/PortalVagas",
+                Icon = "bi-globe2",
+                Order = 7,
+                PermissionKey = "portalvagas.view",
+                IsActive = true,
+                OpenInNewTab = true
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
                 DisplayName = "Entrada (Email/Pasta)",
                 Route = "/EntradaEmailPasta",
                 Icon = "bi-inbox",

@@ -49,7 +49,8 @@ public sealed record MenuListItemViewModel(
     int Order,
     Guid? ParentId,
     string PermissionKey,
-    bool IsActive
+    bool IsActive,
+    bool OpenInNewTab
 );
 
 public sealed record MenuResponseViewModel(
@@ -61,6 +62,7 @@ public sealed record MenuResponseViewModel(
     Guid? ParentId,
     string PermissionKey,
     bool IsActive,
+    bool OpenInNewTab,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
@@ -72,7 +74,8 @@ public sealed record MenuForCurrentUserViewModel(
     string Icon,
     int Order,
     Guid? ParentId,
-    string PermissionKey
+    string PermissionKey,
+    bool OpenInNewTab
 );
 
 public sealed record RoleMenuAssignmentViewModel(

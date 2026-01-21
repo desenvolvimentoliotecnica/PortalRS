@@ -10,7 +10,8 @@ public sealed record MenuListItemResponse(
     int Order,
     Guid? ParentId,
     string PermissionKey,
-    bool IsActive
+    bool IsActive,
+    bool OpenInNewTab
 );
 
 public sealed record MenuResponse(
@@ -22,6 +23,7 @@ public sealed record MenuResponse(
     Guid? ParentId,
     string PermissionKey,
     bool IsActive,
+    bool OpenInNewTab,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
@@ -33,7 +35,8 @@ public sealed record MenuCreateRequest(
     int Order,
     Guid? ParentId,
     [Required, MaxLength(160)] string PermissionKey,
-    bool IsActive
+    bool IsActive,
+    bool OpenInNewTab
 );
 
 public sealed record MenuUpdateRequest(
@@ -43,7 +46,8 @@ public sealed record MenuUpdateRequest(
     int Order,
     Guid? ParentId,
     [Required, MaxLength(160)] string PermissionKey,
-    bool IsActive
+    bool IsActive,
+    bool OpenInNewTab
 );
 
 public sealed record MenuForCurrentUserResponse(
@@ -53,5 +57,6 @@ public sealed record MenuForCurrentUserResponse(
     string Icon,
     int Order,
     Guid? ParentId,
-    string PermissionKey
+    string PermissionKey,
+    bool OpenInNewTab
 );

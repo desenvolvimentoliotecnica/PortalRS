@@ -28,7 +28,8 @@ public sealed class MenuAdministrationService
                 x.Order,
                 x.ParentId,
                 x.PermissionKey,
-                x.IsActive))
+                x.IsActive,
+                x.OpenInNewTab))
             .ToListAsync(ct);
     }
 
@@ -46,6 +47,7 @@ public sealed class MenuAdministrationService
                 x.ParentId,
                 x.PermissionKey,
                 x.IsActive,
+                x.OpenInNewTab,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .FirstOrDefaultAsync(ct);
@@ -73,7 +75,8 @@ public sealed class MenuAdministrationService
             Order = request.Order,
             ParentId = request.ParentId,
             PermissionKey = permissionKey,
-            IsActive = request.IsActive
+            IsActive = request.IsActive,
+            OpenInNewTab = request.OpenInNewTab
         };
 
         _db.Menus.Add(menu);
@@ -104,6 +107,7 @@ public sealed class MenuAdministrationService
         menu.Order = request.Order;
         menu.ParentId = request.ParentId;
         menu.IsActive = request.IsActive;
+        menu.OpenInNewTab = request.OpenInNewTab;
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
@@ -145,7 +149,8 @@ public sealed class MenuAdministrationService
                 x.Icon,
                 x.Order,
                 x.ParentId,
-                x.PermissionKey))
+                x.PermissionKey,
+                x.OpenInNewTab))
             .ToListAsync(ct);
     }
 }
