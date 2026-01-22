@@ -1,433 +1,435 @@
 @model PageSeedViewModel
 @{
-    ViewData["Title"] = "Portal RH • Devcraft Studio — Candidatos";
-    ViewData["SidebarSubtitle"] = "Candidatos • CV • Match";
+	ViewData["Title"] = "Portal RH • Devcraft Studio — Candidatos";
+	ViewData["SidebarSubtitle"] = "Candidatos • CV • Match";
 }
 
 
-  @await Html.PartialAsync("_ModalCandDetalhes")
-  @await Html.PartialAsync("_ModalCand")
+@await Html.PartialAsync("_ModalCandDetalhes")
+@await Html.PartialAsync("_ModalCand")
 
-  <!-- ============ TOASTS ============ -->
-  @await Html.PartialAsync("_Toast")
+<!-- ============ TOASTS ============ -->
+@await Html.PartialAsync("_Toast")
 
-      @section Topbar {
-@await Html.PartialAsync("_TopbarBrand", "Tela: Candidatos (status + match por vaga)")
+@section Topbar {
+	@await Html.PartialAsync("_TopbarBrand", "Tela: Candidatos (status + match por vaga)")
 
-          <div class="searchbox position-relative d-none d-md-block">
-            <i class="bi bi-search"></i>
-            <input id="globalSearch" class="form-control" placeholder="Buscar por nome, email, vaga..." />
-          </div>
+	<div class="searchbox position-relative d-none d-md-block">
+		<i class="bi bi-search"></i>
+		<input id="globalSearch" class="form-control" placeholder="Buscar por nome, email, vaga..." />
+	</div>
 
-          <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-ghost" type="button" id="btnExportJson" title="Exportar candidatos (JSON)">
-              <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
-            </button>
+	<div class="d-flex align-items-center gap-2">
+		<button class="btn btn-ghost" type="button" id="btnExportJson" title="Exportar candidatos (JSON)">
+			<i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
+		</button>
 
-            <button class="btn btn-brand" type="button" id="btnNewCand">
-              <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo candidato</span>
-            </button>
+		<button class="btn btn-brand" type="button" id="btnNewCand">
+			<i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo candidato</span>
+		</button>
 
-                        @await Html.PartialAsync("_TopbarUserMenu", "RH")
-          </div>
+		@await Html.PartialAsync("_TopbarUserMenu", "RH")
+	</div>
 }
 
-      <!-- CONTENT -->
-      <section class="content">
-        <div class="page-title">
-          <div>
-            <h4>Candidatos</h4>
-            <div class="subtitle">Acompanhe candidatos por vaga, status e match estimado (MVP keyword).</div>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">—</span></span>
-          </div>
-        </div>
+<!-- CONTENT -->
+<section class="content">
+	<div class="page-title">
+		<div>
+			<h4>Candidatos</h4>
+			<div class="subtitle">Acompanhe candidatos por vaga, status e match estimado (MVP keyword).</div>
+		</div>
+		<div class="d-flex align-items-center gap-2">
+			<span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">—</span></span>
+		</div>
+	</div>
 
-        <!-- KPIs -->
-                @{
-          var kpis = new[]
-          {
-            new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Total", ValueId = "kpiTotal", Value = "0", Hint = "candidatos", Icon = "bi-people" },
-            new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Em triagem", ValueId = "kpiTriagem", Value = "0", Hint = "aguardando análise", Icon = "bi-funnel" },
-            new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Aprovados", ValueId = "kpiAprov", Value = "0", Hint = "em avanço", Icon = "bi-check2-circle" },
-            new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Reprovados", ValueId = "kpiReprov", Value = "0", Hint = "fora do perfil", Icon = "bi-x-circle" }
-          };
-        }
-        @await Html.PartialAsync("_KpiCardRow", kpis)
+	<!-- KPIs -->
+	@{
+		var kpis = new[]
+		{
+	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Total", ValueId = "kpiTotal", Value = "0", Hint = "candidatos", Icon = "bi-people" },
+	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Em triagem", ValueId = "kpiTriagem", Value = "0", Hint = "aguardando análise", Icon = "bi-funnel" },
+	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Aprovados", ValueId = "kpiAprov", Value = "0", Hint = "em avanço", Icon = "bi-check2-circle" },
+	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Reprovados", ValueId = "kpiReprov", Value = "0", Hint = "fora do perfil", Icon = "bi-x-circle" }
+	};
+	}
+	@await Html.PartialAsync("_KpiCardRow", kpis)
 
-        <div class="row g-3 mt-1">
-          <!-- LISTA -->
-          <div class="col-12">
-            <div class="card-soft p-3">
-              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-                <div>
-                  <p class="mini-title mb-1">Lista</p>
-                  <div class="fw-bold">Candidatos cadastrados</div>
-                  <div class="text-muted small">Use o botao Detalhes para ver e editar o candidato.</div>
-                </div>
-              </div>
+	<div class="row g-3 mt-1">
+		<!-- LISTA -->
+		<div class="col-12">
+			<div class="card-soft p-3">
+				<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+					<div>
+						<p class="mini-title mb-1">Lista</p>
+						<div class="fw-bold">Candidatos cadastrados</div>
+						<div class="text-muted small">Use o botao Detalhes para ver e editar o candidato.</div>
+					</div>
+				</div>
 
-              <!-- filtros -->
-              <div class="row g-2 mb-2">
-                <div class="col-12 col-md-6">
-                  <div class="input-group">
-                    <span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
-                      <i class="bi bi-search"></i>
-                    </span>
-                    <input class="form-control" id="fSearch" placeholder="Buscar por nome, email, vaga..." style="border-color:var(--lt-border);">
-                  </div>
-                </div>
-                <div class="col-6 col-md-3">
-                  <select class="form-select" id="fStatus" data-enum="candidatoStatusFilter" style="border-color:var(--lt-border);"></select>
-                </div>
-                <div class="col-6 col-md-3">
-                  <select class="form-select" id="fVaga" style="border-color:var(--lt-border);"></select>
-                </div>
-              </div>
+				<!-- filtros -->
+				<div class="row g-2 mb-2">
+					<div class="col-12 col-md-6">
+						<div class="input-group">
+							<span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
+								<i class="bi bi-search"></i>
+							</span>
+							<input class="form-control" id="fSearch" placeholder="Buscar por nome, email, vaga..." style="border-color:var(--lt-border);">
+						</div>
+					</div>
+					<div class="col-6 col-md-3">
+						<select class="form-select" id="fStatus" data-enum="candidatoStatusFilter" style="border-color:var(--lt-border);"></select>
+					</div>
+					<div class="col-6 col-md-3">
+						<select class="form-select" id="fVaga" style="border-color:var(--lt-border);"></select>
+					</div>
+				</div>
 
-                            <lt-grid table-class="table align-middle mb-0" body-id="tblCands">
-                <lt-grid-header>
-                  <tr>
-                    <th style="min-width: 260px;">Candidato</th>
-                    <th style="min-width: 220px;">Vaga</th>
-                    <th style="min-width: 150px;">Status</th>
-                    <th style="min-width: 170px;">Match</th>
-                    <th class="text-end" style="min-width: 230px;">Acoes</th>
-                  </tr>
-                </lt-grid-header>
-              </lt-grid>
-            </div>
-          </div>
+				<div class="table-responsive">
+					<table class="table align-middle mb-0">
+						<thead>
+							<tr>
+								<th style="min-width: 260px;">Candidato</th>
+								<th style="min-width: 220px;">Vaga</th>
+								<th style="min-width: 150px;">Status</th>
+								<th style="min-width: 170px;">Match</th>
+								<th class="text-end" style="min-width: 230px;">Acoes</th>
+							</tr>
+						</thead>
+						<tbody id="tblCands"></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
 
-          <!-- DETALHES (DESKTOP) -->
-        </div>
+		<!-- DETALHES (DESKTOP) -->
+	</div>
 
-        <div style="height: 14px;"></div>
-      </section>
+	<div style="height: 14px;"></div>
+</section>
 
-      <!-- Templates -->
-      <template id="tpl-cand-status-tag">
-        <span class="status-tag">
-          <i class="bi" data-role="icon"></i>
-          <span data-role="text"></span>
-        </span>
-      </template>
+<!-- Templates -->
+<template id="tpl-cand-status-tag">
+	<span class="status-tag">
+		<i class="bi" data-role="icon"></i>
+		<span data-role="text"></span>
+	</span>
+</template>
 
-      <template id="tpl-cand-empty-row">
-        <tr>
-          <td colspan="5" class="text-center text-muted py-4">Nenhum candidato encontrado com os filtros atuais.</td>
-        </tr>
-      </template>
+<template id="tpl-cand-empty-row">
+	<tr>
+		<td colspan="5" class="text-center text-muted py-4">Nenhum candidato encontrado com os filtros atuais.</td>
+	</tr>
+</template>
 
-      <template id="tpl-cand-row">
-        <tr>
-          <td>
-            <div class="d-flex align-items-center gap-2">
-              <div class="avatar" data-role="cand-initials"></div>
-              <div>
-                <div class="fw-bold" data-role="cand-name"></div>
-                <div class="text-muted small">
-                  <span data-role="cand-email"></span>
-                  <span class="mx-2" data-role="cand-phone-sep">&bull;</span>
-                  <span data-role="cand-phone"></span>
-                </div>
-              </div>
-            </div>
-          </td>
-          <td class="nowrap">
-            <div class="fw-semibold" data-role="vaga-title"></div>
-            <div class="text-muted small mono" data-role="vaga-code"></div>
-          </td>
-          <td class="nowrap" data-role="status-host"></td>
-          <td class="nowrap" data-role="match-host"></td>
-          <td class="text-end nowrap">
-            <button class="btn btn-ghost btn-sm me-1" data-act="detail">
-              <i class="bi bi-layout-text-window me-1"></i>Detalhes
-            </button>
-            <button class="btn btn-ghost btn-sm me-1" data-act="edit">
-              <i class="bi bi-pencil me-1"></i>Editar
-            </button>
-            <button class="btn btn-ghost btn-sm me-1" data-act="recalc" title="Recalcular match">
-              <i class="bi bi-arrow-repeat"></i>
-            </button>
-            <button class="btn btn-ghost btn-sm text-danger" data-act="del" title="Excluir">
-              <i class="bi bi-trash3"></i>
-            </button>
-          </td>
-        </tr>
-      </template>
+<template id="tpl-cand-row">
+	<tr>
+		<td>
+			<div class="d-flex align-items-center gap-2">
+				<div class="avatar" data-role="cand-initials"></div>
+				<div>
+					<div class="fw-bold" data-role="cand-name"></div>
+					<div class="text-muted small">
+						<span data-role="cand-email"></span>
+						<span class="mx-2" data-role="cand-phone-sep">&bull;</span>
+						<span data-role="cand-phone"></span>
+					</div>
+				</div>
+			</div>
+		</td>
+		<td class="nowrap">
+			<div class="fw-semibold" data-role="vaga-title"></div>
+			<div class="text-muted small mono" data-role="vaga-code"></div>
+		</td>
+		<td class="nowrap" data-role="status-host"></td>
+		<td class="nowrap" data-role="match-host"></td>
+		<td class="text-end nowrap">
+			<button class="btn btn-ghost btn-sm me-1" data-act="detail">
+				<i class="bi bi-layout-text-window me-1"></i>Detalhes
+			</button>
+			<button class="btn btn-ghost btn-sm me-1" data-act="edit">
+				<i class="bi bi-pencil me-1"></i>Editar
+			</button>
+			<button class="btn btn-ghost btn-sm me-1" data-act="recalc" title="Recalcular match">
+				<i class="bi bi-arrow-repeat"></i>
+			</button>
+			<button class="btn btn-ghost btn-sm text-danger" data-act="del" title="Excluir">
+				<i class="bi bi-trash3"></i>
+			</button>
+		</td>
+	</tr>
+</template>
 
-      <template id="tpl-cand-detail-empty">
-        <div class="detail-empty">
-          <div class="d-flex align-items-start gap-2">
-            <i class="bi bi-info-circle mt-1"></i>
-            <div>
-              <div class="fw-bold">Selecione um candidato</div>
-              <div class="small mt-1">Use o botao Detalhes na lista para ver match, editar status e texto do CV.</div>
-            </div>
-          </div>
-        </div>
-      </template>
+<template id="tpl-cand-detail-empty">
+	<div class="detail-empty">
+		<div class="d-flex align-items-start gap-2">
+			<i class="bi bi-info-circle mt-1"></i>
+			<div>
+				<div class="fw-bold">Selecione um candidato</div>
+				<div class="small mt-1">Use o botao Detalhes na lista para ver match, editar status e texto do CV.</div>
+			</div>
+		</div>
+	</div>
+</template>
 
-      <template id="tpl-cand-detail">
-        <div class="card-soft p-3">
-          <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
-            <div class="d-flex align-items-center gap-2">
-              <div class="avatar" style="width:52px;height:52px;border-radius:16px;" data-role="detail-initials"></div>
-              <div>
-                <div class="fw-bold" style="font-size:1.05rem;" data-role="detail-name"></div>
-                <div class="text-muted small">
-                  <span data-role="detail-email"></span>
-                  <span class="mx-2" data-role="detail-phone-sep">&bull;</span>
-                  <span data-role="detail-phone"></span>
-                </div>
-                <div class="text-muted small">
-                  <i class="bi bi-geo-alt me-1" data-role="detail-location-icon"></i>
-                  <span data-role="detail-location"></span>
-                  <span class="mx-2" data-role="detail-location-sep">&bull;</span>
-                  <i class="bi bi-send me-1"></i><span data-role="detail-source"></span>
-                </div>
-              </div>
-            </div>
+<template id="tpl-cand-detail">
+	<div class="card-soft p-3">
+		<div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+			<div class="d-flex align-items-center gap-2">
+				<div class="avatar" style="width:52px;height:52px;border-radius:16px;" data-role="detail-initials"></div>
+				<div>
+					<div class="fw-bold" style="font-size:1.05rem;" data-role="detail-name"></div>
+					<div class="text-muted small">
+						<span data-role="detail-email"></span>
+						<span class="mx-2" data-role="detail-phone-sep">&bull;</span>
+						<span data-role="detail-phone"></span>
+					</div>
+					<div class="text-muted small">
+						<i class="bi bi-geo-alt me-1" data-role="detail-location-icon"></i>
+						<span data-role="detail-location"></span>
+						<span class="mx-2" data-role="detail-location-sep">&bull;</span>
+						<i class="bi bi-send me-1"></i><span data-role="detail-source"></span>
+					</div>
+				</div>
+			</div>
 
-            <div class="text-end">
-              <div class="mb-1" data-role="detail-status-host"></div>
-              <div class="text-muted small">Atualizado: <span data-role="detail-updated"></span></div>
-            </div>
-          </div>
+			<div class="text-end">
+				<div class="mb-1" data-role="detail-status-host"></div>
+				<div class="text-muted small">Atualizado: <span data-role="detail-updated"></span></div>
+			</div>
+		</div>
 
-          <div class="d-flex flex-wrap gap-2 mb-3">
-            <span class="pill"><i class="bi bi-briefcase"></i><span data-role="detail-vaga-title"></span></span>
-            <span class="pill mono" data-role="detail-vaga-code-wrap"><span data-role="detail-vaga-code"></span></span>
-            <span class="pill" data-role="detail-vaga-thr-wrap"><i class="bi bi-stars"></i>Match min.: <strong class="ms-1" data-role="detail-vaga-thr"></strong></span>
-          </div>
+		<div class="d-flex flex-wrap gap-2 mb-3">
+			<span class="pill"><i class="bi bi-briefcase"></i><span data-role="detail-vaga-title"></span></span>
+			<span class="pill mono" data-role="detail-vaga-code-wrap"><span data-role="detail-vaga-code"></span></span>
+			<span class="pill" data-role="detail-vaga-thr-wrap"><i class="bi bi-stars"></i>Match min.: <strong class="ms-1" data-role="detail-vaga-thr"></strong></span>
+		</div>
 
-          <ul class="nav nav-pills gap-2 mb-3" style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
-            <li class="nav-item">
-              <button class="nav-link active rounded-pill" data-bs-toggle="pill" data-bs-target="#tabResumo" type="button">
-                <i class="bi bi-card-text me-1"></i>Resumo
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabCV" type="button">
-                <i class="bi bi-file-earmark-text me-1"></i>Texto do CV
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabDocs" type="button">
-                <i class="bi bi-paperclip me-1"></i>Documentos
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabMatch" type="button">
-                <i class="bi bi-stars me-1"></i>Match
-              </button>
-            </li>
-          </ul>
+		<ul class="nav nav-pills gap-2 mb-3" style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
+			<li class="nav-item">
+				<button class="nav-link active rounded-pill" data-bs-toggle="pill" data-bs-target="#tabResumo" type="button">
+					<i class="bi bi-card-text me-1"></i>Resumo
+				</button>
+			</li>
+			<li class="nav-item">
+				<button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabCV" type="button">
+					<i class="bi bi-file-earmark-text me-1"></i>Texto do CV
+				</button>
+			</li>
+			<li class="nav-item">
+				<button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabDocs" type="button">
+					<i class="bi bi-paperclip me-1"></i>Documentos
+				</button>
+			</li>
+			<li class="nav-item">
+				<button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabMatch" type="button">
+					<i class="bi bi-stars me-1"></i>Match
+				</button>
+			</li>
+		</ul>
 
-          <div class="tab-content">
-            <div class="tab-pane fade show active" id="tabResumo">
-              <div class="fw-semibold mb-1">Observacoes</div>
-              <div class="text-muted small mb-3" data-role="detail-obs"></div>
+		<div class="tab-content">
+			<div class="tab-pane fade show active" id="tabResumo">
+				<div class="fw-semibold mb-1">Observacoes</div>
+				<div class="text-muted small mb-3" data-role="detail-obs"></div>
 
-              <div class="row g-2">
-                <div class="col-12 col-md-6">
-                  <div class="card-soft p-2" style="box-shadow:none;">
-                    <div class="small text-muted">Status</div>
-                    <select class="form-select form-select-sm mt-1" id="detailStatus"></select>
-                  </div>
-                </div>
-                <div class="col-12 col-md-6">
-                  <div class="card-soft p-2" style="box-shadow:none;">
-                    <div class="small text-muted">Vaga</div>
-                    <select class="form-select form-select-sm mt-1" id="detailVaga"></select>
-                  </div>
-                </div>
-              </div>
+				<div class="row g-2">
+					<div class="col-12 col-md-6">
+						<div class="card-soft p-2" style="box-shadow:none;">
+							<div class="small text-muted">Status</div>
+							<select class="form-select form-select-sm mt-1" id="detailStatus"></select>
+						</div>
+					</div>
+					<div class="col-12 col-md-6">
+						<div class="card-soft p-2" style="box-shadow:none;">
+							<div class="small text-muted">Vaga</div>
+							<select class="form-select form-select-sm mt-1" id="detailVaga"></select>
+						</div>
+					</div>
+				</div>
 
-              <div class="d-flex flex-wrap gap-2 mt-3">
-                <button class="btn btn-ghost btn-sm" type="button" data-dact="edit">
-                  <i class="bi bi-pencil me-1"></i>Editar
-                </button>
-                <button class="btn btn-ghost btn-sm" type="button" data-dact="saveMeta">
-                  <i class="bi bi-check2 me-1"></i>Salvar status/vaga
-                </button>
-                <button class="btn btn-ghost btn-sm text-danger" type="button" data-dact="delete">
-                  <i class="bi bi-trash3 me-1"></i>Excluir
-                </button>
-              </div>
-            </div>
+				<div class="d-flex flex-wrap gap-2 mt-3">
+					<button class="btn btn-ghost btn-sm" type="button" data-dact="edit">
+						<i class="bi bi-pencil me-1"></i>Editar
+					</button>
+					<button class="btn btn-ghost btn-sm" type="button" data-dact="saveMeta">
+						<i class="bi bi-check2 me-1"></i>Salvar status/vaga
+					</button>
+					<button class="btn btn-ghost btn-sm text-danger" type="button" data-dact="delete">
+						<i class="bi bi-trash3 me-1"></i>Excluir
+					</button>
+				</div>
+			</div>
 
-            <div class="tab-pane fade" id="tabCV">
-              <div class="fw-semibold mb-1">Texto do CV (para simulacao no MVP)</div>
-              <div class="text-muted small mb-2">
-                No produto final, isso viria de OCR/parse do PDF/DOCX + dados do email/pasta.
-              </div>
-              <textarea class="form-control" rows="8" id="detailCvText" placeholder="Cole aqui o texto do curriculo..."></textarea>
-              <div class="d-flex flex-wrap gap-2 mt-2">
-                <button class="btn btn-ghost btn-sm" type="button" data-dact="saveCv">
-                  <i class="bi bi-save me-1"></i>Salvar texto
-                </button>
-                <button class="btn btn-ghost btn-sm" type="button" data-dact="recalc">
-                  <i class="bi bi-arrow-repeat me-1"></i>Recalcular match
-                </button>
-              </div>
-            </div>
+			<div class="tab-pane fade" id="tabCV">
+				<div class="fw-semibold mb-1">Texto do CV (para simulacao no MVP)</div>
+				<div class="text-muted small mb-2">
+					No produto final, isso viria de OCR/parse do PDF/DOCX + dados do email/pasta.
+				</div>
+				<textarea class="form-control" rows="8" id="detailCvText" placeholder="Cole aqui o texto do curriculo..."></textarea>
+				<div class="d-flex flex-wrap gap-2 mt-2">
+					<button class="btn btn-ghost btn-sm" type="button" data-dact="saveCv">
+						<i class="bi bi-save me-1"></i>Salvar texto
+					</button>
+					<button class="btn btn-ghost btn-sm" type="button" data-dact="recalc">
+						<i class="bi bi-arrow-repeat me-1"></i>Recalcular match
+					</button>
+				</div>
+			</div>
 
-            <div class="tab-pane fade" id="tabDocs">
-              <div class="fw-semibold mb-1">Documentos e curriculo</div>
-              <div class="text-muted small mb-2">
-                Anexe curriculos, certificados e outros documentos do candidato.
-              </div>
-              <div class="row g-2 align-items-end">
-                <div class="col-12 col-md-3">
-                  <label class="form-label small">Tipo</label>
-                  <select class="form-select form-select-sm" id="docTipo"></select>
-                </div>
-                <div class="col-12 col-md-5">
-                  <label class="form-label small">Descricao</label>
-                  <input class="form-control form-control-sm" id="docDescricao" placeholder="Ex.: CV atualizado, Certificacao, Portfolio" />
-                </div>
-                <div class="col-12 col-md-4">
-                  <label class="form-label small">Arquivo</label>
-                  <input class="form-control form-control-sm" id="docArquivo" type="file" />
-                </div>
-              </div>
-              <div class="d-flex flex-wrap gap-2 mt-2">
-                <button class="btn btn-ghost btn-sm" type="button" data-dact="uploadDoc">
-                  <i class="bi bi-cloud-arrow-up me-1"></i>Enviar documento
-                </button>
-              </div>
-              <div class="mt-3" id="docList"></div>
-            </div>
+			<div class="tab-pane fade" id="tabDocs">
+				<div class="fw-semibold mb-1">Documentos e curriculo</div>
+				<div class="text-muted small mb-2">
+					Anexe curriculos, certificados e outros documentos do candidato.
+				</div>
+				<div class="row g-2 align-items-end">
+					<div class="col-12 col-md-3">
+						<label class="form-label small">Tipo</label>
+						<select class="form-select form-select-sm" id="docTipo"></select>
+					</div>
+					<div class="col-12 col-md-5">
+						<label class="form-label small">Descricao</label>
+						<input class="form-control form-control-sm" id="docDescricao" placeholder="Ex.: CV atualizado, Certificacao, Portfolio" />
+					</div>
+					<div class="col-12 col-md-4">
+						<label class="form-label small">Arquivo</label>
+						<input class="form-control form-control-sm" id="docArquivo" type="file" />
+					</div>
+				</div>
+				<div class="d-flex flex-wrap gap-2 mt-2">
+					<button class="btn btn-ghost btn-sm" type="button" data-dact="uploadDoc">
+						<i class="bi bi-cloud-arrow-up me-1"></i>Enviar documento
+					</button>
+				</div>
+				<div class="mt-3" id="docList"></div>
+			</div>
 
-            <div class="tab-pane fade" id="tabMatch">
-              <div data-role="match-has-vaga">
-                <div class="d-flex align-items-center justify-content-between">
-                  <div>
-                    <div class="fw-bold">Resultado atual</div>
-                    <div class="text-muted small">Score por palavras-chave</div>
-                  </div>
-                  <div data-role="match-status-host"></div>
-                </div>
+			<div class="tab-pane fade" id="tabMatch">
+				<div data-role="match-has-vaga">
+					<div class="d-flex align-items-center justify-content-between">
+						<div>
+							<div class="fw-bold">Resultado atual</div>
+							<div class="text-muted small">Score por palavras-chave</div>
+						</div>
+						<div data-role="match-status-host"></div>
+					</div>
 
-                <div class="mt-2">
-                  <div class="d-flex align-items-center gap-2">
-                    <div class="progress flex-grow-1">
-                      <div class="progress-bar" data-role="match-progress"></div>
-                    </div>
-                    <div class="fw-bold" style="min-width:54px;text-align:right;" data-role="match-score"></div>
-                  </div>
-                  <div class="text-muted small mt-1">
-                    Match minimo da vaga: <strong data-role="match-thr"></strong>
-                    <span class="mx-1">&bull;</span> Encontrados: <strong data-role="match-hits-count"></strong>
-                    <span class="mx-1">&bull;</span> Obrigatorios faltando: <strong data-role="match-miss-count"></strong>
-                  </div>
-                </div>
+					<div class="mt-2">
+						<div class="d-flex align-items-center gap-2">
+							<div class="progress flex-grow-1">
+								<div class="progress-bar" data-role="match-progress"></div>
+							</div>
+							<div class="fw-bold" style="min-width:54px;text-align:right;" data-role="match-score"></div>
+						</div>
+						<div class="text-muted small mt-1">
+							Match minimo da vaga: <strong data-role="match-thr"></strong>
+							<span class="mx-1">&bull;</span> Encontrados: <strong data-role="match-hits-count"></strong>
+							<span class="mx-1">&bull;</span> Obrigatorios faltando: <strong data-role="match-miss-count"></strong>
+						</div>
+					</div>
 
-                <div class="alert alert-danger mt-3 mb-0 d-none" style="border-radius:14px;" data-role="match-miss-block">
-                  <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Obrigatorios nao encontrados</div>
-                  <div class="small" data-role="match-miss-list"></div>
-                </div>
+					<div class="alert alert-danger mt-3 mb-0 d-none" style="border-radius:14px;" data-role="match-miss-block">
+						<div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Obrigatorios nao encontrados</div>
+						<div class="small" data-role="match-miss-list"></div>
+					</div>
 
-                <div class="mt-3">
-                  <div class="fw-semibold mb-1">Encontrados</div>
-                  <div class="small text-muted" data-role="match-hit-list"></div>
-                </div>
+					<div class="mt-3">
+						<div class="fw-semibold mb-1">Encontrados</div>
+						<div class="small text-muted" data-role="match-hit-list"></div>
+					</div>
 
-                <div class="d-flex flex-wrap gap-2 mt-3">
-                  <button class="btn btn-ghost btn-sm" type="button" data-dact="recalc">
-                    <i class="bi bi-arrow-repeat me-1"></i>Recalcular
-                  </button>
-                  <button class="btn btn-ghost btn-sm" type="button" data-dact="openVaga">
-                    <i class="bi bi-briefcase me-1"></i>Abrir vaga (placeholder)
-                  </button>
-                </div>
-              </div>
+					<div class="d-flex flex-wrap gap-2 mt-3">
+						<button class="btn btn-ghost btn-sm" type="button" data-dact="recalc">
+							<i class="bi bi-arrow-repeat me-1"></i>Recalcular
+						</button>
+						<button class="btn btn-ghost btn-sm" type="button" data-dact="openVaga">
+							<i class="bi bi-briefcase me-1"></i>Abrir vaga (placeholder)
+						</button>
+					</div>
+				</div>
 
-              <div class="alert alert-warning d-none" style="border-radius:14px;" data-role="match-no-vaga">
-                Vincule uma vaga ao candidato para calcular o match.
-              </div>
-            </div>
-          </div>
-        </div>
-      </template>
+				<div class="alert alert-warning d-none" style="border-radius:14px;" data-role="match-no-vaga">
+					Vincule uma vaga ao candidato para calcular o match.
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
 
-      <template id="tpl-cand-doc-empty">
-        <div class="text-muted small">Nenhum documento anexado.</div>
-      </template>
+<template id="tpl-cand-doc-empty">
+	<div class="text-muted small">Nenhum documento anexado.</div>
+</template>
 
-      <template id="tpl-cand-doc-row">
-        <div class="card-soft p-2 d-flex flex-wrap align-items-center justify-content-between gap-2" style="box-shadow:none;">
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge-soft" data-role="doc-type"></span>
-            <div>
-              <div class="fw-semibold small" data-role="doc-name"></div>
-              <div class="text-muted small">
-                <span data-role="doc-desc"></span>
-                <span class="mx-2" data-role="doc-size-sep">&bull;</span>
-                <span data-role="doc-size"></span>
-              </div>
-            </div>
-          </div>
-          <div class="d-flex gap-1">
-            <button class="btn btn-ghost btn-sm" type="button" data-doc-act="download" title="Baixar">
-              <i class="bi bi-download"></i>
-            </button>
-            <button class="btn btn-ghost btn-sm text-danger" type="button" data-doc-act="delete" title="Excluir">
-              <i class="bi bi-trash3"></i>
-            </button>
-          </div>
-        </div>
-      </template>
+<template id="tpl-cand-doc-row">
+	<div class="card-soft p-2 d-flex flex-wrap align-items-center justify-content-between gap-2" style="box-shadow:none;">
+		<div class="d-flex align-items-center gap-2">
+			<span class="badge-soft" data-role="doc-type"></span>
+			<div>
+				<div class="fw-semibold small" data-role="doc-name"></div>
+				<div class="text-muted small">
+					<span data-role="doc-desc"></span>
+					<span class="mx-2" data-role="doc-size-sep">&bull;</span>
+					<span data-role="doc-size"></span>
+				</div>
+			</div>
+		</div>
+		<div class="d-flex gap-1">
+			<button class="btn btn-ghost btn-sm" type="button" data-doc-act="download" title="Baixar">
+				<i class="bi bi-download"></i>
+			</button>
+			<button class="btn btn-ghost btn-sm text-danger" type="button" data-doc-act="delete" title="Excluir">
+				<i class="bi bi-trash3"></i>
+			</button>
+		</div>
+	</div>
+</template>
 
-      <template id="tpl-cand-doc-pending">
-        <div class="card-soft p-2 d-flex flex-wrap align-items-center justify-content-between gap-2" style="box-shadow:none;">
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge-soft text-warning" data-role="doc-status">Pendente</span>
-            <span class="badge-soft" data-role="doc-type"></span>
-            <div>
-              <div class="fw-semibold small" data-role="doc-name"></div>
-              <div class="text-muted small">
-                <span data-role="doc-desc"></span>
-                <span class="mx-2" data-role="doc-size-sep">&bull;</span>
-                <span data-role="doc-size"></span>
-              </div>
-            </div>
-          </div>
-          <div class="d-flex gap-1">
-            <button class="btn btn-ghost btn-sm" type="button" data-doc-act="retry" title="Reenviar">
-              <i class="bi bi-cloud-arrow-up"></i>
-            </button>
-            <button class="btn btn-ghost btn-sm text-danger" type="button" data-doc-act="remove" title="Remover">
-              <i class="bi bi-x-lg"></i>
-            </button>
-          </div>
-        </div>
-      </template>
+<template id="tpl-cand-doc-pending">
+	<div class="card-soft p-2 d-flex flex-wrap align-items-center justify-content-between gap-2" style="box-shadow:none;">
+		<div class="d-flex align-items-center gap-2">
+			<span class="badge-soft text-warning" data-role="doc-status">Pendente</span>
+			<span class="badge-soft" data-role="doc-type"></span>
+			<div>
+				<div class="fw-semibold small" data-role="doc-name"></div>
+				<div class="text-muted small">
+					<span data-role="doc-desc"></span>
+					<span class="mx-2" data-role="doc-size-sep">&bull;</span>
+					<span data-role="doc-size"></span>
+				</div>
+			</div>
+		</div>
+		<div class="d-flex gap-1">
+			<button class="btn btn-ghost btn-sm" type="button" data-doc-act="retry" title="Reenviar">
+				<i class="bi bi-cloud-arrow-up"></i>
+			</button>
+			<button class="btn btn-ghost btn-sm text-danger" type="button" data-doc-act="remove" title="Remover">
+				<i class="bi bi-x-lg"></i>
+			</button>
+		</div>
+	</div>
+</template>
 
-            @section Footer {
-        @{
-          var footerItems = new[]
-          {
-            new { Icon = "bi-people", Text = "Candidatos" },
-            new { Icon = "bi-file-earmark-text", Text = "CV" },
-            new { Icon = "bi-stars", Text = "Match" }
-          };
-        }
-        @await Html.PartialAsync("_Footer", footerItems)
+@section Footer {
+	@{
+		var footerItems = new[]
+		{
+			new { Icon = "bi-people", Text = "Candidatos" },
+			new { Icon = "bi-file-earmark-text", Text = "CV" },
+			new { Icon = "bi-stars", Text = "Match" }
+		  };
+	}
+	@await Html.PartialAsync("_Footer", footerItems)
       }
 
-    
 
-  <!-- Bootstrap JS (CDN) -->
 
+<!-- Bootstrap JS (CDN) -->
 @section Scripts {
-  <script>
-    window.__candidatosApiUrl = "@Url.Content("~/api/candidatos")";
-    window.__vagasApiUrl = "@Url.Content("~/api/vagas")";
-    window.__apiBaseUrl = "@Url.Content("~/")".replace(/\/$/, "");
-  </script>
-  <script src="~/js/views/candidatos.js" asp-append-version="true"></script>
+	<script>
+		window.__candidatosApiUrl = "@Url.Content("~/api/candidatos")";
+		window.__vagasApiUrl = "@Url.Content("~/api/vagas")";
+		window.__apiBaseUrl = "@Url.Content("~/")".replace(/\/$/, "");
+	</script>
+	<script src="~/js/views/candidatos.js" asp-append-version="true"></script>
 }

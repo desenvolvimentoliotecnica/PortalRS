@@ -309,6 +309,16 @@ public static class MenuSeeder
                 Order = 88,
                 PermissionKey = "email-config.manage",
                 IsActive = true
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = "Config Entra ID",
+                Route = "/Admin/EntraIdConfig",
+                Icon = "bi-microsoft",
+                Order = 89,
+                PermissionKey = "entra-config.manage",
+                IsActive = true
             }
         };
     }

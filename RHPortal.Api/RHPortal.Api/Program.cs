@@ -18,6 +18,7 @@ using RhPortal.Api.Application.JobPositions.Handlers;
 using RhPortal.Api.Application.Managers;
 using RhPortal.Api.Application.Managers.Handlers;
 using RhPortal.Api.Application.Menus;
+using RhPortal.Api.Application.Portal;
 using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Application.Units;
 using RhPortal.Api.Application.Units.Handlers;
@@ -51,6 +52,7 @@ builder.Services
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
+builder.Services.AddHttpClient();
 builder.Services.AddCors(options =>
 {
     // Necessario para o SignalR funcionar quando o front roda em outro host/porta.
@@ -98,6 +100,8 @@ builder.Services.AddHostedService<InboxFolderWatcherService>();
 // Email messaging (queue + SMTP/IMAP)
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
 builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
+builder.Services.AddScoped<IEntraIdConfigService, EntraIdConfigService>();
+builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<EmailDispatchWorker>();
@@ -190,6 +194,8 @@ builder.Services.AddScoped<IManagerService, ManagerService>();
 builder.Services.AddScoped<IVagaService, VagaService>();
 builder.Services.AddScoped<ICandidatoService, CandidatoService>();
 builder.Services.AddScoped<AgendaService>();
+builder.Services.AddScoped<IPortalCandidateAuthService, PortalCandidateAuthService>();
+builder.Services.AddScoped<IPasswordHasher<Candidato>, PasswordHasher<Candidato>>();
 
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<UserAdministrationService>();

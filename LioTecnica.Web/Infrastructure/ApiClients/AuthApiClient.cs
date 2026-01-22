@@ -43,4 +43,24 @@ public sealed class AuthApiClient
 
         return await response.Content.ReadFromJsonAsync<CurrentUserResponse>(JsonOptions, ct);
     }
+
+    public async Task<LoginResponse?> LoginWithEntraAsync(string tenantId, string idToken, CancellationToken ct)
+    {
+        var request = new
+        {
+            idToken
+        };
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/auth/entra-login")
+        {
+            Content = JsonContent.Create(request, options: JsonOptions)
+        };
+        httpRequest.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var response = await _http.SendAsync(httpRequest, ct);
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        return await response.Content.ReadFromJsonAsync<LoginResponse>(JsonOptions, ct);
+    }
 }

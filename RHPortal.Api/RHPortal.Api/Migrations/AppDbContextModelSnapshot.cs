@@ -1312,6 +1312,10 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
 
+                    b.Property<string>("PortalPasswordHash")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -1327,7 +1331,7 @@ namespace RHPortal.Api.Migrations
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("VagaId")
+                    b.Property<Guid?>("VagaId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -1836,6 +1840,50 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("TenantId", "Name", "Version");
 
                     b.ToTable("EmailTemplates", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.EntraIdConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CallbackPath")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ClientId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ClientSecretEncrypted")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EntraTenantId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("EntraIdConfigs", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.InboxAnexo", b =>
@@ -2895,8 +2943,7 @@ namespace RHPortal.Api.Migrations
                     b.HasOne("RHPortal.Api.Domain.Entities.Vaga", "Vaga")
                         .WithMany()
                         .HasForeignKey("VagaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Vaga");
                 });

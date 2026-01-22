@@ -34,6 +34,27 @@ public sealed class AuthController : ControllerBase
         return Ok(response);
     }
 
+    [AllowAnonymous]
+    [HttpPost("entra-login")]
+    public async Task<ActionResult<LoginResponse>> EntraLogin(
+        [FromBody] EntraLoginRequest request,
+        [FromServices] AuthenticationService service,
+        CancellationToken ct)
+    {
+        var response = await service.LoginWithEntraAsync(request, ct);
+        if (response is null)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Title = "Invalid Entra ID login.",
+                Detail = "Entra ID token is not valid or user is not enabled.",
+                Status = StatusCodes.Status401Unauthorized
+            });
+        }
+
+        return Ok(response);
+    }
+
     [RequirePermission("users.write")]
     [HttpPost("register")]
     public async Task<ActionResult<UserResponse>> Register(

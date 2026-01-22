@@ -1,6 +1,8 @@
 @model LioTecnica.Web.ViewModels.Authentication.LoginViewModel
 @{
     Layout = null;
+    var entraEnabled = (ViewData["EntraEnabled"] as bool?) == true;
+    var entraError = ViewData["EntraError"] as string;
 }
 <!doctype html>
 <html lang="en">
@@ -53,6 +55,21 @@
                 }
                 <button type="submit" class="btn btn-primary w-100">Sign in</button>
             </form>
+            @if (entraEnabled)
+            {
+                <div class="text-center text-muted my-3">ou</div>
+                <button type="button" class="btn btn-outline-secondary w-100" id="entraLoginBtn">Entrar com Microsoft</button>
+            }
+            @if (!string.IsNullOrWhiteSpace(entraError))
+            {
+                var message = entraError switch
+                {
+                    "tenant" => "Tenant invalido para login Microsoft.",
+                    "entra" => "Login Microsoft indisponivel. Configure o Entra ID.",
+                    _ => "Falha no login Microsoft."
+                };
+                <div class="alert alert-warning py-2 mt-3">@message</div>
+            }
             <div class="d-flex align-items-center gap-2 mt-3 health-row" id="loginHealth" aria-live="polite">
                 <span class="fw-semibold">API</span>
                 <span class="health-dot status-unknown" data-health="api" title="API: unknown"></span>
@@ -64,6 +81,22 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         (() => {
+            const entraBtn = document.getElementById("entraLoginBtn");
+            if (entraBtn) {
+                entraBtn.addEventListener("click", () => {
+                    const tenantInput = document.querySelector('[name="TenantId"]');
+                    const returnInput = document.querySelector('[name="ReturnUrl"]');
+                    const tenantValue = (tenantInput?.value || "").trim();
+                    if (!tenantValue) {
+                        window.alert("Informe o tenant para entrar com Microsoft.");
+                        return;
+                    }
+                    const returnUrl = returnInput?.value || "";
+                    const url = `/Account/EntraLogin?tenantId=${encodeURIComponent(tenantValue)}&returnUrl=${encodeURIComponent(returnUrl)}`;
+                    window.location.href = url;
+                });
+            }
+
             const root = document.getElementById("loginHealth");
             if (!root) return;
             const apiDot = root.querySelector('[data-health="api"]');

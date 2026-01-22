@@ -26,7 +26,7 @@ public sealed class Candidato : ITenantEntity
     public CandidatoFonte Fonte { get; set; } = CandidatoFonte.Email;
     public CandidatoStatus Status { get; set; } = CandidatoStatus.Novo;
 
-    public Guid VagaId { get; set; }
+    public Guid? VagaId { get; set; }
     public RHPortal.Api.Domain.Entities.Vaga? Vaga { get; set; }
 
     [StringLength(2000)]
@@ -36,6 +36,9 @@ public sealed class Candidato : ITenantEntity
 
     [StringLength(80)]
     public string? PortalAccessKey { get; set; }
+
+    [StringLength(400)]
+    public string? PortalPasswordHash { get; set; }
 
     public int? LastMatchScore { get; set; }
     public bool? LastMatchPass { get; set; }

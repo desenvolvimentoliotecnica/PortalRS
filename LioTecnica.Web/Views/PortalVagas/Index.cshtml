@@ -1,4 +1,19 @@
-@{ Layout = null; }
+@using System.Security.Claims
+@{
+    Layout = null;
+    var userName = User?.Identity?.Name ?? "Candidato";
+    var userEmail = User?.FindFirst(ClaimTypes.Email)?.Value ?? string.Empty;
+    var initials = string.Empty;
+    var parts = userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    if (parts.Length > 0)
+    {
+        initials += char.ToUpperInvariant(parts[0][0]);
+        if (parts.Length > 1)
+            initials += char.ToUpperInvariant(parts[parts.Length - 1][0]);
+    }
+    if (string.IsNullOrWhiteSpace(initials))
+        initials = "US";
+}
 @inject IConfiguration Configuration
 <!doctype html>
 <html lang="pt-BR">
@@ -13,6 +28,83 @@
     <style>
         :root {
             color-scheme: light;
+        }
+
+        .portal-topbar {
+            background: #ffffff;
+            border-bottom: 1px solid rgba(0, 0, 0, .08);
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+
+        .portal-topbar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem 0;
+        }
+
+        .portal-brand {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .portal-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: .08em;
+            background: linear-gradient(135deg, #1f6fe5, #154ea7);
+            box-shadow: 0 10px 18px rgba(31, 111, 229, .32);
+        }
+
+        .portal-logo-text {
+            font-size: .9rem;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: lowercase;
+        }
+
+        .portal-user-btn {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            border-radius: 999px;
+            border: 1px solid rgba(0, 0, 0, .08);
+            background: #fff;
+            padding: .35rem .7rem;
+        }
+
+        .portal-user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #1f6fe5, #154ea7);
+            color: #fff;
+            font-weight: 700;
+            display: grid;
+            place-items: center;
+        }
+
+        .portal-user-name {
+            font-weight: 600;
+            font-size: .92rem;
+        }
+
+        .portal-user-email {
+            font-size: .78rem;
+            color: #6c757d;
+        }
+
+        .portal-user-menu .dropdown-menu {
+            min-width: 220px;
         }
 
         .job-hero {
@@ -170,6 +262,35 @@
 </head>
 
 <body class="bg-body-tertiary">
+    <header class="portal-topbar">
+        <div class="container portal-topbar-inner">
+            <div class="portal-brand">
+                <span class="portal-logo">LT</span>
+                <span class="portal-logo-text">portal vagas</span>
+            </div>
+
+            <div class="dropdown portal-user-menu">
+                <button class="btn portal-user-btn dropdown-toggle" type="button" id="portalUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                    <span id="portalUserAvatar" class="portal-user-avatar">@initials</span>
+                    <span class="text-start d-none d-md-block">
+                        <div id="portalUserName" class="portal-user-name">@userName</div>
+                        <div id="portalUserEmail" class="portal-user-email">@userEmail</div>
+                    </span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="portalUserMenu">
+                    <li>
+                        <button class="dropdown-item" type="button" id="btnProfile">Ver perfil</button>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form method="post" action="/PortalVagas/Logout">
+                            <button class="dropdown-item text-danger" type="submit">Sair</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </header>
 
     <!-- Alertas (erro/sucesso) -->
     <div class="container py-3">
@@ -558,6 +679,66 @@
         </div>
     </div>
 
+    <!-- Modal de perfil do candidato -->
+    <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <form id="profileForm" class="modal-content needs-validation" novalidate>
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="modal-title h5 mb-0" id="profileModalLabel">Meu perfil</h2>
+                            <div class="text-secondary small">Atualize seus dados basicos.</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label for="profileName" class="form-label">Nome completo</label>
+                                <input id="profileName" class="form-control" type="text" required />
+                                <div class="invalid-feedback">Informe seu nome completo.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="profileEmail" class="form-label">E-mail</label>
+                                <input id="profileEmail" class="form-control" type="email" readonly />
+                                <div class="form-text">O e-mail nao pode ser alterado.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="profilePhone" class="form-label">Telefone</label>
+                                <input id="profilePhone" class="form-control" type="tel" required />
+                                <div class="invalid-feedback">Informe um telefone para contato.</div>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label for="profileUf" class="form-label">UF</label>
+                                <select id="profileUf" class="form-select" required>
+                                    <option value="" selected>Selecione</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione a UF.</div>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label for="profileCity" class="form-label">Cidade</label>
+                                <select id="profileCity" class="form-select" required disabled>
+                                    <option value="" selected>Selecione a UF primeiro</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione a cidade.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                        <button id="profileSaveBtn" class="btn btn-primary" type="submit">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
       window.__portalApiUrl = "@(Configuration["Endpoints:RhApi"] ?? string.Empty)".replace(/\/$/, "");
       window.__portalTenantId = "@(Context.Request.Query["tenantId"].ToString())";
@@ -672,21 +853,50 @@
         sendBtnText.textContent = isLoading ? "Enviando..." : "Enviar candidatura";
       }
 
-      const UF_OPTIONS = [
-        "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
-        "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
-        "RS","RO","RR","SC","SP","SE","TO"
-      ];
+      const LOCATION_BASE = "/PortalVagas/Locations";
+      let cachedUfs = null;
+      const cityCache = new Map();
 
-      function populateUfSelect() {
+      function setUfLoading(label, disabled = true) {
         if (!ufSelect) return;
-        ufSelect.innerHTML = '<option value="" selected>Selecione</option>';
-        UF_OPTIONS.forEach(uf => {
-          const opt = document.createElement("option");
-          opt.value = uf;
-          opt.textContent = uf;
-          ufSelect.appendChild(opt);
-        });
+        ufSelect.disabled = disabled;
+        ufSelect.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = label;
+        ufSelect.appendChild(opt);
+      }
+
+      async function fetchUfs() {
+        if (cachedUfs) return cachedUfs;
+        const res = await fetch(`${LOCATION_BASE}/Ufs`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const list = (Array.isArray(data) ? data : [])
+          .map(uf => (uf || "").toString().trim().toUpperCase())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, "pt-BR"));
+        cachedUfs = list;
+        return list;
+      }
+
+      async function populateUfSelect() {
+        if (!ufSelect) return;
+        setUfLoading("Carregando UFs...", true);
+        try {
+          const list = await fetchUfs();
+          ufSelect.disabled = false;
+          ufSelect.innerHTML = '<option value="" selected>Selecione</option>';
+          list.forEach(uf => {
+            const opt = document.createElement("option");
+            opt.value = uf;
+            opt.textContent = uf;
+            ufSelect.appendChild(opt);
+          });
+        } catch (err) {
+          console.error(err);
+          setUfLoading("Nao foi possivel carregar UFs", true);
+        }
       }
 
       function setCityLoading(label, disabled = true) {
@@ -699,6 +909,20 @@
         citySelect.appendChild(opt);
       }
 
+      async function fetchCitiesForUf(uf) {
+        const key = uf.toUpperCase();
+        if (cityCache.has(key)) return cityCache.get(key);
+        const res = await fetch(`${LOCATION_BASE}/Ufs/${encodeURIComponent(key)}/Cities`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const list = (Array.isArray(data) ? data : [])
+          .map(city => (city || "").toString().trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, "pt-BR"));
+        cityCache.set(key, list);
+        return list;
+      }
+
       async function loadCitiesForUf(uf) {
         if (!uf) {
           setCityLoading("Selecione a UF primeiro", true);
@@ -706,14 +930,7 @@
         }
         setCityLoading("Carregando municipios...", true);
         try {
-          const url = `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`;
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          const cities = (Array.isArray(data) ? data : [])
-            .map(x => x?.nome)
-            .filter(Boolean)
-            .sort((a, b) => a.localeCompare(b, "pt-BR"));
+          const cities = await fetchCitiesForUf(uf);
           citySelect.disabled = false;
           citySelect.innerHTML = '<option value="" selected>Selecione</option>';
           cities.forEach(name => {
@@ -756,7 +973,7 @@
             const formatted = formatPhone(phoneInput.value);
             phoneInput.value = formatted;
             const digits = digitsOnly(formatted);
-            phoneInput.setCustomValidity(digits.length >= 10 ? "" : "Telefone invalido.");
+            phoneInput.setCustomValidity(digits.length === 11 ? "" : "Telefone invalido.");
           });
         }
 
@@ -1084,9 +1301,9 @@
         const ul = document.getElementById("jobModalResp");
         ul.innerHTML = "";
         [
-          "Atuar em colabora??o com times parceiros.",
+          "Atuar em colaboração com times parceiros.",
           "Executar atividades alinhadas ao escopo da vaga.",
-          "Cumprir prazos e padr?es de qualidade definidos."
+          "Cumprir prazos e padrões de qualidade definidos."
         ].forEach(r => {
           const li = document.createElement("li");
           li.textContent = r;
@@ -1331,5 +1548,6 @@
       }
     })();
     </script>
+    <script src="~/js/views/portal-vagas-profile.js" asp-append-version="true"></script>
 </body>
 </html>
