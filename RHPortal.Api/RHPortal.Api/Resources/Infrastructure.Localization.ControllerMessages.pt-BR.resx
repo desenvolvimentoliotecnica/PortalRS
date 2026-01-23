@@ -249,6 +249,9 @@
   <data name="ControllerLabels.StatusDescartado" xml:space="preserve">
     <value>Descartado</value>
   </data>
+  <data name="ControllerLabels.CvEnviadoPeloPortal" xml:space="preserve">
+    <value>CV enviado pelo portal</value>
+  </data>
   <data name="Lookup.SelectPlaceholder" xml:space="preserve">
     <value>Selecione...</value>
   </data>

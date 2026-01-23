@@ -27,7 +27,7 @@ public static class AdminAccessSeeder
             {
                 Id = Guid.NewGuid(),
                 Name = "Admin",
-                Description = "Tenant administrator",
+                Description = localizer["Seed.AdminRoleDescription"],
                 IsActive = true
             };
 
@@ -45,7 +45,7 @@ public static class AdminAccessSeeder
                 Id = Guid.NewGuid(),
                 Email = adminEmail,
                 UserName = adminEmail,
-                FullName = $"{tenantId.ToUpperInvariant()} Admin",
+                FullName = localizer["Seed.AdminUserNameFormat", tenantId.ToUpperInvariant()],
                 IsActive = true
             };
 
@@ -62,9 +62,9 @@ public static class AdminAccessSeeder
                 throw new InvalidOperationException(string.Join("; ", addToRole.Errors.Select(x => x.Description)));
         }
 
-        await MenuSeeder.EnsureAsync(db, adminRole, ct);
+        await MenuSeeder.EnsureAsync(db, adminRole, localizer, ct);
 
-        await EmailTemplateSeeder.EnsureAsync(db, ct);
+        await EmailTemplateSeeder.EnsureAsync(db, localizer, ct);
         await EmailMessageSeeder.EnsureAsync(db, tenantId, emailMessageSeedCount, ct, localizer, randomSeed);
         await EmailConfigSeeder.EnsureAsync(db, tenantId, ct);
     }

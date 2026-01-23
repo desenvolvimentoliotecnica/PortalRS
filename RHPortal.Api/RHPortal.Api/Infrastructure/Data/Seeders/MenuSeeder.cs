@@ -1,13 +1,19 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class MenuSeeder
 {
-    public static async Task EnsureAsync(AppDbContext db, ApplicationRole adminRole, CancellationToken ct)
+    public static async Task EnsureAsync(
+        AppDbContext db,
+        ApplicationRole adminRole,
+        IStringLocalizer<SeedMessages> localizer,
+        CancellationToken ct)
     {
-        var menus = BuildDefaultMenus();
+        var menus = BuildDefaultMenus(localizer);
         foreach (var menu in menus)
         {
             var exists = await db.Menus.AnyAsync(x => x.PermissionKey == menu.PermissionKey, ct);
@@ -55,14 +61,16 @@ public static class MenuSeeder
         }
     }
 
-    private static List<Menu> BuildDefaultMenus()
+    private static List<Menu> BuildDefaultMenus(IStringLocalizer<SeedMessages> localizer)
     {
+        string L(string key) => localizer[key].Value;
+
         return new List<Menu>
         {
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Dashboard",
+                DisplayName = L("Seed.Menu.Dashboard"),
                 Route = "/Dashboard",
                 Icon = "bi-speedometer2",
                 Order = 1,
@@ -72,7 +80,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Agenda",
+                DisplayName = L("Seed.Menu.Agenda"),
                 Route = "/Agendas",
                 Icon = "bi-calendar-event",
                 Order = 2,
@@ -82,7 +90,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Vagas",
+                DisplayName = L("Seed.Menu.Vagas"),
                 Route = "/Vagas",
                 Icon = "bi-briefcase",
                 Order = 3,
@@ -92,7 +100,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Candidatos",
+                DisplayName = L("Seed.Menu.Candidatos"),
                 Route = "/Candidatos",
                 Icon = "bi-people",
                 Order = 4,
@@ -102,7 +110,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Triagem",
+                DisplayName = L("Seed.Menu.Triagem"),
                 Route = "/Triagem",
                 Icon = "bi-funnel",
                 Order = 5,
@@ -112,7 +120,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Matching",
+                DisplayName = L("Seed.Menu.Matching"),
                 Route = "/Matching",
                 Icon = "bi-stars",
                 Order = 6,
@@ -122,7 +130,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Portal de Vagas",
+                DisplayName = L("Seed.Menu.PortalVagas"),
                 Route = "/PortalVagas",
                 Icon = "bi-globe2",
                 Order = 7,
@@ -133,7 +141,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Entrada (Email/Pasta)",
+                DisplayName = L("Seed.Menu.Entrada"),
                 Route = "/EntradaEmailPasta",
                 Icon = "bi-inbox",
                 Order = 20,
@@ -143,7 +151,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Relatorios",
+                DisplayName = L("Seed.Menu.Relatorios"),
                 Route = "/Relatorios",
                 Icon = "bi-graph-up",
                 Order = 40,
@@ -153,7 +161,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Departamentos",
+                DisplayName = L("Seed.Menu.Departamentos"),
                 Route = "/Departamentos",
                 Icon = "bi-diagram-2",
                 Order = 41,
@@ -163,7 +171,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Centros de Custo",
+                DisplayName = L("Seed.Menu.CentrosCustos"),
                 Route = "/CentrosCustos",
                 Icon = "bi-cash-coin",
                 Order = 42,
@@ -173,7 +181,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Areas",
+                DisplayName = L("Seed.Menu.Areas"),
                 Route = "/Areas",
                 Icon = "bi-diagram-3",
                 Order = 43,
@@ -183,7 +191,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Categorias",
+                DisplayName = L("Seed.Menu.Categorias"),
                 Route = "/Categorias",
                 Icon = "bi-tags",
                 Order = 44,
@@ -193,7 +201,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Cargos",
+                DisplayName = L("Seed.Menu.Cargos"),
                 Route = "/Cargos",
                 Icon = "bi-briefcase",
                 Order = 45,
@@ -203,7 +211,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Unidades",
+                DisplayName = L("Seed.Menu.Unidades"),
                 Route = "/Unidades",
                 Icon = "bi-building",
                 Order = 46,
@@ -213,7 +221,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Gestores",
+                DisplayName = L("Seed.Menu.Gestores"),
                 Route = "/Gestores",
                 Icon = "bi-person-badge",
                 Order = 47,
@@ -223,7 +231,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Usuarios",
+                DisplayName = L("Seed.Menu.Usuarios"),
                 Route = "/Admin/Users",
                 Icon = "bi-people",
                 Order = 80,
@@ -233,7 +241,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Perfis",
+                DisplayName = L("Seed.Menu.Perfis"),
                 Route = "/Admin/Roles",
                 Icon = "bi-shield-lock",
                 Order = 81,
@@ -243,7 +251,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Menus",
+                DisplayName = L("Seed.Menu.Menus"),
                 Route = "/Admin/Menus",
                 Icon = "bi-list-check",
                 Order = 82,
@@ -253,7 +261,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Acessos",
+                DisplayName = L("Seed.Menu.Acessos"),
                 Route = "/Admin/Accesses",
                 Icon = "bi-key",
                 Order = 83,
@@ -263,7 +271,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Logs Transacionais",
+                DisplayName = L("Seed.Menu.LogsTransacionais"),
                 Route = "/Admin/Logs",
                 Icon = "bi-activity",
                 Order = 84,
@@ -273,7 +281,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Logs Operacionais",
+                DisplayName = L("Seed.Menu.LogsOperacionais"),
                 Route = "/Admin/OperationalLogs",
                 Icon = "bi-journal-text",
                 Order = 85,
@@ -283,7 +291,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Templates de Email",
+                DisplayName = L("Seed.Menu.TemplatesEmail"),
                 Route = "/Admin/EmailTemplates",
                 Icon = "bi-envelope-paper",
                 Order = 86,
@@ -293,7 +301,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Emails",
+                DisplayName = L("Seed.Menu.Emails"),
                 Route = "/Admin/Emails",
                 Icon = "bi-envelope",
                 Order = 87,
@@ -303,7 +311,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Config Email",
+                DisplayName = L("Seed.Menu.ConfigEmail"),
                 Route = "/Admin/EmailConfig",
                 Icon = "bi-gear",
                 Order = 88,
@@ -313,7 +321,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Config Entra ID",
+                DisplayName = L("Seed.Menu.ConfigEntraId"),
                 Route = "/Admin/EntraIdConfig",
                 Icon = "bi-microsoft",
                 Order = 89,
@@ -323,7 +331,7 @@ public static class MenuSeeder
             new()
             {
                 Id = Guid.NewGuid(),
-                DisplayName = "Idioma",
+                DisplayName = L("Seed.Menu.Idioma"),
                 Route = "/Admin/LocalizationConfig",
                 Icon = "bi-translate",
                 Order = 90,

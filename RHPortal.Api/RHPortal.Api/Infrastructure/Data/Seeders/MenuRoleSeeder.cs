@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
+using Microsoft.Extensions.Localization;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Infrastructure.Data.Seeders;
@@ -11,6 +13,7 @@ public static class MenuRoleSeeder
         AppDbContext db,
         ITenantContext tenantContext,
         RoleManager<ApplicationRole> roleManager,
+        IStringLocalizer<SeedMessages> localizer,
         CancellationToken ct)
     {
         var tenants = await db.Tenants
@@ -25,14 +28,15 @@ public static class MenuRoleSeeder
             if (adminRole is null)
                 continue;
 
-            await MenuSeeder.EnsureAsync(db, adminRole, ct);
-            await EnsureOperationalRoleMenusAsync(db, roleManager, ct);
+            await MenuSeeder.EnsureAsync(db, adminRole, localizer, ct);
+            await EnsureOperationalRoleMenusAsync(db, roleManager, localizer, ct);
         }
     }
 
     private static async Task EnsureOperationalRoleMenusAsync(
         AppDbContext db,
         RoleManager<ApplicationRole> roleManager,
+        IStringLocalizer<SeedMessages> localizer,
         CancellationToken ct)
     {
         var role = await roleManager.Roles.FirstOrDefaultAsync(x => x.Name == "Operacional", ct);
@@ -42,7 +46,7 @@ public static class MenuRoleSeeder
             {
                 Id = Guid.NewGuid(),
                 Name = "Operacional",
-                Description = "Acesso operacional",
+                Description = localizer["Seed.OperationalRoleDescription"],
                 IsActive = true
             };
 

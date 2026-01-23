@@ -249,6 +249,9 @@
   <data name="ControllerLabels.StatusDescartado" xml:space="preserve">
     <value>Discarded</value>
   </data>
+  <data name="ControllerLabels.CvEnviadoPeloPortal" xml:space="preserve">
+    <value>Resume sent via portal</value>
+  </data>
   <data name="Lookup.SelectPlaceholder" xml:space="preserve">
     <value>Select...</value>
   </data>

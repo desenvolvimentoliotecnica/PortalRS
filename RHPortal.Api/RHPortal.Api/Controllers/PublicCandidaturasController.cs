@@ -64,7 +64,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                 await service.AddDocumentoAsync(
                     created.Id,
                     CandidatoDocumentoTipo.Curriculo,
-                    "CV enviado pelo portal",
+                    _localizer["ControllerLabels.CvEnviadoPeloPortal"],
                     request.Arquivo,
                     ct);
             }

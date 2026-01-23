@@ -51,6 +51,9 @@
   <data name="InfrastructureErrors.ConnectionStringDefaultRequired" xml:space="preserve">
     <value>Connection string Default e obrigatoria.</value>
   </data>
+  <data name="InfrastructureErrors.TenantHeaderDescription" xml:space="preserve">
+    <value>Identificador do tenant (ex.: liotecnica, dev)</value>
+  </data>
   <data name="InfrastructureInbox.FileNotFound" xml:space="preserve">
     <value>Arquivo nao encontrado.</value>
   </data>
@@ -98,6 +101,12 @@
   </data>
   <data name="InfrastructureInbox.DefaultCandidateName" xml:space="preserve">
     <value>Candidato</value>
+  </data>
+  <data name="InfrastructureInbox.VagaBaseTitulo" xml:space="preserve">
+    <value>Banco de Talentos (Triagem)</value>
+  </data>
+  <data name="InfrastructureInbox.VagaBaseDescricao" xml:space="preserve">
+    <value>Vaga base para triagem automatica de curriculos.</value>
   </data>
   <data name="InfrastructureEmail.SmtpNotConfigured" xml:space="preserve">
     <value>SMTP nao configurado.</value>

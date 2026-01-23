@@ -39,7 +39,7 @@ public static class DbSeeder
 
         await db.Database.MigrateAsync(ct);
 
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder.EnsureDefaultMenusAsync(db, tenantContext, roleManager, ct);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder.EnsureDefaultMenusAsync(db, tenantContext, roleManager, localizer, ct);
 
         if (!seedEnabled)
             return;
@@ -121,7 +121,7 @@ public static class DbSeeder
         // Areas, departamentos, requisitos e centros de custo
         await global::RhPortal.Api.Infrastructure.Data.Seeders.AreaDepartmentSeeder.EnsureAsync(db, emailDomain, ct);
 
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.AgendaTypeSeeder.EnsureDefaultAsync(db, ct);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await global::RhPortal.Api.Infrastructure.Data.Seeders.AgendaEventSeeder.EnsureEventsAsync(db, tenantId, agendaEventSeedCount, ct, randomSeed);
         await global::RhPortal.Api.Infrastructure.Data.Seeders.UnitSeeder.EnsureAsync(db, ct);
 

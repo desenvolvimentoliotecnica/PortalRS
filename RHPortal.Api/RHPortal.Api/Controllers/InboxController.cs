@@ -20,10 +20,14 @@ namespace RhPortal.Api.Controllers;
 public sealed class InboxController : ControllerBase
 {
     private readonly IStringLocalizer<ControllerMessages> _localizer;
+    private readonly IStringLocalizer<InfrastructureMessages> _infraLocalizer;
 
-    public InboxController(IStringLocalizer<ControllerMessages> localizer)
+    public InboxController(
+        IStringLocalizer<ControllerMessages> localizer,
+        IStringLocalizer<InfrastructureMessages> infraLocalizer)
     {
         _localizer = localizer;
+        _infraLocalizer = infraLocalizer;
     }
 
     [HttpGet]
@@ -369,7 +373,7 @@ public sealed class InboxController : ControllerBase
             .SendAsync($"inbox.{action}", message, ct);
     }
 
-    private static async Task<Guid> GetOrCreateInboxVagaIdAsync(AppDbContext db, CancellationToken ct)
+    private async Task<Guid> GetOrCreateInboxVagaIdAsync(AppDbContext db, CancellationToken ct)
     {
         const string code = "BANCO-TALENTOS";
         var existing = await db.Vagas.FirstOrDefaultAsync(x => x.Codigo == code, ct);
@@ -385,13 +389,13 @@ public sealed class InboxController : ControllerBase
         {
             Id = Guid.NewGuid(),
             Codigo = code,
-            Titulo = "Banco de Talentos (Triagem)",
+            Titulo = _infraLocalizer["InfrastructureInbox.VagaBaseTitulo"],
             AreaId = area.Id,
             DepartmentId = dep.Id,
             Status = VagaStatus.Rascunho,
             QuantidadeVagas = 1,
             MatchMinimoPercentual = 70,
-            DescricaoInterna = "Vaga base para triagem automatica de curriculos.",
+            DescricaoInterna = _infraLocalizer["InfrastructureInbox.VagaBaseDescricao"],
             Visibilidade = VagaPublicacaoVisibilidade.Interna
         };
 

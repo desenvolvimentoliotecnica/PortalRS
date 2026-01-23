@@ -199,17 +199,20 @@ public sealed class InboxFileProcessor
         if (area is null || dep is null)
             return Guid.Empty;
 
+        var baseTitle = _localizer["InfrastructureInbox.VagaBaseTitulo"].Value;
+        var baseDescription = _localizer["InfrastructureInbox.VagaBaseDescricao"].Value;
+
         var vaga = new Vaga
         {
             Id = Guid.NewGuid(),
             Codigo = code,
-            Titulo = "Banco de Talentos (Triagem)",
+            Titulo = baseTitle,
             AreaId = area.Id,
             DepartmentId = dep.Id,
             Status = VagaStatus.Rascunho,
             QuantidadeVagas = 1,
             MatchMinimoPercentual = 70,
-            DescricaoInterna = "Vaga base para triagem automatica de curriculos.",
+            DescricaoInterna = baseDescription,
             Visibilidade = VagaPublicacaoVisibilidade.Interna
         };
 

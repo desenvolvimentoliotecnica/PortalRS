@@ -42,7 +42,13 @@ public static class EmailMessageSeeder
             localizer["Seed.EmailSubjectFeedback"].Value
         };
 
-        var sources = new[] { "portal", "sistema", "triagem", "agenda" };
+        var sources = new[]
+        {
+            localizer["Seed.EmailSourcePortal"].Value,
+            localizer["Seed.EmailSourceSystem"].Value,
+            localizer["Seed.EmailSourceScreening"].Value,
+            localizer["Seed.EmailSourceAgenda"].Value
+        };
         var owners = Enumerable.Range(1, 3)
             .Select(i => new { Id = $"user-{i}", Name = faker.Name.FullName() })
             .ToArray();
