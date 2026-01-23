@@ -45,9 +45,11 @@ public static class DbSeeder
         var adminPassword = config.GetValue<string>("Seed:AdminPassword");
         if (string.IsNullOrWhiteSpace(adminPassword))
             throw new InvalidOperationException("Seed:AdminPassword is required.");
+        var vagaSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Vagas:Count") ?? 50);
+        var candidatoSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Candidatos:Count") ?? 50);
 
-        await SeedTenantAsync(db, tenantContext, userManager, roleManager, "liotecnica", "Liotecnica", adminPassword, ct);
-        await SeedTenantAsync(db, tenantContext, userManager, roleManager, "dev", "Development", adminPassword, ct);
+        await SeedTenantAsync(db, tenantContext, userManager, roleManager, "liotecnica", "Liotecnica", adminPassword, vagaSeedCount, candidatoSeedCount, ct);
+        await SeedTenantAsync(db, tenantContext, userManager, roleManager, "dev", "Development", adminPassword, vagaSeedCount, candidatoSeedCount, ct);
     }
 
     private static async Task SeedTenantAsync(
@@ -58,6 +60,8 @@ public static class DbSeeder
         string tenantId,
         string tenantName,
         string adminPassword,
+        int vagaSeedCount,
+        int candidatoSeedCount,
         CancellationToken ct)
     {
         await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantSeeder.EnsureAsync(db, tenantId, tenantName, ct);
@@ -81,8 +85,8 @@ public static class DbSeeder
 
         await global::RhPortal.Api.Infrastructure.Data.Seeders.ManagerSeeder.EnsureAsync(db, ct);
 
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.VagaSeeder.EnsureAsync(db, tenantId, ct);
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.CandidatoSeeder.EnsureAsync(db, tenantId, emailDomain, ct);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.VagaSeeder.EnsureAsync(db, tenantId, vagaSeedCount, ct);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.CandidatoSeeder.EnsureAsync(db, tenantId, emailDomain, candidatoSeedCount, ct);
         await global::RhPortal.Api.Infrastructure.Data.Seeders.InboxItemSeeder.EnsureAsync(db, tenantId, ct);
 
     }

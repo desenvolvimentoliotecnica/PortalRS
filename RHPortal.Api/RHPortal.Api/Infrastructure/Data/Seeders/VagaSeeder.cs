@@ -1,3 +1,4 @@
+using Bogus;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -8,18 +9,27 @@ namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class VagaSeeder
 {
-    private sealed record VagaSeed(
-        string Code,
-        string DepartmentCode,
-        string UnitCode,
-        string Title,
-        SeniorityLevel Seniority,
-        string Description,
-        bool IsShiftBased,
-        bool IsOnSite);
+    private static readonly Dictionary<string, (string[] Prefixes, string[] Subjects)> TitlePatterns =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["OPS"] = (new[] { "Operador", "Auxiliar", "Lider" }, new[] { "Producao", "Envase", "Embalagem", "Higienizacao" }),
+            ["QUA"] = (new[] { "Analista", "Tecnico", "Auditor" }, new[] { "Qualidade", "Laboratorio", "Rastreabilidade", "APPCC" }),
+            ["ENG"] = (new[] { "Tecnico", "Analista", "Engenheiro" }, new[] { "Manutencao", "Automacao", "Utilidades", "Processos" }),
+            ["SCM"] = (new[] { "Analista", "Comprador", "Supervisor" }, new[] { "PCP", "Logistica", "Estoque", "Transporte" }),
+            ["PDI"] = (new[] { "Analista", "Tecnico" }, new[] { "Pesquisa", "Desenvolvimento", "Embalagens", "Sensorial" }),
+            ["COM"] = (new[] { "Executivo", "Analista", "Key Account" }, new[] { "Vendas", "Trade Marketing", "Inteligencia de Mercado", "SAC" }),
+            ["TEC"] = (new[] { "Analista", "Especialista", "Tecnico" }, new[] { "Suporte", "Sistemas", "Dados", "Seguranca da Informacao" }),
+            ["FIN"] = (new[] { "Analista", "Coordenador" }, new[] { "Contas a Pagar", "Contas a Receber", "Tesouraria", "Custos" }),
+            ["RH"] = (new[] { "Analista", "Assistente", "Coordenador" }, new[] { "Recrutamento & Selecao", "Treinamento", "Departamento Pessoal", "Comunicacao Interna" }),
+            ["ADM"] = (new[] { "Analista", "Assistente", "Comprador" }, new[] { "Facilities", "Compliance", "Documentacao", "Servicos" })
+        };
 
-    public static async Task EnsureAsync(AppDbContext db, string tenantId, CancellationToken ct)
+    public static async Task EnsureAsync(AppDbContext db, string tenantId, int targetCount, CancellationToken ct)
     {
+        targetCount = Math.Max(0, targetCount);
+        if (targetCount == 0)
+            return;
+
         var departmentsByCode = await db.Departments
             .AsNoTracking()
             .Where(d => d.Status == DepartmentStatus.Active)
@@ -32,7 +42,6 @@ public static class VagaSeeder
         var managers = await db.Managers.AsNoTracking().ToListAsync(ct);
         var jobPositions = await db.JobPositions.AsNoTracking().ToListAsync(ct);
 
-        // ? Áreas ativas
         var areas = await db.Areas.AsNoTracking()
             .Where(a => a.IsActive)
             .ToListAsync(ct);
@@ -52,17 +61,9 @@ public static class VagaSeeder
         if (jobPositions.Count == 0)
             throw new InvalidOperationException("Nenhum JobPosition encontrado. Rode o seed de JobPositions antes.");
 
-        // Index: managers por AreaId
-        var managersByArea = managers
-            .GroupBy(m => m.AreaId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        // Index: cargos por AreaId
-        var cargosByArea = jobPositions
-            .GroupBy(j => j.AreaId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        var seeds = BuildFoodIndustryVagasDemo();
+        var existingCount = await db.Vagas.CountAsync(ct);
+        if (existingCount >= targetCount)
+            return;
 
         var existingCodes = await db.Vagas
             .AsNoTracking()
@@ -73,145 +74,133 @@ public static class VagaSeeder
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var rng = new Random(42);
+        var faker = new Faker("pt_BR")
+        {
+            Random = new Randomizer(42)
+        };
+
+        var managersByArea = managers
+            .GroupBy(m => m.AreaId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var cargosByArea = jobPositions
+            .GroupBy(j => j.AreaId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var units = unitsByCode.Values.ToList();
+        var departments = departmentsByCode.Values.ToList();
+
+        var toCreate = targetCount - existingCount;
+        var perArea = toCreate / areas.Count;
+        var remainder = toCreate % areas.Count;
+
+        var areaCounters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var toAdd = new List<Vaga>();
 
-        // fallback: mapeia Area.Code -> Department.Code (se teu seed vier “desalinhado”)
-        static string? MapDepartmentCodeFromAreaCode(string? areaCode)
+        foreach (var area in areas)
         {
-            var c = (areaCode ?? "").Trim().ToUpperInvariant();
-            return c switch
-            {
-                "OPS" => "OPS",
-                "SCM" => "LOG", // supply chain ~ logística (ajuste se seu department code for outro)
-                "COM" => "COM",
-                "TEC" => "TEC",
-                "FIN" => "FIN",
-                "RH" => "RH",
-                "QUA" => "QUA",
-                "ENG" => "ENG",
-                "ADM" => "ADM",
-                "PDI" => "PDI",
-                _ => null
-            };
+            for (var i = 0; i < perArea; i++)
+                AddVagaForArea(area);
         }
 
-        foreach (var s in seeds)
+        for (var i = 0; i < remainder; i++)
+            AddVagaForArea(faker.PickRandom(areas));
+
+        if (toAdd.Count > 0)
         {
-            if (existingSet.Contains(s.Code))
-                continue;
+            db.Vagas.AddRange(toAdd);
+            await db.SaveChangesAsync(ct);
+        }
 
-            if (!unitsByCode.TryGetValue(s.UnitCode, out var unit))
-                throw new InvalidOperationException($"Unidade '{s.UnitCode}' não encontrada.");
+        void AddVagaForArea(Area areaEntity)
+        {
+            var areaCode = NormalizeAreaCode(areaEntity.Code);
+            if (string.IsNullOrWhiteSpace(areaCode))
+                return;
 
-            // ? sorteia Area
-            var areaEntity = areas[rng.Next(areas.Count)];
-            var areaId = areaEntity.Id;
-            var areaCode = (areaEntity.Code ?? "").Trim().ToUpperInvariant();
+            var code = GetNextCode(areaCounters, areaCode, existingSet);
+            var unit = units[faker.Random.Int(0, units.Count - 1)];
+            var depEntity = ResolveDepartment(departmentsByCode, departments, areaCode, faker);
 
-            // ? resolve Department (DB) pelo code do seed; fallback por Area.Code; fallback aleatório
-            Department? depEntity = null;
-
-            if (!string.IsNullOrWhiteSpace(s.DepartmentCode) &&
-                departmentsByCode.TryGetValue(s.DepartmentCode.Trim(), out var d1))
-            {
-                depEntity = d1;
-            }
-            else
-            {
-                var depCodeFromArea = MapDepartmentCodeFromAreaCode(areaCode);
-                if (!string.IsNullOrWhiteSpace(depCodeFromArea) &&
-                    departmentsByCode.TryGetValue(depCodeFromArea, out var d2))
-                {
-                    depEntity = d2;
-                }
-            }
-
-            depEntity ??= departmentsByCode.Values.ElementAt(rng.Next(departmentsByCode.Count));
-
-            if (depEntity.Id == Guid.Empty)
-                throw new InvalidOperationException("Department inválido (Id vazio).");
-
-            // ? escolhe Manager pelo AreaId sorteado (fallback: qualquer)
             var managerId =
-                (managersByArea.TryGetValue(areaId, out var mgrs) && mgrs.Count > 0)
-                    ? mgrs[rng.Next(mgrs.Count)].Id
-                    : managers[rng.Next(managers.Count)].Id;
+                (managersByArea.TryGetValue(areaEntity.Id, out var mgrs) && mgrs.Count > 0)
+                    ? mgrs[faker.Random.Int(0, mgrs.Count - 1)].Id
+                    : managers[faker.Random.Int(0, managers.Count - 1)].Id;
 
             if (managerId == Guid.Empty)
-                throw new InvalidOperationException("Nenhum manager válido encontrado.");
+                throw new InvalidOperationException("Nenhum manager valido encontrado.");
 
-            // ? escolhe JobPosition pelo AreaId sorteado (fallback: qualquer)
             var cargoId =
-                (cargosByArea.TryGetValue(areaId, out var cargos) && cargos.Count > 0)
-                    ? cargos[rng.Next(cargos.Count)].Id
-                    : jobPositions[rng.Next(jobPositions.Count)].Id;
+                (cargosByArea.TryGetValue(areaEntity.Id, out var cargos) && cargos.Count > 0)
+                    ? cargos[faker.Random.Int(0, cargos.Count - 1)].Id
+                    : jobPositions[faker.Random.Int(0, jobPositions.Count - 1)].Id;
 
             if (cargoId == Guid.Empty)
-                throw new InvalidOperationException("Nenhum JobPosition válido encontrado.");
+                throw new InvalidOperationException("Nenhum JobPosition valido encontrado.");
 
-            var published = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-rng.Next(3, 35)));
-            var closing = published.AddDays(rng.Next(10, 45));
+            var published = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-faker.Random.Int(3, 35)));
+            var closing = published.AddDays(faker.Random.Int(10, 45));
 
-            var senior = MapSenioridade(s.Seniority);
+            var senior = MapSenioridade(faker.PickRandom(Enum.GetValues<SeniorityLevel>()));
+            var isShiftBased = IsShiftBased(faker, areaCode);
+            var isOnSite = IsOnSite(faker, areaCode);
 
             var (salMin, salMax, expMin) = senior switch
             {
                 null => (3500m, 5200m, 1),
                 _ when IsEnumName(senior.Value, "Junior", "Jr") => (3200m, 4500m, 0),
                 _ when IsEnumName(senior.Value, "Pleno") => (4800m, 7200m, 2),
-                _ when IsEnumName(senior.Value, "Senior", "Sênior") => (7800m, 11500m, 4),
+                _ when IsEnumName(senior.Value, "Senior", "Senior") => (7800m, 11500m, 4),
                 _ when IsEnumName(senior.Value, "Especialista") => (9800m, 15000m, 5),
-                _ when IsEnumName(senior.Value, "Coordenacao", "Coordenador", "Coordenação") => (11000m, 16000m, 6),
-                _ when IsEnumName(senior.Value, "Gerencia", "Gerente", "Gerência") => (15000m, 22000m, 8),
+                _ when IsEnumName(senior.Value, "Coordenacao", "Coordenador") => (11000m, 16000m, 6),
+                _ when IsEnumName(senior.Value, "Gerencia", "Gerente") => (15000m, 22000m, 8),
                 _ => (4500m, 8500m, 2)
             };
 
             var now = DateTimeOffset.UtcNow;
+            var title = BuildTitle(faker, areaCode);
+            var description = BuildDescription(faker, areaEntity);
 
             var vaga = new Vaga
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
+                Codigo = code,
+                Titulo = title,
 
-                Codigo = s.Code,
-                Titulo = s.Title,
-
-                // ? FKs (DB)
-                AreaId = areaId,
+                AreaId = areaEntity.Id,
                 DepartmentId = depEntity.Id,
 
                 Status = ParseEnumOrFirst<VagaStatus>("Aberta", "Open", "Ativa", "EmAberto"),
                 Senioridade = senior,
 
-                QuantidadeVagas = rng.Next(1, 6),
+                QuantidadeVagas = faker.Random.Int(1, 6),
                 TipoContratacao = ParseEnumOrFirst<VagaTipoContratacao>("CLT", "Efetivo", "FullTime"),
-                MatchMinimoPercentual = 70 + rng.Next(0, 16),
+                MatchMinimoPercentual = 70 + faker.Random.Int(0, 15),
 
-                DescricaoInterna = s.Description,
-                DescricaoPublica = s.Description,
+                DescricaoInterna = description,
+                DescricaoPublica = description,
 
-                // tags podem continuar usando areaCode / dep code
                 TagsKeywordsRaw = BuildKeywords(areaCode),
                 TagsResponsabilidadesRaw = BuildResponsibilities(areaCode),
 
                 AceitaPcd = true,
                 LinguagemInclusiva = true,
                 Confidencial = false,
-                Urgente = rng.NextDouble() < 0.18,
+                Urgente = faker.Random.Double() < 0.18,
 
-                Modalidade = s.IsOnSite
+                Modalidade = isOnSite
                     ? ParseEnumOrFirst<VagaModalidade>("Presencial", "OnSite")
                     : ParseEnumOrFirst<VagaModalidade>("Hibrido", "Hybrid", "Remoto", "Remote"),
 
                 Regime = ParseEnumOrFirst<VagaRegimeJornada>("Integral", "FullTime"),
-                CargaSemanalHoras = s.IsShiftBased ? 44 : 40,
-                Escala = s.IsShiftBased
+                CargaSemanalHoras = isShiftBased ? 44 : 40,
+                Escala = isShiftBased
                     ? ParseEnumOrFirst<VagaEscalaTrabalho>("6x1", "6X1", "Turno")
                     : ParseEnumOrFirst<VagaEscalaTrabalho>("5x2", "5X2"),
 
-                HoraEntrada = s.IsShiftBased ? new TimeOnly(06, 00) : new TimeOnly(08, 00),
-                HoraSaida = s.IsShiftBased ? new TimeOnly(14, 00) : new TimeOnly(17, 00),
+                HoraEntrada = isShiftBased ? new TimeOnly(06, 00) : new TimeOnly(08, 00),
+                HoraSaida = isShiftBased ? new TimeOnly(14, 00) : new TimeOnly(17, 00),
                 Intervalo = TimeSpan.FromHours(1),
 
                 Cep = unit.ZipCode,
@@ -243,15 +232,13 @@ public static class VagaSeeder
 
                 ChecagemAntecedentes = true,
                 ExigeCnh = false,
-                DisponibilidadeParaViagens = rng.NextDouble() < 0.10,
+                DisponibilidadeParaViagens = faker.Random.Double() < 0.10,
 
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now
             };
 
-            // ? seed de requisitos (exemplo)
             var reqs = BuildDemoRequisitos(areaCode);
-
             var ordem = 0;
             foreach (var r in reqs)
             {
@@ -259,10 +246,10 @@ public static class VagaSeeder
                 {
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
-                    VagaId = vaga.Id,              // importante
+                    VagaId = vaga.Id,
                     Ordem = ordem++,
                     Nome = r.Nome,
-                    Peso = r.Peso,                 // enum
+                    Peso = r.Peso,
                     Obrigatorio = r.Obrigatorio,
                     AnosMinimos = r.AnosMinimos,
                     Nivel = r.Nivel,
@@ -273,46 +260,117 @@ public static class VagaSeeder
                     UpdatedAtUtc = now
                 });
             }
-            // Se seu model tiver FKs, aqui é o lugar.
-            // (Comente/adicione conforme existir no seu Vaga)
-            // vaga.ManagerId = managerId;
-            // vaga.JobPositionId = cargoId;
 
             toAdd.Add(vaga);
-            existingSet.Add(s.Code);
-        }
-
-        if (toAdd.Count > 0)
-        {
-            db.Vagas.AddRange(toAdd);
-            await db.SaveChangesAsync(ct);
+            existingSet.Add(code);
         }
     }
+
+    private static string NormalizeAreaCode(string? areaCode)
+        => (areaCode ?? string.Empty).Trim().ToUpperInvariant();
+
+    private static Department ResolveDepartment(
+        IReadOnlyDictionary<string, Department> departmentsByCode,
+        IReadOnlyList<Department> departments,
+        string areaCode,
+        Faker faker)
+    {
+        var depCodeFromArea = MapDepartmentCodeFromAreaCode(areaCode);
+        if (!string.IsNullOrWhiteSpace(depCodeFromArea) &&
+            departmentsByCode.TryGetValue(depCodeFromArea, out var dep))
+        {
+            return dep;
+        }
+
+        return departments[faker.Random.Int(0, departments.Count - 1)];
+    }
+
+    private static string? MapDepartmentCodeFromAreaCode(string? areaCode)
+    {
+        var c = (areaCode ?? "").Trim().ToUpperInvariant();
+        return c switch
+        {
+            "OPS" => "OPS",
+            "SCM" => "LOG",
+            "COM" => "COM",
+            "TEC" => "TEC",
+            "FIN" => "FIN",
+            "RH" => "RH",
+            "QUA" => "QUA",
+            "ENG" => "ENG",
+            "ADM" => "ADM",
+            "PDI" => "PDI",
+            _ => null
+        };
+    }
+
+    private static string GetNextCode(
+        IDictionary<string, int> areaCounters,
+        string areaCode,
+        HashSet<string> existingSet)
+    {
+        areaCounters.TryGetValue(areaCode, out var count);
+        string code;
+        do
+        {
+            count++;
+            code = $"VAG-{areaCode}-{count:000}";
+        }
+        while (existingSet.Contains(code));
+
+        areaCounters[areaCode] = count;
+        return code;
+    }
+
+    private static bool IsShiftBased(Faker faker, string areaCode)
+        => areaCode is "OPS" or "ENG" or "QUA"
+            ? faker.Random.Bool(0.7f)
+            : faker.Random.Bool(0.2f);
+
+    private static bool IsOnSite(Faker faker, string areaCode)
+        => areaCode is "OPS" or "ENG" or "QUA"
+            ? faker.Random.Bool(0.85f)
+            : faker.Random.Bool(0.4f);
+
+    private static string BuildTitle(Faker faker, string areaCode)
+    {
+        if (!TitlePatterns.TryGetValue(areaCode, out var pattern))
+        {
+            pattern = (new[] { "Analista", "Assistente", "Tecnico" }, new[] { "Operacoes", "Processos", "Administrativo" });
+        }
+
+        var prefix = faker.PickRandom(pattern.Prefixes);
+        var subject = faker.PickRandom(pattern.Subjects);
+        var separator = prefix.Contains("Key Account", StringComparison.OrdinalIgnoreCase) ? " - " : " de ";
+        return $"{prefix}{separator}{subject}";
+    }
+
+    private static string BuildDescription(Faker faker, Area area)
+        => $"Atuar na area de {area.Name}. {faker.Lorem.Sentence(8)} {faker.Lorem.Sentence(8)}";
 
     private static List<(string Nome, VagaPeso Peso, bool Obrigatorio, int? AnosMinimos, VagaRequisitoNivel? Nivel, VagaRequisitoAvaliacao? Avaliacao, string? Obs, IReadOnlyList<string>? Sinonimos)>
         BuildDemoRequisitos(string areaCode)
     {
         areaCode = (areaCode ?? "").Trim().ToUpperInvariant();
 
-        // ajuste os enums conforme os seus nomes/valores
         return areaCode switch
         {
             "TEC" => new()
             {
                 ("Windows/Office 365", (VagaPeso)4, true, 1, null, null, null, new[] { "Office", "Pacote Office", "Microsoft 365" }),
-                ("Atendimento ao usuário", (VagaPeso)4, true, 1, null, null, null, new[] { "Suporte ao usuario", "Help desk" }),
-                ("ITIL (desejável)", (VagaPeso)2, false, null, null, null, null, new[] { "ITIL Foundation" }),
-                ("Redes básicas", (VagaPeso)3, false, 1, null, null, null, new[] { "TCP/IP", "LAN", "WAN" })
+                ("Atendimento ao usuario", (VagaPeso)4, true, 1, null, null, null, new[] { "Suporte ao usuario", "Help desk" }),
+                ("ITIL (desejavel)", (VagaPeso)2, false, null, null, null, null, new[] { "ITIL Foundation" }),
+                ("Redes basicas", (VagaPeso)3, false, 1, null, null, null, new[] { "TCP/IP", "LAN", "WAN" })
             },
             "FIN" => new()
             {
-                ("Excel intermediário/avançado", (VagaPeso)4, true, 2, null, null, null, new[] { "Excel avancado", "Planilhas" }),
+                ("Excel intermediario/avancado", (VagaPeso)4, true, 2, null, null, null, new[] { "Excel avancado", "Planilhas" }),
                 ("Contas a receber", (VagaPeso)4, true, 2, null, null, null, new[] { "CR", "Recebiveis" }),
-                ("Conciliação bancária", (VagaPeso)3, false, 1, null, null, null, new[] { "Conciliacao", "Extrato" })
+                ("Conciliacoes bancarias", (VagaPeso)3, false, 1, null, null, null, new[] { "Conciliacao", "Extrato" })
             },
             _ => new()
             {
-                ("Comunicação", (VagaPeso)3, true, null, null, null, null, new[] { "Comunicacao", "Boa comunicacao" }),
+                ("Comunicacao", (VagaPeso)3, true, null, null, null, null, new[] { "Comunicacao", "Boa comunicacao" }),
                 ("Trabalho em equipe", (VagaPeso)3, false, null, null, null, null, new[] { "Teamwork", "Colaboracao" })
             }
         };
@@ -346,15 +404,14 @@ public static class VagaSeeder
 
     private static VagaSenioridade? MapSenioridade(SeniorityLevel seniority)
     {
-        // Mapeia o enum do seed (SeniorityLevel) para o seu (VagaSenioridade)
         return seniority switch
         {
             SeniorityLevel.Junior => ParseEnumOrFirst<VagaSenioridade>("Junior", "Jr"),
             SeniorityLevel.Pleno => ParseEnumOrFirst<VagaSenioridade>("Pleno"),
-            SeniorityLevel.Senior => ParseEnumOrFirst<VagaSenioridade>("Senior", "Sênior"),
+            SeniorityLevel.Senior => ParseEnumOrFirst<VagaSenioridade>("Senior"),
             SeniorityLevel.Especialista => ParseEnumOrFirst<VagaSenioridade>("Especialista"),
-            SeniorityLevel.Coordenacao => ParseEnumOrFirst<VagaSenioridade>("Coordenacao", "Coordenador", "Coordenação"),
-            SeniorityLevel.Gerencia => ParseEnumOrFirst<VagaSenioridade>("Gerencia", "Gerente", "Gerência"),
+            SeniorityLevel.Coordenacao => ParseEnumOrFirst<VagaSenioridade>("Coordenacao", "Coordenador"),
+            SeniorityLevel.Gerencia => ParseEnumOrFirst<VagaSenioridade>("Gerencia", "Gerente"),
             SeniorityLevel.Diretoria => ParseEnumOrFirst<VagaSenioridade>("Diretoria", "Diretor"),
             _ => null
         };
@@ -362,198 +419,24 @@ public static class VagaSeeder
 
     private static string BuildKeywords(string areaCode) => areaCode switch
     {
-        "OPS" => "BPF;5S;Segurança;OEE;Setup;Linha de produção;Rastreabilidade",
-        "QUA" => "BPF;APPCC;HACCP;Auditoria;Não conformidade;Rastreabilidade;Microbiologia",
-        "ENG" => "Manutenção;PCM;MTBF;MTTR;Automação;CLP;Utilidades",
-        "SCM" => "PCP;FEFO;FIFO;Inventário;Expedição;Transporte;WMS",
-        "PDI" => "Formulação;Estabilidade;Escalonamento;Embalagens;Sensorial;Inovação",
+        "OPS" => "BPF;5S;Seguranca;OEE;Setup;Linha de producao;Rastreabilidade",
+        "QUA" => "BPF;APPCC;HACCP;Auditoria;Nao conformidade;Rastreabilidade;Microbiologia",
+        "ENG" => "Manutencao;PCM;MTBF;MTTR;Automacao;CLP;Utilidades",
+        "SCM" => "PCP;FEFO;FIFO;Inventario;Expedicao;Transporte;WMS",
+        "PDI" => "Formulacao;Estabilidade;Escalonamento;Embalagens;Sensorial;Inovacao",
         "COM" => "Key Account;Pricing;Trade;Sell-in;Sell-out;Campanhas",
-        "TEC" => "BI;Integrações;ERP;Dados;KPIs;Governança",
+        "TEC" => "BI;Integracoes;ERP;Dados;KPIs;Governanca",
         "RH" => "R&S;Treinamento;DP;Turnos;Onboarding",
-        "FIN" => "Custos;Controladoria;Fiscal;Tesouraria;Conciliação",
-        _ => "Administrativo;Rotinas;Organização;Compliance"
+        "FIN" => "Custos;Controladoria;Fiscal;Tesouraria;Conciliacao",
+        _ => "Administrativo;Rotinas;Organizacao;Compliance"
     };
 
     private static string BuildResponsibilities(string areaCode) => areaCode switch
     {
-        "OPS" => "Operar processos;Registrar produção;Seguir POPs;Garantir 5S;Reportar desvios",
-        "QUA" => "Coletar amostras;Registrar análises;Tratar não conformidades;Apoiar auditorias",
-        "ENG" => "Executar manutenção;Prevenir falhas;Registrar OS;Apoiar paradas programadas",
-        "SCM" => "Planejar/abastecer;Controlar estoque;Garantir FEFO;Apoiar expedição",
-        _ => "Apoiar rotina da área;Garantir organização;Cumprir prazos;Comunicar riscos"
+        "OPS" => "Operar processos;Registrar producao;Seguir POPs;Garantir 5S;Reportar desvios",
+        "QUA" => "Coletar amostras;Registrar analises;Tratar nao conformidades;Apoiar auditorias",
+        "ENG" => "Executar manutencao;Prevenir falhas;Registrar OS;Apoiar paradas programadas",
+        "SCM" => "Planejar/abastecer;Controlar estoque;Garantir FEFO;Apoiar expedicao",
+        _ => "Apoiar rotina da area;Garantir organizacao;Cumprir prazos;Comunicar riscos"
     };
-
-    private static IReadOnlyList<VagaSeed> BuildFoodIndustryVagasDemo()
-    {
-        // 50 vagas (1 por departamento) — todas com contexto de indústria alimentícia
-        return new List<VagaSeed>
-        {
-            // ADM (5)
-            new("VAG-ADM-001","ADM-001","UNI-SPC","Assistente de Facilities & Recepção", SeniorityLevel.Junior,
-                "Rotinas de recepção, controle de acessos, apoio a facilities, interface com prestadores e suporte administrativo.",
-                false, false),
-            new("VAG-ADM-002","ADM-002","UNI-SPC","Analista de Compliance & LGPD", SeniorityLevel.Pleno,
-                "Apoio em compliance, políticas internas, análise de riscos, adequação LGPD e suporte a auditorias/regulatórios.",
-                false, false),
-            new("VAG-ADM-003","ADM-003","UNI-SPC","Assistente de Gestão Documental", SeniorityLevel.Junior,
-                "Organização e versionamento de documentos (POPs, registros, evidências), controle de arquivos e suporte a auditorias.",
-                false, false),
-            new("VAG-ADM-004","ADM-004","UNI-EMB","Técnico de Infraestrutura Predial", SeniorityLevel.Pleno,
-                "Manutenção predial (não industrial), acompanhamento de serviços, melhorias de infraestrutura e rotinas de segurança predial.",
-                false, true),
-            new("VAG-ADM-005","ADM-005","UNI-SPC","Comprador de Indiretos & Serviços", SeniorityLevel.Pleno,
-                "Compras indiretas (EPI, MRO leve, serviços), cotações, contratos e gestão de fornecedores de serviços.",
-                false, false),
-            new("VAG-FIN-001","FIN-001","UNI-SPC","Analista de Contas a Pagar", SeniorityLevel.Pleno,
-                "Processamento de títulos, conciliações, fluxo de aprovações, relacionamento com fornecedores e compliance financeiro.",
-                false, false),
-            new("VAG-FIN-002","FIN-002","UNI-SPC","Analista de Contas a Receber", SeniorityLevel.Pleno,
-                "Faturamento, cobrança, conciliação de recebíveis e suporte a políticas de crédito para canais varejo/atacado.",
-                false, false),
-            new("VAG-FIN-003","FIN-003","UNI-SPC","Analista de Tesouraria", SeniorityLevel.Senior,
-                "Gestão de caixa, bancos, pagamentos críticos, rotinas de tesouraria e apoio em aplicações de curto prazo.",
-                false, false),
-            new("VAG-FIN-004","FIN-004","UNI-SPC","Analista de Custos Industriais", SeniorityLevel.Senior,
-                "Apuração de custos industriais, variações, perdas, rendimento, suporte a PCP/produção e análises gerenciais.",
-                false, false),
-            new("VAG-FIN-005","FIN-005","UNI-SPC","Analista Fiscal & Tributário", SeniorityLevel.Senior,
-                "Escrituração fiscal, apuração, SPED e suporte a operações/transportes com visão de compliance tributário.",
-                false, false),
-            new("VAG-RH-001","RH-001","UNI-SPC","Analista de Recrutamento & Seleção", SeniorityLevel.Pleno,
-                "Triagem, entrevistas e contratação (operacional/técnico), alinhamento com gestores e onboarding de fábrica.",
-                false, false),
-            new("VAG-RH-002","RH-002","UNI-SPC","Analista de Treinamento & Desenvolvimento", SeniorityLevel.Pleno,
-                "Treinamentos de BPF, segurança de alimentos, integração, reciclagens e trilhas de capacitação na planta.",
-                false, false),
-            new("VAG-RH-003","RH-003","UNI-SPC","Analista de Departamento Pessoal", SeniorityLevel.Pleno,
-                "Folha, ponto, benefícios e rotinas trabalhistas (turnos, adicionais, escalas) com foco em ambiente fabril.",
-                false, false),
-            new("VAG-RH-004","RH-004","UNI-SPC","Analista de Comunicação Interna", SeniorityLevel.Junior,
-                "Campanhas internas, comunicados de turnos, avisos operacionais e apoio a ações de clima/engajamento.",
-                false, false),
-            new("VAG-RH-005","RH-005","UNI-EMB","Técnico de Enfermagem do Trabalho", SeniorityLevel.Pleno,
-                "Rotinas de ambulatório, ASO, acompanhamento de afastamentos e ações preventivas em áreas operacionais.",
-                true, true),
-            new("VAG-OPS-001","OPS-001","UNI-EMB","Operador de Produção - Preparação & Mistura", SeniorityLevel.Junior,
-                "Execução de receitas, dosagem, mistura e registros conforme POPs/BPF. Atenção a rastreabilidade por lote.",
-                true, true),
-            new("VAG-OPS-002","OPS-002","UNI-EMB","Operador de Processo Térmico - Cozimento/Pasteurização", SeniorityLevel.Pleno,
-                "Operação de processos térmicos, controle de tempo/temperatura, registros de CCP e liberação de linha.",
-                true, true),
-            new("VAG-OPS-003","OPS-003","UNI-EMB","Operador de Máquina de Envase", SeniorityLevel.Pleno,
-                "Setup, ajuste e operação de envase. Controle de perdas, rendimento, integridade de selagem e codificação.",
-                true, true),
-            new("VAG-OPS-004","OPS-004","UNI-EMB","Encarregado de Embalagem & Rotulagem", SeniorityLevel.Coordenacao,
-                "Coordenação da equipe de embalagem, controle de consumo, conferência de rótulos, validade e padrões de qualidade.",
-                true, true),
-            new("VAG-OPS-005","OPS-005","UNI-EMB","Auxiliar de Higienização - CIP/COP", SeniorityLevel.Junior,
-                "Rotinas CIP/COP, preparação de químicos, verificação de eficácia e liberação sanitária de equipamentos/linhas.",
-                true, true),
-            new("VAG-QUA-001","QUA-001","UNI-EMB","Analista de Laboratório (Físico-Químico)", SeniorityLevel.Pleno,
-                "Análises físico-químicas (pH, Brix, densidade), controle de especificações e suporte a investigação de desvios.",
-                false, true),
-            new("VAG-QUA-002","QUA-002","UNI-EMB","Analista de Laboratório (Microbiologia)", SeniorityLevel.Pleno,
-                "Análises microbiológicas, monitoramento ambiental, água/superfícies e apoio em validações de higiene.",
-                false, true),
-            new("VAG-QUA-003","QUA-003","UNI-EMB","Auditor Interno - BPF & Sistema da Qualidade", SeniorityLevel.Senior,
-                "Auditorias internas, planos de ação, gestão de não conformidades e fortalecimento do sistema de qualidade.",
-                false, true),
-            new("VAG-QUA-004","QUA-004","UNI-EMB","Especialista em APPCC/HACCP", SeniorityLevel.Especialista,
-                "Gestão de APPCC/HACCP, riscos, CCPs, revisão de POPs e governança de segurança de alimentos.",
-                false, true),
-            new("VAG-QUA-005","QUA-005","UNI-SPC","Analista de Assuntos Regulatórios (ANVISA/MAPA)", SeniorityLevel.Senior,
-                "Regularização, rotulagem legal, interface com órgãos reguladores e suporte a claims e composição.",
-                false, false),
-            new("VAG-ENG-001","ENG-001","UNI-EMB","Técnico de Manutenção Mecânica", SeniorityLevel.Pleno,
-                "Manutenção preventiva/corretiva em equipamentos de linha, redução de paradas e gestão de peças críticas.",
-                true, true),
-            new("VAG-ENG-002","ENG-002","UNI-EMB","Técnico de Manutenção Elétrica", SeniorityLevel.Pleno,
-                "Intervenções elétricas, painéis, motores/sensores, leitura de diagramas e confiabilidade de processo.",
-                true, true),
-            new("VAG-ENG-003","ENG-003","UNI-EMB","Analista de Utilidades Industriais", SeniorityLevel.Pleno,
-                "Gestão de utilidades (vapor, refrigeração, ar comprimido), consumo e estabilidade para garantir qualidade.",
-                true, true),
-            new("VAG-ENG-004","ENG-004","UNI-EMB","Técnico de Automação Industrial", SeniorityLevel.Senior,
-                "CLPs, IHMs, instrumentação, parametrização e suporte a estabilidade de processo / coleta de dados.",
-                true, true),
-            new("VAG-ENG-005","ENG-005","UNI-EMB","Engenheiro de Processos & Melhoria Contínua", SeniorityLevel.Senior,
-                "OEE, perdas, Kaizen, padronização, otimização de setups e suporte ao aumento de capacidade produtiva.",
-                false, true),
-            new("VAG-PDI-001","PDI-001","UNI-EMB","Analista de P&D (Produtos)", SeniorityLevel.Senior,
-                "Desenvolvimento/reformulação, testes de estabilidade, escalonamento e documentação técnica de produto.",
-                false, true),
-            new("VAG-PDI-002","PDI-002","UNI-EMB","Técnico de P&D - Cozinha Piloto", SeniorityLevel.Pleno,
-                "Execução de testes piloto, preparo de amostras, controles e registros conforme padrões de qualidade.",
-                false, true),
-            new("VAG-PDI-003","PDI-003","UNI-EMB","Analista de Desenvolvimento de Embalagens", SeniorityLevel.Pleno,
-                "Especificação de materiais, testes de barreira/selagem, compatibilidade com envase e otimização de custos.",
-                false, true),
-            new("VAG-PDI-004","PDI-004","UNI-EMB","Analista de Pesquisa Sensorial", SeniorityLevel.Pleno,
-                "Planejamento e execução de testes sensoriais, análise de aceitação e suporte a decisão de portfolio.",
-                false, true),
-            new("VAG-PDI-005","PDI-005","UNI-SPC","Analista de Gestão de Portfolio", SeniorityLevel.Pleno,
-                "Pipeline de inovação, priorização de projetos e alinhamento com comercial/marketing para lançamentos.",
-                false, false),
-            new("VAG-SCM-001","SCM-001","UNI-EMB","Analista de PCP", SeniorityLevel.Pleno,
-                "Sequenciamento, MPS, balanceamento capacidade x demanda e apontamentos para eficiência da planta.",
-                false, true),
-            new("VAG-SCM-002","SCM-002","UNI-SPC","Comprador de Matéria-Prima e Ingredientes", SeniorityLevel.Pleno,
-                "Compras de ingredientes, homologação, lead time, contratos e performance de fornecedores críticos.",
-                false, false),
-            new("VAG-SCM-003","SCM-003","UNI-EMB","Analista de Recebimento & Armazenagem (Insumos)", SeniorityLevel.Junior,
-                "Recebimento, conferência, FEFO/FIFO, rastreabilidade e controle de armazenagem em ambiente industrial.",
-                true, true),
-            new("VAG-SCM-004","SCM-004","UNI-EMB","Analista de Estoques (Embalagens)", SeniorityLevel.Pleno,
-                "Inventários, acuracidade, abastecimento de linha e controle de consumo por ordem/lote.",
-                true, true),
-            new("VAG-SCM-005","SCM-005","UNI-EMB","Analista de Transporte & Distribuição", SeniorityLevel.Pleno,
-                "Roteirização, frete, agendamento, SLAs e interface com transportadoras para atender clientes e CDs.",
-                false, true),
-            new("VAG-COM-001","COM-001","UNI-SPC","Executivo de Vendas - Atacado/Distribuidores", SeniorityLevel.Senior,
-                "Gestão de distribuidores, políticas comerciais, mix, campanhas e acompanhamento de sell-in/sell-out.",
-                false, false),
-            new("VAG-COM-002","COM-002","UNI-SPC","Key Account - Grandes Redes", SeniorityLevel.Senior,
-                "Negociação com grandes redes, contratos, verbas, planejamento de demanda e gestão de ruptura.",
-                false, false),
-            new("VAG-COM-003","COM-003","UNI-SPC","Analista de Trade Marketing", SeniorityLevel.Pleno,
-                "Execução de planos em PDV, campanhas, materiais e análise de performance por canal.",
-                false, false),
-            new("VAG-COM-004","COM-004","UNI-SPC","Analista de SAC & Pós-venda", SeniorityLevel.Pleno,
-                "Tratativa de reclamações, rastreabilidade, retorno ao consumidor e interface com Qualidade/Regulatório.",
-                false, false),
-            new("VAG-COM-005","COM-005","UNI-SPC","Analista de Inteligência de Mercado & Pricing", SeniorityLevel.Senior,
-                "Análise de concorrência, rentabilidade, precificação e suporte a decisões comerciais por SKU/canal.",
-                false, false),
-            new("VAG-TEC-001","TEC-001","UNI-SPC","Analista de Suporte - Service Desk", SeniorityLevel.Junior,
-                "Atendimento N1/N2, gestão de chamados, inventário e suporte a usuários administrativos e fábrica.",
-                false, false),
-            new("VAG-TEC-002","TEC-002","UNI-EMB","Analista de Sistemas Industriais (MES/SCADA)", SeniorityLevel.Senior,
-                "Sustentação de sistemas industriais, integrações com coleta de dados e suporte a automação/rastreabilidade.",
-                true, true),
-            new("VAG-TEC-003","TEC-003","UNI-SPC","Analista de ERP & Integrações", SeniorityLevel.Pleno,
-                "Sustentação de ERP, cadastros mestres, integrações e apoio a processos de compras/finanças/produção.",
-                false, false),
-            new("VAG-TEC-004","TEC-004","UNI-SPC","Analista de Dados (BI) - KPIs Industriais", SeniorityLevel.Senior,
-                "Dashboards, qualidade de dados e indicadores (OEE, perdas, produtividade) para tomada de decisão.",
-                false, false),
-            new("VAG-TEC-005","TEC-005","UNI-SPC","Analista de Segurança da Informação", SeniorityLevel.Pleno,
-                "Políticas de segurança, acessos, vulnerabilidades e governança LGPD com visão corporativa.",
-                false, false),
-            new("VAG-OPS-006","OPS-003","UNI-EMB","Líder de Turno - Produção", SeniorityLevel.Coordenacao,
-                "Gestão do turno, metas, segurança, qualidade e produtividade. Acompanha OEE e planos de ação.",
-                true, true),
-            new("VAG-QUA-006","QUA-003","UNI-EMB","Analista de Rastreabilidade & Recall", SeniorityLevel.Pleno,
-                "Controle de lotes, rastreabilidade ponta a ponta e simulado de recall com interface SCM/Qualidade.",
-                false, true),
-            new("VAG-ENG-006","ENG-003","UNI-EMB","Operador de Caldeira", SeniorityLevel.Senior,
-                "Operação e rotinas de segurança em caldeiras/utilidades, controles e inspeções regulamentares.",
-                true, true),
-            new("VAG-SCM-006","SCM-005","UNI-EMB","Supervisor de Expedição", SeniorityLevel.Coordenacao,
-                "Coordena expedição, carregamento e SLA, interface com transportadoras e roteirização diária.",
-                true, true),
-            new("VAG-OPS-007","OPS-004","UNI-EMB","Conferente de Embalagem & Rotulagem", SeniorityLevel.Junior,
-                "Conferência de rotulagem, codificação, datas e integridade de embalagem para evitar desvios e retrabalho.",
-                true, true)
-        };
-    }
 }
