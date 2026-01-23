@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Messaging.Email;
@@ -32,12 +34,18 @@ public sealed class EmailQueueService : IEmailQueueService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IStringLocalizer<InfrastructureMessages> _localizer;
 
-    public EmailQueueService(AppDbContext db, ITenantContext tenantContext, IHttpContextAccessor httpContextAccessor)
+    public EmailQueueService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IHttpContextAccessor httpContextAccessor,
+        IStringLocalizer<InfrastructureMessages> localizer)
     {
         _db = db;
         _tenantContext = tenantContext;
         _httpContextAccessor = httpContextAccessor;
+        _localizer = localizer;
     }
 
     public async Task<EmailMessage> EnqueueTemplateAsync(
@@ -54,7 +62,7 @@ public sealed class EmailQueueService : IEmailQueueService
             .FirstOrDefaultAsync(ct);
 
         if (template is null)
-            throw new InvalidOperationException($"Email template '{templateName}' not found.");
+            throw new InvalidOperationException(_localizer["InfrastructureEmail.TemplateNotFound", templateName]);
 
         var subject = EmailTemplateRenderer.Render(template.SubjectTemplate, tokens);
         var body = EmailTemplateRenderer.Render(template.BodyHtml, tokens);

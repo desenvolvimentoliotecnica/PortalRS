@@ -138,4 +138,7 @@
   <data name="InfrastructureEmail.EmailAlreadySent" xml:space="preserve">
     <value>Email already sent.</value>
   </data>
+  <data name="InfrastructureEmail.TemplateNotFound" xml:space="preserve">
+    <value>Email template '{0}' not found.</value>
+  </data>
 </root>

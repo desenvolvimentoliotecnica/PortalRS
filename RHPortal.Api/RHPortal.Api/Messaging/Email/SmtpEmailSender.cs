@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Mail;
+using Microsoft.Extensions.Localization;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Messaging.Email;
 
@@ -19,17 +21,21 @@ public sealed record EmailSendRequest(
 public sealed class SmtpEmailSender : IEmailSender
 {
     private readonly IEmailConfigService _configService;
+    private readonly IStringLocalizer<InfrastructureMessages> _localizer;
 
-    public SmtpEmailSender(IEmailConfigService configService)
+    public SmtpEmailSender(
+        IEmailConfigService configService,
+        IStringLocalizer<InfrastructureMessages> localizer)
     {
         _configService = configService;
+        _localizer = localizer;
     }
 
     public async Task SendAsync(EmailSendRequest request, CancellationToken ct)
     {
         var config = await _configService.GetDecryptedAsync(ct);
         if (config is null || string.IsNullOrWhiteSpace(config.SmtpHost))
-            throw new InvalidOperationException("SMTP not configured.");
+            throw new InvalidOperationException(_localizer["InfrastructureEmail.SmtpNotConfigured"]);
 
         using var client = new SmtpClient(config.SmtpHost, config.SmtpPort)
         {
