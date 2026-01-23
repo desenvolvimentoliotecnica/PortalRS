@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
-using RhPortal.Api.Contracts.Candidatos;
+using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
@@ -28,7 +28,7 @@ public sealed class PublicCandidaturasController : ControllerBase
     [RequestSizeLimit(52_428_800)]
     [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
     [Consumes("multipart/form-data")]
-    public async Task<ActionResult<CandidatoResponse>> Create(
+    public async Task<ActionResult<CandidateResponse>> Create(
         [FromForm] PortalCandidaturaRequest request,
         [FromServices] ICandidatoService service,
         [FromServices] AppDbContext db,
@@ -41,14 +41,14 @@ public sealed class PublicCandidaturasController : ControllerBase
         var (cidade, uf) = ParseCidadeUf(request.CidadeUf);
         var obs = BuildObs(request);
 
-        var create = new CandidatoCreateRequest(
+        var create = new CandidateCreateRequest(
             request.Nome,
             request.Email,
             request.Fone,
             cidade,
             uf,
-            CandidatoFonte.Site,
-            CandidatoStatus.Novo,
+            CandidateOrigin.Site,
+            CandidateStatus.Novo,
             request.VagaId,
             obs,
             null,
@@ -63,7 +63,7 @@ public sealed class PublicCandidaturasController : ControllerBase
             {
                 await service.AddDocumentoAsync(
                     created.Id,
-                    CandidatoDocumentoTipo.Curriculo,
+                    CandidateDocumentType.Curriculo,
                     _localizer["ControllerLabels.CvEnviadoPeloPortal"],
                     request.Arquivo,
                     ct);

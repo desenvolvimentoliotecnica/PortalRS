@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
-using RhPortal.Api.Contracts.Agenda;
+using RhPortal.Api.Contracts.Schedule;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
@@ -18,13 +18,13 @@ public sealed class AgendaService
         _localizer = localizer;
     }
 
-    public async Task<IReadOnlyList<AgendaEventTypeResponse>> ListTypesAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<ScheduleEventTypeResponse>> ListTypesAsync(CancellationToken ct)
     {
         return await _db.AgendaEventTypes
             .AsNoTracking()
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Label)
-            .Select(x => new AgendaEventTypeResponse(
+            .Select(x => new ScheduleEventTypeResponse(
                 x.Id,
                 x.Code,
                 x.Label,
@@ -36,7 +36,7 @@ public sealed class AgendaService
             .ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<AgendaEventResponse>> ListEventsAsync(AgendaEventsQuery query, CancellationToken ct)
+    public async Task<IReadOnlyList<ScheduleEventResponse>> ListEventsAsync(ScheduleEventsQuery query, CancellationToken ct)
     {
         var search = (query.Search ?? string.Empty).Trim();
         var type = (query.Type ?? string.Empty).Trim();
@@ -73,7 +73,7 @@ public sealed class AgendaService
 
         return await q
             .OrderBy(x => x.StartAtUtc)
-            .Select(x => new AgendaEventResponse(
+            .Select(x => new ScheduleEventResponse(
                 x.Id,
                 x.Title,
                 x.StartAtUtc,
@@ -94,13 +94,13 @@ public sealed class AgendaService
             .ToListAsync(ct);
     }
 
-    public async Task<AgendaEventResponse?> GetEventByIdAsync(Guid id, CancellationToken ct)
+    public async Task<ScheduleEventResponse?> GetEventByIdAsync(Guid id, CancellationToken ct)
     {
         return await _db.AgendaEvents
             .AsNoTracking()
             .Include(x => x.Type)
             .Where(x => x.Id == id)
-            .Select(x => new AgendaEventResponse(
+            .Select(x => new ScheduleEventResponse(
                 x.Id,
                 x.Title,
                 x.StartAtUtc,
@@ -121,7 +121,7 @@ public sealed class AgendaService
             .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<AgendaEventResponse> CreateAsync(AgendaEventCreateRequest request, CancellationToken ct)
+    public async Task<ScheduleEventResponse> CreateAsync(ScheduleEventCreateRequest request, CancellationToken ct)
     {
         var type = await GetTypeByCodeAsync(request.TypeCode, ct);
 
@@ -150,7 +150,7 @@ public sealed class AgendaService
         return (await GetEventByIdAsync(entity.Id, ct))!;
     }
 
-    public async Task<AgendaEventResponse?> UpdateAsync(Guid id, AgendaEventUpdateRequest request, CancellationToken ct)
+    public async Task<ScheduleEventResponse?> UpdateAsync(Guid id, ScheduleEventUpdateRequest request, CancellationToken ct)
     {
         var entity = await _db.AgendaEvents.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;

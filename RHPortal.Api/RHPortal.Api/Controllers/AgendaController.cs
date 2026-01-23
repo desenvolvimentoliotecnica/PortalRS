@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Agenda;
-using RhPortal.Api.Contracts.Agenda;
+using RhPortal.Api.Contracts.Schedule;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 
@@ -20,7 +20,7 @@ public sealed class AgendaController : ControllerBase
 
     [RequirePermission("agenda.view")]
     [HttpGet("types")]
-    public async Task<ActionResult<IReadOnlyList<AgendaEventTypeResponse>>> ListTypes(
+    public async Task<ActionResult<IReadOnlyList<ScheduleEventTypeResponse>>> ListTypes(
         [FromServices] AgendaService service,
         CancellationToken ct)
     {
@@ -30,8 +30,8 @@ public sealed class AgendaController : ControllerBase
 
     [RequirePermission("agenda.view")]
     [HttpGet("events")]
-    public async Task<ActionResult<IReadOnlyList<AgendaEventResponse>>> ListEvents(
-        [FromQuery] AgendaEventsQuery query,
+    public async Task<ActionResult<IReadOnlyList<ScheduleEventResponse>>> ListEvents(
+        [FromQuery] ScheduleEventsQuery query,
         [FromServices] AgendaService service,
         CancellationToken ct)
     {
@@ -41,7 +41,7 @@ public sealed class AgendaController : ControllerBase
 
     [RequirePermission("agenda.view")]
     [HttpGet("events/{id:guid}")]
-    public async Task<ActionResult<AgendaEventResponse>> GetById(
+    public async Task<ActionResult<ScheduleEventResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] AgendaService service,
         CancellationToken ct)
@@ -52,8 +52,8 @@ public sealed class AgendaController : ControllerBase
 
     [RequirePermission("agenda.view")]
     [HttpPost("events")]
-    public async Task<ActionResult<AgendaEventResponse>> Create(
-        [FromBody] AgendaEventCreateRequest request,
+    public async Task<ActionResult<ScheduleEventResponse>> Create(
+        [FromBody] ScheduleEventCreateRequest request,
         [FromServices] AgendaService service,
         CancellationToken ct)
     {
@@ -75,9 +75,9 @@ public sealed class AgendaController : ControllerBase
 
     [RequirePermission("agenda.view")]
     [HttpPut("events/{id:guid}")]
-    public async Task<ActionResult<AgendaEventResponse>> Update(
+    public async Task<ActionResult<ScheduleEventResponse>> Update(
         [FromRoute] Guid id,
-        [FromBody] AgendaEventUpdateRequest request,
+        [FromBody] ScheduleEventUpdateRequest request,
         [FromServices] AgendaService service,
         CancellationToken ct)
     {

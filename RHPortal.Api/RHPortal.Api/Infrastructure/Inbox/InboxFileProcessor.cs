@@ -126,8 +126,8 @@ public sealed class InboxFileProcessor
                 Id = Guid.NewGuid(),
                 Nome = nome,
                 Email = email,
-                Fonte = CandidatoFonte.Pasta,
-                Status = CandidatoStatus.Triagem,
+                Fonte = CandidateOrigin.Pasta,
+                Status = CandidateStatus.Triagem,
                 VagaId = vagaId,
                 Obs = _localizer["InfrastructureInbox.OrigemPastaObs", Path.GetFileName(filePath)],
                 CvText = text
@@ -323,8 +323,8 @@ public sealed class InboxFileProcessor
         return $"{documentId:N}{extension}";
     }
 
-    private static CandidatoDocumentoTipo MapDocumentoTipo(string ext)
-        => CandidatoDocumentoTipo.Curriculo;
+    private static CandidateDocumentType MapDocumentoTipo(string ext)
+        => CandidateDocumentType.Curriculo;
 
     private static string GetContentType(string ext)
         => ext switch

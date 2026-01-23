@@ -1,95 +1,94 @@
 using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Http;
 using RhPortal.Api.Domain.Enums;
 
-namespace RhPortal.Api.Contracts.Candidatos;
+namespace RhPortal.Api.Contracts.Candidates;
 
-public sealed record CandidatoCreateRequest(
+public sealed record CandidateCreateRequest(
     [Required, MaxLength(160)] string Nome,
     [Required, MaxLength(180)] string Email,
     [MaxLength(40)] string? Fone,
     [MaxLength(120)] string? Cidade,
     [MaxLength(2)] string? Uf,
-    CandidatoFonte Fonte,
-    CandidatoStatus Status,
+    CandidateOrigin Fonte,
+    CandidateStatus Status,
     [Required] Guid VagaId,
     [MaxLength(2000)] string? Obs,
     string? CvText,
-    CandidatoMatchRequest? LastMatch,
-    IReadOnlyList<CandidatoDocumentoRequest>? Documentos
+    CandidateMatchRequest? LastMatch,
+    IReadOnlyList<CandidateDocumentoRequest>? Documentos
 );
 
-public sealed record CandidatoUpdateRequest(
+public sealed record CandidateUpdateRequest(
     [Required, MaxLength(160)] string Nome,
     [Required, MaxLength(180)] string Email,
     [MaxLength(40)] string? Fone,
     [MaxLength(120)] string? Cidade,
     [MaxLength(2)] string? Uf,
-    CandidatoFonte Fonte,
-    CandidatoStatus Status,
+    CandidateOrigin Fonte,
+    CandidateStatus Status,
     [Required] Guid VagaId,
     [MaxLength(2000)] string? Obs,
     string? CvText,
-    CandidatoMatchRequest? LastMatch,
-    IReadOnlyList<CandidatoDocumentoRequest>? Documentos,
-    CandidatoStatusChangeRequest? StatusChange
+    CandidateMatchRequest? LastMatch,
+    IReadOnlyList<CandidateDocumentoRequest>? Documentos,
+    CandidateStatusChangeRequest? StatusChange
 );
 
-public sealed record CandidatoListItemResponse(
+public sealed record CandidateListItemResponse(
     Guid Id,
     string Nome,
     string Email,
     string? Fone,
     string? Cidade,
     string? Uf,
-    CandidatoFonte Fonte,
-    CandidatoStatus Status,
+    CandidateOrigin Fonte,
+    CandidateStatus Status,
     Guid? VagaId,
     string? VagaCodigo,
     string? VagaTitulo,
     string? Obs,
     string? CvText,
-    CandidatoMatchResponse? LastMatch,
+    CandidateMatchResponse? LastMatch,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
 
-public sealed record CandidatoResponse(
+public sealed record CandidateResponse(
     Guid Id,
     string Nome,
     string Email,
     string? Fone,
     string? Cidade,
     string? Uf,
-    CandidatoFonte Fonte,
-    CandidatoStatus Status,
+    CandidateOrigin Fonte,
+    CandidateStatus Status,
     Guid? VagaId,
     string? VagaCodigo,
     string? VagaTitulo,
     string? Obs,
     string? CvText,
-    CandidatoMatchResponse? LastMatch,
-    IReadOnlyList<CandidatoDocumentoResponse> Documentos,
+    CandidateMatchResponse? LastMatch,
+    IReadOnlyList<CandidateDocumentoResponse> Documentos,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
 
-public sealed record CandidatoMatchRequest(
+public sealed record CandidateMatchRequest(
     int? Score,
     bool? Pass,
     DateTimeOffset? AtUtc,
     Guid? VagaId
 );
 
-public sealed record CandidatoMatchResponse(
+public sealed record CandidateMatchResponse(
     int? Score,
     bool? Pass,
     DateTimeOffset? AtUtc,
     Guid? VagaId
 );
 
-public sealed record CandidatoDocumentoRequest(
-    CandidatoDocumentoTipo Tipo,
+public sealed record CandidateDocumentoRequest(
+    CandidateDocumentType Tipo,
     [Required, MaxLength(200)] string NomeArquivo,
     [MaxLength(120)] string? ContentType,
     [MaxLength(240)] string? Descricao,
@@ -97,15 +96,15 @@ public sealed record CandidatoDocumentoRequest(
     [MaxLength(400)] string? Url
 );
 
-public sealed record CandidatoDocumentoUploadRequest(
+public sealed record CandidateDocumentoUploadRequest(
     [Required] string Tipo,
     [MaxLength(240)] string? Descricao,
     [Required] IFormFile Arquivo
 );
 
-public sealed record CandidatoDocumentoResponse(
+public sealed record CandidateDocumentoResponse(
     Guid Id,
-    CandidatoDocumentoTipo Tipo,
+    CandidateDocumentType Tipo,
     string NomeArquivo,
     string? ContentType,
     string? Descricao,
@@ -115,20 +114,26 @@ public sealed record CandidatoDocumentoResponse(
     DateTimeOffset UpdatedAtUtc
 );
 
-public sealed record CandidatoStatusChangeRequest(
+public sealed record CandidateStatusChangeRequest(
     [MaxLength(120)] string? Reason,
     [MaxLength(400)] string? Note,
     [MaxLength(60)] string? Source
 );
 
-public sealed record CandidatoStatusHistoryItemResponse(
+public sealed record CandidateStatusHistoryItemResponse(
     Guid Id,
-    CandidatoStatus FromStatus,
-    CandidatoStatus ToStatus,
+    CandidateStatus FromStatus,
+    CandidateStatus ToStatus,
     string? Reason,
     string? Note,
     string? Source,
     string? UserId,
     string? UserName,
     DateTimeOffset CreatedAtUtc
+);
+public sealed record CandidateListQuery(
+    string? Q,
+    CandidateStatus? Status,
+    Guid? VagaId,
+    CandidateOrigin? Fonte
 );

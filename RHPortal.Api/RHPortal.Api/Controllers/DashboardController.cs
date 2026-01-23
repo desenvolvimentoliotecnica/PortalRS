@@ -30,7 +30,7 @@ public sealed class DashboardController : ControllerBase
             .CountAsync(c => c.LastMatchAtUtc == null && c.LastMatchScore == null, ct);
 
         var aprovados = await db.Candidatos.AsNoTracking()
-            .CountAsync(c => c.Status == CandidatoStatus.Aprovado && c.UpdatedAtUtc >= weekStart, ct);
+            .CountAsync(c => c.Status == CandidateStatus.Aprovado && c.UpdatedAtUtc >= weekStart, ct);
 
         return Ok(new DashboardKpisResponse(
             openVagas,
@@ -79,11 +79,11 @@ public sealed class DashboardController : ControllerBase
     {
         var total = await db.Candidatos.AsNoTracking().CountAsync(ct);
         var triagem = await db.Candidatos.AsNoTracking()
-            .CountAsync(c => c.Status == CandidatoStatus.Triagem, ct);
+            .CountAsync(c => c.Status == CandidateStatus.Triagem, ct);
         var pendente = await db.Candidatos.AsNoTracking()
-            .CountAsync(c => c.Status == CandidatoStatus.Pendente, ct);
+            .CountAsync(c => c.Status == CandidateStatus.Pendente, ct);
         var aprovado = await db.Candidatos.AsNoTracking()
-            .CountAsync(c => c.Status == CandidatoStatus.Aprovado, ct);
+            .CountAsync(c => c.Status == CandidateStatus.Aprovado, ct);
 
         return Ok(new DashboardFunnelResponse(
             total,
@@ -197,28 +197,28 @@ public sealed class DashboardController : ControllerBase
         return Ok(items);
     }
 
-    private static string MapOrigem(CandidatoFonte fonte)
+    private static string MapOrigem(CandidateOrigin fonte)
     {
         return fonte switch
         {
-            CandidatoFonte.Email => "Email",
-            CandidatoFonte.Pasta => "Pasta",
-            CandidatoFonte.LinkedIn => "LinkedIn",
-            CandidatoFonte.Indicacao => "Indicacao",
-            CandidatoFonte.Site => "Site",
+            CandidateOrigin.Email => "Email",
+            CandidateOrigin.Pasta => "Pasta",
+            CandidateOrigin.LinkedIn => "LinkedIn",
+            CandidateOrigin.Indicacao => "Indicacao",
+            CandidateOrigin.Site => "Site",
             _ => "Outro"
         };
     }
 
-    private static string MapEtapa(CandidatoStatus status)
+    private static string MapEtapa(CandidateStatus status)
     {
         return status switch
         {
-            CandidatoStatus.Novo => "Recebido",
-            CandidatoStatus.Triagem => "Triagem",
-            CandidatoStatus.Pendente => "Entrevista",
-            CandidatoStatus.Aprovado => "Aprovado",
-            CandidatoStatus.Reprovado => "Reprovado",
+            CandidateStatus.Novo => "Recebido",
+            CandidateStatus.Triagem => "Triagem",
+            CandidateStatus.Pendente => "Entrevista",
+            CandidateStatus.Aprovado => "Aprovado",
+            CandidateStatus.Reprovado => "Reprovado",
             _ => "Triagem"
         };
     }

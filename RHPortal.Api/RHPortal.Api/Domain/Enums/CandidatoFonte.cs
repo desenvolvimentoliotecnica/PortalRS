@@ -1,6 +1,6 @@
 namespace RhPortal.Api.Domain.Enums;
 
-public enum CandidatoFonte
+public enum CandidateOrigin
 {
     Email,
     Pasta,

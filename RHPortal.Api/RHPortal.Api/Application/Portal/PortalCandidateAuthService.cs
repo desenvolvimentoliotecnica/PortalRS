@@ -85,8 +85,8 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
             Fone = NormalizeRequired(request.Fone),
             Cidade = NormalizeRequired(request.Cidade),
             Uf = NormalizeUfRequired(request.Uf),
-            Fonte = CandidatoFonte.Site,
-            Status = CandidatoStatus.Novo,
+            Fonte = CandidateOrigin.Site,
+            Status = CandidateStatus.Novo,
             VagaId = null,
             PortalAccessKey = GeneratePortalAccessKey()
         };

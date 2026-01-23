@@ -50,8 +50,8 @@ public static class CandidatoSeeder
             Random = new Randomizer(seed)
         };
 
-        var fontes = Enum.GetValues<CandidatoFonte>();
-        var statuses = Enum.GetValues<CandidatoStatus>();
+        var fontes = Enum.GetValues<CandidateOrigin>();
+        var statuses = Enum.GetValues<CandidateStatus>();
         var usedEmails = existingEmails.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var toCreate = targetCount - existingCount;
 
@@ -113,7 +113,7 @@ public static class CandidatoSeeder
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 CandidatoId = candidato.Id,
-                Tipo = CandidatoDocumentoTipo.Curriculo,
+                Tipo = CandidateDocumentType.Curriculo,
                 NomeArquivo = $"{emailUserForFile}_CV.pdf",
                 ContentType = "application/pdf",
                 TamanhoBytes = 120_000 + faker.Random.Int(80_000, 320_000),
@@ -127,7 +127,7 @@ public static class CandidatoSeeder
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     CandidatoId = candidato.Id,
-                    Tipo = CandidatoDocumentoTipo.Certificado,
+                    Tipo = CandidateDocumentType.Certificado,
                     NomeArquivo = $"certificado_{emailUserForFile}.pdf",
                     ContentType = "application/pdf",
                     TamanhoBytes = 80_000 + faker.Random.Int(20_000, 120_000),
