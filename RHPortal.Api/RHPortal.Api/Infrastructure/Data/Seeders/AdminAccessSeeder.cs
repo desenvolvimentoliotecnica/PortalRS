@@ -1,0 +1,66 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Domain.Entities;
+
+namespace RhPortal.Api.Infrastructure.Data.Seeders;
+
+public static class AdminAccessSeeder
+{
+    public static async Task EnsureAsync(
+        AppDbContext db,
+        UserManager<ApplicationUser> userManager,
+        RoleManager<ApplicationRole> roleManager,
+        string tenantId,
+        string emailDomain,
+        string adminPassword,
+        CancellationToken ct)
+    {
+        var adminRole = await roleManager.Roles.FirstOrDefaultAsync(x => x.Name == "Admin", ct);
+        if (adminRole is null)
+        {
+            adminRole = new ApplicationRole
+            {
+                Id = Guid.NewGuid(),
+                Name = "Admin",
+                Description = "Tenant administrator",
+                IsActive = true
+            };
+
+            var roleResult = await roleManager.CreateAsync(adminRole);
+            if (!roleResult.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", roleResult.Errors.Select(x => x.Description)));
+        }
+
+        var adminEmail = $"admin@{emailDomain}";
+        var adminUser = await userManager.Users.FirstOrDefaultAsync(x => x.Email == adminEmail, ct);
+        if (adminUser is null)
+        {
+            adminUser = new ApplicationUser
+            {
+                Id = Guid.NewGuid(),
+                Email = adminEmail,
+                UserName = adminEmail,
+                FullName = $"{tenantId.ToUpperInvariant()} Admin",
+                IsActive = true
+            };
+
+            var userResult = await userManager.CreateAsync(adminUser, adminPassword);
+            if (!userResult.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", userResult.Errors.Select(x => x.Description)));
+        }
+
+        var isInRole = await userManager.IsInRoleAsync(adminUser, "Admin");
+        if (!isInRole)
+        {
+            var addToRole = await userManager.AddToRoleAsync(adminUser, "Admin");
+            if (!addToRole.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", addToRole.Errors.Select(x => x.Description)));
+        }
+
+        await MenuSeeder.EnsureAsync(db, adminRole, ct);
+
+        await EmailTemplateSeeder.EnsureAsync(db, ct);
+        await EmailMessageSeeder.EnsureAsync(db, tenantId, ct);
+        await EmailConfigSeeder.EnsureAsync(db, tenantId, ct);
+    }
+}
