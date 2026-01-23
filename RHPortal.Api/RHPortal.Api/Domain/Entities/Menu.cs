@@ -6,6 +6,7 @@ public sealed class Menu : ITenantEntity
     public string TenantId { get; set; } = default!;
 
     public string DisplayName { get; set; } = default!;
+    public string? DisplayNameKey { get; set; }
     public string Route { get; set; } = default!;
     public string Icon { get; set; } = string.Empty;
     public int Order { get; set; }

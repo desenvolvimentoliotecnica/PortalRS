@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.CostCenters;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
@@ -9,6 +11,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/cost-centers")]
 public sealed class CostCentersController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public CostCentersController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<CostCenterResponse>>> List([FromServices] AppDbContext db, CancellationToken ct)
     {
@@ -43,7 +52,7 @@ public sealed class CostCentersController : ControllerBase
         CancellationToken ct)
     {
         if (await db.CostCenters.AnyAsync(x => x.Code == request.Code, ct))
-            return Conflict(new { message = $"Centro de custo com codigo '{request.Code}' ja existe." });
+            return Conflict(new { message = _localizer["ControllerErrors.CostCenterCodeExists", request.Code] });
 
         var entity = new Domain.Entities.CostCenter
         {
@@ -75,7 +84,7 @@ public sealed class CostCentersController : ControllerBase
 
         var codeExists = await db.CostCenters.AnyAsync(x => x.Id != id && x.Code == request.Code, ct);
         if (codeExists)
-            return Conflict(new { message = $"Centro de custo com codigo '{request.Code}' ja existe." });
+            return Conflict(new { message = _localizer["ControllerErrors.CostCenterCodeExists", request.Code] });
 
         entity.Code = request.Code.Trim();
         entity.Name = request.Name.Trim();
@@ -106,7 +115,7 @@ public sealed class CostCentersController : ControllerBase
             (x.CostCenter.ToLower() == code || x.CostCenter.ToLower() == name), ct);
 
         if (hasDeps)
-            return Conflict(new { message = "Centro de custo possui departamentos vinculados e nao pode ser excluido." });
+            return Conflict(new { message = _localizer["ControllerErrors.CostCenterHasDepartments"] });
 
         db.CostCenters.Remove(entity);
         await db.SaveChangesAsync(ct);

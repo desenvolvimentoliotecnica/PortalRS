@@ -1,0 +1,113 @@
+{
+  "TitlePatterns": {
+    "OPS": {
+      "Prefixes": [ "Operador", "Auxiliar", "Lider" ],
+      "Subjects": [ "Producao", "Envase", "Embalagem", "Higienizacao" ]
+    },
+    "QUA": {
+      "Prefixes": [ "Analista", "Tecnico", "Auditor" ],
+      "Subjects": [ "Qualidade", "Laboratorio", "Rastreabilidade", "APPCC" ]
+    },
+    "ENG": {
+      "Prefixes": [ "Tecnico", "Analista", "Engenheiro" ],
+      "Subjects": [ "Manutencao", "Automacao", "Utilidades", "Processos" ]
+    },
+    "SCM": {
+      "Prefixes": [ "Analista", "Comprador", "Supervisor" ],
+      "Subjects": [ "PCP", "Logistica", "Estoque", "Transporte" ]
+    },
+    "PDI": {
+      "Prefixes": [ "Analista", "Tecnico" ],
+      "Subjects": [ "Pesquisa", "Desenvolvimento", "Embalagens", "Sensorial" ]
+    },
+    "COM": {
+      "Prefixes": [ "Executivo", "Analista", "Key Account" ],
+      "Subjects": [ "Vendas", "Trade Marketing", "Inteligencia de Mercado", "SAC" ]
+    },
+    "TEC": {
+      "Prefixes": [ "Analista", "Especialista", "Tecnico" ],
+      "Subjects": [ "Suporte", "Sistemas", "Dados", "Seguranca da Informacao" ]
+    },
+    "FIN": {
+      "Prefixes": [ "Analista", "Coordenador" ],
+      "Subjects": [ "Contas a Pagar", "Contas a Receber", "Tesouraria", "Custos" ]
+    },
+    "RH": {
+      "Prefixes": [ "Analista", "Assistente", "Coordenador" ],
+      "Subjects": [ "Recrutamento & Selecao", "Treinamento", "Departamento Pessoal", "Comunicacao Interna" ]
+    },
+    "ADM": {
+      "Prefixes": [ "Analista", "Assistente", "Comprador" ],
+      "Subjects": [ "Facilities", "Compliance", "Documentacao", "Servicos" ]
+    },
+    "DEFAULT": {
+      "Prefixes": [ "Analista", "Assistente", "Tecnico" ],
+      "Subjects": [ "Operacoes", "Processos", "Administrativo" ]
+    }
+  },
+  "Keywords": {
+    "OPS": "BPF;5S;Seguranca;OEE;Setup;Linha de producao;Rastreabilidade",
+    "QUA": "BPF;APPCC;HACCP;Auditoria;Nao conformidade;Rastreabilidade;Microbiologia",
+    "ENG": "Manutencao;PCM;MTBF;MTTR;Automacao;CLP;Utilidades",
+    "SCM": "PCP;FEFO;FIFO;Inventario;Expedicao;Transporte;WMS",
+    "PDI": "Formulacao;Estabilidade;Escalonamento;Embalagens;Sensorial;Inovacao",
+    "COM": "Key Account;Pricing;Trade;Sell-in;Sell-out;Campanhas",
+    "TEC": "BI;Integracoes;ERP;Dados;KPIs;Governanca",
+    "RH": "R&S;Treinamento;DP;Turnos;Onboarding",
+    "FIN": "Custos;Controladoria;Fiscal;Tesouraria;Conciliacao",
+    "DEFAULT": "Administrativo;Rotinas;Organizacao;Compliance"
+  },
+  "Responsibilities": {
+    "OPS": "Operar processos;Registrar producao;Seguir POPs;Garantir 5S;Reportar desvios",
+    "QUA": "Coletar amostras;Registrar analises;Tratar nao conformidades;Apoiar auditorias",
+    "ENG": "Executar manutencao;Prevenir falhas;Registrar OS;Apoiar paradas programadas",
+    "SCM": "Planejar/abastecer;Controlar estoque;Garantir FEFO;Apoiar expedicao",
+    "DEFAULT": "Apoiar rotina da area;Garantir organizacao;Cumprir prazos;Comunicar riscos"
+  },
+  "Descriptions": {
+    "OPS": [
+      "Atuar na area de {AreaName} em ambiente industrial, garantindo ritmo de producao e seguranca. {Sentence} {Sentence2}",
+      "Executar rotinas operacionais de {AreaName} com foco em produtividade e qualidade. {Sentence} {Sentence2}"
+    ],
+    "QUA": [
+      "Atuar na area de {AreaName} assegurando conformidade e padroes de qualidade. {Sentence} {Sentence2}",
+      "Acompanhar rotinas de {AreaName} com foco em auditorias e melhoria continua. {Sentence} {Sentence2}"
+    ],
+    "ENG": [
+      "Atuar na area de {AreaName} garantindo disponibilidade de equipamentos e utilidades. {Sentence} {Sentence2}",
+      "Contribuir com manutencao preventiva e corretiva na area de {AreaName}. {Sentence} {Sentence2}"
+    ],
+    "SCM": [
+      "Atuar na area de {AreaName} garantindo fluxo de suprimentos e atendimento a demanda. {Sentence} {Sentence2}",
+      "Planejar e acompanhar rotinas de {AreaName} com foco em nivel de servico. {Sentence} {Sentence2}"
+    ],
+    "PDI": [
+      "Atuar na area de {AreaName} apoiando projetos de desenvolvimento e melhoria de produtos. {Sentence} {Sentence2}",
+      "Contribuir com testes e validacoes na area de {AreaName}. {Sentence} {Sentence2}"
+    ],
+    "COM": [
+      "Atuar na area de {AreaName} com foco em relacionamento e resultados comerciais. {Sentence} {Sentence2}",
+      "Planejar e executar rotinas de {AreaName} para fortalecer vendas e mercado. {Sentence} {Sentence2}"
+    ],
+    "TEC": [
+      "Atuar na area de {AreaName} garantindo estabilidade e evolucao de sistemas. {Sentence} {Sentence2}",
+      "Apoiar iniciativas de {AreaName} com foco em dados e tecnologia. {Sentence} {Sentence2}"
+    ],
+    "FIN": [
+      "Atuar na area de {AreaName} garantindo controle financeiro e cumprimento de prazos. {Sentence} {Sentence2}",
+      "Executar rotinas de {AreaName} com foco em eficiencia e confiabilidade. {Sentence} {Sentence2}"
+    ],
+    "RH": [
+      "Atuar na area de {AreaName} apoiando pessoas e processos de gestao. {Sentence} {Sentence2}",
+      "Conduzir rotinas de {AreaName} com foco em desenvolvimento e comunicacao. {Sentence} {Sentence2}"
+    ],
+    "ADM": [
+      "Atuar na area de {AreaName} garantindo apoio administrativo e organizacao. {Sentence} {Sentence2}",
+      "Contribuir com rotinas de {AreaName} assegurando atendimento interno. {Sentence} {Sentence2}"
+    ],
+    "DEFAULT": [
+      "Atuar na area de {AreaName} garantindo rotinas e resultados consistentes. {Sentence} {Sentence2}",
+      "Executar atividades da area de {AreaName} com foco em qualidade e prazo. {Sentence} {Sentence2}"
+    ]
+  }
+}

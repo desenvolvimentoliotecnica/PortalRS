@@ -2,7 +2,9 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Infrastructure.Tenancy;
 
@@ -13,11 +15,16 @@ public sealed class TenantMiddleware : IMiddleware
 
     private readonly ITenantContext _tenantContext;
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<InfrastructureMessages> _localizer;
 
-    public TenantMiddleware(ITenantContext tenantContext, AppDbContext db)
+    public TenantMiddleware(
+        ITenantContext tenantContext,
+        AppDbContext db,
+        IStringLocalizer<InfrastructureMessages> localizer)
     {
         _tenantContext = tenantContext;
         _db = db;
+        _localizer = localizer;
     }
 
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
@@ -39,8 +46,8 @@ public sealed class TenantMiddleware : IMiddleware
                 await WriteProblemAsync(
                     context,
                     StatusCodes.Status400BadRequest,
-                    "Tenant header is required.",
-                    $"Missing header: {TenantHeaderName}");
+                    _localizer["InfrastructureErrors.TenantHeaderRequiredTitle"],
+                    _localizer["InfrastructureErrors.TenantHeaderMissingDetail", TenantHeaderName]);
                 return;
             }
         }
@@ -53,8 +60,8 @@ public sealed class TenantMiddleware : IMiddleware
             await WriteProblemAsync(
                 context,
                 StatusCodes.Status400BadRequest,
-                "Tenant header is required.",
-                $"Header {TenantHeaderName} cannot be empty.");
+                _localizer["InfrastructureErrors.TenantHeaderRequiredTitle"],
+                _localizer["InfrastructureErrors.TenantHeaderEmptyDetail", TenantHeaderName]);
             return;
         }
 
@@ -64,8 +71,8 @@ public sealed class TenantMiddleware : IMiddleware
             await WriteProblemAsync(
                 context,
                 StatusCodes.Status400BadRequest,
-                "Tenant identifier is invalid.",
-                "Tenant identifier format is not valid.");
+                _localizer["InfrastructureErrors.TenantIdentifierInvalidTitle"],
+                _localizer["InfrastructureErrors.TenantIdentifierInvalidDetail"]);
             return;
         }
 
@@ -78,8 +85,8 @@ public sealed class TenantMiddleware : IMiddleware
             await WriteProblemAsync(
                 context,
                 StatusCodes.Status400BadRequest,
-                "Tenant is not active.",
-                "Tenant does not exist or is inactive.");
+                _localizer["InfrastructureErrors.TenantInactiveTitle"],
+                _localizer["InfrastructureErrors.TenantInactiveDetail"]);
             return;
         }
 

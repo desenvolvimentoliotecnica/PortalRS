@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
 using RhPortal.Api.Contracts.Candidatos;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
@@ -11,6 +13,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/candidatos")]
 public sealed class CandidatosController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public CandidatosController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<CandidatoListItemResponse>>> List(
         [FromQuery] string? q,
@@ -92,13 +101,13 @@ public sealed class CandidatosController : ControllerBase
         CancellationToken ct)
     {
         if (request.Arquivo is null || request.Arquivo.Length == 0)
-            return BadRequest(new { message = "Arquivo invalido." });
+            return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoFileInvalid"] });
 
         if (string.IsNullOrWhiteSpace(request.Tipo))
-            return BadRequest(new { message = "Tipo do documento e obrigatorio." });
+            return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoTypeRequired"] });
 
         if (!Enum.TryParse<CandidatoDocumentoTipo>(request.Tipo, true, out var tipo))
-            return BadRequest(new { message = "Tipo do documento invalido." });
+            return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoTypeInvalid"] });
 
         try
         {

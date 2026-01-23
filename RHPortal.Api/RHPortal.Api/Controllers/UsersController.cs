@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Users;
 using RhPortal.Api.Contracts.Users;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
@@ -9,6 +11,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/users")]
 public sealed class UsersController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public UsersController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [RequirePermission("users.read")]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<UserListItemResponse>>> List(
@@ -46,7 +55,7 @@ public sealed class UsersController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to create user.",
+                Title = _localizer["ControllerErrors.UnableToCreateUserTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });
@@ -70,7 +79,7 @@ public sealed class UsersController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to update user.",
+                Title = _localizer["ControllerErrors.UnableToUpdateUserTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });
@@ -94,7 +103,7 @@ public sealed class UsersController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to update user status.",
+                Title = _localizer["ControllerErrors.UnableToUpdateUserStatusTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });
@@ -118,7 +127,7 @@ public sealed class UsersController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to update user roles.",
+                Title = _localizer["ControllerErrors.UnableToUpdateUserRolesTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });
@@ -141,7 +150,7 @@ public sealed class UsersController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to delete user.",
+                Title = _localizer["ControllerErrors.UnableToDeleteUserTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });

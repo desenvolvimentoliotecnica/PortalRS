@@ -2,10 +2,12 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Candidatos;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.Candidatos;
@@ -30,14 +32,16 @@ public sealed class CandidatoService : ICandidatoService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IHostEnvironment _hostEnvironment;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public CandidatoService(AppDbContext db, ITenantContext tenantContext, IHostEnvironment hostEnvironment, IHttpContextAccessor httpContextAccessor)
+    public CandidatoService(AppDbContext db, ITenantContext tenantContext, IHostEnvironment hostEnvironment, IHttpContextAccessor httpContextAccessor, IStringLocalizer<ServiceMessages> localizer)
     {
         _db = db;
         _tenantContext = tenantContext;
         _hostEnvironment = hostEnvironment;
         _httpContextAccessor = httpContextAccessor;
+        _localizer = localizer;
     }
 
     public async Task<IReadOnlyList<CandidatoListItemResponse>> ListAsync(CandidatoListQuery query, CancellationToken ct)
@@ -242,7 +246,7 @@ public sealed class CandidatoService : ICandidatoService
     public async Task<CandidatoDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidatoDocumentoTipo tipo, string? descricao, IFormFile arquivo, CancellationToken ct)
     {
         if (arquivo is null || arquivo.Length == 0)
-            throw new InvalidOperationException("Arquivo invalido.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.CandidatoFileInvalid"]);
 
         var exists = await _db.Candidatos
             .AsNoTracking()
@@ -329,7 +333,7 @@ public sealed class CandidatoService : ICandidatoService
     private async Task EnsureVagaAsync(Guid vagaId, CancellationToken ct)
     {
         var exists = await _db.Vagas.AnyAsync(v => v.Id == vagaId, ct);
-        if (!exists) throw new InvalidOperationException("Vaga invalida.");
+        if (!exists) throw new InvalidOperationException(_localizer["ServiceErrors.CandidatoVagaInvalid"]);
     }
 
     private static string GeneratePortalAccessKey()

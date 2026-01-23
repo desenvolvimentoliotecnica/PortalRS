@@ -2,9 +2,11 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Messaging.Email;
 
@@ -13,6 +15,13 @@ namespace RhPortal.Api.Messaging.Email;
 [Route("api/emails")]
 public sealed class EmailController : ControllerBase
 {
+    private readonly IStringLocalizer<InfrastructureMessages> _localizer;
+
+    public EmailController(IStringLocalizer<InfrastructureMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpGet("summary")]
     public async Task<ActionResult<EmailSummaryResponse>> Summary(
         [FromServices] AppDbContext db,
@@ -140,7 +149,7 @@ public sealed class EmailController : ControllerBase
             return Forbid();
 
         if (msg.Status == EmailMessageStatus.Sent)
-            return BadRequest(new { message = "Email already sent." });
+            return BadRequest(new { message = _localizer["InfrastructureEmail.EmailAlreadySent"] });
 
         msg.Status = EmailMessageStatus.Queued;
         msg.NextAttemptAtUtc = DateTimeOffset.UtcNow;

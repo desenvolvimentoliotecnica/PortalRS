@@ -1,7 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.JobPositions;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.JobPositions;
 
@@ -17,8 +19,13 @@ public interface IJobPositionService
 public sealed class JobPositionService : IJobPositionService
 {
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
-    public JobPositionService(AppDbContext db) => _db = db;
+    public JobPositionService(AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
+    {
+        _db = db;
+        _localizer = localizer;
+    }
 
     public async Task<PagedResult<JobPositionGridRowResponse>> ListGridAsync(JobPositionListQuery query, CancellationToken ct)
     {
@@ -154,11 +161,11 @@ public sealed class JobPositionService : IJobPositionService
 
         var areaExists = await _db.Areas.AnyAsync(a => a.Id == request.AreaId, ct);
         if (!areaExists)
-            throw new InvalidOperationException("Área inválida.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.JobAreaInvalid"]);
 
         var codeAlreadyExists = await _db.JobPositions.AnyAsync(x => x.Code == normalizedCode, ct);
         if (codeAlreadyExists)
-            throw new InvalidOperationException($"Já existe um cargo com o código '{normalizedCode}'.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.JobCodeExists", normalizedCode]);
 
         var entity = new Domain.Entities.JobPosition
         {
@@ -188,11 +195,11 @@ public sealed class JobPositionService : IJobPositionService
 
         var areaExists = await _db.Areas.AnyAsync(a => a.Id == request.AreaId, ct);
         if (!areaExists)
-            throw new InvalidOperationException("Área inválida.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.JobAreaInvalid"]);
 
         var codeConflict = await _db.JobPositions.AnyAsync(x => x.Id != id && x.Code == normalizedCode, ct);
         if (codeConflict)
-            throw new InvalidOperationException($"Já existe outro cargo com o código '{normalizedCode}'.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.JobCodeExistsOther", normalizedCode]);
 
         entity.Code = normalizedCode;
         entity.Name = (request.Name ?? string.Empty).Trim();
@@ -219,13 +226,13 @@ public sealed class JobPositionService : IJobPositionService
     private static string NormalizeCode(string code)
         => (code ?? string.Empty).Trim().ToUpperInvariant();
 
-    private static void ValidateCode(string code)
+    private void ValidateCode(string code)
     {
         if (!code.StartsWith("CAR-"))
-            throw new InvalidOperationException("O código do cargo deve começar com 'CAR-' (ex.: CAR-OPS-001).");
+            throw new InvalidOperationException(_localizer["ServiceErrors.JobCodePrefix"]);
 
         if (code.Length < 6)
-            throw new InvalidOperationException("O código do cargo está muito curto.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.JobCodeTooShort"]);
     }
 
     private static string? TrimOrNull(string? value)

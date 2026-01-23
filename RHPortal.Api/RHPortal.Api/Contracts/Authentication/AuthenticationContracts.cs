@@ -7,6 +7,10 @@ public sealed record LoginRequest(
     [Required, MinLength(8), MaxLength(120)] string Password
 );
 
+public sealed record EntraLoginRequest(
+    [Required] string IdToken
+);
+
 public sealed record LoginResponse(
     string AccessToken,
     int AccessTokenExpirationMinutes,

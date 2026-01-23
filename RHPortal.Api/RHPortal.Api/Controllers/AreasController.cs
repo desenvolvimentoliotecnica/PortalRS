@@ -2,6 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Areas;
 using RhPortal.Api.Infrastructure.Data;
+using Microsoft.Extensions.Localization;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
@@ -9,6 +11,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/areas")]
 public sealed class AreasController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public AreasController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<AreaResponse>>> List([FromServices] AppDbContext db, CancellationToken ct)
     {
@@ -43,7 +52,7 @@ public sealed class AreasController : ControllerBase
         CancellationToken ct)
     {
         if (await db.Areas.AnyAsync(x => x.Code == request.Code, ct))
-            return Conflict(new { message = $"Area com codigo '{request.Code}' ja existe." });
+            return Conflict(new { message = _localizer["ControllerErrors.AreaCodeExists", request.Code] });
 
         var entity = new Domain.Entities.Area
         {
@@ -73,7 +82,7 @@ public sealed class AreasController : ControllerBase
 
         var codeExists = await db.Areas.AnyAsync(x => x.Id != id && x.Code == request.Code, ct);
         if (codeExists)
-            return Conflict(new { message = $"Area com codigo '{request.Code}' ja existe." });
+            return Conflict(new { message = _localizer["ControllerErrors.AreaCodeExists", request.Code] });
 
         entity.Code = request.Code.Trim();
         entity.Name = request.Name.Trim();
@@ -100,7 +109,7 @@ public sealed class AreasController : ControllerBase
             || await db.Vagas.AnyAsync(x => x.AreaId == id, ct);
 
         if (hasDeps)
-            return Conflict(new { message = "Area possui vinculacoes e nao pode ser excluida." });
+            return Conflict(new { message = _localizer["ControllerErrors.AreaHasDependencies"] });
 
         db.Areas.Remove(entity);
         await db.SaveChangesAsync(ct);

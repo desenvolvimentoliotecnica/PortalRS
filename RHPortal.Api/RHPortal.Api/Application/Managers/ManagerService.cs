@@ -1,7 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Managers;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Managers;
 
@@ -17,8 +19,13 @@ public interface IManagerService
 public sealed class ManagerService : IManagerService
 {
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
-    public ManagerService(AppDbContext db) => _db = db;
+    public ManagerService(AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
+    {
+        _db = db;
+        _localizer = localizer;
+    }
 
     public async Task<PagedResult<ManagerGridRowResponse>> ListGridAsync(ManagerListQuery query, CancellationToken ct)
     {
@@ -173,7 +180,7 @@ public sealed class ManagerService : IManagerService
         // regra simples: email único por tenant (índice já garante, mas tratamos com mensagem amigável)
         var emailAlreadyExists = await _db.Managers.AnyAsync(x => x.Email == normalizedEmail, ct);
         if (emailAlreadyExists)
-            throw new InvalidOperationException($"Já existe um gestor com o email '{normalizedEmail}'.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.ManagerEmailExists", normalizedEmail]);
 
         var entity = new Domain.Entities.Manager
         {
@@ -207,7 +214,7 @@ public sealed class ManagerService : IManagerService
         // conflito de email (outro gestor)
         var emailConflict = await _db.Managers.AnyAsync(x => x.Id != id && x.Email == normalizedEmail, ct);
         if (emailConflict)
-            throw new InvalidOperationException($"Já existe outro gestor com o email '{normalizedEmail}'.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.ManagerEmailExistsOther", normalizedEmail]);
 
         entity.Name = (request.Name ?? string.Empty).Trim();
         entity.Email = normalizedEmail;
@@ -236,13 +243,13 @@ public sealed class ManagerService : IManagerService
     private async Task EnsureReferencesExist(Guid unitId, Guid areaId, Guid jobPositionId, CancellationToken ct)
     {
         var unitExists = await _db.Units.AnyAsync(x => x.Id == unitId, ct);
-        if (!unitExists) throw new InvalidOperationException("Unidade inválida.");
+        if (!unitExists) throw new InvalidOperationException(_localizer["ServiceErrors.ManagerUnitInvalid"]);
 
         var areaExists = await _db.Areas.AnyAsync(x => x.Id == areaId, ct);
-        if (!areaExists) throw new InvalidOperationException("Área inválida.");
+        if (!areaExists) throw new InvalidOperationException(_localizer["ServiceErrors.ManagerAreaInvalid"]);
 
         var jobExists = await _db.JobPositions.AnyAsync(x => x.Id == jobPositionId, ct);
-        if (!jobExists) throw new InvalidOperationException("Cargo inválido.");
+        if (!jobExists) throw new InvalidOperationException(_localizer["ServiceErrors.ManagerJobInvalid"]);
     }
 
     private static string NormalizeEmail(string email)

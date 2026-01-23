@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.RequisitoCategorias;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
@@ -9,6 +11,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/requisito-categorias")]
 public sealed class RequisitoCategoriasController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public RequisitoCategoriasController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<RequisitoCategoriaResponse>>> List([FromServices] AppDbContext db, CancellationToken ct)
     {
@@ -43,7 +52,7 @@ public sealed class RequisitoCategoriasController : ControllerBase
         CancellationToken ct)
     {
         if (await db.RequisitoCategorias.AnyAsync(x => x.Code == request.Code, ct))
-            return Conflict(new { message = $"Categoria com codigo '{request.Code}' ja existe." });
+            return Conflict(new { message = _localizer["ControllerErrors.RequisitoCategoriaCodeExists", request.Code] });
 
         var entity = new Domain.Entities.RequisitoCategoria
         {
@@ -73,7 +82,7 @@ public sealed class RequisitoCategoriasController : ControllerBase
 
         var codeExists = await db.RequisitoCategorias.AnyAsync(x => x.Id != id && x.Code == request.Code, ct);
         if (codeExists)
-            return Conflict(new { message = $"Categoria com codigo '{request.Code}' ja existe." });
+            return Conflict(new { message = _localizer["ControllerErrors.RequisitoCategoriaCodeExists", request.Code] });
 
         entity.Code = request.Code.Trim();
         entity.Name = request.Name.Trim();
@@ -102,7 +111,7 @@ public sealed class RequisitoCategoriasController : ControllerBase
             (x.Categoria.ToLower() == code || x.Categoria.ToLower() == name), ct);
 
         if (hasDeps)
-            return Conflict(new { message = "Categoria possui requisitos vinculados e nao pode ser excluida." });
+            return Conflict(new { message = _localizer["ControllerErrors.RequisitoCategoriaHasDependencies"] });
 
         db.RequisitoCategorias.Remove(entity);
         await db.SaveChangesAsync(ct);

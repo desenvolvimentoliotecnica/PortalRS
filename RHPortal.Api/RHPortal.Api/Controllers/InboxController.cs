@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using RhPortal.Api.Contracts.Inbox;
 using RhPortal.Api.Domain.Entities;
@@ -10,6 +11,7 @@ using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Inbox;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
@@ -17,6 +19,17 @@ namespace RhPortal.Api.Controllers;
 [Route("api/inbox")]
 public sealed class InboxController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+    private readonly IStringLocalizer<InfrastructureMessages> _infraLocalizer;
+
+    public InboxController(
+        IStringLocalizer<ControllerMessages> localizer,
+        IStringLocalizer<InfrastructureMessages> infraLocalizer)
+    {
+        _localizer = localizer;
+        _infraLocalizer = infraLocalizer;
+    }
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<InboxResponse>>> List(
         [FromServices] AppDbContext db,
@@ -81,10 +94,10 @@ public sealed class InboxController : ControllerBase
         CancellationToken ct)
     {
         if (!TryParseEnum<InboxOrigem>(request.Origem, out var origem))
-            return BadRequest(new { message = "Origem invalida." });
+            return BadRequest(new { message = _localizer["ControllerErrors.InboxOrigemInvalid"] });
 
         if (!TryParseEnum<InboxStatus>(request.Status, out var status))
-            return BadRequest(new { message = "Status invalido." });
+            return BadRequest(new { message = _localizer["ControllerErrors.InboxStatusInvalid"] });
 
         var entity = new InboxItem
         {
@@ -140,11 +153,11 @@ public sealed class InboxController : ControllerBase
     {
         var file = request.File;
         if (file is null || file.Length == 0)
-            return BadRequest(new { message = "Arquivo obrigatorio." });
+            return BadRequest(new { message = _localizer["ControllerErrors.InboxFileRequired"] });
 
         var tenantId = tenantContext.TenantId;
         if (string.IsNullOrWhiteSpace(tenantId))
-            return BadRequest(new { message = "Tenant nao encontrado." });
+            return BadRequest(new { message = _localizer["ControllerErrors.TenantNotFound"] });
 
         var inboxOptions = options.Value;
         var safeName = Path.GetFileName(file.FileName);
@@ -173,10 +186,10 @@ public sealed class InboxController : ControllerBase
         CancellationToken ct)
     {
         if (!TryParseEnum<InboxOrigem>(request.Origem, out var origem))
-            return BadRequest(new { message = "Origem invalida." });
+            return BadRequest(new { message = _localizer["ControllerErrors.InboxOrigemInvalid"] });
 
         if (!TryParseEnum<InboxStatus>(request.Status, out var status))
-            return BadRequest(new { message = "Status invalido." });
+            return BadRequest(new { message = _localizer["ControllerErrors.InboxStatusInvalid"] });
 
         var entity = await db.InboxItems
             .Include(x => x.Anexos)
@@ -360,7 +373,7 @@ public sealed class InboxController : ControllerBase
             .SendAsync($"inbox.{action}", message, ct);
     }
 
-    private static async Task<Guid> GetOrCreateInboxVagaIdAsync(AppDbContext db, CancellationToken ct)
+    private async Task<Guid> GetOrCreateInboxVagaIdAsync(AppDbContext db, CancellationToken ct)
     {
         const string code = "BANCO-TALENTOS";
         var existing = await db.Vagas.FirstOrDefaultAsync(x => x.Codigo == code, ct);
@@ -376,13 +389,13 @@ public sealed class InboxController : ControllerBase
         {
             Id = Guid.NewGuid(),
             Codigo = code,
-            Titulo = "Banco de Talentos (Triagem)",
+            Titulo = _infraLocalizer["InfrastructureInbox.VagaBaseTitulo"],
             AreaId = area.Id,
             DepartmentId = dep.Id,
             Status = VagaStatus.Rascunho,
             QuantidadeVagas = 1,
             MatchMinimoPercentual = 70,
-            DescricaoInterna = "Vaga base para triagem automatica de curriculos.",
+            DescricaoInterna = _infraLocalizer["InfrastructureInbox.VagaBaseDescricao"],
             Visibilidade = VagaPublicacaoVisibilidade.Interna
         };
 

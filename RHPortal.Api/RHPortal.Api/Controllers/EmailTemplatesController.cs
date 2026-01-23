@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Emails;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
@@ -12,6 +14,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/email-templates")]
 public sealed class EmailTemplatesController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public EmailTemplatesController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<EmailTemplateListItem>>> List(
         [FromServices] AppDbContext db,
@@ -72,7 +81,7 @@ public sealed class EmailTemplatesController : ControllerBase
             .FirstOrDefaultAsync(ct);
 
         if (latestVersion > 0)
-            return Conflict(new { message = "Ja existe um template com esse nome." });
+            return Conflict(new { message = _localizer["ControllerErrors.EmailTemplateNameExists"] });
 
         var now = DateTimeOffset.UtcNow;
         var entity = new EmailTemplate

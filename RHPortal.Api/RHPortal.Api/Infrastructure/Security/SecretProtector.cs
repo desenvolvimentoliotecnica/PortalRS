@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Localization;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Infrastructure.Security;
 
@@ -13,12 +15,14 @@ public interface ISecretProtector
 public sealed class AesSecretProtector : ISecretProtector
 {
     private readonly byte[] _key;
+    private readonly IStringLocalizer<InfrastructureMessages> _localizer;
 
-    public AesSecretProtector(IConfiguration config)
+    public AesSecretProtector(IConfiguration config, IStringLocalizer<InfrastructureMessages> localizer)
     {
+        _localizer = localizer;
         var rawKey = config["EmailConfig:EncryptionKey"] ?? config["EMAIL_CONFIG_ENCRYPTION_KEY"];
         if (string.IsNullOrWhiteSpace(rawKey))
-            throw new InvalidOperationException("EmailConfig:EncryptionKey is required for email configuration encryption.");
+            throw new InvalidOperationException(_localizer["InfrastructureErrors.EmailConfigEncryptionKeyRequired"]);
 
         _key = NormalizeKey(rawKey);
     }

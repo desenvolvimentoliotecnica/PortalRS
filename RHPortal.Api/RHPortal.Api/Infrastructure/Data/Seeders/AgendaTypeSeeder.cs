@@ -1,10 +1,30 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class AgendaTypeSeeder
 {
+    public static Task EnsureDefaultAsync(
+        AppDbContext db,
+        IStringLocalizer<SeedMessages> localizer,
+        CancellationToken ct)
+    {
+        var agendaTypes = new (string Code, string Label, string Color, string Icon, int SortOrder)[]
+        {
+            ("entrevista", localizer["Seed.AgendaTypeInterview"], "#1f6feb", "bi-camera-video", 1),
+            ("reuniao", localizer["Seed.AgendaTypeMeeting"], "#0ea5e9", "bi-people", 2),
+            ("onboarding", localizer["Seed.AgendaTypeOnboarding"], "#22c55e", "bi-stars", 3),
+            ("assessment", localizer["Seed.AgendaTypeAssessment"], "#f59e0b", "bi-clipboard-check", 4),
+            ("followup", localizer["Seed.AgendaTypeFollowUp"], "#8b5cf6", "bi-chat-dots", 5),
+            ("outro", localizer["Seed.AgendaTypeOther"], "#6b7280", "bi-calendar", 6)
+        };
+
+        return EnsureAsync(db, agendaTypes, ct);
+    }
+
     public static async Task EnsureAsync(
         AppDbContext db,
         IEnumerable<(string Code, string Label, string Color, string Icon, int SortOrder)> agendaTypes,

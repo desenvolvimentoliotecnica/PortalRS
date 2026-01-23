@@ -1,9 +1,11 @@
 ﻿using LioTecnica.Api.Contracts.Lookups;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 using RHPortal.Api.Domain.Enums;
 using System.Text.RegularExpressions;
 
@@ -14,10 +16,12 @@ namespace RhPortal.Api.Controllers;
 public sealed class LookupController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
 
-    public LookupController(AppDbContext db)
+    public LookupController(AppDbContext db, IStringLocalizer<ControllerMessages> localizer)
     {
         _db = db;
+        _localizer = localizer;
     }
 
     [HttpGet("units")]
@@ -77,6 +81,7 @@ public sealed class LookupController : ControllerBase
     [HttpGet("vaga-enums")]
     public ActionResult<Dictionary<string, IReadOnlyList<EnumOptionResponse>>> VagaEnums()
     {
+        var areaFilterAll = _localizer["Lookup.AreaFilterAll"].Value;
         var result = new Dictionary<string, IReadOnlyList<EnumOptionResponse>>
         {
             ["vagaStatus"] = BuildEnumOptions<VagaStatus>(moveZeroToEnd: true),
@@ -106,7 +111,7 @@ public sealed class LookupController : ControllerBase
             ["vagaGeneroPreferencia"] = BuildEnumOptions<VagaGeneroPreferencia>(moveZeroToEnd: true),
             ["vagaAreaFilter"] = new List<EnumOptionResponse>
             {
-                new("all", "Area: todas")
+                new("all", areaFilterAll)
             }
         };
 
@@ -222,19 +227,81 @@ public sealed class LookupController : ControllerBase
         var vagaPublicacaoVisibilidade = BuildEnumOptions<VagaPublicacaoVisibilidade>(moveZeroToEnd: true);
         var vagaGeneroPreferencia = BuildEnumOptions<VagaGeneroPreferencia>(moveZeroToEnd: true);
 
+        var selectPlaceholder = _localizer["Lookup.SelectPlaceholder"].Value;
+        var statusFilterAll = _localizer["Lookup.StatusFilterAll"].Value;
+        var areaFilterAll = _localizer["Lookup.AreaFilterAll"].Value;
+        var vagaFilterAll = _localizer["Lookup.VagaFilterAll"].Value;
+        var allFeminine = _localizer["Lookup.AllFeminine"].Value;
+        var allMasculine = _localizer["Lookup.AllMasculine"].Value;
+        var origemFilterAll = _localizer["Lookup.OrigemFilterAll"].Value;
+
+        var labelEmail = _localizer["ControllerLabels.Email"].Value;
+        var labelPasta = _localizer["ControllerLabels.Pasta"].Value;
+        var labelUpload = _localizer["ControllerLabels.Upload"].Value;
+        var labelOutros = _localizer["ControllerLabels.Outros"].Value;
+
+        var statusNovo = _localizer["ControllerLabels.StatusNovo"].Value;
+        var statusProcessando = _localizer["ControllerLabels.StatusProcessando"].Value;
+        var statusProcessado = _localizer["ControllerLabels.StatusProcessado"].Value;
+        var statusFalha = _localizer["ControllerLabels.StatusFalha"].Value;
+        var statusDescartado = _localizer["ControllerLabels.StatusDescartado"].Value;
+
+        var requisitoCompetencia = _localizer["Lookup.RequirementCategoryCompetencia"].Value;
+        var requisitoExperiencia = _localizer["Lookup.RequirementCategoryExperiencia"].Value;
+        var requisitoFormacao = _localizer["Lookup.RequirementCategoryFormacao"].Value;
+        var requisitoFerramenta = _localizer["Lookup.RequirementCategoryFerramentaTecnologia"].Value;
+        var requisitoIdioma = _localizer["Lookup.RequirementCategoryIdioma"].Value;
+        var requisitoCertificacao = _localizer["Lookup.RequirementCategoryCertificacao"].Value;
+        var requisitoLocalidade = _localizer["Lookup.RequirementCategoryLocalidade"].Value;
+
+        var sortMatchDesc = _localizer["Lookup.SortMatchDesc"].Value;
+        var sortMatchAsc = _localizer["Lookup.SortMatchAsc"].Value;
+        var sortUpdatedDesc = _localizer["Lookup.SortUpdatedDesc"].Value;
+        var sortUpdatedAsc = _localizer["Lookup.SortUpdatedAsc"].Value;
+        var sortNameAsc = _localizer["Lookup.SortNameAsc"].Value;
+
+        var reportPeriod7d = _localizer["Lookup.ReportPeriod7d"].Value;
+        var reportPeriod30d = _localizer["Lookup.ReportPeriod30d"].Value;
+        var reportPeriod90d = _localizer["Lookup.ReportPeriod90d"].Value;
+        var reportPeriodYtd = _localizer["Lookup.ReportPeriodYtd"].Value;
+
+        var reportFrequencyDaily = _localizer["Lookup.ReportFrequencyDaily"].Value;
+        var reportFrequencyWeekly = _localizer["Lookup.ReportFrequencyWeekly"].Value;
+        var reportFrequencyMonthly = _localizer["Lookup.ReportFrequencyMonthly"].Value;
+
+        var userStatusActive = _localizer["Lookup.UserStatusActive"].Value;
+        var userStatusInvited = _localizer["Lookup.UserStatusInvited"].Value;
+        var userStatusDisabled = _localizer["Lookup.UserStatusDisabled"].Value;
+
+        var mfaDisabled = _localizer["Lookup.MfaDisabled"].Value;
+        var mfaEnabled = _localizer["Lookup.MfaEnabled"].Value;
+
+        var triagemActionApprove = _localizer["Lookup.TriagemActionApprove"].Value;
+        var triagemActionPending = _localizer["Lookup.TriagemActionPending"].Value;
+        var triagemActionReject = _localizer["Lookup.TriagemActionReject"].Value;
+        var triagemActionKeep = _localizer["Lookup.TriagemActionKeep"].Value;
+
+        var optionalLabel = _localizer["Lookup.OptionalLabel"].Value;
+        var triagemReasonMissingMandatory = _localizer["Lookup.TriagemReasonMissingMandatory"].Value;
+        var triagemReasonBelowThreshold = _localizer["Lookup.TriagemReasonBelowThreshold"].Value;
+        var triagemReasonProfileFit = _localizer["Lookup.TriagemReasonProfileFit"].Value;
+        var triagemReasonNeedsValidation = _localizer["Lookup.TriagemReasonNeedsValidation"].Value;
+        var triagemReasonLowExperience = _localizer["Lookup.TriagemReasonLowExperience"].Value;
+        var triagemReasonLocationAvailability = _localizer["Lookup.TriagemReasonLocationAvailability"].Value;
+
         var result = new Dictionary<string, IReadOnlyList<EnumOptionResponse>>
         {
-            ["selectPlaceholder"] = BuildStaticOptions(("", "Selecione...")),
+            ["selectPlaceholder"] = BuildStaticOptions(("", selectPlaceholder)),
 
             ["candidatoStatus"] = candidatoStatus,
-            ["candidatoStatusFilter"] = BuildFilterOptions("Status: todos", candidatoStatus),
+            ["candidatoStatusFilter"] = BuildFilterOptions(statusFilterAll, candidatoStatus),
             ["candidatoFonte"] = BuildEnumOptions<CandidatoFonte>(),
             ["candidatoDocumentoTipo"] = candidatoDocumentoTipo,
 
             ["vagaStatus"] = vagaStatus,
-            ["vagaStatusFilter"] = BuildFilterOptions("Status: todos", vagaStatus),
+            ["vagaStatusFilter"] = BuildFilterOptions(statusFilterAll, vagaStatus),
             ["vagaArea"] = vagaArea,
-            ["vagaAreaFilter"] = BuildStaticOptions(("all", "Area: todas")),
+            ["vagaAreaFilter"] = BuildStaticOptions(("all", areaFilterAll)),
             ["vagaModalidade"] = vagaModalidade,
             ["vagaSenioridade"] = vagaSenioridade,
             ["vagaDepartamento"] = BuildEnumOptions<VagaDepartamento>(moveZeroToEnd: true),
@@ -260,101 +327,101 @@ public sealed class LookupController : ControllerBase
             ["vagaPeso"] = vagaPeso,
             ["vagaPublicacaoVisibilidade"] = vagaPublicacaoVisibilidade,
             ["vagaGeneroPreferencia"] = vagaGeneroPreferencia,
-            ["vagaFilter"] = BuildStaticOptions(("all", "Vaga: todas")),
-            ["vagaFilterSimple"] = BuildStaticOptions(("all", "Todas")),
+            ["vagaFilter"] = BuildStaticOptions(("all", vagaFilterAll)),
+            ["vagaFilterSimple"] = BuildStaticOptions(("all", allFeminine)),
 
             ["requisitoCategoria"] = BuildStaticOptions(
-                ("competencia", "Competencia"),
-                ("experiencia", "Experiencia"),
-                ("formacao", "Formacao"),
-                ("ferramenta_tecnologia", "Ferramenta/Tecnologia"),
-                ("idioma", "Idioma"),
-                ("certificacao", "Certificacao"),
-                ("localidade", "Localidade"),
-                ("outros", "Outros")
+                ("competencia", requisitoCompetencia),
+                ("experiencia", requisitoExperiencia),
+                ("formacao", requisitoFormacao),
+                ("ferramenta_tecnologia", requisitoFerramenta),
+                ("idioma", requisitoIdioma),
+                ("certificacao", requisitoCertificacao),
+                ("localidade", requisitoLocalidade),
+                ("outros", labelOutros)
             ),
 
             ["matchingSort"] = BuildStaticOptions(
-                ("score_desc", "Ordenar: Match (maior -> menor)"),
-                ("score_asc", "Ordenar: Match (menor -> maior)"),
-                ("updated_desc", "Ordenar: Atualizacao (recente)"),
-                ("updated_asc", "Ordenar: Atualizacao (antiga)"),
-                ("name_asc", "Ordenar: Nome (A-Z)")
+                ("score_desc", sortMatchDesc),
+                ("score_asc", sortMatchAsc),
+                ("updated_desc", sortUpdatedDesc),
+                ("updated_asc", sortUpdatedAsc),
+                ("name_asc", sortNameAsc)
             ),
 
             ["origemFilter"] = BuildStaticOptions(
-                ("all", "Origem: todas"),
-                ("email", "Email"),
-                ("pasta", "Pasta"),
-                ("upload", "Upload")
+                ("all", origemFilterAll),
+                ("email", labelEmail),
+                ("pasta", labelPasta),
+                ("upload", labelUpload)
             ),
             ["origemFilterSimple"] = BuildStaticOptions(
-                ("all", "Todas"),
-                ("email", "Email"),
-                ("pasta", "Pasta"),
-                ("upload", "Upload")
+                ("all", allFeminine),
+                ("email", labelEmail),
+                ("pasta", labelPasta),
+                ("upload", labelUpload)
             ),
 
             ["inboxStatusFilter"] = BuildStaticOptions(
-                ("all", "Status: todos"),
-                ("novo", "Novo"),
-                ("processando", "Processando"),
-                ("processado", "Processado"),
-                ("falha", "Falha"),
-                ("descartado", "Descartado")
+                ("all", statusFilterAll),
+                ("novo", statusNovo),
+                ("processando", statusProcessando),
+                ("processado", statusProcessado),
+                ("falha", statusFalha),
+                ("descartado", statusDescartado)
             ),
             ["inboxStatusFilterSimple"] = BuildStaticOptions(
-                ("all", "Todos"),
-                ("novo", "Novo"),
-                ("processando", "Processando"),
-                ("processado", "Processado"),
-                ("falha", "Falha"),
-                ("descartado", "Descartado")
+                ("all", allMasculine),
+                ("novo", statusNovo),
+                ("processando", statusProcessando),
+                ("processado", statusProcessado),
+                ("falha", statusFalha),
+                ("descartado", statusDescartado)
             ),
 
             ["relatorioPeriodo"] = BuildStaticOptions(
-                ("7d", "Ultimos 7 dias"),
-                ("30d", "Ultimos 30 dias"),
-                ("90d", "Ultimos 90 dias"),
-                ("ytd", "Ano atual (YTD)")
+                ("7d", reportPeriod7d),
+                ("30d", reportPeriod30d),
+                ("90d", reportPeriod90d),
+                ("ytd", reportPeriodYtd)
             ),
             ["relatorioFrequencia"] = BuildStaticOptions(
-                ("daily", "Diario"),
-                ("weekly", "Semanal"),
-                ("monthly", "Mensal")
+                ("daily", reportFrequencyDaily),
+                ("weekly", reportFrequencyWeekly),
+                ("monthly", reportFrequencyMonthly)
             ),
 
             ["usuarioStatus"] = BuildStaticOptions(
-                ("active", "Ativo"),
-                ("invited", "Convidado"),
-                ("disabled", "Desativado")
+                ("active", userStatusActive),
+                ("invited", userStatusInvited),
+                ("disabled", userStatusDisabled)
             ),
             ["usuarioStatusFilter"] = BuildStaticOptions(
-                ("all", "Todos"),
-                ("active", "Ativo"),
-                ("invited", "Convidado"),
-                ("disabled", "Desativado")
+                ("all", allMasculine),
+                ("active", userStatusActive),
+                ("invited", userStatusInvited),
+                ("disabled", userStatusDisabled)
             ),
             ["usuarioMfaOption"] = BuildStaticOptions(
-                ("false", "Desabilitado"),
-                ("true", "Habilitado")
+                ("false", mfaDisabled),
+                ("true", mfaEnabled)
             ),
-            ["roleFilter"] = BuildStaticOptions(("all", "Todos")),
+            ["roleFilter"] = BuildStaticOptions(("all", allMasculine)),
 
             ["triagemDecisionAction"] = BuildStaticOptions(
-                ("aprovado", "Aprovar"),
-                ("pendente", "Marcar como Pendente"),
-                ("reprovado", "Reprovar"),
-                ("triagem", "Manter em Triagem")
+                ("aprovado", triagemActionApprove),
+                ("pendente", triagemActionPending),
+                ("reprovado", triagemActionReject),
+                ("triagem", triagemActionKeep)
             ),
             ["triagemDecisionReason"] = BuildStaticOptions(
-                ("", "(opcional)"),
-                ("missing_mandatory", "Faltou requisito obrigatorio"),
-                ("below_threshold", "Match abaixo do minimo"),
-                ("profile_fit", "Perfil aderente"),
-                ("needs_validation", "Necessita validacao tecnica"),
-                ("low_experience", "Experiencia insuficiente"),
-                ("location_availability", "Localizacao/Disponibilidade")
+                ("", optionalLabel),
+                ("missing_mandatory", triagemReasonMissingMandatory),
+                ("below_threshold", triagemReasonBelowThreshold),
+                ("profile_fit", triagemReasonProfileFit),
+                ("needs_validation", triagemReasonNeedsValidation),
+                ("low_experience", triagemReasonLowExperience),
+                ("location_availability", triagemReasonLocationAvailability)
             )
         };
 

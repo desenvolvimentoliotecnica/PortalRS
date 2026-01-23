@@ -1,11 +1,15 @@
 using System.Text;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RhPortal.Api.Application.Authentication;
 using RhPortal.Api.Application.Agenda;
@@ -18,12 +22,14 @@ using RhPortal.Api.Application.JobPositions.Handlers;
 using RhPortal.Api.Application.Managers;
 using RhPortal.Api.Application.Managers.Handlers;
 using RhPortal.Api.Application.Menus;
+using RhPortal.Api.Application.Portal;
 using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Application.Units;
 using RhPortal.Api.Application.Units.Handlers;
 using RhPortal.Api.Application.Users;
 using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Application.Vagas.Handlers;
+using RhPortal.Api.Application.Localization;
 using RhPortal.Api.Auditing.Context;
 using RhPortal.Api.Auditing.EF;
 using RhPortal.Api.Auditing.Middleware;
@@ -36,6 +42,7 @@ using RhPortal.Api.Logging.Writer;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Inbox;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Swagger;
@@ -44,6 +51,19 @@ using RhPortal.Api.Messaging.Email;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = new[]
+        { "pt-BR", "en-US" }
+        .Select(c => new CultureInfo(c))
+        .ToList();
+
+    options.DefaultRequestCulture = new RequestCulture("pt-BR");
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+    options.RequestCultureProviders.Insert(0, new TenantCultureProvider());
+});
 
 builder.Services
     .AddControllers(options => { options.Filters.Add<ProblemDetailsLoggingFilter>(); })
@@ -51,6 +71,7 @@ builder.Services
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
+builder.Services.AddHttpClient();
 builder.Services.AddCors(options =>
 {
     // Necessario para o SignalR funcionar quando o front roda em outro host/porta.
@@ -98,6 +119,8 @@ builder.Services.AddHostedService<InboxFolderWatcherService>();
 // Email messaging (queue + SMTP/IMAP)
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
 builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
+builder.Services.AddScoped<IEntraIdConfigService, EntraIdConfigService>();
+builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<EmailDispatchWorker>();
@@ -128,7 +151,11 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
 if (jwtOptions is null || string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
-    throw new InvalidOperationException("Jwt settings are required.");
+{
+    using var tempProvider = builder.Services.BuildServiceProvider();
+    var localizer = tempProvider.GetRequiredService<IStringLocalizer<InfrastructureMessages>>();
+    throw new InvalidOperationException(localizer["InfrastructureErrors.JwtSettingsRequired"]);
+}
 
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
@@ -154,16 +181,17 @@ builder.Services
             {
                 var tenantContext = context.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
                 var tenantClaim = context.Principal?.FindFirst("tenant")?.Value;
+                var localizer = context.HttpContext.RequestServices.GetRequiredService<IStringLocalizer<InfrastructureMessages>>();
 
                 if (string.IsNullOrWhiteSpace(tenantClaim))
                 {
-                    context.Fail("Tenant claim is required.");
+                    context.Fail(localizer["InfrastructureErrors.TenantClaimRequired"]);
                     return Task.CompletedTask;
                 }
 
                 if (!string.Equals(tenantClaim, tenantContext.TenantId, StringComparison.OrdinalIgnoreCase))
                 {
-                    context.Fail("Tenant does not match.");
+                    context.Fail(localizer["InfrastructureErrors.TenantDoesNotMatch"]);
                 }
 
                 return Task.CompletedTask;
@@ -190,6 +218,9 @@ builder.Services.AddScoped<IManagerService, ManagerService>();
 builder.Services.AddScoped<IVagaService, VagaService>();
 builder.Services.AddScoped<ICandidatoService, CandidatoService>();
 builder.Services.AddScoped<AgendaService>();
+builder.Services.AddScoped<IPortalCandidateAuthService, PortalCandidateAuthService>();
+builder.Services.AddScoped<IPasswordHasher<Candidato>, PasswordHasher<Candidato>>();
+builder.Services.AddScoped<ILocalizationConfigService, LocalizationConfigService>();
 
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<UserAdministrationService>();
@@ -243,6 +274,8 @@ var app = builder.Build();
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "App_Data"));
 await DbSeeder.MigrateAndSeedAsync(app.Services, app.Configuration, app.Environment);
 
+var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -255,6 +288,7 @@ app.UseHttpsRedirection();
 
 app.UseCors("WebApp");
 app.UseMiddleware<TenantMiddleware>();
+app.UseRequestLocalization(localizationOptions.Value);
 
 app.UseAuthentication();
 app.UseAuthorization();

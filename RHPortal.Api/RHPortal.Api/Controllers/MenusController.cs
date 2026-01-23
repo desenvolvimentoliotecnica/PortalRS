@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Menus;
 using RhPortal.Api.Contracts.Menus;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
@@ -10,6 +12,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/menus")]
 public sealed class MenusController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public MenusController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [RequirePermission("menus.manage")]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<MenuListItemResponse>>> List(
@@ -47,7 +56,7 @@ public sealed class MenusController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to create menu.",
+                Title = _localizer["ControllerErrors.UnableToCreateMenuTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });
@@ -71,7 +80,7 @@ public sealed class MenusController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to update menu.",
+                Title = _localizer["ControllerErrors.UnableToUpdateMenuTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });
@@ -99,8 +108,8 @@ public sealed class MenusController : ControllerBase
         {
             return Unauthorized(new ProblemDetails
             {
-                Title = "Invalid token.",
-                Detail = "User identifier is missing.",
+                Title = _localizer["ControllerErrors.InvalidTokenTitle"],
+                Detail = _localizer["ControllerErrors.InvalidTokenDetail"],
                 Status = StatusCodes.Status401Unauthorized
             });
         }

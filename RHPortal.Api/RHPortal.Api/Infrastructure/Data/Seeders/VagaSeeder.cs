@@ -1,25 +1,64 @@
+using Bogus;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Localization;
+using System.Text.Json;
 
 namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class VagaSeeder
 {
-    private sealed record VagaSeed(
-        string Code,
-        string DepartmentCode,
-        string UnitCode,
-        string Title,
-        SeniorityLevel Seniority,
-        string Description,
-        bool IsShiftBased,
-        bool IsOnSite);
+    private const string DefaultPatternKey = "DEFAULT";
 
-    public static async Task EnsureAsync(AppDbContext db, string tenantId, CancellationToken ct)
+    private sealed class VagaRequirementSeedFile
     {
+        public Dictionary<string, List<VagaRequirementSeed>> Requirements { get; set; } = new();
+    }
+
+    private sealed class VagaRequirementSeed
+    {
+        public string Nome { get; set; } = string.Empty;
+        public int Peso { get; set; }
+        public bool Obrigatorio { get; set; }
+        public int? AnosMinimos { get; set; }
+        public string? Nivel { get; set; }
+        public string? Avaliacao { get; set; }
+        public string? Obs { get; set; }
+        public List<string>? Sinonimos { get; set; }
+    }
+
+    private sealed class VagaSeedPatterns
+    {
+        public Dictionary<string, VagaTitlePattern> TitlePatterns { get; set; } = new();
+        public Dictionary<string, string> Keywords { get; set; } = new();
+        public Dictionary<string, string> Responsibilities { get; set; } = new();
+        public Dictionary<string, string[]> Descriptions { get; set; } = new();
+    }
+
+    private sealed class VagaTitlePattern
+    {
+        public string[] Prefixes { get; set; } = Array.Empty<string>();
+        public string[] Subjects { get; set; } = Array.Empty<string>();
+    }
+
+    public static async Task EnsureAsync(
+        AppDbContext db,
+        string tenantId,
+        int targetCount,
+        string? patternsFile,
+        string? requirementsFile,
+        int? randomSeed,
+        IStringLocalizer<SeedMessages> localizer,
+        CancellationToken ct)
+    {
+        targetCount = Math.Max(0, targetCount);
+        if (targetCount == 0)
+            return;
+
         var departmentsByCode = await db.Departments
             .AsNoTracking()
             .Where(d => d.Status == DepartmentStatus.Active)
@@ -37,29 +76,23 @@ public static class VagaSeeder
             .ToListAsync(ct);
 
         if (areas.Count == 0)
-            throw new InvalidOperationException("Nenhuma Area ativa encontrada. Rode o seed de Areas antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoAreas"]);
 
         if (departmentsByCode.Count == 0)
-            throw new InvalidOperationException("Nenhum Department encontrado/ativo. Rode o seed de Departments antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoDepartments"]);
 
         if (unitsByCode.Count == 0)
-            throw new InvalidOperationException("Nenhuma Unit encontrada. Rode o seed de Units antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoUnits"]);
 
         if (managers.Count == 0)
-            throw new InvalidOperationException("Nenhum manager encontrado. Rode o seed de Managers antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoManagers"]);
 
         if (jobPositions.Count == 0)
-            throw new InvalidOperationException("Nenhum JobPosition encontrado. Rode o seed de JobPositions antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoJobPositions"]);
 
-        var managersByArea = managers
-            .GroupBy(m => m.AreaId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        var cargosByArea = jobPositions
-            .GroupBy(j => j.AreaId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        var seeds = BuildFoodIndustryVagasDemo();
+        var existingCount = await db.Vagas.CountAsync(ct);
+        if (existingCount >= targetCount)
+            return;
 
         var existingCodes = await db.Vagas
             .AsNoTracking()
@@ -70,82 +103,93 @@ public static class VagaSeeder
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var rng = new Random(42);
+        var seed = randomSeed ?? 42;
+        var faker = new Faker("pt_BR")
+        {
+            Random = new Randomizer(seed)
+        };
+        var patterns = LoadPatterns(patternsFile, localizer);
+        var titlePatterns = NormalizeTitlePatterns(patterns.TitlePatterns);
+        var keywords = NormalizeStringMap(patterns.Keywords);
+        var responsibilities = NormalizeStringMap(patterns.Responsibilities);
+        var descriptions = NormalizeTemplateMap(patterns.Descriptions);
+        var requirements = NormalizeRequirements(LoadRequirements(requirementsFile, localizer).Requirements);
+
+        var managersByArea = managers
+            .GroupBy(m => m.AreaId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var cargosByArea = jobPositions
+            .GroupBy(j => j.AreaId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var units = unitsByCode.Values.ToList();
+        var departments = departmentsByCode.Values.ToList();
+
+        var toCreate = targetCount - existingCount;
+        var perArea = toCreate / areas.Count;
+        var remainder = toCreate % areas.Count;
+
+        var areaCounters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var toAdd = new List<Vaga>();
 
-        static string? MapDepartmentCodeFromAreaCode(string? areaCode)
+        foreach (var area in areas)
         {
-            var c = (areaCode ?? "").Trim().ToUpperInvariant();
-            return c switch
-            {
-                "OPS" => "OPS",
-                "SCM" => "LOG",
-                "COM" => "COM",
-                "TEC" => "TEC",
-                "FIN" => "FIN",
-                "RH" => "RH",
-                "QUA" => "QUA",
-                "ENG" => "ENG",
-                "ADM" => "ADM",
-                "PDI" => "PDI",
-                _ => null
-            };
+            for (var i = 0; i < perArea; i++)
+                AddVagaForArea(area);
         }
 
-        foreach (var s in seeds)
+        for (var i = 0; i < remainder; i++)
+            AddVagaForArea(faker.PickRandom(areas));
+
+        if (toAdd.Count > 0)
         {
-            if (existingSet.Contains(s.Code))
-                continue;
-
-            if (!unitsByCode.TryGetValue(s.UnitCode, out var unit))
-                throw new InvalidOperationException($"Unidade '{s.UnitCode}' nao encontrada.");
-
-            var areaEntity = areas[rng.Next(areas.Count)];
-            var areaId = areaEntity.Id;
-            var areaCode = (areaEntity.Code ?? "").Trim().ToUpperInvariant();
-
-            Department? depEntity = null;
-
-            if (!string.IsNullOrWhiteSpace(s.DepartmentCode) &&
-                departmentsByCode.TryGetValue(s.DepartmentCode.Trim(), out var d1))
+            var autoDetectChanges = db.ChangeTracker.AutoDetectChangesEnabled;
+            try
             {
-                depEntity = d1;
+                db.ChangeTracker.AutoDetectChangesEnabled = false;
+                db.Vagas.AddRange(toAdd);
+                db.ChangeTracker.DetectChanges();
+                await db.SaveChangesAsync(ct);
             }
-            else
+            finally
             {
-                var depCodeFromArea = MapDepartmentCodeFromAreaCode(areaCode);
-                if (!string.IsNullOrWhiteSpace(depCodeFromArea) &&
-                    departmentsByCode.TryGetValue(depCodeFromArea, out var d2))
-                {
-                    depEntity = d2;
-                }
+                db.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
             }
+        }
 
-            depEntity ??= departmentsByCode.Values.ElementAt(rng.Next(departmentsByCode.Count));
+        void AddVagaForArea(Area areaEntity)
+        {
+            var areaCode = NormalizeAreaCode(areaEntity.Code);
+            if (string.IsNullOrWhiteSpace(areaCode))
+                return;
 
-            if (depEntity.Id == Guid.Empty)
-                throw new InvalidOperationException("Department invalido (Id vazio).");
+            var code = GetNextCode(areaCounters, areaCode, existingSet);
+            var unit = units[faker.Random.Int(0, units.Count - 1)];
+            var depEntity = ResolveDepartment(departmentsByCode, departments, areaCode, faker);
 
             var managerId =
-                (managersByArea.TryGetValue(areaId, out var mgrs) && mgrs.Count > 0)
-                    ? mgrs[rng.Next(mgrs.Count)].Id
-                    : managers[rng.Next(managers.Count)].Id;
+                (managersByArea.TryGetValue(areaEntity.Id, out var mgrs) && mgrs.Count > 0)
+                    ? mgrs[faker.Random.Int(0, mgrs.Count - 1)].Id
+                    : managers[faker.Random.Int(0, managers.Count - 1)].Id;
 
             if (managerId == Guid.Empty)
-                throw new InvalidOperationException("Nenhum manager valido encontrado.");
+                throw new InvalidOperationException(localizer["SeedErrors.NoValidManager"]);
 
             var cargoId =
-                (cargosByArea.TryGetValue(areaId, out var cargos) && cargos.Count > 0)
-                    ? cargos[rng.Next(cargos.Count)].Id
-                    : jobPositions[rng.Next(jobPositions.Count)].Id;
+                (cargosByArea.TryGetValue(areaEntity.Id, out var cargos) && cargos.Count > 0)
+                    ? cargos[faker.Random.Int(0, cargos.Count - 1)].Id
+                    : jobPositions[faker.Random.Int(0, jobPositions.Count - 1)].Id;
 
             if (cargoId == Guid.Empty)
-                throw new InvalidOperationException("Nenhum JobPosition valido encontrado.");
+                throw new InvalidOperationException(localizer["SeedErrors.NoValidJobPosition"]);
 
-            var published = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-rng.Next(3, 35)));
-            var closing = published.AddDays(rng.Next(10, 45));
+            var published = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-faker.Random.Int(3, 35)));
+            var closing = published.AddDays(faker.Random.Int(10, 45));
 
-            var senior = MapSenioridade(s.Seniority);
+            var senior = MapSenioridade(faker.PickRandom(Enum.GetValues<SeniorityLevel>()));
+            var isShiftBased = IsShiftBased(faker, areaCode);
+            var isOnSite = IsOnSite(faker, areaCode);
 
             var (salMin, salMax, expMin) = senior switch
             {
@@ -160,48 +204,49 @@ public static class VagaSeeder
             };
 
             var now = DateTimeOffset.UtcNow;
+            var title = BuildTitle(faker, areaCode, titlePatterns, localizer);
+            var description = BuildDescription(faker, areaEntity, descriptions, localizer);
 
             var vaga = new Vaga
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
+                Codigo = code,
+                Titulo = title,
 
-                Codigo = s.Code,
-                Titulo = s.Title,
-
-                AreaId = areaId,
+                AreaId = areaEntity.Id,
                 DepartmentId = depEntity.Id,
 
                 Status = ParseEnumOrFirst<VagaStatus>("Aberta", "Open", "Ativa", "EmAberto"),
                 Senioridade = senior,
 
-                QuantidadeVagas = rng.Next(1, 6),
+                QuantidadeVagas = faker.Random.Int(1, 6),
                 TipoContratacao = ParseEnumOrFirst<VagaTipoContratacao>("CLT", "Efetivo", "FullTime"),
-                MatchMinimoPercentual = 70 + rng.Next(0, 16),
+                MatchMinimoPercentual = 70 + faker.Random.Int(0, 15),
 
-                DescricaoInterna = s.Description,
-                DescricaoPublica = s.Description,
+                DescricaoInterna = description,
+                DescricaoPublica = description,
 
-                TagsKeywordsRaw = BuildKeywords(areaCode),
-                TagsResponsabilidadesRaw = BuildResponsibilities(areaCode),
+                TagsKeywordsRaw = BuildKeywords(areaCode, keywords, localizer),
+                TagsResponsabilidadesRaw = BuildResponsibilities(areaCode, responsibilities, localizer),
 
                 AceitaPcd = true,
                 LinguagemInclusiva = true,
                 Confidencial = false,
-                Urgente = rng.NextDouble() < 0.18,
+                Urgente = faker.Random.Double() < 0.18,
 
-                Modalidade = s.IsOnSite
+                Modalidade = isOnSite
                     ? ParseEnumOrFirst<VagaModalidade>("Presencial", "OnSite")
                     : ParseEnumOrFirst<VagaModalidade>("Hibrido", "Hybrid", "Remoto", "Remote"),
 
                 Regime = ParseEnumOrFirst<VagaRegimeJornada>("Integral", "FullTime"),
-                CargaSemanalHoras = s.IsShiftBased ? 44 : 40,
-                Escala = s.IsShiftBased
+                CargaSemanalHoras = isShiftBased ? 44 : 40,
+                Escala = isShiftBased
                     ? ParseEnumOrFirst<VagaEscalaTrabalho>("6x1", "6X1", "Turno")
                     : ParseEnumOrFirst<VagaEscalaTrabalho>("5x2", "5X2"),
 
-                HoraEntrada = s.IsShiftBased ? new TimeOnly(06, 00) : new TimeOnly(08, 00),
-                HoraSaida = s.IsShiftBased ? new TimeOnly(14, 00) : new TimeOnly(17, 00),
+                HoraEntrada = isShiftBased ? new TimeOnly(06, 00) : new TimeOnly(08, 00),
+                HoraSaida = isShiftBased ? new TimeOnly(14, 00) : new TimeOnly(17, 00),
                 Intervalo = TimeSpan.FromHours(1),
 
                 Cep = unit.ZipCode,
@@ -233,14 +278,13 @@ public static class VagaSeeder
 
                 ChecagemAntecedentes = true,
                 ExigeCnh = false,
-                DisponibilidadeParaViagens = rng.NextDouble() < 0.10,
+                DisponibilidadeParaViagens = faker.Random.Double() < 0.10,
 
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now
             };
 
-            var reqs = BuildDemoRequisitos(areaCode);
-
+            var reqs = BuildRequirements(areaCode, requirements, localizer);
             var ordem = 0;
             foreach (var r in reqs)
             {
@@ -264,62 +308,325 @@ public static class VagaSeeder
             }
 
             toAdd.Add(vaga);
-            existingSet.Add(s.Code);
-        }
-
-        if (toAdd.Count > 0)
-        {
-            db.Vagas.AddRange(toAdd);
-            await db.SaveChangesAsync(ct);
+            existingSet.Add(code);
         }
     }
 
-    private static List<(string Nome, VagaPeso Peso, bool Obrigatorio, int? AnosMinimos, VagaRequisitoNivel? Nivel, VagaRequisitoAvaliacao? Avaliacao, string? Obs, IReadOnlyList<string>? Sinonimos)>
-        BuildDemoRequisitos(string areaCode)
-    {
-        areaCode = (areaCode ?? "").Trim().ToUpperInvariant();
+    private static string NormalizeAreaCode(string? areaCode)
+        => (areaCode ?? string.Empty).Trim().ToUpperInvariant();
 
-        return areaCode switch
+    private static Department ResolveDepartment(
+        IReadOnlyDictionary<string, Department> departmentsByCode,
+        IReadOnlyList<Department> departments,
+        string areaCode,
+        Faker faker)
+    {
+        var depCodeFromArea = MapDepartmentCodeFromAreaCode(areaCode);
+        if (!string.IsNullOrWhiteSpace(depCodeFromArea) &&
+            departmentsByCode.TryGetValue(depCodeFromArea, out var dep))
         {
-            "TEC" => new()
-            {
-                ("Windows/Office 365", (VagaPeso)4, true, 1, null, null, null, new[] { "Office", "Pacote Office", "Microsoft 365" }),
-                ("Atendimento ao usuario", (VagaPeso)4, true, 1, null, null, null, new[] { "Suporte ao usuario", "Help desk" }),
-                ("ITIL (desejavel)", (VagaPeso)2, false, null, null, null, null, new[] { "ITIL Foundation" }),
-                ("Redes basicas", (VagaPeso)3, false, 1, null, null, null, new[] { "TCP/IP", "LAN", "WAN" })
-            },
-            "FIN" => new()
-            {
-                ("Excel intermediario/avancado", (VagaPeso)4, true, 2, null, null, null, new[] { "Excel avancado", "Planilhas" }),
-                ("Contas a receber", (VagaPeso)4, true, 2, null, null, null, new[] { "CR", "Recebiveis" }),
-                ("Conciliacoes bancarias", (VagaPeso)3, false, 1, null, null, null, null)
-            },
-            _ => new()
-            {
-                ("Experiencia na area", (VagaPeso)4, true, 1, null, null, null, null),
-                ("Disponibilidade de horario", (VagaPeso)2, false, null, null, null, null, null)
-            }
+            return dep;
+        }
+
+        return departments[faker.Random.Int(0, departments.Count - 1)];
+    }
+
+    private static string? MapDepartmentCodeFromAreaCode(string? areaCode)
+    {
+        var c = (areaCode ?? "").Trim().ToUpperInvariant();
+        return c switch
+        {
+            "OPS" => "OPS",
+            "SCM" => "LOG",
+            "COM" => "COM",
+            "TEC" => "TEC",
+            "FIN" => "FIN",
+            "RH" => "RH",
+            "QUA" => "QUA",
+            "ENG" => "ENG",
+            "ADM" => "ADM",
+            "PDI" => "PDI",
+            _ => null
         };
     }
 
+    private static string GetNextCode(
+        IDictionary<string, int> areaCounters,
+        string areaCode,
+        HashSet<string> existingSet)
+    {
+        areaCounters.TryGetValue(areaCode, out var count);
+        string code;
+        do
+        {
+            count++;
+            code = $"VAG-{areaCode}-{count:000}";
+        }
+        while (existingSet.Contains(code));
+
+        areaCounters[areaCode] = count;
+        return code;
+    }
+
+    private static bool IsShiftBased(Faker faker, string areaCode)
+        => areaCode is "OPS" or "ENG" or "QUA"
+            ? faker.Random.Bool(0.7f)
+            : faker.Random.Bool(0.2f);
+
+    private static bool IsOnSite(Faker faker, string areaCode)
+        => areaCode is "OPS" or "ENG" or "QUA"
+            ? faker.Random.Bool(0.85f)
+            : faker.Random.Bool(0.4f);
+
+    private static string BuildTitle(
+        Faker faker,
+        string areaCode,
+        IReadOnlyDictionary<string, VagaTitlePattern> titlePatterns,
+        IStringLocalizer<SeedMessages> localizer)
+    {
+        var pattern = GetTitlePattern(titlePatterns, areaCode, localizer);
+        var prefix = faker.PickRandom(pattern.Prefixes);
+        var subject = faker.PickRandom(pattern.Subjects);
+        var separator = prefix.Contains("Key Account", StringComparison.OrdinalIgnoreCase) ? " - " : " de ";
+        return $"{prefix}{separator}{subject}";
+    }
+
+    private static VagaTitlePattern GetTitlePattern(
+        IReadOnlyDictionary<string, VagaTitlePattern> titlePatterns,
+        string areaCode,
+        IStringLocalizer<SeedMessages> localizer)
+    {
+        if (titlePatterns.TryGetValue(areaCode, out var pattern) &&
+            pattern.Prefixes.Length > 0 &&
+            pattern.Subjects.Length > 0)
+        {
+            return pattern;
+        }
+
+        if (titlePatterns.TryGetValue(DefaultPatternKey, out var fallback) &&
+            fallback.Prefixes.Length > 0 &&
+            fallback.Subjects.Length > 0)
+        {
+            return fallback;
+        }
+
+        throw new InvalidOperationException(localizer["SeedErrors.TitlePatternsMissing", areaCode, DefaultPatternKey]);
+    }
+
+    private static string BuildDescription(
+        Faker faker,
+        Area area,
+        IReadOnlyDictionary<string, string[]> descriptions,
+        IStringLocalizer<SeedMessages> localizer)
+    {
+        var templates = GetPatternValues(descriptions, area.Code ?? string.Empty, "descriptions", localizer);
+        var template = faker.PickRandom(templates);
+        return ApplyDescriptionTemplate(faker, template, area);
+    }
+
+    private static VagaSeedPatterns LoadPatterns(string? patternsFile, IStringLocalizer<SeedMessages> localizer)
+    {
+        if (string.IsNullOrWhiteSpace(patternsFile))
+            throw new InvalidOperationException(localizer["SeedErrors.PatternsFileRequired"]);
+
+        var fullPath = Path.IsPathRooted(patternsFile)
+            ? patternsFile
+            : Path.Combine(AppContext.BaseDirectory, patternsFile);
+
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException(localizer["SeedErrors.PatternsFileNotFound", fullPath]);
+
+        var json = File.ReadAllText(fullPath);
+        var patterns = JsonSerializer.Deserialize<VagaSeedPatterns>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (patterns is null)
+            throw new InvalidOperationException(localizer["SeedErrors.PatternsFileInvalid"]);
+
+        return patterns;
+    }
+
+    private static VagaRequirementSeedFile LoadRequirements(string? requirementsFile, IStringLocalizer<SeedMessages> localizer)
+    {
+        if (string.IsNullOrWhiteSpace(requirementsFile))
+            throw new InvalidOperationException(localizer["SeedErrors.RequirementsFileRequired"]);
+
+        var fullPath = Path.IsPathRooted(requirementsFile)
+            ? requirementsFile
+            : Path.Combine(AppContext.BaseDirectory, requirementsFile);
+
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException(localizer["SeedErrors.RequirementsFileNotFound", fullPath]);
+
+        var json = File.ReadAllText(fullPath);
+        var requirements = JsonSerializer.Deserialize<VagaRequirementSeedFile>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (requirements is null)
+            throw new InvalidOperationException(localizer["SeedErrors.RequirementsFileInvalid"]);
+
+        return requirements;
+    }
+
+    private static IReadOnlyDictionary<string, VagaTitlePattern> NormalizeTitlePatterns(Dictionary<string, VagaTitlePattern>? source)
+    {
+        var map = new Dictionary<string, VagaTitlePattern>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+            return map;
+
+        foreach (var kvp in source)
+        {
+            var key = NormalizePatternKey(kvp.Key);
+            if (string.IsNullOrWhiteSpace(key) || kvp.Value is null)
+                continue;
+
+            map[key] = kvp.Value;
+        }
+
+        return map;
+    }
+
+    private static IReadOnlyDictionary<string, string> NormalizeStringMap(Dictionary<string, string>? source)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+            return map;
+
+        foreach (var kvp in source)
+        {
+            var key = NormalizePatternKey(kvp.Key);
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(kvp.Value))
+                continue;
+
+            map[key] = kvp.Value.Trim();
+        }
+
+        return map;
+    }
+
+    private static IReadOnlyDictionary<string, string[]> NormalizeTemplateMap(Dictionary<string, string[]>? source)
+    {
+        var map = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+            return map;
+
+        foreach (var kvp in source)
+        {
+            var key = NormalizePatternKey(kvp.Key);
+            if (string.IsNullOrWhiteSpace(key) || kvp.Value is null)
+                continue;
+
+            var templates = kvp.Value
+                .Select(t => (t ?? string.Empty).Trim())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .ToArray();
+
+            if (templates.Length == 0)
+                continue;
+
+            map[key] = templates;
+        }
+
+        return map;
+    }
+
+    private static IReadOnlyDictionary<string, List<VagaRequirementSeed>> NormalizeRequirements(Dictionary<string, List<VagaRequirementSeed>>? source)
+    {
+        var map = new Dictionary<string, List<VagaRequirementSeed>>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+            return map;
+
+        foreach (var kvp in source)
+        {
+            var key = NormalizePatternKey(kvp.Key);
+            if (string.IsNullOrWhiteSpace(key) || kvp.Value is null)
+                continue;
+
+            map[key] = kvp.Value;
+        }
+
+        return map;
+    }
+
+    private static string NormalizePatternKey(string? key)
+        => (key ?? string.Empty).Trim().ToUpperInvariant();
+
+    private static List<(string Nome, VagaPeso Peso, bool Obrigatorio, int? AnosMinimos, VagaRequisitoNivel? Nivel, VagaRequisitoAvaliacao? Avaliacao, string? Obs, IReadOnlyList<string>? Sinonimos)>
+        BuildRequirements(
+            string areaCode,
+            IReadOnlyDictionary<string, List<VagaRequirementSeed>> requirements,
+            IStringLocalizer<SeedMessages> localizer)
+    {
+        areaCode = (areaCode ?? "").Trim().ToUpperInvariant();
+
+        if (!requirements.TryGetValue(areaCode, out var reqs) || reqs.Count == 0)
+            throw new InvalidOperationException(localizer["SeedErrors.RequirementsMissingForArea", areaCode]);
+
+        var result = new List<(string Nome, VagaPeso Peso, bool Obrigatorio, int? AnosMinimos, VagaRequisitoNivel? Nivel, VagaRequisitoAvaliacao? Avaliacao, string? Obs, IReadOnlyList<string>? Sinonimos)>(reqs.Count);
+        foreach (var req in reqs)
+        {
+            if (string.IsNullOrWhiteSpace(req.Nome))
+                continue;
+
+            result.Add((
+                req.Nome.Trim(),
+                MapPeso(req.Peso),
+                req.Obrigatorio,
+                req.AnosMinimos,
+                ParseEnumOrNull<VagaRequisitoNivel>(req.Nivel),
+                ParseEnumOrNull<VagaRequisitoAvaliacao>(req.Avaliacao),
+                req.Obs,
+                req.Sinonimos));
+        }
+
+        if (result.Count == 0)
+            throw new InvalidOperationException(localizer["SeedErrors.RequirementsEmptyForArea", areaCode]);
+
+        return result;
+    }
+
     private static string? JoinSinonimos(IReadOnlyList<string>? sinonimos)
-        => sinonimos is null || sinonimos.Count == 0 ? null : string.Join(";", sinonimos);
+    {
+        if (sinonimos is null || sinonimos.Count == 0) return null;
+        var cleaned = sinonimos
+            .Select(s => (s ?? string.Empty).Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return cleaned.Length == 0 ? null : string.Join(";", cleaned);
+    }
+
+    private static VagaPeso MapPeso(int peso)
+    {
+        var clamped = Math.Clamp(peso, 1, 5);
+        return (VagaPeso)clamped;
+    }
+
+    private static TEnum? ParseEnumOrNull<TEnum>(string? name) where TEnum : struct, Enum
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        return Enum.TryParse<TEnum>(name, true, out var value) ? value : null;
+    }
 
     private static TEnum ParseEnumOrFirst<TEnum>(params string[] names) where TEnum : struct, Enum
     {
-        foreach (var name in names)
-        {
-            if (Enum.TryParse<TEnum>(name, true, out var parsed))
-                return parsed;
-        }
+        foreach (var n in names)
+            if (!string.IsNullOrWhiteSpace(n) && Enum.TryParse<TEnum>(n, true, out var v))
+                return v;
 
-        return Enum.GetValues<TEnum>().First();
+        return Enum.GetValues<TEnum>()[0];
     }
 
     private static bool IsEnumName<TEnum>(TEnum value, params string[] names) where TEnum : struct, Enum
     {
-        var current = value.ToString();
-        return names.Any(n => string.Equals(current, n, StringComparison.OrdinalIgnoreCase));
+        var s = value.ToString();
+        return names.Any(n => string.Equals(s, n, StringComparison.OrdinalIgnoreCase));
     }
 
     private static VagaSenioridade? MapSenioridade(SeniorityLevel seniority)
@@ -337,193 +644,69 @@ public static class VagaSeeder
         };
     }
 
-    private static string BuildKeywords(string areaCode) => areaCode switch
-    {
-        "OPS" => "producao;linha;setup;5s;turno;qualidade;higiene;embalagem",
-        "QUA" => "qualidade;laboratorio;appcc;bpf;auditoria;rastreabilidade",
-        "ENG" => "manutencao;pcm;automacao;utilidades;equipamentos;confiabilidade",
-        "SCM" => "logistica;estoque;pcp;planejamento;expedicao;suprimentos",
-        _ => "rotina;processos;organizacao;comunicacao"
-    };
+    private static string BuildKeywords(
+        string areaCode,
+        IReadOnlyDictionary<string, string> keywords,
+        IStringLocalizer<SeedMessages> localizer)
+        => GetPatternValue(keywords, areaCode, "keywords", localizer);
 
-    private static string BuildResponsibilities(string areaCode) => areaCode switch
-    {
-        "OPS" => "Operar processos;Registrar producao;Seguir POPs;Garantir 5S;Reportar desvios",
-        "QUA" => "Coletar amostras;Registrar analises;Tratar nao conformidades;Apoiar auditorias",
-        "ENG" => "Executar manutencao;Prevenir falhas;Registrar OS;Apoiar paradas programadas",
-        "SCM" => "Planejar/abastecer;Controlar estoque;Garantir FEFO;Apoiar expedicao",
-        _ => "Apoiar rotina da area;Garantir organizacao;Cumprir prazos;Comunicar riscos"
-    };
+    private static string BuildResponsibilities(
+        string areaCode,
+        IReadOnlyDictionary<string, string> responsibilities,
+        IStringLocalizer<SeedMessages> localizer)
+        => GetPatternValue(responsibilities, areaCode, "responsibilities", localizer);
 
-    private static IReadOnlyList<VagaSeed> BuildFoodIndustryVagasDemo()
+    private static string[] GetPatternValues(
+        IReadOnlyDictionary<string, string[]> map,
+        string areaCode,
+        string name,
+        IStringLocalizer<SeedMessages> localizer)
     {
-        return new List<VagaSeed>
+        areaCode = NormalizePatternKey(areaCode);
+
+        if (map.TryGetValue(areaCode, out var values) && values.Length > 0)
+            return values;
+
+        if (map.TryGetValue(DefaultPatternKey, out var fallback) && fallback.Length > 0)
+            return fallback;
+
+        throw new InvalidOperationException(localizer["SeedErrors.PatternValueMissing", name, areaCode, DefaultPatternKey]);
+    }
+
+    private static string GetPatternValue(
+        IReadOnlyDictionary<string, string> map,
+        string areaCode,
+        string name,
+        IStringLocalizer<SeedMessages> localizer)
+    {
+        if (map.TryGetValue(areaCode, out var value) && !string.IsNullOrWhiteSpace(value))
+            return value;
+
+        if (map.TryGetValue(DefaultPatternKey, out var fallback) && !string.IsNullOrWhiteSpace(fallback))
+            return fallback;
+
+        throw new InvalidOperationException(localizer["SeedErrors.PatternValueMissing", name, areaCode, DefaultPatternKey]);
+    }
+
+    private static string ApplyDescriptionTemplate(Faker faker, string template, Area area)
+    {
+        var areaName = (area.Name ?? string.Empty).Trim();
+        var areaCode = NormalizeAreaCode(area.Code);
+        var resolvedName = string.IsNullOrWhiteSpace(areaName) ? areaCode : areaName;
+
+        var result = template;
+        var replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            new("VAG-ADM-001","ADM-001","UNI-SPC","Assistente de Facilities & Recepcao", SeniorityLevel.Junior,
-                "Rotinas de recepcao, controle de acessos, apoio a facilities, interface com prestadores e suporte administrativo.",
-                false, false),
-            new("VAG-ADM-002","ADM-002","UNI-SPC","Analista de Compliance & LGPD", SeniorityLevel.Pleno,
-                "Apoio em compliance, politicas internas, analise de riscos, adequacao LGPD e suporte a auditorias/regulatorios.",
-                false, false),
-            new("VAG-ADM-003","ADM-003","UNI-SPC","Assistente de Gestao Documental", SeniorityLevel.Junior,
-                "Organizacao e versionamento de documentos (POPs, registros, evidencias), controle de arquivos e suporte a auditorias.",
-                false, false),
-            new("VAG-ADM-004","ADM-004","UNI-EMB","Tecnico de Infraestrutura Predial", SeniorityLevel.Pleno,
-                "Manutencao predial (nao industrial), acompanhamento de servicos, melhorias de infraestrutura e rotinas de seguranca predial.",
-                false, true),
-            new("VAG-ADM-005","ADM-005","UNI-SPC","Comprador de Indiretos & Servicos", SeniorityLevel.Pleno,
-                "Compras indiretas (EPI, MRO leve, servicos), cotacoes, contratos e gestao de fornecedores de servicos.",
-                false, false),
-            new("VAG-FIN-001","FIN-001","UNI-SPC","Analista de Contas a Pagar", SeniorityLevel.Pleno,
-                "Processamento de titulos, conciliacoes, fluxo de aprovacoes, relacionamento com fornecedores e compliance financeiro.",
-                false, false),
-            new("VAG-FIN-002","FIN-002","UNI-SPC","Analista de Contas a Receber", SeniorityLevel.Pleno,
-                "Faturamento, cobranca, conciliacao de recebiveis e suporte a politicas de credito para canais varejo/atacado.",
-                false, false),
-            new("VAG-FIN-003","FIN-003","UNI-SPC","Analista de Tesouraria", SeniorityLevel.Senior,
-                "Gestao de caixa, bancos, pagamentos criticos, rotinas de tesouraria e apoio em aplicacoes de curto prazo.",
-                false, false),
-            new("VAG-FIN-004","FIN-004","UNI-SPC","Analista de Custos Industriais", SeniorityLevel.Senior,
-                "Apuracao de custos industriais, variacoes, perdas, rendimento, suporte a PCP/producao e analises gerenciais.",
-                false, false),
-            new("VAG-FIN-005","FIN-005","UNI-SPC","Analista Fiscal & Tributario", SeniorityLevel.Senior,
-                "Escrituracao fiscal, apuracao, SPED e suporte a operacoes/transportes com visao de compliance tributario.",
-                false, false),
-            new("VAG-RH-001","RH-001","UNI-SPC","Analista de Recrutamento & Selecao", SeniorityLevel.Pleno,
-                "Triagem, entrevistas e contratacao (operacional/tecnico), alinhamento com gestores e onboarding de fabrica.",
-                false, false),
-            new("VAG-RH-002","RH-002","UNI-SPC","Analista de Treinamento & Desenvolvimento", SeniorityLevel.Pleno,
-                "Treinamentos de BPF, seguranca de alimentos, integracao, reciclagens e trilhas de capacitacao na planta.",
-                false, false),
-            new("VAG-RH-003","RH-003","UNI-SPC","Analista de Departamento Pessoal", SeniorityLevel.Pleno,
-                "Folha, ponto, beneficios e rotinas trabalhistas (turnos, adicionais, escalas) com foco em ambiente fabril.",
-                false, false),
-            new("VAG-RH-004","RH-004","UNI-SPC","Analista de Comunicacao Interna", SeniorityLevel.Junior,
-                "Campanhas internas, comunicados de turnos, avisos operacionais e apoio a acoes de clima/engajamento.",
-                false, false),
-            new("VAG-RH-005","RH-005","UNI-EMB","Tecnico de Enfermagem do Trabalho", SeniorityLevel.Pleno,
-                "Rotinas de ambulatorio, ASO, acompanhamento de afastamentos e acoes preventivas em areas operacionais.",
-                true, true),
-            new("VAG-OPS-001","OPS-001","UNI-EMB","Operador de Producao - Preparacao & Mistura", SeniorityLevel.Junior,
-                "Execucao de receitas, dosagem, mistura e registros conforme POPs/BPF. Atencao a rastreabilidade por lote.",
-                true, true),
-            new("VAG-OPS-002","OPS-002","UNI-EMB","Operador de Processo Termico - Cozimento/Pasteurizacao", SeniorityLevel.Pleno,
-                "Operacao de processos termicos, controle de tempo/temperatura, registros de CCP e liberacao de linha.",
-                true, true),
-            new("VAG-OPS-003","OPS-003","UNI-EMB","Operador de Maquina de Envase", SeniorityLevel.Pleno,
-                "Setup, ajuste e operacao de envase. Controle de perdas, rendimento, integridade de selagem e codificacao.",
-                true, true),
-            new("VAG-OPS-004","OPS-004","UNI-EMB","Encarregado de Embalagem & Rotulagem", SeniorityLevel.Coordenacao,
-                "Coordenacao da equipe de embalagem, controle de consumo, conferencia de rotulos, validade e padroes de qualidade.",
-                true, true),
-            new("VAG-OPS-005","OPS-005","UNI-EMB","Auxiliar de Higienizacao - CIP/COP", SeniorityLevel.Junior,
-                "Rotinas CIP/COP, preparacao de quimicos, verificacao de eficacia e liberacao sanitaria de equipamentos/linhas.",
-                true, true),
-            new("VAG-QUA-001","QUA-001","UNI-EMB","Analista de Laboratorio (Fisico-Quimico)", SeniorityLevel.Pleno,
-                "Analises fisico-quimicas (pH, Brix, densidade), controle de especificacoes e suporte a investigacao de desvios.",
-                false, true),
-            new("VAG-QUA-002","QUA-002","UNI-EMB","Analista de Laboratorio (Microbiologia)", SeniorityLevel.Pleno,
-                "Analises microbiologicas, monitoramento ambiental, agua/superficies e apoio em validacoes de higiene.",
-                false, true),
-            new("VAG-QUA-003","QUA-003","UNI-EMB","Auditor Interno - BPF & Sistema da Qualidade", SeniorityLevel.Senior,
-                "Auditorias internas, planos de acao, gestao de nao conformidades e fortalecimento do sistema de qualidade.",
-                false, true),
-            new("VAG-QUA-004","QUA-004","UNI-EMB","Especialista em APPCC/HACCP", SeniorityLevel.Especialista,
-                "Gestao de APPCC/HACCP, riscos, CCPs, revisao de POPs e governanca de seguranca de alimentos.",
-                false, true),
-            new("VAG-QUA-005","QUA-005","UNI-SPC","Analista de Assuntos Regulatorios (ANVISA/MAPA)", SeniorityLevel.Senior,
-                "Regularizacao, rotulagem legal, interface com orgaos reguladores e suporte a claims e composicao.",
-                false, false),
-            new("VAG-ENG-001","ENG-001","UNI-EMB","Tecnico de Manutencao Mecanica", SeniorityLevel.Pleno,
-                "Manutencao preventiva/corretiva em equipamentos de linha, reducao de paradas e gestao de pecas criticas.",
-                true, true),
-            new("VAG-ENG-002","ENG-002","UNI-EMB","Tecnico de Manutencao Eletrica", SeniorityLevel.Pleno,
-                "Intervencoes eletricas, paineis, motores/sensores, leitura de diagramas e confiabilidade de processo.",
-                true, true),
-            new("VAG-ENG-003","ENG-003","UNI-EMB","Analista de Utilidades Industriais", SeniorityLevel.Pleno,
-                "Gestao de utilidades (vapor, refrigeracao, ar comprimido), consumo e estabilidade para garantir qualidade.",
-                true, true),
-            new("VAG-ENG-004","ENG-004","UNI-EMB","Tecnico de Automacao Industrial", SeniorityLevel.Senior,
-                "CLPs, IHMs, instrumentacao, parametrizacao e suporte a estabilidade de processo / coleta de dados.",
-                true, true),
-            new("VAG-ENG-005","ENG-005","UNI-EMB","Engenheiro de Processos & Melhoria Continua", SeniorityLevel.Senior,
-                "OEE, perdas, Kaizen, padronizacao, otimizacao de setups e suporte ao aumento de capacidade produtiva.",
-                false, true),
-            new("VAG-PDI-001","PDI-001","UNI-EMB","Analista de P&D (Produtos)", SeniorityLevel.Senior,
-                "Desenvolvimento/reformulacao, testes de estabilidade, escalonamento e documentacao tecnica de produto.",
-                false, true),
-            new("VAG-PDI-002","PDI-002","UNI-EMB","Tecnico de P&D - Cozinha Piloto", SeniorityLevel.Pleno,
-                "Execucao de testes piloto, preparo de amostras, controles e registros conforme padroes de qualidade.",
-                false, true),
-            new("VAG-PDI-003","PDI-003","UNI-EMB","Analista de Desenvolvimento de Embalagens", SeniorityLevel.Pleno,
-                "Especificacao de materiais, testes de barreira/selagem, compatibilidade com envase e otimizacao de custos.",
-                false, true),
-            new("VAG-PDI-004","PDI-004","UNI-EMB","Analista de Pesquisa Sensorial", SeniorityLevel.Pleno,
-                "Planejamento e execucao de testes sensoriais, analise de aceitacao e suporte a decisao de portfolio.",
-                false, true),
-            new("VAG-PDI-005","PDI-005","UNI-SPC","Analista de Gestao de Portfolio", SeniorityLevel.Pleno,
-                "Pipeline de inovacao, priorizacao de projetos e alinhamento com comercial/marketing para lancamentos.",
-                false, false),
-            new("VAG-SCM-001","SCM-001","UNI-EMB","Analista de PCP", SeniorityLevel.Pleno,
-                "Sequenciamento, MPS, balanceamento capacidade x demanda e apontamentos para eficiencia da planta.",
-                false, true),
-            new("VAG-SCM-002","SCM-002","UNI-SPC","Comprador de Materia-Prima e Ingredientes", SeniorityLevel.Pleno,
-                "Compras de ingredientes, homologacao, lead time, contratos e performance de fornecedores criticos.",
-                false, false),
-            new("VAG-SCM-003","SCM-003","UNI-EMB","Analista de Recebimento & Armazenagem (Insumos)", SeniorityLevel.Junior,
-                "Recebimento, conferencia, FEFO/FIFO, rastreabilidade e controle de armazenagem em ambiente industrial.",
-                true, true),
-            new("VAG-SCM-004","SCM-004","UNI-EMB","Analista de Estoques (Embalagens)", SeniorityLevel.Pleno,
-                "Inventarios, acuracidade, abastecimento de linha e controle de consumo por ordem/lote.",
-                true, true),
-            new("VAG-SCM-005","SCM-005","UNI-EMB","Analista de Transporte & Distribuicao", SeniorityLevel.Pleno,
-                "Roteirizacao, frete, agendamento, SLAs e interface com transportadoras para atender clientes e CDs.",
-                false, true),
-            new("VAG-COM-001","COM-001","UNI-SPC","Executivo de Vendas - Atacado/Distribuidores", SeniorityLevel.Senior,
-                "Gestao de distribuidores, politicas comerciais, mix, campanhas e acompanhamento de sell-in/sell-out.",
-                false, false),
-            new("VAG-COM-002","COM-002","UNI-SPC","Key Account - Grandes Redes", SeniorityLevel.Senior,
-                "Negociacao com grandes redes, contratos, verbas, planejamento de demanda e gestao de ruptura.",
-                false, false),
-            new("VAG-COM-003","COM-003","UNI-SPC","Analista de Trade Marketing", SeniorityLevel.Pleno,
-                "Execucao de planos em PDV, campanhas, materiais e analise de performance por canal.",
-                false, false),
-            new("VAG-COM-004","COM-004","UNI-SPC","Analista de SAC & Pos-venda", SeniorityLevel.Pleno,
-                "Tratativa de reclamacoes, rastreabilidade, retorno ao consumidor e interface com Qualidade/Regulatorio.",
-                false, false),
-            new("VAG-COM-005","COM-005","UNI-SPC","Analista de Inteligencia de Mercado & Pricing", SeniorityLevel.Senior,
-                "Analise de concorrencia, rentabilidade, precificacao e suporte a decisoes comerciais por SKU/canal.",
-                false, false),
-            new("VAG-TEC-001","TEC-001","UNI-SPC","Analista de Suporte - Service Desk", SeniorityLevel.Junior,
-                "Atendimento N1/N2, gestao de chamados, inventario e suporte a usuarios administrativos e fabrica.",
-                false, false),
-            new("VAG-TEC-002","TEC-002","UNI-EMB","Analista de Sistemas Industriais (MES/SCADA)", SeniorityLevel.Senior,
-                "Sustentacao de sistemas industriais, integracoes com coleta de dados e suporte a automacao/rastreabilidade.",
-                true, true),
-            new("VAG-TEC-003","TEC-003","UNI-SPC","Analista de ERP & Integracoes", SeniorityLevel.Pleno,
-                "Sustentacao de ERP, cadastros mestres, integracoes e apoio a processos de compras/financas/producao.",
-                false, false),
-            new("VAG-TEC-004","TEC-004","UNI-SPC","Analista de Dados (BI) - KPIs Industriais", SeniorityLevel.Senior,
-                "Dashboards, qualidade de dados e indicadores (OEE, perdas, produtividade) para tomada de decisao.",
-                false, false),
-            new("VAG-TEC-005","TEC-005","UNI-SPC","Analista de Seguranca da Informacao", SeniorityLevel.Pleno,
-                "Politicas de seguranca, acessos, vulnerabilidades e governanca LGPD com visao corporativa.",
-                false, false),
-            new("VAG-OPS-006","OPS-003","UNI-EMB","Lider de Turno - Producao", SeniorityLevel.Coordenacao,
-                "Gestao do turno, metas, seguranca, qualidade e produtividade. Acompanha OEE e planos de acao.",
-                true, true),
-            new("VAG-QUA-006","QUA-003","UNI-EMB","Analista de Rastreabilidade & Recall", SeniorityLevel.Pleno,
-                "Controle de lotes, rastreabilidade ponta a ponta e simulado de recall com interface SCM/Qualidade.",
-                false, true),
-            new("VAG-ENG-006","ENG-003","UNI-EMB","Operador de Caldeira", SeniorityLevel.Senior,
-                "Operacao e rotinas de seguranca em caldeiras/utilidades, controles e inspecoes regulamentares.",
-                true, true),
-            new("VAG-SCM-006","SCM-005","UNI-EMB","Supervisor de Expedicao", SeniorityLevel.Coordenacao,
-                "Coordena expedicao, carregamento e SLA, interface com transportadoras e roteirizacao diaria.",
-                true, true),
-            new("VAG-OPS-007","OPS-004","UNI-EMB","Conferente de Embalagem & Rotulagem", SeniorityLevel.Junior,
-                "Conferencia de rotulagem, codificacao, datas e integridade de embalagem para evitar desvios e retrabalho.",
-                true, true)
+            ["{AreaName}"] = resolvedName,
+            ["{AreaCode}"] = areaCode,
+            ["{Sentence}"] = faker.Lorem.Sentence(8),
+            ["{Sentence2}"] = faker.Lorem.Sentence(8),
+            ["{Sentence3}"] = faker.Lorem.Sentence(10)
         };
+
+        foreach (var kvp in replacements)
+            result = result.Replace(kvp.Key, kvp.Value, StringComparison.OrdinalIgnoreCase);
+
+        return result.Trim();
     }
 }

@@ -85,6 +85,27 @@
       }));
     }
 
+    function toBadgeCode(value){
+      const text = (value || "").toString().toUpperCase().replace(/[^A-Z]/g, "");
+      if(!text) return "";
+      if(text.length === 1) return text + text;
+      return text.slice(0, 2);
+    }
+
+    function applyInitialsBadge(el, initialsText){
+      if(!el) return;
+      const code = toBadgeCode(initialsText);
+      const oldClasses = Array.from(el.classList).filter(cls => /^badge-[A-Z]{2}$/.test(cls));
+      oldClasses.forEach(cls => el.classList.remove(cls));
+
+      if(!code){
+        el.classList.remove("avatar-badge");
+        return;
+      }
+
+      el.classList.add("avatar-badge", `badge-${code}`);
+    }
+
     function buildStatusTag(status){
       const key = (status || "").toString().toLowerCase();
       const map = {
@@ -475,7 +496,9 @@
         tr.style.cursor = "default";
         if(isSel) tr.classList.add("table-active");
 
-        setText(tr, "cand-initials", initials(c.nome));
+        const initialsText = initials(c.nome);
+        setText(tr, "cand-initials", initialsText);
+        applyInitialsBadge(tr.querySelector('[data-role="cand-initials"]'), initialsText);
         setText(tr, "cand-name", c.nome);
         setText(tr, "cand-email", c.email);
         setText(tr, "cand-phone", c.fone);
@@ -766,7 +789,9 @@
       const root = cloneTemplate("tpl-cand-detail");
       if(!root) return;
 
-      setText(root, "detail-initials", initials(c.nome));
+      const initialsText = initials(c.nome);
+      setText(root, "detail-initials", initialsText);
+      applyInitialsBadge(root.querySelector('[data-role="detail-initials"]'), initialsText);
       setText(root, "detail-name", c.nome);
       setText(root, "detail-email", c.email);
       setText(root, "detail-phone", c.fone);

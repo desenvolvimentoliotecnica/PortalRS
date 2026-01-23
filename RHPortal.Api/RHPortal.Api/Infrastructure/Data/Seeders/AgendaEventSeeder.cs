@@ -1,3 +1,4 @@
+using Bogus;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 
@@ -5,10 +6,15 @@ namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class AgendaEventSeeder
 {
-    public static async Task EnsureEventsAsync(AppDbContext db, string tenantId, CancellationToken ct)
+    public static async Task EnsureEventsAsync(AppDbContext db, string tenantId, int targetCount, CancellationToken ct, int? randomSeed = null)
     {
-        var hasEvents = await db.AgendaEvents.AnyAsync(x => x.TenantId == tenantId, ct);
-        if (hasEvents) return;
+        targetCount = Math.Max(0, targetCount);
+        if (targetCount == 0)
+            return;
+
+        var existingCount = await db.AgendaEvents.CountAsync(x => x.TenantId == tenantId, ct);
+        if (existingCount >= targetCount)
+            return;
 
         var types = await db.AgendaEventTypes
             .AsNoTracking()
@@ -17,47 +23,59 @@ public static class AgendaEventSeeder
 
         if (types.Count == 0) return;
 
-        var now = DateTime.UtcNow;
-        var seeds = new[]
+        var seed = (randomSeed ?? 42) + 23;
+        var faker = new Faker("pt_BR")
         {
-            new { Code = "entrevista", Title = "Entrevista - Analista de Qualidade", Candidate = "Carlos Lima", Vaga = "Assistente de Qualidade", VagaCode = "VAG-QUA-004", Owner = "Ana (RH)", Location = "Google Meet" },
-            new { Code = "entrevista", Title = "Entrevista - Operador de Producao", Candidate = "Marina Souza", Vaga = "Operador de Producao (Linha)", VagaCode = "VAG-OPS-002", Owner = "Joao (RH)", Location = "Sala 2" },
-            new { Code = "reuniao", Title = "Reuniao com gestor requisitante", Candidate = "Fernanda Rocha", Vaga = "Tecnico de Manutencao", VagaCode = "VAG-ENG-001", Owner = "Diego (RH)", Location = "Teams" },
-            new { Code = "assessment", Title = "Assessment tecnico", Candidate = "Juliana Martins", Vaga = "Tecnico de P&D", VagaCode = "VAG-PDI-003", Owner = "Bruno (RH)", Location = "Sala 4" },
-            new { Code = "followup", Title = "Follow-up de documentacao", Candidate = "Rafael Pereira", Vaga = "Executivo de Vendas", VagaCode = "VAG-COM-001", Owner = "Paula (RH)", Location = "Email" },
-            new { Code = "onboarding", Title = "Onboarding - novo colaborador", Candidate = "Aline Costa", Vaga = "Analista de Dados (BI)", VagaCode = "VAG-TEC-002", Owner = "Marina (RH)", Location = "Sala 1" },
-            new { Code = "reuniao", Title = "Reuniao de alinhamento", Candidate = "Bruno Alves", Vaga = "Analista de Logistica", VagaCode = "VAG-SCM-003", Owner = "Fernanda (RH)", Location = "Teams" },
-            new { Code = "entrevista", Title = "Entrevista - Administrativo", Candidate = "Paula Santos", Vaga = "Assistente Administrativo", VagaCode = "VAG-ADM-001", Owner = "Carlos (RH)", Location = "Sala 3" },
-            new { Code = "outro", Title = "Contato inicial com candidato", Candidate = "Diego Oliveira", Vaga = "Analista Financeiro", VagaCode = "VAG-FIN-002", Owner = "Aline (RH)", Location = "Ligacao" },
-            new { Code = "assessment", Title = "Teste comportamental", Candidate = "Joao Mendes", Vaga = "Assistente Administrativo (Planta)", VagaCode = "VAG-ADM-002", Owner = "Juliana (RH)", Location = "Online" }
+            Random = new Randomizer(seed)
         };
 
-        var events = new List<AgendaEvent>();
-        for (var i = 0; i < seeds.Length; i++)
-        {
-            var seed = seeds[i];
-            if (!types.TryGetValue(seed.Code, out var typeId)) continue;
+        var areaCodes = await db.Areas
+            .AsNoTracking()
+            .Select(a => a.Code)
+            .ToListAsync(ct);
+        if (areaCodes.Count == 0)
+            areaCodes = new List<string> { "OPS", "QUA", "ENG", "SCM", "PDI", "COM", "TEC", "FIN", "RH", "ADM" };
 
-            var start = now.Date.AddDays(i - 3).AddHours(9 + (i % 5));
-            var end = start.AddMinutes(30 + (i % 3) * 15);
+        var typeList = types.Select(t => new { Code = t.Key, Id = t.Value }).ToList();
+        var now = DateTime.UtcNow;
+        var jobPrefixes = new[] { "Analista", "Assistente", "Tecnico", "Supervisor", "Coordenador" };
+        var jobSubjects = new[] { "Qualidade", "Producao", "Manutencao", "Financeiro", "Logistica", "Comercial", "RH", "TI" };
+        var locations = new[] { "Teams", "Google Meet", "Sala 1", "Sala 2", "Sala 3", "Online" };
+        var statuses = new[] { "confirmado", "pendente", "remarcado" };
+        var toCreate = targetCount - existingCount;
+
+        var events = new List<AgendaEvent>();
+        for (var i = 0; i < toCreate; i++)
+        {
+            var type = faker.PickRandom(typeList);
+            var jobTitle = $"{faker.PickRandom(jobPrefixes)} de {faker.PickRandom(jobSubjects)}";
+            var candidate = faker.Name.FullName();
+            var owner = $"{faker.Name.FirstName()} (RH)";
+            var location = faker.PickRandom(locations);
+            var areaCode = faker.PickRandom(areaCodes);
+            var vagaCode = $"VAG-{areaCode}-{faker.Random.Int(1, 999):000}";
+            var vagaTitle = jobTitle;
+
+            var start = now.Date.AddDays(faker.Random.Int(-4, 10)).AddHours(faker.Random.Int(8, 17));
+            var end = start.AddMinutes(faker.Random.Int(30, 90));
 
             events.Add(new AgendaEvent
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
-                TypeId = typeId,
-                Title = seed.Title,
+                TypeId = type.Id,
+                Title = BuildTitle(type.Code, jobTitle),
                 StartAtUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc),
                 EndAtUtc = DateTime.SpecifyKind(end, DateTimeKind.Utc),
                 AllDay = false,
-                Status = "confirmado",
-                Location = seed.Location,
-                Owner = seed.Owner,
-                Candidate = seed.Candidate,
-                VagaTitle = seed.Vaga,
-                VagaCode = seed.VagaCode,
-                Notes = "Evento gerado no seed para validacao.",
-                CreatedAtUtc = DateTimeOffset.UtcNow,
+                Status = faker.PickRandom(statuses),
+                Location = location,
+                Owner = owner,
+                Candidate = candidate,
+                VagaTitle = vagaTitle,
+                VagaCode = vagaCode,
+                Notes = faker.Lorem.Sentence(8),
+                CreatedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-faker.Random.Int(60, 9000)),
                 UpdatedAtUtc = DateTimeOffset.UtcNow
             });
         }
@@ -67,5 +85,18 @@ public static class AgendaEventSeeder
             db.AgendaEvents.AddRange(events);
             await db.SaveChangesAsync(ct);
         }
+    }
+
+    private static string BuildTitle(string typeCode, string jobTitle)
+    {
+        return typeCode.ToLowerInvariant() switch
+        {
+            "entrevista" => $"Entrevista - {jobTitle}",
+            "reuniao" => $"Reuniao de alinhamento - {jobTitle}",
+            "assessment" => $"Assessment tecnico - {jobTitle}",
+            "followup" => $"Follow-up - {jobTitle}",
+            "onboarding" => $"Onboarding - {jobTitle}",
+            _ => $"Contato inicial - {jobTitle}"
+        };
     }
 }

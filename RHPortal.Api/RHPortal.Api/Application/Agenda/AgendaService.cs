@@ -1,15 +1,22 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Agenda;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Agenda;
 
 public sealed class AgendaService
 {
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
-    public AgendaService(AppDbContext db) => _db = db;
+    public AgendaService(AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
+    {
+        _db = db;
+        _localizer = localizer;
+    }
 
     public async Task<IReadOnlyList<AgendaEventTypeResponse>> ListTypesAsync(CancellationToken ct)
     {
@@ -181,13 +188,13 @@ public sealed class AgendaService
     {
         var normalized = (code ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(normalized))
-            throw new InvalidOperationException("Tipo do evento é obrigatório.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.AgendaTypeRequired"]);
 
         var type = await _db.AgendaEventTypes
             .FirstOrDefaultAsync(x => x.Code == normalized, ct);
 
         if (type is null)
-            throw new InvalidOperationException($"Tipo de evento '{normalized}' não encontrado.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.AgendaTypeNotFound", normalized]);
 
         return type;
     }

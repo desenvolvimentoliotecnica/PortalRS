@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ServiceErrors.AgendaTypeRequired" xml:space="preserve">
+    <value>Event type is required.</value>
+  </data>
+  <data name="ServiceErrors.AgendaTypeNotFound" xml:space="preserve">
+    <value>Event type '{0}' was not found.</value>
+  </data>
+  <data name="ServiceErrors.AreaInvalid" xml:space="preserve">
+    <value>Invalid area.</value>
+  </data>
+  <data name="ServiceErrors.DepartmentInvalid" xml:space="preserve">
+    <value>Invalid department.</value>
+  </data>
+  <data name="ServiceErrors.TenantRequired" xml:space="preserve">
+    <value>Tenant identifier is required.</value>
+  </data>
+  <data name="ServiceErrors.TenantMismatchForVaga" xml:space="preserve">
+    <value>Tenant mismatch for vaga.</value>
+  </data>
+  <data name="ServiceErrors.UnitHeadcountNegative" xml:space="preserve">
+    <value>Headcount cannot be negative.</value>
+  </data>
+  <data name="ServiceErrors.UnitCodeExists" xml:space="preserve">
+    <value>A unit with code '{0}' already exists.</value>
+  </data>
+  <data name="ServiceErrors.UnitCodeExistsOther" xml:space="preserve">
+    <value>Another unit with code '{0}' already exists.</value>
+  </data>
+  <data name="ServiceErrors.UnitCodePrefix" xml:space="preserve">
+    <value>Unit code must start with 'UNI-' (e.g.: UNI-EMB).</value>
+  </data>
+  <data name="ServiceErrors.UnitCodeTooShort" xml:space="preserve">
+    <value>Unit code is too short (e.g.: UNI-EMB).</value>
+  </data>
+  <data name="ServiceErrors.UnitUfInvalid" xml:space="preserve">
+    <value>UF must have exactly 2 letters (e.g.: SP).</value>
+  </data>
+  <data name="ServiceErrors.UnitCepInvalid" xml:space="preserve">
+    <value>Invalid CEP. Use 00000-000 (or 00000000).</value>
+  </data>
+  <data name="ServiceErrors.JobAreaInvalid" xml:space="preserve">
+    <value>Invalid area.</value>
+  </data>
+  <data name="ServiceErrors.JobCodeExists" xml:space="preserve">
+    <value>A job position with code '{0}' already exists.</value>
+  </data>
+  <data name="ServiceErrors.JobCodeExistsOther" xml:space="preserve">
+    <value>Another job position with code '{0}' already exists.</value>
+  </data>
+  <data name="ServiceErrors.JobCodePrefix" xml:space="preserve">
+    <value>Job position code must start with 'CAR-' (e.g.: CAR-OPS-001).</value>
+  </data>
+  <data name="ServiceErrors.JobCodeTooShort" xml:space="preserve">
+    <value>Job position code is too short.</value>
+  </data>
+  <data name="ServiceErrors.ManagerEmailExists" xml:space="preserve">
+    <value>A manager with email '{0}' already exists.</value>
+  </data>
+  <data name="ServiceErrors.ManagerEmailExistsOther" xml:space="preserve">
+    <value>Another manager with email '{0}' already exists.</value>
+  </data>
+  <data name="ServiceErrors.ManagerUnitInvalid" xml:space="preserve">
+    <value>Invalid unit.</value>
+  </data>
+  <data name="ServiceErrors.ManagerAreaInvalid" xml:space="preserve">
+    <value>Invalid area.</value>
+  </data>
+  <data name="ServiceErrors.ManagerJobInvalid" xml:space="preserve">
+    <value>Invalid job position.</value>
+  </data>
+  <data name="ServiceErrors.DepartmentCodeExists" xml:space="preserve">
+    <value>A department with code '{0}' already exists.</value>
+  </data>
+  <data name="ServiceErrors.DepartmentCodeExistsOther" xml:space="preserve">
+    <value>Another department with code '{0}' already exists.</value>
+  </data>
+  <data name="ServiceErrors.CandidatoFileInvalid" xml:space="preserve">
+    <value>Invalid file.</value>
+  </data>
+  <data name="ServiceErrors.CandidatoVagaInvalid" xml:space="preserve">
+    <value>Invalid vaga.</value>
+  </data>
+  <data name="ServiceErrors.PortalEmailInvalid" xml:space="preserve">
+    <value>Invalid email.</value>
+  </data>
+  <data name="ServiceErrors.PortalAccessExists" xml:space="preserve">
+    <value>Access already exists. Use the login.</value>
+  </data>
+  <data name="ServiceErrors.MenuPermissionRequired" xml:space="preserve">
+    <value>Permission key is required.</value>
+  </data>
+  <data name="ServiceErrors.MenuPermissionExists" xml:space="preserve">
+    <value>Permission key already exists.</value>
+  </data>
+  <data name="ServiceErrors.RoleNameRequired" xml:space="preserve">
+    <value>Role name is required.</value>
+  </data>
+  <data name="ServiceErrors.RoleNameExists" xml:space="preserve">
+    <value>Role name already exists.</value>
+  </data>
+  <data name="ServiceErrors.RoleMenusNotFound" xml:space="preserve">
+    <value>One or more menus were not found.</value>
+  </data>
+  <data name="ServiceErrors.UserEmailRequired" xml:space="preserve">
+    <value>Email is required.</value>
+  </data>
+  <data name="ServiceErrors.UserEmailInUse" xml:space="preserve">
+    <value>Email is already in use.</value>
+  </data>
+  <data name="ServiceErrors.UserRolesNotFound" xml:space="preserve">
+    <value>One or more roles were not found.</value>
+  </data>
+</root>

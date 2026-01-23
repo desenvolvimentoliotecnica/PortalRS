@@ -109,7 +109,7 @@ public sealed class DashboardController : ControllerBase
         var query = db.Candidatos
             .AsNoTracking()
             .Include(c => c.Vaga)
-            .Where(c => c.LastMatchScore != null);
+            .Where(c => c.LastMatchScore != null && c.VagaId != null);
 
         if (safeMin > 0)
             query = query.Where(c => c.LastMatchScore >= safeMin);
@@ -128,7 +128,7 @@ public sealed class DashboardController : ControllerBase
             .ThenByDescending(c => c.UpdatedAtUtc)
             .Take(safeTake)
             .Select(c => new DashboardTopMatchResponse(
-                c.VagaId,
+                c.VagaId!.Value,
                 c.Vaga != null ? c.Vaga.Titulo : null,
                 c.Vaga != null ? c.Vaga.Codigo : null,
                 c.Id,

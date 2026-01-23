@@ -4,6 +4,8 @@ using MailKit.Net.Imap;
 using MailKit.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Messaging.Email;
@@ -14,10 +16,12 @@ namespace RhPortal.Api.Messaging.Email;
 public sealed class EmailConfigController : ControllerBase
 {
     private readonly IEmailConfigService _service;
+    private readonly IStringLocalizer<InfrastructureMessages> _localizer;
 
-    public EmailConfigController(IEmailConfigService service)
+    public EmailConfigController(IEmailConfigService service, IStringLocalizer<InfrastructureMessages> localizer)
     {
         _service = service;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -41,7 +45,7 @@ public sealed class EmailConfigController : ControllerBase
     {
         var config = await _service.GetDecryptedAsync(ct);
         if (config is null)
-            return BadRequest(new { message = "SMTP nao configurado." });
+            return BadRequest(new { message = _localizer["InfrastructureEmail.SmtpNotConfigured"] });
 
         var host = request.SmtpHost ?? config.SmtpHost;
         var port = request.SmtpPort ?? config.SmtpPort;
@@ -49,11 +53,11 @@ public sealed class EmailConfigController : ControllerBase
         var user = request.SmtpUserName ?? config.SmtpUserName;
         var pass = string.IsNullOrWhiteSpace(request.SmtpPassword) ? config.SmtpPassword : request.SmtpPassword;
         var fromAddress = request.FromAddress ?? config.SmtpFromAddress ?? user;
-        var fromName = request.FromName ?? config.SmtpFromName ?? "Portal RH";
+        var fromName = request.FromName ?? config.SmtpFromName ?? _localizer["InfrastructureEmail.DefaultFromName"];
         var to = request.TestTo ?? fromAddress;
 
         if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(fromAddress) || string.IsNullOrWhiteSpace(to))
-            return BadRequest(new { message = "Dados insuficientes para teste SMTP." });
+            return BadRequest(new { message = _localizer["InfrastructureEmail.SmtpTestDataMissing"] });
 
         using var client = new SmtpClient(host, port)
         {
@@ -66,14 +70,14 @@ public sealed class EmailConfigController : ControllerBase
         using var msg = new MailMessage
         {
             From = new MailAddress(fromAddress, fromName),
-            Subject = "Teste SMTP - Portal RH",
-            Body = "Teste de conexao SMTP realizado com sucesso.",
+            Subject = _localizer["InfrastructureEmail.SmtpTestSubject"],
+            Body = _localizer["InfrastructureEmail.SmtpTestBody"],
             IsBodyHtml = false
         };
         msg.To.Add(to);
 
         await client.SendMailAsync(msg, ct);
-        return Ok(new { message = "SMTP OK" });
+        return Ok(new { message = _localizer["InfrastructureEmail.SmtpOk"] });
     }
 
     [HttpPost("test-imap")]
@@ -81,7 +85,7 @@ public sealed class EmailConfigController : ControllerBase
     {
         var config = await _service.GetDecryptedAsync(ct);
         if (config is null)
-            return BadRequest(new { message = "IMAP nao configurado." });
+            return BadRequest(new { message = _localizer["InfrastructureEmail.ImapNotConfigured"] });
 
         var host = request.ImapHost ?? config.ImapHost;
         var port = request.ImapPort ?? config.ImapPort;
@@ -90,7 +94,7 @@ public sealed class EmailConfigController : ControllerBase
         var pass = string.IsNullOrWhiteSpace(request.ImapPassword) ? config.ImapPassword : request.ImapPassword;
 
         if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
-            return BadRequest(new { message = "Dados insuficientes para teste IMAP." });
+            return BadRequest(new { message = _localizer["InfrastructureEmail.ImapTestDataMissing"] });
 
         using var client = new ImapClient();
         var options = enableSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable;
@@ -98,7 +102,7 @@ public sealed class EmailConfigController : ControllerBase
         await client.AuthenticateAsync(user, pass, ct);
         await client.DisconnectAsync(true, ct);
 
-        return Ok(new { message = "IMAP OK" });
+        return Ok(new { message = _localizer["InfrastructureEmail.ImapOk"] });
     }
 }
 

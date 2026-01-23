@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Agenda;
 using RhPortal.Api.Contracts.Agenda;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
@@ -9,6 +11,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/agenda")]
 public sealed class AgendaController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public AgendaController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [RequirePermission("agenda.view")]
     [HttpGet("types")]
     public async Task<ActionResult<IReadOnlyList<AgendaEventTypeResponse>>> ListTypes(
@@ -57,7 +66,7 @@ public sealed class AgendaController : ControllerBase
         {
             return BadRequest(new ProblemDetails
             {
-                Title = "Unable to create event.",
+                Title = _localizer["ControllerErrors.UnableToCreateEventTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status400BadRequest
             });
@@ -81,7 +90,7 @@ public sealed class AgendaController : ControllerBase
         {
             return BadRequest(new ProblemDetails
             {
-                Title = "Unable to update event.",
+                Title = _localizer["ControllerErrors.UnableToUpdateEventTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status400BadRequest
             });
