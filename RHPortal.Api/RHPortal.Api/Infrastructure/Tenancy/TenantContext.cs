@@ -1,4 +1,7 @@
-﻿namespace RhPortal.Api.Infrastructure.Tenancy;
+using Microsoft.Extensions.Localization;
+using RhPortal.Api.Infrastructure.Localization;
+
+namespace RhPortal.Api.Infrastructure.Tenancy;
 
 public interface ITenantContext
 {
@@ -8,13 +11,20 @@ public interface ITenantContext
 
 public sealed class TenantContext : ITenantContext
 {
+    private readonly IStringLocalizer<InfrastructureMessages> _localizer;
+
+    public TenantContext(IStringLocalizer<InfrastructureMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     public string TenantId { get; private set; } = string.Empty;
 
     public void SetTenantId(string tenantId)
     {
         var value = tenantId?.Trim();
         if (string.IsNullOrWhiteSpace(value))
-            throw new InvalidOperationException("Tenant identifier is required.");
+            throw new InvalidOperationException(_localizer["InfrastructureErrors.TenantIdentifierRequired"]);
 
         TenantId = value;
     }

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
@@ -14,6 +16,7 @@ public static class AdminAccessSeeder
         string emailDomain,
         string adminPassword,
         int emailMessageSeedCount,
+        IStringLocalizer<SeedMessages> localizer,
         CancellationToken ct,
         int? randomSeed = null)
     {
@@ -62,7 +65,7 @@ public static class AdminAccessSeeder
         await MenuSeeder.EnsureAsync(db, adminRole, ct);
 
         await EmailTemplateSeeder.EnsureAsync(db, ct);
-        await EmailMessageSeeder.EnsureAsync(db, tenantId, emailMessageSeedCount, ct, randomSeed);
+        await EmailMessageSeeder.EnsureAsync(db, tenantId, emailMessageSeedCount, ct, localizer, randomSeed);
         await EmailConfigSeeder.EnsureAsync(db, tenantId, ct);
     }
 }

@@ -106,7 +106,17 @@ public static class DbSeeder
             ? "liotecnica.com.br"
             : "dev.local";
 
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.AdminAccessSeeder.EnsureAsync(db, userManager, roleManager, tenantId, emailDomain, adminPassword, emailMessageSeedCount, ct, randomSeed);
+        await global::RhPortal.Api.Infrastructure.Data.Seeders.AdminAccessSeeder.EnsureAsync(
+            db,
+            userManager,
+            roleManager,
+            tenantId,
+            emailDomain,
+            adminPassword,
+            emailMessageSeedCount,
+            localizer,
+            ct,
+            randomSeed);
 
         // Areas, departamentos, requisitos e centros de custo
         await global::RhPortal.Api.Infrastructure.Data.Seeders.AreaDepartmentSeeder.EnsureAsync(db, emailDomain, ct);

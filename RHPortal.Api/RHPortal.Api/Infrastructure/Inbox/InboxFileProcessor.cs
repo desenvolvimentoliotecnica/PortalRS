@@ -4,11 +4,13 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Inbox;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Entities;
 
@@ -24,13 +26,20 @@ public sealed class InboxFileProcessor
     private readonly ITenantContext _tenantContext;
     private readonly IHostEnvironment _env;
     private readonly IHubContext<InboxHub> _hub;
+    private readonly IStringLocalizer<InfrastructureMessages> _localizer;
 
-    public InboxFileProcessor(AppDbContext db, ITenantContext tenantContext, IHostEnvironment env, IHubContext<InboxHub> hub)
+    public InboxFileProcessor(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IHostEnvironment env,
+        IHubContext<InboxHub> hub,
+        IStringLocalizer<InfrastructureMessages> localizer)
     {
         _db = db;
         _tenantContext = tenantContext;
         _env = env;
         _hub = hub;
+        _localizer = localizer;
     }
 
     public async Task ProcessAsync(
@@ -50,18 +59,18 @@ public sealed class InboxFileProcessor
             Status = InboxStatus.Processando,
             RecebidoEm = DateTimeOffset.UtcNow,
             Assunto = Path.GetFileName(filePath),
-            ProcessamentoEtapa = "iniciado",
+            ProcessamentoEtapa = _localizer["InfrastructureInbox.StageStarted"],
             ProcessamentoTentativas = 1
         };
 
         try
         {
             if (!File.Exists(filePath))
-                throw new InvalidOperationException("Arquivo nao encontrado.");
+                throw new InvalidOperationException(_localizer["InfrastructureInbox.FileNotFound"]);
 
             var ext = Path.GetExtension(filePath).ToLowerInvariant();
             if (!IsSupported(ext))
-                throw new InvalidOperationException("Tipo de arquivo nao suportado.");
+                throw new InvalidOperationException(_localizer["InfrastructureInbox.FileTypeNotSupported"]);
 
             var bytes = await File.ReadAllBytesAsync(filePath, ct);
             var hash = ComputeHash(bytes);
@@ -72,9 +81,9 @@ public sealed class InboxFileProcessor
             if (already)
             {
                 inbox.Status = InboxStatus.Descartado;
-                inbox.ProcessamentoEtapa = "duplicado";
-                inbox.ProcessamentoUltimoErro = "Arquivo ja processado.";
-                inbox.ProcessamentoLogRaw = JsonSerializer.Serialize(new[] { "Arquivo duplicado." });
+                inbox.ProcessamentoEtapa = _localizer["InfrastructureInbox.StageDuplicate"];
+                inbox.ProcessamentoUltimoErro = _localizer["InfrastructureInbox.FileAlreadyProcessed"];
+                inbox.ProcessamentoLogRaw = JsonSerializer.Serialize(new[] { _localizer["InfrastructureInbox.FileDuplicateLog"].Value });
                 inbox.Anexos.Add(new InboxAnexo
                 {
                     Id = Guid.NewGuid(),
@@ -91,23 +100,23 @@ public sealed class InboxFileProcessor
 
             var text = await ResumeTextExtractor.ExtractAsync(filePath, ct);
             inbox.PreviewText = TakePreview(text);
-            log.Add("Texto extraido.");
+            log.Add(_localizer["InfrastructureInbox.LogTextExtracted"]);
 
             var email = ExtractEmail(text);
             if (string.IsNullOrWhiteSpace(email))
-                throw new InvalidOperationException("Email nao encontrado no curriculo.");
+                throw new InvalidOperationException(_localizer["InfrastructureInbox.EmailNotFound"]);
 
             var nome = ExtractName(text);
             if (string.IsNullOrWhiteSpace(nome))
                 nome = GuessNameFromFile(filePath, email);
 
-            log.Add($"Email: {email}");
-            log.Add($"Nome: {nome}");
+            log.Add(_localizer["InfrastructureInbox.LogEmail", email]);
+            log.Add(_localizer["InfrastructureInbox.LogNome", nome]);
             inbox.Remetente = email;
 
             var vagaId = await GetOrCreateInboxVagaAsync(ct);
             if (vagaId == Guid.Empty)
-                throw new InvalidOperationException("Nao foi possivel vincular a vaga base.");
+                throw new InvalidOperationException(_localizer["InfrastructureInbox.VagaLinkFailed"]);
 
             var suggestions = await SuggestVagasAsync(text, ct);
             inbox.SuggestedVagasJson = JsonSerializer.Serialize(suggestions);
@@ -120,7 +129,7 @@ public sealed class InboxFileProcessor
                 Fonte = CandidatoFonte.Pasta,
                 Status = CandidatoStatus.Triagem,
                 VagaId = vagaId,
-                Obs = $"Origem pasta: {Path.GetFileName(filePath)}",
+                Obs = _localizer["InfrastructureInbox.OrigemPastaObs", Path.GetFileName(filePath)],
                 CvText = text
             };
 
@@ -138,14 +147,14 @@ public sealed class InboxFileProcessor
                 Tipo = MapDocumentoTipo(ext),
                 NomeArquivo = Path.GetFileName(filePath),
                 ContentType = GetContentType(ext),
-                Descricao = "Curriculo importado da pasta",
+                Descricao = _localizer["InfrastructureInbox.CurriculoImportadoDescricao"],
                 TamanhoBytes = bytes.Length,
                 StorageFileName = storageFileName,
                 Url = null
             });
 
             inbox.Status = InboxStatus.Processado;
-            inbox.ProcessamentoEtapa = "concluido";
+            inbox.ProcessamentoEtapa = _localizer["InfrastructureInbox.StageCompleted"];
             inbox.ProcessamentoPct = 100;
             inbox.ProcessamentoLogRaw = JsonSerializer.Serialize(log);
             inbox.CandidatoId = candidato.Id;
@@ -168,7 +177,7 @@ public sealed class InboxFileProcessor
         catch (Exception ex)
         {
             inbox.Status = InboxStatus.Falha;
-            inbox.ProcessamentoEtapa = "erro";
+            inbox.ProcessamentoEtapa = _localizer["InfrastructureInbox.StageError"];
             inbox.ProcessamentoUltimoErro = ex.Message;
             inbox.ProcessamentoLogRaw = JsonSerializer.Serialize(log.Concat(new[] { ex.Message }));
             _db.InboxItems.Add(inbox);
@@ -265,13 +274,13 @@ public sealed class InboxFileProcessor
         return null;
     }
 
-    private static string GuessNameFromFile(string filePath, string email)
+    private string GuessNameFromFile(string filePath, string email)
     {
         var fileName = Path.GetFileNameWithoutExtension(filePath)?.Replace('_', ' ').Replace('-', ' ').Trim();
         if (!string.IsNullOrWhiteSpace(fileName) && fileName.Length >= 3)
             return fileName;
 
-        var prefix = email.Split('@').FirstOrDefault() ?? "Candidato";
+        var prefix = email.Split('@').FirstOrDefault() ?? _localizer["InfrastructureInbox.DefaultCandidateName"].Value;
         return prefix.Replace('.', ' ').Replace('-', ' ').Trim();
     }
 

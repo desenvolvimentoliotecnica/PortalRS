@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Contracts.Portal;
 
@@ -15,7 +16,8 @@ public sealed record PortalCandidateRegisterRequest(
     [Required, MaxLength(2)] string Uf,
     [Required, MinLength(8), MaxLength(120)]
     [RegularExpression("^(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$",
-        ErrorMessage = "Senha deve ter no minimo 8 caracteres, 1 letra maiuscula, 1 numero e 1 caractere especial.")]
+        ErrorMessageResourceType = typeof(ValidationMessages),
+        ErrorMessageResourceName = "ValidationErrors.PasswordPolicy")]
     string Password
 );
 

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="InfrastructureErrors.TenantHeaderRequiredTitle" xml:space="preserve">
+    <value>Tenant header is required.</value>
+  </data>
+  <data name="InfrastructureErrors.TenantHeaderMissingDetail" xml:space="preserve">
+    <value>Missing header: {0}.</value>
+  </data>
+  <data name="InfrastructureErrors.TenantHeaderEmptyDetail" xml:space="preserve">
+    <value>Header {0} cannot be empty.</value>
+  </data>
+  <data name="InfrastructureErrors.TenantIdentifierInvalidTitle" xml:space="preserve">
+    <value>Tenant identifier is invalid.</value>
+  </data>
+  <data name="InfrastructureErrors.TenantIdentifierInvalidDetail" xml:space="preserve">
+    <value>Tenant identifier format is not valid.</value>
+  </data>
+  <data name="InfrastructureErrors.TenantInactiveTitle" xml:space="preserve">
+    <value>Tenant is not active.</value>
+  </data>
+  <data name="InfrastructureErrors.TenantInactiveDetail" xml:space="preserve">
+    <value>Tenant does not exist or is inactive.</value>
+  </data>
+  <data name="InfrastructureErrors.TenantIdentifierRequired" xml:space="preserve">
+    <value>Tenant identifier is required.</value>
+  </data>
+  <data name="InfrastructureErrors.JwtSettingsRequired" xml:space="preserve">
+    <value>Jwt settings are required.</value>
+  </data>
+  <data name="InfrastructureErrors.TenantClaimRequired" xml:space="preserve">
+    <value>Tenant claim is required.</value>
+  </data>
+  <data name="InfrastructureErrors.TenantDoesNotMatch" xml:space="preserve">
+    <value>Tenant does not match.</value>
+  </data>
+  <data name="InfrastructureErrors.EmailConfigEncryptionKeyRequired" xml:space="preserve">
+    <value>EmailConfig:EncryptionKey is required for email configuration encryption.</value>
+  </data>
+  <data name="InfrastructureErrors.ConnectionStringDefaultRequired" xml:space="preserve">
+    <value>Connection string Default is required.</value>
+  </data>
+  <data name="InfrastructureInbox.FileNotFound" xml:space="preserve">
+    <value>File not found.</value>
+  </data>
+  <data name="InfrastructureInbox.FileTypeNotSupported" xml:space="preserve">
+    <value>File type is not supported.</value>
+  </data>
+  <data name="InfrastructureInbox.FileAlreadyProcessed" xml:space="preserve">
+    <value>File already processed.</value>
+  </data>
+  <data name="InfrastructureInbox.FileDuplicateLog" xml:space="preserve">
+    <value>Duplicate file.</value>
+  </data>
+  <data name="InfrastructureInbox.EmailNotFound" xml:space="preserve">
+    <value>Email not found in resume.</value>
+  </data>
+  <data name="InfrastructureInbox.VagaLinkFailed" xml:space="preserve">
+    <value>Unable to link the base job opening.</value>
+  </data>
+  <data name="InfrastructureInbox.StageStarted" xml:space="preserve">
+    <value>started</value>
+  </data>
+  <data name="InfrastructureInbox.StageDuplicate" xml:space="preserve">
+    <value>duplicate</value>
+  </data>
+  <data name="InfrastructureInbox.StageCompleted" xml:space="preserve">
+    <value>completed</value>
+  </data>
+  <data name="InfrastructureInbox.StageError" xml:space="preserve">
+    <value>error</value>
+  </data>
+  <data name="InfrastructureInbox.LogTextExtracted" xml:space="preserve">
+    <value>Text extracted.</value>
+  </data>
+  <data name="InfrastructureInbox.LogEmail" xml:space="preserve">
+    <value>Email: {0}</value>
+  </data>
+  <data name="InfrastructureInbox.LogNome" xml:space="preserve">
+    <value>Name: {0}</value>
+  </data>
+  <data name="InfrastructureInbox.OrigemPastaObs" xml:space="preserve">
+    <value>Folder source: {0}</value>
+  </data>
+  <data name="InfrastructureInbox.CurriculoImportadoDescricao" xml:space="preserve">
+    <value>Resume imported from folder</value>
+  </data>
+  <data name="InfrastructureInbox.DefaultCandidateName" xml:space="preserve">
+    <value>Candidate</value>
+  </data>
+  <data name="InfrastructureEmail.SmtpNotConfigured" xml:space="preserve">
+    <value>SMTP not configured.</value>
+  </data>
+  <data name="InfrastructureEmail.SmtpTestDataMissing" xml:space="preserve">
+    <value>Insufficient data for SMTP test.</value>
+  </data>
+  <data name="InfrastructureEmail.ImapNotConfigured" xml:space="preserve">
+    <value>IMAP not configured.</value>
+  </data>
+  <data name="InfrastructureEmail.ImapTestDataMissing" xml:space="preserve">
+    <value>Insufficient data for IMAP test.</value>
+  </data>
+  <data name="InfrastructureEmail.DefaultFromName" xml:space="preserve">
+    <value>Portal RH</value>
+  </data>
+  <data name="InfrastructureEmail.SmtpTestSubject" xml:space="preserve">
+    <value>SMTP Test - Portal RH</value>
+  </data>
+  <data name="InfrastructureEmail.SmtpTestBody" xml:space="preserve">
+    <value>SMTP connection test completed successfully.</value>
+  </data>
+  <data name="InfrastructureEmail.SmtpOk" xml:space="preserve">
+    <value>SMTP OK</value>
+  </data>
+  <data name="InfrastructureEmail.ImapOk" xml:space="preserve">
+    <value>IMAP OK</value>
+  </data>
+  <data name="InfrastructureEmail.EmailAlreadySent" xml:space="preserve">
+    <value>Email already sent.</value>
+  </data>
+</root>

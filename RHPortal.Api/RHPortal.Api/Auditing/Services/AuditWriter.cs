@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Auditing.Context;
 using RhPortal.Api.Auditing.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Auditing.Services;
@@ -12,11 +14,13 @@ public sealed class AuditWriter
 {
     private readonly IConfiguration _config;
     private readonly IHostEnvironment _env;
+    private readonly IStringLocalizer<InfrastructureMessages> _localizer;
 
-    public AuditWriter(IConfiguration config, IHostEnvironment env)
+    public AuditWriter(IConfiguration config, IHostEnvironment env, IStringLocalizer<InfrastructureMessages> localizer)
     {
         _config = config;
         _env = env;
+        _localizer = localizer;
     }
 
     public async Task<Guid> EnsureTransactionAsync(AuditContext context, CancellationToken ct)
@@ -90,11 +94,11 @@ public sealed class AuditWriter
     private AppDbContext CreateDbContext(string tenantId)
     {
         var conn = _config.GetConnectionString("Default")
-            ?? throw new InvalidOperationException("Connection string Default is required.");
+            ?? throw new InvalidOperationException(_localizer["InfrastructureErrors.ConnectionStringDefaultRequired"]);
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(conn)
             .Options;
-        var tenantContext = new TenantContext();
+        var tenantContext = new TenantContext(_localizer);
         tenantContext.SetTenantId(tenantId);
         return new AppDbContext(options, tenantContext);
     }

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RhPortal.Api.Application.Authentication;
@@ -150,7 +151,11 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
 if (jwtOptions is null || string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
-    throw new InvalidOperationException("Jwt settings are required.");
+{
+    using var tempProvider = builder.Services.BuildServiceProvider();
+    var localizer = tempProvider.GetRequiredService<IStringLocalizer<InfrastructureMessages>>();
+    throw new InvalidOperationException(localizer["InfrastructureErrors.JwtSettingsRequired"]);
+}
 
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
@@ -176,16 +181,17 @@ builder.Services
             {
                 var tenantContext = context.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
                 var tenantClaim = context.Principal?.FindFirst("tenant")?.Value;
+                var localizer = context.HttpContext.RequestServices.GetRequiredService<IStringLocalizer<InfrastructureMessages>>();
 
                 if (string.IsNullOrWhiteSpace(tenantClaim))
                 {
-                    context.Fail("Tenant claim is required.");
+                    context.Fail(localizer["InfrastructureErrors.TenantClaimRequired"]);
                     return Task.CompletedTask;
                 }
 
                 if (!string.Equals(tenantClaim, tenantContext.TenantId, StringComparison.OrdinalIgnoreCase))
                 {
-                    context.Fail("Tenant does not match.");
+                    context.Fail(localizer["InfrastructureErrors.TenantDoesNotMatch"]);
                 }
 
                 return Task.CompletedTask;

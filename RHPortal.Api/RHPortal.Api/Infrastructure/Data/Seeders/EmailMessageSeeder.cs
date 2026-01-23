@@ -1,13 +1,21 @@
 using Bogus;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class EmailMessageSeeder
 {
-    public static async Task EnsureAsync(AppDbContext db, string tenantId, int targetCount, CancellationToken ct, int? randomSeed = null)
+    public static async Task EnsureAsync(
+        AppDbContext db,
+        string tenantId,
+        int targetCount,
+        CancellationToken ct,
+        IStringLocalizer<SeedMessages> localizer,
+        int? randomSeed = null)
     {
         targetCount = Math.Max(0, targetCount);
         if (targetCount == 0)
@@ -26,12 +34,12 @@ public static class EmailMessageSeeder
         var now = DateTimeOffset.UtcNow;
         var subjects = new[]
         {
-            "Confirmacao de candidatura",
-            "Convite para entrevista",
-            "Retorno sobre candidatura",
-            "Atualizacao do processo seletivo",
-            "Lembrete de documentacao",
-            "Feedback da vaga"
+            localizer["Seed.EmailSubjectConfirmacao"].Value,
+            localizer["Seed.EmailSubjectEntrevista"].Value,
+            localizer["Seed.EmailSubjectRetorno"].Value,
+            localizer["Seed.EmailSubjectAtualizacao"].Value,
+            localizer["Seed.EmailSubjectLembrete"].Value,
+            localizer["Seed.EmailSubjectFeedback"].Value
         };
 
         var sources = new[] { "portal", "sistema", "triagem", "agenda" };
@@ -75,7 +83,7 @@ public static class EmailMessageSeeder
                 NextAttemptAtUtc = status == EmailMessageStatus.Queued || status == EmailMessageStatus.InProgress
                     ? created.AddMinutes(5)
                     : null,
-                LastError = status == EmailMessageStatus.Failed ? "Falha ao enviar email (SMTP)." : null,
+                LastError = status == EmailMessageStatus.Failed ? localizer["Seed.EmailSendFailure"].Value : null,
                 CreatedAtUtc = created,
                 UpdatedAtUtc = created.AddMinutes(faker.Random.Int(1, 120))
             };
@@ -92,7 +100,7 @@ public static class EmailMessageSeeder
                     StartedAtUtc = created.AddMinutes(a),
                     CompletedAtUtc = created.AddMinutes(a).AddSeconds(20),
                     IsSuccess = status == EmailMessageStatus.Sent && a == attemptCount,
-                    ErrorMessage = status == EmailMessageStatus.Failed ? "Timeout no servidor SMTP." : null
+                    ErrorMessage = status == EmailMessageStatus.Failed ? localizer["Seed.SmtpTimeout"].Value : null
                 };
                 msg.Attempts.Add(attempt);
             }

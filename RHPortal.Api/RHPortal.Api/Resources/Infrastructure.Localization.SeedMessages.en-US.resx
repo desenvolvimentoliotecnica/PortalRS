@@ -69,4 +69,28 @@
   <data name="SeedErrors.AdminPasswordRequired" xml:space="preserve">
     <value>Seed:AdminPassword is required.</value>
   </data>
+  <data name="Seed.EmailSubjectConfirmacao" xml:space="preserve">
+    <value>Application confirmation</value>
+  </data>
+  <data name="Seed.EmailSubjectEntrevista" xml:space="preserve">
+    <value>Interview invitation</value>
+  </data>
+  <data name="Seed.EmailSubjectRetorno" xml:space="preserve">
+    <value>Application update</value>
+  </data>
+  <data name="Seed.EmailSubjectAtualizacao" xml:space="preserve">
+    <value>Recruitment process update</value>
+  </data>
+  <data name="Seed.EmailSubjectLembrete" xml:space="preserve">
+    <value>Documentation reminder</value>
+  </data>
+  <data name="Seed.EmailSubjectFeedback" xml:space="preserve">
+    <value>Job feedback</value>
+  </data>
+  <data name="Seed.EmailSendFailure" xml:space="preserve">
+    <value>Failed to send email (SMTP).</value>
+  </data>
+  <data name="Seed.SmtpTimeout" xml:space="preserve">
+    <value>SMTP server timeout.</value>
+  </data>
 </root>
