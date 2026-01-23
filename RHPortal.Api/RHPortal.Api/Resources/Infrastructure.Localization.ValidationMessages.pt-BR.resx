@@ -15,4 +15,37 @@
   <data name="ValidationErrors.PasswordPolicy" xml:space="preserve">
     <value>Senha deve ter no minimo 8 caracteres, 1 letra maiuscula, 1 numero e 1 caractere especial.</value>
   </data>
+  <data name="ValidationErrors.Identity.Default" xml:space="preserve">
+    <value>Erro de identidade.</value>
+  </data>
+  <data name="ValidationErrors.Identity.DuplicateEmail" xml:space="preserve">
+    <value>Email '{0}' ja esta em uso.</value>
+  </data>
+  <data name="ValidationErrors.Identity.DuplicateUserName" xml:space="preserve">
+    <value>Usuario '{0}' ja esta em uso.</value>
+  </data>
+  <data name="ValidationErrors.Identity.InvalidEmail" xml:space="preserve">
+    <value>Email '{0}' e invalido.</value>
+  </data>
+  <data name="ValidationErrors.Identity.InvalidUserName" xml:space="preserve">
+    <value>Usuario '{0}' e invalido.</value>
+  </data>
+  <data name="ValidationErrors.Identity.PasswordTooShort" xml:space="preserve">
+    <value>Senha deve ter pelo menos {0} caracteres.</value>
+  </data>
+  <data name="ValidationErrors.Identity.PasswordRequiresNonAlphanumeric" xml:space="preserve">
+    <value>Senha deve conter um caractere nao alfanumerico.</value>
+  </data>
+  <data name="ValidationErrors.Identity.PasswordRequiresDigit" xml:space="preserve">
+    <value>Senha deve conter um digito.</value>
+  </data>
+  <data name="ValidationErrors.Identity.PasswordRequiresLower" xml:space="preserve">
+    <value>Senha deve conter uma letra minuscula.</value>
+  </data>
+  <data name="ValidationErrors.Identity.PasswordRequiresUpper" xml:space="preserve">
+    <value>Senha deve conter uma letra maiuscula.</value>
+  </data>
+  <data name="ValidationErrors.Identity.PasswordRequiresUniqueChars" xml:space="preserve">
+    <value>Senha deve conter pelo menos {0} caracteres unicos.</value>
+  </data>
 </root>

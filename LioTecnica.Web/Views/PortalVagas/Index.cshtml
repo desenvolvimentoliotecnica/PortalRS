@@ -556,25 +556,25 @@
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
                                 <label for="fullName" class="form-label">Nome completo</label>
-                                <input id="fullName" name="fullName" class="form-control" type="text" required />
+                                <input id="fullName" name="fullName" class="form-control" type="text" required readonly />
                                 <div class="invalid-feedback">Informe seu nome completo.</div>
                             </div>
 
                             <div class="col-12 col-md-6">
                                 <label for="email" class="form-label">E-mail</label>
-                                <input id="email" name="email" class="form-control" type="email" required autocomplete="email" />
+                                <input id="email" name="email" class="form-control" type="email" required autocomplete="email" readonly />
                                 <div class="invalid-feedback">Informe um e-mail válido.</div>
                             </div>
 
                             <div class="col-12 col-md-6">
                                 <label for="phone" class="form-label">Telefone / WhatsApp</label>
-                                <input id="phone" name="phone" class="form-control" type="tel" required placeholder="(DD) 9XXXX-XXXX" autocomplete="tel" />
+                                <input id="phone" name="phone" class="form-control" type="tel" required placeholder="(DD) 9XXXX-XXXX" autocomplete="tel" readonly />
                                 <div class="invalid-feedback">Informe um telefone para contato.</div>
                             </div>
 
                                                         <div class="col-12 col-md-6">
                                 <label for="candidateUf" class="form-label">UF</label>
-                                <select id="candidateUf" name="candidateUf" class="form-select" required>
+                                <select id="candidateUf" name="candidateUf" class="form-select" required disabled>
                                     <option value="" selected>Selecione</option>
                                 </select>
                                 <div class="invalid-feedback">Selecione a UF.</div>
@@ -793,6 +793,7 @@
       const ufSelect = document.getElementById("candidateUf");
       const citySelect = document.getElementById("candidateCity");
       const phoneInput = document.getElementById("phone");
+      const fullNameInput = document.getElementById("fullName");
       const salaryInput = document.getElementById("salaryExpectation");
       const emailInput = document.getElementById("email");
 
@@ -856,6 +857,7 @@
       const LOCATION_BASE = "/PortalVagas/Locations";
       let cachedUfs = null;
       const cityCache = new Map();
+      let cachedProfile = null;
 
       function setUfLoading(label, disabled = true) {
         if (!ufSelect) return;
@@ -880,7 +882,7 @@
         return list;
       }
 
-      async function populateUfSelect() {
+      async function populateUfSelect(selectedUf = "", lockSelect = false) {
         if (!ufSelect) return;
         setUfLoading("Carregando UFs...", true);
         try {
@@ -891,8 +893,10 @@
             const opt = document.createElement("option");
             opt.value = uf;
             opt.textContent = uf;
+            if (uf === selectedUf) opt.selected = true;
             ufSelect.appendChild(opt);
           });
+          if (lockSelect) ufSelect.disabled = true;
         } catch (err) {
           console.error(err);
           setUfLoading("Nao foi possivel carregar UFs", true);
@@ -923,7 +927,7 @@
         return list;
       }
 
-      async function loadCitiesForUf(uf) {
+      async function loadCitiesForUf(uf, selectedCity = "", lockSelect = false) {
         if (!uf) {
           setCityLoading("Selecione a UF primeiro", true);
           return;
@@ -937,8 +941,10 @@
             const opt = document.createElement("option");
             opt.value = name;
             opt.textContent = name;
+            if (name === selectedCity) opt.selected = true;
             citySelect.appendChild(opt);
           });
+          if (lockSelect) citySelect.disabled = true;
         } catch (err) {
           console.error(err);
           setCityLoading("Nao foi possivel carregar cidades", true);
@@ -1007,6 +1013,44 @@
       function resetApplyLocation() {
         populateUfSelect();
         setCityLoading("Selecione a UF primeiro", true);
+      }
+
+      async function loadCandidateProfile() {
+        if (cachedProfile) return cachedProfile;
+        const response = await fetch("/PortalVagas/Profile", {
+          method: "GET",
+          headers: { "Accept": "application/json" },
+          credentials: "same-origin"
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const message = data && data.message ? data.message : "Nao foi possivel carregar seus dados.";
+          throw new Error(message);
+        }
+        cachedProfile = data || {};
+        return cachedProfile;
+      }
+
+      async function applyProfileToForm() {
+        try {
+          const profile = await loadCandidateProfile();
+          if (fullNameInput) fullNameInput.value = profile.nome || "";
+          if (emailInput) emailInput.value = profile.email || "";
+          if (phoneInput) {
+            phoneInput.value = formatPhone(profile.fone || "");
+            const digits = digitsOnly(phoneInput.value);
+            phoneInput.setCustomValidity(digits.length === 11 ? "" : "Telefone invalido.");
+          }
+
+          const uf = (profile.uf || "").toUpperCase();
+          const city = profile.cidade || "";
+          await populateUfSelect(uf, true);
+          await loadCitiesForUf(uf, city, true);
+        } catch (err) {
+          console.error(err);
+          const message = err && err.message ? err.message : "Nao foi possivel carregar seus dados.";
+          showApplyAlert(message);
+        }
       }
 
       function normalize(str) {
@@ -1316,7 +1360,7 @@
         jobModal.show();
       }
 
-      function openApplyModalFromCurrentJob() {
+      async function openApplyModalFromCurrentJob() {
         if (!currentJob) {
           showAppAlert("danger", "Nao foi possivel iniciar a candidatura. Abra os detalhes de uma vaga e tente novamente.");
           return;
@@ -1337,6 +1381,7 @@
         attachmentInput.classList.remove("is-invalid");
         attachmentInvalid.textContent = "Arquivo invalido.";
 
+        await applyProfileToForm();
         jobModal.hide();
         applyModal.show();
       }
@@ -1350,8 +1395,8 @@
         openJobModal(jobItem);
       });
 
-      jobModalApplyBtn.addEventListener("click", () => {
-        openApplyModalFromCurrentJob();
+      jobModalApplyBtn.addEventListener("click", async () => {
+        await openApplyModalFromCurrentJob();
       });
 
       function validateAttachment() {
@@ -1408,6 +1453,12 @@
 
           setSendLoading(true);
 
+          if (!tenantId) {
+            showApplyAlert("Tenant nao informado. Recarregue a pagina e tente novamente.");
+            setSendLoading(false);
+            return;
+          }
+
           const formData = new FormData();
           formData.append("vagaId", currentJob?.dataset?.id || "");
           formData.append("nome", document.getElementById("fullName").value || "");
@@ -1443,6 +1494,9 @@
           const url = `${apiBase}/api/public/candidaturas?tenantId=${encodeURIComponent(tenantId)}`;
           const response = await fetch(url, {
             method: "POST",
+            headers: {
+              "X-Tenant-Id": tenantId
+            },
             body: formData
           });
 
