@@ -247,6 +247,11 @@ builder.Services.AddHttpClient<EntraIdConfigApiClient>(http =>
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
+builder.Services.AddHttpClient<LocalizationConfigApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
 builder.Services.AddHttpClient<AgendasApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);

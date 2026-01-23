@@ -47,6 +47,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
+    public DbSet<LocalizationConfig> LocalizationConfigs => Set<LocalizationConfig>();
     public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
     public DbSet<EmailAttempt> EmailAttempts => Set<EmailAttempt>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
@@ -555,6 +556,19 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.ClientSecretEncrypted).HasMaxLength(400);
             b.Property(x => x.CallbackPath).HasMaxLength(120);
             b.Property(x => x.IsEnabled).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<LocalizationConfig>(b =>
+        {
+            b.ToTable("LocalizationConfigs");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Culture).HasMaxLength(20);
+            b.Property(x => x.UiCulture).HasMaxLength(20);
 
             b.HasIndex(x => new { x.TenantId }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);

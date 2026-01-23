@@ -1,11 +1,14 @@
 using System.Text;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RhPortal.Api.Application.Authentication;
 using RhPortal.Api.Application.Agenda;
@@ -25,6 +28,7 @@ using RhPortal.Api.Application.Units.Handlers;
 using RhPortal.Api.Application.Users;
 using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Application.Vagas.Handlers;
+using RhPortal.Api.Application.Localization;
 using RhPortal.Api.Auditing.Context;
 using RhPortal.Api.Auditing.EF;
 using RhPortal.Api.Auditing.Middleware;
@@ -37,6 +41,7 @@ using RhPortal.Api.Logging.Writer;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Inbox;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Swagger;
@@ -45,6 +50,19 @@ using RhPortal.Api.Messaging.Email;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = new[]
+        { "pt-BR", "en-US" }
+        .Select(c => new CultureInfo(c))
+        .ToList();
+
+    options.DefaultRequestCulture = new RequestCulture("pt-BR");
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+    options.RequestCultureProviders.Insert(0, new TenantCultureProvider());
+});
 
 builder.Services
     .AddControllers(options => { options.Filters.Add<ProblemDetailsLoggingFilter>(); })
@@ -196,6 +214,7 @@ builder.Services.AddScoped<ICandidatoService, CandidatoService>();
 builder.Services.AddScoped<AgendaService>();
 builder.Services.AddScoped<IPortalCandidateAuthService, PortalCandidateAuthService>();
 builder.Services.AddScoped<IPasswordHasher<Candidato>, PasswordHasher<Candidato>>();
+builder.Services.AddScoped<ILocalizationConfigService, LocalizationConfigService>();
 
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<UserAdministrationService>();
@@ -249,6 +268,8 @@ var app = builder.Build();
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "App_Data"));
 await DbSeeder.MigrateAndSeedAsync(app.Services, app.Configuration, app.Environment);
 
+var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -261,6 +282,7 @@ app.UseHttpsRedirection();
 
 app.UseCors("WebApp");
 app.UseMiddleware<TenantMiddleware>();
+app.UseRequestLocalization(localizationOptions.Value);
 
 app.UseAuthentication();
 app.UseAuthorization();

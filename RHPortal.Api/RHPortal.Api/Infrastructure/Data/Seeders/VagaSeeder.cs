@@ -1,30 +1,59 @@
 using Bogus;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Localization;
+using System.Text.Json;
 
 namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class VagaSeeder
 {
-    private static readonly Dictionary<string, (string[] Prefixes, string[] Subjects)> TitlePatterns =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["OPS"] = (new[] { "Operador", "Auxiliar", "Lider" }, new[] { "Producao", "Envase", "Embalagem", "Higienizacao" }),
-            ["QUA"] = (new[] { "Analista", "Tecnico", "Auditor" }, new[] { "Qualidade", "Laboratorio", "Rastreabilidade", "APPCC" }),
-            ["ENG"] = (new[] { "Tecnico", "Analista", "Engenheiro" }, new[] { "Manutencao", "Automacao", "Utilidades", "Processos" }),
-            ["SCM"] = (new[] { "Analista", "Comprador", "Supervisor" }, new[] { "PCP", "Logistica", "Estoque", "Transporte" }),
-            ["PDI"] = (new[] { "Analista", "Tecnico" }, new[] { "Pesquisa", "Desenvolvimento", "Embalagens", "Sensorial" }),
-            ["COM"] = (new[] { "Executivo", "Analista", "Key Account" }, new[] { "Vendas", "Trade Marketing", "Inteligencia de Mercado", "SAC" }),
-            ["TEC"] = (new[] { "Analista", "Especialista", "Tecnico" }, new[] { "Suporte", "Sistemas", "Dados", "Seguranca da Informacao" }),
-            ["FIN"] = (new[] { "Analista", "Coordenador" }, new[] { "Contas a Pagar", "Contas a Receber", "Tesouraria", "Custos" }),
-            ["RH"] = (new[] { "Analista", "Assistente", "Coordenador" }, new[] { "Recrutamento & Selecao", "Treinamento", "Departamento Pessoal", "Comunicacao Interna" }),
-            ["ADM"] = (new[] { "Analista", "Assistente", "Comprador" }, new[] { "Facilities", "Compliance", "Documentacao", "Servicos" })
-        };
+    private const string DefaultPatternKey = "DEFAULT";
 
-    public static async Task EnsureAsync(AppDbContext db, string tenantId, int targetCount, CancellationToken ct)
+    private sealed class VagaRequirementSeedFile
+    {
+        public Dictionary<string, List<VagaRequirementSeed>> Requirements { get; set; } = new();
+    }
+
+    private sealed class VagaRequirementSeed
+    {
+        public string Nome { get; set; } = string.Empty;
+        public int Peso { get; set; }
+        public bool Obrigatorio { get; set; }
+        public int? AnosMinimos { get; set; }
+        public string? Nivel { get; set; }
+        public string? Avaliacao { get; set; }
+        public string? Obs { get; set; }
+        public List<string>? Sinonimos { get; set; }
+    }
+
+    private sealed class VagaSeedPatterns
+    {
+        public Dictionary<string, VagaTitlePattern> TitlePatterns { get; set; } = new();
+        public Dictionary<string, string> Keywords { get; set; } = new();
+        public Dictionary<string, string> Responsibilities { get; set; } = new();
+        public Dictionary<string, string[]> Descriptions { get; set; } = new();
+    }
+
+    private sealed class VagaTitlePattern
+    {
+        public string[] Prefixes { get; set; } = Array.Empty<string>();
+        public string[] Subjects { get; set; } = Array.Empty<string>();
+    }
+
+    public static async Task EnsureAsync(
+        AppDbContext db,
+        string tenantId,
+        int targetCount,
+        string? patternsFile,
+        string? requirementsFile,
+        int? randomSeed,
+        IStringLocalizer<SeedMessages> localizer,
+        CancellationToken ct)
     {
         targetCount = Math.Max(0, targetCount);
         if (targetCount == 0)
@@ -47,19 +76,19 @@ public static class VagaSeeder
             .ToListAsync(ct);
 
         if (areas.Count == 0)
-            throw new InvalidOperationException("Nenhuma Area ativa encontrada. Rode o seed de Areas antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoAreas"]);
 
         if (departmentsByCode.Count == 0)
-            throw new InvalidOperationException("Nenhum Department encontrado/ativo. Rode o seed de Departments antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoDepartments"]);
 
         if (unitsByCode.Count == 0)
-            throw new InvalidOperationException("Nenhuma Unit encontrada. Rode o seed de Units antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoUnits"]);
 
         if (managers.Count == 0)
-            throw new InvalidOperationException("Nenhum manager encontrado. Rode o seed de Managers antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoManagers"]);
 
         if (jobPositions.Count == 0)
-            throw new InvalidOperationException("Nenhum JobPosition encontrado. Rode o seed de JobPositions antes.");
+            throw new InvalidOperationException(localizer["SeedErrors.NoJobPositions"]);
 
         var existingCount = await db.Vagas.CountAsync(ct);
         if (existingCount >= targetCount)
@@ -74,10 +103,17 @@ public static class VagaSeeder
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        var seed = randomSeed ?? 42;
         var faker = new Faker("pt_BR")
         {
-            Random = new Randomizer(42)
+            Random = new Randomizer(seed)
         };
+        var patterns = LoadPatterns(patternsFile, localizer);
+        var titlePatterns = NormalizeTitlePatterns(patterns.TitlePatterns);
+        var keywords = NormalizeStringMap(patterns.Keywords);
+        var responsibilities = NormalizeStringMap(patterns.Responsibilities);
+        var descriptions = NormalizeTemplateMap(patterns.Descriptions);
+        var requirements = NormalizeRequirements(LoadRequirements(requirementsFile, localizer).Requirements);
 
         var managersByArea = managers
             .GroupBy(m => m.AreaId)
@@ -108,8 +144,18 @@ public static class VagaSeeder
 
         if (toAdd.Count > 0)
         {
-            db.Vagas.AddRange(toAdd);
-            await db.SaveChangesAsync(ct);
+            var autoDetectChanges = db.ChangeTracker.AutoDetectChangesEnabled;
+            try
+            {
+                db.ChangeTracker.AutoDetectChangesEnabled = false;
+                db.Vagas.AddRange(toAdd);
+                db.ChangeTracker.DetectChanges();
+                await db.SaveChangesAsync(ct);
+            }
+            finally
+            {
+                db.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+            }
         }
 
         void AddVagaForArea(Area areaEntity)
@@ -128,7 +174,7 @@ public static class VagaSeeder
                     : managers[faker.Random.Int(0, managers.Count - 1)].Id;
 
             if (managerId == Guid.Empty)
-                throw new InvalidOperationException("Nenhum manager valido encontrado.");
+                throw new InvalidOperationException(localizer["SeedErrors.NoValidManager"]);
 
             var cargoId =
                 (cargosByArea.TryGetValue(areaEntity.Id, out var cargos) && cargos.Count > 0)
@@ -136,7 +182,7 @@ public static class VagaSeeder
                     : jobPositions[faker.Random.Int(0, jobPositions.Count - 1)].Id;
 
             if (cargoId == Guid.Empty)
-                throw new InvalidOperationException("Nenhum JobPosition valido encontrado.");
+                throw new InvalidOperationException(localizer["SeedErrors.NoValidJobPosition"]);
 
             var published = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-faker.Random.Int(3, 35)));
             var closing = published.AddDays(faker.Random.Int(10, 45));
@@ -158,8 +204,8 @@ public static class VagaSeeder
             };
 
             var now = DateTimeOffset.UtcNow;
-            var title = BuildTitle(faker, areaCode);
-            var description = BuildDescription(faker, areaEntity);
+            var title = BuildTitle(faker, areaCode, titlePatterns, localizer);
+            var description = BuildDescription(faker, areaEntity, descriptions, localizer);
 
             var vaga = new Vaga
             {
@@ -181,8 +227,8 @@ public static class VagaSeeder
                 DescricaoInterna = description,
                 DescricaoPublica = description,
 
-                TagsKeywordsRaw = BuildKeywords(areaCode),
-                TagsResponsabilidadesRaw = BuildResponsibilities(areaCode),
+                TagsKeywordsRaw = BuildKeywords(areaCode, keywords, localizer),
+                TagsResponsabilidadesRaw = BuildResponsibilities(areaCode, responsibilities, localizer),
 
                 AceitaPcd = true,
                 LinguagemInclusiva = true,
@@ -238,7 +284,7 @@ public static class VagaSeeder
                 UpdatedAtUtc = now
             };
 
-            var reqs = BuildDemoRequisitos(areaCode);
+            var reqs = BuildRequirements(areaCode, requirements, localizer);
             var ordem = 0;
             foreach (var r in reqs)
             {
@@ -332,48 +378,215 @@ public static class VagaSeeder
             ? faker.Random.Bool(0.85f)
             : faker.Random.Bool(0.4f);
 
-    private static string BuildTitle(Faker faker, string areaCode)
+    private static string BuildTitle(
+        Faker faker,
+        string areaCode,
+        IReadOnlyDictionary<string, VagaTitlePattern> titlePatterns,
+        IStringLocalizer<SeedMessages> localizer)
     {
-        if (!TitlePatterns.TryGetValue(areaCode, out var pattern))
-        {
-            pattern = (new[] { "Analista", "Assistente", "Tecnico" }, new[] { "Operacoes", "Processos", "Administrativo" });
-        }
-
+        var pattern = GetTitlePattern(titlePatterns, areaCode, localizer);
         var prefix = faker.PickRandom(pattern.Prefixes);
         var subject = faker.PickRandom(pattern.Subjects);
         var separator = prefix.Contains("Key Account", StringComparison.OrdinalIgnoreCase) ? " - " : " de ";
         return $"{prefix}{separator}{subject}";
     }
 
-    private static string BuildDescription(Faker faker, Area area)
-        => $"Atuar na area de {area.Name}. {faker.Lorem.Sentence(8)} {faker.Lorem.Sentence(8)}";
+    private static VagaTitlePattern GetTitlePattern(
+        IReadOnlyDictionary<string, VagaTitlePattern> titlePatterns,
+        string areaCode,
+        IStringLocalizer<SeedMessages> localizer)
+    {
+        if (titlePatterns.TryGetValue(areaCode, out var pattern) &&
+            pattern.Prefixes.Length > 0 &&
+            pattern.Subjects.Length > 0)
+        {
+            return pattern;
+        }
+
+        if (titlePatterns.TryGetValue(DefaultPatternKey, out var fallback) &&
+            fallback.Prefixes.Length > 0 &&
+            fallback.Subjects.Length > 0)
+        {
+            return fallback;
+        }
+
+        throw new InvalidOperationException(localizer["SeedErrors.TitlePatternsMissing", areaCode, DefaultPatternKey]);
+    }
+
+    private static string BuildDescription(
+        Faker faker,
+        Area area,
+        IReadOnlyDictionary<string, string[]> descriptions,
+        IStringLocalizer<SeedMessages> localizer)
+    {
+        var templates = GetPatternValues(descriptions, area.Code ?? string.Empty, "descriptions", localizer);
+        var template = faker.PickRandom(templates);
+        return ApplyDescriptionTemplate(faker, template, area);
+    }
+
+    private static VagaSeedPatterns LoadPatterns(string? patternsFile, IStringLocalizer<SeedMessages> localizer)
+    {
+        if (string.IsNullOrWhiteSpace(patternsFile))
+            throw new InvalidOperationException(localizer["SeedErrors.PatternsFileRequired"]);
+
+        var fullPath = Path.IsPathRooted(patternsFile)
+            ? patternsFile
+            : Path.Combine(AppContext.BaseDirectory, patternsFile);
+
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException(localizer["SeedErrors.PatternsFileNotFound", fullPath]);
+
+        var json = File.ReadAllText(fullPath);
+        var patterns = JsonSerializer.Deserialize<VagaSeedPatterns>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (patterns is null)
+            throw new InvalidOperationException(localizer["SeedErrors.PatternsFileInvalid"]);
+
+        return patterns;
+    }
+
+    private static VagaRequirementSeedFile LoadRequirements(string? requirementsFile, IStringLocalizer<SeedMessages> localizer)
+    {
+        if (string.IsNullOrWhiteSpace(requirementsFile))
+            throw new InvalidOperationException(localizer["SeedErrors.RequirementsFileRequired"]);
+
+        var fullPath = Path.IsPathRooted(requirementsFile)
+            ? requirementsFile
+            : Path.Combine(AppContext.BaseDirectory, requirementsFile);
+
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException(localizer["SeedErrors.RequirementsFileNotFound", fullPath]);
+
+        var json = File.ReadAllText(fullPath);
+        var requirements = JsonSerializer.Deserialize<VagaRequirementSeedFile>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        if (requirements is null)
+            throw new InvalidOperationException(localizer["SeedErrors.RequirementsFileInvalid"]);
+
+        return requirements;
+    }
+
+    private static IReadOnlyDictionary<string, VagaTitlePattern> NormalizeTitlePatterns(Dictionary<string, VagaTitlePattern>? source)
+    {
+        var map = new Dictionary<string, VagaTitlePattern>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+            return map;
+
+        foreach (var kvp in source)
+        {
+            var key = NormalizePatternKey(kvp.Key);
+            if (string.IsNullOrWhiteSpace(key) || kvp.Value is null)
+                continue;
+
+            map[key] = kvp.Value;
+        }
+
+        return map;
+    }
+
+    private static IReadOnlyDictionary<string, string> NormalizeStringMap(Dictionary<string, string>? source)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+            return map;
+
+        foreach (var kvp in source)
+        {
+            var key = NormalizePatternKey(kvp.Key);
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(kvp.Value))
+                continue;
+
+            map[key] = kvp.Value.Trim();
+        }
+
+        return map;
+    }
+
+    private static IReadOnlyDictionary<string, string[]> NormalizeTemplateMap(Dictionary<string, string[]>? source)
+    {
+        var map = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+            return map;
+
+        foreach (var kvp in source)
+        {
+            var key = NormalizePatternKey(kvp.Key);
+            if (string.IsNullOrWhiteSpace(key) || kvp.Value is null)
+                continue;
+
+            var templates = kvp.Value
+                .Select(t => (t ?? string.Empty).Trim())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .ToArray();
+
+            if (templates.Length == 0)
+                continue;
+
+            map[key] = templates;
+        }
+
+        return map;
+    }
+
+    private static IReadOnlyDictionary<string, List<VagaRequirementSeed>> NormalizeRequirements(Dictionary<string, List<VagaRequirementSeed>>? source)
+    {
+        var map = new Dictionary<string, List<VagaRequirementSeed>>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+            return map;
+
+        foreach (var kvp in source)
+        {
+            var key = NormalizePatternKey(kvp.Key);
+            if (string.IsNullOrWhiteSpace(key) || kvp.Value is null)
+                continue;
+
+            map[key] = kvp.Value;
+        }
+
+        return map;
+    }
+
+    private static string NormalizePatternKey(string? key)
+        => (key ?? string.Empty).Trim().ToUpperInvariant();
 
     private static List<(string Nome, VagaPeso Peso, bool Obrigatorio, int? AnosMinimos, VagaRequisitoNivel? Nivel, VagaRequisitoAvaliacao? Avaliacao, string? Obs, IReadOnlyList<string>? Sinonimos)>
-        BuildDemoRequisitos(string areaCode)
+        BuildRequirements(
+            string areaCode,
+            IReadOnlyDictionary<string, List<VagaRequirementSeed>> requirements,
+            IStringLocalizer<SeedMessages> localizer)
     {
         areaCode = (areaCode ?? "").Trim().ToUpperInvariant();
 
-        return areaCode switch
+        if (!requirements.TryGetValue(areaCode, out var reqs) || reqs.Count == 0)
+            throw new InvalidOperationException(localizer["SeedErrors.RequirementsMissingForArea", areaCode]);
+
+        var result = new List<(string Nome, VagaPeso Peso, bool Obrigatorio, int? AnosMinimos, VagaRequisitoNivel? Nivel, VagaRequisitoAvaliacao? Avaliacao, string? Obs, IReadOnlyList<string>? Sinonimos)>(reqs.Count);
+        foreach (var req in reqs)
         {
-            "TEC" => new()
-            {
-                ("Windows/Office 365", (VagaPeso)4, true, 1, null, null, null, new[] { "Office", "Pacote Office", "Microsoft 365" }),
-                ("Atendimento ao usuario", (VagaPeso)4, true, 1, null, null, null, new[] { "Suporte ao usuario", "Help desk" }),
-                ("ITIL (desejavel)", (VagaPeso)2, false, null, null, null, null, new[] { "ITIL Foundation" }),
-                ("Redes basicas", (VagaPeso)3, false, 1, null, null, null, new[] { "TCP/IP", "LAN", "WAN" })
-            },
-            "FIN" => new()
-            {
-                ("Excel intermediario/avancado", (VagaPeso)4, true, 2, null, null, null, new[] { "Excel avancado", "Planilhas" }),
-                ("Contas a receber", (VagaPeso)4, true, 2, null, null, null, new[] { "CR", "Recebiveis" }),
-                ("Conciliacoes bancarias", (VagaPeso)3, false, 1, null, null, null, new[] { "Conciliacao", "Extrato" })
-            },
-            _ => new()
-            {
-                ("Comunicacao", (VagaPeso)3, true, null, null, null, null, new[] { "Comunicacao", "Boa comunicacao" }),
-                ("Trabalho em equipe", (VagaPeso)3, false, null, null, null, null, new[] { "Teamwork", "Colaboracao" })
-            }
-        };
+            if (string.IsNullOrWhiteSpace(req.Nome))
+                continue;
+
+            result.Add((
+                req.Nome.Trim(),
+                MapPeso(req.Peso),
+                req.Obrigatorio,
+                req.AnosMinimos,
+                ParseEnumOrNull<VagaRequisitoNivel>(req.Nivel),
+                ParseEnumOrNull<VagaRequisitoAvaliacao>(req.Avaliacao),
+                req.Obs,
+                req.Sinonimos));
+        }
+
+        if (result.Count == 0)
+            throw new InvalidOperationException(localizer["SeedErrors.RequirementsEmptyForArea", areaCode]);
+
+        return result;
     }
 
     private static string? JoinSinonimos(IReadOnlyList<string>? sinonimos)
@@ -385,6 +598,20 @@ public static class VagaSeeder
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         return cleaned.Length == 0 ? null : string.Join(";", cleaned);
+    }
+
+    private static VagaPeso MapPeso(int peso)
+    {
+        var clamped = Math.Clamp(peso, 1, 5);
+        return (VagaPeso)clamped;
+    }
+
+    private static TEnum? ParseEnumOrNull<TEnum>(string? name) where TEnum : struct, Enum
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        return Enum.TryParse<TEnum>(name, true, out var value) ? value : null;
     }
 
     private static TEnum ParseEnumOrFirst<TEnum>(params string[] names) where TEnum : struct, Enum
@@ -417,26 +644,69 @@ public static class VagaSeeder
         };
     }
 
-    private static string BuildKeywords(string areaCode) => areaCode switch
-    {
-        "OPS" => "BPF;5S;Seguranca;OEE;Setup;Linha de producao;Rastreabilidade",
-        "QUA" => "BPF;APPCC;HACCP;Auditoria;Nao conformidade;Rastreabilidade;Microbiologia",
-        "ENG" => "Manutencao;PCM;MTBF;MTTR;Automacao;CLP;Utilidades",
-        "SCM" => "PCP;FEFO;FIFO;Inventario;Expedicao;Transporte;WMS",
-        "PDI" => "Formulacao;Estabilidade;Escalonamento;Embalagens;Sensorial;Inovacao",
-        "COM" => "Key Account;Pricing;Trade;Sell-in;Sell-out;Campanhas",
-        "TEC" => "BI;Integracoes;ERP;Dados;KPIs;Governanca",
-        "RH" => "R&S;Treinamento;DP;Turnos;Onboarding",
-        "FIN" => "Custos;Controladoria;Fiscal;Tesouraria;Conciliacao",
-        _ => "Administrativo;Rotinas;Organizacao;Compliance"
-    };
+    private static string BuildKeywords(
+        string areaCode,
+        IReadOnlyDictionary<string, string> keywords,
+        IStringLocalizer<SeedMessages> localizer)
+        => GetPatternValue(keywords, areaCode, "keywords", localizer);
 
-    private static string BuildResponsibilities(string areaCode) => areaCode switch
+    private static string BuildResponsibilities(
+        string areaCode,
+        IReadOnlyDictionary<string, string> responsibilities,
+        IStringLocalizer<SeedMessages> localizer)
+        => GetPatternValue(responsibilities, areaCode, "responsibilities", localizer);
+
+    private static string[] GetPatternValues(
+        IReadOnlyDictionary<string, string[]> map,
+        string areaCode,
+        string name,
+        IStringLocalizer<SeedMessages> localizer)
     {
-        "OPS" => "Operar processos;Registrar producao;Seguir POPs;Garantir 5S;Reportar desvios",
-        "QUA" => "Coletar amostras;Registrar analises;Tratar nao conformidades;Apoiar auditorias",
-        "ENG" => "Executar manutencao;Prevenir falhas;Registrar OS;Apoiar paradas programadas",
-        "SCM" => "Planejar/abastecer;Controlar estoque;Garantir FEFO;Apoiar expedicao",
-        _ => "Apoiar rotina da area;Garantir organizacao;Cumprir prazos;Comunicar riscos"
-    };
+        areaCode = NormalizePatternKey(areaCode);
+
+        if (map.TryGetValue(areaCode, out var values) && values.Length > 0)
+            return values;
+
+        if (map.TryGetValue(DefaultPatternKey, out var fallback) && fallback.Length > 0)
+            return fallback;
+
+        throw new InvalidOperationException(localizer["SeedErrors.PatternValueMissing", name, areaCode, DefaultPatternKey]);
+    }
+
+    private static string GetPatternValue(
+        IReadOnlyDictionary<string, string> map,
+        string areaCode,
+        string name,
+        IStringLocalizer<SeedMessages> localizer)
+    {
+        if (map.TryGetValue(areaCode, out var value) && !string.IsNullOrWhiteSpace(value))
+            return value;
+
+        if (map.TryGetValue(DefaultPatternKey, out var fallback) && !string.IsNullOrWhiteSpace(fallback))
+            return fallback;
+
+        throw new InvalidOperationException(localizer["SeedErrors.PatternValueMissing", name, areaCode, DefaultPatternKey]);
+    }
+
+    private static string ApplyDescriptionTemplate(Faker faker, string template, Area area)
+    {
+        var areaName = (area.Name ?? string.Empty).Trim();
+        var areaCode = NormalizeAreaCode(area.Code);
+        var resolvedName = string.IsNullOrWhiteSpace(areaName) ? areaCode : areaName;
+
+        var result = template;
+        var replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["{AreaName}"] = resolvedName,
+            ["{AreaCode}"] = areaCode,
+            ["{Sentence}"] = faker.Lorem.Sentence(8),
+            ["{Sentence2}"] = faker.Lorem.Sentence(8),
+            ["{Sentence3}"] = faker.Lorem.Sentence(10)
+        };
+
+        foreach (var kvp in replacements)
+            result = result.Replace(kvp.Key, kvp.Value, StringComparison.OrdinalIgnoreCase);
+
+        return result.Trim();
+    }
 }

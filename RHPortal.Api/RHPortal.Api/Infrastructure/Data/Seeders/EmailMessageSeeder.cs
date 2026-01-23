@@ -1,3 +1,4 @@
+using Bogus;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -6,13 +7,23 @@ namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class EmailMessageSeeder
 {
-    public static async Task EnsureAsync(AppDbContext db, string tenantId, CancellationToken ct)
+    public static async Task EnsureAsync(AppDbContext db, string tenantId, int targetCount, CancellationToken ct, int? randomSeed = null)
     {
-        var exists = await db.EmailMessages.AnyAsync(x => x.TenantId == tenantId, ct);
-        if (exists) return;
+        targetCount = Math.Max(0, targetCount);
+        if (targetCount == 0)
+            return;
+
+        var existingCount = await db.EmailMessages.CountAsync(x => x.TenantId == tenantId, ct);
+        if (existingCount >= targetCount)
+            return;
+
+        var seed = (randomSeed ?? 42) + 31;
+        var faker = new Faker("pt_BR")
+        {
+            Random = new Randomizer(seed)
+        };
 
         var now = DateTimeOffset.UtcNow;
-        var random = new Random(42);
         var subjects = new[]
         {
             "Confirmacao de candidatura",
@@ -24,25 +35,28 @@ public static class EmailMessageSeeder
         };
 
         var sources = new[] { "portal", "sistema", "triagem", "agenda" };
-        var owners = new[]
-        {
-            new { Id = "user-1", Name = "LIOTECNICA Admin" },
-            new { Id = "user-2", Name = "Recrutadora Ana" }
-        };
+        var owners = Enumerable.Range(1, 3)
+            .Select(i => new { Id = $"user-{i}", Name = faker.Name.FullName() })
+            .ToArray();
 
+        var toCreate = targetCount - existingCount;
         var messages = new List<EmailMessage>();
-        for (var i = 0; i < 40; i++)
+        for (var i = 0; i < toCreate; i++)
         {
-            var owner = owners[random.Next(owners.Length)];
-            var isSystem = i % 7 == 0;
-            var status = (EmailMessageStatus)random.Next(0, 4);
-            var created = now.AddMinutes(-random.Next(15, 6000));
+            var owner = faker.PickRandom(owners);
+            var isSystem = faker.Random.Bool(0.15f);
+            var status = faker.PickRandom(Enum.GetValues<EmailMessageStatus>());
+            var created = now.AddMinutes(-faker.Random.Int(15, 6000));
             var attemptCount = status switch
             {
-                EmailMessageStatus.Sent => random.Next(1, 3),
-                EmailMessageStatus.Failed => random.Next(2, 4),
-                _ => random.Next(0, 2)
+                EmailMessageStatus.Sent => faker.Random.Int(1, 2),
+                EmailMessageStatus.Failed => faker.Random.Int(2, 3),
+                _ => faker.Random.Int(0, 1)
             };
+
+            var subject = faker.PickRandom(subjects);
+            if (faker.Random.Bool(0.5f))
+                subject = $"{subject} - {faker.Name.JobTitle()}";
 
             var msg = new EmailMessage
             {
@@ -51,10 +65,10 @@ public static class EmailMessageSeeder
                 OwnerUserId = isSystem ? null : owner.Id,
                 OwnerUserName = isSystem ? null : owner.Name,
                 IsSystem = isSystem,
-                Source = sources[random.Next(sources.Length)],
-                To = $"candidato{i + 1}@email.com",
-                Subject = subjects[random.Next(subjects.Length)],
-                BodyHtml = "<p>Mensagem de teste para validacao do layout.</p>",
+                Source = faker.PickRandom(sources),
+                To = faker.Internet.Email(),
+                Subject = subject,
+                BodyHtml = $"<p>{faker.Lorem.Sentence(10)}</p>",
                 Status = status,
                 AttemptCount = attemptCount,
                 MaxAttempts = 3,
@@ -63,7 +77,7 @@ public static class EmailMessageSeeder
                     : null,
                 LastError = status == EmailMessageStatus.Failed ? "Falha ao enviar email (SMTP)." : null,
                 CreatedAtUtc = created,
-                UpdatedAtUtc = created.AddMinutes(random.Next(1, 120))
+                UpdatedAtUtc = created.AddMinutes(faker.Random.Int(1, 120))
             };
 
             for (var a = 1; a <= attemptCount; a++)

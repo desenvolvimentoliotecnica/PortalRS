@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class JobPositionSeeder
 {
-    public static async Task EnsureAsync(AppDbContext db, CancellationToken ct)
+    public static async Task EnsureAsync(AppDbContext db, IStringLocalizer<SeedMessages> localizer, CancellationToken ct)
     {
         var areaIdByCode = await db.Areas
             .AsNoTracking()
@@ -15,7 +17,7 @@ public static class JobPositionSeeder
         Guid GetAreaId(string areaCode)
         {
             if (!areaIdByCode.TryGetValue(areaCode, out var id))
-                throw new InvalidOperationException($"Area '{areaCode}' nao foi encontrada no seed.");
+                throw new InvalidOperationException(localizer["SeedErrors.AreaNotFound", areaCode]);
             return id;
         }
 

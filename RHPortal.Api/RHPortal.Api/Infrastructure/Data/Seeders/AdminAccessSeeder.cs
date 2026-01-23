@@ -13,7 +13,9 @@ public static class AdminAccessSeeder
         string tenantId,
         string emailDomain,
         string adminPassword,
-        CancellationToken ct)
+        int emailMessageSeedCount,
+        CancellationToken ct,
+        int? randomSeed = null)
     {
         var adminRole = await roleManager.Roles.FirstOrDefaultAsync(x => x.Name == "Admin", ct);
         if (adminRole is null)
@@ -60,7 +62,7 @@ public static class AdminAccessSeeder
         await MenuSeeder.EnsureAsync(db, adminRole, ct);
 
         await EmailTemplateSeeder.EnsureAsync(db, ct);
-        await EmailMessageSeeder.EnsureAsync(db, tenantId, ct);
+        await EmailMessageSeeder.EnsureAsync(db, tenantId, emailMessageSeedCount, ct, randomSeed);
         await EmailConfigSeeder.EnsureAsync(db, tenantId, ct);
     }
 }

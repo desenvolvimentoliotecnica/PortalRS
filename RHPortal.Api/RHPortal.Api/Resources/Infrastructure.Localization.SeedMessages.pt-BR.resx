@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SeedErrors.NoAreas" xml:space="preserve">
+    <value>Nenhuma Area ativa encontrada. Rode o seed de Areas antes.</value>
+  </data>
+  <data name="SeedErrors.NoDepartments" xml:space="preserve">
+    <value>Nenhum Department encontrado/ativo. Rode o seed de Departments antes.</value>
+  </data>
+  <data name="SeedErrors.NoUnits" xml:space="preserve">
+    <value>Nenhuma Unit encontrada. Rode o seed de Units antes.</value>
+  </data>
+  <data name="SeedErrors.NoManagers" xml:space="preserve">
+    <value>Nenhum manager encontrado. Rode o seed de Managers antes.</value>
+  </data>
+  <data name="SeedErrors.NoJobPositions" xml:space="preserve">
+    <value>Nenhum JobPosition encontrado. Rode o seed de JobPositions antes.</value>
+  </data>
+  <data name="SeedErrors.NoValidManager" xml:space="preserve">
+    <value>Nenhum manager valido encontrado.</value>
+  </data>
+  <data name="SeedErrors.NoValidJobPosition" xml:space="preserve">
+    <value>Nenhum JobPosition valido encontrado.</value>
+  </data>
+  <data name="SeedErrors.TitlePatternsMissing" xml:space="preserve">
+    <value>Seed title patterns nao encontrados para a area '{0}' e '{1}'.</value>
+  </data>
+  <data name="SeedErrors.PatternsFileRequired" xml:space="preserve">
+    <value>Seed:Vagas:PatternsFile e obrigatorio.</value>
+  </data>
+  <data name="SeedErrors.PatternsFileNotFound" xml:space="preserve">
+    <value>Arquivo de patterns do seed nao encontrado: {0}</value>
+  </data>
+  <data name="SeedErrors.PatternsFileInvalid" xml:space="preserve">
+    <value>Arquivo de patterns do seed e invalido.</value>
+  </data>
+  <data name="SeedErrors.RequirementsFileRequired" xml:space="preserve">
+    <value>Seed:Vagas:RequirementsFile e obrigatorio.</value>
+  </data>
+  <data name="SeedErrors.RequirementsFileNotFound" xml:space="preserve">
+    <value>Arquivo de requisitos do seed nao encontrado: {0}</value>
+  </data>
+  <data name="SeedErrors.RequirementsFileInvalid" xml:space="preserve">
+    <value>Arquivo de requisitos do seed e invalido.</value>
+  </data>
+  <data name="SeedErrors.RequirementsMissingForArea" xml:space="preserve">
+    <value>Requisitos do seed ausentes para a area '{0}'.</value>
+  </data>
+  <data name="SeedErrors.RequirementsEmptyForArea" xml:space="preserve">
+    <value>Requisitos do seed vazios para a area '{0}'.</value>
+  </data>
+  <data name="SeedErrors.PatternValueMissing" xml:space="preserve">
+    <value>Seed {0} ausente para a area '{1}' e '{2}'.</value>
+  </data>
+  <data name="SeedErrors.AreaNotFound" xml:space="preserve">
+    <value>Area '{0}' nao foi encontrada no seed.</value>
+  </data>
+  <data name="SeedErrors.AdminPasswordRequired" xml:space="preserve">
+    <value>Seed:AdminPassword e obrigatorio.</value>
+  </data>
+</root>

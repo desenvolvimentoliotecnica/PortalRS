@@ -8,10 +8,18 @@ namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
 public static class CandidatoSeeder
 {
-    public static async Task EnsureAsync(AppDbContext db, string tenantId, string emailDomain, int targetCount, CancellationToken ct)
+    public static async Task EnsureAsync(
+        AppDbContext db,
+        string tenantId,
+        string emailDomain,
+        int targetCount,
+        int perVaga,
+        int? randomSeed,
+        CancellationToken ct)
     {
         targetCount = Math.Max(0, targetCount);
-        if (targetCount == 0)
+        perVaga = Math.Max(0, perVaga);
+        if (targetCount == 0 && perVaga == 0)
             return;
 
         var vagas = await db.Vagas
@@ -21,6 +29,9 @@ public static class CandidatoSeeder
 
         if (vagas.Count == 0)
             return;
+
+        if (perVaga > 0)
+            targetCount = perVaga * vagas.Count;
 
         var existingEmails = await db.Candidatos
             .AsNoTracking()
@@ -33,9 +44,10 @@ public static class CandidatoSeeder
             return;
 
         var now = DateTimeOffset.UtcNow;
+        var seed = randomSeed.HasValue ? randomSeed.Value + 9 : 51;
         var faker = new Faker("pt_BR")
         {
-            Random = new Randomizer(51)
+            Random = new Randomizer(seed)
         };
 
         var fontes = Enum.GetValues<CandidatoFonte>();
@@ -99,6 +111,7 @@ public static class CandidatoSeeder
             candidato.Documentos.Add(new CandidatoDocumento
             {
                 Id = Guid.NewGuid(),
+                TenantId = tenantId,
                 CandidatoId = candidato.Id,
                 Tipo = CandidatoDocumentoTipo.Curriculo,
                 NomeArquivo = $"{emailUserForFile}_CV.pdf",
@@ -112,6 +125,7 @@ public static class CandidatoSeeder
                 candidato.Documentos.Add(new CandidatoDocumento
                 {
                     Id = Guid.NewGuid(),
+                    TenantId = tenantId,
                     CandidatoId = candidato.Id,
                     Tipo = CandidatoDocumentoTipo.Certificado,
                     NomeArquivo = $"certificado_{emailUserForFile}.pdf",
@@ -124,8 +138,18 @@ public static class CandidatoSeeder
             candidatos.Add(candidato);
         }
 
-        db.Candidatos.AddRange(candidatos);
-        await db.SaveChangesAsync(ct);
+        var autoDetectChanges = db.ChangeTracker.AutoDetectChangesEnabled;
+        try
+        {
+            db.ChangeTracker.AutoDetectChangesEnabled = false;
+            db.Candidatos.AddRange(candidatos);
+            db.ChangeTracker.DetectChanges();
+            await db.SaveChangesAsync(ct);
+        }
+        finally
+        {
+            db.ChangeTracker.AutoDetectChangesEnabled = autoDetectChanges;
+        }
     }
 
     private static string ToEmailUser(string fullName)

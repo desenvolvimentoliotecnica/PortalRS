@@ -319,6 +319,16 @@ public static class MenuSeeder
                 Order = 89,
                 PermissionKey = "entra-config.manage",
                 IsActive = true
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = "Idioma",
+                Route = "/Admin/LocalizationConfig",
+                Icon = "bi-translate",
+                Order = 90,
+                PermissionKey = "localization-config.manage",
+                IsActive = true
             }
         };
     }

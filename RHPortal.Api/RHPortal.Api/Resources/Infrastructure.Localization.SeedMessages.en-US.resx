@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SeedErrors.NoAreas" xml:space="preserve">
+    <value>No active Area found. Run Areas seed first.</value>
+  </data>
+  <data name="SeedErrors.NoDepartments" xml:space="preserve">
+    <value>No Department found/active. Run Departments seed first.</value>
+  </data>
+  <data name="SeedErrors.NoUnits" xml:space="preserve">
+    <value>No Unit found. Run Units seed first.</value>
+  </data>
+  <data name="SeedErrors.NoManagers" xml:space="preserve">
+    <value>No manager found. Run Managers seed first.</value>
+  </data>
+  <data name="SeedErrors.NoJobPositions" xml:space="preserve">
+    <value>No JobPosition found. Run JobPositions seed first.</value>
+  </data>
+  <data name="SeedErrors.NoValidManager" xml:space="preserve">
+    <value>No valid manager found.</value>
+  </data>
+  <data name="SeedErrors.NoValidJobPosition" xml:space="preserve">
+    <value>No valid JobPosition found.</value>
+  </data>
+  <data name="SeedErrors.TitlePatternsMissing" xml:space="preserve">
+    <value>Seed title patterns missing for area '{0}' and '{1}'.</value>
+  </data>
+  <data name="SeedErrors.PatternsFileRequired" xml:space="preserve">
+    <value>Seed:Vagas:PatternsFile is required.</value>
+  </data>
+  <data name="SeedErrors.PatternsFileNotFound" xml:space="preserve">
+    <value>Seed patterns file not found: {0}</value>
+  </data>
+  <data name="SeedErrors.PatternsFileInvalid" xml:space="preserve">
+    <value>Seed patterns file is invalid.</value>
+  </data>
+  <data name="SeedErrors.RequirementsFileRequired" xml:space="preserve">
+    <value>Seed:Vagas:RequirementsFile is required.</value>
+  </data>
+  <data name="SeedErrors.RequirementsFileNotFound" xml:space="preserve">
+    <value>Seed requirements file not found: {0}</value>
+  </data>
+  <data name="SeedErrors.RequirementsFileInvalid" xml:space="preserve">
+    <value>Seed requirements file is invalid.</value>
+  </data>
+  <data name="SeedErrors.RequirementsMissingForArea" xml:space="preserve">
+    <value>Seed requirements missing for area '{0}'.</value>
+  </data>
+  <data name="SeedErrors.RequirementsEmptyForArea" xml:space="preserve">
+    <value>Seed requirements empty for area '{0}'.</value>
+  </data>
+  <data name="SeedErrors.PatternValueMissing" xml:space="preserve">
+    <value>Seed {0} missing for area '{1}' and '{2}'.</value>
+  </data>
+  <data name="SeedErrors.AreaNotFound" xml:space="preserve">
+    <value>Area '{0}' was not found in seed.</value>
+  </data>
+  <data name="SeedErrors.AdminPasswordRequired" xml:space="preserve">
+    <value>Seed:AdminPassword is required.</value>
+  </data>
+</root>
