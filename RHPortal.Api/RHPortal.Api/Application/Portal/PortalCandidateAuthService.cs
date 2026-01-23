@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Portal;
 
@@ -17,11 +19,13 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
 {
     private readonly AppDbContext _db;
     private readonly IPasswordHasher<Candidato> _passwordHasher;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
-    public PortalCandidateAuthService(AppDbContext db, IPasswordHasher<Candidato> passwordHasher)
+    public PortalCandidateAuthService(AppDbContext db, IPasswordHasher<Candidato> passwordHasher, IStringLocalizer<ServiceMessages> localizer)
     {
         _db = db;
         _passwordHasher = passwordHasher;
+        _localizer = localizer;
     }
 
     public async Task<PortalCandidateAuthResponse?> LoginAsync(PortalCandidateLoginRequest request, CancellationToken ct)
@@ -52,7 +56,7 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
     {
         var email = NormalizeEmail(request.Email);
         if (string.IsNullOrWhiteSpace(email))
-            throw new InvalidOperationException("Email invalido.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.PortalEmailInvalid"]);
 
         var candidato = await _db.Candidatos
             .FirstOrDefaultAsync(x => x.Email == email, ct);
@@ -60,7 +64,7 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
         if (candidato is not null)
         {
             if (!string.IsNullOrWhiteSpace(candidato.PortalPasswordHash))
-                throw new InvalidOperationException("Acesso ja cadastrado. Use o login.");
+                throw new InvalidOperationException(_localizer["ServiceErrors.PortalAccessExists"]);
 
             candidato.Nome = (request.Nome ?? string.Empty).Trim();
             candidato.Email = email;

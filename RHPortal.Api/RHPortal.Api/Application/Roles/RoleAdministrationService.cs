@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Roles;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Roles;
 
@@ -10,11 +12,13 @@ public sealed class RoleAdministrationService
 {
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
-    public RoleAdministrationService(RoleManager<ApplicationRole> roleManager, AppDbContext db)
+    public RoleAdministrationService(RoleManager<ApplicationRole> roleManager, AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
     {
         _roleManager = roleManager;
         _db = db;
+        _localizer = localizer;
     }
 
     public async Task<IReadOnlyList<RoleListItemResponse>> ListAsync(CancellationToken ct)
@@ -49,11 +53,11 @@ public sealed class RoleAdministrationService
     {
         var name = request.Name.Trim();
         if (string.IsNullOrWhiteSpace(name))
-            throw new InvalidOperationException("Role name is required.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.RoleNameRequired"]);
 
         var exists = await _roleManager.Roles.AnyAsync(x => x.Name == name, ct);
         if (exists)
-            throw new InvalidOperationException("Role name already exists.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.RoleNameExists"]);
 
         var role = new ApplicationRole
         {
@@ -81,7 +85,7 @@ public sealed class RoleAdministrationService
         {
             var exists = await _roleManager.Roles.AnyAsync(x => x.Name == name && x.Id != id, ct);
             if (exists)
-                throw new InvalidOperationException("Role name already exists.");
+                throw new InvalidOperationException(_localizer["ServiceErrors.RoleNameExists"]);
 
             role.Name = name;
         }
@@ -117,7 +121,7 @@ public sealed class RoleAdministrationService
         var menus = await _db.Menus.Where(x => menuIds.Contains(x.Id)).ToListAsync(ct);
 
         if (menus.Count != menuIds.Count)
-            throw new InvalidOperationException("One or more menus were not found.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.RoleMenusNotFound"]);
 
         var existing = await _db.RoleMenus.Where(x => x.RoleId == roleId).ToListAsync(ct);
         if (existing.Count > 0)

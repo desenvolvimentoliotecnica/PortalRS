@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Infrastructure.Data;
 using RHPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Vagas;
 
@@ -22,12 +24,18 @@ public sealed class VagaService : IVagaService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<VagaService> _logger;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
-    public VagaService(AppDbContext db, ITenantContext tenantContext, ILogger<VagaService> logger)
+    public VagaService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        ILogger<VagaService> logger,
+        IStringLocalizer<ServiceMessages> localizer)
     {
         _db = db;
         _tenantContext = tenantContext;
         _logger = logger;
+        _localizer = localizer;
     }
 
     public async Task<IReadOnlyList<VagaListItemResponse>> ListAsync(VagaListQuery query, CancellationToken ct)
@@ -557,13 +565,13 @@ public sealed class VagaService : IVagaService
     private async Task EnsureAreaAsync(Guid areaId, CancellationToken ct)
     {
         var exists = await _db.Areas.AnyAsync(a => a.Id == areaId, ct);
-        if (!exists) throw new InvalidOperationException("Area invalida.");
+        if (!exists) throw new InvalidOperationException(_localizer["ServiceErrors.AreaInvalid"]);
     }
 
     private async Task EnsureDepartmentAsync(Guid departmentId, CancellationToken ct)
     {
         var exists = await _db.Departments.AnyAsync(d => d.Id == departmentId, ct);
-        if (!exists) throw new InvalidOperationException("Departamento invalido.");
+        if (!exists) throw new InvalidOperationException(_localizer["ServiceErrors.DepartmentInvalid"]);
     }
 
     private static int ClampPercent(int value)
@@ -690,11 +698,11 @@ public sealed class VagaService : IVagaService
     {
         var tenantId = _tenantContext.TenantId;
         if (string.IsNullOrWhiteSpace(tenantId))
-            throw new InvalidOperationException("Tenant identifier is required.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.TenantRequired"]);
 
         if (!string.IsNullOrWhiteSpace(entity.TenantId) &&
             !string.Equals(entity.TenantId, tenantId, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Tenant mismatch for vaga.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.TenantMismatchForVaga"]);
 
         entity.TenantId = tenantId;
 

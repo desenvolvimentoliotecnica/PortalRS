@@ -1,17 +1,21 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Menus;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Menus;
 
 public sealed class MenuAdministrationService
 {
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
-    public MenuAdministrationService(AppDbContext db)
+    public MenuAdministrationService(AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
     {
         _db = db;
+        _localizer = localizer;
     }
 
     public async Task<IReadOnlyList<MenuListItemResponse>> ListAsync(CancellationToken ct)
@@ -60,11 +64,11 @@ public sealed class MenuAdministrationService
         var route = request.Route.Trim();
 
         if (string.IsNullOrWhiteSpace(permissionKey))
-            throw new InvalidOperationException("Permission key is required.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.MenuPermissionRequired"]);
 
         var exists = await _db.Menus.AnyAsync(x => x.PermissionKey == permissionKey, ct);
         if (exists)
-            throw new InvalidOperationException("Permission key already exists.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.MenuPermissionExists"]);
 
         var menu = new Menu
         {
@@ -96,7 +100,7 @@ public sealed class MenuAdministrationService
         {
             var exists = await _db.Menus.AnyAsync(x => x.PermissionKey == permissionKey && x.Id != id, ct);
             if (exists)
-                throw new InvalidOperationException("Permission key already exists.");
+                throw new InvalidOperationException(_localizer["ServiceErrors.MenuPermissionExists"]);
 
             menu.PermissionKey = permissionKey;
         }

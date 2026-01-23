@@ -1,7 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Departments;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Departments;
 
@@ -18,8 +20,13 @@ public interface IDepartmentService
 public sealed class DepartmentService : IDepartmentService
 {
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
-    public DepartmentService(AppDbContext db) => _db = db;
+    public DepartmentService(AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
+    {
+        _db = db;
+        _localizer = localizer;
+    }
 
     public async Task<PagedResult<DepartmentResponse>> ListAsync(DepartmentListQuery query, CancellationToken ct)
     {
@@ -260,7 +267,7 @@ public sealed class DepartmentService : IDepartmentService
     {
         var codeAlreadyExists = await _db.Departments.AnyAsync(x => x.Code == request.Code, ct);
         if (codeAlreadyExists)
-            throw new InvalidOperationException($"Já existe um departamento com o código '{request.Code}'.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.DepartmentCodeExists", request.Code]);
 
         var entity = new Domain.Entities.Department
         {
@@ -292,7 +299,7 @@ public sealed class DepartmentService : IDepartmentService
 
         var codeConflict = await _db.Departments.AnyAsync(x => x.Id != id && x.Code == request.Code, ct);
         if (codeConflict)
-            throw new InvalidOperationException($"Já existe outro departamento com o código '{request.Code}'.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.DepartmentCodeExistsOther", request.Code]);
 
         entity.Code = request.Code.Trim();
         entity.Name = request.Name.Trim();

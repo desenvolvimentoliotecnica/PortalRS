@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Users;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Users;
 
@@ -11,15 +13,17 @@ public sealed class UserAdministrationService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
     public UserAdministrationService(
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,
-        AppDbContext db)
+        AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _db = db;
+        _localizer = localizer;
     }
 
     public async Task<IReadOnlyList<UserListItemResponse>> ListAsync(CancellationToken ct)
@@ -88,11 +92,11 @@ public sealed class UserAdministrationService
     {
         var email = request.Email.Trim();
         if (string.IsNullOrWhiteSpace(email))
-            throw new InvalidOperationException("Email is required.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UserEmailRequired"]);
 
         var emailExists = await _userManager.Users.AnyAsync(x => x.Email == email, ct);
         if (emailExists)
-            throw new InvalidOperationException("Email is already in use.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UserEmailInUse"]);
 
         var roles = await LoadRolesAsync(request.RoleIds, ct);
 
@@ -131,7 +135,7 @@ public sealed class UserAdministrationService
         {
             var emailExists = await _userManager.Users.AnyAsync(x => x.Email == email && x.Id != id, ct);
             if (emailExists)
-                throw new InvalidOperationException("Email is already in use.");
+                throw new InvalidOperationException(_localizer["ServiceErrors.UserEmailInUse"]);
 
             user.Email = email;
             user.UserName = email;
@@ -205,7 +209,7 @@ public sealed class UserAdministrationService
             .ToListAsync(ct);
 
         if (roles.Count != roleIds.Count)
-            throw new InvalidOperationException("One or more roles were not found.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UserRolesNotFound"]);
 
         return roles;
     }

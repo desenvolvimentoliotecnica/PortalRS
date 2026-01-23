@@ -1,8 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Units;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Units;
 
@@ -19,8 +21,13 @@ public interface IUnitService
 public sealed class UnitService : IUnitService
 {
     private readonly AppDbContext _db;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
 
-    public UnitService(AppDbContext db) => _db = db;
+    public UnitService(AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
+    {
+        _db = db;
+        _localizer = localizer;
+    }
 
     public async Task<PagedResult<UnitGridRowResponse>> ListGridAsync(UnitListQuery query, CancellationToken ct)
     {
@@ -164,11 +171,11 @@ public sealed class UnitService : IUnitService
         ValidateCode(normalizedCode);
 
         if (request.Headcount < 0)
-            throw new InvalidOperationException("Headcount não pode ser negativo.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitHeadcountNegative"]);
 
         var codeAlreadyExists = await _db.Units.AnyAsync(x => x.Code == normalizedCode, ct);
         if (codeAlreadyExists)
-            throw new InvalidOperationException($"Já existe uma unidade com o código '{normalizedCode}'.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodeExists", normalizedCode]);
 
         var entity = new Domain.Entities.Unit
         {
@@ -209,11 +216,11 @@ public sealed class UnitService : IUnitService
         ValidateCode(normalizedCode);
 
         if (request.Headcount < 0)
-            throw new InvalidOperationException("Headcount não pode ser negativo.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitHeadcountNegative"]);
 
         var codeConflict = await _db.Units.AnyAsync(x => x.Id != id && x.Code == normalizedCode, ct);
         if (codeConflict)
-            throw new InvalidOperationException($"Já existe outra unidade com o código '{normalizedCode}'.");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodeExistsOther", normalizedCode]);
 
         entity.Code = normalizedCode;
         entity.Name = (request.Name ?? string.Empty).Trim();
@@ -252,29 +259,29 @@ public sealed class UnitService : IUnitService
     private static string NormalizeCode(string code)
         => (code ?? string.Empty).Trim().ToUpperInvariant();
 
-    private static void ValidateCode(string code)
+    private void ValidateCode(string code)
     {
         // padrão mínimo: "UNI-" + pelo menos 2 caracteres
         if (!code.StartsWith("UNI-"))
-            throw new InvalidOperationException("O código da unidade deve começar com 'UNI-' (ex.: UNI-EMB).");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodePrefix"]);
 
         if (code.Length < 6)
-            throw new InvalidOperationException("O código da unidade está muito curto (ex.: UNI-EMB).");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodeTooShort"]);
     }
 
-    private static string? NormalizeUf(string? uf)
+    private string? NormalizeUf(string? uf)
     {
         var v = TrimOrNull(uf);
         if (v is null) return null;
 
         v = v.ToUpperInvariant();
         if (v.Length != 2)
-            throw new InvalidOperationException("UF deve ter exatamente 2 letras (ex.: SP).");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitUfInvalid"]);
 
         return v;
     }
 
-    private static string? NormalizeZip(string? zip)
+    private string? NormalizeZip(string? zip)
     {
         var v = TrimOrNull(zip);
         if (v is null) return null;
@@ -282,7 +289,7 @@ public sealed class UnitService : IUnitService
         // aceita "00000-000" ou "00000000"
         v = v.Replace(" ", "");
         if (v.Length is not (8 or 9))
-            throw new InvalidOperationException("CEP inválido. Use 00000-000 (ou 00000000).");
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCepInvalid"]);
 
         return v;
     }
