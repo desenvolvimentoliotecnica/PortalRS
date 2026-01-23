@@ -58,7 +58,18 @@
       body: JSON.stringify(payload)
     });
     fillForm(data);
+    if (window.Swal && typeof window.Swal.fire === "function") {
+      await window.Swal.fire({
+        icon: "success",
+        text: "Configuracao salva.",
+        confirmButtonText: "Ok"
+      });
+      window.location.reload();
+      return;
+    }
+
     showAlert("success", "Configuracao salva.");
+    window.location.reload();
   }
 
   btnSave?.addEventListener("click", () => saveConfig().catch(err => {

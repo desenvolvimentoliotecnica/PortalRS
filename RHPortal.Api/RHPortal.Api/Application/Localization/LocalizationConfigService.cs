@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Application.Menus;
 
 namespace RhPortal.Api.Application.Localization;
 
@@ -28,11 +29,16 @@ public sealed class LocalizationConfigService : ILocalizationConfigService
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly MenuAdministrationService _menuService;
 
-    public LocalizationConfigService(AppDbContext db, ITenantContext tenantContext)
+    public LocalizationConfigService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        MenuAdministrationService menuService)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _menuService = menuService;
     }
 
     public async Task<LocalizationConfigView?> GetAsync(CancellationToken ct)
@@ -85,6 +91,7 @@ public sealed class LocalizationConfigService : ILocalizationConfigService
         entity.UpdatedAtUtc = now;
 
         await _db.SaveChangesAsync(ct);
+        await _menuService.EnsureLocalizedDisplayNamesAsync(entity.UiCulture ?? entity.Culture, ct);
         return MapView(entity);
     }
 
