@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Authentication;
 using RhPortal.Api.Application.Users;
 using RhPortal.Api.Contracts.Authentication;
 using RhPortal.Api.Contracts.Users;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
@@ -13,6 +15,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public AuthController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(
@@ -25,8 +34,8 @@ public sealed class AuthController : ControllerBase
         {
             return Unauthorized(new ProblemDetails
             {
-                Title = "Invalid credentials.",
-                Detail = "Email or password is not valid.",
+                Title = _localizer["ControllerErrors.InvalidCredentialsTitle"],
+                Detail = _localizer["ControllerErrors.InvalidCredentialsDetail"],
                 Status = StatusCodes.Status401Unauthorized
             });
         }
@@ -46,8 +55,8 @@ public sealed class AuthController : ControllerBase
         {
             return Unauthorized(new ProblemDetails
             {
-                Title = "Invalid Entra ID login.",
-                Detail = "Entra ID token is not valid or user is not enabled.",
+                Title = _localizer["ControllerErrors.InvalidEntraLoginTitle"],
+                Detail = _localizer["ControllerErrors.InvalidEntraLoginDetail"],
                 Status = StatusCodes.Status401Unauthorized
             });
         }
@@ -71,7 +80,7 @@ public sealed class AuthController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to create user.",
+                Title = _localizer["ControllerErrors.UnableToCreateUserTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });
@@ -88,8 +97,8 @@ public sealed class AuthController : ControllerBase
         {
             return Unauthorized(new ProblemDetails
             {
-                Title = "Invalid token.",
-                Detail = "User identifier is missing.",
+                Title = _localizer["ControllerErrors.InvalidTokenTitle"],
+                Detail = _localizer["ControllerErrors.InvalidTokenDetail"],
                 Status = StatusCodes.Status401Unauthorized
             });
         }

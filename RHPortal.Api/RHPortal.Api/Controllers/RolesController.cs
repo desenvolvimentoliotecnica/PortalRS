@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Contracts.Roles;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
@@ -9,6 +11,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/roles")]
 public sealed class RolesController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public RolesController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [RequirePermission("roles.manage")]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<RoleListItemResponse>>> List(
@@ -46,7 +55,7 @@ public sealed class RolesController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to create role.",
+                Title = _localizer["ControllerErrors.UnableToCreateRoleTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });
@@ -70,7 +79,7 @@ public sealed class RolesController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to update role.",
+                Title = _localizer["ControllerErrors.UnableToUpdateRoleTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });
@@ -105,7 +114,7 @@ public sealed class RolesController : ControllerBase
         {
             return Conflict(new ProblemDetails
             {
-                Title = "Unable to update role menus.",
+                Title = _localizer["ControllerErrors.UnableToUpdateRoleMenusTitle"],
                 Detail = ex.Message,
                 Status = StatusCodes.Status409Conflict
             });

@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Portal;
 using RhPortal.Api.Contracts.Portal;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
@@ -10,6 +12,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/public/portal-auth")]
 public sealed class PortalAuthController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public PortalAuthController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpPost("login")]
     public async Task<ActionResult<PortalCandidateAuthResponse>> Login(
         [FromBody] PortalCandidateLoginRequest request,
@@ -21,7 +30,7 @@ public sealed class PortalAuthController : ControllerBase
 
         var response = await service.LoginAsync(request, ct);
         if (response is null)
-            return Unauthorized(new { message = "Credenciais invalidas ou acesso nao configurado." });
+            return Unauthorized(new { message = _localizer["ControllerErrors.PortalInvalidCredentials"] });
 
         return Ok(response);
     }

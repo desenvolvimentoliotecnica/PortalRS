@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
@@ -11,6 +13,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/public/portal-candidates")]
 public sealed class PortalCandidatesController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public PortalCandidatesController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PortalCandidateProfileResponse>> GetProfile(
         Guid id,
@@ -22,7 +31,7 @@ public sealed class PortalCandidatesController : ControllerBase
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
         if (candidate is null)
-            return NotFound(new { message = "Candidato nao encontrado." });
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
 
         return Ok(new PortalCandidateProfileResponse(
             candidate.Id,
@@ -48,7 +57,7 @@ public sealed class PortalCandidatesController : ControllerBase
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
         if (candidate is null)
-            return NotFound(new { message = "Candidato nao encontrado." });
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
 
         candidate.Nome = (request.Nome ?? string.Empty).Trim();
         candidate.Fone = NormalizeRequired(request.Fone);

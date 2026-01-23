@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Contracts.Candidatos;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Controllers;
@@ -15,6 +17,13 @@ namespace RhPortal.Api.Controllers;
 [Route("api/public/candidaturas")]
 public sealed class PublicCandidaturasController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public PublicCandidaturasController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpPost]
     [RequestSizeLimit(52_428_800)]
     [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
@@ -27,7 +36,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         CancellationToken ct)
     {
         if (request.VagaId == Guid.Empty)
-            return BadRequest(new { message = "Vaga invalida." });
+            return BadRequest(new { message = _localizer["ControllerErrors.VagaInvalid"] });
 
         var (cidade, uf) = ParseCidadeUf(request.CidadeUf);
         var obs = BuildObs(request);

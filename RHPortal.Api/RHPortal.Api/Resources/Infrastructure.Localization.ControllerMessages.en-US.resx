@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ControllerErrors.InvalidCredentialsTitle" xml:space="preserve">
+    <value>Invalid credentials.</value>
+  </data>
+  <data name="ControllerErrors.InvalidCredentialsDetail" xml:space="preserve">
+    <value>Email or password is not valid.</value>
+  </data>
+  <data name="ControllerErrors.InvalidEntraLoginTitle" xml:space="preserve">
+    <value>Invalid Entra ID login.</value>
+  </data>
+  <data name="ControllerErrors.InvalidEntraLoginDetail" xml:space="preserve">
+    <value>Entra ID token is not valid or user is not enabled.</value>
+  </data>
+  <data name="ControllerErrors.UnableToCreateUserTitle" xml:space="preserve">
+    <value>Unable to create user.</value>
+  </data>
+  <data name="ControllerErrors.InvalidTokenTitle" xml:space="preserve">
+    <value>Invalid token.</value>
+  </data>
+  <data name="ControllerErrors.InvalidTokenDetail" xml:space="preserve">
+    <value>User identifier is missing.</value>
+  </data>
+  <data name="ControllerErrors.UnableToCreateEventTitle" xml:space="preserve">
+    <value>Unable to create event.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateEventTitle" xml:space="preserve">
+    <value>Unable to update event.</value>
+  </data>
+  <data name="ControllerErrors.UnableToCreateMenuTitle" xml:space="preserve">
+    <value>Unable to create menu.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateMenuTitle" xml:space="preserve">
+    <value>Unable to update menu.</value>
+  </data>
+  <data name="ControllerErrors.UnableToCreateRoleTitle" xml:space="preserve">
+    <value>Unable to create role.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateRoleTitle" xml:space="preserve">
+    <value>Unable to update role.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateRoleMenusTitle" xml:space="preserve">
+    <value>Unable to update role menus.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateUserTitle" xml:space="preserve">
+    <value>Unable to update user.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateUserStatusTitle" xml:space="preserve">
+    <value>Unable to update user status.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateUserRolesTitle" xml:space="preserve">
+    <value>Unable to update user roles.</value>
+  </data>
+  <data name="ControllerErrors.UnableToDeleteUserTitle" xml:space="preserve">
+    <value>Unable to delete user.</value>
+  </data>
+  <data name="ControllerErrors.AreaCodeExists" xml:space="preserve">
+    <value>Area with code '{0}' already exists.</value>
+  </data>
+  <data name="ControllerErrors.AreaHasDependencies" xml:space="preserve">
+    <value>Area has dependencies and cannot be deleted.</value>
+  </data>
+  <data name="ControllerErrors.CostCenterCodeExists" xml:space="preserve">
+    <value>Cost center with code '{0}' already exists.</value>
+  </data>
+  <data name="ControllerErrors.CostCenterHasDepartments" xml:space="preserve">
+    <value>Cost center has linked departments and cannot be deleted.</value>
+  </data>
+  <data name="ControllerErrors.RequisitoCategoriaCodeExists" xml:space="preserve">
+    <value>Category with code '{0}' already exists.</value>
+  </data>
+  <data name="ControllerErrors.RequisitoCategoriaHasDependencies" xml:space="preserve">
+    <value>Category has linked requirements and cannot be deleted.</value>
+  </data>
+  <data name="ControllerErrors.CandidatoDocumentoFileInvalid" xml:space="preserve">
+    <value>Invalid file.</value>
+  </data>
+  <data name="ControllerErrors.CandidatoDocumentoTypeRequired" xml:space="preserve">
+    <value>Document type is required.</value>
+  </data>
+  <data name="ControllerErrors.CandidatoDocumentoTypeInvalid" xml:space="preserve">
+    <value>Invalid document type.</value>
+  </data>
+  <data name="ControllerErrors.InboxOrigemInvalid" xml:space="preserve">
+    <value>Invalid source.</value>
+  </data>
+  <data name="ControllerErrors.InboxStatusInvalid" xml:space="preserve">
+    <value>Invalid status.</value>
+  </data>
+  <data name="ControllerErrors.InboxFileRequired" xml:space="preserve">
+    <value>File is required.</value>
+  </data>
+  <data name="ControllerErrors.TenantNotFound" xml:space="preserve">
+    <value>Tenant not found.</value>
+  </data>
+  <data name="ControllerErrors.CandidatoNotFound" xml:space="preserve">
+    <value>Candidate not found.</value>
+  </data>
+  <data name="ControllerErrors.PortalInvalidCredentials" xml:space="preserve">
+    <value>Invalid credentials or access not configured.</value>
+  </data>
+  <data name="ControllerErrors.VagaInvalid" xml:space="preserve">
+    <value>Invalid job opening.</value>
+  </data>
+  <data name="ControllerErrors.EmailTemplateNameExists" xml:space="preserve">
+    <value>A template with this name already exists.</value>
+  </data>
+</root>
