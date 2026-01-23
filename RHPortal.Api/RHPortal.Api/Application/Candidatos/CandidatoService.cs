@@ -124,13 +124,13 @@ public sealed class CandidatoService : ICandidatoService
             Id = Guid.NewGuid(),
             Nome = (request.Nome ?? string.Empty).Trim(),
             Email = NormalizeEmail(request.Email),
-            Fone = TrimOrNull(request.Fone),
-            Cidade = TrimOrNull(request.Cidade),
+            Fone = TrimToMax(request.Fone, 40),
+            Cidade = TrimToMax(request.Cidade, 120),
             Uf = NormalizeUf(request.Uf),
             Fonte = request.Fonte,
             Status = request.Status,
             VagaId = request.VagaId,
-            Obs = TrimOrNull(request.Obs),
+            Obs = TrimToMax(request.Obs, 2000),
             CvText = TrimOrNull(request.CvText),
             PortalAccessKey = GeneratePortalAccessKey()
         };
@@ -159,13 +159,13 @@ public sealed class CandidatoService : ICandidatoService
 
         entity.Nome = (request.Nome ?? string.Empty).Trim();
         entity.Email = NormalizeEmail(request.Email);
-        entity.Fone = TrimOrNull(request.Fone);
-        entity.Cidade = TrimOrNull(request.Cidade);
+        entity.Fone = TrimToMax(request.Fone, 40);
+        entity.Cidade = TrimToMax(request.Cidade, 120);
         entity.Uf = NormalizeUf(request.Uf);
         entity.Fonte = request.Fonte;
         entity.Status = request.Status;
         entity.VagaId = request.VagaId;
-        entity.Obs = TrimOrNull(request.Obs);
+        entity.Obs = TrimToMax(request.Obs, 2000);
         entity.CvText = TrimOrNull(request.CvText);
 
         ApplyLastMatch(entity, request.LastMatch);
@@ -529,6 +529,13 @@ public sealed class CandidatoService : ICandidatoService
 
     private static string? TrimOrNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? TrimToMax(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
 
     private (string? userId, string? userName) GetUserInfo()
     {
