@@ -143,6 +143,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
         options.Password.RequireNonAlphanumeric = true;
         options.Password.RequiredLength = 8;
     })
+    .AddErrorDescriber<LocalizedIdentityErrorDescriber>()
     .AddRoles<ApplicationRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddSignInManager();
