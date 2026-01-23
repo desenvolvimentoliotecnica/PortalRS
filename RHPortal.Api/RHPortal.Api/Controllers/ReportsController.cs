@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Reports;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
@@ -11,16 +13,48 @@ namespace RhPortal.Api.Controllers;
 [Route("api/reports")]
 public sealed class ReportsController : ControllerBase
 {
+    private readonly IStringLocalizer<ControllerMessages> _localizer;
+
+    public ReportsController(IStringLocalizer<ControllerMessages> localizer)
+    {
+        _localizer = localizer;
+    }
+
     [HttpGet("catalog")]
     public ActionResult<IReadOnlyList<ReportCatalogItemResponse>> GetCatalog()
     {
         var items = new List<ReportCatalogItemResponse>
         {
-            new("r1", "bar-chart", "Entrada por Origem", "Quantidade de itens recebidos por origem no periodo.", "entrada"),
-            new("r2", "exclamation-triangle", "Falhas de Processamento", "Principais causas de falha (quando houver).", "entrada"),
-            new("r3", "people", "Pipeline RH (Status do Candidato)", "Distribuicao por status do candidato.", "candidatos"),
-            new("r4", "briefcase", "Funil por Vaga", "Candidatos por vaga e status.", "vagas"),
-            new("r5", "stars", "Ranking de Matching", "Top candidatos por percentual de match.", "matching")
+            new(
+                "r1",
+                "bar-chart",
+                _localizer["ControllerLabels.ReportCatalogEntradaPorOrigemTitle"].Value,
+                _localizer["ControllerLabels.ReportCatalogEntradaPorOrigemDescription"].Value,
+                "entrada"),
+            new(
+                "r2",
+                "exclamation-triangle",
+                _localizer["ControllerLabels.ReportCatalogFalhasProcessamentoTitle"].Value,
+                _localizer["ControllerLabels.ReportCatalogFalhasProcessamentoDescription"].Value,
+                "entrada"),
+            new(
+                "r3",
+                "people",
+                _localizer["ControllerLabels.ReportCatalogPipelineStatusTitle"].Value,
+                _localizer["ControllerLabels.ReportCatalogPipelineStatusDescription"].Value,
+                "candidatos"),
+            new(
+                "r4",
+                "briefcase",
+                _localizer["ControllerLabels.ReportCatalogFunilVagaTitle"].Value,
+                _localizer["ControllerLabels.ReportCatalogFunilVagaDescription"].Value,
+                "vagas"),
+            new(
+                "r5",
+                "stars",
+                _localizer["ControllerLabels.ReportCatalogRankingMatchingTitle"].Value,
+                _localizer["ControllerLabels.ReportCatalogRankingMatchingDescription"].Value,
+                "matching")
         };
 
         return Ok(items);
@@ -70,7 +104,12 @@ public sealed class ReportsController : ControllerBase
             .GroupBy(c => c.Origem)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        var labels = new[] { "Email", "Pasta", "Upload" };
+        var labels = new[]
+        {
+            _localizer["ControllerLabels.Email"].Value,
+            _localizer["ControllerLabels.Pasta"].Value,
+            _localizer["ControllerLabels.Upload"].Value
+        };
         var values = new List<int>
         {
             countByFonte.TryGetValue(InboxOrigem.Email, out var c0) ? c0 : 0,
@@ -78,7 +117,15 @@ public sealed class ReportsController : ControllerBase
             countByFonte.TryGetValue(InboxOrigem.Upload, out var c2) ? c2 : 0
         };
 
-        var headers = new[] { "Recebido em", "Origem", "Remetente", "Assunto", "Vaga", "Status" };
+        var headers = new[]
+        {
+            _localizer["ControllerLabels.RecebidoEm"].Value,
+            _localizer["ControllerLabels.Origem"].Value,
+            _localizer["ControllerLabels.Remetente"].Value,
+            _localizer["ControllerLabels.Assunto"].Value,
+            _localizer["ControllerLabels.Vaga"].Value,
+            _localizer["ControllerLabels.Status"].Value
+        };
         var rows = list.Select(c => new List<ReportCellResponse>
         {
             MakeCell(c.RecebidoEm.ToString("dd/MM/yyyy")),
@@ -120,7 +167,9 @@ public sealed class ReportsController : ControllerBase
             .ToListAsync(ct);
 
         var grouped = list
-            .GroupBy(x => string.IsNullOrWhiteSpace(x.ProcessamentoUltimoErro) ? "Outros" : x.ProcessamentoUltimoErro)
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.ProcessamentoUltimoErro)
+                ? _localizer["ControllerLabels.Outros"].Value
+                : x.ProcessamentoUltimoErro)
             .OrderByDescending(x => x.Count())
             .Take(6)
             .ToList();
@@ -128,7 +177,14 @@ public sealed class ReportsController : ControllerBase
         var labels = grouped.Select(g => g.Key.Length > 22 ? g.Key[..22] + "..." : g.Key).ToList();
         var values = grouped.Select(g => g.Count()).ToList();
 
-        var headers = new[] { "Recebido em", "Origem", "Assunto", "Vaga", "Erro" };
+        var headers = new[]
+        {
+            _localizer["ControllerLabels.RecebidoEm"].Value,
+            _localizer["ControllerLabels.Origem"].Value,
+            _localizer["ControllerLabels.Assunto"].Value,
+            _localizer["ControllerLabels.Vaga"].Value,
+            _localizer["ControllerLabels.Erro"].Value
+        };
         var rows = list.Select(x => new List<ReportCellResponse>
         {
             MakeCell(x.RecebidoEm.ToString("dd/MM/yyyy")),
@@ -175,7 +231,14 @@ public sealed class ReportsController : ControllerBase
         var labels = grouped.Select(g => MapStatusLabel(g.Status)).ToList();
         var values = grouped.Select(g => g.Count).ToList();
 
-        var headers = new[] { "Criado em", "Nome", "Email", "Status", "Vaga" };
+        var headers = new[]
+        {
+            _localizer["ControllerLabels.CriadoEm"].Value,
+            _localizer["ControllerLabels.Nome"].Value,
+            _localizer["ControllerLabels.Email"].Value,
+            _localizer["ControllerLabels.Status"].Value,
+            _localizer["ControllerLabels.Vaga"].Value
+        };
         var rows = list.Select(c => new List<ReportCellResponse>
         {
             MakeCell(c.CreatedAtUtc.ToString("dd/MM/yyyy")),
@@ -216,10 +279,18 @@ public sealed class ReportsController : ControllerBase
             .Take(8)
             .ToListAsync(ct);
 
-        var labels = grouped.Select(g => g.Codigo ?? "Vaga").ToList();
+        var labels = grouped.Select(g => g.Codigo ?? _localizer["ControllerLabels.Vaga"].Value).ToList();
         var values = grouped.Select(g => g.Total).ToList();
 
-        var headers = new[] { "Vaga", "Recebidos", "Triagem", "Aprovados", "Reprovados", "Taxa OK" };
+        var headers = new[]
+        {
+            _localizer["ControllerLabels.Vaga"].Value,
+            _localizer["ControllerLabels.Recebidos"].Value,
+            _localizer["ControllerLabels.Triagem"].Value,
+            _localizer["ControllerLabels.Aprovados"].Value,
+            _localizer["ControllerLabels.Reprovados"].Value,
+            _localizer["ControllerLabels.TaxaOk"].Value
+        };
         var rows = grouped.Select(g =>
         {
             var rate = g.Total > 0 ? (int)Math.Round((double)g.Aprovados / g.Total * 100) : 0;
@@ -276,7 +347,14 @@ public sealed class ReportsController : ControllerBase
         var labels = list.Take(6).Select(c => (c.Nome ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "-").ToList();
         var values = list.Take(6).Select(c => c.MatchScore).ToList();
 
-        var headers = new[] { "Candidato", "Email", "Vaga", "Match", "Atualizado" };
+        var headers = new[]
+        {
+            _localizer["ControllerLabels.Candidato"].Value,
+            _localizer["ControllerLabels.Email"].Value,
+            _localizer["ControllerLabels.Vaga"].Value,
+            _localizer["ControllerLabels.Match"].Value,
+            _localizer["ControllerLabels.Atualizado"].Value
+        };
         var rows = list.Select(c =>
         {
             var badge = c.MatchScore >= 80
@@ -388,40 +466,40 @@ public sealed class ReportsController : ControllerBase
         return Enum.TryParse(value, true, out result);
     }
 
-    private static string MapOrigem(CandidatoFonte fonte)
+    private string MapOrigem(CandidatoFonte fonte)
     {
         return fonte switch
         {
-            CandidatoFonte.Email => "Email",
-            CandidatoFonte.Pasta => "Pasta",
-            CandidatoFonte.LinkedIn => "LinkedIn",
-            CandidatoFonte.Indicacao => "Indicacao",
-            CandidatoFonte.Site => "Site",
-            _ => "Outro"
+            CandidatoFonte.Email => _localizer["ControllerLabels.Email"].Value,
+            CandidatoFonte.Pasta => _localizer["ControllerLabels.Pasta"].Value,
+            CandidatoFonte.LinkedIn => _localizer["ControllerLabels.LinkedIn"].Value,
+            CandidatoFonte.Indicacao => _localizer["ControllerLabels.Indicacao"].Value,
+            CandidatoFonte.Site => _localizer["ControllerLabels.Site"].Value,
+            _ => _localizer["ControllerLabels.Outro"].Value
         };
     }
 
-    private static string MapInboxOrigem(InboxOrigem origem)
+    private string MapInboxOrigem(InboxOrigem origem)
     {
         return origem switch
         {
-            InboxOrigem.Email => "Email",
-            InboxOrigem.Pasta => "Pasta",
-            InboxOrigem.Upload => "Upload",
-            _ => "Outro"
+            InboxOrigem.Email => _localizer["ControllerLabels.Email"].Value,
+            InboxOrigem.Pasta => _localizer["ControllerLabels.Pasta"].Value,
+            InboxOrigem.Upload => _localizer["ControllerLabels.Upload"].Value,
+            _ => _localizer["ControllerLabels.Outro"].Value
         };
     }
 
-    private static string MapStatusLabel(CandidatoStatus status)
+    private string MapStatusLabel(CandidatoStatus status)
     {
         return status switch
         {
-            CandidatoStatus.Novo => "Novo",
-            CandidatoStatus.Triagem => "Triagem",
-            CandidatoStatus.Pendente => "Pendente",
-            CandidatoStatus.Aprovado => "Aprovado",
-            CandidatoStatus.Reprovado => "Reprovado",
-            _ => "Outro"
+            CandidatoStatus.Novo => _localizer["ControllerLabels.StatusNovo"].Value,
+            CandidatoStatus.Triagem => _localizer["ControllerLabels.StatusTriagem"].Value,
+            CandidatoStatus.Pendente => _localizer["ControllerLabels.StatusPendente"].Value,
+            CandidatoStatus.Aprovado => _localizer["ControllerLabels.StatusAprovado"].Value,
+            CandidatoStatus.Reprovado => _localizer["ControllerLabels.StatusReprovado"].Value,
+            _ => _localizer["ControllerLabels.Outro"].Value
         };
     }
 
@@ -431,7 +509,7 @@ public sealed class ReportsController : ControllerBase
     private static ReportCellResponse MakeTagCell(string text, string cls, string icon)
         => new(text, new[] { "tag", cls }.Where(x => !string.IsNullOrWhiteSpace(x)).Aggregate(string.Empty, (a,b) => string.IsNullOrEmpty(a) ? b : $"{a} {b}"), icon);
 
-    private static ReportCellResponse MakeStatusCell(CandidatoStatus status)
+    private ReportCellResponse MakeStatusCell(CandidatoStatus status)
     {
         var label = MapStatusLabel(status);
         return status switch
@@ -443,16 +521,16 @@ public sealed class ReportsController : ControllerBase
         };
     }
 
-    private static ReportCellResponse MakeInboxStatusCell(InboxStatus status)
+    private ReportCellResponse MakeInboxStatusCell(InboxStatus status)
     {
         var label = status switch
         {
-            InboxStatus.Novo => "Novo",
-            InboxStatus.Processando => "Processando",
-            InboxStatus.Processado => "Processado",
-            InboxStatus.Falha => "Falha",
-            InboxStatus.Descartado => "Descartado",
-            _ => "Outro"
+            InboxStatus.Novo => _localizer["ControllerLabels.StatusNovo"].Value,
+            InboxStatus.Processando => _localizer["ControllerLabels.StatusProcessando"].Value,
+            InboxStatus.Processado => _localizer["ControllerLabels.StatusProcessado"].Value,
+            InboxStatus.Falha => _localizer["ControllerLabels.StatusFalha"].Value,
+            InboxStatus.Descartado => _localizer["ControllerLabels.StatusDescartado"].Value,
+            _ => _localizer["ControllerLabels.Outro"].Value
         };
 
         return status switch

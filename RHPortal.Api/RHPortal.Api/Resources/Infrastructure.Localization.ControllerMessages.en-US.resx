@@ -117,4 +117,262 @@
   <data name="ControllerErrors.EmailTemplateNameExists" xml:space="preserve">
     <value>A template with this name already exists.</value>
   </data>
+  <data name="ControllerLabels.ReportCatalogEntradaPorOrigemTitle" xml:space="preserve">
+    <value>Inbound by Source</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogEntradaPorOrigemDescription" xml:space="preserve">
+    <value>Items received by source during the period.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFalhasProcessamentoTitle" xml:space="preserve">
+    <value>Processing Failures</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFalhasProcessamentoDescription" xml:space="preserve">
+    <value>Top failure causes (when available).</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPipelineStatusTitle" xml:space="preserve">
+    <value>HR Pipeline (Candidate Status)</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPipelineStatusDescription" xml:space="preserve">
+    <value>Distribution by candidate status.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFunilVagaTitle" xml:space="preserve">
+    <value>Funnel by Job</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFunilVagaDescription" xml:space="preserve">
+    <value>Candidates by job and status.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogRankingMatchingTitle" xml:space="preserve">
+    <value>Matching Ranking</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogRankingMatchingDescription" xml:space="preserve">
+    <value>Top candidates by match percentage.</value>
+  </data>
+  <data name="ControllerLabels.RecebidoEm" xml:space="preserve">
+    <value>Received At</value>
+  </data>
+  <data name="ControllerLabels.Origem" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="ControllerLabels.Remetente" xml:space="preserve">
+    <value>Sender</value>
+  </data>
+  <data name="ControllerLabels.Assunto" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="ControllerLabels.Vaga" xml:space="preserve">
+    <value>Job</value>
+  </data>
+  <data name="ControllerLabels.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="ControllerLabels.Erro" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="ControllerLabels.CriadoEm" xml:space="preserve">
+    <value>Created At</value>
+  </data>
+  <data name="ControllerLabels.Nome" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ControllerLabels.Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="ControllerLabels.Candidato" xml:space="preserve">
+    <value>Candidate</value>
+  </data>
+  <data name="ControllerLabels.Match" xml:space="preserve">
+    <value>Match</value>
+  </data>
+  <data name="ControllerLabels.Atualizado" xml:space="preserve">
+    <value>Updated At</value>
+  </data>
+  <data name="ControllerLabels.Recebidos" xml:space="preserve">
+    <value>Received</value>
+  </data>
+  <data name="ControllerLabels.Triagem" xml:space="preserve">
+    <value>Screening</value>
+  </data>
+  <data name="ControllerLabels.Aprovados" xml:space="preserve">
+    <value>Approved</value>
+  </data>
+  <data name="ControllerLabels.Reprovados" xml:space="preserve">
+    <value>Rejected</value>
+  </data>
+  <data name="ControllerLabels.TaxaOk" xml:space="preserve">
+    <value>OK Rate</value>
+  </data>
+  <data name="ControllerLabels.Outro" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="ControllerLabels.Outros" xml:space="preserve">
+    <value>Others</value>
+  </data>
+  <data name="ControllerLabels.Pasta" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="ControllerLabels.Upload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="ControllerLabels.LinkedIn" xml:space="preserve">
+    <value>LinkedIn</value>
+  </data>
+  <data name="ControllerLabels.Indicacao" xml:space="preserve">
+    <value>Referral</value>
+  </data>
+  <data name="ControllerLabels.Site" xml:space="preserve">
+    <value>Site</value>
+  </data>
+  <data name="ControllerLabels.StatusNovo" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="ControllerLabels.StatusTriagem" xml:space="preserve">
+    <value>Screening</value>
+  </data>
+  <data name="ControllerLabels.StatusPendente" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="ControllerLabels.StatusAprovado" xml:space="preserve">
+    <value>Approved</value>
+  </data>
+  <data name="ControllerLabels.StatusReprovado" xml:space="preserve">
+    <value>Rejected</value>
+  </data>
+  <data name="ControllerLabels.StatusProcessando" xml:space="preserve">
+    <value>Processing</value>
+  </data>
+  <data name="ControllerLabels.StatusProcessado" xml:space="preserve">
+    <value>Processed</value>
+  </data>
+  <data name="ControllerLabels.StatusFalha" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="ControllerLabels.StatusDescartado" xml:space="preserve">
+    <value>Discarded</value>
+  </data>
+  <data name="Lookup.SelectPlaceholder" xml:space="preserve">
+    <value>Select...</value>
+  </data>
+  <data name="Lookup.StatusFilterAll" xml:space="preserve">
+    <value>Status: all</value>
+  </data>
+  <data name="Lookup.AreaFilterAll" xml:space="preserve">
+    <value>Area: all</value>
+  </data>
+  <data name="Lookup.VagaFilterAll" xml:space="preserve">
+    <value>Job: all</value>
+  </data>
+  <data name="Lookup.AllFeminine" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Lookup.AllMasculine" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Lookup.OrigemFilterAll" xml:space="preserve">
+    <value>Source: all</value>
+  </data>
+  <data name="Lookup.RequirementCategoryCompetencia" xml:space="preserve">
+    <value>Competency</value>
+  </data>
+  <data name="Lookup.RequirementCategoryExperiencia" xml:space="preserve">
+    <value>Experience</value>
+  </data>
+  <data name="Lookup.RequirementCategoryFormacao" xml:space="preserve">
+    <value>Education</value>
+  </data>
+  <data name="Lookup.RequirementCategoryFerramentaTecnologia" xml:space="preserve">
+    <value>Tool/Technology</value>
+  </data>
+  <data name="Lookup.RequirementCategoryIdioma" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Lookup.RequirementCategoryCertificacao" xml:space="preserve">
+    <value>Certification</value>
+  </data>
+  <data name="Lookup.RequirementCategoryLocalidade" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Lookup.SortMatchDesc" xml:space="preserve">
+    <value>Sort: Match (high -&gt; low)</value>
+  </data>
+  <data name="Lookup.SortMatchAsc" xml:space="preserve">
+    <value>Sort: Match (low -&gt; high)</value>
+  </data>
+  <data name="Lookup.SortUpdatedDesc" xml:space="preserve">
+    <value>Sort: Updated (recent)</value>
+  </data>
+  <data name="Lookup.SortUpdatedAsc" xml:space="preserve">
+    <value>Sort: Updated (older)</value>
+  </data>
+  <data name="Lookup.SortNameAsc" xml:space="preserve">
+    <value>Sort: Name (A-Z)</value>
+  </data>
+  <data name="Lookup.ReportPeriod7d" xml:space="preserve">
+    <value>Last 7 days</value>
+  </data>
+  <data name="Lookup.ReportPeriod30d" xml:space="preserve">
+    <value>Last 30 days</value>
+  </data>
+  <data name="Lookup.ReportPeriod90d" xml:space="preserve">
+    <value>Last 90 days</value>
+  </data>
+  <data name="Lookup.ReportPeriodYtd" xml:space="preserve">
+    <value>Current year (YTD)</value>
+  </data>
+  <data name="Lookup.ReportFrequencyDaily" xml:space="preserve">
+    <value>Daily</value>
+  </data>
+  <data name="Lookup.ReportFrequencyWeekly" xml:space="preserve">
+    <value>Weekly</value>
+  </data>
+  <data name="Lookup.ReportFrequencyMonthly" xml:space="preserve">
+    <value>Monthly</value>
+  </data>
+  <data name="Lookup.UserStatusActive" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="Lookup.UserStatusInvited" xml:space="preserve">
+    <value>Invited</value>
+  </data>
+  <data name="Lookup.UserStatusDisabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Lookup.MfaDisabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Lookup.MfaEnabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Lookup.TriagemActionApprove" xml:space="preserve">
+    <value>Approve</value>
+  </data>
+  <data name="Lookup.TriagemActionPending" xml:space="preserve">
+    <value>Mark as Pending</value>
+  </data>
+  <data name="Lookup.TriagemActionReject" xml:space="preserve">
+    <value>Reject</value>
+  </data>
+  <data name="Lookup.TriagemActionKeep" xml:space="preserve">
+    <value>Keep in Screening</value>
+  </data>
+  <data name="Lookup.OptionalLabel" xml:space="preserve">
+    <value>(optional)</value>
+  </data>
+  <data name="Lookup.TriagemReasonMissingMandatory" xml:space="preserve">
+    <value>Missing mandatory requirement</value>
+  </data>
+  <data name="Lookup.TriagemReasonBelowThreshold" xml:space="preserve">
+    <value>Match below minimum</value>
+  </data>
+  <data name="Lookup.TriagemReasonProfileFit" xml:space="preserve">
+    <value>Profile fit</value>
+  </data>
+  <data name="Lookup.TriagemReasonNeedsValidation" xml:space="preserve">
+    <value>Needs technical validation</value>
+  </data>
+  <data name="Lookup.TriagemReasonLowExperience" xml:space="preserve">
+    <value>Insufficient experience</value>
+  </data>
+  <data name="Lookup.TriagemReasonLocationAvailability" xml:space="preserve">
+    <value>Location/Availability</value>
+  </data>
 </root>
