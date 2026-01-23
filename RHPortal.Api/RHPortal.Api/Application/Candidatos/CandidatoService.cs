@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Localization;
-using RhPortal.Api.Contracts.Candidatos;
+using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
@@ -14,13 +14,13 @@ namespace RhPortal.Api.Application.Candidatos;
 
 public interface ICandidatoService
 {
-    Task<IReadOnlyList<CandidatoListItemResponse>> ListAsync(CandidatoListQuery query, CancellationToken ct);
-    Task<CandidatoResponse?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<CandidatoResponse> CreateAsync(CandidatoCreateRequest request, CancellationToken ct);
-    Task<CandidatoResponse?> UpdateAsync(Guid id, CandidatoUpdateRequest request, CancellationToken ct);
+    Task<IReadOnlyList<CandidateListItemResponse>> ListAsync(CandidateListQuery query, CancellationToken ct);
+    Task<CandidateResponse?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<CandidateResponse> CreateAsync(CandidateCreateRequest request, CancellationToken ct);
+    Task<CandidateResponse?> UpdateAsync(Guid id, CandidateUpdateRequest request, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
-    Task<IReadOnlyList<CandidatoStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct);
-    Task<CandidatoDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidatoDocumentoTipo tipo, string? descricao, IFormFile arquivo, CancellationToken ct);
+    Task<IReadOnlyList<CandidateStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct);
+    Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct);
     Task<CandidatoDocumentoFileResult?> GetDocumentoFileAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
 }
@@ -44,7 +44,7 @@ public sealed class CandidatoService : ICandidatoService
         _localizer = localizer;
     }
 
-    public async Task<IReadOnlyList<CandidatoListItemResponse>> ListAsync(CandidatoListQuery query, CancellationToken ct)
+    public async Task<IReadOnlyList<CandidateListItemResponse>> ListAsync(CandidateListQuery query, CancellationToken ct)
     {
         IQueryable<Candidato> q = _db.Candidatos
             .AsNoTracking()
@@ -78,7 +78,7 @@ public sealed class CandidatoService : ICandidatoService
             q = q.Where(c => c.VagaId == query.VagaId.Value);
 
         var items = await q
-            .Select(c => new CandidatoListItemResponse(
+            .Select(c => new CandidateListItemResponse(
                 c.Id,
                 c.Nome,
                 c.Email,
@@ -104,7 +104,7 @@ public sealed class CandidatoService : ICandidatoService
             .ToList();
     }
 
-    public async Task<CandidatoResponse?> GetByIdAsync(Guid id, CancellationToken ct)
+    public async Task<CandidateResponse?> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var entity = await _db.Candidatos
             .AsNoTracking()
@@ -115,7 +115,7 @@ public sealed class CandidatoService : ICandidatoService
         return entity is null ? null : MapToResponse(entity);
     }
 
-    public async Task<CandidatoResponse> CreateAsync(CandidatoCreateRequest request, CancellationToken ct)
+    public async Task<CandidateResponse> CreateAsync(CandidateCreateRequest request, CancellationToken ct)
     {
         await EnsureVagaAsync(request.VagaId, ct);
 
@@ -145,7 +145,7 @@ public sealed class CandidatoService : ICandidatoService
         return (await GetByIdAsync(entity.Id, ct))!;
     }
 
-    public async Task<CandidatoResponse?> UpdateAsync(Guid id, CandidatoUpdateRequest request, CancellationToken ct)
+    public async Task<CandidateResponse?> UpdateAsync(Guid id, CandidateUpdateRequest request, CancellationToken ct)
     {
         var entity = await _db.Candidatos
             .Include(x => x.Documentos)
@@ -201,13 +201,13 @@ public sealed class CandidatoService : ICandidatoService
         return await GetByIdAsync(id, ct);
     }
 
-    public async Task<IReadOnlyList<CandidatoStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct)
+    public async Task<IReadOnlyList<CandidateStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct)
     {
         return await _db.CandidatoStatusHistories
             .AsNoTracking()
             .Where(x => x.CandidatoId == candidatoId)
             .OrderByDescending(x => x.CreatedAtUtc)
-            .Select(x => new CandidatoStatusHistoryItemResponse(
+            .Select(x => new CandidateStatusHistoryItemResponse(
                 x.Id,
                 x.FromStatus,
                 x.ToStatus,
@@ -243,7 +243,7 @@ public sealed class CandidatoService : ICandidatoService
         return true;
     }
 
-    public async Task<CandidatoDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidatoDocumentoTipo tipo, string? descricao, IFormFile arquivo, CancellationToken ct)
+    public async Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct)
     {
         if (arquivo is null || arquivo.Length == 0)
             throw new InvalidOperationException(_localizer["ServiceErrors.CandidatoFileInvalid"]);
@@ -342,9 +342,9 @@ public sealed class CandidatoService : ICandidatoService
         return raw.TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
-    private static CandidatoResponse MapToResponse(Candidato c)
+    private static CandidateResponse MapToResponse(Candidato c)
     {
-        return new CandidatoResponse(
+        return new CandidateResponse(
             c.Id,
             c.Nome,
             c.Email,
@@ -365,13 +365,13 @@ public sealed class CandidatoService : ICandidatoService
         );
     }
 
-    private static CandidatoDocumentoResponse MapDocumento(Guid candidatoId, CandidatoDocumento d)
+    private static CandidateDocumentoResponse MapDocumento(Guid candidatoId, CandidatoDocumento d)
     {
         var url = !string.IsNullOrWhiteSpace(d.StorageFileName)
             ? BuildDownloadUrl(candidatoId, d.Id)
             : TrimOrNull(d.Url);
 
-        return new CandidatoDocumentoResponse(
+        return new CandidateDocumentoResponse(
             d.Id,
             d.Tipo,
             d.NomeArquivo,
@@ -384,12 +384,12 @@ public sealed class CandidatoService : ICandidatoService
         );
     }
 
-    private static CandidatoMatchResponse? MapMatch(Candidato c)
+    private static CandidateMatchResponse? MapMatch(Candidato c)
     {
         if (c.LastMatchScore is null && c.LastMatchPass is null && c.LastMatchAtUtc is null && c.LastMatchVagaId is null)
             return null;
 
-        return new CandidatoMatchResponse(
+        return new CandidateMatchResponse(
             c.LastMatchScore,
             c.LastMatchPass,
             c.LastMatchAtUtc,
@@ -397,7 +397,7 @@ public sealed class CandidatoService : ICandidatoService
         );
     }
 
-    private static void ApplyLastMatch(Candidato entity, CandidatoMatchRequest? match)
+    private static void ApplyLastMatch(Candidato entity, CandidateMatchRequest? match)
     {
         if (match is null)
         {
@@ -414,7 +414,7 @@ public sealed class CandidatoService : ICandidatoService
         entity.LastMatchVagaId = match.VagaId;
     }
 
-    private static List<CandidatoDocumento> BuildDocumentos(IReadOnlyList<CandidatoDocumentoRequest>? items, Guid candidatoId)
+    private static List<CandidatoDocumento> BuildDocumentos(IReadOnlyList<CandidateDocumentoRequest>? items, Guid candidatoId)
     {
         if (items is null || items.Count == 0) return [];
 

@@ -11,8 +11,8 @@ public sealed class CandidatoStatusHistory : ITenantEntity
     public Guid CandidatoId { get; set; }
     public Candidato? Candidato { get; set; }
 
-    public CandidatoStatus FromStatus { get; set; }
-    public CandidatoStatus ToStatus { get; set; }
+    public CandidateStatus FromStatus { get; set; }
+    public CandidateStatus ToStatus { get; set; }
 
     [StringLength(120)]
     public string? Reason { get; set; }

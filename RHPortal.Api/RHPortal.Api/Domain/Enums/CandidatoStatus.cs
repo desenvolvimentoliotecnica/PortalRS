@@ -1,6 +1,6 @@
 namespace RhPortal.Api.Domain.Enums;
 
-public enum CandidatoStatus
+public enum CandidateStatus
 {
     Novo,
     Triagem,

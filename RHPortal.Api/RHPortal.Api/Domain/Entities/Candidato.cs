@@ -23,8 +23,8 @@ public sealed class Candidato : ITenantEntity
     [StringLength(2)]
     public string? Uf { get; set; }
 
-    public CandidatoFonte Fonte { get; set; } = CandidatoFonte.Email;
-    public CandidatoStatus Status { get; set; } = CandidatoStatus.Novo;
+    public CandidateOrigin Fonte { get; set; } = CandidateOrigin.Email;
+    public CandidateStatus Status { get; set; } = CandidateStatus.Novo;
 
     public Guid? VagaId { get; set; }
     public RHPortal.Api.Domain.Entities.Vaga? Vaga { get; set; }
@@ -59,7 +59,7 @@ public sealed class CandidatoDocumento : ITenantEntity
     public Guid CandidatoId { get; set; }
     public Candidato? Candidato { get; set; }
 
-    public CandidatoDocumentoTipo Tipo { get; set; }
+    public CandidateDocumentType Tipo { get; set; }
 
     [Required, StringLength(200)]
     public string NomeArquivo { get; set; } = string.Empty;

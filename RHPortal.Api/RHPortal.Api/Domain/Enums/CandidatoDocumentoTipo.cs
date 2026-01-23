@@ -1,6 +1,6 @@
 namespace RhPortal.Api.Domain.Enums;
 
-public enum CandidatoDocumentoTipo
+public enum CandidateDocumentType
 {
     Curriculo,
     Documento,

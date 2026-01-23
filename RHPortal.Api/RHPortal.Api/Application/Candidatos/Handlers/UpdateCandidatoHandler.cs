@@ -1,10 +1,10 @@
-using RhPortal.Api.Contracts.Candidatos;
+using RhPortal.Api.Contracts.Candidates;
 
 namespace RhPortal.Api.Application.Candidatos.Handlers;
 
 public interface IUpdateCandidatoHandler
 {
-    Task<CandidatoResponse?> HandleAsync(Guid id, CandidatoUpdateRequest request, CancellationToken ct);
+    Task<CandidateResponse?> HandleAsync(Guid id, CandidateUpdateRequest request, CancellationToken ct);
 }
 
 public sealed class UpdateCandidatoHandler : IUpdateCandidatoHandler
@@ -13,6 +13,6 @@ public sealed class UpdateCandidatoHandler : IUpdateCandidatoHandler
 
     public UpdateCandidatoHandler(ICandidatoService service) => _service = service;
 
-    public Task<CandidatoResponse?> HandleAsync(Guid id, CandidatoUpdateRequest request, CancellationToken ct)
+    public Task<CandidateResponse?> HandleAsync(Guid id, CandidateUpdateRequest request, CancellationToken ct)
         => _service.UpdateAsync(id, request, ct);
 }

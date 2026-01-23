@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
-using RhPortal.Api.Contracts.Candidatos;
+using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Localization;
 
@@ -21,21 +21,21 @@ public sealed class CandidatosController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CandidatoListItemResponse>>> List(
+    public async Task<ActionResult<IReadOnlyList<CandidateListItemResponse>>> List(
         [FromQuery] string? q,
-        [FromQuery] CandidatoStatus? status,
+        [FromQuery] CandidateStatus? status,
         [FromQuery] Guid? vagaId,
-        [FromQuery] CandidatoFonte? fonte,
+        [FromQuery] CandidateOrigin? fonte,
         [FromServices] IListCandidatosHandler handler,
         CancellationToken ct)
     {
-        var query = new CandidatoListQuery(q, status, vagaId, fonte);
+        var query = new CandidateListQuery(q, status, vagaId, fonte);
         var items = await handler.HandleAsync(query, ct);
         return Ok(items);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<CandidatoResponse>> GetById(
+    public async Task<ActionResult<CandidateResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] IGetCandidatoByIdHandler handler,
         CancellationToken ct)
@@ -45,8 +45,8 @@ public sealed class CandidatosController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<CandidatoResponse>> Create(
-        [FromBody] CandidatoCreateRequest request,
+    public async Task<ActionResult<CandidateResponse>> Create(
+        [FromBody] CandidateCreateRequest request,
         [FromServices] ICreateCandidatoHandler handler,
         CancellationToken ct)
     {
@@ -62,9 +62,9 @@ public sealed class CandidatosController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<CandidatoResponse>> Update(
+    public async Task<ActionResult<CandidateResponse>> Update(
         [FromRoute] Guid id,
-        [FromBody] CandidatoUpdateRequest request,
+        [FromBody] CandidateUpdateRequest request,
         [FromServices] IUpdateCandidatoHandler handler,
         CancellationToken ct)
     {
@@ -94,9 +94,9 @@ public sealed class CandidatosController : ControllerBase
     [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
     [Consumes("multipart/form-data")]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<ActionResult<CandidatoDocumentoResponse>> UploadDocumento(
+    public async Task<ActionResult<CandidateDocumentoResponse>> UploadDocumento(
         [FromRoute] Guid id,
-        [FromForm] CandidatoDocumentoUploadRequest request,
+        [FromForm] CandidateDocumentoUploadRequest request,
         [FromServices] ICandidatoService service,
         CancellationToken ct)
     {
@@ -106,7 +106,7 @@ public sealed class CandidatosController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Tipo))
             return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoTypeRequired"] });
 
-        if (!Enum.TryParse<CandidatoDocumentoTipo>(request.Tipo, true, out var tipo))
+        if (!Enum.TryParse<CandidateDocumentType>(request.Tipo, true, out var tipo))
             return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoTypeInvalid"] });
 
         try
@@ -157,7 +157,7 @@ public sealed class CandidatosController : ControllerBase
     }
 
     [HttpGet("{id:guid}/status-history")]
-    public async Task<ActionResult<IReadOnlyList<CandidatoStatusHistoryItemResponse>>> GetStatusHistory(
+    public async Task<ActionResult<IReadOnlyList<CandidateStatusHistoryItemResponse>>> GetStatusHistory(
         [FromRoute] Guid id,
         [FromServices] ICandidatoService service,
         CancellationToken ct)

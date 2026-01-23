@@ -197,8 +197,8 @@ public sealed class LookupController : ControllerBase
     [HttpGet("enums")]
     public ActionResult<Dictionary<string, IReadOnlyList<EnumOptionResponse>>> Enums()
     {
-        var candidatoStatus = BuildEnumOptions<CandidatoStatus>();
-        var candidatoDocumentoTipo = BuildEnumOptions<CandidatoDocumentoTipo>();
+        var candidatoStatus = BuildEnumOptions<CandidateStatus>();
+        var candidatoDocumentoTipo = BuildEnumOptions<CandidateDocumentType>();
 
         var vagaStatus = BuildEnumOptions<VagaStatus>(moveZeroToEnd: true);
         var vagaModalidade = BuildEnumOptions<VagaModalidade>();
@@ -295,7 +295,7 @@ public sealed class LookupController : ControllerBase
 
             ["candidatoStatus"] = candidatoStatus,
             ["candidatoStatusFilter"] = BuildFilterOptions(statusFilterAll, candidatoStatus),
-            ["candidatoFonte"] = BuildEnumOptions<CandidatoFonte>(),
+            ["candidatoFonte"] = BuildEnumOptions<CandidateOrigin>(),
             ["candidatoDocumentoTipo"] = candidatoDocumentoTipo,
 
             ["vagaStatus"] = vagaStatus,

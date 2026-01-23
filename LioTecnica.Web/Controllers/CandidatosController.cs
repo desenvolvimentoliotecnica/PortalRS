@@ -1,10 +1,11 @@
-using System.Net;
-using System.Text.Json;
 using LioTecnica.Web.Infrastructure.ApiClients;
 using LioTecnica.Web.Infrastructure.Security;
 using LioTecnica.Web.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing.Matching;
+using System.Net;
+using System.Text.Json;
 
 namespace LioTecnica.Web.Controllers;
 
@@ -26,12 +27,16 @@ public class CandidatosController : Controller
     }
 
     [HttpGet("/api/candidatos")]
-    public async Task<IActionResult> GetAll(CancellationToken ct)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? q,
+        [FromQuery] Guid? vagaId,
+        CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId;
-        var resp = await _candidatosApi.GetCandidatosRawAsync(tenantId, ct);
+        var resp = await _candidatosApi.GetCandidatosRawAsync(tenantId, q, vagaId, ct);
         return ToContentResult(resp);
     }
+
 
     [HttpGet("/api/candidatos/{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)

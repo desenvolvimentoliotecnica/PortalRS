@@ -271,9 +271,9 @@ public sealed class ReportsController : ControllerBase
                 g.Key.Titulo,
                 g.Key.Codigo,
                 Total = g.Count(),
-                Triagem = g.Count(x => x.Status == CandidatoStatus.Triagem),
-                Aprovados = g.Count(x => x.Status == CandidatoStatus.Aprovado),
-                Reprovados = g.Count(x => x.Status == CandidatoStatus.Reprovado)
+                Triagem = g.Count(x => x.Status == CandidateStatus.Triagem),
+                Aprovados = g.Count(x => x.Status == CandidateStatus.Aprovado),
+                Reprovados = g.Count(x => x.Status == CandidateStatus.Reprovado)
             })
             .OrderByDescending(x => x.Total)
             .Take(8)
@@ -392,10 +392,10 @@ public sealed class ReportsController : ControllerBase
         if (vagaId.HasValue)
             query = query.Where(c => c.VagaId == vagaId.Value);
 
-        if (TryParseEnum<CandidatoFonte>(origem, out var fonte))
+        if (TryParseEnum<CandidateOrigin>(origem, out var fonte))
             query = query.Where(c => c.Fonte == fonte);
 
-        if (TryParseEnum<CandidatoStatus>(status, out var candStatus))
+        if (TryParseEnum<CandidateStatus>(status, out var candStatus))
             query = query.Where(c => c.Status == candStatus);
 
         if (!string.IsNullOrWhiteSpace(q))
@@ -466,15 +466,15 @@ public sealed class ReportsController : ControllerBase
         return Enum.TryParse(value, true, out result);
     }
 
-    private string MapOrigem(CandidatoFonte fonte)
+    private string MapOrigem(CandidateOrigin fonte)
     {
         return fonte switch
         {
-            CandidatoFonte.Email => _localizer["ControllerLabels.Email"].Value,
-            CandidatoFonte.Pasta => _localizer["ControllerLabels.Pasta"].Value,
-            CandidatoFonte.LinkedIn => _localizer["ControllerLabels.LinkedIn"].Value,
-            CandidatoFonte.Indicacao => _localizer["ControllerLabels.Indicacao"].Value,
-            CandidatoFonte.Site => _localizer["ControllerLabels.Site"].Value,
+            CandidateOrigin.Email => _localizer["ControllerLabels.Email"].Value,
+            CandidateOrigin.Pasta => _localizer["ControllerLabels.Pasta"].Value,
+            CandidateOrigin.LinkedIn => _localizer["ControllerLabels.LinkedIn"].Value,
+            CandidateOrigin.Indicacao => _localizer["ControllerLabels.Indicacao"].Value,
+            CandidateOrigin.Site => _localizer["ControllerLabels.Site"].Value,
             _ => _localizer["ControllerLabels.Outro"].Value
         };
     }
@@ -490,15 +490,15 @@ public sealed class ReportsController : ControllerBase
         };
     }
 
-    private string MapStatusLabel(CandidatoStatus status)
+    private string MapStatusLabel(CandidateStatus status)
     {
         return status switch
         {
-            CandidatoStatus.Novo => _localizer["ControllerLabels.StatusNovo"].Value,
-            CandidatoStatus.Triagem => _localizer["ControllerLabels.StatusTriagem"].Value,
-            CandidatoStatus.Pendente => _localizer["ControllerLabels.StatusPendente"].Value,
-            CandidatoStatus.Aprovado => _localizer["ControllerLabels.StatusAprovado"].Value,
-            CandidatoStatus.Reprovado => _localizer["ControllerLabels.StatusReprovado"].Value,
+            CandidateStatus.Novo => _localizer["ControllerLabels.StatusNovo"].Value,
+            CandidateStatus.Triagem => _localizer["ControllerLabels.StatusTriagem"].Value,
+            CandidateStatus.Pendente => _localizer["ControllerLabels.StatusPendente"].Value,
+            CandidateStatus.Aprovado => _localizer["ControllerLabels.StatusAprovado"].Value,
+            CandidateStatus.Reprovado => _localizer["ControllerLabels.StatusReprovado"].Value,
             _ => _localizer["ControllerLabels.Outro"].Value
         };
     }
@@ -509,14 +509,14 @@ public sealed class ReportsController : ControllerBase
     private static ReportCellResponse MakeTagCell(string text, string cls, string icon)
         => new(text, new[] { "tag", cls }.Where(x => !string.IsNullOrWhiteSpace(x)).Aggregate(string.Empty, (a,b) => string.IsNullOrEmpty(a) ? b : $"{a} {b}"), icon);
 
-    private ReportCellResponse MakeStatusCell(CandidatoStatus status)
+    private ReportCellResponse MakeStatusCell(CandidateStatus status)
     {
         var label = MapStatusLabel(status);
         return status switch
         {
-            CandidatoStatus.Aprovado => MakeTagCell(label, "ok", "bi-check2-circle"),
-            CandidatoStatus.Reprovado => MakeTagCell(label, "bad", "bi-x-circle"),
-            CandidatoStatus.Pendente => MakeTagCell(label, "warn", "bi-exclamation-circle"),
+            CandidateStatus.Aprovado => MakeTagCell(label, "ok", "bi-check2-circle"),
+            CandidateStatus.Reprovado => MakeTagCell(label, "bad", "bi-x-circle"),
+            CandidateStatus.Pendente => MakeTagCell(label, "warn", "bi-exclamation-circle"),
             _ => MakeTagCell(label, string.Empty, "bi-dot")
         };
     }

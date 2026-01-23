@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace RhPortal.Api.Contracts.Agenda;
+namespace RhPortal.Api.Contracts.Schedule;
 
-public sealed record AgendaEventTypeResponse(
+public sealed record ScheduleEventTypeResponse(
     Guid Id,
     string Code,
     string Label,
@@ -12,7 +12,7 @@ public sealed record AgendaEventTypeResponse(
     bool IsActive
 );
 
-public sealed record AgendaEventResponse(
+public sealed record ScheduleEventResponse(
     Guid Id,
     string Title,
     DateTime StartAtUtc,
@@ -31,7 +31,7 @@ public sealed record AgendaEventResponse(
     string TypeIcon
 );
 
-public sealed record AgendaEventsQuery(
+public sealed record ScheduleEventsQuery(
     DateTime? Start,
     DateTime? End,
     string? Search,
@@ -39,7 +39,7 @@ public sealed record AgendaEventsQuery(
     string? Status
 );
 
-public sealed record AgendaEventCreateRequest(
+public sealed record ScheduleEventCreateRequest(
     [Required, MaxLength(240)] string Title,
     [Required] DateTime StartAtUtc,
     [Required] DateTime EndAtUtc,
@@ -54,7 +54,7 @@ public sealed record AgendaEventCreateRequest(
     [Required, MaxLength(40)] string TypeCode
 );
 
-public sealed record AgendaEventUpdateRequest(
+public sealed record ScheduleEventUpdateRequest(
     [Required, MaxLength(240)] string Title,
     [Required] DateTime StartAtUtc,
     [Required] DateTime EndAtUtc,

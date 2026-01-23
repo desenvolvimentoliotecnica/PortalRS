@@ -1,8 +1,9 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing.Matching;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using Microsoft.AspNetCore.Http;
 
 namespace LioTecnica.Web.Infrastructure.ApiClients;
 
@@ -14,11 +15,25 @@ public sealed class CandidatosApiClient
 
     public CandidatosApiClient(HttpClient http) => _http = http;
 
-    public Task<ApiRawResponse> GetCandidatosRawAsync(string tenantId, CancellationToken ct)
+    public Task<ApiRawResponse> GetCandidatosRawAsync(
+        string tenantId,
+        string? q,
+        Guid? vagaId,
+        CancellationToken ct)
     {
-        var req = BuildRequest(HttpMethod.Get, "api/candidatos", tenantId);
+        var url = "api/candidatos";
+
+        var qs = new List<string>();
+        if (!string.IsNullOrWhiteSpace(q)) qs.Add($"q={Uri.EscapeDataString(q)}");
+        if (vagaId.HasValue) qs.Add($"vagaId={vagaId.Value:D}");
+
+        if (qs.Count > 0)
+            url += "?" + string.Join("&", qs);
+
+        var req = BuildRequest(HttpMethod.Get, url, tenantId);
         return SendAsync(req, ct);
     }
+
 
     public Task<ApiRawResponse> GetCandidatoByIdRawAsync(string tenantId, Guid id, CancellationToken ct)
     {
