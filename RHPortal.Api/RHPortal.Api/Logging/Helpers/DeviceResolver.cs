@@ -80,4 +80,5 @@ public static class DeviceResolver
         if (lower.Contains("firefox/")) return "firefox";
         return "unknown";
     }
+
 }
