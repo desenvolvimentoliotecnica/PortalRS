@@ -1,23 +1,33 @@
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 using LioTecnica.Web.Infrastructure.ApiClients;
 using LioTecnica.Web.Infrastructure.Security;
 using LioTecnica.Web.Services;
 using RhPortal.Web.Infrastructure.ApiClients;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("entra-config.json", optional: true, reloadOnChange: true);
 
+// =========================
+// Localization (i18n)
+// =========================
+builder.Services.AddLocalization(o => o.ResourcesPath = "Resources");
+
 builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AuthorizeFilter());
-});
+})
+.AddViewLocalization()
+.AddDataAnnotationsLocalization();
+
 builder.Services.AddHttpContextAccessor();
 
 var entraEnabled = builder.Configuration.GetValue<bool?>("EntraId:Enabled") ?? false;
@@ -263,6 +273,32 @@ builder.Services.AddHttpClient<HealthApiClient>(http =>
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
 var app = builder.Build();
+
+// =========================
+// Request Localization (middleware)
+// (coloque antes de Routing/Auth)
+// =========================
+var supportedCultures = new[]
+{
+    new CultureInfo("pt-BR"),
+    new CultureInfo("en-US"),
+    // se quiser já deixar pronto:
+    // new CultureInfo("es-ES")
+};
+
+var localizationOptions = new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture("pt-BR"),
+    SupportedCultures = supportedCultures,
+    SupportedUICultures = supportedCultures,
+    RequestCultureProviders = new IRequestCultureProvider[]
+    {
+        new QueryStringRequestCultureProvider { QueryStringKey = "culture", UIQueryStringKey = "ui-culture" },
+        new CookieRequestCultureProvider(),
+        new AcceptLanguageHeaderRequestCultureProvider()
+    }
+};
+app.UseRequestLocalization(localizationOptions);
 
 app.UseExceptionHandler("/Home/Error");
 if (!app.Environment.IsDevelopment())

@@ -1,7 +1,10 @@
-@model PageSeedViewModel
+ï»¿@model PageSeedViewModel
+@using Microsoft.AspNetCore.Mvc.Localization
+@inject IViewLocalizer T
+
 @{
-    ViewData["Title"] = "Portal RH • Devcraft Studio — Agenda";
-    ViewData["SidebarSubtitle"] = "Agenda • Entrevistas • Eventos";
+    ViewData["Title"] = T["Page_Title"].Value;                 // "Portal RH â€¢ Devcraft Studio â€” Agenda"
+    ViewData["SidebarSubtitle"] = T["Sidebar_Subtitle"].Value; // "Agenda â€¢ Entrevistas â€¢ Eventos"
 }
 
 <style>
@@ -14,7 +17,7 @@
         min-height: 640px;
         width: 100%;
         max-width: 100%;
-        overflow: hidden; /* evita scrollbar horizontal na página */
+        overflow: hidden; /* evita scrollbar horizontal na pÃ¡gina */
     }
 
     #calendar {
@@ -34,7 +37,7 @@
         width: 100%;
     }
 
-    /* mantém header e body sincronizados quando aparece scrollbar vertical */
+    /* mantÃ©m header e body sincronizados quando aparece scrollbar vertical */
     #calendarHost .fc-scroller {
         scrollbar-gutter: stable;
     }
@@ -43,10 +46,10 @@
     #calendarHost .fc table {
         border-collapse: separate !important;
         border-spacing: 0 !important;
-        /* NÃO use padding aqui (isso quebra o layout interno do FullCalendar) */
+        /* NÃƒO use padding aqui (isso quebra o layout interno do FullCalendar) */
     }
 
-    /* ? estica o “scrollgrid” e as tabelas que definem as colunas */
+    /* âš  estica o â€œscrollgridâ€ e as tabelas que definem as colunas */
     #calendarHost .fc .fc-scrollgrid,
     #calendarHost .fc .fc-scrollgrid table,
     #calendarHost .fc .fc-col-header table,
@@ -56,12 +59,11 @@
         table-layout: fixed;
     }
 
-    
     #calendarHost .fc .fc-scrollgrid-section-liquid > td {
         width: 100% !important;
     }
 
-    /* ? a largura real vem do COLGROUP (1ª coluna) */
+    /* âš  a largura real vem do COLGROUP (1Âª coluna) */
     #calendarHost .fc .fc-timegrid-slots table colgroup col:first-child,
     #calendarHost .fc .fc-timegrid-cols table colgroup col:first-child,
     #calendarHost .fc .fc-col-header table colgroup col:first-child,
@@ -69,7 +71,7 @@
         width: var(--fc-time-label-width) !important;
     }
 
-    /* reforço (visual) nas células */
+    /* reforÃ§o (visual) nas cÃ©lulas */
     #calendarHost .fc th.fc-timegrid-slot-label,
     #calendarHost .fc td.fc-timegrid-slot-label,
     #calendarHost .fc th.fc-timegrid-axis,
@@ -85,8 +87,8 @@
     }
 
     /* =========================================================
-       Bordas e grid
-       ========================================================= */
+           Bordas e grid
+           ========================================================= */
     #calendarHost .fc .fc-scrollgrid,
     #calendarHost .fc .fc-timegrid,
     #calendarHost .fc .fc-timegrid-body,
@@ -148,30 +150,28 @@
         flex: 1 1 auto !important;
     }
 
-
-
     #calendarHost {
         border-radius: 14px;
         border: 1px solid rgba(16,82,144,.14);
-        background: rgba(255,255,255,.55); 
+        background: rgba(255,255,255,.55);
         padding: 6px;
         overflow: hidden; /* corta eventos no raio */
         box-sizing: border-box;
     }
 
         #calendarHost .fc .fc-scrollgrid {
-            border: 0 !important; /* a borda agora é do #calendarHost */
+            border: 0 !important; /* a borda agora Ã© do #calendarHost */
             border-radius: 0 !important;
             overflow: visible !important;
         }
 
-        /* mantém as bordas internas do grid */
+        /* mantÃ©m as bordas internas do grid */
         #calendarHost .fc-theme-standard td,
         #calendarHost .fc-theme-standard th {
             border-color: rgba(16,82,144,.14);
         }
 
-        /* opcional: garante que nada pinte por trás do wrapper */
+        /* opcional: garante que nada pinte por trÃ¡s do wrapper */
         #calendarHost .fc {
             background: transparent;
         }
@@ -243,37 +243,36 @@
 </style>
 
 @section Topbar {
-    @await Html.PartialAsync("_TopbarBrand", "Tela: Agenda (dia/semana)")
+    @await Html.PartialAsync("_TopbarBrand", T["Topbar_Brand"].Value)
 
     <div class="searchbox position-relative d-none d-md-block">
         <i class="bi bi-search"></i>
-        <input id="globalSearch" class="form-control" placeholder="Buscar eventos por título, candidato, vaga..." />
+        <input id="globalSearch" class="form-control" placeholder="@T["GlobalSearch_Placeholder"]" />
     </div>
 
     <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-ghost" type="button" id="btnExportJson" title="Exportar agenda (JSON)">
-            <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
+        <button class="btn btn-ghost" type="button" id="btnExportJson" title="@T["Btn_ExportJson_Title"]">
+            <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">@T["Btn_Export"]</span>
         </button>
 
-        <button class="btn btn-ghost" type="button" id="btnImportJson" title="Importar agenda (JSON)">
-            <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">Importar</span>
+        <button class="btn btn-ghost" type="button" id="btnImportJson" title="@T["Btn_ImportJson_Title"]">
+            <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">@T["Btn_Import"]</span>
         </button>
 
         <button class="btn btn-brand" type="button" id="btnNewEvent">
-            <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo evento</span>
+            <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">@T["Btn_NewEvent"]</span>
         </button>
 
         @await Html.PartialAsync("_TopbarUserMenu", "RH")
     </div>
 }
 
-
 <!-- ============ TOASTS ============ -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1085;">
     <div id="appToast" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="d-flex">
-            <div class="toast-body" id="toastMsg">—</div>
-            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+            <div class="toast-body" id="toastMsg">â€”</div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="@T["Close"]"></button>
         </div>
     </div>
 </div>
@@ -285,8 +284,8 @@
 <section class="content">
     <div class="page-title">
         <div>
-            <h4>Agenda</h4>
-            <div class="subtitle">Selecione um horário para criar • Arraste para mover • Puxe a borda para redimensionar • Clique para ver detalhes.</div>
+            <h4>@T["H4_Agenda"]</h4>
+            <div class="subtitle">@T["Page_Subtitle"]</div>
         </div>
     </div>
 
@@ -294,14 +293,13 @@
     @{
         var kpis = new[]
         {
-    new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Hoje",        ValueId = "kpiToday",      Value = "0", Hint = "eventos",                  Icon = "bi-sun" },
-    new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Semana",      ValueId = "kpiWeek",       Value = "0", Hint = "eventos",                  Icon = "bi-calendar-week" },
-    new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Pendentes",   ValueId = "kpiPending",    Value = "0", Hint = "aguardando confirmação",     Icon = "bi-hourglass-split" },
-    new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Entrevistas", ValueId = "kpiInterviews", Value = "0", Hint = "na semana",                 Icon = "bi-camera-video" }
-    };
+        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_Today"].Value,       ValueId = "kpiToday",      Value = "0", Hint = T["Kpi_Events"].Value,              Icon = "bi-sun" },
+        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_Week"].Value,        ValueId = "kpiWeek",       Value = "0", Hint = T["Kpi_Events"].Value,              Icon = "bi-calendar-week" },
+        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_Pending"].Value,     ValueId = "kpiPending",    Value = "0", Hint = T["Kpi_WaitingConfirmation"].Value,  Icon = "bi-hourglass-split" },
+        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_Interviews"].Value,  ValueId = "kpiInterviews", Value = "0", Hint = T["Kpi_InWeek"].Value,              Icon = "bi-camera-video" }
+        };
     }
     @await Html.PartialAsync("_KpiCardRow", kpis)
-
 
     <div class="row g-3 mt-1">
         <!-- CALENDAR -->
@@ -309,20 +307,20 @@
             <div class="card-soft p-3">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                     <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-ghost btn-sm" type="button" id="calPrev" title="Anterior"><i class="bi bi-chevron-left"></i></button>
-                        <button class="btn btn-ghost btn-sm" type="button" id="calToday" title="Hoje"><i class="bi bi-bullseye me-1"></i>Hoje</button>
-                        <button class="btn btn-ghost btn-sm" type="button" id="calNext" title="Próximo"><i class="bi bi-chevron-right"></i></button>
+                        <button class="btn btn-ghost btn-sm" type="button" id="calPrev" title="@T["Cal_Prev_Title"]"><i class="bi bi-chevron-left"></i></button>
+                        <button class="btn btn-ghost btn-sm" type="button" id="calToday" title="@T["Cal_Today_Title"]"><i class="bi bi-bullseye me-1"></i>@T["Btn_Today"]</button>
+                        <button class="btn btn-ghost btn-sm" type="button" id="calNext" title="@T["Cal_Next_Title"]"><i class="bi bi-chevron-right"></i></button>
                     </div>
 
-                    <div class="fw-bold" id="calTitle" style="font-size:1.05rem;">—</div>
+                    <div class="fw-bold" id="calTitle" style="font-size:1.05rem;">â€”</div>
 
                     <div class="d-flex align-items-center gap-2">
-                        <div class="btn-group" role="group" aria-label="Modo de visualização">
+                        <div class="btn-group" role="group" aria-label="@T["Aria_ViewMode"]">
                             <button class="btn btn-ghost btn-sm" type="button" data-view="timeGridDay" id="btnViewDay">
-                                <i class="bi bi-view-stacked me-1"></i>Dia
+                                <i class="bi bi-view-stacked me-1"></i>@T["Btn_Day"]
                             </button>
                             <button class="btn btn-ghost btn-sm" type="button" data-view="timeGridWeek" id="btnViewWeek">
-                                <i class="bi bi-calendar-week me-1"></i>Semana
+                                <i class="bi bi-calendar-week me-1"></i>@T["Btn_Week"]
                             </button>
                         </div>
                     </div>
@@ -334,7 +332,7 @@
 
                 <div class="text-muted small mt-2">
                     <i class="bi bi-info-circle me-1"></i>
-                    Dica: selecione um intervalo no grid para criar rapidamente. Clique no evento para abrir detalhes/editar.
+                    @T["Tip_CreateFast"]
                 </div>
             </div>
         </div>
@@ -344,9 +342,9 @@
             <div class="card-soft p-3 mb-3">
                 <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
                     <div>
-                        <p class="mini-title mb-1">Próximos</p>
-                        <div class="fw-bold">Eventos em foco</div>
-                        <div class="text-muted small">Lista respeita filtros + data exibida.</div>
+                        <p class="mini-title mb-1">@T["Side_Next"]</p>
+                        <div class="fw-bold">@T["Side_FocusTitle"]</div>
+                        <div class="text-muted small">@T["Side_Subtitle"]</div>
                     </div>
                     <span class="badge-soft"><i class="bi bi-filter"></i><span id="sideCount">0</span></span>
                 </div>
@@ -354,42 +352,42 @@
                 <lt-list tag="ul" class="side-list" id="sideList"></lt-list>
 
                 <div class="text-center text-muted small py-3 d-none" id="sideEmpty">
-                    Nenhum evento encontrado.
+                    @T["Side_Empty"]
                 </div>
             </div>
 
             <div class="card-soft p-3 d-none">
                 <div class="mb-2">
-                    <p class="mini-title mb-1">Filtros</p>
-                    <div class="fw-bold">Refinar agenda</div>
+                    <p class="mini-title mb-1">@T["Filters_TitleMini"]</p>
+                    <div class="fw-bold">@T["Filters_Title"]</div>
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label small">Buscar</label>
-                    <input class="form-control" id="fSearch" placeholder="título, candidato, vaga..." style="border-color:var(--lt-border); background: rgba(255,255,255,.65);" />
+                    <label class="form-label small">@T["Filters_Search_Label"]</label>
+                    <input class="form-control" id="fSearch" placeholder="@T["Filters_Search_Placeholder"]" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);" />
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label small">Tipo</label>
+                    <label class="form-label small">@T["Filters_Type_Label"]</label>
                     <select class="form-select" id="fType" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);"></select>
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label small">Status</label>
+                    <label class="form-label small">@T["Filters_Status_Label"]</label>
                     <select class="form-select" id="fStatus" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
-                        <option value="all">Todos</option>
-                        <option value="confirmado">Confirmado</option>
-                        <option value="pendente">Pendente</option>
-                        <option value="cancelado">Cancelado</option>
+                        <option value="all">@T["Status_All"]</option>
+                        <option value="confirmado">@T["Status_Confirmed"]</option>
+                        <option value="pendente">@T["Status_Pending"]</option>
+                        <option value="cancelado">@T["Status_Canceled"]</option>
                     </select>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mt-2">
                     <button class="btn btn-ghost btn-sm" type="button" id="btnClearFilters">
-                        <i class="bi bi-eraser me-1"></i>Limpar
+                        <i class="bi bi-eraser me-1"></i>@T["Btn_Clear"]
                     </button>
                     <button class="btn btn-brand btn-sm" type="button" id="btnApplyFilters">
-                        <i class="bi bi-check2 me-1"></i>Aplicar
+                        <i class="bi bi-check2 me-1"></i>@T["Btn_Apply"]
                     </button>
                 </div>
             </div>
@@ -405,10 +403,10 @@
         <div class="modal-content card-soft">
             <div class="modal-header" style="border-bottom:1px solid var(--lt-border);">
                 <div>
-                    <div class="mini-title mb-1" id="eventModalMode">Novo evento</div>
-                    <div class="fw-bold" style="font-size:1.05rem;" id="eventModalTitle">Agendar</div>
+                    <div class="mini-title mb-1" id="eventModalMode">@T["Modal_NewEvent_MiniTitle"]</div>
+                    <div class="fw-bold" style="font-size:1.05rem;" id="eventModalTitle">@T["Modal_Schedule_Title"]</div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="@T["Close"]"></button>
             </div>
 
             <div class="modal-body">
@@ -416,59 +414,59 @@
 
                 <div class="row g-2">
                     <div class="col-12 col-md-8">
-                        <label class="form-label small">Título</label>
-                        <input class="form-control" id="evTitle" placeholder="Ex.: Entrevista • Maria Souza" style="border-color:var(--lt-border);" />
+                        <label class="form-label small">@T["Lbl_Title"]</label>
+                        <input class="form-control" id="evTitle" placeholder="@T["Ph_Title"]" style="border-color:var(--lt-border);" />
                     </div>
                     <div class="col-12 col-md-4">
-                        <label class="form-label small">Tipo</label>
+                        <label class="form-label small">@T["Lbl_Type"]</label>
                         <select class="form-select" id="evType" style="border-color:var(--lt-border);"></select>
                     </div>
 
                     <div class="col-12 col-md-6">
-                        <label class="form-label small">Início</label>
+                        <label class="form-label small">@T["Lbl_Start"]</label>
                         <input type="datetime-local" class="form-control" id="evStart" style="border-color:var(--lt-border);" />
                     </div>
                     <div class="col-12 col-md-6">
-                        <label class="form-label small">Fim</label>
+                        <label class="form-label small">@T["Lbl_End"]</label>
                         <input type="datetime-local" class="form-control" id="evEnd" style="border-color:var(--lt-border);" />
                     </div>
 
                     <div class="col-12 col-md-6">
-                        <label class="form-label small">Local</label>
-                        <input class="form-control" id="evLocation" placeholder="Google Meet / Presencial / Sala 2..." style="border-color:var(--lt-border);" />
+                        <label class="form-label small">@T["Lbl_Location"]</label>
+                        <input class="form-control" id="evLocation" placeholder="@T["Ph_Location"]" style="border-color:var(--lt-border);" />
                     </div>
                     <div class="col-12 col-md-3">
-                        <label class="form-label small">Status</label>
+                        <label class="form-label small">@T["Lbl_Status"]</label>
                         <select class="form-select" id="evStatus" style="border-color:var(--lt-border);">
-                            <option value="confirmado">Confirmado</option>
-                            <option value="pendente">Pendente</option>
-                            <option value="cancelado">Cancelado</option>
+                            <option value="confirmado">@T["Status_Confirmed"]</option>
+                            <option value="pendente">@T["Status_Pending"]</option>
+                            <option value="cancelado">@T["Status_Canceled"]</option>
                         </select>
                     </div>
                     <div class="col-12 col-md-3">
-                        <label class="form-label small">Responsável</label>
-                        <input class="form-control" id="evOwner" placeholder="Ana (RH)" style="border-color:var(--lt-border);" />
+                        <label class="form-label small">@T["Lbl_Owner"]</label>
+                        <input class="form-control" id="evOwner" placeholder="@T["Ph_Owner"]" style="border-color:var(--lt-border);" />
                     </div>
 
                     <div class="col-12 col-md-6">
-                        <label class="form-label small">Candidato</label>
+                        <label class="form-label small">@T["Lbl_Candidate"]</label>
                         <select class="form-select" id="evCandidate" style="border-color:var(--lt-border);"></select>
                     </div>
                     <div class="col-12 col-md-6">
-                        <label class="form-label small">Vaga</label>
+                        <label class="form-label small">@T["Lbl_Job"]</label>
                         <select class="form-select" id="evVaga" style="border-color:var(--lt-border);"></select>
                     </div>
 
                     <div class="col-12">
-                        <label class="form-label small">Observações</label>
-                        <textarea class="form-control" id="evNotes" rows="3" placeholder="Roteiro, links, feedback..." style="border-color:var(--lt-border);"></textarea>
+                        <label class="form-label small">@T["Lbl_Notes"]</label>
+                        <textarea class="form-control" id="evNotes" rows="3" placeholder="@T["Ph_Notes"]" style="border-color:var(--lt-border);"></textarea>
                     </div>
                 </div>
             </div>
 
             <div class="modal-footer" style="border-top:1px solid var(--lt-border);">
-                <button class="btn btn-ghost" type="button" data-bs-dismiss="modal"><i class="bi bi-x-lg me-1"></i>Cancelar</button>
-                <button class="btn btn-brand" type="button" id="btnSaveEvent"><i class="bi bi-check2 me-1"></i>Salvar</button>
+                <button class="btn btn-ghost" type="button" data-bs-dismiss="modal"><i class="bi bi-x-lg me-1"></i>@T["Btn_Cancel"]</button>
+                <button class="btn btn-brand" type="button" id="btnSaveEvent"><i class="bi bi-check2 me-1"></i>@T["Btn_Save"]</button>
             </div>
         </div>
     </div>
@@ -482,17 +480,17 @@
                 <div class="w-100">
                     <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                         <div>
-                            <div class="mini-title mb-1">Detalhes do evento</div>
-                            <div class="fw-bold" style="font-size:1.08rem;" id="viewTitle">—</div>
+                            <div class="mini-title mb-1">@T["Modal_View_MiniTitle"]</div>
+                            <div class="fw-bold" style="font-size:1.08rem;" id="viewTitle">â€”</div>
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
-                            <span class="badge-soft" id="viewType">—</span>
-                            <span class="badge-soft" id="viewStatus">—</span>
+                            <span class="badge-soft" id="viewType">â€”</span>
+                            <span class="badge-soft" id="viewStatus">â€”</span>
                         </div>
                     </div>
-                    <div class="text-muted small mt-1" id="viewWhen">—</div>
+                    <div class="text-muted small mt-1" id="viewWhen">â€”</div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="@T["Close"]"></button>
             </div>
 
             <div class="modal-body">
@@ -501,43 +499,43 @@
                 <div class="row g-2">
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
-                            <div class="small text-muted">Candidato</div>
-                            <div class="fw-semibold" id="viewCandidate">—</div>
+                            <div class="small text-muted">@T["Card_Candidate"]</div>
+                            <div class="fw-semibold" id="viewCandidate">â€”</div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
-                            <div class="small text-muted">Vaga</div>
-                            <div class="fw-semibold" id="viewVaga">—</div>
-                            <div class="text-muted small mono" id="viewVagaCode">—</div>
+                            <div class="small text-muted">@T["Card_Job"]</div>
+                            <div class="fw-semibold" id="viewVaga">â€”</div>
+                            <div class="text-muted small mono" id="viewVagaCode">â€”</div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
-                            <div class="small text-muted">Local</div>
-                            <div class="fw-semibold" id="viewLocation">—</div>
+                            <div class="small text-muted">@T["Card_Location"]</div>
+                            <div class="fw-semibold" id="viewLocation">â€”</div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
-                            <div class="small text-muted">Responsável</div>
-                            <div class="fw-semibold" id="viewOwner">—</div>
+                            <div class="small text-muted">@T["Card_Owner"]</div>
+                            <div class="fw-semibold" id="viewOwner">â€”</div>
                         </div>
                     </div>
                     <div class="col-12">
                         <div class="card-soft p-2" style="box-shadow:none;">
-                            <div class="small text-muted">Observações</div>
-                            <div class="text-muted" id="viewNotes" style="white-space:pre-wrap;">—</div>
+                            <div class="small text-muted">@T["Card_Notes"]</div>
+                            <div class="text-muted" id="viewNotes" style="white-space:pre-wrap;">â€”</div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="modal-footer" style="border-top:1px solid var(--lt-border);">
-                <button class="btn btn-ghost" type="button" id="btnDuplicate"><i class="bi bi-files me-1"></i>Duplicar (+7d)</button>
-                <button class="btn btn-ghost" type="button" id="btnEdit"><i class="bi bi-pencil me-1"></i>Editar</button>
-                <button class="btn btn-ghost text-danger" type="button" id="btnDelete"><i class="bi bi-trash3 me-1"></i>Excluir</button>
-                <button class="btn btn-brand" type="button" data-bs-dismiss="modal"><i class="bi bi-check2 me-1"></i>Ok</button>
+                <button class="btn btn-ghost" type="button" id="btnDuplicate"><i class="bi bi-files me-1"></i>@T["Btn_Duplicate7d"]</button>
+                <button class="btn btn-ghost" type="button" id="btnEdit"><i class="bi bi-pencil me-1"></i>@T["Btn_Edit"]</button>
+                <button class="btn btn-ghost text-danger" type="button" id="btnDelete"><i class="bi bi-trash3 me-1"></i>@T["Btn_Delete"]</button>
+                <button class="btn btn-brand" type="button" data-bs-dismiss="modal"><i class="bi bi-check2 me-1"></i>@T["Btn_Ok"]</button>
             </div>
         </div>
     </div>
@@ -547,19 +545,72 @@
     @{
         var footerItems = new[]
         {
-            new { Icon = "bi-people", Text = "Candidatos" },
-            new { Icon = "bi-file-earmark-text", Text = "CV" },
-            new { Icon = "bi-stars", Text = "Match" }
-          };
+            new { Icon = "bi-people",             Text = T["Footer_Candidates"].Value },
+            new { Icon = "bi-file-earmark-text",  Text = T["Footer_CV"].Value },
+            new { Icon = "bi-stars",              Text = T["Footer_Match"].Value }
+        };
     }
     @await Html.PartialAsync("_Footer", footerItems)
-      }
-
-
+}
 
 @section Scripts {
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@@fullcalendar/timegrid@6.1.11/index.global.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@@fullcalendar/bootstrap5@6.1.11/index.global.min.js"></script>
-  <script src="~/js/views/agendas.js" asp-append-version="true"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@fullcalendar/timegrid@6.1.11/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@fullcalendar/bootstrap5@6.1.11/index.global.min.js"></script>
+
+    <script>
+        // Strings para o JS (agendas.js) â€” use: const t = k => (window.__i18n?.[k] ?? k);
+        window.__i18n = {
+            toastCloseAria: "@T["Close"]",
+            toastMsgDefault: "â€”",
+
+            // Topbar
+            topbarBrand: "@T["Topbar_Brand"]",
+            globalSearchPlaceholder: "@T["GlobalSearch_Placeholder"]",
+            btnExport: "@T["Btn_Export"]",
+            btnImport: "@T["Btn_Import"]",
+            btnNewEvent: "@T["Btn_NewEvent"]",
+
+            // Page
+            h4Agenda: "@T["H4_Agenda"]",
+            pageSubtitle: "@T["Page_Subtitle"]",
+            tipCreateFast: "@T["Tip_CreateFast"]",
+
+            // Calendar controls
+            btnToday: "@T["Btn_Today"]",
+            btnDay: "@T["Btn_Day"]",
+            btnWeek: "@T["Btn_Week"]",
+
+            // Sidebar
+            sideEmpty: "@T["Side_Empty"]",
+
+            // Modal labels
+            lblTitle: "@T["Lbl_Title"]",
+            lblType: "@T["Lbl_Type"]",
+            lblStart: "@T["Lbl_Start"]",
+            lblEnd: "@T["Lbl_End"]",
+            lblLocation: "@T["Lbl_Location"]",
+            lblStatus: "@T["Lbl_Status"]",
+            lblOwner: "@T["Lbl_Owner"]",
+            lblCandidate: "@T["Lbl_Candidate"]",
+            lblJob: "@T["Lbl_Job"]",
+            lblNotes: "@T["Lbl_Notes"]",
+
+            // Buttons
+            btnCancel: "@T["Btn_Cancel"]",
+            btnSave: "@T["Btn_Save"]",
+            btnOk: "@T["Btn_Ok"]",
+            btnEdit: "@T["Btn_Edit"]",
+            btnDelete: "@T["Btn_Delete"]",
+            btnDuplicate7d: "@T["Btn_Duplicate7d"]",
+
+            // Status text
+            statusAll: "@T["Status_All"]",
+            statusConfirmed: "@T["Status_Confirmed"]",
+            statusPending: "@T["Status_Pending"]",
+            statusCanceled: "@T["Status_Canceled"]"
+        };
+    </script>
+
+    <script src="~/js/views/agendas.js" asp-append-version="true"></script>
 }

@@ -2435,24 +2435,6 @@ function simulateMatch(vagaId, fromMobile=false){
 
       $("#btnExportJson").addEventListener("click", exportJson);
       $("#btnImportJson").addEventListener("click", importJson);
-
-      $("#btnSeedReset").addEventListener("click", async () => {
-        const ok = confirm("Recarregar vagas da API?");
-        if(!ok) return;
-        try{
-          await syncAreasFromApi();
-          await syncDepartmentsFromApi();
-          await syncVagasFromApi();
-          toast("Dados atualizados.");
-        }catch(e){
-          console.error("Falha ao atualizar vagas:", e);
-          toast("Falha ao atualizar vagas.");
-        }
-        renderAreaFilter();
-        updateKpis();
-        renderList();
-        renderDetail();
-      });
     }
 
     function initLogo(){

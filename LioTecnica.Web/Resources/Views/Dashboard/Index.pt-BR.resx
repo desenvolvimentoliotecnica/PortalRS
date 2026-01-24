@@ -1,0 +1,298 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Page meta -->
+  <data name="Page_Title" xml:space="preserve">
+    <value>Portal RH • Devcraft Studio</value>
+  </data>
+  <data name="Sidebar_Subtitle" xml:space="preserve">
+    <value>Recrutamento &amp; Match</value>
+  </data>
+
+  <!-- Topbar -->
+  <data name="Topbar_Brand" xml:space="preserve">
+    <value>Vagas, Currículos e Matching automático</value>
+  </data>
+  <data name="GlobalSearch_Placeholder" xml:space="preserve">
+    <value>Buscar vaga, candidato, palavra-chave...</value>
+  </data>
+  <data name="Btn_Filters" xml:space="preserve">
+    <value>Filtros</value>
+  </data>
+  <data name="Btn_Actions" xml:space="preserve">
+    <value>Ações</value>
+  </data>
+
+  <!-- Head -->
+  <data name="H4_Dashboard" xml:space="preserve">
+    <value>Dashboard</value>
+  </data>
+  <data name="Page_Subtitle" xml:space="preserve">
+    <value>Visão geral do dia: vagas, recebimentos e triagem.</value>
+  </data>
+
+  <!-- KPIs -->
+  <data name="Kpi_OpenJobs" xml:space="preserve">
+    <value>Vagas abertas</value>
+  </data>
+  <data name="Kpi_OpenJobs_Hint" xml:space="preserve">
+    <value>+2 na última semana</value>
+  </data>
+
+  <data name="Kpi_CVsToday" xml:space="preserve">
+    <value>CVs recebidos hoje</value>
+  </data>
+  <data name="Kpi_CVsToday_Hint" xml:space="preserve">
+    <value>Entrada email/pasta</value>
+  </data>
+
+  <data name="Kpi_PendingMatch" xml:space="preserve">
+    <value>Pendentes de match</value>
+  </data>
+  <data name="Kpi_PendingMatch_Hint" xml:space="preserve">
+    <value>Fila de processamento</value>
+  </data>
+
+  <data name="Kpi_Approved7d" xml:space="preserve">
+    <value>Aprovados (7 dias)</value>
+  </data>
+  <data name="Kpi_Approved7d_Hint" xml:space="preserve">
+    <value>+6 vs semana anterior</value>
+  </data>
+
+  <!-- Chart card -->
+  <data name="Card_Resume_Title" xml:space="preserve">
+    <value>Recebimento de currículos</value>
+  </data>
+  <data name="Card_Resume_Subtitle_14d" xml:space="preserve">
+    <value>Últimos 14 dias</value>
+  </data>
+  <data name="Badge_Trend" xml:space="preserve">
+    <value>tendência</value>
+  </data>
+
+  <!-- Funnel -->
+  <data name="Card_Funnel_Title" xml:space="preserve">
+    <value>Funil de triagem</value>
+  </data>
+  <data name="Card_Funnel_Subtitle" xml:space="preserve">
+    <value>Visão consolidada</value>
+  </data>
+
+  <data name="Funnel_Received" xml:space="preserve">
+    <value>Recebidos</value>
+  </data>
+  <data name="Funnel_Screening" xml:space="preserve">
+    <value>Triagem</value>
+  </data>
+  <data name="Funnel_Interview" xml:space="preserve">
+    <value>Entrevista</value>
+  </data>
+  <data name="Funnel_Approved" xml:space="preserve">
+    <value>Aprovados</value>
+  </data>
+  <data name="Funnel_Tip" xml:space="preserve">
+    <value>Dica: use “Filtros” para segmentar por vaga, área e período.</value>
+  </data>
+
+  <!-- Top Matches -->
+  <data name="Card_TopMatches_Title" xml:space="preserve">
+    <value>Top matches por vaga</value>
+  </data>
+  <data name="Card_TopMatches_Subtitle" xml:space="preserve">
+    <value>Candidatos com maior aderência</value>
+  </data>
+  <data name="Btn_Export" xml:space="preserve">
+    <value>Exportar</value>
+  </data>
+  <data name="Btn_NewJob" xml:space="preserve">
+    <value>Nova vaga</value>
+  </data>
+
+  <!-- Tables -->
+  <data name="Tbl_Job" xml:space="preserve">
+    <value>Vaga</value>
+  </data>
+  <data name="Tbl_Candidate" xml:space="preserve">
+    <value>Candidato</value>
+  </data>
+  <data name="Tbl_Source" xml:space="preserve">
+    <value>Origem</value>
+  </data>
+  <data name="Tbl_Match" xml:space="preserve">
+    <value>Match</value>
+  </data>
+  <data name="Tbl_Stage" xml:space="preserve">
+    <value>Etapa</value>
+  </data>
+  <data name="Tbl_Actions" xml:space="preserve">
+    <value>Ações</value>
+  </data>
+
+  <!-- Modal Open Jobs -->
+  <data name="Modal_OpenJobs_Title" xml:space="preserve">
+    <value>Vagas abertas</value>
+  </data>
+  <data name="Modal_OpenJobs_Subtitle" xml:space="preserve">
+    <value>Lista de vagas com status aberto.</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Fechar</value>
+  </data>
+
+  <data name="Tbl_Code" xml:space="preserve">
+    <value>Código</value>
+  </data>
+  <data name="Tbl_Area" xml:space="preserve">
+    <value>Área</value>
+  </data>
+  <data name="Tbl_Mode" xml:space="preserve">
+    <value>Modalidade</value>
+  </data>
+  <data name="Tbl_Location" xml:space="preserve">
+    <value>Local</value>
+  </data>
+  <data name="Tbl_Updated" xml:space="preserve">
+    <value>Atualizado</value>
+  </data>
+
+  <data name="Btn_ViewJob" xml:space="preserve">
+    <value>Ver vaga</value>
+  </data>
+  <data name="Empty_OpenJobs" xml:space="preserve">
+    <value>Nenhuma vaga aberta.</value>
+  </data>
+
+  <!-- Footer -->
+  <data name="Footer_Postgres" xml:space="preserve">
+    <value>Postgres</value>
+  </data>
+  <data name="Footer_PdfDocx" xml:space="preserve">
+    <value>PDF/DOCX</value>
+  </data>
+  <data name="Footer_SecurityLgpd" xml:space="preserve">
+    <value>Segurança &amp; LGPD</value>
+  </data>
+
+  <!-- JS strings -->
+  <data name="ApiFail" xml:space="preserve">
+    <value>Falha na API.</value>
+  </data>
+  <data name="QuickAreaSelect" xml:space="preserve">
+    <value>Selecionar área</value>
+  </data>
+  <data name="ChartLabel_CVsReceived" xml:space="preserve">
+    <value>CVs recebidos</value>
+  </data>
+  <data name="LabelCode" xml:space="preserve">
+    <value>Código</value>
+  </data>
+  <data name="LabelId" xml:space="preserve">
+    <value>ID</value>
+  </data>
+  <data name="OriginEmail" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="MatchInfo" xml:space="preserve">
+    <value>Match calculado pela API.</value>
+  </data>
+  <data name="StageScreening" xml:space="preserve">
+    <value>Triagem</value>
+  </data>
+  <data name="EmptyTable" xml:space="preserve">
+    <value>Nenhum registro atende o filtro atual.</value>
+  </data>
+  <data name="ToastDashboardLoadFail" xml:space="preserve">
+    <value>Falha ao carregar dados do dashboard.</value>
+  </data>
+  <data name="AlertCreateJob" xml:space="preserve">
+    <value>Use a tela de Vagas para criar uma nova vaga.</value>
+  </data>
+
+  <!-- Menu metadata (JS) -->
+  <data name="Menu_Dashboard_Title" xml:space="preserve">
+    <value>Dashboard</value>
+  </data>
+  <data name="Menu_Dashboard_Sub" xml:space="preserve">
+    <value>Visão geral do dia • vagas • recebimentos e triagem.</value>
+  </data>
+
+  <data name="Menu_Vagas_Title" xml:space="preserve">
+    <value>Vagas</value>
+  </data>
+  <data name="Menu_Vagas_Sub" xml:space="preserve">
+    <value>Criação, requisitos, pesos e controle total do funil.</value>
+  </data>
+
+  <data name="Menu_Candidatos_Title" xml:space="preserve">
+    <value>Candidatos</value>
+  </data>
+  <data name="Menu_Candidatos_Sub" xml:space="preserve">
+    <value>Base de currículos e histórico por candidato.</value>
+  </data>
+
+  <data name="Menu_Triagem_Title" xml:space="preserve">
+    <value>Triagem</value>
+  </data>
+  <data name="Menu_Triagem_Sub" xml:space="preserve">
+    <value>Aprovar/reprovar e mover etapas com auditoria.</value>
+  </data>
+
+  <data name="Menu_Matching_Title" xml:space="preserve">
+    <value>Matching</value>
+  </data>
+  <data name="Menu_Matching_Sub" xml:space="preserve">
+    <value>Ajustes de palavras-chave, pesos e critérios obrigatórios.</value>
+  </data>
+
+  <data name="Menu_Entrada_Title" xml:space="preserve">
+    <value>Entrada (Email/Pasta)</value>
+  </data>
+  <data name="Menu_Entrada_Sub" xml:space="preserve">
+    <value>Monitoramento de anexos e ingestão automatizada.</value>
+  </data>
+
+  <data name="Menu_RM_Title" xml:space="preserve">
+    <value>RM Labore</value>
+  </data>
+  <data name="Menu_RM_Sub" xml:space="preserve">
+    <value>Integração (fase 2): sincronizar vagas e requisitos.</value>
+  </data>
+
+  <data name="Menu_Relatorios_Title" xml:space="preserve">
+    <value>Relatórios</value>
+  </data>
+  <data name="Menu_Relatorios_Sub" xml:space="preserve">
+    <value>KPIs, produtividade do RH e exportações.</value>
+  </data>
+
+  <data name="Menu_Usuarios_Title" xml:space="preserve">
+    <value>Usuários &amp; Perfis</value>
+  </data>
+  <data name="Menu_Usuarios_Sub" xml:space="preserve">
+    <value>Perfis (Admin/RH/Gestor) e permissões.</value>
+  </data>
+
+  <data name="Menu_Config_Title" xml:space="preserve">
+    <value>Configurações</value>
+  </data>
+  <data name="Menu_Config_Sub" xml:space="preserve">
+    <value>Parâmetros do sistema, retention LGPD e integrações.</value>
+  </data>
+  <data name="menu_dashboard_sub_fallback" xml:space="preserve">
+  <value>Visão geral do dia • vagas • recebimentos e triagem.</value>
+</data>
+
+</root>
