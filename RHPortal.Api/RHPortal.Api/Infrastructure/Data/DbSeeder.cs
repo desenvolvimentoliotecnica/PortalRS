@@ -46,143 +46,152 @@ public static class DbSeeder
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
         var localizer = scope.ServiceProvider.GetRequiredService<IStringLocalizer<SeedMessages>>();
+        var resetState = scope.ServiceProvider.GetService<ResetState>();
 
-        // ---------------------------
-        // Reset enable/disable
-        // ---------------------------
-        var resetDbFromConfig = config.GetValue<bool>("Seed:ResetDatabase");
-        var resetDb = forceResetDatabase ?? resetDbFromConfig;
-
-        // MUITO IMPORTANTE: proteja para não apagar em produção
-        if (!env.IsDevelopment())
-            resetDb = false;
-
-        if (resetDb)
+        resetState?.SetResetting(true);
+        try
         {
-            if (string.Equals(db.Database.ProviderName, "Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.OrdinalIgnoreCase))
+            // ---------------------------
+            // Reset enable/disable
+            // ---------------------------
+            var resetDbFromConfig = config.GetValue<bool>("Seed:ResetDatabase");
+            var resetDb = forceResetDatabase ?? resetDbFromConfig;
+
+            // MUITO IMPORTANTE: proteja para não apagar em produção
+            if (!env.IsDevelopment())
+                resetDb = false;
+
+            if (resetDb)
             {
-                await db.Database.ExecuteSqlRawAsync("DROP SCHEMA IF EXISTS public CASCADE;", ct);
-                await db.Database.ExecuteSqlRawAsync("CREATE SCHEMA public;", ct);
+                if (string.Equals(db.Database.ProviderName, "Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.OrdinalIgnoreCase))
+                {
+                    await db.Database.ExecuteSqlRawAsync("DROP SCHEMA IF EXISTS public CASCADE;", ct);
+                    await db.Database.ExecuteSqlRawAsync("CREATE SCHEMA public;", ct);
+                }
+                else
+                {
+                    await db.Database.EnsureDeletedAsync(ct);
+                }
             }
-            else
+
+            // ✅ Migrar sempre depois do reset
+            await db.Database.MigrateAsync(ct);
+
+            // ✅ Seeds essenciais sempre (mesmo com Seed:Enabled=false)
+            await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder
+                .EnsureDefaultMenusAsync(db, tenantContext, roleManager, localizer, ct);
+
+            // ---------------------------
+            // Seed geral enable/disable
+            // ---------------------------
+            var seedEnabledFromConfig = config.GetValue<bool?>("Seed:Enabled") ?? true;
+            var seedEnabled = overrides?.SeedEnabled ?? seedEnabledFromConfig;
+
+            if (!seedEnabled)
+                return;
+
+            // ---------------------------
+            // Carrega configs padrão
+            // ---------------------------
+            var adminPassword = config.GetValue<string>("Seed:AdminPassword");
+            if (string.IsNullOrWhiteSpace(adminPassword))
+                throw new InvalidOperationException(localizer["SeedErrors.AdminPasswordRequired"]);
+
+            var vagaSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Vagas:Count") ?? 50);
+            var candidatoSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Candidatos:Count") ?? 50);
+            var candidatoSeedPerVaga = Math.Max(0, config.GetValue<int?>("Seed:Candidatos:PerVaga") ?? 0);
+
+            var vagaPatternsFile = config.GetValue<string>("Seed:Vagas:PatternsFile");
+            var vagaRequirementsFile = config.GetValue<string>("Seed:Vagas:RequirementsFile");
+
+            var randomSeed = config.GetValue<int?>("Seed:RandomSeed");
+
+            var managerSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Managers:Count") ?? 10);
+            var agendaEventSeedCount = Math.Max(0, config.GetValue<int?>("Seed:AgendaEvents:Count") ?? 10);
+            var emailMessageSeedCount = Math.Max(0, config.GetValue<int?>("Seed:EmailMessages:Count") ?? 40);
+
+            var inboxSeedCountDefault = Math.Max(0, config.GetValue<int?>("Seed:InboxItems:Count") ?? 3);
+
+            // ---------------------------
+            // Flags específicos (config OU override)
+            // ---------------------------
+            var seedVagasEnabledFromConfig = config.GetValue<bool?>("Seed:Vagas:Enabled") ?? true;
+            var seedCandidatosEnabledFromConfig = config.GetValue<bool?>("Seed:Candidatos:Enabled") ?? true;
+            var seedInboxEnabledDefaultFromConfig = config.GetValue<bool?>("Seed:InboxItems:Enabled") ?? true;
+
+            var seedVagasEnabled = overrides?.SeedVagasEnabled ?? seedVagasEnabledFromConfig;
+            var seedCandidatosEnabled = overrides?.SeedCandidatosEnabled ?? seedCandidatosEnabledFromConfig;
+            var seedInboxEnabledDefault = overrides?.SeedInboxEnabled ?? seedInboxEnabledDefaultFromConfig;
+
+            // ---------------------------
+            // Tenants (com override também)
+            // ---------------------------
+            int resolveInboxCount(string tenantId)
+                => Math.Max(0, config.GetValue<int?>($"Seed:Tenants:{tenantId}:InboxItems:Count") ?? inboxSeedCountDefault);
+
+            bool resolveInboxEnabled(string tenantId)
             {
-                await db.Database.EnsureDeletedAsync(ct);
+                // Se override global de inbox foi fornecido, ele manda.
+                if (overrides?.SeedInboxEnabled is bool forced)
+                    return forced;
+
+                return config.GetValue<bool?>($"Seed:Tenants:{tenantId}:InboxItems:Enabled") ?? seedInboxEnabledDefault;
             }
+
+            // ✅ Tenant 1
+            var liotecnicaInboxCount = resolveInboxCount("liotecnica");
+            var liotecnicaInboxEnabled = resolveInboxEnabled("liotecnica");
+
+            await SeedTenantAsync(
+                db, tenantContext, userManager, roleManager,
+                tenantId: "liotecnica",
+                tenantName: "Liotecnica",
+                adminPassword: adminPassword,
+                managerSeedCount: managerSeedCount,
+                agendaEventSeedCount: agendaEventSeedCount,
+                emailMessageSeedCount: emailMessageSeedCount,
+                vagaSeedCount: vagaSeedCount,
+                candidatoSeedCount: candidatoSeedCount,
+                candidatoSeedPerVaga: candidatoSeedPerVaga,
+                vagaPatternsFile: vagaPatternsFile,
+                vagaRequirementsFile: vagaRequirementsFile,
+                inboxSeedCount: liotecnicaInboxCount,
+                seedVagasEnabled: seedVagasEnabled,
+                seedCandidatosEnabled: seedCandidatosEnabled,
+                seedInboxEnabled: liotecnicaInboxEnabled,
+                localizer: localizer,
+                randomSeed: randomSeed,
+                ct: ct);
+
+            // ✅ Tenant 2
+            var devInboxCount = resolveInboxCount("dev");
+            var devInboxEnabled = resolveInboxEnabled("dev");
+
+            await SeedTenantAsync(
+                db, tenantContext, userManager, roleManager,
+                tenantId: "dev",
+                tenantName: "Development",
+                adminPassword: adminPassword,
+                managerSeedCount: managerSeedCount,
+                agendaEventSeedCount: agendaEventSeedCount,
+                emailMessageSeedCount: emailMessageSeedCount,
+                vagaSeedCount: vagaSeedCount,
+                candidatoSeedCount: candidatoSeedCount,
+                candidatoSeedPerVaga: candidatoSeedPerVaga,
+                vagaPatternsFile: vagaPatternsFile,
+                vagaRequirementsFile: vagaRequirementsFile,
+                inboxSeedCount: devInboxCount,
+                seedVagasEnabled: seedVagasEnabled,
+                seedCandidatosEnabled: seedCandidatosEnabled,
+                seedInboxEnabled: devInboxEnabled,
+                localizer: localizer,
+                randomSeed: randomSeed,
+                ct: ct);
         }
-
-        // ✅ Migrar sempre depois do reset
-        await db.Database.MigrateAsync(ct);
-
-        // ✅ Seeds essenciais sempre (mesmo com Seed:Enabled=false)
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder
-            .EnsureDefaultMenusAsync(db, tenantContext, roleManager, localizer, ct);
-
-        // ---------------------------
-        // Seed geral enable/disable
-        // ---------------------------
-        var seedEnabledFromConfig = config.GetValue<bool?>("Seed:Enabled") ?? true;
-        var seedEnabled = overrides?.SeedEnabled ?? seedEnabledFromConfig;
-
-        if (!seedEnabled)
-            return;
-
-        // ---------------------------
-        // Carrega configs padrão
-        // ---------------------------
-        var adminPassword = config.GetValue<string>("Seed:AdminPassword");
-        if (string.IsNullOrWhiteSpace(adminPassword))
-            throw new InvalidOperationException(localizer["SeedErrors.AdminPasswordRequired"]);
-
-        var vagaSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Vagas:Count") ?? 50);
-        var candidatoSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Candidatos:Count") ?? 50);
-        var candidatoSeedPerVaga = Math.Max(0, config.GetValue<int?>("Seed:Candidatos:PerVaga") ?? 0);
-
-        var vagaPatternsFile = config.GetValue<string>("Seed:Vagas:PatternsFile");
-        var vagaRequirementsFile = config.GetValue<string>("Seed:Vagas:RequirementsFile");
-
-        var randomSeed = config.GetValue<int?>("Seed:RandomSeed");
-
-        var managerSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Managers:Count") ?? 10);
-        var agendaEventSeedCount = Math.Max(0, config.GetValue<int?>("Seed:AgendaEvents:Count") ?? 10);
-        var emailMessageSeedCount = Math.Max(0, config.GetValue<int?>("Seed:EmailMessages:Count") ?? 40);
-
-        var inboxSeedCountDefault = Math.Max(0, config.GetValue<int?>("Seed:InboxItems:Count") ?? 3);
-
-        // ---------------------------
-        // Flags específicos (config OU override)
-        // ---------------------------
-        var seedVagasEnabledFromConfig = config.GetValue<bool?>("Seed:Vagas:Enabled") ?? true;
-        var seedCandidatosEnabledFromConfig = config.GetValue<bool?>("Seed:Candidatos:Enabled") ?? true;
-        var seedInboxEnabledDefaultFromConfig = config.GetValue<bool?>("Seed:InboxItems:Enabled") ?? true;
-
-        var seedVagasEnabled = overrides?.SeedVagasEnabled ?? seedVagasEnabledFromConfig;
-        var seedCandidatosEnabled = overrides?.SeedCandidatosEnabled ?? seedCandidatosEnabledFromConfig;
-        var seedInboxEnabledDefault = overrides?.SeedInboxEnabled ?? seedInboxEnabledDefaultFromConfig;
-
-        // ---------------------------
-        // Tenants (com override também)
-        // ---------------------------
-        int resolveInboxCount(string tenantId)
-            => Math.Max(0, config.GetValue<int?>($"Seed:Tenants:{tenantId}:InboxItems:Count") ?? inboxSeedCountDefault);
-
-        bool resolveInboxEnabled(string tenantId)
+        finally
         {
-            // Se override global de inbox foi fornecido, ele manda.
-            if (overrides?.SeedInboxEnabled is bool forced)
-                return forced;
-
-            return config.GetValue<bool?>($"Seed:Tenants:{tenantId}:InboxItems:Enabled") ?? seedInboxEnabledDefault;
+            resetState?.SetResetting(false);
         }
-
-        // ✅ Tenant 1
-        var liotecnicaInboxCount = resolveInboxCount("liotecnica");
-        var liotecnicaInboxEnabled = resolveInboxEnabled("liotecnica");
-
-        await SeedTenantAsync(
-            db, tenantContext, userManager, roleManager,
-            tenantId: "liotecnica",
-            tenantName: "Liotecnica",
-            adminPassword: adminPassword,
-            managerSeedCount: managerSeedCount,
-            agendaEventSeedCount: agendaEventSeedCount,
-            emailMessageSeedCount: emailMessageSeedCount,
-            vagaSeedCount: vagaSeedCount,
-            candidatoSeedCount: candidatoSeedCount,
-            candidatoSeedPerVaga: candidatoSeedPerVaga,
-            vagaPatternsFile: vagaPatternsFile,
-            vagaRequirementsFile: vagaRequirementsFile,
-            inboxSeedCount: liotecnicaInboxCount,
-            seedVagasEnabled: seedVagasEnabled,
-            seedCandidatosEnabled: seedCandidatosEnabled,
-            seedInboxEnabled: liotecnicaInboxEnabled,
-            localizer: localizer,
-            randomSeed: randomSeed,
-            ct: ct);
-
-        // ✅ Tenant 2
-        var devInboxCount = resolveInboxCount("dev");
-        var devInboxEnabled = resolveInboxEnabled("dev");
-
-        await SeedTenantAsync(
-            db, tenantContext, userManager, roleManager,
-            tenantId: "dev",
-            tenantName: "Development",
-            adminPassword: adminPassword,
-            managerSeedCount: managerSeedCount,
-            agendaEventSeedCount: agendaEventSeedCount,
-            emailMessageSeedCount: emailMessageSeedCount,
-            vagaSeedCount: vagaSeedCount,
-            candidatoSeedCount: candidatoSeedCount,
-            candidatoSeedPerVaga: candidatoSeedPerVaga,
-            vagaPatternsFile: vagaPatternsFile,
-            vagaRequirementsFile: vagaRequirementsFile,
-            inboxSeedCount: devInboxCount,
-            seedVagasEnabled: seedVagasEnabled,
-            seedCandidatosEnabled: seedCandidatosEnabled,
-            seedInboxEnabled: devInboxEnabled,
-            localizer: localizer,
-            randomSeed: randomSeed,
-            ct: ct);
     }
 
     private static async Task SeedTenantAsync(
