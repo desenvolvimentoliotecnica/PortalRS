@@ -13,7 +13,10 @@ public sealed class OpsController : Controller
         _opsApi = opsApi;
     }
 
-    public sealed record ResetDatabaseRequest(bool Reseed = true);
+    public sealed record ResetDatabaseRequest(
+        bool Reset = true,
+        bool Clean = false,
+        bool Reseed = true);
 
     // Esse é o endpoint que seu JS chama:
     // fetch('/ops/reset-database', { method: 'POST', body: { reseed: true/false } })
@@ -21,10 +24,13 @@ public sealed class OpsController : Controller
     [HttpPost("/ops/reset-database")]
     public async Task<IActionResult> ResetDatabase([FromBody] ResetDatabaseRequest body, CancellationToken ct)
     {
-        var ok = await _opsApi.ResetDatabaseAsync(body.Reseed, ct);
+        if (!body.Reset && !body.Clean)
+            return BadRequest(new { ok = false, message = "Selecione Reset ou Limpar Base." });
+
+        var ok = await _opsApi.ResetDatabaseAsync(body.Reset, body.Clean, body.Reseed, ct);
         if (!ok)
             return StatusCode(500, new { ok = false, message = "Unable to reset database." });
 
-        return Ok(new { ok = true, reseed = body.Reseed });
+        return Ok(new { ok = true, reset = body.Reset, clean = body.Clean, reseed = body.Reseed });
     }
 }

@@ -20,6 +20,7 @@ public static class DbSeeder
             config,
             env,
             forceResetDatabase: null,
+            forceCleanDatabase: null,
             overrides: null,
             ct);
 
@@ -36,6 +37,7 @@ public static class DbSeeder
         IConfiguration config,
         IHostEnvironment env,
         bool? forceResetDatabase,
+        bool? forceCleanDatabase,
         SeedOverrides? overrides,
         CancellationToken ct = default)
     {
@@ -56,10 +58,14 @@ public static class DbSeeder
             // ---------------------------
             var resetDbFromConfig = config.GetValue<bool>("Seed:ResetDatabase");
             var resetDb = forceResetDatabase ?? resetDbFromConfig;
+            var cleanDb = forceCleanDatabase ?? false;
 
             // MUITO IMPORTANTE: proteja para não apagar em produção
             if (!env.IsDevelopment())
+            {
                 resetDb = false;
+                cleanDb = false;
+            }
 
             if (resetDb)
             {
@@ -72,6 +78,10 @@ public static class DbSeeder
                 {
                     await db.Database.EnsureDeletedAsync(ct);
                 }
+            }
+            else if (cleanDb)
+            {
+                await ClearAllDataAsync(db, ct);
             }
 
             // ✅ Migrar sempre depois do reset
@@ -192,6 +202,26 @@ public static class DbSeeder
         {
             resetState?.SetResetting(false);
         }
+    }
+
+    private static async Task ClearAllDataAsync(AppDbContext db, CancellationToken ct)
+    {
+        if (!string.Equals(db.Database.ProviderName, "Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Clean database is only supported for PostgreSQL.");
+
+        const string sql = """
+        DO $$
+        DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '__EFMigrationsHistory')
+            LOOP
+                EXECUTE 'TRUNCATE TABLE "' || r.tablename || '" RESTART IDENTITY CASCADE';
+            END LOOP;
+        END $$;
+        """;
+
+        await db.Database.ExecuteSqlRawAsync(sql, ct);
     }
 
     private static async Task SeedTenantAsync(

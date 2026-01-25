@@ -6,11 +6,15 @@ using RhPortal.Api.Infrastructure.Data;
 
 namespace RhPortal.Api.Controllers;
 
-public sealed record ResetDatabaseRequest(bool Reseed = true);
+public sealed record ResetDatabaseRequest(
+    bool Reset = true,
+    bool Clean = false,
+    bool Reseed = true);
 
 public sealed record ResetDatabaseResponse(
     bool Ok,
     bool Reset,
+    bool Clean,
     bool Reseed,
     string Environment,
     string? Message = null
@@ -48,7 +52,12 @@ public sealed class OpsController : ControllerBase
                 return Unauthorized(new { error = "Invalid reset key." });
         }
 
+        var reset = body?.Reset ?? true;
+        var clean = body?.Clean ?? false;
         var reseed = body?.Reseed ?? true;
+
+        if (!reset && !clean)
+            return BadRequest(new { error = "Select at least one action: reset or clean." });
 
         // Loga executor (se o seu auth preenche esses claims)
         var userName = User?.Identity?.Name ?? "(unknown)";
@@ -59,8 +68,8 @@ public sealed class OpsController : ControllerBase
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "(unknown)";
 
         logger.LogWarning(
-            "RESET DATABASE requested by UserId={UserId} UserName={UserName} Ip={Ip} Reseed={Reseed}",
-            userId, userName, ip, reseed);
+            "RESET DATABASE requested by UserId={UserId} UserName={UserName} Ip={Ip} Reset={Reset} Clean={Clean} Reseed={Reseed}",
+            userId, userName, ip, reset, clean, reseed);
 
         try
         {
@@ -82,29 +91,35 @@ public sealed class OpsController : ControllerBase
                 services,
                 config,
                 env,
-                forceResetDatabase: true,
+                forceResetDatabase: reset,
+                forceCleanDatabase: clean,
                 overrides: overrides,
                 ct: CancellationToken.None
             );
 
+            var actionLabel = reset ? "Reset + migrate" : "Clean";
+            var message = reseed
+                ? $"{actionLabel} + reseed concluídos."
+                : $"{actionLabel} concluídos (seed desativado).";
+
             return Ok(new ResetDatabaseResponse(
                 Ok: true,
-                Reset: true,
+                Reset: reset,
+                Clean: clean,
                 Reseed: reseed,
                 Environment: env.EnvironmentName,
-                Message: reseed
-                    ? "Reset + migrate + reseed concluídos."
-                    : "Reset + migrate concluídos (seed desativado)."
+                Message: message
             ));
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "RESET DATABASE failed. Reseed={Reseed}", reseed);
+            logger.LogError(ex, "RESET DATABASE failed. Reset={Reset} Clean={Clean} Reseed={Reseed}", reset, clean, reseed);
 
             // 500 com payload amigável pro front
             return StatusCode(500, new ResetDatabaseResponse(
                 Ok: false,
-                Reset: true,
+                Reset: reset,
+                Clean: clean,
                 Reseed: reseed,
                 Environment: env.EnvironmentName,
                 Message: ex.Message

@@ -11,14 +11,28 @@
 
             <div class="modal-body">
                 <div class="alert alert-danger small mb-3">
-                    <strong>Atenção:</strong> isso apaga e recria o schema, roda migrations e pode re-seedar.
+                    <strong>Atenção:</strong> isso pode apagar dados e recriar o schema, rodar migrations e re-seedar.
                     Use apenas em <strong>Development</strong>.
                 </div>
 
                 <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="resetDbReset" checked>
+                    <label class="form-check-label" for="resetDbReset">
+                        Resetar banco (drop schema + migrations)
+                    </label>
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="resetDbClean">
+                    <label class="form-check-label" for="resetDbClean">
+                        Limpar base (apenas dados, mantém schema)
+                    </label>
+                </div>
+
+                <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" id="resetDbReseed" checked>
                     <label class="form-check-label" for="resetDbReseed">
-                        Rodar seed após reset (reseed)
+                        Fazer seed
                     </label>
                 </div>
 
@@ -38,7 +52,7 @@
                 </button>
                 <button type="button" class="btn btn-danger" id="btnResetDb">
                     <span class="spinner-border spinner-border-sm me-2 d-none" id="resetDbSpinner" role="status" aria-hidden="true"></span>
-                    Resetar agora
+                    Executar
                 </button>
             </div>
         </div>
@@ -49,6 +63,8 @@
     (function () {
         const btn = document.getElementById('btnResetDb');
         const confirmChk = document.getElementById('resetDbConfirm');
+        const resetChk = document.getElementById('resetDbReset');
+        const cleanChk = document.getElementById('resetDbClean');
         const reseedChk = document.getElementById('resetDbReseed');
         const spinner = document.getElementById('resetDbSpinner');
         const status = document.getElementById('resetDbStatus');
@@ -79,19 +95,27 @@
         modalEl?.addEventListener('show.bs.modal', closeAnyOpenDropdown);
 
         btn?.addEventListener('click', async () => {
+            if (!resetChk.checked && !cleanChk.checked) {
+                setStatus('Selecione Resetar banco ou Limpar base.', true);
+                return;
+            }
             if (!confirmChk.checked) {
                 setStatus('Marque a confirmação antes de continuar.', true);
                 return;
             }
 
             setBusy(true);
-            setStatus('Executando reset... aguarde.', false);
+            setStatus('Executando... aguarde.', false);
 
             try {
                 const resp = await fetch('/ops/reset-database', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reseed: reseedChk.checked })
+                    body: JSON.stringify({
+                        reset: resetChk.checked,
+                        clean: cleanChk.checked,
+                        reseed: reseedChk.checked
+                    })
                 });
 
                 if (!resp.ok) {
@@ -99,7 +123,7 @@
                     throw new Error(txt || ('HTTP ' + resp.status));
                 }
 
-                setStatus('Reset concluído. Recarregando...', false);
+                setStatus('Concluído. Recarregando...', false);
                 setTimeout(() => location.reload(), 800);
             } catch (e) {
                 setStatus('Falha ao resetar: ' + (e?.message || e), true);

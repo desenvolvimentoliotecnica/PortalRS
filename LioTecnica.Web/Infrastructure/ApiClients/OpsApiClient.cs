@@ -18,9 +18,9 @@ public sealed class OpsApiClient
     /// Chama a API: POST api/ops/reset-database
     /// Retorna true se ok, false se falhou.
     /// </summary>
-    public async Task<bool> ResetDatabaseAsync(bool reseed, CancellationToken ct)
+    public async Task<bool> ResetDatabaseAsync(bool reset, bool clean, bool reseed, CancellationToken ct)
     {
-        var request = new ResetDatabaseRequest(reseed);
+        var request = new ResetDatabaseRequest(reset, clean, reseed);
 
         using var response = await _http.PostAsJsonAsync("api/ops/reset-database", request, JsonOptions, ct);
 
@@ -31,5 +31,8 @@ public sealed class OpsApiClient
         return response.IsSuccessStatusCode;
     }
 
-    public sealed record ResetDatabaseRequest(bool Reseed);
+    public sealed record ResetDatabaseRequest(
+        bool Reset,
+        bool Clean,
+        bool Reseed);
 }
