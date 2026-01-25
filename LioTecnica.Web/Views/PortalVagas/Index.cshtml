@@ -25,11 +25,133 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         :root {
             color-scheme: light;
+            --primary-color: #004aad;
+            --secondary-color: #7ab800;
+            --accent-bg: #f8f9fa;
+            --text-dark: #2c3e50;
+            --text-muted: #6c757d;
+            --radius-xl: 16px;
+            --radius-pill: 999px;
+        }
+
+        body {
+            font-family: "Roboto", sans-serif;
+            background-color: var(--accent-bg);
+            color: var(--text-dark);
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        .header-wrapper {
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            box-shadow: 0 4px 20px rgba(0,0,0,.05);
+            background: #fff;
+        }
+
+        .top-bar {
+            background: #fff;
+            border-bottom: 1px solid #eee;
+            font-size: .85rem;
+            padding: 8px 0;
+        }
+
+        .top-nav-link {
+            color: #6c757d;
+            text-decoration: none;
+            margin-left: 18px;
+            transition: .2s;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .top-nav-link:hover {
+            color: var(--primary-color);
+        }
+
+        .main-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #002855 100%);
+            color: white;
+            padding: clamp(56px, 6vw, 90px) 0 clamp(44px, 5vw, 70px);
+            text-align: center;
+        }
+
+        .search-wrapper {
+            margin-top: -28px;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .search-box {
+            background: white;
+            border-radius: var(--radius-xl);
+            box-shadow: 0 10px 40px rgba(0,0,0,.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 12px 12px 14px;
+            flex-wrap: wrap;
+        }
+
+        .search-box i {
+            flex: 0 0 auto;
+            color: #64748b;
+        }
+
+        .search-box input {
+            border: none;
+            flex: 1 1 260px;
+            min-width: 160px;
+            padding: 12px 10px;
+            font-size: 1.02rem;
+            outline: none;
+            border-radius: var(--radius-pill);
+            color: #555;
+            background: #fff;
+        }
+
+        .btn-search {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: var(--radius-pill);
+            padding: 10px 22px;
+            font-weight: 700;
+            transition: .3s;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .btn-search:hover {
+            background-color: #6da300;
+            box-shadow: 0 4px 10px rgba(122,184,0,.3);
+        }
+
+        .btn-clear {
+            background-color: transparent;
+            color: #777;
+            border: 1px solid #ddd;
+            border-radius: var(--radius-pill);
+            padding: 10px 16px;
+            font-weight: 600;
+            transition: .3s;
+            white-space: nowrap;
+            cursor: pointer;
+            flex: 0 0 auto;
+        }
+
+        .btn-clear:hover {
+            background-color: #f1f1f1;
+            color: #666;
         }
 
         .portal-topbar {
@@ -176,6 +298,14 @@
             border-radius: 999px;
         }
 
+        .back-to-top {
+            position: fixed;
+            right: 1rem;
+            bottom: 4.25rem;
+            z-index: 1030;
+            border-radius: 999px;
+        }
+
         .overlay {
             position: fixed;
             inset: 0;
@@ -205,6 +335,58 @@
                 display: inline-block;
                 transform: translateY(-1px);
             }
+
+        .job-section {
+            margin-bottom: 2rem;
+        }
+
+        .job-section-hero {
+            border-radius: 18px;
+            padding: 2.2rem 2rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .job-section-hero::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(0,74,173,.9), rgba(0,74,173,.55));
+        }
+
+        .job-section-title {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            font-weight: 700;
+            font-size: 1.6rem;
+        }
+
+        .job-section-count {
+            position: relative;
+            z-index: 1;
+            background: rgba(255,255,255,.2);
+            border: 1px solid rgba(255,255,255,.35);
+            color: #fff;
+            padding: .35rem .8rem;
+            border-radius: 999px;
+            font-size: .9rem;
+            font-weight: 600;
+        }
+
+        .jobs-loading {
+            display: flex;
+            justify-content: center;
+            padding: 3rem 0;
+        }
 
 
         .filters-form {
@@ -702,56 +884,67 @@
     </style>
 </head>
 
-<body class="bg-body-tertiary">
-    <header class="portal-topbar">
-        <div class="container portal-topbar-inner">
-            <div class="portal-brand">
-                <span class="portal-logo">LT</span>
-                <span class="portal-logo-text">portal vagas</span>
+<body>
+    <div class="header-wrapper">
+        <nav class="navbar">
+            <div class="container d-flex justify-content-end align-items-center">
+                <div class="dropdown portal-user-menu">
+                    <button class="btn portal-user-btn dropdown-toggle" type="button" id="portalUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span id="portalUserAvatar" class="portal-user-avatar">@initials</span>
+                        <span class="text-start d-none d-md-block">
+                            <div id="portalUserName" class="portal-user-name">@userName</div>
+                            <div id="portalUserEmail" class="portal-user-email">@userEmail</div>
+                        </span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="portalUserMenu">
+                        <li>
+                            <button class="dropdown-item" type="button" id="btnProfile">Ver perfil</button>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="post" action="/PortalVagas/Logout">
+                                <button class="dropdown-item text-danger" type="submit">Sair</button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
             </div>
-
-            <div class="dropdown portal-user-menu">
-                <button class="btn portal-user-btn dropdown-toggle" type="button" id="portalUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                    <span id="portalUserAvatar" class="portal-user-avatar">@initials</span>
-                    <span class="text-start d-none d-md-block">
-                        <div id="portalUserName" class="portal-user-name">@userName</div>
-                        <div id="portalUserEmail" class="portal-user-email">@userEmail</div>
-                    </span>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="portalUserMenu">
-                    <li>
-                        <button class="dropdown-item" type="button" id="btnProfile">Ver perfil</button>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <form method="post" action="/PortalVagas/Logout">
-                            <button class="dropdown-item text-danger" type="submit">Sair</button>
-                        </form>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </header>
+        </nav>
+    </div>
 
     <!-- Alertas (erro/sucesso) -->
     <div class="container py-3">
         <div id="appAlert" class="alert d-none" role="alert" aria-live="polite"></div>
     </div>
 
-    <header class="container pb-2">
-        <div class="text-center py-3 py-md-4">
-            <h1 class="display-6 fw-semibold mb-2">Vagas em Destaque</h1>
-            <p class="lead text-secondary mb-0">
-                Encontre oportunidades por área, nível, formato e localização.
-            </p>
-        </div>
-    </header>
+    <section class="main-header">
+    <div class="container">
+        <h1 class="display-6 fw-semibold mb-2">Transforme o Futuro da Alimentação</h1>
+        <p class="lead mb-0">Ambiente inovador, tecnologia de ponta e paixão por qualidade.</p>
+    </div>
+</section>
+
+<div class="container search-wrapper">
+    <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input id="q" name="q" type="search" placeholder="Buscar por cargo, empresa, tecnologia..." autocomplete="off" />
+        <button id="searchBtn" class="btn-search" type="button">Buscar</button>
+        <button id="searchClearBtn" class="btn-clear" type="button">Limpar</button>
+    </div>
+</div>
+
+    <button class="btn btn-light border shadow-sm back-to-top px-3 py-2"
+            type="button"
+            id="backToTopBtn"
+            aria-label="Voltar ao topo">
+        <i class="fas fa-arrow-up me-2" aria-hidden="true"></i> Topo
+    </button>
 
     <button class="btn btn-primary filters-fab px-3 py-2"
             type="button"
             data-bs-toggle="offcanvas" data-bs-target="#filtersDrawer"
             aria-controls="filtersDrawer" aria-label="Abrir filtros">
-        <span class="me-2" aria-hidden="true">☰</span> Filtros
+        <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> Filtros
     </button>
 
     <div class="offcanvas offcanvas-end" tabindex="-1" id="filtersDrawer" aria-labelledby="filtersDrawerLabel">
@@ -763,13 +956,7 @@
         <div class="offcanvas-body d-flex flex-column">
             <form id="filtersForm" novalidate class="filters-form">
                 <div class="filters-scroll">
-                    <div class="mb-3">
-                        <label for="q" class="form-label">Buscar</label>
-                        <input id="q" name="q" type="search" class="form-control"
-                               placeholder="Cargo, empresa, tecnologia..."
-                               autocomplete="off" />
-                        <div class="form-text" id="qHint">Dica: &ldquo;C#&rdquo;, &ldquo;Produto&rdquo;, &ldquo;Dados&rdquo;, &ldquo;UX&rdquo;.</div>
-                    </div>
+                    
 
                     <div class="row g-2">
                         <div class="col-12">
@@ -891,14 +1078,13 @@
             <p class="text-secondary mb-3">Tente remover alguns filtros ou refinar o texto de busca.</p>
             <button class="btn btn-outline-secondary" type="button" id="emptyClearBtn">Limpar filtros</button>
         </section>
-        <section class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-4" id="jobsGrid" aria-label="Lista de vagas">
-            <div class="col-12 d-flex justify-content-center py-5" id="jobsLoading">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Carregando...</span>
-                </div>
-            </div>
-        </section>
-        <div id="jobsSentinel" class="py-2"></div>
+        <section id="jobsGrid" class="jobs-sections" aria-label="Lista de vagas">
+    <div class="jobs-loading" id="jobsLoading">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+    </div>
+</section>
     </main>
 
     <!-- Modal de detalhes -->
@@ -3864,7 +4050,6 @@
             || new URLSearchParams(window.location.search).get("tenant")
             || "";
           const grid = document.getElementById("jobsGrid");
-          const sentinel = document.getElementById("jobsSentinel");
           const gridLoading = document.getElementById("jobsLoading");
           let items = [];
           const resultsCount = document.getElementById("resultsCount");
@@ -3874,6 +4059,9 @@
           const clearBtn = document.getElementById("clearBtn");
           const emptyClearBtn = document.getElementById("emptyClearBtn");
           const filtersDrawerEl = document.getElementById("filtersDrawer");
+          const searchBtn = document.getElementById("searchBtn");
+          const searchClearBtn = document.getElementById("searchClearBtn");
+          const backToTopBtn = document.getElementById("backToTopBtn");
 
           const jobModalEl = document.getElementById("jobModal");
           const jobModal = new bootstrap.Modal(jobModalEl, { backdrop: true, keyboard: true });
@@ -3899,7 +4087,7 @@
           const emailInput = document.getElementById("email");
 
           let currentSort = "recent";
-          const pageSize = 12;
+          const pageSize = 9999;
           let currentPage = 1;
           let totalPages = 1;
           let totalItems = 0;
@@ -4271,6 +4459,60 @@
             return col;
           }
 
+          const sectionImageMap = [
+            { match: "industrial", title: "Industrial & Produ\u00e7\u00e3o", image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&q=80&w=1600" },
+            { match: "qualidade", title: "Qualidade & P&D", image: "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&q=80&w=1600" },
+            { match: "logistica", title: "Log\u00edstica & Supply", image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=1600" },
+            { match: "rh", title: "Administrativo & RH", image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1600" },
+            { match: "administrativo", title: "Administrativo & RH", image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1600" },
+            { match: "comercial", title: "Vendas & Marketing", image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=1600" },
+            { match: "marketing", title: "Vendas & Marketing", image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=1600" }
+          ];
+
+          function normalizeKey(value) {
+            return (value || "")
+              .toString()
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "");
+          }
+
+          function getSectionInfo(area) {
+            const key = normalizeKey(area);
+            const match = sectionImageMap.find(x => key.includes(x.match));
+            if (match) return match;
+            return {
+              title: area || "Outras oportunidades",
+              image: "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&q=80&w=1600"
+            };
+          }
+
+          function buildSection(info, jobs, startIndex) {
+            const section = document.createElement("section");
+            section.className = "job-section";
+
+            const header = document.createElement("div");
+            header.className = "job-section-hero mb-4";
+            header.style.backgroundImage = `url('${info.image}')`;
+            header.innerHTML = `
+              <div class="job-section-title">
+                <span>${info.title}</span>
+              </div>
+              <span class="job-section-count">${jobs.length} vagas</span>
+            `;
+
+            const gridEl = document.createElement("div");
+            gridEl.className = "row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-4";
+
+            jobs.forEach((job, idx) => {
+              gridEl.appendChild(buildJobCard(job, startIndex + idx));
+            });
+
+            section.appendChild(header);
+            section.appendChild(gridEl);
+            return section;
+          }
+
           async function loadJobs(reset = false) {
             if (!apiBase) {
               showAppAlert("danger", "Nao foi possivel carregar as vagas. URL da API nao configurada.");
@@ -4300,28 +4542,48 @@
             isLoadingPage = true;
             setGridLoading(true);
             try {
-              const query = buildQuery();
-              const url = `${apiBase}/api/public/vagas?tenantId=${encodeURIComponent(tenantId)}&${query}`;
-              const res = await fetch(url, { headers: { "accept": "application/json" } });
-              if (!res.ok) {
-                const body = await res.text();
-                throw new Error(`HTTP ${res.status} ${res.statusText} :: ${body}`);
-              }
-              const data = await res.json();
-              if (!data || !Array.isArray(data.items)) {
-                throw new Error("Resposta invalida da API.");
-              }
-              totalItems = data.totalItems ?? 0;
-              totalPages = data.totalPages ?? 1;
+              const allItems = [];
+              let page = 1;
+              let apiTotalPages = 1;
 
-              const fragment = document.createDocumentFragment();
-              (data.items || []).forEach((job, index) => {
-                fragment.appendChild(buildJobCard(job, index + (currentPage - 1) * pageSize));
+              do {
+                const query = buildQuery(page);
+                const url = `${apiBase}/api/public/vagas?tenantId=${encodeURIComponent(tenantId)}&${query}`;
+                const res = await fetch(url, { headers: { "accept": "application/json" } });
+                if (!res.ok) {
+                  const body = await res.text();
+                  throw new Error(`HTTP ${res.status} ${res.statusText} :: ${body}`);
+                }
+                const data = await res.json();
+                if (!data || !Array.isArray(data.items)) {
+                  throw new Error("Resposta invalida da API.");
+                }
+                totalItems = data.totalItems ?? 0;
+                apiTotalPages = data.totalPages ?? 1;
+                allItems.push(...data.items);
+                page += 1;
+              } while (page <= apiTotalPages);
+
+              totalPages = apiTotalPages;
+
+              const bySection = new Map();
+              allItems.forEach((job) => {
+                const info = getSectionInfo(job.area || "Geral");
+                if (!bySection.has(info.title)) {
+                  bySection.set(info.title, { info, jobs: [] });
+                }
+                bySection.get(info.title).jobs.push(job);
               });
+
               if (reset) {
                 grid.replaceChildren();
               }
-              grid.appendChild(fragment);
+
+              let offset = (currentPage - 1) * pageSize;
+              bySection.forEach(({ info, jobs }) => {
+                grid.appendChild(buildSection(info, jobs, offset));
+                offset += jobs.length;
+              });
               items = Array.from(grid.querySelectorAll(".job-item"));
               render();
             } catch (err) {
@@ -4346,7 +4608,7 @@
             return { q, location, mode, type, level, area, minSalary };
           }
 
-          function buildQuery() {
+          function buildQuery(page) {
             const filters = getFilters();
             const params = new URLSearchParams();
             if (filters.q) params.set("q", filters.q);
@@ -4357,7 +4619,7 @@
             if (filters.area) params.set("area", filters.area);
             if (filters.minSalary !== null) params.set("minSalary", filters.minSalary);
             params.set("sort", currentSort);
-            params.set("page", currentPage);
+            params.set("page", page);
             params.set("pageSize", pageSize);
             return params.toString();
           }
@@ -4386,21 +4648,10 @@
             totalItems = 0;
           }
 
-          function loadMore() {
-            if (currentPage >= totalPages) return;
-            currentPage += 1;
-            loadJobs();
-          }
-
-          if (sentinel) {
-            const observer = new IntersectionObserver((entries) => {
-              entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                  loadMore();
-                }
-              });
-            }, { rootMargin: "200px" });
-            observer.observe(sentinel);
+          if (backToTopBtn) {
+            backToTopBtn.addEventListener("click", () => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            });
           }
 
           function buildSummary(item) {
@@ -4643,6 +4894,16 @@
               console.error(err);
               showAppAlert("danger", "Ocorreu um erro ao aplicar filtros. Verifique os campos e tente novamente.");
             }
+          });
+
+          searchBtn?.addEventListener("click", () => {
+            filtersForm.requestSubmit();
+          });
+
+          searchClearBtn?.addEventListener("click", () => {
+            const qInput = document.getElementById("q");
+            if (qInput) qInput.value = "";
+            filtersForm.requestSubmit();
           });
 
           // Limpar filtros
