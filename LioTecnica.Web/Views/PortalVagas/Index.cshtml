@@ -236,6 +236,22 @@
             min-width: 220px;
         }
 
+        .portal-actions {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+        }
+
+        .portal-new-job {
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .new-job-modal .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
         .portal-brand {
             display: inline-flex;
             align-items: center;
@@ -927,25 +943,33 @@
                     <i class="fas fa-flask" aria-hidden="true"></i>
                     <span>LT Portal de Vagas</span>
                 </div>
-                <div class="dropdown portal-user-menu">
-                    <button class="btn portal-user-btn dropdown-toggle" type="button" id="portalUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                        <span id="portalUserAvatar" class="portal-user-avatar">@initials</span>
-                        <span class="text-start d-none d-md-block">
-                            <div id="portalUserName" class="portal-user-name">@userName</div>
-                            <div id="portalUserEmail" class="portal-user-email">@userEmail</div>
-                        </span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="portalUserMenu">
-                        <li>
-                            <button class="dropdown-item" type="button" id="btnProfile">Ver perfil</button>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <form method="post" action="/PortalVagas/Logout?tenantId=@tenantId">
-                                <button class="dropdown-item text-danger" type="submit">Sair</button>
-                            </form>
-                        </li>
-                    </ul>
+                <div class="portal-actions">
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <button class="btn btn-outline-primary portal-new-job" type="button" data-bs-toggle="modal" data-bs-target="#newJobModal">
+                            <i class="fas fa-plus me-1" aria-hidden="true"></i> Nova vaga
+                        </button>
+                    }
+                    <div class="dropdown portal-user-menu">
+                        <button class="btn portal-user-btn dropdown-toggle" type="button" id="portalUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span id="portalUserAvatar" class="portal-user-avatar">@initials</span>
+                            <span class="text-start d-none d-md-block">
+                                <div id="portalUserName" class="portal-user-name">@userName</div>
+                                <div id="portalUserEmail" class="portal-user-email">@userEmail</div>
+                            </span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="portalUserMenu">
+                            <li>
+                                <button class="dropdown-item" type="button" id="btnProfile">Ver perfil</button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="post" action="/PortalVagas/Logout?tenantId=@tenantId">
+                                    <button class="dropdown-item text-danger" type="submit">Sair</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </nav>
@@ -1074,6 +1098,181 @@
                     <button id="clearBtn" class="btn btn-outline-secondary" type="button">Limpar filtros</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="modal fade new-job-modal" id="newJobModal" tabindex="-1" aria-labelledby="newJobModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <form id="newJobForm" novalidate>
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="modal-title h5 mb-0" id="newJobModalLabel">Nova vaga</h2>
+                            <div class="text-secondary small">Preencha os dados principais para publicar a vaga.</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div id="newJobAlert" class="alert alert-danger d-none" role="alert"></div>
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label" for="newJobTitle">Titulo</label>
+                                <input id="newJobTitle" class="form-control" type="text" maxlength="160" required />
+                                <div class="invalid-feedback">Informe o titulo.</div>
+                            </div>
+
+                            <div class="col-12 col-lg-6">
+                                <label class="form-label" for="newJobArea">Area</label>
+                                <select id="newJobArea" class="form-select" required>
+                                    <option value="" selected>Selecione</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione a area.</div>
+                            </div>
+
+                            <div class="col-12 col-lg-6">
+                                <label class="form-label" for="newJobDepartment">Departamento</label>
+                                <select id="newJobDepartment" class="form-select" required>
+                                    <option value="" selected>Selecione</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione o departamento.</div>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobStatus">Status</label>
+                                <select id="newJobStatus" class="form-select" required></select>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobModalidade">Modalidade</label>
+                                <select id="newJobModalidade" class="form-select"></select>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobSenioridade">Senioridade</label>
+                                <select id="newJobSenioridade" class="form-select"></select>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobTipo">Tipo de contratacao</label>
+                                <select id="newJobTipo" class="form-select"></select>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobQuantidade">Quantidade de vagas</label>
+                                <input id="newJobQuantidade" class="form-control" type="number" min="1" value="1" required />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobMatch">Match minimo (%)</label>
+                                <input id="newJobMatch" class="form-control" type="number" min="0" max="100" value="60" required />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobVisibilidade">Visibilidade</label>
+                                <select id="newJobVisibilidade" class="form-select"></select>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobCity">Cidade</label>
+                                <input id="newJobCity" class="form-control" type="text" maxlength="120" />
+                            </div>
+
+                            <div class="col-12 col-md-2">
+                                <label class="form-label" for="newJobUf">UF</label>
+                                <input id="newJobUf" class="form-control" type="text" maxlength="2" />
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobSalaryMin">Salario minimo</label>
+                                <input id="newJobSalaryMin" class="form-control" type="number" step="0.01" />
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobSalaryMax">Salario maximo</label>
+                                <input id="newJobSalaryMax" class="form-control" type="number" step="0.01" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label" for="newJobResumo">Descricao publica</label>
+                                <textarea id="newJobResumo" class="form-control" rows="4"></textarea>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobTagsKeywords">Tags palavras-chave</label>
+                                <input id="newJobTagsKeywords" class="form-control" type="text" />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobTagsStack">Tags stack</label>
+                                <input id="newJobTagsStack" class="form-control" type="text" />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobTagsResp">Tags responsabilidades</label>
+                                <input id="newJobTagsResp" class="form-control" type="text" />
+                            </div>
+                        </div>
+
+                        <div class="border rounded-3 p-3 mt-4">
+                            <div class="fw-semibold mb-2">Opcoes</div>
+                            <div class="row g-2">
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobConfidencial" />
+                                        <label class="form-check-label" for="newJobConfidencial">Confidencial</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobAceitaPcd" />
+                                        <label class="form-check-label" for="newJobAceitaPcd">Aceita PcD</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobUrgente" />
+                                        <label class="form-check-label" for="newJobUrgente">Urgente</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobCanalSite" checked />
+                                        <label class="form-check-label" for="newJobCanalSite">Publicar no site</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobCanalLinkedIn" />
+                                        <label class="form-check-label" for="newJobCanalLinkedIn">LinkedIn</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobCanalIndicacao" />
+                                        <label class="form-check-label" for="newJobCanalIndicacao">Indicacao</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobCanalPortais" />
+                                        <label class="form-check-label" for="newJobCanalPortais">Portais de emprego</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                        <button id="newJobSubmit" class="btn btn-primary" type="submit">
+                            <span id="newJobSubmitText">Salvar vaga</span>
+                            <span id="newJobLoading" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -3753,6 +3952,7 @@
         window.__portalApiUrl = "@(Configuration["Endpoints:RhApi"] ?? string.Empty)".replace(/\/$/, "");
         window.__portalTenantId = "@(Context.Request.Query["tenantId"].ToString())";
         window.__portalTenantFromClaim = "@(User?.FindFirst("tenant")?.Value ?? string.Empty)";
+        window.__portalIsAdmin = "@(User.IsInRole("Admin").ToString().ToLowerInvariant())";
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -4088,6 +4288,7 @@
             || new URLSearchParams(window.location.search).get("tenantId")
             || new URLSearchParams(window.location.search).get("tenant")
             || "";
+          const isAdminUser = (window.__portalIsAdmin || "false") === "true";
           const grid = document.getElementById("jobsGrid");
           const gridLoading = document.getElementById("jobsLoading");
           let items = [];
@@ -4109,6 +4310,13 @@
           const applyModal = new bootstrap.Modal(applyModalEl, { backdrop: "static", keyboard: true }); // static para evitar perda acidental
 
           const jobModalApplyBtn = document.getElementById("jobModalApplyBtn");
+
+          const newJobModalEl = document.getElementById("newJobModal");
+          const newJobForm = document.getElementById("newJobForm");
+          const newJobAlert = document.getElementById("newJobAlert");
+          const newJobSubmit = document.getElementById("newJobSubmit");
+          const newJobLoading = document.getElementById("newJobLoading");
+          const newJobModal = newJobModalEl ? new bootstrap.Modal(newJobModalEl, { backdrop: true, keyboard: true }) : null;
 
           const applyForm = document.getElementById("applyForm");
           const applyAlert = document.getElementById("applyAlert");
@@ -4147,6 +4355,120 @@
           function setGridLoading(isLoading) {
             if (!gridLoading) return;
             gridLoading.classList.toggle("d-none", !isLoading);
+          }
+
+          function setNewJobAlert(message, type = "danger") {
+            if (!newJobAlert) return;
+            newJobAlert.className = `alert alert-${type}`;
+            newJobAlert.textContent = message;
+            newJobAlert.classList.remove("d-none");
+          }
+
+          function clearNewJobAlert() {
+            if (!newJobAlert) return;
+            newJobAlert.textContent = "";
+            newJobAlert.classList.add("d-none");
+          }
+
+          function toggleNewJobLoading(isLoading) {
+            if (!newJobSubmit || !newJobLoading) return;
+            newJobSubmit.disabled = isLoading;
+            newJobLoading.classList.toggle("d-none", !isLoading);
+          }
+
+          function buildAuthHeaders() {
+            return { "Accept": "application/json" };
+          }
+
+          function renderOptions(select, options, placeholder = "Selecione") {
+            if (!select) return;
+            select.innerHTML = "";
+            const opt = document.createElement("option");
+            opt.value = "";
+            opt.textContent = placeholder;
+            select.appendChild(opt);
+            options.forEach((item) => {
+              const option = document.createElement("option");
+              option.value = item.value;
+              option.textContent = item.text;
+              select.appendChild(option);
+            });
+          }
+
+          function toNumber(value) {
+            if (value === "" || value === null || value === undefined) return null;
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : null;
+          }
+
+          let newJobLookupsLoaded = false;
+          async function loadNewJobLookups() {
+            if (newJobLookupsLoaded || !isAdminUser) return;
+
+            const headers = buildAuthHeaders();
+            const [areasRes, departmentsRes, enumsRes] = await Promise.all([
+              fetch(`/api/lookup/areas`, { headers, credentials: "same-origin" }),
+              fetch(`/api/lookup/departments`, { headers, credentials: "same-origin" }),
+              fetch(`/api/lookup/enums`, { headers, credentials: "same-origin" })
+            ]);
+
+            if (!areasRes.ok || !departmentsRes.ok || !enumsRes.ok)
+              throw new Error("Nao foi possivel carregar os dados da vaga.");
+
+            const [areas, departments, enums] = await Promise.all([
+              areasRes.json(),
+              departmentsRes.json(),
+              enumsRes.json()
+            ]);
+
+            renderOptions(
+              document.getElementById("newJobArea"),
+              (areas || []).map((item) => ({ value: item.id, text: item.name })),
+              "Selecione a area"
+            );
+
+            renderOptions(
+              document.getElementById("newJobDepartment"),
+              (departments || []).map((item) => ({ value: item.id, text: item.name })),
+              "Selecione o departamento"
+            );
+
+            renderOptions(
+              document.getElementById("newJobStatus"),
+              (enums?.vagaStatus || []).map((item) => ({ value: item.code, text: item.text })),
+              "Selecione o status"
+            );
+
+            renderOptions(
+              document.getElementById("newJobModalidade"),
+              (enums?.vagaModalidade || []).map((item) => ({ value: item.code, text: item.text })),
+              "Modalidade"
+            );
+
+            renderOptions(
+              document.getElementById("newJobSenioridade"),
+              (enums?.vagaSenioridade || []).map((item) => ({ value: item.code, text: item.text })),
+              "Senioridade"
+            );
+
+            renderOptions(
+              document.getElementById("newJobTipo"),
+              (enums?.vagaTipoContratacao || []).map((item) => ({ value: item.code, text: item.text })),
+              "Tipo"
+            );
+
+            renderOptions(
+              document.getElementById("newJobVisibilidade"),
+              (enums?.vagaPublicacaoVisibilidade || []).map((item) => ({ value: item.code, text: item.text })),
+              "Visibilidade"
+            );
+
+            const statusSelect = document.getElementById("newJobStatus");
+            if (statusSelect && !statusSelect.value) statusSelect.value = "Aberta";
+            const visSelect = document.getElementById("newJobVisibilidade");
+            if (visSelect && !visSelect.value) visSelect.value = "Externa";
+
+            newJobLookupsLoaded = true;
           }
 
           function showAppAlert(type, message) {
@@ -4685,6 +5007,155 @@
             currentPage = 1;
             totalPages = 1;
             totalItems = 0;
+          }
+
+          if (newJobModalEl) {
+            newJobModalEl.addEventListener("show.bs.modal", async () => {
+              if (!isAdminUser) {
+                setNewJobAlert("Acesso nao autorizado.");
+                return;
+              }
+              clearNewJobAlert();
+              try {
+                await loadNewJobLookups();
+              } catch (err) {
+                console.error(err);
+                setNewJobAlert("Nao foi possivel carregar os dados da vaga.");
+              }
+            });
+          }
+
+          if (newJobForm) {
+            newJobForm.addEventListener("submit", async (event) => {
+              event.preventDefault();
+              if (!isAdminUser) {
+                setNewJobAlert("Acesso nao autorizado.");
+                return;
+              }
+
+              if (!newJobForm.checkValidity()) {
+                newJobForm.classList.add("was-validated");
+                newJobForm.reportValidity();
+                return;
+              }
+
+              clearNewJobAlert();
+              toggleNewJobLoading(true);
+              try {
+                const payload = {
+                  titulo: document.getElementById("newJobTitle").value.trim(),
+                  departmentId: document.getElementById("newJobDepartment").value,
+                  areaId: document.getElementById("newJobArea").value,
+                  status: document.getElementById("newJobStatus").value,
+                  codigo: null,
+                  areaTime: null,
+                  modalidade: document.getElementById("newJobModalidade").value || null,
+                  senioridade: document.getElementById("newJobSenioridade").value || null,
+                  quantidadeVagas: toNumber(document.getElementById("newJobQuantidade").value) ?? 1,
+                  tipoContratacao: document.getElementById("newJobTipo").value || null,
+                  matchMinimoPercentual: toNumber(document.getElementById("newJobMatch").value) ?? 0,
+                  weights: null,
+                  descricaoInterna: null,
+                  codigoInterno: null,
+                  codigoCbo: null,
+                  motivoAbertura: null,
+                  orcamentoAprovado: null,
+                  gestorRequisitante: null,
+                  recrutadorResponsavel: null,
+                  prioridade: null,
+                  resumoPitch: null,
+                  tagsResponsabilidadesRaw: document.getElementById("newJobTagsResp").value || null,
+                  tagsKeywordsRaw: document.getElementById("newJobTagsKeywords").value || null,
+                  confidencial: document.getElementById("newJobConfidencial").checked,
+                  aceitaPcd: document.getElementById("newJobAceitaPcd").checked,
+                  urgente: document.getElementById("newJobUrgente").checked,
+                  generoPreferencia: null,
+                  vagaAfirmativa: false,
+                  linguagemInclusiva: false,
+                  publicoAfirmativo: null,
+                  observacoesPcd: null,
+                  projetoNome: null,
+                  projetoClienteAreaImpactada: null,
+                  projetoPrazoPrevisto: null,
+                  projetoDescricao: null,
+                  regime: null,
+                  cargaSemanalHoras: null,
+                  escala: null,
+                  horaEntrada: null,
+                  horaSaida: null,
+                  intervalo: null,
+                  cep: null,
+                  logradouro: null,
+                  numero: null,
+                  bairro: null,
+                  cidade: document.getElementById("newJobCity").value || null,
+                  uf: document.getElementById("newJobUf").value || null,
+                  politicaTrabalho: null,
+                  observacoesDeslocamento: null,
+                  moeda: null,
+                  salarioMinimo: toNumber(document.getElementById("newJobSalaryMin").value),
+                  salarioMaximo: toNumber(document.getElementById("newJobSalaryMax").value),
+                  periodicidade: null,
+                  bonusTipo: null,
+                  bonusPercentual: null,
+                  observacoesRemuneracao: null,
+                  escolaridade: null,
+                  formacaoArea: null,
+                  experienciaMinimaAnos: null,
+                  tagsStackRaw: document.getElementById("newJobTagsStack").value || null,
+                  tagsIdiomasRaw: null,
+                  diferenciais: null,
+                  observacoesProcesso: null,
+                  visibilidade: document.getElementById("newJobVisibilidade").value || null,
+                  dataInicio: null,
+                  dataEncerramento: null,
+                  canalLinkedIn: document.getElementById("newJobCanalLinkedIn").checked,
+                  canalSiteCarreiras: document.getElementById("newJobCanalSite").checked,
+                  canalIndicacao: document.getElementById("newJobCanalIndicacao").checked,
+                  canalPortaisEmprego: document.getElementById("newJobCanalPortais").checked,
+                  descricaoPublica: document.getElementById("newJobResumo").value || null,
+                  lgpdSolicitarConsentimentoExplicito: false,
+                  lgpdCompartilharCurriculoInternamente: false,
+                  lgpdRetencaoAtiva: false,
+                  lgpdRetencaoMeses: null,
+                  exigeCnh: false,
+                  disponibilidadeParaViagens: false,
+                  checagemAntecedentes: false,
+                  beneficios: [],
+                  requisitos: [],
+                  etapas: [],
+                  perguntasTriagem: []
+                };
+
+                const response = await fetch(`/api/vagas`, {
+                  method: "POST",
+                  headers: {
+                    ...buildAuthHeaders(),
+                    "Content-Type": "application/json"
+                  },
+                  credentials: "same-origin",
+                  body: JSON.stringify(payload)
+                });
+
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                  setNewJobAlert(data.message || "Nao foi possivel criar a vaga.");
+                  return;
+                }
+
+                newJobModal?.hide();
+                if (newJobForm) {
+                  newJobForm.reset();
+                  newJobForm.classList.remove("was-validated");
+                }
+                await loadJobs(true);
+              } catch (err) {
+                console.error(err);
+                setNewJobAlert("Falha ao criar a vaga.");
+              } finally {
+                toggleNewJobLoading(false);
+              }
+            });
           }
 
           if (backToTopBtn) {

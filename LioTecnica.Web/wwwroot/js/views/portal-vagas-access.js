@@ -197,6 +197,7 @@
     }
   });
 
+
   const registerModal = registerModalEl && window.bootstrap
     ? new bootstrap.Modal(registerModalEl, { backdrop: true })
     : null;

@@ -3,6 +3,7 @@ using LioTecnica.Web.Infrastructure.ApiClients;
 using LioTecnica.Web.Infrastructure.Security;
 using LioTecnica.Web.ViewModels.Portal;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -11,11 +12,16 @@ namespace LioTecnica.Web.Controllers;
 
 public sealed class PortalVagasController : Controller
 {
+    private readonly AuthApiClient _authApi;
     private readonly PortalAuthApiClient _portalAuthApi;
     private readonly PortalCandidatesApiClient _portalCandidatesApi;
 
-    public PortalVagasController(PortalAuthApiClient portalAuthApi, PortalCandidatesApiClient portalCandidatesApi)
+    public PortalVagasController(
+        AuthApiClient authApi,
+        PortalAuthApiClient portalAuthApi,
+        PortalCandidatesApiClient portalCandidatesApi)
     {
+        _authApi = authApi;
         _portalAuthApi = portalAuthApi;
         _portalCandidatesApi = portalCandidatesApi;
     }
@@ -24,6 +30,16 @@ public sealed class PortalVagasController : Controller
     [HttpGet("/PortalVagas")]
     public async Task<IActionResult> Index()
     {
+        var systemAuth = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        if (systemAuth.Succeeded && systemAuth.Principal?.Identity?.IsAuthenticated == true)
+        {
+            if (systemAuth.Principal.IsInRole("Admin"))
+            {
+                HttpContext.User = systemAuth.Principal;
+                return View();
+            }
+        }
+
         var auth = await HttpContext.AuthenticateAsync(CandidateAuthDefaults.Scheme);
         if (!auth.Succeeded || auth.Principal?.Identity?.IsAuthenticated != true)
         {
@@ -41,6 +57,15 @@ public sealed class PortalVagasController : Controller
     public async Task<IActionResult> Access([FromQuery] string? tenantId = null, [FromQuery] string? returnUrl = null)
     {
         var resolvedTenantId = ResolveTenantId(tenantId, returnUrl);
+        var systemAuth = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        if (systemAuth.Succeeded && systemAuth.Principal?.Identity?.IsAuthenticated == true
+            && systemAuth.Principal.IsInRole("Admin"))
+        {
+            var tenantFromClaim = systemAuth.Principal.FindFirst("tenant")?.Value?.Trim();
+            var redirect = BuildRedirectUrl(returnUrl, resolvedTenantId ?? tenantFromClaim);
+            return LocalRedirect(redirect);
+        }
+
         var auth = await HttpContext.AuthenticateAsync(CandidateAuthDefaults.Scheme);
         if (auth.Succeeded && auth.Principal?.Identity?.IsAuthenticated == true)
         {
@@ -56,13 +81,14 @@ public sealed class PortalVagasController : Controller
         });
     }
 
-    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme + "," + CookieAuthenticationDefaults.AuthenticationScheme)]
     [HttpPost("/PortalVagas/Logout")]
     public async Task<IActionResult> Logout([FromQuery] string? tenantId = null)
     {
         var resolvedTenantId = ResolveTenantId(tenantId, null)
             ?? User?.FindFirst("tenant")?.Value?.Trim();
 
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         await HttpContext.SignOutAsync(CandidateAuthDefaults.Scheme);
 
         if (!string.IsNullOrWhiteSpace(resolvedTenantId))
@@ -130,6 +156,22 @@ public sealed class PortalVagasController : Controller
         var tenantId = NormalizeTenantId(input.TenantId);
         if (!TenantValidationMiddleware.IsValidTenantIdentifier(tenantId))
             return BadRequest(new { message = "Tenant invalido. Verifique o link de acesso." });
+
+        var systemResponse = await _authApi.LoginAsync(tenantId, input.Email.Trim(), input.Password, ct);
+        if (systemResponse is not null)
+        {
+            var isAdmin = systemResponse.Roles?.Any(role => string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)) == true;
+            if (!isAdmin)
+                return StatusCode(403, new { message = "Acesso permitido apenas para administradores." });
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                AuthClaimsFactory.CreatePrincipal(systemResponse),
+                new AuthenticationProperties { IsPersistent = false });
+
+            var adminRedirect = BuildRedirectUrl(input.ReturnUrl, tenantId);
+            return Ok(new { redirectUrl = adminRedirect, nome = systemResponse.FullName, email = systemResponse.Email });
+        }
 
         var request = new PortalCandidateLoginRequest(input.Email.Trim(), input.Password);
         var result = await _portalAuthApi.LoginAsync(tenantId, request, ct);
