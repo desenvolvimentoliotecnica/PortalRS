@@ -277,21 +277,56 @@
         }
 
         .sections-panel {
-            border: 1px solid rgba(15, 23, 42, .10);
-            border-radius: 16px;
-            background: #fbfcff;
-            padding: 14px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            padding: 0;
         }
         .profile-sections-cards {
             min-height: 100%;
         }
 
         .profile-sections-content {
-            background: #ffffff;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            overflow: auto;
+            overflow-x: hidden;
+        }
+
+        .profile-avatar {
+            position: relative;
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            border: 2px solid rgba(13, 110, 253, 0.35);
+            overflow: hidden;
+            background: #eef4ff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #1e3a8a;
+            font-weight: 600;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .profile-avatar-card {
             border: 1px solid rgba(15, 23, 42, .10);
             border-radius: 16px;
-            padding: 14px;
-            overflow: auto;
+            background: #ffffff;
+            padding: 16px;
+        }
+
+        .profile-avatar-progress {
+            height: 8px;
+            border-radius: 999px;
         }
 
 
@@ -579,6 +614,7 @@
             0 1px 0 rgba(255,255,255,.60) inset; /* brilho interno */
             overflow: hidden; /* garante cantos limpos */
             background: #ffffff;
+            overflow-x: hidden;
         }
 
         #profileModal form {
@@ -600,6 +636,7 @@
             flex: 1 1 auto;
             min-height: 0;
             overflow-y: auto;
+            overflow-x: hidden;
             background: #f3f7ff; /* azul muito suave */
             padding: 18px 20px;
         }
@@ -1155,18 +1192,6 @@
                             <!-- Coluna: seções (cards) - 100% altura como a esquerda -->
                             <div class="col-12 col-lg-7 d-flex" id="profileSectionsCol">
                                 <div class="sections-panel flex-fill d-flex flex-column">
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-        <div>
-            <div class="fw-semibold d-flex align-items-center gap-2">
-                <i class="bi bi-ui-checks-grid text-primary"></i>
-                Se&ccedil;&otilde;es do Portal
-            </div>
-        </div>
-        <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="profileBackToCards">
-            <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
-        </button>
-    </div>
-
     <div id="profileSectionsCards" class="profile-sections-cards flex-grow-1">
         <div class="topics-grid" id="profileTopicsGrid"></div>
     </div>
@@ -1175,84 +1200,81 @@
                 <div class="tab-content" id="profileTabsContent">
         <!-- Aba: Perfil -->
                         <div class="tab-pane fade show active" id="tabProfile" role="tabpanel" aria-labelledby="profile-tab">
-
-                      <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-file-pdf me-2"></i>Meu Currículo</h6>
-
-                      <div class="cv-card mb-4">
-                        <div class="d-flex align-items-center">
-                          <i class="fas fa-file-pdf text-danger fa-2x me-3"></i>
-                          <div>
-                            <div class="fw-bold text-dark" id="cvFileName">CV_Joao_Silva_2026.pdf</div>
-                            <small class="text-muted" id="cvFileDate">Enviado em 10/01/2026 às 14:30</small>
-                          </div>
-                        </div>
-
-                        <div>
-                          <input type="file" id="cvFileInput" class="d-none" accept=".pdf,.doc,.docx" onchange="handleCvChange(this)" />
-                          <button class="btn btn-sm btn-outline-primary fw-bold" onclick="document.getElementById('cvFileInput').click()">
-                            <i class="fas fa-upload me-1"></i> Alterar Arquivo
-                          </button>
-                        </div>
-                      </div>
-
-                      <div class="row mb-4">
-                        <div class="col-md-6">
-                          <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-code me-2"></i>Hard Skills</h6>
-                          <div class="bg-light p-3 rounded border">
-                            <span class="skill-badge bg-dark text-white">JavaScript</span>
-                            <span class="skill-badge bg-dark text-white">React</span>
-                            <span class="skill-badge bg-dark text-white">Bootstrap 5</span>
-                            <button class="btn btn-sm btn-outline-secondary rounded-pill ms-1" style="font-size:.75rem;"><i class="fas fa-plus"></i></button>
-                          </div>
-                        </div>
-
-                        <div class="col-md-6 mt-3 mt-md-0">
-                          <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-comments me-2"></i>Soft Skills</h6>
-                          <div class="bg-light p-3 rounded border">
-                            <span class="skill-badge bg-info text-dark">Comunicação</span>
-                            <span class="skill-badge bg-info text-dark">Trabalho em Equipe</span>
-                            <button class="btn btn-sm btn-outline-secondary rounded-pill ms-1" style="font-size:.75rem;"><i class="fas fa-plus"></i></button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-user-edit me-2"></i>Dados Pessoais</h6>
-
-                      <form>
-                        <div class="row g-3">
-                          <div class="col-md-6">
-                            <label class="form-label small fw-bold">Nome Completo</label>
-                            <input type="text" class="form-control" value="João da Silva" />
+                          <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                            <div class="fw-bold" style="font-size:1.1rem;">Perfil</div>
+                            <div class="d-flex align-items-center gap-2">
+                              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+                              </button>
+                            </div>
                           </div>
 
-                          <div class="col-md-6">
-                            <label class="form-label small fw-bold">E-mail</label>
-                            <input type="email" class="form-control" value="joao.silva@email.com" readonly style="background-color:#e9ecef;" />
-                          </div>
+                      
+                      <div class="row g-3 align-items-start mx-0">
+  <div class="col-12 col-lg-8">
+    <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-user-edit me-2"></i>Dados pessoais</h6>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label small fw-bold">Nome completo</label>
+        <input type="text" class="form-control" value="Jo&atilde;o da Silva" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small fw-bold">E-mail</label>
+        <input type="email" class="form-control" value="joao.silva@email.com" readonly style="background-color:#e9ecef;" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small fw-bold">Telefone / WhatsApp</label>
+        <input type="text" class="form-control" value="(11) 99999-9999" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small fw-bold">LinkedIn (URL)</label>
+        <input type="text" class="form-control" value="linkedin.com/in/joaosilva" />
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="profile-avatar-card text-center">
+      <div class="profile-avatar mx-auto mb-2" title="Alterar foto">
+        <img id="profileAvatarImg" alt="Foto do usu&aacute;rio" style="display:none;">
+        <span id="profileAvatarFallback">LT</span>
+      </div>
+      <div class="fw-semibold" id="profileAvatarName">Jo&atilde;o Silva</div>
+      <div class="text-muted small mb-3" id="profileAvatarRole">Desenvolvedor Web</div>
+      <div class="text-muted small mb-2">Progresso do perfil</div>
+      <div class="progress profile-avatar-progress mb-2">
+        <div class="progress-bar bg-success" role="progressbar" style="width: 85%;" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100"></div>
+      </div>
+      <div class="text-end small fw-semibold text-success mb-3">85%</div>
+      <label class="btn btn-outline-primary w-100" for="profileAvatarInput">
+        <i class="bi bi-camera me-1"></i> Alterar foto
+      </label>
+      <input id="profileAvatarInput" type="file" accept="image/*" class="d-none" onchange="updateProfileAvatar(this)">
+    </div>
+  </div>
+</div>
 
-                          <div class="col-md-6">
-                            <label class="form-label small fw-bold">Telefone / WhatsApp</label>
-                            <input type="text" class="form-control" value="(11) 99999-9999" />
-                          </div>
+<h6 class="text-primary fw-bold mb-3 border-bottom pb-2 mt-4"><i class="fas fa-user-edit me-2"></i>Resumo profissional</h6>
+<div class="mb-4">
+  <textarea class="form-control" rows="3">Desenvolvedor Web apaixonado...</textarea>
+</div>
 
-                          <div class="col-md-6">
-                            <label class="form-label small fw-bold">LinkedIn (URL)</label>
-                            <input type="text" class="form-control" value="linkedin.com/in/joaosilva" />
-                          </div>
+<h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-file-pdf me-2"></i>Meu curr&iacute;culo</h6>
+<div class="cv-card mb-4">
+  <div class="d-flex align-items-center">
+    <i class="fas fa-file-pdf text-danger fa-2x me-3"></i>
+    <div>
+      <div class="fw-bold text-dark" id="cvFileName">CV_Joao_Silva_2026.pdf</div>
+      <small class="text-muted" id="cvFileDate">Enviado em 10/01/2026 &agrave;s 14:30</small>
+    </div>
+  </div>
 
-                          <div class="col-12">
-                            <label class="form-label small fw-bold">Resumo Profissional</label>
-                            <textarea class="form-control" rows="3">Desenvolvedor Web apaixonado...</textarea>
-                          </div>
-                        </div>
-
-                        <div class="d-flex justify-content-end mt-4 pt-3 border-top">
-                          <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-                          <button type="button" class="btn btn-success fw-bold px-4" onclick="Swal.fire('Salvo!', 'Seu perfil foi atualizado com sucesso.', 'success')">
-                            Salvar Alterações
-                          </button>
-                        </div>
-                      </form>
+  <div>
+    <input type="file" id="cvFileInput" class="d-none" accept=".pdf,.doc,.docx" onchange="handleCvChange(this)" />
+    <button class="btn btn-sm btn-outline-primary fw-bold" onclick="document.getElementById('cvFileInput').click()">
+      <i class="fas fa-upload me-1"></i> Alterar Arquivo
+    </button>
+  </div>
+</div>
 
                         </div>
 
@@ -1264,6 +1286,9 @@
                               <div class="text-muted small">Complete os testes para enriquecer seu perfil e aumentar o match com as vagas.</div>
                             </div>
                             <div class="d-flex gap-2">
+                              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+                              </button>
                               <button class="btn btn-sm btn-outline-primary fw-bold" type="button" onclick="resetAllTests()">
                                 <i class="fas fa-redo me-1"></i> Reiniciar
                               </button>
@@ -1316,6 +1341,9 @@
               </div>
             </div>
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-primary fw-bold" type="button" onclick="openExperienceModal()">
                 <i class="fas fa-plus me-1"></i> Nova experiência
               </button>
@@ -1523,6 +1551,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedSkillsPortfolio()">
                 <i class="fas fa-magic me-1"></i> Inserir exemplos
               </button>
@@ -1781,6 +1812,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedEducation()">
                 <i class="fas fa-magic me-1"></i> Inserir exemplos
               </button>
@@ -1948,6 +1982,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="exportLgpdReceipt()">
                 <i class="fas fa-file-alt me-1"></i> Baixar comprovante
               </button>
@@ -2112,6 +2149,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedPreferences()">
                 <i class="fas fa-magic me-1"></i> Inserir exemplo
               </button>
@@ -2324,6 +2364,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedDocuments()">
                 <i class="fas fa-magic me-1"></i> Inserir exemplos
               </button>
@@ -2468,6 +2511,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedReferences()">
                 <i class="fas fa-magic me-1"></i> Inserir exemplos
               </button>
@@ -2641,6 +2687,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedA11y()">
                 <i class="fas fa-magic me-1"></i> Inserir exemplo
               </button>
@@ -2848,6 +2897,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedAgenda()">
                 <i class="fas fa-magic me-1"></i> Inserir exemplo
               </button>
@@ -3089,6 +3141,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedAppsHistory()">
                 <i class="fas fa-magic me-1"></i> Inserir exemplo
               </button>
@@ -3270,6 +3325,9 @@
             </div>
 
             <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
               <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedNotify()">
                 <i class="fas fa-magic me-1"></i> Inserir exemplo
               </button>
@@ -3495,9 +3553,7 @@
 
           const sectionsCards = document.getElementById("profileSectionsCards");
           const sectionsContent = document.getElementById("profileSectionsContent");
-          const backButtons = [
-            document.getElementById("profileBackToCards")
-          ].filter(Boolean);
+          const backButtons = Array.from(document.querySelectorAll(".profile-back-to-cards"));
 
           const leftCol = document.getElementById("profileLeftPanelCol");
           const rightCol = document.getElementById("profileSectionsCol");

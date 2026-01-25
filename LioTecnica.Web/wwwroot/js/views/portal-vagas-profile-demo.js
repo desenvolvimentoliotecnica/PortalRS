@@ -26,11 +26,69 @@ function normalizeData(value){
 function normalizeStorageKey(key){
   try{
     const raw = localStorage.getItem(key);
-    if(!raw || (!raw.includes("\\u") && !/[ÃÂâ]/.test(raw))) return;
+    if(!raw || (!raw.includes("\\u") && !/[\\u00C3\\u00C2\\u00E2]/.test(raw))) return;
     const parsed = JSON.parse(raw);
     const normalized = normalizeData(parsed);
     localStorage.setItem(key, JSON.stringify(normalized));
   }catch{}
+}
+
+const PROFILE_AVATAR_STORAGE_KEY = "liotec_portal_profile_avatar_v1";
+
+function getProfileInitials(){
+  const name = (document.getElementById("profileName")?.value || "").trim();
+  if(!name) return "U";
+  const parts = name.split(/\s+/).filter(Boolean);
+  const first = parts[0]?.[0] || "";
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] || "" : "";
+  return (first + last).toUpperCase() || "U";
+}
+
+function syncProfileAvatarMeta(){
+  const nameInput = document.getElementById("profileName");
+  const nameLabel = document.getElementById("profileAvatarName");
+  if(nameInput && nameLabel){
+    const value = nameInput.value.trim();
+    nameLabel.textContent = value || "Usuário";
+  }
+}
+
+function setProfileAvatar(src){
+  const img = document.getElementById("profileAvatarImg");
+  const fallback = document.getElementById("profileAvatarFallback");
+  if(!img || !fallback) return;
+  syncProfileAvatarMeta();
+  if(src){
+    img.src = src;
+    img.style.display = "block";
+    fallback.style.display = "none";
+  }else{
+    img.removeAttribute("src");
+    img.style.display = "none";
+    fallback.textContent = getProfileInitials();
+    fallback.style.display = "inline";
+  }
+}
+
+function updateProfileAvatar(input){
+  const file = input?.files?.[0];
+  if(!file){
+    setProfileAvatar("");
+    localStorage.removeItem(PROFILE_AVATAR_STORAGE_KEY);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = String(reader.result || "");
+    setProfileAvatar(dataUrl);
+    try{ localStorage.setItem(PROFILE_AVATAR_STORAGE_KEY, dataUrl); }catch{}
+  };
+  reader.readAsDataURL(file);
+}
+
+function loadProfileAvatar(){
+  const stored = localStorage.getItem(PROFILE_AVATAR_STORAGE_KEY) || "";
+  setProfileAvatar(stored);
 }
   // Testes de RH (Aba "Testes")
   // =========================
@@ -3948,3 +4006,15 @@ function renderNotify(){
   ];
   keys.forEach(normalizeStorageKey);
 })();
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadProfileAvatar();
+  const nameInput = document.getElementById("profileName");
+  if(nameInput){
+    nameInput.addEventListener("input", () => {
+      const stored = localStorage.getItem(PROFILE_AVATAR_STORAGE_KEY);
+      if(!stored) setProfileAvatar("");
+      syncProfileAvatarMeta();
+    });
+  }
+});
