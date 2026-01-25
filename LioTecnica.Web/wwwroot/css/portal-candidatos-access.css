@@ -319,3 +319,15 @@ a {
     padding: 1.3rem;
   }
 }
+
+/* força largura maior no modal de registro */
+.auth-modal .modal-dialog {
+    max-width: 750px !important; /* ajuste: 900, 980, 1100... */
+    width: calc(100% - 2rem);
+}
+
+@media (min-width: 1200px) {
+    .auth-modal .modal-dialog {
+        max-width: 1100px !important;
+    }
+}

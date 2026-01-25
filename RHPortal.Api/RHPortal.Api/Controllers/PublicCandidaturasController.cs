@@ -38,46 +38,111 @@ public sealed class PublicCandidaturasController : ControllerBase
         if (request.VagaId == Guid.Empty)
             return BadRequest(new { message = _localizer["ControllerErrors.VagaInvalid"] });
 
+        var email = (request.Email ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(new { message = "Email é obrigatório." });
+
+        // 1) Verifica se já existe candidato com este email (no tenant atual)
+        //    IMPORTANTE: se você usa filtro global por tenant no DbContext, isso já respeita o tenant.
+        var existing = await db.Candidatos
+            .AsTracking()
+            .FirstOrDefaultAsync(x => x.Email == email && x.TenantId == "liotecnica", ct);
+
         var (cidade, uf) = ParseCidadeUf(request.CidadeUf);
         var obs = BuildObs(request);
 
-        var create = new CandidateCreateRequest(
-            request.Nome,
-            request.Email,
-            request.Fone,
-            cidade,
-            uf,
-            CandidateOrigin.Site,
-            CandidateStatus.Novo,
-            request.VagaId,
-            obs,
-            null,
-            null,
-            null
-        );
+        CandidateResponse result;
 
         try
         {
-            var created = await service.CreateAsync(create, ct);
-            if (request.Arquivo is { Length: > 0 })
+            if (existing is not null)
             {
-                await service.AddDocumentoAsync(
-                    created.Id,
-                    CandidateDocumentType.Curriculo,
-                    _localizer["ControllerLabels.CvEnviadoPeloPortal"],
-                    request.Arquivo,
-                    ct);
+                // 2) Se existe: atualiza a vaga + (opcional) dados básicos
+                //    Aqui você decide a regra: sobrescreve VagaId, ou mantém histórico (ver nota no final).
+                existing.VagaId = request.VagaId;
+                existing.Nome = string.IsNullOrWhiteSpace(request.Nome) ? existing.Nome : request.Nome;
+                existing.Fone = string.IsNullOrWhiteSpace(request.Fone) ? existing.Fone : request.Fone;
+                existing.Cidade = cidade ?? existing.Cidade;
+                existing.Uf = uf ?? existing.Uf;
+                existing.Obs = obs ?? existing.Obs;
+
+                await db.SaveChangesAsync(ct);
+
+                result = new CandidateResponse(
+    existing.Id,
+    existing.Nome,
+    existing.Email,
+    existing.Fone,
+    existing.Cidade,
+    existing.Uf,
+    existing.Fonte,
+    existing.Status,
+    existing.VagaId,
+    existing?.Vaga?.Codigo,
+    existing?.Vaga?.Titulo,
+    existing?.Obs,
+    existing?.CvText,
+    LastMatch: null, // ou mapear
+    Documentos: Array.Empty<CandidateDocumentoResponse>(), // ou mapear
+    existing.CreatedAtUtc,
+    existing.UpdatedAtUtc
+);
+
+
+                // Anexo (se quiser anexar ao candidato existente também)
+                if (request.Arquivo is { Length: > 0 })
+                {
+                    await service.AddDocumentoAsync(
+                        existing.Id,
+                        CandidateDocumentType.Curriculo,
+                        _localizer["ControllerLabels.CvEnviadoPeloPortal"],
+                        request.Arquivo,
+                        ct);
+                }
+            }
+            else
+            {
+                // 3) Se não existe: cria
+                var create = new CandidateCreateRequest(
+                    request.Nome,
+                    email,
+                    request.Fone,
+                    cidade,
+                    uf,
+                    CandidateOrigin.Site,
+                    CandidateStatus.Novo,
+                    request.VagaId,
+                    obs,
+                    null,
+                    null,
+                    null
+                );
+
+                result = await service.CreateAsync(create, ct);
+
+                if (request.Arquivo is { Length: > 0 })
+                {
+                    await service.AddDocumentoAsync(
+                        result.Id,
+                        CandidateDocumentType.Curriculo,
+                        _localizer["ControllerLabels.CvEnviadoPeloPortal"],
+                        request.Arquivo,
+                        ct);
+                }
             }
 
+            // 4) Email (best effort) — pode manter como está
             try
             {
-                var candidate = await db.Candidatos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == created.Id, ct);
+                var candidate = await db.Candidatos.AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Id == result.Id, ct);
+
                 if (candidate is not null && !string.IsNullOrWhiteSpace(candidate.PortalAccessKey))
                 {
                     var tokens = new Dictionary<string, string?>
                     {
                         ["Nome"] = candidate.Nome,
-                        ["VagaTitulo"] = created.VagaTitulo ?? "Vaga",
+                        ["VagaTitulo"] = result.VagaTitulo ?? "Vaga",
                         ["PortalAccessKey"] = candidate.PortalAccessKey
                     };
 
@@ -90,22 +155,16 @@ public sealed class PublicCandidaturasController : ControllerBase
                         ct);
                 }
             }
-            catch
-            {
-                // Best-effort: falha no envio nao impede a candidatura.
-            }
+            catch { /* best-effort */ }
 
-            return CreatedAtAction(
-                nameof(CandidatosController.GetById),
-                "Candidatos",
-                new { id = created.Id },
-                created);
+            return Ok(result);
         }
         catch (InvalidOperationException ex)
         {
             return Conflict(new { message = ex.Message });
         }
     }
+
 
     private static (string? cidade, string? uf) ParseCidadeUf(string? cidadeUf)
     {
