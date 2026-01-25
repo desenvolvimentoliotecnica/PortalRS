@@ -269,7 +269,7 @@
         .sort((a,b)=> new Date(b.recebidoEm||0) - new Date(a.recebidoEm||0));
 
       $("#queueHint").textContent = list.length ? "" : "Nenhum item encontrado com os filtros atuais.";
-      $("#queueList").innerHTML = list.map(x => renderRow(x)).join("") || `<div class="text-muted small">—</div>`;
+      $("#queueList").innerHTML = list.map(x => renderRow(x)).join("") || `<div class="text-muted small">â€”</div>`;
 
       $$(".row-item").forEach(el => {
         if(el.dataset.id === state.selectedId) el.classList.add("active");
@@ -287,7 +287,7 @@
         ? `<div class="progress mt-2"><div class="progress-bar" style="width:${pct}%"></div></div>`
         : ``;
 
-      const sub = vaga ? `${vaga.titulo} (${vaga.codigo||"—"})` : "Vaga: não definida";
+      const sub = vaga ? `${vaga.titulo} (${vaga.codigo||"â€”"})` : "Vaga: nÃ£o definida";
 
       return `
         <div class="row-item" data-id="${x.id}">
@@ -295,8 +295,8 @@
             <div class="d-flex align-items-center gap-2">
               <div class="avatar"><i class="bi bi-${icon}"></i></div>
               <div>
-                <div class="fw-bold">${escapeHtml(x.assunto || (anexo?.nome || "—"))}</div>
-                <div class="text-muted small">${escapeHtml(x.remetente || "—")} • ${escapeHtml(fmtDate(x.recebidoEm))}</div>
+                <div class="fw-bold">${escapeHtml(x.assunto || (anexo?.nome || "â€”"))}</div>
+                <div class="text-muted small">${escapeHtml(x.remetente || "â€”")} â€¢ ${escapeHtml(fmtDate(x.recebidoEm))}</div>
               </div>
             </div>
             <div class="text-end">
@@ -317,7 +317,7 @@
               <i class="bi bi-info-circle mt-1"></i>
               <div>
                 <div class="fw-bold">Selecione um item da fila</div>
-                <div class="small mt-1">Você verá metadados, anexos e ações.</div>
+                <div class="small mt-1">VocÃª verÃ¡ metadados, anexos e aÃ§Ãµes.</div>
               </div>
             </div>
           </div>`;
@@ -412,9 +412,9 @@
                 <i class="bi bi-inbox"></i>
               </div>
               <div>
-                <div class="fw-bold" style="font-size:1.05rem;">${escapeHtml(x.assunto || "—")}</div>
-                <div class="text-muted small">${escapeHtml(x.remetente || "—")} • ${escapeHtml(fmtDate(x.recebidoEm))}</div>
-                <div class="text-muted small">Destino: ${escapeHtml(x.destinatario || "—")}</div>
+                <div class="fw-bold" style="font-size:1.05rem;">${escapeHtml(x.assunto || "â€”")}</div>
+                <div class="text-muted small">${escapeHtml(x.remetente || "â€”")} â€¢ ${escapeHtml(fmtDate(x.recebidoEm))}</div>
+                <div class="text-muted small">Destino: ${escapeHtml(x.destinatario || "â€”")}</div>
               </div>
             </div>
             <div class="text-end">
@@ -424,8 +424,8 @@
           </div>
 
           <div class="d-flex flex-wrap gap-2 mb-3">
-            <span class="pill"><i class="bi bi-briefcase"></i>${escapeHtml(vaga?.titulo || "Vaga não definida")}</span>
-            <span class="pill mono">${escapeHtml(vaga?.codigo || "—")}</span>
+            <span class="pill"><i class="bi bi-briefcase"></i>${escapeHtml(vaga?.titulo || "Vaga nÃ£o definida")}</span>
+            <span class="pill mono">${escapeHtml(vaga?.codigo || "â€”")}</span>
             <span class="pill"><i class="bi bi-paperclip"></i>Anexos: <strong class="ms-1">${(x.anexos||[]).length}</strong></span>
             <span class="pill"><i class="bi bi-arrow-counterclockwise"></i>Tentativas: <strong class="ms-1">${escapeHtml(x.processamento?.tentativas ?? 0)}</strong></span>
           </div>
@@ -441,7 +441,7 @@
               <div>${attachments}</div>
 
               <div class="mt-3">
-                <div class="fw-bold">Preview (texto extraído)</div>
+                <div class="fw-bold">Preview (texto extraÃ­do)</div>
                 <div class="text-muted small">No MVP real, vem do parser de PDF/Word.</div>
                 <textarea class="form-control mt-2" rows="6" id="previewText" style="border-color:var(--lt-border);" placeholder="(vazio)">${escapeHtml(x.previewText || "")}</textarea>
                 <div class="d-flex flex-wrap gap-2 mt-2">
@@ -463,7 +463,7 @@
                 <div class="d-flex align-items-center justify-content-between">
                   <div>
                     <div class="fw-semibold">Etapa</div>
-                    <div class="text-muted small" id="stepLabel">${escapeHtml(x.processamento?.etapa || "—")}</div>
+                    <div class="text-muted small" id="stepLabel">${escapeHtml(x.processamento?.etapa || "â€”")}</div>
                   </div>
                   <div class="fw-bold" style="font-size:1.15rem;color:var(--lt-primary);" id="pctLabel">${pct}%</div>
                 </div>
@@ -506,7 +506,7 @@
         if(v){
           x.vagaId = v.id;
           await saveInboxItem(x);
-          toast("Vaga atribuída (demo).");
+          toast("Vaga atribuÃ­da (demo).");
           renderAll();
         }
       });
@@ -541,11 +541,11 @@
       }
 
       if(item.status === "processado"){
-        toast("Já está processado. Use Reprocessar se precisar.");
+        toast("JÃ¡ estÃ¡ processado. Use Reprocessar se precisar.");
         return;
       }
       if(item.status === "descartado"){
-        toast("Item descartado. Não é possível processar.");
+        toast("Item descartado. NÃ£o Ã© possÃ­vel processar.");
         return;
       }
 
@@ -562,9 +562,9 @@
       const steps = [
         { pct: 15, etapa: "Validando anexos", log: "Anexos validados." },
         { pct: 35, etapa: "Armazenando arquivo", log: "Arquivo armazenado (demo)." },
-        { pct: 60, etapa: "Extraindo texto", log: "Texto extraído (demo)." },
-        { pct: 85, etapa: "Normalizando conteúdo", log: "Normalização concluída." },
-        { pct: 100, etapa: "Concluído", log: "Processamento finalizado." }
+        { pct: 60, etapa: "Extraindo texto", log: "Texto extraÃ­do (demo)." },
+        { pct: 85, etapa: "Normalizando conteÃºdo", log: "NormalizaÃ§Ã£o concluÃ­da." },
+        { pct: 100, etapa: "ConcluÃ­do", log: "Processamento finalizado." }
       ];
 
       let idx = 0;
@@ -579,8 +579,8 @@
             item.status = "falha";
             item.processamento.etapa = "Falha";
             item.processamento.pct = 100;
-            item.processamento.ultimoErro = "Falha na extração: documento protegido / inválido (demo).";
-            item.processamento.log.push("Falha detectada: arquivo protegido/ inválido.");
+            item.processamento.ultimoErro = "Falha na extraÃ§Ã£o: documento protegido / invÃ¡lido (demo).";
+            item.processamento.log.push("Falha detectada: arquivo protegido/ invÃ¡lido.");
             await saveInboxItem(item);
             toast("Falha ao processar (demo).");
             renderAll();
@@ -588,15 +588,15 @@
           }
 
           item.status = "processado";
-          item.processamento.etapa = "Concluído";
+          item.processamento.etapa = "ConcluÃ­do";
           item.processamento.pct = 100;
 
           if(!item.previewText){
-            item.previewText = "Resumo (demo): experiência com excel, dashboards, comunicação e relatórios.";
+            item.previewText = "Resumo (demo): experiÃªncia com excel, dashboards, comunicaÃ§Ã£o e relatÃ³rios.";
           }
 
           await saveInboxItem(item);
-          toast("Processamento concluído.");
+          toast("Processamento concluÃ­do.");
           renderAll();
           return;
         }
@@ -649,9 +649,9 @@
         });
 
         item.status = "processado";
-        item.processamento = item.processamento || { pct: 100, etapa: "Concluído", log: [], tentativas: 1, ultimoErro: null };
+        item.processamento = item.processamento || { pct: 100, etapa: "ConcluÃ­do", log: [], tentativas: 1, ultimoErro: null };
         item.processamento.pct = 100;
-        item.processamento.etapa = "Concluído";
+        item.processamento.etapa = "ConcluÃ­do";
         item.processamento.ultimoErro = null;
         item.processamento.log = item.processamento.log || [];
         item.processamento.log.push("Candidato criado a partir da entrada.");
@@ -719,7 +719,7 @@ function exportJson(){
             }
             await loadInbox(true);
             renderAll();
-            toast("Importação concluída.");
+            toast("ImportaÃ§Ã£o concluÃ­da.");
           }catch(e){
             console.error(e);
             alert("Falha ao importar JSON. Verifique o arquivo.");
@@ -817,7 +817,7 @@ function exportJson(){
           destinatario: "rh@liotecnica.com.br",
           vagaId,
           anexos: [{ nome: "Amostra_CV.pdf", tipo: "pdf", tamanhoKB: 220, hash: "sim-"+Math.random().toString(16).slice(2,8) }],
-          processamento: { pct: 0, etapa: "Aguardando", log: ["Simulação de coleta."], tentativas: 0, ultimoErro: null },
+          processamento: { pct: 0, etapa: "Aguardando", log: ["SimulaÃ§Ã£o de coleta."], tentativas: 0, ultimoErro: null },
           previewText: ""
         };
 

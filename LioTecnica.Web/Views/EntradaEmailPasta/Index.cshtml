@@ -2,7 +2,7 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @inject LioTecnica.Web.Infrastructure.Security.PortalTenantContext TenantContext
 @{
-    ViewData["Title"] = "Portal RH ï Devcraft Studio ï Entrada (Email/Pasta)";
+    ViewData["Title"] = "Portal RH ‚Ä¢ Devcraft Studio ‚Ä¢ Entrada (Email/Pasta)";
     ViewData["SidebarSubtitle"] = "Entrada (Email/Pasta)";
 }
 
@@ -13,7 +13,7 @@
 @await Html.PartialAsync("_Toast")
 
 @section Topbar {
-    @await Html.PartialAsync("_TopbarBrand", "Tela: Entrada (captura de currÌculos)")
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Entrada (captura de curr√≠culos)")
 
     <div class="d-flex align-items-center gap-2">
         <button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar dados">
@@ -41,7 +41,7 @@
     <div class="page-title">
         <div>
             <h4>Entrada (Email / Pasta)</h4>
-            <div class="subtitle">Central de ingest„o: e-mails, pastas monitoradas e upload manual ï tudo cai na fila de triagem.</div>
+            <div class="subtitle">Central de ingest√£o: e-mails, pastas monitoradas e upload manual ‚Ä¢ tudo cai na fila de triagem.</div>
         </div>
     </div>
 
@@ -50,9 +50,9 @@
         var kpis = new[]
         {
         new { ColClass = "col-6 col-lg-3", Title = "Fila de Entrada", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiQueue", Value = "0", PillIcon = "bi-inbox", PillText = "itens", Hint = "Arquivos/e-mails aguardando processamento." },
-        new { ColClass = "col-6 col-lg-3", Title = "Processados hoje", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiDone", Value = "0", PillIcon = "bi-check2-circle", PillText = "ok", Hint = "Ingest„o completa com texto extra√≠do." },
-        new { ColClass = "col-6 col-lg-3", Title = "Falhas", ValueStyle = "font-size:1.6rem;color:rgba(153,19,34,.95);", ValueId = "kpiFail", Value = "0", PillIcon = "bi-exclamation-triangle", PillText = "atenÁ„o", Hint = "PDF corrompido, senha, anexos vazios, etc." },
-        new { ColClass = "col-6 col-lg-3", Title = "IntegraÁıes", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiConnect", Value = "2", PillIcon = "bi-plug", PillText = "ativas", Hint = "Email IMAP + Pasta (watcher)." }
+        new { ColClass = "col-6 col-lg-3", Title = "Processados hoje", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiDone", Value = "0", PillIcon = "bi-check2-circle", PillText = "ok", Hint = "Ingest√£o completa com texto extra√É¬≠do." },
+        new { ColClass = "col-6 col-lg-3", Title = "Falhas", ValueStyle = "font-size:1.6rem;color:rgba(153,19,34,.95);", ValueId = "kpiFail", Value = "0", PillIcon = "bi-exclamation-triangle", PillText = "aten√ß√£o", Hint = "PDF corrompido, senha, anexos vazios, etc." },
+        new { ColClass = "col-6 col-lg-3", Title = "Integra√ß√µes", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiConnect", Value = "2", PillIcon = "bi-plug", PillText = "ativas", Hint = "Email IMAP + Pasta (watcher)." }
         };
     }
     @await Html.PartialAsync("_KpiMiniRow", kpis)
@@ -92,7 +92,7 @@
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <div>
                     <div class="fw-bold">Fila de entrada</div>
-                    <div class="text-muted small">Selecione um item para ver detalhes e executar aÁıes.</div>
+                    <div class="text-muted small">Selecione um item para ver detalhes e executar a√ß√µes.</div>
                 </div>
                 <div class="d-flex gap-2 flex-wrap justify-content-end">
                     <div class="input-group" style="min-width: 240px;">

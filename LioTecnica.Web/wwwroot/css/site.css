@@ -31,7 +31,7 @@
 :root {
     /* largura-alvo do layout em monitor grande */
     --app-max-visual: 1920px;
-    /* como você usa zoom, converte para “largura real” do layout */
+    /* como vocÃª usa zoom, converte para â€œlargura realâ€ do layout */
     --app-max: calc(var(--app-max-visual) / var(--ui-scale, 1));
     --app-gutter: 24px;
 }
@@ -39,7 +39,7 @@
 /* Em telas ultrawide: centraliza e limita */
 @media (min-width: 2000px) {
     body {
-        /* opcional: dá uma “respiro” nas laterais */
+        /* opcional: dÃ¡ uma â€œrespiroâ€ nas laterais */
         padding-inline: var(--app-gutter);
     }
 
@@ -876,7 +876,7 @@
     user-select: none;
 }
 
-/* opcional: deixa a coluna mais “gostosa” */
+/* opcional: deixa a coluna mais â€œgostosaâ€ */
 .td-initials {
     width: 52px;
 }

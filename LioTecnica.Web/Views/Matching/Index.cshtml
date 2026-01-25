@@ -1,5 +1,5 @@
 @{
-    ViewData["Title"] = "Portal RH ï Devcraft Studio ï Matching";
+    ViewData["Title"] = "Portal RH ‚Ä¢ Devcraft Studio ‚Ä¢ Matching";
     ViewData["SidebarSubtitle"] = "Matching";
 }
 
@@ -12,7 +12,7 @@
   @await Html.PartialAsync("_Toast")
 
       @section Topbar {
-@await Html.PartialAsync("_TopbarBrand", "Tela: Matching (pontuaÁ„o por requisitos)")
+@await Html.PartialAsync("_TopbarBrand", "Tela: Matching (pontua√ß√£o por requisitos)")
 
                     <div class="d-flex align-items-center gap-2">
             <button class="btn btn-brand" type="button" id="btnRecalcAll">
@@ -28,7 +28,7 @@
         <div class="page-title">
           <div>
             <h4>Matching</h4>
-            <div class="subtitle">PontuaÁ„o autom·tica por palavras-chave + pesos + requisitos obrigatÛrios.</div>
+            <div class="subtitle">Pontua√ß√£o autom√°tica por palavras-chave + pesos + requisitos obrigat√≥rios.</div>
           </div>
         </div>
 
@@ -38,7 +38,7 @@
             <div>
               <p class="mini-title mb-1">Filtros</p>
               <div class="fw-bold">Selecione uma vaga e compare candidatos</div>
-              <div class="text-muted small">Ajuste mÌ≠nimo (threshold) na vaga para definir dentroù ou abaixoù.</div>
+              <div class="text-muted small">Ajuste m√≠¬≠nimo (threshold) na vaga para definir dentro¬ù ou abaixo¬ù.</div>
             </div>
 
             <div class="d-flex flex-wrap gap-2">
@@ -63,9 +63,9 @@
   var kpis = new[]
   {
     new { ColClass = "col-6 col-lg-3", ValueId = "kpiTotal", Value = "0", Label = "Candidatos filtrados", Icon = "bi-people" },
-    new { ColClass = "col-6 col-lg-3", ValueId = "kpiInside", Value = "0", Label = "Dentro do mÌ≠nimo", Icon = "bi-check2-circle" },
-    new { ColClass = "col-6 col-lg-3", ValueId = "kpiMandatoryFail", Value = "0", Label = "Falha obrigatÛria", Icon = "bi-exclamation-triangle" },
-    new { ColClass = "col-6 col-lg-3", ValueId = "kpiAvg", Value = "0%", Label = "MÈdia de match", Icon = "bi-stars" }
+    new { ColClass = "col-6 col-lg-3", ValueId = "kpiInside", Value = "0", Label = "Dentro do m√≠¬≠nimo", Icon = "bi-check2-circle" },
+    new { ColClass = "col-6 col-lg-3", ValueId = "kpiMandatoryFail", Value = "0", Label = "Falha obrigat√≥ria", Icon = "bi-exclamation-triangle" },
+    new { ColClass = "col-6 col-lg-3", ValueId = "kpiAvg", Value = "0%", Label = "M√©dia de match", Icon = "bi-stars" }
   };
 }
 @await Html.PartialAsync("_KpiSimpleRow", kpis)
@@ -95,7 +95,7 @@
                 <i class="bi bi-info-circle mt-1"></i>
                 <div>
                   <div class="fw-bold">Selecione um candidato</div>
-                  <div class="small mt-1">A tela exibir·° score, requisitos encontrados/faltando e explicaÁ„o do c·lculo.</div>
+                  <div class="small mt-1">A tela exibir√°¬° score, requisitos encontrados/faltando e explica√ß√£o do c√°lculo.</div>
                 </div>
               </div>
             </div>
@@ -220,7 +220,7 @@
                   <div class="text-muted small">
                     <div><span class="mono">score = (peso_encontrado / peso_total) * 100</span></div>
                     <div class="mt-1">Penalidade: <span class="mono">-15 pontos</span> por obrigatorio faltando (max. <span class="mono">-40</span>).</div>
-                    <div class="mt-1">CritÈrio: <span class="mono">score &gt;= threshold</span> =&gt; "Dentro".</div>
+                    <div class="mt-1">Crit√©rio: <span class="mono">score &gt;= threshold</span> =&gt; "Dentro".</div>
                   </div>
                 </div>
 

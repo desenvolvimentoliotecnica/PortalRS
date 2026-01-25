@@ -321,7 +321,7 @@ a {
   }
 }
 
-/* força largura maior no modal de registro */
+/* forÃ§a largura maior no modal de registro */
 .auth-modal .modal-dialog {
     max-width: 750px !important; /* ajuste: 900, 980, 1100... */
     width: calc(100% - 2rem);

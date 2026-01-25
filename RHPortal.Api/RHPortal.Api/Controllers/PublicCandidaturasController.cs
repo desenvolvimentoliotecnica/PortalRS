@@ -40,10 +40,10 @@ public sealed class PublicCandidaturasController : ControllerBase
 
         var email = (request.Email ?? "").Trim();
         if (string.IsNullOrWhiteSpace(email))
-            return BadRequest(new { message = "Email È obrigatÛrio." });
+            return BadRequest(new { message = "Email √© obrigat√≥rio." });
 
-        // 1) Verifica se j· existe candidato com este email (no tenant atual)
-        //    IMPORTANTE: se vocÍ usa filtro global por tenant no DbContext, isso j· respeita o tenant.
+        // 1) Verifica se j√° existe candidato com este email (no tenant atual)
+        //    IMPORTANTE: se voc√™ usa filtro global por tenant no DbContext, isso j√° respeita o tenant.
         var existing = await db.Candidatos
             .AsTracking()
             .FirstOrDefaultAsync(x => x.Email == email && x.TenantId == "liotecnica", ct);
@@ -57,8 +57,8 @@ public sealed class PublicCandidaturasController : ControllerBase
         {
             if (existing is not null)
             {
-                // 2) Se existe: atualiza a vaga + (opcional) dados b·sicos
-                //    Aqui vocÍ decide a regra: sobrescreve VagaId, ou mantÈm histÛrico (ver nota no final).
+                // 2) Se existe: atualiza a vaga + (opcional) dados b√°sicos
+                //    Aqui voc√™ decide a regra: sobrescreve VagaId, ou mant√©m hist√≥rico (ver nota no final).
                 existing.VagaId = request.VagaId;
                 existing.Nome = string.IsNullOrWhiteSpace(request.Nome) ? existing.Nome : request.Nome;
                 existing.Fone = string.IsNullOrWhiteSpace(request.Fone) ? existing.Fone : request.Fone;
@@ -89,7 +89,7 @@ public sealed class PublicCandidaturasController : ControllerBase
 );
 
 
-                // Anexo (se quiser anexar ao candidato existente tambÈm)
+                // Anexo (se quiser anexar ao candidato existente tamb√©m)
                 if (request.Arquivo is { Length: > 0 })
                 {
                     await service.AddDocumentoAsync(
@@ -102,7 +102,7 @@ public sealed class PublicCandidaturasController : ControllerBase
             }
             else
             {
-                // 3) Se n„o existe: cria
+                // 3) Se n√£o existe: cria
                 var create = new CandidateCreateRequest(
                     request.Nome,
                     email,
@@ -131,7 +131,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                 }
             }
 
-            // 4) Email (best effort) ó pode manter como est·
+            // 4) Email (best effort) ‚Äî pode manter como est√°
             try
             {
                 var candidate = await db.Candidatos.AsNoTracking()
