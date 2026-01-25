@@ -114,7 +114,12 @@ public sealed class MenusController : ControllerBase
             });
         }
 
-        var items = await service.ListForUserAsync(userId, ct);
+        var permissions = User.FindAll(PermissionConstants.ClaimType)
+            .Select(x => x.Value)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+        var items = await service.ListForUserAsync(userId, permissions, ct);
         return Ok(items);
     }
 }

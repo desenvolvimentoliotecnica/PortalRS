@@ -5,8 +5,7 @@
 @{
     var label = string.IsNullOrWhiteSpace(Model) ? T["UserMenu_DefaultLabel"].Value : Model;
 
-    // cultura atual (pra marcar selecionado)
-    var currentCulture = System.Globalization.CultureInfo.CurrentUICulture.Name; // ex: pt-BR / en-US
+    var currentCulture = System.Globalization.CultureInfo.CurrentUICulture.Name; // pt-BR / en-US
     var returnUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
 }
 
@@ -26,6 +25,15 @@
         <li>
             <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalNotifications">
                 <i class="bi bi-bell me-2"></i>@T["UserMenu_Notifications"]
+            </a>
+        </li>
+
+        <li><hr class="dropdown-divider"></li>
+
+        <!-- DEV OPS -->
+        <li>
+            <a class="dropdown-item text-warning" href="#" data-bs-toggle="modal" data-bs-target="#resetDbModal">
+                <i class="bi bi-exclamation-triangle me-2"></i>Resetar base (DEV)
             </a>
         </li>
 

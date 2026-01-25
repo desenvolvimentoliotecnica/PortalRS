@@ -175,7 +175,10 @@ public sealed class MenuAdministrationService
         return true;
     }
 
-    public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForUserAsync(Guid userId, CancellationToken ct)
+    public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForUserAsync(
+        Guid userId,
+        IReadOnlyCollection<string>? permissionKeys,
+        CancellationToken ct)
     {
         var roleIds = await _db.UserRoles
             .Where(x => x.UserId == userId)
@@ -193,6 +196,32 @@ public sealed class MenuAdministrationService
             .Where(x => menuIds.Contains(x.Id) && x.IsActive)
             .ToListAsync(ct);
 
+        if (menus.Count == 0 && permissionKeys is { Count: > 0 })
+        {
+            return await ListForPermissionsAsync(permissionKeys, ct);
+        }
+
+        return await MapMenusForCurrentUserAsync(menus, ct);
+    }
+
+    public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForPermissionsAsync(
+        IReadOnlyCollection<string> permissionKeys,
+        CancellationToken ct)
+    {
+        if (permissionKeys.Count == 0)
+            return Array.Empty<MenuForCurrentUserResponse>();
+
+        var menus = await _db.Menus
+            .Where(x => permissionKeys.Contains(x.PermissionKey) && x.IsActive)
+            .ToListAsync(ct);
+
+        return await MapMenusForCurrentUserAsync(menus, ct);
+    }
+
+    private async Task<IReadOnlyList<MenuForCurrentUserResponse>> MapMenusForCurrentUserAsync(
+        List<Menu> menus,
+        CancellationToken ct)
+    {
         if (TryBackfillDisplayNameKeys(menus))
             await _db.SaveChangesAsync(ct);
 

@@ -116,6 +116,8 @@ builder.Services.Configure<InboxFolderOptions>(builder.Configuration.GetSection(
 builder.Services.AddScoped<InboxFileProcessor>();
 builder.Services.AddHostedService<InboxFolderWatcherService>();
 
+builder.Services.AddSingleton<ResetState>();
+
 // Email messaging (queue + SMTP/IMAP)
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
 builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
