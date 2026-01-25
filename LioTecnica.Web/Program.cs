@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -272,6 +272,13 @@ builder.Services.AddHttpClient<HealthApiClient>(http =>
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
+builder.Services.AddHttpClient<OpsApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+    http.Timeout = TimeSpan.FromMinutes(10);
+})
+.AddHttpMessageHandler<ApiAuthenticationHandler>();
+
 var app = builder.Build();
 
 // =========================
@@ -282,7 +289,7 @@ var supportedCultures = new[]
 {
     new CultureInfo("pt-BR"),
     new CultureInfo("en-US"),
-    // se quiser j� deixar pronto:
+    // se quiser já deixar pronto:
     // new CultureInfo("es-ES")
 };
 

@@ -1,0 +1,110 @@
+﻿<!-- Modal: Reset Database (DEV) -->
+<div class="modal fade" id="resetDbModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-database-exclamation me-2"></i>Resetar base (DEV)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="alert alert-danger small mb-3">
+                    <strong>Atenção:</strong> isso apaga e recria o schema, roda migrations e pode re-seedar.
+                    Use apenas em <strong>Development</strong>.
+                </div>
+
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="resetDbReseed" checked>
+                    <label class="form-check-label" for="resetDbReseed">
+                        Rodar seed após reset (reseed)
+                    </label>
+                </div>
+
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="resetDbConfirm">
+                    <label class="form-check-label" for="resetDbConfirm">
+                        Eu entendo que esta ação apaga dados do banco
+                    </label>
+                </div>
+
+                <div id="resetDbStatus" class="small text-muted mt-3 d-none"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnResetDb">
+                    <span class="spinner-border spinner-border-sm me-2 d-none" id="resetDbSpinner" role="status" aria-hidden="true"></span>
+                    Resetar agora
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const btn = document.getElementById('btnResetDb');
+        const confirmChk = document.getElementById('resetDbConfirm');
+        const reseedChk = document.getElementById('resetDbReseed');
+        const spinner = document.getElementById('resetDbSpinner');
+        const status = document.getElementById('resetDbStatus');
+
+        function setBusy(isBusy) {
+            btn.disabled = isBusy;
+            spinner.classList.toggle('d-none', !isBusy);
+        }
+
+        function setStatus(text, isError) {
+            status.classList.remove('d-none');
+            status.classList.toggle('text-danger', !!isError);
+            status.classList.toggle('text-muted', !isError);
+            status.textContent = text;
+        }
+
+        // Fecha o dropdown caso ele esteja aberto (evita ficar “travado” visualmente)
+        function closeAnyOpenDropdown() {
+            const open = document.querySelector('.dropdown-menu.show');
+            if (!open) return;
+            const toggle = open.closest('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]');
+            if (!toggle) return;
+            try { bootstrap.Dropdown.getOrCreateInstance(toggle).hide(); } catch {}
+        }
+
+        // Quando o modal abrir, fecha dropdown
+        const modalEl = document.getElementById('resetDbModal');
+        modalEl?.addEventListener('show.bs.modal', closeAnyOpenDropdown);
+
+        btn?.addEventListener('click', async () => {
+            if (!confirmChk.checked) {
+                setStatus('Marque a confirmação antes de continuar.', true);
+                return;
+            }
+
+            setBusy(true);
+            setStatus('Executando reset... aguarde.', false);
+
+            try {
+                const resp = await fetch('/ops/reset-database', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reseed: reseedChk.checked })
+                });
+
+                if (!resp.ok) {
+                    const txt = await resp.text();
+                    throw new Error(txt || ('HTTP ' + resp.status));
+                }
+
+                setStatus('Reset concluído. Recarregando...', false);
+                setTimeout(() => location.reload(), 800);
+            } catch (e) {
+                setStatus('Falha ao resetar: ' + (e?.message || e), true);
+                setBusy(false);
+            }
+        });
+    })();
+</script>
