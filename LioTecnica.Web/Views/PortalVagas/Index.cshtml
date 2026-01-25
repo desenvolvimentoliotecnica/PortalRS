@@ -24,6 +24,7 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
@@ -281,6 +282,18 @@
             background: #fbfcff;
             padding: 14px;
         }
+        .profile-sections-cards {
+            min-height: 100%;
+        }
+
+        .profile-sections-content {
+            background: #ffffff;
+            border: 1px solid rgba(15, 23, 42, .10);
+            border-radius: 16px;
+            padding: 14px;
+            overflow: auto;
+        }
+
 
         .topics-grid {
             display: grid;
@@ -547,16 +560,32 @@
 
         /* ===== Modal "Meu perfil" igual ao print ===== */
         #profileModal .modal-dialog {
-            /* deixa o container do modal alinhado com a borda arredondada */
+            height: calc(100vh - 2rem);
+            margin: 1rem auto;
+        }
+
+        #profileModal .modal-dialog .modal-content {
+            height: 100%;
         }
 
         #profileModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 2rem);
+            height: 100%;
             border-radius: 22px; /* cantos arredondados */
             border: 1px solid rgba(15, 23, 42, .10); /* borda fina */
             box-shadow: 0 18px 50px rgba(2, 6, 23, .14), /* sombra externa suave */
             0 1px 0 rgba(255,255,255,.60) inset; /* brilho interno */
             overflow: hidden; /* garante cantos limpos */
             background: #ffffff;
+        }
+
+        #profileModal form {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0;
         }
 
         /* Header com linha bem leve */
@@ -568,8 +597,32 @@
 
         /* Body com leve azul (igual print) */
         #profileModal .modal-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
             background: #f3f7ff; /* azul muito suave */
             padding: 18px 20px;
+        }
+
+        /* Scrollbar estilo Pixel */
+        #profileModal .modal-body::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #profileModal .modal-body::-webkit-scrollbar-track {
+            background: #e6ecfb;
+            border-radius: 999px;
+        }
+
+        #profileModal .modal-body::-webkit-scrollbar-thumb {
+            background: #182b57;
+            border-radius: 999px;
+            border: 3px solid #e6ecfb;
+        }
+
+        #profileModal .modal-body {
+            scrollbar-color: #182b57 #e6ecfb;
+            scrollbar-width: auto;
         }
 
         /* Footer com leve azul e linha suave */
@@ -577,7 +630,25 @@
             border-top: 1px solid rgba(15, 23, 42, .08);
             background: #f3f7ff;
             padding: 14px 20px;
+            margin-top: auto;
         }
+
+
+        @@media (max-width: 576px) {
+            #profileModal .modal-dialog {
+                height: calc(100vh - 1rem);
+                margin: .5rem auto;
+            }
+
+            #profileModal .modal-content {
+                max-height: calc(100vh - 1rem);
+            }
+        }
+    
+
+
+
+
 
         /* Botão fechar arredondado e suave (opcional) */
         #profileModal .btn-close {
@@ -1028,7 +1099,7 @@
                     <div class="modal-body">
                         <div class="row g-3">
                             <!-- Coluna: dados do candidato (100% altura da linha) -->
-                            <div class="col-12 col-lg-5 d-flex">
+                            <div class="col-12 col-lg-5 d-flex" id="profileLeftPanelCol">
                                 <div class="border rounded-4 p-3 bg-white flex-fill d-flex flex-column">
                                     <div class="d-flex align-items-center justify-content-between mb-2">
                                         <div class="fw-semibold">Dados do candidato</div>
@@ -1082,66 +1153,2304 @@
 
                             <!-- Coluna: seções (cards) -->
                             <!-- Coluna: seções (cards) - 100% altura como a esquerda -->
-                            <div class="col-12 col-lg-7 d-flex">
+                            <div class="col-12 col-lg-7 d-flex" id="profileSectionsCol">
                                 <div class="sections-panel flex-fill d-flex flex-column">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+        <div>
+            <div class="fw-semibold d-flex align-items-center gap-2">
+                <i class="bi bi-ui-checks-grid text-primary"></i>
+                Se&ccedil;&otilde;es do Portal
+            </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="profileBackToCards">
+            <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+        </button>
+    </div>
 
-                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                                        <div>
-                                            <div class="fw-semibold d-flex align-items-center gap-2 d-none">
-                                                <i class="bi bi-ui-checks-grid text-primary"></i>
-                                                Seções do Portal
-                                            </div>
-                                        </div>
+    <div id="profileSectionsCards" class="profile-sections-cards flex-grow-1">
+        <div class="topics-grid" id="profileTopicsGrid"></div>
+    </div>
 
-                                        <button type="button" class="btn btn-sm btn-outline-primary d-none" id="profileBtnRandomize">
-                                            <i class="bi bi-arrow-repeat me-1"></i> Atualizar %
-                                        </button>
-                                    </div>
+    <div id="profileSectionsContent" class="profile-sections-content flex-grow-1 d-none">
+                <div class="tab-content" id="profileTabsContent">
+        <!-- Aba: Perfil -->
+                        <div class="tab-pane fade show active" id="tabProfile" role="tabpanel" aria-labelledby="profile-tab">
 
-                                    <!-- Conteúdo da direita preenchendo altura -->
-                                    <div class="row g-3 flex-grow-1">
-                                        <div class="col-12 col-xl-12">
-                                            <div class="topics-grid" id="profileTopicsGrid"></div>
-                                        </div>
+                      <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-file-pdf me-2"></i>Meu Currículo</h6>
 
-                                        <div class="col-12 col-xl-4 d-none">
-                                            <div class="border rounded-4 bg-white p-3 h-100" id="profileDetailBox">
-                                                <div class="fw-semibold d-flex align-items-center gap-2">
-                                                    <i class="bi bi-info-circle-fill text-primary"></i>
-                                                    <span id="profileDetailName">Selecione um tópico</span>
-                                                </div>
+                      <div class="cv-card mb-4">
+                        <div class="d-flex align-items-center">
+                          <i class="fas fa-file-pdf text-danger fa-2x me-3"></i>
+                          <div>
+                            <div class="fw-bold text-dark" id="cvFileName">CV_Joao_Silva_2026.pdf</div>
+                            <small class="text-muted" id="cvFileDate">Enviado em 10/01/2026 às 14:30</small>
+                          </div>
+                        </div>
 
-                                                <div class="text-secondary small mt-2" id="profileDetailDesc">
-                                                    Visualize o status de preenchimento e acesse a seção correspondente.
-                                                </div>
+                        <div>
+                          <input type="file" id="cvFileInput" class="d-none" accept=".pdf,.doc,.docx" onchange="handleCvChange(this)" />
+                          <button class="btn btn-sm btn-outline-primary fw-bold" onclick="document.getElementById('cvFileInput').click()">
+                            <i class="fas fa-upload me-1"></i> Alterar Arquivo
+                          </button>
+                        </div>
+                      </div>
 
-                                                <div class="mt-3">
-                                                    <div class="d-flex align-items-center justify-content-between mb-1">
-                                                        <span class="text-secondary" style="font-size: 12px;">Progresso</span>
-                                                        <span class="fw-bold" id="profileDetailPercent">—</span>
-                                                    </div>
-                                                    <div class="progress" style="height: 10px; border-radius: 999px;">
-                                                        <div class="progress-bar" id="profileDetailBar" role="progressbar" style="width: 0%;"></div>
-                                                    </div>
-                                                </div>
+                      <div class="row mb-4">
+                        <div class="col-md-6">
+                          <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-code me-2"></i>Hard Skills</h6>
+                          <div class="bg-light p-3 rounded border">
+                            <span class="skill-badge bg-dark text-white">JavaScript</span>
+                            <span class="skill-badge bg-dark text-white">React</span>
+                            <span class="skill-badge bg-dark text-white">Bootstrap 5</span>
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill ms-1" style="font-size:.75rem;"><i class="fas fa-plus"></i></button>
+                          </div>
+                        </div>
 
-                                                <div class="mt-3 d-flex gap-2 flex-wrap align-items-end">
-                                                    <button type="button" class="btn btn-primary btn-sm" id="profileBtnOpenSection" disabled>
-                                                        <i class="bi bi-box-arrow-up-right me-1"></i> Abrir seção
-                                                    </button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="profileBtnMarkDone" disabled>
-                                                        <i class="bi bi-check2 me-1"></i> Concluir (100%)
-                                                    </button>
-                                                </div>
+                        <div class="col-md-6 mt-3 mt-md-0">
+                          <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-comments me-2"></i>Soft Skills</h6>
+                          <div class="bg-light p-3 rounded border">
+                            <span class="skill-badge bg-info text-dark">Comunicação</span>
+                            <span class="skill-badge bg-info text-dark">Trabalho em Equipe</span>
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill ms-1" style="font-size:.75rem;"><i class="fas fa-plus"></i></button>
+                          </div>
+                        </div>
+                      </div>
 
-                                                <div class="mt-3 small text-secondary">
-                                                    <i class="bi bi-lightning-charge me-1"></i>Quanto mais completo, melhor o match com as vagas.
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                      <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-user-edit me-2"></i>Dados Pessoais</h6>
 
+                      <form>
+                        <div class="row g-3">
+                          <div class="col-md-6">
+                            <label class="form-label small fw-bold">Nome Completo</label>
+                            <input type="text" class="form-control" value="João da Silva" />
+                          </div>
+
+                          <div class="col-md-6">
+                            <label class="form-label small fw-bold">E-mail</label>
+                            <input type="email" class="form-control" value="joao.silva@email.com" readonly style="background-color:#e9ecef;" />
+                          </div>
+
+                          <div class="col-md-6">
+                            <label class="form-label small fw-bold">Telefone / WhatsApp</label>
+                            <input type="text" class="form-control" value="(11) 99999-9999" />
+                          </div>
+
+                          <div class="col-md-6">
+                            <label class="form-label small fw-bold">LinkedIn (URL)</label>
+                            <input type="text" class="form-control" value="linkedin.com/in/joaosilva" />
+                          </div>
+
+                          <div class="col-12">
+                            <label class="form-label small fw-bold">Resumo Profissional</label>
+                            <textarea class="form-control" rows="3">Desenvolvedor Web apaixonado...</textarea>
+                          </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-4 pt-3 border-top">
+                          <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                          <button type="button" class="btn btn-success fw-bold px-4" onclick="Swal.fire('Salvo!', 'Seu perfil foi atualizado com sucesso.', 'success')">
+                            Salvar Alterações
+                          </button>
+                        </div>
+                      </form>
+
+                        </div>
+
+                        <!-- Aba: Testes -->
+                        <div class="tab-pane fade" id="tabTests" role="tabpanel" aria-labelledby="tests-tab">
+                          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                            <div>
+                              <h6 class="text-primary fw-bold mb-1"><i class="fas fa-clipboard-list me-2"></i>Testes de RH</h6>
+                              <div class="text-muted small">Complete os testes para enriquecer seu perfil e aumentar o match com as vagas.</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                              <button class="btn btn-sm btn-outline-primary fw-bold" type="button" onclick="resetAllTests()">
+                                <i class="fas fa-redo me-1"></i> Reiniciar
+                              </button>
+                              <button class="btn btn-sm btn-success fw-bold" type="button" onclick="downloadTestsSummary()">
+                                <i class="fas fa-file-download me-1"></i> Baixar resumo
+                              </button>
+                            </div>
+                          </div>
+
+                          <div class="alert alert-info d-flex align-items-start gap-2" role="alert" style="border-radius:14px;">
+                            <i class="fas fa-info-circle mt-1"></i>
+                            <div class="small">
+                              <strong>Dica:</strong> você pode fazer 1 teste por vez. Ao finalizar, o resultado fica salvo neste protótipo (localStorage).
+                            </div>
+                          </div>
+
+                          <div id="testsContainer" class="d-grid gap-3"></div>
+
+                          <hr class="my-4"/>
+
+                          <div class="row g-3">
+                            <div class="col-lg-6">
+                              <div class="p-3 bg-light border rounded" style="border-radius:14px;">
+                                <div class="fw-bold text-primary mb-1"><i class="fas fa-star me-2"></i>O que isso melhora?</div>
+                                <div class="text-muted small">
+                                  Os testes ajudam a destacar seu estilo de trabalho, preferências e aderência cultural — facilitando a triagem e recomendações.
                                 </div>
+                              </div>
+                            </div>
+                            <div class="col-lg-6">
+                              <div class="p-3 bg-white border rounded" style="border-radius:14px;">
+                                <div class="fw-bold text-primary mb-1"><i class="fas fa-shield-alt me-2"></i>Privacidade</div>
+                                <div class="text-muted small">
+                                  Neste MVP, os resultados ficam somente no seu navegador. Em produção, você controla o compartilhamento (RH / somente match / oculto).
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+        				<!-- Aba: Experiência & Projetos -->
+        <div class="tab-pane fade" id="tabExperience" role="tabpanel" aria-labelledby="exp-tab">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div>
+              <h6 class="text-primary fw-bold mb-1">
+                <i class="fas fa-briefcase me-2"></i>Experiência & Projetos
+              </h6>
+              <div class="text-muted small">
+                Adicione suas experiências e projetos. Isso aumenta o match e ajuda o RH a entender seu nível.
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-primary fw-bold" type="button" onclick="openExperienceModal()">
+                <i class="fas fa-plus me-1"></i> Nova experiência
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openProjectModal()">
+                <i class="fas fa-plus me-1"></i> Novo projeto
+              </button>
+            </div>
+          </div>
+
+          <!-- Resumo rápido -->
+          <div class="row g-3 mb-3">
+            <div class="col-lg-6">
+              <div class="p-3 bg-light border rounded" style="border-radius:14px;">
+                <div class="small text-muted">Experiências cadastradas</div>
+                <div class="h4 fw-bold text-primary mb-0" id="expCount">0</div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="p-3 bg-white border rounded" style="border-radius:14px;">
+                <div class="small text-muted">Projetos cadastrados</div>
+                <div class="h4 fw-bold text-primary mb-0" id="projCount">0</div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="row g-3">
+            <!-- Experiências -->
+            <div class="col-lg-6">
+              <div class="p-3 bg-white border rounded" style="border-radius:14px;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="fw-bold text-primary"><i class="fas fa-building me-2"></i>Experiências</div>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" onclick="seedExperiences()">
+                    <i class="fas fa-magic me-1"></i> Exemplo
+                  </button>
+                </div>
+                <div class="text-muted small mb-3">Linha do tempo (da mais recente para a mais antiga).</div>
+
+                <div id="expList" class="d-grid gap-2"></div>
+
+                <div id="expEmpty" class="text-center text-muted py-4" style="display:none;">
+                  <i class="fas fa-briefcase fa-2x mb-2 opacity-50"></i>
+                  <div class="fw-bold">Nenhuma experiência ainda</div>
+                  <div class="small">Clique em “Nova experiência” para adicionar.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Projetos -->
+            <div class="col-lg-6">
+              <div class="p-3 bg-white border rounded" style="border-radius:14px;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="fw-bold text-primary"><i class="fas fa-diagram-project me-2"></i>Projetos</div>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" onclick="seedProjects()">
+                    <i class="fas fa-magic me-1"></i> Exemplo
+                  </button>
+                </div>
+                <div class="text-muted small mb-3">Destaque 3–5 projetos que provem sua experiência.</div>
+
+                <div id="projList" class="row g-2"></div>
+
+                <div id="projEmpty" class="text-center text-muted py-4" style="display:none;">
+                  <i class="fas fa-folder-open fa-2x mb-2 opacity-50"></i>
+                  <div class="fw-bold">Nenhum projeto ainda</div>
+                  <div class="small">Clique em “Novo projeto” para adicionar.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4"/>
+
+          <!-- Tecnologias / Tags rápidas (opcional) -->
+          <div class="p-3 bg-light border rounded" style="border-radius:14px;">
+            <div class="fw-bold text-primary mb-2"><i class="fas fa-tags me-2"></i>Tecnologias / Palavras-chave</div>
+            <div class="text-muted small mb-2">Use tags para facilitar o match (ex.: C#, .NET, SQL, React...)</div>
+
+            <div class="d-flex flex-wrap gap-2" id="tagArea">
+              <span class="badge rounded-pill text-bg-dark">C#</span>
+              <span class="badge rounded-pill text-bg-dark">.NET</span>
+              <span class="badge rounded-pill text-bg-dark">SQL</span>
+              <span class="badge rounded-pill text-bg-dark">JavaScript</span>
+              <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" onclick="addQuickTag()">
+                <i class="fas fa-plus"></i> adicionar
+              </button>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Modal: Nova Experiência -->
+        <div class="modal fade" id="experienceEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+              <div class="modal-header bg-white border-bottom">
+                <h5 class="modal-title fw-bold text-primary"><i class="fas fa-briefcase me-2"></i>Experiência</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="expId" />
+
+                <div class="row g-3">
+                  <div class="col-md-7">
+                    <label class="form-label small fw-bold">Empresa</label>
+                    <input class="form-control" id="expCompany" placeholder="Ex.: Liotécnica" />
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label small fw-bold">Cargo</label>
+                    <input class="form-control" id="expRole" placeholder="Ex.: Desenvolvedor Web" />
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold">Início</label>
+                    <input class="form-control" id="expStart" placeholder="MM/AAAA" />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold">Fim</label>
+                    <input class="form-control" id="expEnd" placeholder="MM/AAAA ou Atual" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold">Local / Modelo</label>
+                    <input class="form-control" id="expPlace" placeholder="Ex.: São Paulo • Híbrido" />
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small fw-bold">Atividades e resultados (bullet points)</label>
+                    <textarea class="form-control" rows="4" id="expBullets"
+                      placeholder="- Implementou...\n- Reduziu...\n- Automatizou..."></textarea>
+                    <div class="form-text">Dica: escreva em tópicos curtos, com impacto.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-footer bg-white border-top">
+                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveExperience()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Novo Projeto -->
+        <div class="modal fade" id="projectEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+              <div class="modal-header bg-white border-bottom">
+                <h5 class="modal-title fw-bold text-primary"><i class="fas fa-diagram-project me-2"></i>Projeto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="projId" />
+
+                <div class="row g-3">
+                  <div class="col-md-8">
+                    <label class="form-label small fw-bold">Nome do projeto</label>
+                    <input class="form-control" id="projName" placeholder="Ex.: Portal de Candidatos" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small fw-bold">Ano / Período</label>
+                    <input class="form-control" id="projPeriod" placeholder="Ex.: 2025–2026" />
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small fw-bold">Descrição curta</label>
+                    <input class="form-control" id="projDesc" placeholder="O que é e qual problema resolve (1 linha)." />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold">Link (GitHub / Demo)</label>
+                    <input class="form-control" id="projLink" placeholder="https://..." />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold">Tech stack (separe por vírgula)</label>
+                    <input class="form-control" id="projStack" placeholder="C#, .NET, PostgreSQL, Bootstrap..." />
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small fw-bold">Resultados / Destaques</label>
+                    <textarea class="form-control" rows="3" id="projHighlights"
+                      placeholder="- Aumentou conversão...\n- Automatizou triagem...\n- Melhorou performance..."></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-footer bg-white border-top">
+                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveProject()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tabSkills" role="tabpanel" aria-labelledby="skills-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Competências & Portfólio</div>
+              <div class="text-muted small">Organize skills, idiomas, certificados e links (salvo neste navegador).</div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedSkillsPortfolio()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplos
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetSkillsPortfolio()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Resumo / Preferências rápidas -->
+          <div class="row g-3 mb-3">
+            <div class="col-12 col-lg-6">
+              <div class="border rounded p-3 h-100" style="border-radius:14px;">
+                <div class="fw-bold mb-2"><i class="fas fa-briefcase me-1"></i> Preferências</div>
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Modelo de trabalho</label>
+                    <select id="prefWorkModel" class="form-select form-select-sm" onchange="savePreferences()">
+                      <option value="">Selecionar</option>
+                      <option value="Presencial">Presencial</option>
+                      <option value="Híbrido">Híbrido</option>
+                      <option value="Remoto">Remoto</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Disponibilidade</label>
+                    <select id="prefAvailability" class="form-select form-select-sm" onchange="savePreferences()">
+                      <option value="">Selecionar</option>
+                      <option value="Imediata">Imediata</option>
+                      <option value="Até 15 dias">Até 15 dias</option>
+                      <option value="Até 30 dias">Até 30 dias</option>
+                      <option value="A combinar">A combinar</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Pretensão (R$)</label>
+                    <input id="prefSalary" class="form-control form-control-sm" placeholder="Ex.: 4500"
+                           inputmode="numeric" onchange="savePreferences()">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Turno</label>
+                    <select id="prefShift" class="form-select form-select-sm" onchange="savePreferences()">
+                      <option value="">Selecionar</option>
+                      <option value="Diurno">Diurno</option>
+                      <option value="Noturno">Noturno</option>
+                      <option value="Escala">Escala</option>
+                      <option value="A combinar">A combinar</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Observação</label>
+                    <input id="prefNote" class="form-control form-control-sm" placeholder="Ex.: Disponível para viagens"
+                           onchange="savePreferences()">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <div class="border rounded p-3 h-100" style="border-radius:14px;">
+                <div class="fw-bold mb-2"><i class="fas fa-link me-1"></i> Links de portfólio</div>
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">LinkedIn</label>
+                    <input id="linkLinkedIn" class="form-control form-control-sm" placeholder="https://linkedin.com/in/..."
+                           onchange="saveLinks()">
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">GitHub</label>
+                    <input id="linkGitHub" class="form-control form-control-sm" placeholder="https://github.com/..."
+                           onchange="saveLinks()">
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Portfólio</label>
+                    <input id="linkPortfolio" class="form-control form-control-sm" placeholder="https://..."
+                           onchange="saveLinks()">
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Drive / Certificados</label>
+                    <input id="linkDrive" class="form-control form-control-sm" placeholder="https://drive.google.com/..."
+                           onchange="saveLinks()">
+                  </div>
+
+                  <div class="col-12 mt-1 d-flex gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openSavedLink('LinkedIn')">
+                      <i class="fab fa-linkedin me-1"></i> Abrir LinkedIn
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openSavedLink('GitHub')">
+                      <i class="fab fa-github me-1"></i> Abrir GitHub
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openSavedLink('Portfolio')">
+                      <i class="fas fa-globe me-1"></i> Abrir Portfólio
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openSavedLink('Drive')">
+                      <i class="fab fa-google-drive me-1"></i> Abrir Drive
+                    </button>
+                  </div>
+
+                  <div class="small text-muted mt-2">
+                    Dica: no produto final, esses links podem ser compartilhados com o RH junto da candidatura.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Skills -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <div class="fw-bold">
+                <i class="fas fa-tools me-1"></i> Competências
+                <span class="text-muted small ms-2">(Hard/Soft/Idiomas)</span>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openSkillModal()">
+                  <i class="fas fa-plus me-1"></i> Adicionar
+                </button>
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-3" id="skillChips"></div>
+            <div class="text-muted small mt-2" id="skillEmpty" style="display:none;">
+              Nenhuma competência adicionada ainda.
+            </div>
+          </div>
+
+          <!-- Certificações / Cursos -->
+          <div class="border rounded p-3" style="border-radius:14px;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <div class="fw-bold">
+                <i class="fas fa-certificate me-1"></i> Certificações & Cursos
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openCertModal()">
+                  <i class="fas fa-plus me-1"></i> Adicionar
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-3" id="certList"></div>
+            <div class="text-muted small mt-2" id="certEmpty" style="display:none;">
+              Nenhum curso/certificação informado ainda.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modal: Skill -->
+        <div class="modal fade" id="skillEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-tools me-1"></i> Competência</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="skillId">
+
+                <div class="mb-2">
+                  <label class="form-label small text-muted mb-1">Tipo</label>
+                  <select id="skillType" class="form-select form-select-sm">
+                    <option value="Hard">Hard skill</option>
+                    <option value="Soft">Soft skill</option>
+                    <option value="Idioma">Idioma</option>
+                  </select>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label small text-muted mb-1">Nome</label>
+                  <input id="skillName" class="form-control form-control-sm" placeholder="Ex.: Excel, Comunicação, Inglês">
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label small text-muted mb-1">Nível</label>
+                  <select id="skillLevel" class="form-select form-select-sm">
+                    <option value="Básico">Básico</option>
+                    <option value="Intermediário">Intermediário</option>
+                    <option value="Avançado">Avançado</option>
+                  </select>
+                </div>
+
+                <div class="mb-0">
+                  <label class="form-label small text-muted mb-1">Evidência (opcional)</label>
+                  <input id="skillEvidence" class="form-control form-control-sm" placeholder="Ex.: Projeto X, curso Y, experiência Z">
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveSkill()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Certificação/Curso -->
+        <div class="modal fade" id="certEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-certificate me-1"></i> Certificação / Curso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="certId">
+
+                <div class="mb-2">
+                  <label class="form-label small text-muted mb-1">Nome</label>
+                  <input id="certName" class="form-control form-control-sm" placeholder="Ex.: NR-10, Excel Avançado, Scrum">
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Instituição</label>
+                    <input id="certOrg" class="form-control form-control-sm" placeholder="Ex.: SENAI">
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Ano</label>
+                    <input id="certYear" class="form-control form-control-sm" placeholder="Ex.: 2025" inputmode="numeric">
+                  </div>
+                </div>
+
+                <div class="mt-2">
+                  <label class="form-label small text-muted mb-1">Link (opcional)</label>
+                  <input id="certLink" class="form-control form-control-sm" placeholder="https://...">
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveCert()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="tab-pane fade" id="tabEdu" role="tabpanel" aria-labelledby="edu-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Formação & Educação</div>
+              <div class="text-muted small">Cadastre sua escolaridade, cursos e histórico acadêmico (salvo neste navegador).</div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedEducation()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplos
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetEducation()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Escolaridade (Resumo) -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div class="fw-bold"><i class="fas fa-school me-1"></i> Escolaridade</div>
+              <div class="small text-muted">Defina seu nível principal e informação rápida.</div>
+            </div>
+
+            <div class="row g-2 mt-2">
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Nível</label>
+                <select id="eduLevel" class="form-select form-select-sm" onchange="saveEducationSummary()">
+                  <option value="">Selecionar</option>
+                  <option value="Ensino Fundamental">Ensino Fundamental</option>
+                  <option value="Ensino Médio">Ensino Médio</option>
+                  <option value="Técnico">Técnico</option>
+                  <option value="Superior">Superior</option>
+                  <option value="Pós-graduação">Pós-graduação</option>
+                  <option value="Mestrado">Mestrado</option>
+                  <option value="Doutorado">Doutorado</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Área principal</label>
+                <input id="eduMainArea" class="form-control form-control-sm" placeholder="Ex.: Logística, Química, RH"
+                       onchange="saveEducationSummary()">
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Situação</label>
+                <select id="eduMainStatus" class="form-select form-select-sm" onchange="saveEducationSummary()">
+                  <option value="">Selecionar</option>
+                  <option value="Concluído">Concluído</option>
+                  <option value="Cursando">Cursando</option>
+                  <option value="Trancado">Trancado</option>
+                  <option value="A iniciar">A iniciar</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small text-muted mb-1">Destaques (opcional)</label>
+                <input id="eduHighlights" class="form-control form-control-sm"
+                       placeholder="Ex.: TCC sobre Supply Chain • Bolsa • Prêmios"
+                       onchange="saveEducationSummary()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Lista de formações -->
+          <div class="border rounded p-3" style="border-radius:14px;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <div class="fw-bold"><i class="fas fa-university me-1"></i> Cursos / Graduações</div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openEducationModal()">
+                  <i class="fas fa-plus me-1"></i> Adicionar
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-3" id="eduList"></div>
+            <div class="text-muted small mt-2" id="eduEmpty" style="display:none;">
+              Nenhuma formação adicionada ainda.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modal: Educação -->
+        <div class="modal fade" id="eduEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-graduation-cap me-1"></i> Formação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="eduId">
+
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Curso / Formação</label>
+                    <input id="eduCourse" class="form-control form-control-sm" placeholder="Ex.: Técnico em Logística, Engenharia, Administração">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Instituição</label>
+                    <input id="eduInstitution" class="form-control form-control-sm" placeholder="Ex.: SENAI, USP, Anhanguera">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Tipo</label>
+                    <select id="eduType" class="form-select form-select-sm">
+                      <option value="Curso">Curso</option>
+                      <option value="Técnico">Técnico</option>
+                      <option value="Graduação">Graduação</option>
+                      <option value="Pós-graduação">Pós-graduação</option>
+                      <option value="Mestrado">Mestrado</option>
+                      <option value="Doutorado">Doutorado</option>
+                      <option value="Certificação">Certificação</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Status</label>
+                    <select id="eduStatus" class="form-select form-select-sm">
+                      <option value="Concluído">Concluído</option>
+                      <option value="Cursando">Cursando</option>
+                      <option value="Trancado">Trancado</option>
+                      <option value="A iniciar">A iniciar</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Início</label>
+                    <input id="eduStart" class="form-control form-control-sm" placeholder="Ex.: 2022">
+                  </div>
+
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Fim/Prev.</label>
+                    <input id="eduEnd" class="form-control form-control-sm" placeholder="Ex.: 2026">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Observações (opcional)</label>
+                    <textarea id="eduNotes" class="form-control form-control-sm" rows="3"
+                              placeholder="Ex.: TCC em Supply Chain • CRA 8,2 • Bolsa"></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Link (opcional)</label>
+                    <input id="eduLink" class="form-control form-control-sm" placeholder="https://... (comprovante, histórico, etc.)">
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveEducationItem()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="tab-pane fade" id="tabLgpd" role="tabpanel" aria-labelledby="lgpd-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Privacidade & Consentimentos (LGPD)</div>
+              <div class="text-muted small">
+                Controle como seus dados podem ser usados. (MVP: salvo neste navegador)
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="exportLgpdReceipt()">
+                <i class="fas fa-file-alt me-1"></i> Baixar comprovante
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetLgpd()">
+                <i class="fas fa-eraser me-1"></i> Revogar tudo
+              </button>
+            </div>
+          </div>
+
+          <!-- Aviso -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px; background:#f8f9fa;">
+            <div class="d-flex gap-2">
+              <div style="font-size:1.25rem; line-height:1;">
+                <i class="fas fa-info-circle text-primary"></i>
+              </div>
+              <div>
+                <div class="fw-bold">Transparência</div>
+                <div class="text-muted small" style="line-height:1.5;">
+                  Você pode <strong>conceder</strong> ou <strong>revogar</strong> consentimentos a qualquer momento.
+                  No produto final, estas escolhas seriam registradas no servidor com data/hora e finalidade.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status -->
+          <div class="row g-3 mb-3">
+            <div class="col-12 col-lg-6">
+              <div class="border rounded p-3 h-100" style="border-radius:14px;">
+                <div class="fw-bold mb-2"><i class="fas fa-check-circle me-1"></i> Status dos consentimentos</div>
+
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                  <span class="badge rounded-pill" id="lgpdStatusBadge">—</span>
+                  <span class="text-muted small" id="lgpdStatusText">—</span>
+                </div>
+
+                <div class="small text-muted mt-2">
+                  Última atualização: <span class="fw-bold" id="lgpdLastUpdated">—</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <div class="border rounded p-3 h-100" style="border-radius:14px;">
+                <div class="fw-bold mb-2"><i class="fas fa-bullseye me-1"></i> Finalidade do tratamento</div>
+                <div class="text-muted small" style="line-height:1.55;">
+                  Usamos seus dados para: (1) analisar sua candidatura, (2) entrar em contato, e
+                  (3) eventualmente manter seu perfil em banco de talentos (se você autorizar).
+                  Dados sensíveis (ex.: PcD) <strong>exigem consentimento explícito</strong>.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Consentimentos -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-sliders-h me-1"></i> Consentimentos</div>
+
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="lgpdCandidatura" onchange="saveLgpd()">
+              <label class="form-check-label" for="lgpdCandidatura">
+                <strong>Processar minha candidatura</strong> (obrigatório para participar do processo)
+                <div class="text-muted small">Base legal: execução de procedimentos preliminares a contrato / legítimo interesse (conforme aplicável).</div>
+              </label>
+            </div>
+
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="lgpdContato" onchange="saveLgpd()">
+              <label class="form-check-label" for="lgpdContato">
+                <strong>Permitir contato</strong> via e-mail/telefone/WhatsApp
+                <div class="text-muted small">Finalidade: convites para entrevistas, feedbacks e informações sobre a vaga.</div>
+              </label>
+            </div>
+
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="lgpdBancoTalentos" onchange="saveLgpd()">
+              <label class="form-check-label" for="lgpdBancoTalentos">
+                <strong>Manter meu perfil no banco de talentos</strong>
+                <div class="text-muted small">Prazo sugerido: <span class="fw-bold">12 meses</span> (ajustável).</div>
+              </label>
+            </div>
+
+            <div class="row g-2 mt-1">
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Prazo do banco de talentos</label>
+                <select id="lgpdRetention" class="form-select form-select-sm" onchange="saveLgpd()">
+                  <option value="6">6 meses</option>
+                  <option value="12" selected>12 meses</option>
+                  <option value="24">24 meses</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Compartilhamento interno</label>
+                <select id="lgpdSharing" class="form-select form-select-sm" onchange="saveLgpd()">
+                  <option value="rh">Somente RH</option>
+                  <option value="rh_gestor">RH + Gestores da área</option>
+                  <option value="interno">Áreas internas relacionadas</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" id="lgpdSensivel" onchange="saveLgpd()">
+              <label class="form-check-label" for="lgpdSensivel">
+                <strong>Dados sensíveis (ex.: PcD)</strong> — autorizo o tratamento quando necessário
+                <div class="text-muted small">Importante: só marque se você concordar explicitamente com esse tratamento.</div>
+              </label>
+            </div>
+
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" id="lgpdComunicacoes" onchange="saveLgpd()">
+              <label class="form-check-label" for="lgpdComunicacoes">
+                <strong>Receber comunicações sobre novas vagas</strong>
+                <div class="text-muted small">Newsletters, avisos de novas oportunidades e eventos (opcional).</div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Direitos do titular -->
+          <div class="border rounded p-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-user-shield me-1"></i> Seus direitos (titular)</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <button class="btn btn-sm btn-outline-secondary fw-bold w-100" type="button" onclick="lgpdRequestAccess()">
+                  <i class="fas fa-eye me-1"></i> Solicitar acesso aos meus dados
+                </button>
+              </div>
+              <div class="col-12 col-md-6">
+                <button class="btn btn-sm btn-outline-secondary fw-bold w-100" type="button" onclick="lgpdRequestCorrection()">
+                  <i class="fas fa-edit me-1"></i> Solicitar correção
+                </button>
+              </div>
+              <div class="col-12 col-md-6">
+                <button class="btn btn-sm btn-outline-danger fw-bold w-100" type="button" onclick="lgpdRequestDeletion()">
+                  <i class="fas fa-trash-alt me-1"></i> Solicitar exclusão
+                </button>
+              </div>
+              <div class="col-12 col-md-6">
+                <button class="btn btn-sm btn-outline-danger fw-bold w-100" type="button" onclick="lgpdRevokeConsent()">
+                  <i class="fas fa-ban me-1"></i> Revogar consentimento
+                </button>
+              </div>
+            </div>
+
+            <div class="text-muted small mt-3" style="line-height:1.55;">
+              <strong>Observação (MVP):</strong> estes botões simulam o fluxo. Em produção, enviariam uma solicitação ao RH/DPO,
+              gerando protocolo e prazos de atendimento.
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="tab-pane fade" id="tabPref" role="tabpanel" aria-labelledby="pref-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Preferências de Vaga / Objetivos</div>
+              <div class="text-muted small">Defina seus objetivos e critérios para facilitar o matching. (MVP: salvo neste navegador)</div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedPreferences()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplo
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetPreferences()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Objetivo principal -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-crosshairs me-1"></i> Objetivo principal</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Cargo alvo</label>
+                <input id="prefRole" class="form-control form-control-sm" placeholder="Ex.: Analista de Qualidade Jr"
+                       oninput="savePreferencesDebounced()">
+              </div>
+
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Senioridade</label>
+                <select id="prefSeniority" class="form-select form-select-sm" onchange="savePreferences()">
+                  <option value="">Selecionar</option>
+                  <option value="Estágio">Estágio</option>
+                  <option value="Júnior">Júnior</option>
+                  <option value="Pleno">Pleno</option>
+                  <option value="Sênior">Sênior</option>
+                  <option value="Especialista">Especialista</option>
+                  <option value="Coordenação">Coordenação</option>
+                  <option value="Gerência">Gerência</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Início disponível</label>
+                <select id="prefStart" class="form-select form-select-sm" onchange="savePreferences()">
+                  <option value="">Selecionar</option>
+                  <option value="Imediato">Imediato</option>
+                  <option value="15 dias">Em 15 dias</option>
+                  <option value="30 dias">Em 30 dias</option>
+                  <option value="60 dias">Em 60 dias</option>
+                  <option value="A combinar">A combinar</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small text-muted mb-1">Resumo (em 1–2 frases)</label>
+                <textarea id="prefSummary" class="form-control form-control-sm" rows="3"
+                          placeholder="Ex.: Busco atuar em qualidade, com foco em melhoria contínua e auditorias, contribuindo com padronização e indicadores."
+                          oninput="savePreferencesDebounced()"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Áreas e modelo de trabalho -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-layer-group me-1"></i> Áreas e modelo de trabalho</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Áreas de interesse</label>
+                <input id="prefAreas" class="form-control form-control-sm"
+                       placeholder="Ex.: Qualidade, Produção, Logística (separe por vírgula)"
+                       oninput="savePreferencesDebounced()">
+                <div class="small text-muted mt-1">Dica: use vírgulas para facilitar o matching.</div>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Modelo</label>
+                <select id="prefWorkMode" class="form-select form-select-sm" onchange="savePreferences()">
+                  <option value="">Selecionar</option>
+                  <option value="Presencial">Presencial</option>
+                  <option value="Híbrido">Híbrido</option>
+                  <option value="Remoto">Remoto</option>
+                  <option value="Indiferente">Indiferente</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Jornada</label>
+                <select id="prefShift" class="form-select form-select-sm" onchange="savePreferences()">
+                  <option value="">Selecionar</option>
+                  <option value="Comercial">Comercial</option>
+                  <option value="Turnos">Turnos</option>
+                  <option value="Noturno">Noturno</option>
+                  <option value="Escala">Escala</option>
+                  <option value="Indiferente">Indiferente</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Tipo de contrato</label>
+                <select id="prefContract" class="form-select form-select-sm" onchange="savePreferences()">
+                  <option value="">Selecionar</option>
+                  <option value="CLT">CLT</option>
+                  <option value="PJ">PJ</option>
+                  <option value="Temporário">Temporário</option>
+                  <option value="Aprendiz">Aprendiz</option>
+                  <option value="Estágio">Estágio</option>
+                  <option value="Indiferente">Indiferente</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Viagens a trabalho</label>
+                <select id="prefTravel" class="form-select form-select-sm" onchange="savePreferences()">
+                  <option value="">Selecionar</option>
+                  <option value="Sim">Sim</option>
+                  <option value="Não">Não</option>
+                  <option value="Eventual">Eventual</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Mudança (mobilidade)</label>
+                <select id="prefRelocation" class="form-select form-select-sm" onchange="savePreferences()">
+                  <option value="">Selecionar</option>
+                  <option value="Sim">Sim</option>
+                  <option value="Não">Não</option>
+                  <option value="Depende">Depende</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Localidade e distância -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-map-marked-alt me-1"></i> Localidade e distância</div>
+
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Cidade/Região preferida</label>
+                <input id="prefCity" class="form-control form-control-sm" placeholder="Ex.: Embu das Artes / SP"
+                       oninput="savePreferencesDebounced()">
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Distância máxima (km)</label>
+                <input id="prefMaxDistance" type="number" min="0" step="1"
+                       class="form-control form-control-sm" placeholder="Ex.: 25"
+                       oninput="savePreferencesDebounced()">
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Observações de deslocamento</label>
+                <input id="prefCommuteNotes" class="form-control form-control-sm" placeholder="Ex.: acesso fácil a metrô/ônibus"
+                       oninput="savePreferencesDebounced()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Pretensão e benefícios -->
+          <div class="border rounded p-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-wallet me-1"></i> Pretensão e benefícios</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Pretensão (R$)</label>
+                <input id="prefSalary" class="form-control form-control-sm" placeholder="Ex.: 3500"
+                       oninput="savePreferencesDebounced()">
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Negociável?</label>
+                <select id="prefSalaryNegotiable" class="form-select form-select-sm" onchange="savePreferences()">
+                  <option value="">Selecionar</option>
+                  <option value="Sim">Sim</option>
+                  <option value="Não">Não</option>
+                  <option value="Depende">Depende</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Benefícios desejados</label>
+                <input id="prefBenefits" class="form-control form-control-sm"
+                       placeholder="Ex.: VT, VR, plano de saúde (vírgula)"
+                       oninput="savePreferencesDebounced()">
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small text-muted mb-1">Não abrimos mão de… (opcional)</label>
+                <input id="prefDealbreakers" class="form-control form-control-sm"
+                       placeholder="Ex.: ambiente respeitoso, plano de carreira, estabilidade"
+                       oninput="savePreferencesDebounced()">
+              </div>
+
+              <div class="col-12">
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                  <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="previewPreferences()">
+                    <i class="fas fa-eye me-1"></i> Pré-visualizar resumo
+                  </button>
+                  <span class="text-muted small align-self-center" id="prefSavedHint">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+
+        <div class="tab-pane fade" id="tabDocs" role="tabpanel" aria-labelledby="docs-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Documentos & Anexos</div>
+              <div class="text-muted small">
+                Adicione links e registros de documentos (MVP: salvo neste navegador). Upload é simulado (nome do arquivo).
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedDocuments()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplos
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="downloadDocumentsSummary()">
+                <i class="fas fa-download me-1"></i> Baixar resumo
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetDocuments()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Ações rápidas -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div class="fw-bold"><i class="fas fa-folder-open me-1"></i> Itens anexados</div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openDocModal()">
+                  <i class="fas fa-plus me-1"></i> Adicionar
+                </button>
+              </div>
+            </div>
+
+            <div class="row g-2 mt-2">
+              <div class="col-12 col-md-6">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text"><i class="fas fa-search"></i></span>
+                  <input id="docsSearch" class="form-control" placeholder="Buscar por nome/tipo..."
+                         oninput="renderDocuments()">
+                </div>
+              </div>
+              <div class="col-12 col-md-3">
+                <select id="docsFilterType" class="form-select form-select-sm" onchange="renderDocuments()">
+                  <option value="">Filtrar por tipo (todos)</option>
+                  <option value="Currículo">Currículo</option>
+                  <option value="Certificado">Certificado</option>
+                  <option value="Diploma/Declaração">Diploma/Declaração</option>
+                  <option value="Portfólio">Portfólio</option>
+                  <option value="Carteira/Registro">Carteira/Registro</option>
+                  <option value="Outros">Outros</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-3">
+                <select id="docsSort" class="form-select form-select-sm" onchange="renderDocuments()">
+                  <option value="new">Mais recentes</option>
+                  <option value="old">Mais antigos</option>
+                  <option value="name">Nome (A–Z)</option>
+                  <option value="type">Tipo</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lista -->
+          <div id="docsList" class="row g-2"></div>
+          <div id="docsEmpty" class="text-muted small mt-2" style="display:none;">
+            Nenhum documento anexado ainda.
+          </div>
+
+        </div>
+
+        <!-- Modal: Documento/Anexo -->
+        <div class="modal fade" id="docEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-paperclip me-1"></i> Documento / Anexo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="docId">
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-5">
+                    <label class="form-label small text-muted mb-1">Tipo</label>
+                    <select id="docType" class="form-select form-select-sm">
+                      <option value="Currículo">Currículo</option>
+                      <option value="Certificado">Certificado</option>
+                      <option value="Diploma/Declaração">Diploma/Declaração</option>
+                      <option value="Portfólio">Portfólio</option>
+                      <option value="Carteira/Registro">Carteira/Registro</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-7">
+                    <label class="form-label small text-muted mb-1">Nome</label>
+                    <input id="docName" class="form-control form-control-sm" placeholder="Ex.: Currículo 2026 - João Silva">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Link (opcional)</label>
+                    <input id="docLink" class="form-control form-control-sm" placeholder="https://drive.google.com/...">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Arquivo (simulado)</label>
+                    <input id="docFile" type="file" class="form-control form-control-sm" onchange="handleDocFileChange(this)">
+                    <div class="small text-muted mt-1">No MVP, salvamos apenas o nome do arquivo.</div>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Data (opcional)</label>
+                    <input id="docDate" class="form-control form-control-sm" placeholder="Ex.: 01/2026">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Observações (opcional)</label>
+                    <textarea id="docNotes" class="form-control form-control-sm" rows="3"
+                              placeholder="Ex.: Certificação válida até 2027 • Emissão SENAI"></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="border rounded p-2" style="border-radius:12px;background:#f8f9fa;">
+                      <div class="small text-muted">Arquivo selecionado:</div>
+                      <div class="fw-bold" id="docFileName">—</div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveDocumentItem()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tabRefs" role="tabpanel" aria-labelledby="refs-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Referências Profissionais</div>
+              <div class="text-muted small">
+                Cadastre pessoas que podem referenciar seu trabalho (MVP: salvo neste navegador).
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedReferences()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplos
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="downloadReferencesSummary()">
+                <i class="fas fa-download me-1"></i> Baixar resumo
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetReferences()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Aviso -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;background:#f8f9fa;">
+            <div class="d-flex gap-2">
+              <div style="font-size:1.25rem; line-height:1;">
+                <i class="fas fa-info-circle text-primary"></i>
+              </div>
+              <div>
+                <div class="fw-bold">Dica importante</div>
+                <div class="text-muted small" style="line-height:1.55;">
+                  Peça autorização antes de compartilhar contatos. Se marcar <strong>“Pode contatar agora”</strong>,
+                  considere que o RH pode entrar em contato a qualquer momento (no produto final).
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ações / filtros -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div class="fw-bold"><i class="fas fa-address-book me-1"></i> Lista de referências</div>
+              <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openRefModal()">
+                <i class="fas fa-plus me-1"></i> Adicionar
+              </button>
+            </div>
+
+            <div class="row g-2 mt-2">
+              <div class="col-12 col-md-6">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text"><i class="fas fa-search"></i></span>
+                  <input id="refsSearch" class="form-control" placeholder="Buscar por nome/empresa/cargo..."
+                         oninput="renderReferences()">
+                </div>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <select id="refsFilterRelation" class="form-select form-select-sm" onchange="renderReferences()">
+                  <option value="">Filtrar por relação (todas)</option>
+                  <option value="Líder direto">Líder direto</option>
+                  <option value="Gestor">Gestor</option>
+                  <option value="Coordenador(a)">Coordenador(a)</option>
+                  <option value="Colega">Colega</option>
+                  <option value="Cliente">Cliente</option>
+                  <option value="Professor(a)">Professor(a)</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <select id="refsSort" class="form-select form-select-sm" onchange="renderReferences()">
+                  <option value="new">Mais recentes</option>
+                  <option value="old">Mais antigas</option>
+                  <option value="name">Nome (A–Z)</option>
+                  <option value="company">Empresa (A–Z)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="refsList" class="row g-2"></div>
+          <div id="refsEmpty" class="text-muted small mt-2" style="display:none;">
+            Nenhuma referência cadastrada ainda.
+          </div>
+
+        </div>
+
+        <!-- Modal: Referência Profissional -->
+        <div class="modal fade" id="refEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-user-tie me-1"></i> Referência Profissional</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="refId">
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-7">
+                    <label class="form-label small text-muted mb-1">Nome</label>
+                    <input id="refName" class="form-control form-control-sm" placeholder="Ex.: Maria Oliveira">
+                  </div>
+
+                  <div class="col-12 col-md-5">
+                    <label class="form-label small text-muted mb-1">Relação</label>
+                    <select id="refRelation" class="form-select form-select-sm">
+                      <option value="Líder direto">Líder direto</option>
+                      <option value="Gestor">Gestor</option>
+                      <option value="Coordenador(a)">Coordenador(a)</option>
+                      <option value="Colega">Colega</option>
+                      <option value="Cliente">Cliente</option>
+                      <option value="Professor(a)">Professor(a)</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Empresa</label>
+                    <input id="refCompany" class="form-control form-control-sm" placeholder="Ex.: Liotécnica">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Cargo</label>
+                    <input id="refRole" class="form-control form-control-sm" placeholder="Ex.: Supervisora de Qualidade">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Contato (e-mail/telefone)</label>
+                    <input id="refContact" class="form-control form-control-sm" placeholder="Ex.: maria@email.com • (11) 99999-9999">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Período (opcional)</label>
+                    <input id="refPeriod" class="form-control form-control-sm" placeholder="Ex.: 2023–2025">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">LinkedIn (opcional)</label>
+                    <input id="refLinkedin" class="form-control form-control-sm" placeholder="https://linkedin.com/in/...">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Observações (opcional)</label>
+                    <textarea id="refNotes" class="form-control form-control-sm" rows="3"
+                              placeholder="Ex.: Liderou meu time • Pode falar sobre resultados em auditoria e indicadores."></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="refCanContactNow">
+                      <label class="form-check-label" for="refCanContactNow">
+                        <strong>Pode contatar agora</strong>
+                        <div class="text-muted small">Marque somente se a pessoa autorizou contato imediato.</div>
+                      </label>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveReferenceItem()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tabA11y" role="tabpanel" aria-labelledby="a11y-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Acessibilidade & Inclusão</div>
+              <div class="text-muted small">
+                Opcional. Preencha apenas o que você quiser compartilhar. (MVP: salvo neste navegador)
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedA11y()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplo
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="downloadA11ySummary()">
+                <i class="fas fa-download me-1"></i> Baixar resumo
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetA11y()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Aviso LGPD -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;background:#f8f9fa;">
+            <div class="d-flex gap-2">
+              <div style="font-size:1.25rem; line-height:1;">
+                <i class="fas fa-shield-alt text-primary"></i>
+              </div>
+              <div>
+                <div class="fw-bold">Privacidade e autonomia</div>
+                <div class="text-muted small" style="line-height:1.55;">
+                  Você controla o que compartilhar. Informações sensíveis (como PcD) só serão consideradas se você marcar
+                  <strong>consentimento</strong>. No produto final, isso deve seguir políticas e base legal.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comunicação -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-comments me-1"></i> Preferências de comunicação</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Idioma</label>
+                <select id="a11yLanguage" class="form-select form-select-sm" onchange="saveA11y()">
+                  <option value="">Selecionar</option>
+                  <option value="Português">Português</option>
+                  <option value="Inglês">Inglês</option>
+                  <option value="Espanhol">Espanhol</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Meio preferido</label>
+                <select id="a11yChannel" class="form-select form-select-sm" onchange="saveA11y()">
+                  <option value="">Selecionar</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="E-mail">E-mail</option>
+                  <option value="Telefone">Telefone</option>
+                  <option value="Videochamada">Videochamada</option>
+                  <option value="Indiferente">Indiferente</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Melhor horário</label>
+                <select id="a11yBestTime" class="form-select form-select-sm" onchange="saveA11y()">
+                  <option value="">Selecionar</option>
+                  <option value="Manhã">Manhã</option>
+                  <option value="Tarde">Tarde</option>
+                  <option value="Noite">Noite</option>
+                  <option value="Comercial">Comercial</option>
+                  <option value="A combinar">A combinar</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small text-muted mb-1">Observações (opcional)</label>
+                <input id="a11yCommNotes" class="form-control form-control-sm"
+                       placeholder="Ex.: prefiro mensagens por escrito antes de ligações"
+                       oninput="saveA11yDebounced()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Recursos e acomodação -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-wheelchair me-1"></i> Recursos e acomodação</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-2">Se você desejar, selecione necessidades de acessibilidade</label>
+
+                <div class="d-flex flex-column gap-2">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedCaptions" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedCaptions">Legendas em videochamada / vídeos</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedInterpreter" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedInterpreter">Intérprete de Libras</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedScreenReader" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedScreenReader">Compatibilidade com leitor de tela</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedLowStim" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedLowStim">Ambiente com baixa estimulação (ruído/luz)</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedMobility" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedMobility">Acessibilidade física (rampas/elevador)</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedExtraTime" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedExtraTime">Tempo adicional em testes/etapas</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Detalhes adicionais (opcional)</label>
+                <textarea id="a11yNeedsDetails" class="form-control form-control-sm" rows="7"
+                          placeholder="Ex.: em entrevistas online, prefiro perguntas por escrito / pausas entre etapas"
+                          oninput="saveA11yDebounced()"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- PcD (opcional) com consentimento -->
+          <div class="border rounded p-3" style="border-radius:14px;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <div class="fw-bold"><i class="fas fa-hand-holding-heart me-1"></i> Informações PcD (opcional)</div>
+              <span class="badge rounded-pill bg-secondary" id="a11yPcdBadge">Não informado</span>
+            </div>
+
+            <div class="text-muted small mt-1" style="line-height:1.55;">
+              Se você desejar informar PcD, marque o consentimento. No MVP, isso fica salvo localmente.
+            </div>
+
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" id="a11yPcdConsent" onchange="toggleA11yPcdFields()">
+              <label class="form-check-label" for="a11yPcdConsent">
+                <strong>Eu autorizo compartilhar informações PcD para fins de recrutamento</strong>
+                <div class="text-muted small">Você pode desfazer a qualquer momento.</div>
+              </label>
+            </div>
+
+            <div id="a11yPcdFields" class="mt-3" style="display:none;">
+              <div class="row g-2">
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted mb-1">Você se identifica como PcD?</label>
+                  <select id="a11yPcdYesNo" class="form-select form-select-sm" onchange="saveA11y()">
+                    <option value="">Selecionar</option>
+                    <option value="Sim">Sim</option>
+                    <option value="Não">Não</option>
+                    <option value="Prefiro não dizer">Prefiro não dizer</option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted mb-1">Tipo (opcional)</label>
+                  <select id="a11yPcdType" class="form-select form-select-sm" onchange="saveA11y()">
+                    <option value="">Selecionar</option>
+                    <option value="Auditiva">Auditiva</option>
+                    <option value="Visual">Visual</option>
+                    <option value="Física/Motora">Física/Motora</option>
+                    <option value="Intelectual">Intelectual</option>
+                    <option value="Psicossocial">Psicossocial</option>
+                    <option value="Neurodiversidade">Neurodiversidade</option>
+                    <option value="Múltipla">Múltipla</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted mb-1">Laudo/Comprovação</label>
+                  <select id="a11yPcdProof" class="form-select form-select-sm" onchange="saveA11y()">
+                    <option value="">Selecionar</option>
+                    <option value="Tenho laudo">Tenho laudo</option>
+                    <option value="Não tenho laudo">Não tenho laudo</option>
+                    <option value="Prefiro não dizer">Prefiro não dizer</option>
+                  </select>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Notas (opcional)</label>
+                  <textarea id="a11yPcdNotes" class="form-control form-control-sm" rows="3"
+                            placeholder="Ex.: Preferências de acomodação específicas para entrevistas/ambiente"
+                            oninput="saveA11yDebounced()"></textarea>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="tab-pane fade" id="tabAgenda" role="tabpanel" aria-labelledby="agenda-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Disponibilidade & Agenda</div>
+              <div class="text-muted small">
+                Configure seus melhores horários para entrevistas e seus bloqueios. (MVP: salvo neste navegador)
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedAgenda()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplo
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="downloadAgendaSummary()">
+                <i class="fas fa-download me-1"></i> Baixar resumo
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetAgenda()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Preferências rápidas -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-sliders-h me-1"></i> Preferências gerais</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Formato preferido de entrevista</label>
+                <select id="agInterviewMode" class="form-select form-select-sm" onchange="saveAgenda()">
+                  <option value="">Selecionar</option>
+                  <option value="Online">Online</option>
+                  <option value="Presencial">Presencial</option>
+                  <option value="Híbrido">Híbrido</option>
+                  <option value="Indiferente">Indiferente</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Data de início disponível</label>
+                <input id="agStartDate" class="form-control form-control-sm" placeholder="Ex.: Imediato / 10/02/2026"
+                       oninput="saveAgendaDebounced()">
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Aviso prévio (se aplicável)</label>
+                <select id="agNotice" class="form-select form-select-sm" onchange="saveAgenda()">
+                  <option value="">Selecionar</option>
+                  <option value="Sem aviso">Sem aviso</option>
+                  <option value="7 dias">7 dias</option>
+                  <option value="15 dias">15 dias</option>
+                  <option value="30 dias">30 dias</option>
+                  <option value="A combinar">A combinar</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small text-muted mb-1">Observações (opcional)</label>
+                <input id="agNotes" class="form-control form-control-sm"
+                       placeholder="Ex.: prefiro entrevistas entre 9h e 11h, com confirmação por WhatsApp"
+                       oninput="saveAgendaDebounced()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Dias da semana -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-calendar-week me-1"></i> Dias preferidos</div>
+            <div class="text-muted small mb-2">Selecione os dias em que você costuma estar disponível.</div>
+
+            <div class="d-flex flex-wrap gap-2">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agDayMon" onchange="saveAgenda()">
+                <label class="form-check-label" for="agDayMon">Seg</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agDayTue" onchange="saveAgenda()">
+                <label class="form-check-label" for="agDayTue">Ter</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agDayWed" onchange="saveAgenda()">
+                <label class="form-check-label" for="agDayWed">Qua</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agDayThu" onchange="saveAgenda()">
+                <label class="form-check-label" for="agDayThu">Qui</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agDayFri" onchange="saveAgenda()">
+                <label class="form-check-label" for="agDayFri">Sex</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agDaySat" onchange="saveAgenda()">
+                <label class="form-check-label" for="agDaySat">Sáb</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agDaySun" onchange="saveAgenda()">
+                <label class="form-check-label" for="agDaySun">Dom</label>
+              </div>
+            </div>
+
+            <hr class="my-3">
+
+            <div class="fw-bold mb-2"><i class="far fa-clock me-1"></i> Períodos do dia</div>
+            <div class="d-flex flex-wrap gap-2">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agTimeMorning" onchange="saveAgenda()">
+                <label class="form-check-label" for="agTimeMorning">Manhã</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agTimeAfternoon" onchange="saveAgenda()">
+                <label class="form-check-label" for="agTimeAfternoon">Tarde</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="agTimeEvening" onchange="saveAgenda()">
+                <label class="form-check-label" for="agTimeEvening">Noite</label>
+              </div>
+            </div>
+
+            <div class="row g-2 mt-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Horário preferido (opcional)</label>
+                <input id="agPreferredHours" class="form-control form-control-sm" placeholder="Ex.: 09:00–11:00"
+                       oninput="saveAgendaDebounced()">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Fuso horário</label>
+                <select id="agTimezone" class="form-select form-select-sm" onchange="saveAgenda()">
+                  <option value="America/Sao_Paulo">America/Sao_Paulo (Brasília)</option>
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">America/New_York</option>
+                  <option value="Europe/Lisbon">Europe/Lisbon</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloqueios -->
+          <div class="border rounded p-3" style="border-radius:14px;">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div>
+                <div class="fw-bold"><i class="fas fa-ban me-1"></i> Bloqueios (indisponibilidades)</div>
+                <div class="text-muted small">Use para datas/horários em que você não pode fazer entrevista.</div>
+              </div>
+              <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openBlockModal()">
+                <i class="fas fa-plus me-1"></i> Adicionar bloqueio
+              </button>
+            </div>
+
+            <div class="row g-2 mt-2">
+              <div class="col-12 col-md-6">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text"><i class="fas fa-search"></i></span>
+                  <input id="agBlocksSearch" class="form-control" placeholder="Buscar bloqueio..."
+                         oninput="renderAgendaBlocks()">
+                </div>
+              </div>
+              <div class="col-12 col-md-3">
+                <select id="agBlocksSort" class="form-select form-select-sm" onchange="renderAgendaBlocks()">
+                  <option value="new">Mais recentes</option>
+                  <option value="old">Mais antigos</option>
+                  <option value="date">Por data (asc)</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-3">
+                <select id="agBlocksTypeFilter" class="form-select form-select-sm" onchange="renderAgendaBlocks()">
+                  <option value="">Tipo (todos)</option>
+                  <option value="Entrevista">Entrevista</option>
+                  <option value="Compromisso">Compromisso</option>
+                  <option value="Viagem">Viagem</option>
+                  <option value="Saúde">Saúde</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="agBlocksList" class="row g-2 mt-2"></div>
+            <div id="agBlocksEmpty" class="text-muted small mt-2" style="display:none;">
+              Nenhum bloqueio cadastrado.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modal: Bloqueio de agenda -->
+        <div class="modal fade" id="agendaBlockModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-ban me-1"></i> Bloqueio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="agBlockId">
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted mb-1">Tipo</label>
+                    <select id="agBlockType" class="form-select form-select-sm">
+                      <option value="Compromisso">Compromisso</option>
+                      <option value="Entrevista">Entrevista</option>
+                      <option value="Viagem">Viagem</option>
+                      <option value="Saúde">Saúde</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-8">
+                    <label class="form-label small text-muted mb-1">Título</label>
+                    <input id="agBlockTitle" class="form-control form-control-sm" placeholder="Ex.: consulta médica / prova / viagem">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Data</label>
+                    <input id="agBlockDate" class="form-control form-control-sm" placeholder="Ex.: 28/01/2026">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Horário (opcional)</label>
+                    <input id="agBlockHours" class="form-control form-control-sm" placeholder="Ex.: 14:00–16:00">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Observações (opcional)</label>
+                    <textarea id="agBlockNotes" class="form-control form-control-sm" rows="3"
+                              placeholder="Ex.: sem disponibilidade neste período"></textarea>
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveAgendaBlock()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tabApps" role="tabpanel" aria-labelledby="apps-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Histórico de Candidaturas & Etapas</div>
+              <div class="text-muted small">Acompanhe suas candidaturas e o andamento (MVP: salvo neste navegador).</div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedAppsHistory()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplo
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="importFromMyApps()">
+                <i class="fas fa-file-import me-1"></i> Importar do “Minhas candidaturas”
+              </button>
+              <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openAppEditModal()">
+                <i class="fas fa-plus me-1"></i> Nova candidatura
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="downloadAppsSummary()">
+                <i class="fas fa-download me-1"></i> Baixar resumo
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetAppsHistory()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- filtros -->
+          <div class="row g-2 mb-3">
+            <div class="col-12 col-md-6">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input id="appsSearch" class="form-control" placeholder="Buscar por vaga, empresa, local..."
+                       oninput="renderAppsHistory()">
+              </div>
+            </div>
+
+            <div class="col-6 col-md-3">
+              <select id="appsStatusFilter" class="form-select form-select-sm" onchange="renderAppsHistory()">
+                <option value="">Status (todos)</option>
+                <option value="Aplicado">Aplicado</option>
+                <option value="Triagem">Triagem</option>
+                <option value="Entrevista">Entrevista</option>
+                <option value="Teste">Teste</option>
+                <option value="Proposta">Proposta</option>
+                <option value="Aprovado">Aprovado</option>
+                <option value="Reprovado">Reprovado</option>
+                <option value="Desistiu">Desistiu</option>
+              </select>
+            </div>
+
+            <div class="col-6 col-md-3">
+              <select id="appsSort" class="form-select form-select-sm" onchange="renderAppsHistory()">
+                <option value="new">Mais recentes</option>
+                <option value="old">Mais antigas</option>
+                <option value="status">Por status</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- lista -->
+          <div id="appsList" class="row g-2"></div>
+          <div id="appsEmpty" class="text-muted small" style="display:none;">Nenhuma candidatura cadastrada.</div>
+
+        </div>
+
+        <!-- Modal: Editar/Adicionar candidatura -->
+        <div class="modal fade" id="appEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-briefcase me-1"></i> Candidatura</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="appId">
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Vaga</label>
+                    <input id="appTitle" class="form-control form-control-sm" placeholder="Ex.: Analista de Qualidade Jr">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Empresa</label>
+                    <input id="appCompany" class="form-control form-control-sm" placeholder="Ex.: Liotécnica">
+                  </div>
+
+                  <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted mb-1">Local</label>
+                    <input id="appLocation" class="form-control form-control-sm" placeholder="Ex.: Embu das Artes / Remoto">
+                  </div>
+
+                  <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted mb-1">Data da candidatura</label>
+                    <input id="appDate" class="form-control form-control-sm" placeholder="Ex.: 24/01/2026">
+                  </div>
+
+                  <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted mb-1">Status atual</label>
+                    <select id="appStatus" class="form-select form-select-sm" onchange="syncPipelineFromStatus()">
+                      <option value="Aplicado">Aplicado</option>
+                      <option value="Triagem">Triagem</option>
+                      <option value="Entrevista">Entrevista</option>
+                      <option value="Teste">Teste</option>
+                      <option value="Proposta">Proposta</option>
+                      <option value="Aprovado">Aprovado</option>
+                      <option value="Reprovado">Reprovado</option>
+                      <option value="Desistiu">Desistiu</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Link da vaga (opcional)</label>
+                    <input id="appLink" class="form-control form-control-sm" placeholder="https://...">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-2">Etapas (pipeline)</label>
+
+                    <div class="d-flex flex-wrap gap-2">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="stApplied">
+                        <label class="form-check-label" for="stApplied">Aplicado</label>
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="stScreen">
+                        <label class="form-check-label" for="stScreen">Triagem</label>
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="stInterview">
+                        <label class="form-check-label" for="stInterview">Entrevista</label>
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="stTest">
+                        <label class="form-check-label" for="stTest">Teste</label>
+                      </div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="stOffer">
+                        <label class="form-check-label" for="stOffer">Proposta</label>
+                      </div>
+                    </div>
+
+                    <div class="text-muted small mt-2">
+                      Dica: mudar o “Status atual” marca automaticamente as etapas até ele.
+                    </div>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Notas/feedback (opcional)</label>
+                    <textarea id="appNotes" class="form-control form-control-sm" rows="3"
+                              placeholder="Ex.: entrevista marcada para 02/02 às 10:00"></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+                      <div class="fw-bold">Timeline</div>
+                      <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="addTimelineEvent()">
+                        <i class="fas fa-plus me-1"></i> Adicionar evento
+                      </button>
+                    </div>
+
+                    <div id="appTimeline" class="mt-2 d-flex flex-column gap-2"></div>
+                    <div id="appTimelineEmpty" class="text-muted small mt-2" style="display:none;">Sem eventos ainda.</div>
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveApp()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="tab-pane fade" id="tabNotify" role="tabpanel" aria-labelledby="notify-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Notificações & Comunicação</div>
+              <div class="text-muted small">Escolha como e quando receber atualizações. (MVP: salvo neste navegador)</div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedNotify()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplo
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="testNotify()">
+                <i class="fas fa-paper-plane me-1"></i> Testar
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="downloadNotifySummary()">
+                <i class="fas fa-download me-1"></i> Baixar resumo
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetNotify()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Canais -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-broadcast-tower me-1"></i> Canais</div>
+            <div class="text-muted small mb-2">Ative os canais que você deseja receber comunicações.</div>
+
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-md-6">
+                <div class="d-flex flex-wrap gap-3">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="ntEmail" onchange="saveNotify()">
+                    <label class="form-check-label" for="ntEmail"><i class="far fa-envelope me-1"></i> E-mail</label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="ntWhatsapp" onchange="saveNotify()">
+                    <label class="form-check-label" for="ntWhatsapp"><i class="fab fa-whatsapp me-1"></i> WhatsApp</label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="ntSms" onchange="saveNotify()">
+                    <label class="form-check-label" for="ntSms"><i class="fas fa-sms me-1"></i> SMS</label>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="ntPush" onchange="saveNotify()">
+                    <label class="form-check-label" for="ntPush"><i class="far fa-bell me-1"></i> Push</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Frequência</label>
+                <select id="ntFrequency" class="form-select form-select-sm" onchange="saveNotify()">
+                  <option value="Imediato">Imediato</option>
+                  <option value="Diário (resumo)">Diário (resumo)</option>
+                  <option value="Semanal (resumo)">Semanal (resumo)</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Idioma</label>
+                <select id="ntLang" class="form-select form-select-sm" onchange="saveNotify()">
+                  <option value="pt-BR">Português (Brasil)</option>
+                  <option value="en-US">English (US)</option>
+                  <option value="es-ES">Español</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-6 mt-2">
+                <label class="form-label small text-muted mb-1">E-mail preferido (para avisos)</label>
+                <input id="ntEmailAddr" class="form-control form-control-sm" placeholder="ex.: seuemail@dominio.com"
+                       oninput="saveNotifyDebounced()">
+              </div>
+
+              <div class="col-12 col-md-6 mt-2">
+                <label class="form-label small text-muted mb-1">Telefone/WhatsApp (DDD + número)</label>
+                <input id="ntPhone" class="form-control form-control-sm" placeholder="ex.: 11 99999-9999"
+                       oninput="saveNotifyDebounced()">
+              </div>
+
+              <div class="col-12 mt-2">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="ntAllowContact" onchange="saveNotify()">
+                  <label class="form-check-label" for="ntAllowContact">
+                    Autorizo contato para atualizações de candidatura e convites de entrevista (operacional).
+                  </label>
+                </div>
+                <div class="text-muted small mt-1">No produto final, isso se conecta com consentimentos e auditoria (LGPD já está na sua aba).</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tipos de alerta -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-list-check me-1"></i> Tipos de alerta</div>
+            <div class="text-muted small mb-2">Escolha quais eventos devem gerar notificação.</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="ntNewJobs" onchange="saveNotify()">
+                  <label class="form-check-label" for="ntNewJobs"><strong>Novas vagas</strong> compatíveis com meu perfil</label>
+                </div>
+                <div class="form-check mt-2">
+                  <input class="form-check-input" type="checkbox" id="ntAppUpdates" onchange="saveNotify()">
+                  <label class="form-check-label" for="ntAppUpdates"><strong>Atualização</strong> de status das candidaturas</label>
+                </div>
+                <div class="form-check mt-2">
+                  <input class="form-check-input" type="checkbox" id="ntInterview" onchange="saveNotify()">
+                  <label class="form-check-label" for="ntInterview"><strong>Entrevistas</strong> (agendamento, alteração, lembretes)</label>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="ntMessages" onchange="saveNotify()">
+                  <label class="form-check-label" for="ntMessages"><strong>Mensagens</strong> do RH/recrutador</label>
+                </div>
+                <div class="form-check mt-2">
+                  <input class="form-check-input" type="checkbox" id="ntDocs" onchange="saveNotify()">
+                  <label class="form-check-label" for="ntDocs"><strong>Documentos</strong> (solicitação/pendência)</label>
+                </div>
+                <div class="form-check mt-2">
+                  <input class="form-check-input" type="checkbox" id="ntReminders" onchange="saveNotify()">
+                  <label class="form-check-label" for="ntReminders"><strong>Lembretes</strong> (testes, prazos, confirmações)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quiet Hours -->
+          <div class="border rounded p-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="far fa-moon me-1"></i> Horário silencioso</div>
+            <div class="text-muted small mb-2">Evite notificações em determinados horários (exceto crítico no futuro).</div>
+
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Ativar</label>
+                <select id="ntQuietEnabled" class="form-select form-select-sm" onchange="saveNotify()">
+                  <option value="Não">Não</option>
+                  <option value="Sim">Sim</option>
+                </select>
+              </div>
+
+              <div class="col-6 col-md-3">
+                <label class="form-label small text-muted mb-1">Início</label>
+                <input id="ntQuietStart" class="form-control form-control-sm" placeholder="22:00"
+                       oninput="saveNotifyDebounced()">
+              </div>
+
+              <div class="col-6 col-md-3">
+                <label class="form-label small text-muted mb-1">Fim</label>
+                <input id="ntQuietEnd" class="form-control form-control-sm" placeholder="07:00"
+                       oninput="saveNotifyDebounced()">
+              </div>
+
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Prioridade</label>
+                <select id="ntPriority" class="form-select form-select-sm" onchange="saveNotify()">
+                  <option value="Normal">Normal</option>
+                  <option value="Alta">Alta (respeita silêncio)</option>
+                  <option value="Crítica">Crítica (ignora silêncio)</option>
+                </select>
+              </div>
+
+              <div class="col-12 mt-2">
+                <label class="form-label small text-muted mb-1">Mensagem padrão (opcional)</label>
+                <input id="ntSignature" class="form-control form-control-sm"
+                       placeholder="Ex.: Obrigado! — (Seu nome)"
+                       oninput="saveNotifyDebounced()">
+              </div>
+            </div>
+
+            <hr class="my-3">
+
+            <div class="d-flex flex-wrap gap-2">
+              <span class="badge rounded-pill text-bg-light" style="border:1px solid #e5e7eb;color:#6b7280;">
+                <i class="fas fa-shield-alt me-1"></i> Segurança: dados ficam no navegador (MVP)
+              </span>
+              <span class="badge rounded-pill text-bg-light" style="border:1px solid #e5e7eb;color:#6b7280;">
+                <i class="fas fa-clock me-1"></i> Resumo: <span id="ntPreview" class="ms-1">—</span>
+              </span>
+            </div>
+          </div>
+
+        </div>
+        </div>
+    </div>
+</div>
                             </div>
 
 
@@ -1167,6 +3476,68 @@
     <script>
         // ===== Seções (cards) dentro do Profile Modal =====
         (function () {
+          
+          const sectionMap = {
+            perfil: "tabProfile",
+            testes: "tabTests",
+            comp: "tabSkills",
+            formacao: "tabEdu",
+            exp: "tabExperience",
+            lgpd: "tabLgpd",
+            pref: "tabPref",
+            docs: "tabDocs",
+            refs: "tabRefs",
+            acess: "tabA11y",
+            agenda: "tabAgenda",
+            hist: "tabApps",
+            notif: "tabNotify"
+          };
+
+          const sectionsCards = document.getElementById("profileSectionsCards");
+          const sectionsContent = document.getElementById("profileSectionsContent");
+          const backButtons = [
+            document.getElementById("profileBackToCards")
+          ].filter(Boolean);
+
+          const leftCol = document.getElementById("profileLeftPanelCol");
+          const rightCol = document.getElementById("profileSectionsCol");
+
+          function showCardsView() {
+            sectionsCards?.classList.remove("d-none");
+            sectionsContent?.classList.add("d-none");
+            backButtons.forEach(btn => btn.classList.add("d-none"));
+            if (leftCol) leftCol.classList.remove("d-none");
+            if (rightCol) {
+              rightCol.classList.remove("col-lg-12");
+              if (!rightCol.classList.contains("col-lg-7")) rightCol.classList.add("col-lg-7");
+            }
+          }
+
+          function showSectionView(key) {
+            if (!key) return;
+            const paneId = sectionMap[key];
+            if (!paneId) return;
+
+            const panes = document.querySelectorAll("#profileTabsContent .tab-pane");
+            panes.forEach(p => p.classList.remove("show", "active"));
+            const target = document.getElementById(paneId);
+            if (target) {
+              target.classList.add("show", "active");
+            }
+
+            sectionsCards?.classList.add("d-none");
+            sectionsContent?.classList.remove("d-none");
+            backButtons.forEach(btn => btn.classList.remove("d-none"));
+            if (leftCol) leftCol.classList.add("d-none");
+            if (rightCol) {
+              rightCol.classList.remove("col-lg-7");
+              if (!rightCol.classList.contains("col-lg-12")) rightCol.classList.add("col-lg-12");
+            }
+          }
+    
+
+          
+
           const TOPICS = [
             { key: "perfil",   name: "Perfil",                     icon: "bi-person" },
             { key: "testes",   name: "Testes",                     icon: "bi-clipboard-check" },
@@ -1334,11 +3705,21 @@
               grid.addEventListener("click", (ev) => {
                 const btn = ev.target.closest(".topic-card");
                 if (!btn) return;
-                showDetail(btn.getAttribute("data-key"));
+                const key = btn.getAttribute("data-key");
+                showDetail(key);
+                showSectionView(key);
               });
               grid.__wired = true;
             }
 
+
+            backButtons.forEach(btn => {
+              if (!btn.__wired) {
+                btn.addEventListener("click", showCardsView);
+                btn.__wired = true;
+              }
+            });
+    
             const btnRandomize = document.getElementById("profileBtnRandomize");
             if (btnRandomize && !btnRandomize.__wired) {
               btnRandomize.addEventListener("click", () => {
@@ -1393,6 +3774,11 @@
             // Renderiza quando o modal abrir (evita render desnecessário)
             modalEl.addEventListener("shown.bs.modal", () => {
               initIfNeeded();
+              showCardsView();
+            });
+
+            modalEl.addEventListener("hidden.bs.modal", () => {
+              showCardsView();
             });
 
             // se o modal já estiver visível por algum motivo
@@ -2261,3 +4647,4 @@
     <script src="~/js/views/portal-vagas-profile.js" asp-append-version="true"></script>
 </body>
 </html>
+
