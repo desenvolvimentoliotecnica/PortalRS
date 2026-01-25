@@ -23,6 +23,7 @@
     <title>Portal de Vagas</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
@@ -222,6 +223,7 @@
             padding-top: 1rem;
             margin-top: 1rem;
         }
+
         .empty-state {
             border: 1px dashed rgba(0,0,0,.20);
             border-radius: .75rem;
@@ -258,6 +260,337 @@
                 max-height: calc(100vh - 1rem);
             }
         }
+
+        /* ===== Seções (cards 85x85) - dentro do modal de perfil ===== */
+        :root {
+            --ui-primary: #0d6efd;
+            --ui-ink: #0b1220;
+            --ui-muted: #6b7280;
+            --ui-card: #ffffff;
+            --ui-border: rgba(15, 23, 42, .12);
+            --ui-shadow: 0 10px 30px rgba(2, 6, 23, .08);
+            /* paleta dinâmica */
+            --c-low: 210;
+            --c-mid: 48;
+            --c-high: 135;
+        }
+
+        .sections-panel {
+            border: 1px solid rgba(15, 23, 42, .10);
+            border-radius: 16px;
+            background: #fbfcff;
+            padding: 14px;
+        }
+
+        .topics-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 5px 0px;
+        }
+
+        @@media (max-width: 992px) {
+            .topics-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        @@media (max-width: 576px) {
+            .topics-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        .topic-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .topic-card {
+            width: 85px;
+            height: 85px;
+            border-radius: 16px;
+            border: 1px solid var(--ui-border);
+            background: var(--ui-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .2s ease;
+            user-select: none;
+            outline: none;
+        }
+
+            .topic-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 20px rgba(2,6,23,.08);
+            }
+
+            .topic-card:active {
+                transform: translateY(0);
+            }
+
+        .topic-icon {
+            font-size: 26px;
+            color: var(--ui-primary);
+            line-height: 1;
+            transition: color .2s ease;
+        }
+
+        .topic-badge {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            font-size: 11px;
+            padding: 3px 7px;
+            border-radius: 999px;
+            font-weight: 800;
+            letter-spacing: .2px;
+            border: 1px solid rgba(15, 23, 42, .10);
+            background: rgba(255,255,255,.75);
+            color: rgba(15, 23, 42, .85);
+            backdrop-filter: blur(6px);
+        }
+
+        .topic-progress {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: 9px;
+            height: 7px;
+            border-radius: 999px;
+            background: rgba(2,6,23,.10);
+            overflow: hidden;
+        }
+
+            .topic-progress > span {
+                display: block;
+                height: 100%;
+                width: 0%;
+                border-radius: 999px;
+                background: var(--ui-primary);
+                transition: width .3s ease;
+            }
+
+        .topic-label {
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--ui-ink);
+            text-align: center;
+            line-height: 1.15;
+            max-width: 130px;
+        }
+
+        .topic-sub {
+            font-size: 11px;
+            color: var(--ui-muted);
+            margin-top: 2px;
+            text-align: center;
+        }
+
+        /* ===== Cards por faixa (igual print) ===== */
+        .topic-card {
+            border-radius: 16px;
+            border: 1px solid rgba(15, 23, 42, .10);
+            background: #fff;
+        }
+
+            /* Verde (>=75) */
+            .topic-card.is-green {
+                background: #dff7e7;
+                border-color: rgba(22, 163, 74, .18);
+            }
+
+                .topic-card.is-green .topic-icon {
+                    color: #15803d;
+                }
+
+                .topic-card.is-green .topic-progress {
+                    background: rgba(21,128,61,.14);
+                }
+
+                    .topic-card.is-green .topic-progress > span {
+                        background: #16a34a;
+                    }
+
+            /* Azul (>=50 e <75) */
+            .topic-card.is-blue {
+                background: #dff2ff;
+                border-color: rgba(2, 132, 199, .18);
+            }
+
+                .topic-card.is-blue .topic-icon {
+                    color: #0369a1;
+                }
+
+                .topic-card.is-blue .topic-progress {
+                    background: rgba(3,105,161,.14);
+                }
+
+                    .topic-card.is-blue .topic-progress > span {
+                        background: #0ea5e9;
+                    }
+
+            /* Amarelo (>=25 e <50) */
+            .topic-card.is-yellow {
+                background: #fff2c6;
+                border-color: rgba(245, 158, 11, .22);
+            }
+
+                .topic-card.is-yellow .topic-icon {
+                    color: #b45309;
+                }
+
+                .topic-card.is-yellow .topic-progress {
+                    background: rgba(180,83,9,.14);
+                }
+
+                    .topic-card.is-yellow .topic-progress > span {
+                        background: #f59e0b;
+                    }
+
+            /* Vermelho (<25) */
+            .topic-card.is-red {
+                background: #ffd9d9;
+                border-color: rgba(239, 68, 68, .20);
+            }
+
+                .topic-card.is-red .topic-icon {
+                    color: #b91c1c;
+                }
+
+                .topic-card.is-red .topic-progress {
+                    background: rgba(185,28,28,.14);
+                }
+
+                    .topic-card.is-red .topic-progress > span {
+                        background: #ef4444;
+                    }
+
+        /* Badge mais suave */
+        .topic-badge {
+            background: rgba(255,255,255,.65);
+            border: 1px solid rgba(15,23,42,.10);
+        }
+
+
+        .topic-card.is-selected {
+            outline: 3px solid rgba(13,110,253,.25);
+            box-shadow: 0 18px 35px rgba(2,6,23,.12);
+            transform: translateY(-2px);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, .10);
+            background: #fff;
+            font-size: 12px;
+            color: var(--ui-ink);
+        }
+
+
+        /* ===== Inputs estilo "azul + arredondado" (só no modal Perfil) ===== */
+        #profileModal .form-control,
+        #profileModal .form-select {
+            background: #eef4ff; /* azul claro */
+            border: 1px solid rgba(31, 111, 229, .18);
+            border-radius: 14px; /* bem arredondado */
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
+            color: #0b1220;
+            padding: .62rem .85rem;
+            transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+        }
+
+            /* placeholder mais suave */
+            #profileModal .form-control::placeholder {
+                color: rgba(11, 18, 32, .45);
+            }
+
+            /* foco igual "clean" do print */
+            #profileModal .form-control:focus,
+            #profileModal .form-select:focus {
+                background: #eef4ff;
+                border-color: rgba(31, 111, 229, .55);
+                box-shadow: 0 0 0 .22rem rgba(31, 111, 229, .18);
+            }
+
+            /* readonly (email) com visual coerente */
+            #profileModal .form-control[readonly] {
+                background: #e8f0ff;
+                opacity: 1;
+                cursor: not-allowed;
+            }
+
+        /* selects - seta mais suave */
+        #profileModal .form-select {
+            background-color: #eef4ff;
+        }
+
+        /* labels como no print (menores e suaves) */
+        #profileModal .form-label {
+            font-size: .85rem;
+            font-weight: 600;
+            color: rgba(11, 18, 32, .75);
+            margin-bottom: .35rem;
+        }
+
+        /* ajuda/descricao */
+        #profileModal .form-text {
+            color: rgba(11, 18, 32, .55);
+        }
+
+        /* ===== Modal "Meu perfil" igual ao print ===== */
+        #profileModal .modal-dialog {
+            /* deixa o container do modal alinhado com a borda arredondada */
+        }
+
+        #profileModal .modal-content {
+            border-radius: 22px; /* cantos arredondados */
+            border: 1px solid rgba(15, 23, 42, .10); /* borda fina */
+            box-shadow: 0 18px 50px rgba(2, 6, 23, .14), /* sombra externa suave */
+            0 1px 0 rgba(255,255,255,.60) inset; /* brilho interno */
+            overflow: hidden; /* garante cantos limpos */
+            background: #ffffff;
+        }
+
+        /* Header com linha bem leve */
+        #profileModal .modal-header {
+            border-bottom: 1px solid rgba(15, 23, 42, .08);
+            padding: 18px 20px;
+            background: #ffffff;
+        }
+
+        /* Body com leve azul (igual print) */
+        #profileModal .modal-body {
+            background: #f3f7ff; /* azul muito suave */
+            padding: 18px 20px;
+        }
+
+        /* Footer com leve azul e linha suave */
+        #profileModal .modal-footer {
+            border-top: 1px solid rgba(15, 23, 42, .08);
+            background: #f3f7ff;
+            padding: 14px 20px;
+        }
+
+        /* Botão fechar arredondado e suave (opcional) */
+        #profileModal .btn-close {
+            background-color: rgba(15,23,42,.06);
+            border-radius: 999px;
+            padding: 10px;
+            opacity: .9;
+        }
+
+            #profileModal .btn-close:hover {
+                opacity: 1;
+            }
+
     </style>
 </head>
 
@@ -450,7 +783,7 @@
             <p class="text-secondary mb-3">Tente remover alguns filtros ou refinar o texto de busca.</p>
             <button class="btn btn-outline-secondary" type="button" id="emptyClearBtn">Limpar filtros</button>
         </section>
-<section class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-4" id="jobsGrid" aria-label="Lista de vagas">
+        <section class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-4" id="jobsGrid" aria-label="Lista de vagas">
             <div class="col-12 d-flex justify-content-center py-5" id="jobsLoading">
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Carregando...</span>
@@ -572,7 +905,7 @@
                                 <div class="invalid-feedback">Informe um telefone para contato.</div>
                             </div>
 
-                                                        <div class="col-12 col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="candidateUf" class="form-label">UF</label>
                                 <select id="candidateUf" name="candidateUf" class="form-select" required disabled>
                                     <option value="" selected>Selecione</option>
@@ -612,7 +945,7 @@
                                 <div class="invalid-feedback">Informe um número válido.</div>
                             </div>
 
-                                                        <div class="col-12 col-md-6">
+                            <div class="col-12 col-md-6">
                                 <label for="salaryExpectation" class="form-label">Pretensao (R$)</label>
                                 <input id="salaryExpectation" name="salaryExpectation" class="form-control" type="text" required placeholder="Ex.: 12000" />
                                 <div class="invalid-feedback">Informe sua pretensao salarial.</div>
@@ -681,52 +1014,137 @@
 
     <!-- Modal de perfil do candidato -->
     <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
-                <form id="profileForm" class="modal-content needs-validation" novalidate>
+                <form id="profileForm" class="needs-validation" novalidate>
                     <div class="modal-header">
                         <div>
                             <h2 class="modal-title h5 mb-0" id="profileModalLabel">Meu perfil</h2>
-                            <div class="text-secondary small">Atualize seus dados basicos.</div>
+                            <div class="text-secondary small">Atualize seus dados basicos e acompanhe o preenchimento das seções.</div>
                         </div>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                     </div>
 
                     <div class="modal-body">
                         <div class="row g-3">
-                            <div class="col-12">
-                                <label for="profileName" class="form-label">Nome completo</label>
-                                <input id="profileName" class="form-control" type="text" required />
-                                <div class="invalid-feedback">Informe seu nome completo.</div>
+                            <!-- Coluna: dados do candidato (100% altura da linha) -->
+                            <div class="col-12 col-lg-5 d-flex">
+                                <div class="border rounded-4 p-3 bg-white flex-fill d-flex flex-column">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <div class="fw-semibold">Dados do candidato</div>
+                                    </div>
+
+                                    <!-- Conteúdo -->
+                                    <div class="row g-3 flex-grow-1">
+                                        <div class="col-12">
+                                            <label for="profileName" class="form-label">Nome completo</label>
+                                            <input id="profileName" class="form-control" type="text" value="@userName" required />
+                                            <div class="invalid-feedback">Informe seu nome completo.</div>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label for="profileEmail" class="form-label">E-mail</label>
+                                            <input id="profileEmail" class="form-control" type="email" value="@userEmail" readonly />
+                                            <div class="form-text">O e-mail nao pode ser alterado.</div>
+                                        </div>
+
+                                        <div class="col-12 col-md-6">
+                                            <label for="profilePhone" class="form-label">Telefone</label>
+                                            <input id="profilePhone" class="form-control" type="tel" required />
+                                            <div class="invalid-feedback">Informe um telefone para contato.</div>
+                                        </div>
+
+                                        <div class="col-12 col-md-6">
+                                            <label for="profileUf" class="form-label">UF</label>
+                                            <select id="profileUf" class="form-select" required>
+                                                <option value="" selected>Selecione</option>
+                                            </select>
+                                            <div class="invalid-feedback">Selecione a UF.</div>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label for="profileCity" class="form-label">Cidade</label>
+                                            <select id="profileCity" class="form-select" required disabled>
+                                                <option value="" selected>Selecione a UF primeiro</option>
+                                            </select>
+                                            <div class="invalid-feedback">Selecione a cidade.</div>
+                                        </div>
+
+                                        <!-- Empurra a LGPD pro final do card, se sobrar altura -->
+                                        <div class="col-12 mt-auto">
+                                            <div class="small text-secondary">
+                                                <i class="bi bi-shield-lock me-1"></i>Seus dados sao tratados de acordo com a LGPD.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="col-12">
-                                <label for="profileEmail" class="form-label">E-mail</label>
-                                <input id="profileEmail" class="form-control" type="email" readonly />
-                                <div class="form-text">O e-mail nao pode ser alterado.</div>
+                            <!-- Coluna: seções (cards) -->
+                            <!-- Coluna: seções (cards) - 100% altura como a esquerda -->
+                            <div class="col-12 col-lg-7 d-flex">
+                                <div class="sections-panel flex-fill d-flex flex-column">
+
+                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                                        <div>
+                                            <div class="fw-semibold d-flex align-items-center gap-2 d-none">
+                                                <i class="bi bi-ui-checks-grid text-primary"></i>
+                                                Seções do Portal
+                                            </div>
+                                        </div>
+
+                                        <button type="button" class="btn btn-sm btn-outline-primary d-none" id="profileBtnRandomize">
+                                            <i class="bi bi-arrow-repeat me-1"></i> Atualizar %
+                                        </button>
+                                    </div>
+
+                                    <!-- Conteúdo da direita preenchendo altura -->
+                                    <div class="row g-3 flex-grow-1">
+                                        <div class="col-12 col-xl-12">
+                                            <div class="topics-grid" id="profileTopicsGrid"></div>
+                                        </div>
+
+                                        <div class="col-12 col-xl-4 d-none">
+                                            <div class="border rounded-4 bg-white p-3 h-100" id="profileDetailBox">
+                                                <div class="fw-semibold d-flex align-items-center gap-2">
+                                                    <i class="bi bi-info-circle-fill text-primary"></i>
+                                                    <span id="profileDetailName">Selecione um tópico</span>
+                                                </div>
+
+                                                <div class="text-secondary small mt-2" id="profileDetailDesc">
+                                                    Visualize o status de preenchimento e acesse a seção correspondente.
+                                                </div>
+
+                                                <div class="mt-3">
+                                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                                        <span class="text-secondary" style="font-size: 12px;">Progresso</span>
+                                                        <span class="fw-bold" id="profileDetailPercent">—</span>
+                                                    </div>
+                                                    <div class="progress" style="height: 10px; border-radius: 999px;">
+                                                        <div class="progress-bar" id="profileDetailBar" role="progressbar" style="width: 0%;"></div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mt-3 d-flex gap-2 flex-wrap align-items-end">
+                                                    <button type="button" class="btn btn-primary btn-sm" id="profileBtnOpenSection" disabled>
+                                                        <i class="bi bi-box-arrow-up-right me-1"></i> Abrir seção
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="profileBtnMarkDone" disabled>
+                                                        <i class="bi bi-check2 me-1"></i> Concluir (100%)
+                                                    </button>
+                                                </div>
+
+                                                <div class="mt-3 small text-secondary">
+                                                    <i class="bi bi-lightning-charge me-1"></i>Quanto mais completo, melhor o match com as vagas.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
                             </div>
 
-                            <div class="col-12 col-md-6">
-                                <label for="profilePhone" class="form-label">Telefone</label>
-                                <input id="profilePhone" class="form-control" type="tel" required />
-                                <div class="invalid-feedback">Informe um telefone para contato.</div>
-                            </div>
 
-                            <div class="col-12 col-md-4">
-                                <label for="profileUf" class="form-label">UF</label>
-                                <select id="profileUf" class="form-select" required>
-                                    <option value="" selected>Selecione</option>
-                                </select>
-                                <div class="invalid-feedback">Selecione a UF.</div>
-                            </div>
-
-                            <div class="col-12 col-md-4">
-                                <label for="profileCity" class="form-label">Cidade</label>
-                                <select id="profileCity" class="form-select" required disabled>
-                                    <option value="" selected>Selecione a UF primeiro</option>
-                                </select>
-                                <div class="invalid-feedback">Selecione a cidade.</div>
-                            </div>
                         </div>
                     </div>
 
@@ -740,867 +1158,1105 @@
     </div>
 
     <script>
-      window.__portalApiUrl = "@(Configuration["Endpoints:RhApi"] ?? string.Empty)".replace(/\/$/, "");
-      window.__portalTenantId = "@(Context.Request.Query["tenantId"].ToString())";
-      window.__portalTenantFromClaim = "@(User?.FindFirst("tenant")?.Value ?? string.Empty)";
+        window.__portalApiUrl = "@(Configuration["Endpoints:RhApi"] ?? string.Empty)".replace(/\/$/, "");
+        window.__portalTenantId = "@(Context.Request.Query["tenantId"].ToString())";
+        window.__portalTenantFromClaim = "@(User?.FindFirst("tenant")?.Value ?? string.Empty)";
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-    /**
-     * Intenção:
-     * - Candidatura completa, com validação e upload opcional.
-     * - Sem engolir erro: toda falha resulta em alerta visível.
-     * - Mantém a seleção da vaga atual para preencher o modal de candidatura.
-     */
-    (async function () {
-      const elAlert = document.getElementById("appAlert");
-      const overlay = document.getElementById("loadingOverlay");
-      const apiBase = (window.__portalApiUrl || "").replace(/\/$/, "");
-      const tenantId = window.__portalTenantId
-        || window.__portalTenantFromClaim
-        || new URLSearchParams(window.location.search).get("tenantId")
-        || new URLSearchParams(window.location.search).get("tenant")
-        || "";
-      const grid = document.getElementById("jobsGrid");
-      const sentinel = document.getElementById("jobsSentinel");
-      const gridLoading = document.getElementById("jobsLoading");
-      let items = [];
-      const resultsCount = document.getElementById("resultsCount");
-      const emptyState = document.getElementById("emptyState");
+        // ===== Seções (cards) dentro do Profile Modal =====
+        (function () {
+          const TOPICS = [
+            { key: "perfil",   name: "Perfil",                     icon: "bi-person" },
+            { key: "testes",   name: "Testes",                     icon: "bi-clipboard-check" },
+            { key: "comp",     name: "Competências & Portfólio",   icon: "bi-lightning-charge" },
+            { key: "formacao", name: "Formação & Educação",        icon: "bi-mortarboard" },
+            { key: "exp",      name: "Experiência & Projetos",     icon: "bi-briefcase" },
+            { key: "lgpd",     name: "Privacidade (LGPD)",         icon: "bi-shield-lock" },
+            { key: "pref",     name: "Preferências / Objetivos",   icon: "bi-bullseye" },
+            { key: "docs",     name: "Documentos & Anexos",        icon: "bi-paperclip" },
+            { key: "refs",     name: "Referências",                icon: "bi-people" },
+            { key: "acess",    name: "Acessibilidade & Inclusão",  icon: "bi-universal-access" },
+            { key: "agenda",   name: "Disponibilidade & Agenda",   icon: "bi-calendar-week" },
+            { key: "hist",     name: "Histórico de Candidaturas",  icon: "bi-clock-history" },
+            { key: "notif",    name: "Notificações & Comunicação", icon: "bi-bell" },
+          ];
 
-      const filtersForm = document.getElementById("filtersForm");
-      const clearBtn = document.getElementById("clearBtn");
-      const emptyClearBtn = document.getElementById("emptyClearBtn");
-      const filtersDrawerEl = document.getElementById("filtersDrawer");
+          const progressByKey = Object.create(null);
+          TOPICS.forEach(t => progressByKey[t.key] = randomPercent());
 
-      const jobModalEl = document.getElementById("jobModal");
-      const jobModal = new bootstrap.Modal(jobModalEl, { backdrop: true, keyboard: true });
+          let selectedKey = null;
+          let rendered = false;
+          function classFromPercent(pct){
+          if (pct >= 75) return "is-green";
+          if (pct >= 50) return "is-blue";
+          if (pct >= 25) return "is-yellow";
+          return "is-red";
+        }
 
-      const applyModalEl = document.getElementById("applyModal");
-      const applyModal = new bootstrap.Modal(applyModalEl, { backdrop: "static", keyboard: true }); // static para evitar perda acidental
+          function randomPercent() {
+            const r = Math.random();
+            if (r < 0.08) return 0;
+            if (r > 0.92) return 100;
+            return Math.floor(10 + Math.random() * 86);
+          }
 
-      const jobModalApplyBtn = document.getElementById("jobModalApplyBtn");
+          function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
-      const applyForm = document.getElementById("applyForm");
-      const applyAlert = document.getElementById("applyAlert");
-      const sendBtn = document.getElementById("sendApplicationBtn");
-      const sendBtnText = document.getElementById("sendBtnText");
-      const sendBtnSpinner = document.getElementById("sendBtnSpinner");
+          function lerp(a, b, t) { return a + (b - a) * t; }
 
-      const attachmentInput = document.getElementById("attachment");
-      const attachmentInvalid = document.getElementById("attachmentInvalid");
-      const ufSelect = document.getElementById("candidateUf");
-      const citySelect = document.getElementById("candidateCity");
-      const phoneInput = document.getElementById("phone");
-      const fullNameInput = document.getElementById("fullName");
-      const salaryInput = document.getElementById("salaryExpectation");
-      const emailInput = document.getElementById("email");
+          function getCssNumber(varName) {
+            const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+          }
 
-      let currentSort = "recent";
-      const pageSize = 12;
-      let currentPage = 1;
-      let totalPages = 1;
-      let totalItems = 0;
-      let isLoadingPage = false;
+          // 0..100 -> matiz (vermelho/laranja -> amarelo -> verde)
+          function hueFromPercent(pct) {
+            const p = clamp(pct, 0, 100);
+            if (p <= 50) {
+              const t = p / 50;
+              return lerp(getCssNumber("--c-low"), getCssNumber("--c-mid"), t);
+            }
+            const t = (p - 50) / 50;
+            return lerp(getCssNumber("--c-mid"), getCssNumber("--c-high"), t);
+          }
 
-      // Mantém a vaga atual selecionada (para candidatura)
-      let currentJob = null;
+        
+          function renderGrid() {
+            const grid = document.getElementById("profileTopicsGrid");
+            if (!grid) return;
 
-      const heroGradients = [
-        "linear-gradient(135deg, #1e3a8a, #0ea5e9)",
-        "linear-gradient(135deg, #0f766e, #22c55e)",
-        "linear-gradient(135deg, #7c3aed, #ec4899)",
-        "linear-gradient(135deg, #d97706, #f97316)",
-        "linear-gradient(135deg, #1d4ed8, #38bdf8)",
-        "linear-gradient(135deg, #4f46e5, #6366f1)"
-      ];
+            grid.innerHTML = "";
+            TOPICS.forEach(topic => {
+              const pct = progressByKey[topic.key];
+              const hue = Math.round(hueFromPercent(pct));
 
-      function setGridLoading(isLoading) {
-        if (!gridLoading) return;
-        gridLoading.classList.toggle("d-none", !isLoading);
-      }
+              
+              const item = document.createElement("div");
+              item.className = "topic-item";
 
-      function showAppAlert(type, message) {
-        // type: "success" | "danger"
-        elAlert.className = "alert alert-" + type;
-        elAlert.textContent = message;
-        elAlert.classList.remove("d-none");
-      }
+              const card = document.createElement("button");
+              card.type = "button";
+              card.className = "topic-card";
+              card.setAttribute("data-key", topic.key);
+              card.setAttribute("data-hue", hue);
+              card.style.setProperty("--h", hue);
+              card.setAttribute("aria-label", topic.name);
 
-      function clearAppAlert() {
-        elAlert.textContent = "";
-        elAlert.classList.add("d-none");
-      }
+              card.classList.add(classFromPercent(pct));
 
-      function showApplyAlert(message) {
-        applyAlert.textContent = message;
-        applyAlert.classList.remove("d-none");
-      }
+              const badge = document.createElement("span");
+              badge.className = "topic-badge";
+              badge.textContent = pct + "%";
 
-      function clearApplyAlert() {
-        applyAlert.textContent = "";
-        applyAlert.classList.add("d-none");
-      }
+              const icon = document.createElement("i");
+              icon.className = `topic-icon bi ${topic.icon}`;
 
-      function setLoading(isLoading) {
-        overlay.setAttribute("aria-hidden", isLoading ? "false" : "true");
-      }
+              const prog = document.createElement("div");
+              prog.className = "topic-progress";
+              const fill = document.createElement("span");
+              fill.style.width = clamp(pct, 0, 100) + "%";
+              prog.appendChild(fill);
 
-      function setSendLoading(isLoading) {
-        // Regra: evitar double-submit e dar feedback visual consistente
-        sendBtn.disabled = isLoading;
-        sendBtnSpinner.classList.toggle("d-none", !isLoading);
-        sendBtnText.textContent = isLoading ? "Enviando..." : "Enviar candidatura";
-      }
+              card.appendChild(badge);
+              card.appendChild(icon);
+              card.appendChild(prog);
 
-      const LOCATION_BASE = "/PortalVagas/Locations";
-      let cachedUfs = null;
-      const cityCache = new Map();
-      let cachedProfile = null;
+              const label = document.createElement("div");
+              label.className = "topic-label";
+              label.textContent = topic.name;
 
-      function setUfLoading(label, disabled = true) {
-        if (!ufSelect) return;
-        ufSelect.disabled = disabled;
-        ufSelect.innerHTML = "";
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = label;
-        ufSelect.appendChild(opt);
-      }
+              const sub = document.createElement("div");
+              sub.className = "topic-sub";
+              sub.textContent = "";
 
-      async function fetchUfs() {
-        if (cachedUfs) return cachedUfs;
-        const res = await fetch(`${LOCATION_BASE}/Ufs`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const list = (Array.isArray(data) ? data : [])
-          .map(uf => (uf || "").toString().trim().toUpperCase())
-          .filter(Boolean)
-          .sort((a, b) => a.localeCompare(b, "pt-BR"));
-        cachedUfs = list;
-        return list;
-      }
+              item.appendChild(card);
+              item.appendChild(label);
+              item.appendChild(sub);
 
-      async function populateUfSelect(selectedUf = "", lockSelect = false) {
-        if (!ufSelect) return;
-        setUfLoading("Carregando UFs...", true);
-        try {
-          const list = await fetchUfs();
-          ufSelect.disabled = false;
-          ufSelect.innerHTML = '<option value="" selected>Selecione</option>';
-          list.forEach(uf => {
+              grid.appendChild(item);
+            });
+          }
+
+          function clearSelected() {
+            document.querySelectorAll("#profileTopicsGrid .topic-card.is-selected")
+              .forEach(x => x.classList.remove("is-selected"));
+          }
+
+          function showDetail(key) {
+            const t = TOPICS.find(x => x.key === key);
+            if (!t) return;
+
+            selectedKey = key;
+            const pct = progressByKey[key];
+            const hue = Math.round(hueFromPercent(pct));
+
+            const detailName = document.getElementById("profileDetailName");
+            const detailDesc = document.getElementById("profileDetailDesc");
+            const detailPercent = document.getElementById("profileDetailPercent");
+            const detailBar = document.getElementById("profileDetailBar");
+            const btnOpen = document.getElementById("profileBtnOpenSection");
+            const btnDone = document.getElementById("profileBtnMarkDone");
+
+            if (detailName) detailName.textContent = t.name;
+
+            if (detailDesc) {
+              detailDesc.innerHTML = `
+                <div class="mb-2">
+                  <span class="pill"><i class="bi ${t.icon}"></i> ${t.name}</span>
+                  <span class="pill"><i class="bi bi-percent"></i> ${pct}%</span>
+                </div>
+                <div class="text-secondary small">
+                  Visualize o status de preenchimento desta seção e prossiga para completar as informações.
+                </div>
+              `;
+            }
+
+            if (detailPercent) detailPercent.textContent = pct + "%";
+            if (detailBar) {
+              detailBar.style.width = pct + "%";
+              detailBar.style.backgroundColor = `hsl(${hue} 70% 45%)`;
+            }
+
+            if (btnOpen) btnOpen.disabled = false;
+            if (btnDone) btnDone.disabled = false;
+
+            clearSelected();
+            const btn = document.querySelector(`#profileTopicsGrid .topic-card[data-key="${CSS.escape(key)}"]`);
+            if (btn) btn.classList.add("is-selected");
+          }
+
+          function wireEvents() {
+            const grid = document.getElementById("profileTopicsGrid");
+            if (grid && !grid.__wired) {
+              grid.addEventListener("click", (ev) => {
+                const btn = ev.target.closest(".topic-card");
+                if (!btn) return;
+                showDetail(btn.getAttribute("data-key"));
+              });
+              grid.__wired = true;
+            }
+
+            const btnRandomize = document.getElementById("profileBtnRandomize");
+            if (btnRandomize && !btnRandomize.__wired) {
+              btnRandomize.addEventListener("click", () => {
+                TOPICS.forEach(t => progressByKey[t.key] = randomPercent());
+                renderGrid();
+                if (selectedKey) showDetail(selectedKey);
+              });
+              btnRandomize.__wired = true;
+            }
+
+            const btnDone = document.getElementById("profileBtnMarkDone");
+            if (btnDone && !btnDone.__wired) {
+              btnDone.addEventListener("click", () => {
+                if (!selectedKey) return;
+                progressByKey[selectedKey] = 100;
+                renderGrid();
+                showDetail(selectedKey);
+              });
+              btnDone.__wired = true;
+            }
+
+            const btnOpen = document.getElementById("profileBtnOpenSection");
+            if (btnOpen && !btnOpen.__wired) {
+              btnOpen.addEventListener("click", () => {
+                if (!selectedKey) return;
+
+                // Integre aqui com sua navegação/rotas reais
+                // Ex.: window.location.href = `/candidato/${selectedKey}`;
+                // Por enquanto: apenas feedback visual.
+                Swal.fire({
+                  icon: "info",
+                  title: "Abrir seção",
+                  text: "Seção: " + selectedKey,
+                  confirmButtonText: "Ok"
+                });
+              });
+              btnOpen.__wired = true;
+            }
+          }
+
+          function initIfNeeded() {
+            if (rendered) return;
+            renderGrid();
+            wireEvents();
+            rendered = true;
+          }
+
+          document.addEventListener("DOMContentLoaded", () => {
+            const modalEl = document.getElementById("profileModal");
+            if (!modalEl) return;
+
+            // Renderiza quando o modal abrir (evita render desnecessário)
+            modalEl.addEventListener("shown.bs.modal", () => {
+              initIfNeeded();
+            });
+
+            // se o modal já estiver visível por algum motivo
+            if (modalEl.classList.contains("show")) initIfNeeded();
+          });
+        })();
+    </script>
+
+
+    <script>
+        /**
+         * Intenção:
+         * - Candidatura completa, com validação e upload opcional.
+         * - Sem engolir erro: toda falha resulta em alerta visível.
+         * - Mantém a seleção da vaga atual para preencher o modal de candidatura.
+         */
+        (async function () {
+          const elAlert = document.getElementById("appAlert");
+          const overlay = document.getElementById("loadingOverlay");
+          const apiBase = (window.__portalApiUrl || "").replace(/\/$/, "");
+          const tenantId = window.__portalTenantId
+            || window.__portalTenantFromClaim
+            || new URLSearchParams(window.location.search).get("tenantId")
+            || new URLSearchParams(window.location.search).get("tenant")
+            || "";
+          const grid = document.getElementById("jobsGrid");
+          const sentinel = document.getElementById("jobsSentinel");
+          const gridLoading = document.getElementById("jobsLoading");
+          let items = [];
+          const resultsCount = document.getElementById("resultsCount");
+          const emptyState = document.getElementById("emptyState");
+
+          const filtersForm = document.getElementById("filtersForm");
+          const clearBtn = document.getElementById("clearBtn");
+          const emptyClearBtn = document.getElementById("emptyClearBtn");
+          const filtersDrawerEl = document.getElementById("filtersDrawer");
+
+          const jobModalEl = document.getElementById("jobModal");
+          const jobModal = new bootstrap.Modal(jobModalEl, { backdrop: true, keyboard: true });
+
+          const applyModalEl = document.getElementById("applyModal");
+          const applyModal = new bootstrap.Modal(applyModalEl, { backdrop: "static", keyboard: true }); // static para evitar perda acidental
+
+          const jobModalApplyBtn = document.getElementById("jobModalApplyBtn");
+
+          const applyForm = document.getElementById("applyForm");
+          const applyAlert = document.getElementById("applyAlert");
+          const sendBtn = document.getElementById("sendApplicationBtn");
+          const sendBtnText = document.getElementById("sendBtnText");
+          const sendBtnSpinner = document.getElementById("sendBtnSpinner");
+
+          const attachmentInput = document.getElementById("attachment");
+          const attachmentInvalid = document.getElementById("attachmentInvalid");
+          const ufSelect = document.getElementById("candidateUf");
+          const citySelect = document.getElementById("candidateCity");
+          const phoneInput = document.getElementById("phone");
+          const fullNameInput = document.getElementById("fullName");
+          const salaryInput = document.getElementById("salaryExpectation");
+          const emailInput = document.getElementById("email");
+
+          let currentSort = "recent";
+          const pageSize = 12;
+          let currentPage = 1;
+          let totalPages = 1;
+          let totalItems = 0;
+          let isLoadingPage = false;
+
+          // Mantém a vaga atual selecionada (para candidatura)
+          let currentJob = null;
+
+          const heroGradients = [
+            "linear-gradient(135deg, #1e3a8a, #0ea5e9)",
+            "linear-gradient(135deg, #0f766e, #22c55e)",
+            "linear-gradient(135deg, #7c3aed, #ec4899)",
+            "linear-gradient(135deg, #d97706, #f97316)",
+            "linear-gradient(135deg, #1d4ed8, #38bdf8)",
+            "linear-gradient(135deg, #4f46e5, #6366f1)"
+          ];
+
+          function setGridLoading(isLoading) {
+            if (!gridLoading) return;
+            gridLoading.classList.toggle("d-none", !isLoading);
+          }
+
+          function showAppAlert(type, message) {
+            // type: "success" | "danger"
+            elAlert.className = "alert alert-" + type;
+            elAlert.textContent = message;
+            elAlert.classList.remove("d-none");
+          }
+
+          function clearAppAlert() {
+            elAlert.textContent = "";
+            elAlert.classList.add("d-none");
+          }
+
+          function showApplyAlert(message) {
+            applyAlert.textContent = message;
+            applyAlert.classList.remove("d-none");
+          }
+
+          function clearApplyAlert() {
+            applyAlert.textContent = "";
+            applyAlert.classList.add("d-none");
+          }
+
+          function setLoading(isLoading) {
+            overlay.setAttribute("aria-hidden", isLoading ? "false" : "true");
+          }
+
+          function setSendLoading(isLoading) {
+            // Regra: evitar double-submit e dar feedback visual consistente
+            sendBtn.disabled = isLoading;
+            sendBtnSpinner.classList.toggle("d-none", !isLoading);
+            sendBtnText.textContent = isLoading ? "Enviando..." : "Enviar candidatura";
+          }
+
+          const LOCATION_BASE = "/PortalVagas/Locations";
+          let cachedUfs = null;
+          const cityCache = new Map();
+          let cachedProfile = null;
+
+          function setUfLoading(label, disabled = true) {
+            if (!ufSelect) return;
+            ufSelect.disabled = disabled;
+            ufSelect.innerHTML = "";
             const opt = document.createElement("option");
-            opt.value = uf;
-            opt.textContent = uf;
-            if (uf === selectedUf) opt.selected = true;
+            opt.value = "";
+            opt.textContent = label;
             ufSelect.appendChild(opt);
-          });
-          if (lockSelect) ufSelect.disabled = true;
-        } catch (err) {
-          console.error(err);
-          setUfLoading("Nao foi possivel carregar UFs", true);
-        }
-      }
+          }
 
-      function setCityLoading(label, disabled = true) {
-        if (!citySelect) return;
-        citySelect.disabled = disabled;
-        citySelect.innerHTML = "";
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = label;
-        citySelect.appendChild(opt);
-      }
+          async function fetchUfs() {
+            if (cachedUfs) return cachedUfs;
+            const res = await fetch(`${LOCATION_BASE}/Ufs`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const list = (Array.isArray(data) ? data : [])
+              .map(uf => (uf || "").toString().trim().toUpperCase())
+              .filter(Boolean)
+              .sort((a, b) => a.localeCompare(b, "pt-BR"));
+            cachedUfs = list;
+            return list;
+          }
 
-      async function fetchCitiesForUf(uf) {
-        const key = uf.toUpperCase();
-        if (cityCache.has(key)) return cityCache.get(key);
-        const res = await fetch(`${LOCATION_BASE}/Ufs/${encodeURIComponent(key)}/Cities`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const list = (Array.isArray(data) ? data : [])
-          .map(city => (city || "").toString().trim())
-          .filter(Boolean)
-          .sort((a, b) => a.localeCompare(b, "pt-BR"));
-        cityCache.set(key, list);
-        return list;
-      }
+          async function populateUfSelect(selectedUf = "", lockSelect = false) {
+            if (!ufSelect) return;
+            setUfLoading("Carregando UFs...", true);
+            try {
+              const list = await fetchUfs();
+              ufSelect.disabled = false;
+              ufSelect.innerHTML = '<option value="" selected>Selecione</option>';
+              list.forEach(uf => {
+                const opt = document.createElement("option");
+                opt.value = uf;
+                opt.textContent = uf;
+                if (uf === selectedUf) opt.selected = true;
+                ufSelect.appendChild(opt);
+              });
+              if (lockSelect) ufSelect.disabled = true;
+            } catch (err) {
+              console.error(err);
+              setUfLoading("Nao foi possivel carregar UFs", true);
+            }
+          }
 
-      async function loadCitiesForUf(uf, selectedCity = "", lockSelect = false) {
-        if (!uf) {
-          setCityLoading("Selecione a UF primeiro", true);
-          return;
-        }
-        setCityLoading("Carregando municipios...", true);
-        try {
-          const cities = await fetchCitiesForUf(uf);
-          citySelect.disabled = false;
-          citySelect.innerHTML = '<option value="" selected>Selecione</option>';
-          cities.forEach(name => {
+          function setCityLoading(label, disabled = true) {
+            if (!citySelect) return;
+            citySelect.disabled = disabled;
+            citySelect.innerHTML = "";
             const opt = document.createElement("option");
-            opt.value = name;
-            opt.textContent = name;
-            if (name === selectedCity) opt.selected = true;
+            opt.value = "";
+            opt.textContent = label;
             citySelect.appendChild(opt);
-          });
-          if (lockSelect) citySelect.disabled = true;
-        } catch (err) {
-          console.error(err);
-          setCityLoading("Nao foi possivel carregar cidades", true);
-        }
-      }
-
-      function digitsOnly(value) {
-        return (value || "").replace(/\D/g, "");
-      }
-
-      function formatPhone(value) {
-        const digits = digitsOnly(value).slice(0, 11);
-        if (!digits) return "";
-        const ddd = digits.slice(0, 2);
-        const part1 = digits.length > 2 ? digits.slice(2, digits.length > 6 ? 7 : 6) : "";
-        const part2 = digits.length > 6 ? digits.slice(7) : "";
-        if (digits.length <= 6) return `(${ddd}) ${digits.slice(2)}`;
-        return `(${ddd}) ${part1}-${part2}`;
-      }
-
-      function formatMoneyInput(value) {
-        const digits = digitsOnly(value);
-        if (!digits) return "";
-        const num = Number(digits);
-        if (!Number.isFinite(num)) return "";
-        return num.toLocaleString("pt-BR");
-      }
-
-      function setupApplyMasks() {
-        if (phoneInput) {
-          phoneInput.addEventListener("input", () => {
-            const formatted = formatPhone(phoneInput.value);
-            phoneInput.value = formatted;
-            const digits = digitsOnly(formatted);
-            phoneInput.setCustomValidity(digits.length === 11 ? "" : "Telefone invalido.");
-          });
-        }
-
-        if (salaryInput) {
-          salaryInput.addEventListener("input", () => {
-            const digits = digitsOnly(salaryInput.value);
-            salaryInput.dataset.raw = digits;
-            salaryInput.value = formatMoneyInput(digits);
-            salaryInput.setCustomValidity(digits ? "" : "Pretensao invalida.");
-          });
-        }
-
-        if (emailInput) {
-          emailInput.addEventListener("input", () => {
-            // Reseta custom validity e deixa o browser validar o formato
-            emailInput.setCustomValidity("");
-          });
-        }
-      }
-
-      function scrollToFirstInvalid() {
-        const invalid = applyForm.querySelector(":invalid");
-        if (!invalid) {
-          applyModalEl?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-          return;
-        }
-        invalid.scrollIntoView({ behavior: "smooth", block: "center" });
-        invalid.focus({ preventScroll: true });
-      }
-
-      function resetApplyLocation() {
-        populateUfSelect();
-        setCityLoading("Selecione a UF primeiro", true);
-      }
-
-      async function loadCandidateProfile() {
-        if (cachedProfile) return cachedProfile;
-        const response = await fetch("/PortalVagas/Profile", {
-          method: "GET",
-          headers: { "Accept": "application/json" },
-          credentials: "same-origin"
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          const message = data && data.message ? data.message : "Nao foi possivel carregar seus dados.";
-          throw new Error(message);
-        }
-        cachedProfile = data || {};
-        return cachedProfile;
-      }
-
-      async function applyProfileToForm() {
-        try {
-          const profile = await loadCandidateProfile();
-          if (fullNameInput) fullNameInput.value = profile.nome || "";
-          if (emailInput) emailInput.value = profile.email || "";
-          if (phoneInput) {
-            phoneInput.value = formatPhone(profile.fone || "");
-            const digits = digitsOnly(phoneInput.value);
-            phoneInput.setCustomValidity(digits.length === 11 ? "" : "Telefone invalido.");
           }
 
-          const uf = (profile.uf || "").toUpperCase();
-          const city = profile.cidade || "";
-          await populateUfSelect(uf, true);
-          await loadCitiesForUf(uf, city, true);
-        } catch (err) {
-          console.error(err);
-          const message = err && err.message ? err.message : "Nao foi possivel carregar seus dados.";
-          showApplyAlert(message);
-        }
-      }
-
-      function normalize(str) {
-        return (str || "").toString().trim().toLowerCase();
-      }
-
-      function parseNumber(value) {
-        const n = Number(value);
-        return Number.isFinite(n) ? n : null;
-      }
-
-      function parseTags(raw) {
-        if (!raw) return [];
-        return raw
-          .split(/[;,]/)
-          .map(x => x.trim())
-          .filter(Boolean);
-      }
-
-      function buildTags(job) {
-        const tags = [
-          ...parseTags(job.tagsKeywordsRaw),
-          ...parseTags(job.tagsStackRaw),
-          ...parseTags(job.tagsResponsabilidadesRaw)
-        ];
-        return Array.from(new Set(tags));
-      }
-
-      function formatLocation(job) {
-        const city = (job.cidade || "").trim();
-        const uf = (job.uf || "").trim();
-        if (city && uf) return `${city}, ${uf}`;
-        if (city) return city;
-        if (uf) return uf;
-        return job.modalidade || "Nao informado";
-      }
-
-      function normalizeEnum(value) {
-        return value || "Nao informado";
-      }
-
-      function closeFiltersDrawer() {
-        if (!filtersDrawerEl) return;
-        const instance = bootstrap.Offcanvas.getInstance(filtersDrawerEl)
-          || new bootstrap.Offcanvas(filtersDrawerEl);
-        instance.hide();
-      }
-
-      function formatMoney(min, max) {
-        const f = (n) => Number(n || 0).toLocaleString("pt-BR");
-        return `R$ ${f(min)} - ${f(max)}`;
-      }
-
-      function buildJobCard(job, index) {
-        const tags = buildTags(job);
-        const company = job.tenantName || "Portal RH";
-        const location = formatLocation(job);
-        const mode = normalizeEnum(job.modalidade);
-        const type = normalizeEnum(job.tipoContratacao);
-        const level = normalizeEnum(job.senioridade);
-        const area = job.area || "Geral";
-        const salaryMin = job.salarioMinimo || 0;
-        const salaryMax = job.salarioMaximo || 0;
-        const createdAt = job.createdAtUtc ? new Date(job.createdAtUtc) : new Date();
-        const dateIso = createdAt.toISOString().slice(0, 10);
-
-        const col = document.createElement("div");
-        col.className = "col job-item";
-        col.dataset.id = job.id;
-        col.dataset.title = job.titulo || "Vaga";
-        col.dataset.company = company;
-        col.dataset.location = location;
-        col.dataset.mode = mode;
-        col.dataset.type = type;
-        col.dataset.level = level;
-        col.dataset.area = area;
-        col.dataset.tags = tags.join(", ");
-        col.dataset.salaryMin = String(salaryMin);
-        col.dataset.salaryMax = String(salaryMax);
-        col.dataset.date = dateIso;
-
-        const badgeHtml = [mode, type, level]
-          .filter(Boolean)
-          .map(item => `<span class="badge rounded-pill">${item}</span>`)
-          .join("");
-
-        const tagHtml = tags.slice(0, 6)
-          .map(tag => `<span class="badge text-bg-light border">${tag}</span>`)
-          .join("");
-
-        const salaryLine = salaryMax ? `Faixa: ${formatMoney(salaryMin, salaryMax)}` : "Faixa: a combinar";
-        const hero = heroGradients[index % heroGradients.length];
-
-        col.innerHTML = `
-          <article class="card job-card h-100">
-            <div class="job-hero" style="background-image:${hero};">
-              <div class="job-badge-row">
-                ${badgeHtml}
-              </div>
-            </div>
-            <div class="card-body">
-              <h3 class="h5 fw-semibold mb-1">${col.dataset.title}</h3>
-              <div class="text-secondary mb-2">${company}</div>
-              <div class="job-meta text-secondary small mb-3">
-                <span>${location}</span><span class="dot" aria-hidden="true"></span>
-                <span>${area}</span>
-              </div>
-              <div class="d-flex flex-wrap gap-2 mb-2">
-                ${tagHtml || "<span class=\"badge text-bg-light border\">Geral</span>"}
-              </div>
-              <div class="text-secondary small">${salaryLine}</div>
-              <a class="stretched-link job-link" href="#${col.dataset.id}"
-                 aria-label="Ver detalhes da vaga ${col.dataset.title}"></a>
-            </div>
-          </article>`;
-
-        return col;
-      }
-
-      async function loadJobs(reset = false) {
-        if (!apiBase) {
-          showAppAlert("danger", "Nao foi possivel carregar as vagas. URL da API nao configurada.");
-          setGridLoading(false);
-          grid.replaceChildren();
-          return;
-        }
-        if (!tenantId) {
-          showAppAlert("danger", "Tenant nao informado. Use o parametro tenantId na URL.");
-          setGridLoading(false);
-          grid.replaceChildren();
-          return;
-        }
-        if (isLoadingPage) return;
-
-        if (reset) {
-          currentPage = 1;
-          totalPages = 1;
-          totalItems = 0;
-          if (gridLoading) {
-            grid.replaceChildren(gridLoading);
-          } else {
-            grid.replaceChildren();
+          async function fetchCitiesForUf(uf) {
+            const key = uf.toUpperCase();
+            if (cityCache.has(key)) return cityCache.get(key);
+            const res = await fetch(`${LOCATION_BASE}/Ufs/${encodeURIComponent(key)}/Cities`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const list = (Array.isArray(data) ? data : [])
+              .map(city => (city || "").toString().trim())
+              .filter(Boolean)
+              .sort((a, b) => a.localeCompare(b, "pt-BR"));
+            cityCache.set(key, list);
+            return list;
           }
-        }
 
-        isLoadingPage = true;
-        setGridLoading(true);
-        try {
-          const query = buildQuery();
-          const url = `${apiBase}/api/public/vagas?tenantId=${encodeURIComponent(tenantId)}&${query}`;
-          const res = await fetch(url, { headers: { "accept": "application/json" } });
-          if (!res.ok) {
-            const body = await res.text();
-            throw new Error(`HTTP ${res.status} ${res.statusText} :: ${body}`);
+          async function loadCitiesForUf(uf, selectedCity = "", lockSelect = false) {
+            if (!uf) {
+              setCityLoading("Selecione a UF primeiro", true);
+              return;
+            }
+            setCityLoading("Carregando municipios...", true);
+            try {
+              const cities = await fetchCitiesForUf(uf);
+              citySelect.disabled = false;
+              citySelect.innerHTML = '<option value="" selected>Selecione</option>';
+              cities.forEach(name => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                if (name === selectedCity) opt.selected = true;
+                citySelect.appendChild(opt);
+              });
+              if (lockSelect) citySelect.disabled = true;
+            } catch (err) {
+              console.error(err);
+              setCityLoading("Nao foi possivel carregar cidades", true);
+            }
           }
-          const data = await res.json();
-          if (!data || !Array.isArray(data.items)) {
-            throw new Error("Resposta invalida da API.");
-          }
-          totalItems = data.totalItems ?? 0;
-          totalPages = data.totalPages ?? 1;
 
-          const fragment = document.createDocumentFragment();
-          (data.items || []).forEach((job, index) => {
-            fragment.appendChild(buildJobCard(job, index + (currentPage - 1) * pageSize));
+          function digitsOnly(value) {
+            return (value || "").replace(/\D/g, "");
+          }
+
+          function formatPhone(value) {
+            const digits = digitsOnly(value).slice(0, 11);
+            if (!digits) return "";
+            const ddd = digits.slice(0, 2);
+            const part1 = digits.length > 2 ? digits.slice(2, digits.length > 6 ? 7 : 6) : "";
+            const part2 = digits.length > 6 ? digits.slice(7) : "";
+            if (digits.length <= 6) return `(${ddd}) ${digits.slice(2)}`;
+            return `(${ddd}) ${part1}-${part2}`;
+          }
+
+          function formatMoneyInput(value) {
+            const digits = digitsOnly(value);
+            if (!digits) return "";
+            const num = Number(digits);
+            if (!Number.isFinite(num)) return "";
+            return num.toLocaleString("pt-BR");
+          }
+
+          function setupApplyMasks() {
+            if (phoneInput) {
+              phoneInput.addEventListener("input", () => {
+                const formatted = formatPhone(phoneInput.value);
+                phoneInput.value = formatted;
+                const digits = digitsOnly(formatted);
+                phoneInput.setCustomValidity(digits.length === 11 ? "" : "Telefone invalido.");
+              });
+            }
+
+            if (salaryInput) {
+              salaryInput.addEventListener("input", () => {
+                const digits = digitsOnly(salaryInput.value);
+                salaryInput.dataset.raw = digits;
+                salaryInput.value = formatMoneyInput(digits);
+                salaryInput.setCustomValidity(digits ? "" : "Pretensao invalida.");
+              });
+            }
+
+            if (emailInput) {
+              emailInput.addEventListener("input", () => {
+                // Reseta custom validity e deixa o browser validar o formato
+                emailInput.setCustomValidity("");
+              });
+            }
+          }
+
+          function scrollToFirstInvalid() {
+            const invalid = applyForm.querySelector(":invalid");
+            if (!invalid) {
+              applyModalEl?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+              return;
+            }
+            invalid.scrollIntoView({ behavior: "smooth", block: "center" });
+            invalid.focus({ preventScroll: true });
+          }
+
+          function resetApplyLocation() {
+            populateUfSelect();
+            setCityLoading("Selecione a UF primeiro", true);
+          }
+
+          async function loadCandidateProfile() {
+            if (cachedProfile) return cachedProfile;
+            const response = await fetch("/PortalVagas/Profile", {
+              method: "GET",
+              headers: { "Accept": "application/json" },
+              credentials: "same-origin"
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              const message = data && data.message ? data.message : "Nao foi possivel carregar seus dados.";
+              throw new Error(message);
+            }
+            cachedProfile = data || {};
+            return cachedProfile;
+          }
+
+          async function applyProfileToForm() {
+            try {
+              const profile = await loadCandidateProfile();
+              if (fullNameInput) fullNameInput.value = profile.nome || "";
+              if (emailInput) emailInput.value = profile.email || "";
+              if (phoneInput) {
+                phoneInput.value = formatPhone(profile.fone || "");
+                const digits = digitsOnly(phoneInput.value);
+                phoneInput.setCustomValidity(digits.length === 11 ? "" : "Telefone invalido.");
+              }
+
+              const uf = (profile.uf || "").toUpperCase();
+              const city = profile.cidade || "";
+              await populateUfSelect(uf, true);
+              await loadCitiesForUf(uf, city, true);
+            } catch (err) {
+              console.error(err);
+              const message = err && err.message ? err.message : "Nao foi possivel carregar seus dados.";
+              showApplyAlert(message);
+            }
+          }
+
+          function normalize(str) {
+            return (str || "").toString().trim().toLowerCase();
+          }
+
+          function parseNumber(value) {
+            const n = Number(value);
+            return Number.isFinite(n) ? n : null;
+          }
+
+          function parseTags(raw) {
+            if (!raw) return [];
+            return raw
+              .split(/[;,]/)
+              .map(x => x.trim())
+              .filter(Boolean);
+          }
+
+          function buildTags(job) {
+            const tags = [
+              ...parseTags(job.tagsKeywordsRaw),
+              ...parseTags(job.tagsStackRaw),
+              ...parseTags(job.tagsResponsabilidadesRaw)
+            ];
+            return Array.from(new Set(tags));
+          }
+
+          function formatLocation(job) {
+            const city = (job.cidade || "").trim();
+            const uf = (job.uf || "").trim();
+            if (city && uf) return `${city}, ${uf}`;
+            if (city) return city;
+            if (uf) return uf;
+            return job.modalidade || "Nao informado";
+          }
+
+          function normalizeEnum(value) {
+            return value || "Nao informado";
+          }
+
+          function closeFiltersDrawer() {
+            if (!filtersDrawerEl) return;
+            const instance = bootstrap.Offcanvas.getInstance(filtersDrawerEl)
+              || new bootstrap.Offcanvas(filtersDrawerEl);
+            instance.hide();
+          }
+
+          function formatMoney(min, max) {
+            const f = (n) => Number(n || 0).toLocaleString("pt-BR");
+            return `R$ ${f(min)} - ${f(max)}`;
+          }
+
+          function buildJobCard(job, index) {
+            const tags = buildTags(job);
+            const company = job.tenantName || "Portal RH";
+            const location = formatLocation(job);
+            const mode = normalizeEnum(job.modalidade);
+            const type = normalizeEnum(job.tipoContratacao);
+            const level = normalizeEnum(job.senioridade);
+            const area = job.area || "Geral";
+            const salaryMin = job.salarioMinimo || 0;
+            const salaryMax = job.salarioMaximo || 0;
+            const createdAt = job.createdAtUtc ? new Date(job.createdAtUtc) : new Date();
+            const dateIso = createdAt.toISOString().slice(0, 10);
+
+            const col = document.createElement("div");
+            col.className = "col job-item";
+            col.dataset.id = job.id;
+            col.dataset.title = job.titulo || "Vaga";
+            col.dataset.company = company;
+            col.dataset.location = location;
+            col.dataset.mode = mode;
+            col.dataset.type = type;
+            col.dataset.level = level;
+            col.dataset.area = area;
+            col.dataset.tags = tags.join(", ");
+            col.dataset.salaryMin = String(salaryMin);
+            col.dataset.salaryMax = String(salaryMax);
+            col.dataset.date = dateIso;
+
+            const badgeHtml = [mode, type, level]
+              .filter(Boolean)
+              .map(item => `<span class="badge rounded-pill">${item}</span>`)
+              .join("");
+
+            const tagHtml = tags.slice(0, 6)
+              .map(tag => `<span class="badge text-bg-light border">${tag}</span>`)
+              .join("");
+
+            const salaryLine = salaryMax ? `Faixa: ${formatMoney(salaryMin, salaryMax)}` : "Faixa: a combinar";
+            const hero = heroGradients[index % heroGradients.length];
+
+            col.innerHTML = `
+              <article class="card job-card h-100">
+                <div class="job-hero" style="background-image:${hero};">
+                  <div class="job-badge-row">
+                    ${badgeHtml}
+                  </div>
+                </div>
+                <div class="card-body">
+                  <h3 class="h5 fw-semibold mb-1">${col.dataset.title}</h3>
+                  <div class="text-secondary mb-2">${company}</div>
+                  <div class="job-meta text-secondary small mb-3">
+                    <span>${location}</span><span class="dot" aria-hidden="true"></span>
+                    <span>${area}</span>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2 mb-2">
+                    ${tagHtml || "<span class=\"badge text-bg-light border\">Geral</span>"}
+                  </div>
+                  <div class="text-secondary small">${salaryLine}</div>
+                  <a class="stretched-link job-link" href="#${col.dataset.id}"
+                     aria-label="Ver detalhes da vaga ${col.dataset.title}"></a>
+                </div>
+              </article>`;
+
+            return col;
+          }
+
+          async function loadJobs(reset = false) {
+            if (!apiBase) {
+              showAppAlert("danger", "Nao foi possivel carregar as vagas. URL da API nao configurada.");
+              setGridLoading(false);
+              grid.replaceChildren();
+              return;
+            }
+            if (!tenantId) {
+              showAppAlert("danger", "Tenant nao informado. Use o parametro tenantId na URL.");
+              setGridLoading(false);
+              grid.replaceChildren();
+              return;
+            }
+            if (isLoadingPage) return;
+
+            if (reset) {
+              currentPage = 1;
+              totalPages = 1;
+              totalItems = 0;
+              if (gridLoading) {
+                grid.replaceChildren(gridLoading);
+              } else {
+                grid.replaceChildren();
+              }
+            }
+
+            isLoadingPage = true;
+            setGridLoading(true);
+            try {
+              const query = buildQuery();
+              const url = `${apiBase}/api/public/vagas?tenantId=${encodeURIComponent(tenantId)}&${query}`;
+              const res = await fetch(url, { headers: { "accept": "application/json" } });
+              if (!res.ok) {
+                const body = await res.text();
+                throw new Error(`HTTP ${res.status} ${res.statusText} :: ${body}`);
+              }
+              const data = await res.json();
+              if (!data || !Array.isArray(data.items)) {
+                throw new Error("Resposta invalida da API.");
+              }
+              totalItems = data.totalItems ?? 0;
+              totalPages = data.totalPages ?? 1;
+
+              const fragment = document.createDocumentFragment();
+              (data.items || []).forEach((job, index) => {
+                fragment.appendChild(buildJobCard(job, index + (currentPage - 1) * pageSize));
+              });
+              if (reset) {
+                grid.replaceChildren();
+              }
+              grid.appendChild(fragment);
+              items = Array.from(grid.querySelectorAll(".job-item"));
+              render();
+            } catch (err) {
+              console.error(err);
+              const message = err && err.message ? err.message : "Erro desconhecido";
+              showAppAlert("danger", `Nao foi possivel carregar as vagas. ${message}`);
+            } finally {
+              setGridLoading(false);
+              isLoadingPage = false;
+            }
+          }
+
+          function getFilters() {
+            const q = normalize(document.getElementById("q").value);
+            const location = document.getElementById("location").value.trim();
+            const mode = document.getElementById("mode").value.trim();
+            const type = document.getElementById("type").value.trim();
+            const level = document.getElementById("level").value.trim();
+            const area = document.getElementById("area").value.trim();
+            const minSalary = parseNumber(document.getElementById("minSalary").value);
+
+            return { q, location, mode, type, level, area, minSalary };
+          }
+
+          function buildQuery() {
+            const filters = getFilters();
+            const params = new URLSearchParams();
+            if (filters.q) params.set("q", filters.q);
+            if (filters.location) params.set("location", filters.location);
+            if (filters.mode) params.set("mode", filters.mode);
+            if (filters.type) params.set("type", filters.type);
+            if (filters.level) params.set("level", filters.level);
+            if (filters.area) params.set("area", filters.area);
+            if (filters.minSalary !== null) params.set("minSalary", filters.minSalary);
+            params.set("sort", currentSort);
+            params.set("page", currentPage);
+            params.set("pageSize", pageSize);
+            return params.toString();
+          }
+
+          function matchesFilters(item, f) {
+            return true;
+          }
+
+          function sortItems(visibleItems) {
+            return visibleItems;
+          }
+
+          function render(filters) {
+            resultsCount.textContent = String(totalItems);
+            emptyState.classList.toggle("d-none", totalItems !== 0);
+          }
+
+          function resetFilters() {
+            filtersForm.reset();
+            currentSort = "recent";
+          }
+
+          function resetPaging() {
+            currentPage = 1;
+            totalPages = 1;
+            totalItems = 0;
+          }
+
+          function loadMore() {
+            if (currentPage >= totalPages) return;
+            currentPage += 1;
+            loadJobs();
+          }
+
+          if (sentinel) {
+            const observer = new IntersectionObserver((entries) => {
+              entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                  loadMore();
+                }
+              });
+            }, { rootMargin: "200px" });
+            observer.observe(sentinel);
+          }
+
+          function buildSummary(item) {
+            const title = item.dataset.title;
+            const company = item.dataset.company;
+            const tags = (item.dataset.tags || "").split(",").map(x => x.trim()).filter(Boolean);
+            if (!tags.length) return `${title} em ${company}.`;
+            return `${title} em ${company}, com foco em ${tags.slice(0, 3).join(", ")}.`;
+          }
+
+          function openJobModal(item) {
+            currentJob = item;
+
+            document.getElementById("jobModalLabel").textContent = item.dataset.title;
+            document.getElementById("jobModalCompany").textContent = item.dataset.company;
+
+            document.getElementById("jobModalMode").textContent = item.dataset.mode;
+            document.getElementById("jobModalType").textContent = item.dataset.type;
+            document.getElementById("jobModalLevel").textContent = item.dataset.level;
+            document.getElementById("jobModalArea").textContent = item.dataset.area;
+
+            document.getElementById("jobModalLocation").textContent = item.dataset.location;
+
+            const min = Number(item.dataset.salaryMin) || 0;
+            const max = Number(item.dataset.salaryMax) || 0;
+            document.getElementById("jobModalSalary").textContent = max ? formatMoney(min, max) : "A combinar";
+
+            const tagsWrap = document.getElementById("jobModalTags");
+            tagsWrap.innerHTML = "";
+            (item.dataset.tags || "")
+              .split(",")
+              .map(x => x.trim())
+              .filter(Boolean)
+              .forEach(tag => {
+                const span = document.createElement("span");
+                span.className = "badge text-bg-light border";
+                span.textContent = tag;
+                tagsWrap.appendChild(span);
+              });
+
+            document.getElementById("jobModalSummary").textContent = buildSummary(item);
+
+            const ul = document.getElementById("jobModalResp");
+            ul.innerHTML = "";
+            [
+              "Atuar em colaboração com times parceiros.",
+              "Executar atividades alinhadas ao escopo da vaga.",
+              "Cumprir prazos e padrões de qualidade definidos."
+            ].forEach(r => {
+              const li = document.createElement("li");
+              li.textContent = r;
+              ul.appendChild(li);
+            });
+
+            const anchor = document.getElementById("jobModalAnchor");
+            anchor.href = "#" + item.dataset.id;
+
+            jobModal.show();
+          }
+
+          async function openApplyModalFromCurrentJob() {
+            if (!currentJob) {
+              showAppAlert("danger", "Nao foi possivel iniciar a candidatura. Abra os detalhes de uma vaga e tente novamente.");
+              return;
+            }
+
+            clearApplyAlert();
+            applyForm.classList.remove("was-validated");
+            applyForm.reset();
+            setSendLoading(false);
+            resetApplyLocation();
+            if (salaryInput) salaryInput.dataset.raw = "";
+
+            document.getElementById("applyJobTitle").value = currentJob.dataset.title;
+            document.getElementById("applyCompany").value = currentJob.dataset.company;
+            document.getElementById("applyModalJobLine").textContent =
+              `${currentJob.dataset.title} ? ${currentJob.dataset.company} ? ${currentJob.dataset.mode}`;
+
+            attachmentInput.classList.remove("is-invalid");
+            attachmentInvalid.textContent = "Arquivo invalido.";
+
+            await applyProfileToForm();
+            jobModal.hide();
+            applyModal.show();
+          }
+
+          grid.addEventListener("click", (ev) => {
+            const link = ev.target.closest("a.job-link");
+            if (!link) return;
+            ev.preventDefault();
+            const jobItem = ev.target.closest(".job-item");
+            if (!jobItem) return;
+            openJobModal(jobItem);
           });
-          if (reset) {
-            grid.replaceChildren();
+
+          jobModalApplyBtn.addEventListener("click", async () => {
+            await openApplyModalFromCurrentJob();
+          });
+
+          function validateAttachment() {
+            const file = attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
+            attachmentInput.classList.remove("is-invalid");
+
+            if (!file) return true;
+
+            const maxBytes = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxBytes) {
+              attachmentInvalid.textContent = "O arquivo excede 5MB. Selecione um arquivo menor.";
+              attachmentInput.classList.add("is-invalid");
+              return false;
+            }
+
+            const allowedExt = [".pdf", ".doc", ".docx"];
+            const name = (file.name || "").toLowerCase();
+            const okExt = allowedExt.some(ext => name.endsWith(ext));
+
+            if (!okExt) {
+              attachmentInvalid.textContent = "Formato nao aceito. Use PDF, DOC ou DOCX.";
+              attachmentInput.classList.add("is-invalid");
+              return false;
+            }
+
+            return true;
           }
-          grid.appendChild(fragment);
-          items = Array.from(grid.querySelectorAll(".job-item"));
-          render();
-        } catch (err) {
-          console.error(err);
-          const message = err && err.message ? err.message : "Erro desconhecido";
-          showAppAlert("danger", `Nao foi possivel carregar as vagas. ${message}`);
-        } finally {
-          setGridLoading(false);
-          isLoadingPage = false;
-        }
-      }
 
-      function getFilters() {
-        const q = normalize(document.getElementById("q").value);
-        const location = document.getElementById("location").value.trim();
-        const mode = document.getElementById("mode").value.trim();
-        const type = document.getElementById("type").value.trim();
-        const level = document.getElementById("level").value.trim();
-        const area = document.getElementById("area").value.trim();
-        const minSalary = parseNumber(document.getElementById("minSalary").value);
-
-        return { q, location, mode, type, level, area, minSalary };
-      }
-
-      function buildQuery() {
-        const filters = getFilters();
-        const params = new URLSearchParams();
-        if (filters.q) params.set("q", filters.q);
-        if (filters.location) params.set("location", filters.location);
-        if (filters.mode) params.set("mode", filters.mode);
-        if (filters.type) params.set("type", filters.type);
-        if (filters.level) params.set("level", filters.level);
-        if (filters.area) params.set("area", filters.area);
-        if (filters.minSalary !== null) params.set("minSalary", filters.minSalary);
-        params.set("sort", currentSort);
-        params.set("page", currentPage);
-        params.set("pageSize", pageSize);
-        return params.toString();
-      }
-
-      function matchesFilters(item, f) {
-        return true;
-      }
-
-      function sortItems(visibleItems) {
-        return visibleItems;
-      }
-
-      function render(filters) {
-        resultsCount.textContent = String(totalItems);
-        emptyState.classList.toggle("d-none", totalItems !== 0);
-      }
-
-      function resetFilters() {
-        filtersForm.reset();
-        currentSort = "recent";
-      }
-
-      function resetPaging() {
-        currentPage = 1;
-        totalPages = 1;
-        totalItems = 0;
-      }
-
-      function loadMore() {
-        if (currentPage >= totalPages) return;
-        currentPage += 1;
-        loadJobs();
-      }
-
-      if (sentinel) {
-        const observer = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              loadMore();
+          attachmentInput.addEventListener("change", () => {
+            try {
+              validateAttachment();
+            } catch (err) {
+              console.error(err);
+              showApplyAlert("Nao foi possivel validar o arquivo selecionado.");
             }
           });
-        }, { rootMargin: "200px" });
-        observer.observe(sentinel);
-      }
 
-      function buildSummary(item) {
-        const title = item.dataset.title;
-        const company = item.dataset.company;
-        const tags = (item.dataset.tags || "").split(",").map(x => x.trim()).filter(Boolean);
-        if (!tags.length) return `${title} em ${company}.`;
-        return `${title} em ${company}, com foco em ${tags.slice(0, 3).join(", ")}.`;
-      }
+          applyForm.addEventListener("submit", async (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
 
-      function openJobModal(item) {
-        currentJob = item;
+            try {
+              clearApplyAlert();
+              applyForm.classList.add("was-validated");
 
-        document.getElementById("jobModalLabel").textContent = item.dataset.title;
-        document.getElementById("jobModalCompany").textContent = item.dataset.company;
+              const isFormValid = applyForm.checkValidity();
+              const isAttachmentValid = validateAttachment();
 
-        document.getElementById("jobModalMode").textContent = item.dataset.mode;
-        document.getElementById("jobModalType").textContent = item.dataset.type;
-        document.getElementById("jobModalLevel").textContent = item.dataset.level;
-        document.getElementById("jobModalArea").textContent = item.dataset.area;
+              if (!isFormValid || !isAttachmentValid) {
+                showApplyAlert("Revise os campos destacados antes de enviar.");
+                scrollToFirstInvalid();
+                return;
+              }
 
-        document.getElementById("jobModalLocation").textContent = item.dataset.location;
+              setSendLoading(true);
 
-        const min = Number(item.dataset.salaryMin) || 0;
-        const max = Number(item.dataset.salaryMax) || 0;
-        document.getElementById("jobModalSalary").textContent = max ? formatMoney(min, max) : "A combinar";
+              if (!tenantId) {
+                showApplyAlert("Tenant nao informado. Recarregue a pagina e tente novamente.");
+                setSendLoading(false);
+                return;
+              }
 
-        const tagsWrap = document.getElementById("jobModalTags");
-        tagsWrap.innerHTML = "";
-        (item.dataset.tags || "")
-          .split(",")
-          .map(x => x.trim())
-          .filter(Boolean)
-          .forEach(tag => {
-            const span = document.createElement("span");
-            span.className = "badge text-bg-light border";
-            span.textContent = tag;
-            tagsWrap.appendChild(span);
+              const formData = new FormData();
+              formData.append("vagaId", currentJob?.dataset?.id || "");
+              formData.append("nome", document.getElementById("fullName").value || "");
+              formData.append("email", document.getElementById("email").value || "");
+              formData.append("fone", document.getElementById("phone").value || "");
+              const uf = document.getElementById("candidateUf").value || "";
+              const city = document.getElementById("candidateCity").value || "";
+              const cidadeUf = (city && uf) ? `${city}, ${uf}` : (city || uf);
+              formData.append("cidadeUf", cidadeUf);
+              formData.append("linkedin", document.getElementById("linkedin").value || "");
+              formData.append("portfolio", document.getElementById("portfolio").value || "");
+              formData.append("cargoAtual", document.getElementById("currentRole").value || "");
+              formData.append("anosExperiencia", document.getElementById("experienceYears").value || "");
+
+              const obsParts = [];
+              const highlights = document.getElementById("highlights").value || "";
+              const notes = document.getElementById("recruiterNotes").value || "";
+              const salaryRaw = salaryInput?.dataset?.raw || digitsOnly(salaryInput?.value || "");
+              const salary = salaryRaw ? `R$ ${Number(salaryRaw).toLocaleString("pt-BR")}` : "";
+              const availability = document.getElementById("availability").value || "";
+
+              if (highlights) obsParts.push(`Resumo: ${highlights}`);
+              if (notes) obsParts.push(`Info: ${notes}`);
+              if (salary) obsParts.push(`Pretensao salarial: ${salary}`);
+              if (availability) obsParts.push(`Disponibilidade: ${availability}`);
+
+              formData.append("observacoes", obsParts.join(" | "));
+
+              if (attachmentInput.files?.[0]) {
+                formData.append("arquivo", attachmentInput.files[0]);
+              }
+
+              const url = `${apiBase}/api/public/candidaturas?tenantId=${encodeURIComponent(tenantId)}`;
+              const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                  "X-Tenant-Id": tenantId
+                },
+                body: formData
+              });
+
+              if (!response.ok) {
+                const body = await response.text();
+                throw new Error(body || `HTTP ${response.status}`);
+              }
+
+              applyModal.hide();
+              if (window.Swal && typeof window.Swal.fire === "function") {
+                window.Swal.fire({
+                  icon: "success",
+                  title: "Candidatura enviada",
+                  text: "Em breve voce recebera um email com uma chave unica para acessar o portal futuramente.",
+                  confirmButtonText: "Ok"
+                });
+              } else {
+                showAppAlert("success", "Candidatura enviada com sucesso. Voce recebera um email com uma chave unica para acessar o portal futuramente.");
+              }
+
+              document.querySelector("main")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            } catch (err) {
+              console.error(err);
+              showApplyAlert("Ocorreu um erro ao enviar sua candidatura. Tente novamente.");
+            } finally {
+              setSendLoading(false);
+            }
           });
 
-        document.getElementById("jobModalSummary").textContent = buildSummary(item);
-
-        const ul = document.getElementById("jobModalResp");
-        ul.innerHTML = "";
-        [
-          "Atuar em colaboração com times parceiros.",
-          "Executar atividades alinhadas ao escopo da vaga.",
-          "Cumprir prazos e padrões de qualidade definidos."
-        ].forEach(r => {
-          const li = document.createElement("li");
-          li.textContent = r;
-          ul.appendChild(li);
-        });
-
-        const anchor = document.getElementById("jobModalAnchor");
-        anchor.href = "#" + item.dataset.id;
-
-        jobModal.show();
-      }
-
-      async function openApplyModalFromCurrentJob() {
-        if (!currentJob) {
-          showAppAlert("danger", "Nao foi possivel iniciar a candidatura. Abra os detalhes de uma vaga e tente novamente.");
-          return;
-        }
-
-        clearApplyAlert();
-        applyForm.classList.remove("was-validated");
-        applyForm.reset();
-        setSendLoading(false);
-        resetApplyLocation();
-        if (salaryInput) salaryInput.dataset.raw = "";
-
-        document.getElementById("applyJobTitle").value = currentJob.dataset.title;
-        document.getElementById("applyCompany").value = currentJob.dataset.company;
-        document.getElementById("applyModalJobLine").textContent =
-          `${currentJob.dataset.title} ? ${currentJob.dataset.company} ? ${currentJob.dataset.mode}`;
-
-        attachmentInput.classList.remove("is-invalid");
-        attachmentInvalid.textContent = "Arquivo invalido.";
-
-        await applyProfileToForm();
-        jobModal.hide();
-        applyModal.show();
-      }
-
-      grid.addEventListener("click", (ev) => {
-        const link = ev.target.closest("a.job-link");
-        if (!link) return;
-        ev.preventDefault();
-        const jobItem = ev.target.closest(".job-item");
-        if (!jobItem) return;
-        openJobModal(jobItem);
-      });
-
-      jobModalApplyBtn.addEventListener("click", async () => {
-        await openApplyModalFromCurrentJob();
-      });
-
-      function validateAttachment() {
-        const file = attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
-        attachmentInput.classList.remove("is-invalid");
-
-        if (!file) return true;
-
-        const maxBytes = 5 * 1024 * 1024; // 5MB
-        if (file.size > maxBytes) {
-          attachmentInvalid.textContent = "O arquivo excede 5MB. Selecione um arquivo menor.";
-          attachmentInput.classList.add("is-invalid");
-          return false;
-        }
-
-        const allowedExt = [".pdf", ".doc", ".docx"];
-        const name = (file.name || "").toLowerCase();
-        const okExt = allowedExt.some(ext => name.endsWith(ext));
-
-        if (!okExt) {
-          attachmentInvalid.textContent = "Formato nao aceito. Use PDF, DOC ou DOCX.";
-          attachmentInput.classList.add("is-invalid");
-          return false;
-        }
-
-        return true;
-      }
-
-      attachmentInput.addEventListener("change", () => {
-        try {
-          validateAttachment();
-        } catch (err) {
-          console.error(err);
-          showApplyAlert("Nao foi possivel validar o arquivo selecionado.");
-        }
-      });
-
-      applyForm.addEventListener("submit", async (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-
-        try {
-          clearApplyAlert();
-          applyForm.classList.add("was-validated");
-
-          const isFormValid = applyForm.checkValidity();
-          const isAttachmentValid = validateAttachment();
-
-          if (!isFormValid || !isAttachmentValid) {
-            showApplyAlert("Revise os campos destacados antes de enviar.");
-            scrollToFirstInvalid();
-            return;
-          }
-
-          setSendLoading(true);
-
-          if (!tenantId) {
-            showApplyAlert("Tenant nao informado. Recarregue a pagina e tente novamente.");
-            setSendLoading(false);
-            return;
-          }
-
-          const formData = new FormData();
-          formData.append("vagaId", currentJob?.dataset?.id || "");
-          formData.append("nome", document.getElementById("fullName").value || "");
-          formData.append("email", document.getElementById("email").value || "");
-          formData.append("fone", document.getElementById("phone").value || "");
-          const uf = document.getElementById("candidateUf").value || "";
-          const city = document.getElementById("candidateCity").value || "";
-          const cidadeUf = (city && uf) ? `${city}, ${uf}` : (city || uf);
-          formData.append("cidadeUf", cidadeUf);
-          formData.append("linkedin", document.getElementById("linkedin").value || "");
-          formData.append("portfolio", document.getElementById("portfolio").value || "");
-          formData.append("cargoAtual", document.getElementById("currentRole").value || "");
-          formData.append("anosExperiencia", document.getElementById("experienceYears").value || "");
-
-          const obsParts = [];
-          const highlights = document.getElementById("highlights").value || "";
-          const notes = document.getElementById("recruiterNotes").value || "";
-          const salaryRaw = salaryInput?.dataset?.raw || digitsOnly(salaryInput?.value || "");
-          const salary = salaryRaw ? `R$ ${Number(salaryRaw).toLocaleString("pt-BR")}` : "";
-          const availability = document.getElementById("availability").value || "";
-
-          if (highlights) obsParts.push(`Resumo: ${highlights}`);
-          if (notes) obsParts.push(`Info: ${notes}`);
-          if (salary) obsParts.push(`Pretensao salarial: ${salary}`);
-          if (availability) obsParts.push(`Disponibilidade: ${availability}`);
-
-          formData.append("observacoes", obsParts.join(" | "));
-
-          if (attachmentInput.files?.[0]) {
-            formData.append("arquivo", attachmentInput.files[0]);
-          }
-
-          const url = `${apiBase}/api/public/candidaturas?tenantId=${encodeURIComponent(tenantId)}`;
-          const response = await fetch(url, {
-            method: "POST",
-            headers: {
-              "X-Tenant-Id": tenantId
-            },
-            body: formData
+          // Aplicar filtros
+          filtersForm.addEventListener("submit", (ev) => {
+            ev.preventDefault();
+            try {
+              setLoading(true);
+              (async () => {
+                resetPaging();
+                await loadJobs(true);
+                setLoading(false);
+                closeFiltersDrawer();
+              })();
+            } catch (err) {
+              setLoading(false);
+              console.error(err);
+              showAppAlert("danger", "Ocorreu um erro ao aplicar filtros. Verifique os campos e tente novamente.");
+            }
           });
 
-          if (!response.ok) {
-            const body = await response.text();
-            throw new Error(body || `HTTP ${response.status}`);
-          }
+          // Limpar filtros
+          clearBtn.addEventListener("click", () => {
+            try {
+              setLoading(true);
+              (async () => {
+                resetPaging();
+                resetFilters();
+                await loadJobs(true);
+                setLoading(false);
+                closeFiltersDrawer();
+              })();
+            } catch (err) {
+              setLoading(false);
+              console.error(err);
+              showAppAlert("danger", "Ocorreu um erro ao limpar filtros. Recarregue a página e tente novamente.");
+            }
+          });
+          emptyClearBtn.addEventListener("click", () => clearBtn.click());
 
-          applyModal.hide();
-          if (window.Swal && typeof window.Swal.fire === "function") {
-            window.Swal.fire({
-              icon: "success",
-              title: "Candidatura enviada",
-              text: "Em breve voce recebera um email com uma chave unica para acessar o portal futuramente.",
-              confirmButtonText: "Ok"
+          // Ordenação
+          document.addEventListener("click", (ev) => {
+            const btn = ev.target.closest("[data-sort]");
+            if (!btn) return;
+
+            try {
+              currentSort = btn.getAttribute("data-sort");
+              setLoading(true);
+              (async () => {
+                resetPaging();
+                await loadJobs(true);
+                setLoading(false);
+                closeFiltersDrawer();
+              })();
+            } catch (err) {
+              setLoading(false);
+              console.error(err);
+              showAppAlert("danger", "Ocorreu um erro ao ordenar os resultados. Tente novamente.");
+            }
+          });
+
+          if (ufSelect) {
+            ufSelect.addEventListener("change", () => {
+              loadCitiesForUf(ufSelect.value);
             });
-          } else {
-            showAppAlert("success", "Candidatura enviada com sucesso. Voce recebera um email com uma chave unica para acessar o portal futuramente.");
           }
 
-          document.querySelector("main")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        } catch (err) {
-          console.error(err);
-          showApplyAlert("Ocorreu um erro ao enviar sua candidatura. Tente novamente.");
-        } finally {
-          setSendLoading(false);
-        }
-      });
+          setupApplyMasks();
+          resetApplyLocation();
 
-      // Aplicar filtros
-      filtersForm.addEventListener("submit", (ev) => {
-        ev.preventDefault();
-        try {
-          setLoading(true);
-          (async () => {
-            resetPaging();
+          // Render inicial
+          try {
             await loadJobs(true);
-            setLoading(false);
-            closeFiltersDrawer();
-          })();
-        } catch (err) {
-          setLoading(false);
-          console.error(err);
-          showAppAlert("danger", "Ocorreu um erro ao aplicar filtros. Verifique os campos e tente novamente.");
-        }
-      });
-
-      // Limpar filtros
-      clearBtn.addEventListener("click", () => {
-        try {
-          setLoading(true);
-          (async () => {
-            resetPaging();
-            resetFilters();
-            await loadJobs(true);
-            setLoading(false);
-            closeFiltersDrawer();
-          })();
-        } catch (err) {
-          setLoading(false);
-          console.error(err);
-          showAppAlert("danger", "Ocorreu um erro ao limpar filtros. Recarregue a página e tente novamente.");
-        }
-      });
-      emptyClearBtn.addEventListener("click", () => clearBtn.click());
-
-      // Ordenação
-      document.addEventListener("click", (ev) => {
-        const btn = ev.target.closest("[data-sort]");
-        if (!btn) return;
-
-        try {
-          currentSort = btn.getAttribute("data-sort");
-          setLoading(true);
-          (async () => {
-            resetPaging();
-            await loadJobs(true);
-            setLoading(false);
-            closeFiltersDrawer();
-          })();
-        } catch (err) {
-          setLoading(false);
-          console.error(err);
-          showAppAlert("danger", "Ocorreu um erro ao ordenar os resultados. Tente novamente.");
-        }
-      });
-
-      if (ufSelect) {
-        ufSelect.addEventListener("change", () => {
-          loadCitiesForUf(ufSelect.value);
-        });
-      }
-
-      setupApplyMasks();
-      resetApplyLocation();
-
-      // Render inicial
-      try {
-        await loadJobs(true);
-      } catch (err) {
-        console.error(err);
-        showAppAlert("danger", "Ocorreu um erro ao carregar a página. Recarregue e tente novamente.");
-      }
-    })();
+          } catch (err) {
+            console.error(err);
+            showAppAlert("danger", "Ocorreu um erro ao carregar a página. Recarregue e tente novamente.");
+          }
+        })();
     </script>
     <script src="~/js/views/portal-vagas-profile.js" asp-append-version="true"></script>
 </body>
