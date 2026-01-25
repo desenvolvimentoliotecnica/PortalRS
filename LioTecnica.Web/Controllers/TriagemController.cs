@@ -44,13 +44,13 @@ public class TriagemController : Controller
         return ToContentResult(resp);
     }
 
-    //[HttpGet("/Triagem/_api/candidatos")]
-    //public async Task<IActionResult> GetCandidatos(CancellationToken ct)
-    //{
-    //    var tenantId = _tenantContext.TenantId;
-    //    var resp = await _candidatosApi.GetCandidatosRawAsync(tenantId, ct);
-    //    return ToContentResult(resp);
-    //}
+    [HttpGet("/Triagem/_api/candidatos")]
+    public async Task<IActionResult> GetCandidatos(CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _candidatosApi.GetCandidatosRawAsync(tenantId, q: null, vagaId: null, ct);
+        return ToContentResult(resp);
+    }
 
     [HttpGet("/Triagem/_api/candidatos/{id:guid}")]
     public async Task<IActionResult> GetCandidatoById(Guid id, CancellationToken ct)
