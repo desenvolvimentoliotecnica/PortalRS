@@ -58,9 +58,19 @@ public sealed class PortalVagasController : Controller
 
     [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
     [HttpPost("/PortalVagas/Logout")]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout([FromQuery] string? tenantId = null)
     {
+        var resolvedTenantId = ResolveTenantId(tenantId, null)
+            ?? User?.FindFirst("tenant")?.Value?.Trim();
+
         await HttpContext.SignOutAsync(CandidateAuthDefaults.Scheme);
+
+        if (!string.IsNullOrWhiteSpace(resolvedTenantId))
+        {
+            var encoded = Uri.EscapeDataString(resolvedTenantId);
+            return Redirect($"/PortalVagas/Acesso?tenantId={encoded}");
+        }
+
         return Redirect("/PortalVagas/Acesso");
     }
 
