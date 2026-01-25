@@ -1,7 +1,7 @@
 @model PageSeedViewModel
 @{
-    ViewData["Title"] = "Portal RH ï Devcraft Studio ï Usu·rios & Perfis";
-    ViewData["SidebarSubtitle"] = "Usu√°rios & Perfis";
+    ViewData["Title"] = "Portal RH ‚Ä¢ Devcraft Studio ‚Ä¢ Usu√°rios & Perfis";
+    ViewData["SidebarSubtitle"] = "Usu√É¬°rios & Perfis";
 }
 
 
@@ -9,19 +9,19 @@
 <!-- MOBILE SIDEBAR OFFCANVAS -->
   
 
-  <!-- Drawer: detalhes do usu·rio -->
+  <!-- Drawer: detalhes do usu√°rio -->
   @await Html.PartialAsync("_OffcanvasUser")
 
       @section Topbar {
-@await Html.PartialAsync("_TopbarBrand", "Tela: Usu·rios & Perfis")
+@await Html.PartialAsync("_TopbarBrand", "Tela: Usu√°rios & Perfis")
 
           <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-ghost" type="button" id="btnExportUsers" title="Exportar usu·rios (CSV)">
+            <button class="btn btn-ghost" type="button" id="btnExportUsers" title="Exportar usu√°rios (CSV)">
               <i class="bi bi-filetype-csv"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
             </button>
 
             <button class="btn btn-brand" type="button" id="btnPrimaryAction">
-              <i class="bi bi-person-plus"></i><span class="d-none d-sm-inline ms-1">Novo usu·rio</span>
+              <i class="bi bi-person-plus"></i><span class="d-none d-sm-inline ms-1">Novo usu√°rio</span>
             </button>
 
                         @await Html.PartialAsync("_TopbarUserMenu", "Admin")
@@ -32,8 +32,8 @@
       <section class="content">
         <div class="page-title">
           <div>
-            <h4>Usu√°rios & Perfis</h4>
-            <div class="subtitle">RBAC (Perfis/Permissıes), convites, MFA e gest„o de acesso. (Demo em localStorage)</div>
+            <h4>Usu√É¬°rios & Perfis</h4>
+            <div class="subtitle">RBAC (Perfis/Permiss√µes), convites, MFA e gest√£o de acesso. (Demo em localStorage)</div>
           </div>
         </div>
 
@@ -41,9 +41,9 @@
                 @{
           var kpis = new[]
           {
-            new { ColClass = "col-6 col-lg-3", Title = "Usu·rios", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiUsers", Value = "0", PillIcon = "bi-people", PillText = "total", Hint = "Cadastrados (demo)." },
+            new { ColClass = "col-6 col-lg-3", Title = "Usu√°rios", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiUsers", Value = "0", PillIcon = "bi-people", PillText = "total", Hint = "Cadastrados (demo)." },
             new { ColClass = "col-6 col-lg-3", Title = "Ativos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiActive", Value = "0", PillIcon = "bi-check2-circle", PillText = "ok", Hint = "Acesso liberado." },
-            new { ColClass = "col-6 col-lg-3", Title = "Convites", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiInvites", Value = "0", PillIcon = "bi-envelope", PillText = "pendentes", Hint = "Aguardando ativaÁ„o." },
+            new { ColClass = "col-6 col-lg-3", Title = "Convites", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiInvites", Value = "0", PillIcon = "bi-envelope", PillText = "pendentes", Hint = "Aguardando ativa√ß√£o." },
             new { ColClass = "col-6 col-lg-3", Title = "Perfis", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiRoles", Value = "0", PillIcon = "bi-shield-lock", PillText = "RBAC", Hint = "Roles cadastradas." }
           };
         }
@@ -55,23 +55,23 @@
               <ul class="nav nav-tabs" id="mainTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                   <button class="nav-link active" id="tab-users" data-bs-toggle="tab" data-bs-target="#pane-users" type="button" role="tab">
-                    <i class="bi bi-people me-1"></i>Usu·rios
+                    <i class="bi bi-people me-1"></i>Usu√°rios
                   </button>
                 </li>
                 <li class="nav-item" role="presentation">
                   <button class="nav-link" id="tab-roles" data-bs-toggle="tab" data-bs-target="#pane-roles" type="button" role="tab">
-                    <i class="bi bi-shield-lock me-1"></i>Perfis & Permissıes
+                    <i class="bi bi-shield-lock me-1"></i>Perfis & Permiss√µes
                   </button>
                 </li>
               </ul>
 
-              <span class="pill d-none d-md-inline"><i class="bi bi-shield-check"></i>PrincÌ≠pio do menor privilÈgio</span>
+              <span class="pill d-none d-md-inline"><i class="bi bi-shield-check"></i>Princ√≠¬≠pio do menor privil√©gio</span>
             </div>
 
             <div class="d-flex flex-wrap gap-2 justify-content-end">
               <button class="btn btn-ghost btn-sm" id="btnAuditMock"><i class="bi bi-journal-text me-1"></i>Auditoria</button>
               <button class="btn btn-ghost btn-sm" id="btnNewRole"><i class="bi bi-plus-circle me-1"></i>Novo perfil</button>
-              <button class="btn btn-brand btn-sm" id="btnNewUser"><i class="bi bi-person-plus me-1"></i>Novo usu·rio</button>
+              <button class="btn btn-brand btn-sm" id="btnNewUser"><i class="bi bi-person-plus me-1"></i>Novo usu√°rio</button>
             </div>
           </div>
         </div>
@@ -82,8 +82,8 @@
             <div class="card-soft p-3 mb-3">
               <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
                 <div>
-                  <div class="fw-bold">Lista de usu·rios</div>
-                  <div class="text-muted small">Clique em um usu·rio para abrir o drawer de detalhes.</div>
+                  <div class="fw-bold">Lista de usu√°rios</div>
+                  <div class="text-muted small">Clique em um usu√°rio para abrir o drawer de detalhes.</div>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 justify-content-end">
@@ -123,7 +123,7 @@
               </lt-grid>
 
               <div class="d-flex align-items-center justify-content-between mt-2">
-                <div class="text-muted small" id="usersHint">ï</div>
+                <div class="text-muted small" id="usersHint">‚Ä¢</div>
                 <div class="d-flex align-items-center gap-2">
                   <span class="pill"><i class="bi bi-table"></i><span id="usersCount">0</span> exibidos</span>
                 </div>
@@ -138,7 +138,7 @@
                 <div class="d-flex align-items-start justify-content-between gap-2">
                   <div>
                     <div class="fw-bold">Perfis</div>
-                    <div class="text-muted small">Clique para editar permissıes.</div>
+                    <div class="text-muted small">Clique para editar permiss√µes.</div>
                   </div>
                   <span class="pill"><i class="bi bi-shield-lock"></i>RBAC</span>
                 </div>
@@ -151,7 +151,7 @@
               <div class="card-soft p-3">
                 <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
                   <div>
-                    <div class="fw-bold" id="roleEditorTitle">ï</div>
+                    <div class="fw-bold" id="roleEditorTitle">‚Ä¢</div>
                     <div class="text-muted small" id="roleEditorDesc">Selecione um perfil ao lado.</div>
                   </div>
                   <div class="d-flex flex-wrap gap-2 justify-content-end">
@@ -169,14 +169,14 @@
                     <input class="form-control" id="roleName" placeholder="ex.: Recrutador">
                   </div>
                   <div class="col-12 col-md-6">
-                    <label class="form-label small">DescriÁ„o</label>
-                    <input class="form-control" id="roleDesc" placeholder="ex.: Triagem e matching (sem exclusıes)">
+                    <label class="form-label small">Descri√ß√£o</label>
+                    <input class="form-control" id="roleDesc" placeholder="ex.: Triagem e matching (sem exclus√µes)">
                   </div>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mb-2">
-                  <span class="pill"><i class="bi bi-info-circle"></i>Permissıes por mÛdulo</span>
-                  <span class="pill"><i class="bi bi-download"></i>ExportaÁ„o controlada</span>
+                  <span class="pill"><i class="bi bi-info-circle"></i>Permiss√µes por m√≥dulo</span>
+                  <span class="pill"><i class="bi bi-download"></i>Exporta√ß√£o controlada</span>
                   <span class="pill"><i class="bi bi-lock"></i>Admin = tudo</span>
                 </div>
 
@@ -196,7 +196,7 @@
 
                 <div class="text-muted small mt-2">
                   <i class="bi bi-lightning-charge me-1"></i>
-                  MVP real: validaÁ„o de permissıes no backend (JWT + claims/roles) + auditoria.
+                  MVP real: valida√ß√£o de permiss√µes no backend (JWT + claims/roles) + auditoria.
                 </div>
               </div>
             </div>
@@ -224,7 +224,7 @@
   @await Html.PartialAsync("_ModalRole")
 
   <!-- TOASTS -->
-  @await Html.PartialAsync("_Toast", new { Title = "NotificaÁ„o", IconColor = "var(--lt-primary)" })
+  @await Html.PartialAsync("_Toast", new { Title = "Notifica√ß√£o", IconColor = "var(--lt-primary)" })
 
   <!-- Bootstrap JS (CDN) -->
 

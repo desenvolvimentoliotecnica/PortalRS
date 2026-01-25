@@ -8,7 +8,7 @@
     }
 
     let VAGA_ALL = enumFirstCode("vagaFilterSimple", "all");
-    const EMPTY_TEXT = "ó";
+    const EMPTY_TEXT = "‚Äî";
 
     const state = {
       reportId: "r1",
@@ -282,8 +282,8 @@
 
     async function renderReport(){
       const r = state.reports.find(x => x.id === state.reportId);
-      $("#reportTitle").textContent = r ? r.title : "ï";
-      $("#reportDesc").textContent = r ? r.desc : "Selecione um relatÛrio no cat·logo.";
+      $("#reportTitle").textContent = r ? r.title : "‚Ä¢";
+      $("#reportDesc").textContent = r ? r.desc : "Selecione um relat√≥rio no cat√°logo.";
 
       const data = await fetchReportData();
       state.currentReport = data;
@@ -299,7 +299,7 @@
 
       const p = state.filters.period;
       const pl = p==="7d"?"7 dias":p==="30d"?"30 dias":p==="90d"?"90 dias":"YTD";
-      $("#resultHint").textContent = `Periodo: ${pl} ï Vaga: ${state.filters.vaga === "all" ? "todas" : "filtrada"} ï Origem/Status: conforme filtros.`;
+      $("#resultHint").textContent = `Periodo: ${pl} ‚Ä¢ Vaga: ${state.filters.vaga === "all" ? "todas" : "filtrada"} ‚Ä¢ Origem/Status: conforme filtros.`;
     }
 
     function exportCurrentCsv(){

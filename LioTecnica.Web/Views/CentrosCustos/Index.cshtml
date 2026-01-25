@@ -30,7 +30,7 @@
 	<div class="page-title">
 		<div>
 			<h4>Centros de Custo</h4>
-			<div class="subtitle">Gerencie centros de custo usados em departamentos, orçamento e alocação de despesas.</div>
+			<div class="subtitle">Gerencie centros de custo usados em departamentos, orÃ§amento e alocaÃ§Ã£o de despesas.</div>
 		</div>
 	</div>
 
@@ -39,7 +39,7 @@
 		var kpis = new[]
 		{
 	new { ColClass = "col-6 col-lg-3", Title = "Centros de Custo", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCcTotal", Value = "0", PillIcon = "bi-cash-stack", PillText = "total", Hint = "Centros de custo cadastrados." },
-	new { ColClass = "col-6 col-lg-3", Title = "Ativos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCcActive", Value = "0", PillIcon = "bi-check2-circle", PillText = "ativo", Hint = "Centros de custo em operação." },
+	new { ColClass = "col-6 col-lg-3", Title = "Ativos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCcActive", Value = "0", PillIcon = "bi-check2-circle", PillText = "ativo", Hint = "Centros de custo em operaÃ§Ã£o." },
 	new { ColClass = "col-6 col-lg-3", Title = "Departamentos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCcDepartments", Value = "0", PillIcon = "bi-diagram-3", PillText = "vinc.", Hint = "Departamentos vinculados (soma/contagem)." },
 	new { ColClass = "col-6 col-lg-3", Title = "Headcount", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCcHeadcount", Value = "0", PillIcon = "bi-people", PillText = "pessoas", Hint = "Soma do headcount dos departamentos vinculados." }
 	};
@@ -50,7 +50,7 @@
 		<div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
 			<div>
 				<div class="fw-bold">Lista de centros de custo</div>
-				<div class="text-muted small">Clique em um CC para ver detalhes e vínculos com departamentos.</div>
+				<div class="text-muted small">Clique em um CC para ver detalhes e vÃ­nculos com departamentos.</div>
 			</div>
 
 			<div class="d-flex flex-wrap gap-2 justify-content-end">
@@ -60,7 +60,7 @@
 						<span class="input-group-text" style="background:rgba(255,255,255,.65)">
 							<i class="bi bi-search"></i>
 						</span>
-						<input class="form-control" id="ccSearch" placeholder="nome, código...">
+						<input class="form-control" id="ccSearch" placeholder="nome, cÃ³digo...">
 					</div>
 				</div>
 
@@ -75,7 +75,7 @@
 				</div>
 
 				<div>
-					<label class="form-label small mb-1">Vínculo</label>
+					<label class="form-label small mb-1">VÃ­nculo</label>
 					<select class="form-select" id="ccLink">
 						<option value="all">Todos</option>
 						<option value="linked">Com departamentos</option>

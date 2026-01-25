@@ -164,7 +164,7 @@ function buildOption(value, label, selected = false) {
 function buildLabel(item) {
   const code = (item.code || "").trim();
   const name = (item.name || "").trim();
-  return code ? `${code} — ${name}` : (name || "-");
+  return code ? `${code} â€” ${name}` : (name || "-");
 }
 
 async function fillAreaSelect(selectedId) {

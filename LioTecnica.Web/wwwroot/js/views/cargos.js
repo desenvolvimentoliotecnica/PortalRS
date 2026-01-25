@@ -122,7 +122,7 @@ async function loadAreasLookup(force = false) {
 function buildAreaLabel(a) {
   const code = (a.code || "").trim();
   const name = (a.name || "").trim();
-  return code ? `${code} — ${name}` : (name || "-");
+  return code ? `${code} â€” ${name}` : (name || "-");
 }
 
 async function fillAreaSelect(selectedId) {
