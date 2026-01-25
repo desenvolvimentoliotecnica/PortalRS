@@ -3774,10 +3774,13 @@
             // Renderiza quando o modal abrir (evita render desnecessário)
             modalEl.addEventListener("shown.bs.modal", () => {
               initIfNeeded();
-              showCardsView();
+              if (sectionsContent?.classList.contains("d-none")) {
+                showCardsView();
+              }
             });
 
             modalEl.addEventListener("hidden.bs.modal", () => {
+              if (document.querySelector(".modal.show")) return;
               showCardsView();
             });
 
@@ -4645,6 +4648,7 @@
         })();
     </script>
     <script src="~/js/views/portal-vagas-profile.js" asp-append-version="true"></script>
+    <script src="~/js/views/portal-vagas-profile-demo.js" asp-append-version="true"></script>
 </body>
 </html>
 
