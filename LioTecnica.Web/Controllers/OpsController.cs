@@ -16,7 +16,8 @@ public sealed class OpsController : Controller
     public sealed record ResetDatabaseRequest(
         bool Reset = true,
         bool Clean = false,
-        bool Reseed = true);
+        bool Reseed = true,
+        string? ConnectionId = null);
 
     // Esse é o endpoint que seu JS chama:
     // fetch('/ops/reset-database', { method: 'POST', body: { reseed: true/false } })
@@ -27,7 +28,7 @@ public sealed class OpsController : Controller
         if (!body.Reset && !body.Clean)
             return BadRequest(new { ok = false, message = "Selecione Reset ou Limpar Base." });
 
-        var ok = await _opsApi.ResetDatabaseAsync(body.Reset, body.Clean, body.Reseed, ct);
+        var ok = await _opsApi.ResetDatabaseAsync(body.Reset, body.Clean, body.Reseed, body.ConnectionId, ct);
         if (!ok)
             return StatusCode(500, new { ok = false, message = "Unable to reset database." });
 

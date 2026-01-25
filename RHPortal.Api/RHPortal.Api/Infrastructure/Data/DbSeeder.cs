@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Ops;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Infrastructure.Data;
@@ -22,6 +23,7 @@ public static class DbSeeder
             forceResetDatabase: null,
             forceCleanDatabase: null,
             overrides: null,
+            progress: null,
             ct);
 
     /// <summary>
@@ -39,6 +41,7 @@ public static class DbSeeder
         bool? forceResetDatabase,
         bool? forceCleanDatabase,
         SeedOverrides? overrides,
+        IResetProgressReporter? progress,
         CancellationToken ct = default)
     {
         using var scope = services.CreateScope();
@@ -51,8 +54,20 @@ public static class DbSeeder
         var resetState = scope.ServiceProvider.GetService<ResetState>();
 
         resetState?.SetResetting(true);
+        async Task ReportAsync(string stage, string message, int? percent = null)
+        {
+            if (progress is null)
+                return;
+
+            await progress.ReportAsync(
+                new ResetProgressMessage(stage, message, percent, DateTimeOffset.UtcNow),
+                ct);
+        }
+
         try
         {
+            await ReportAsync("start", "Iniciando operação...", 0);
+
             // ---------------------------
             // Reset enable/disable
             // ---------------------------
@@ -69,6 +84,7 @@ public static class DbSeeder
 
             if (resetDb)
             {
+                await ReportAsync("reset", "Resetando schema do banco...", 10);
                 if (string.Equals(db.Database.ProviderName, "Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.OrdinalIgnoreCase))
                 {
                     await db.Database.ExecuteSqlRawAsync("DROP SCHEMA IF EXISTS public CASCADE;", ct);
@@ -81,12 +97,15 @@ public static class DbSeeder
             }
             else if (cleanDb)
             {
+                await ReportAsync("clean", "Limpando dados do banco...", 10);
                 await ClearAllDataAsync(db, ct);
             }
 
+            await ReportAsync("migrate", "Aplicando migrations...", 25);
             // ✅ Migrar sempre depois do reset
             await db.Database.MigrateAsync(ct);
 
+            await ReportAsync("seed-core", "Aplicando seeds essenciais...", 35);
             // ✅ Seeds essenciais sempre (mesmo com Seed:Enabled=false)
             await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder
                 .EnsureDefaultMenusAsync(db, tenantContext, roleManager, localizer, ct);
@@ -98,7 +117,10 @@ public static class DbSeeder
             var seedEnabled = overrides?.SeedEnabled ?? seedEnabledFromConfig;
 
             if (!seedEnabled)
+            {
+                await ReportAsync("done", "Concluído (seed desativado).", 100);
                 return;
+            }
 
             // ---------------------------
             // Carrega configs padrão
@@ -152,6 +174,7 @@ public static class DbSeeder
             var liotecnicaInboxCount = resolveInboxCount("liotecnica");
             var liotecnicaInboxEnabled = resolveInboxEnabled("liotecnica");
 
+            await ReportAsync("seed-tenant", "Seeding tenant Liotecnica...", 55);
             await SeedTenantAsync(
                 db, tenantContext, userManager, roleManager,
                 tenantId: "liotecnica",
@@ -177,6 +200,7 @@ public static class DbSeeder
             var devInboxCount = resolveInboxCount("dev");
             var devInboxEnabled = resolveInboxEnabled("dev");
 
+            await ReportAsync("seed-tenant", "Seeding tenant Development...", 80);
             await SeedTenantAsync(
                 db, tenantContext, userManager, roleManager,
                 tenantId: "dev",
@@ -197,6 +221,8 @@ public static class DbSeeder
                 localizer: localizer,
                 randomSeed: randomSeed,
                 ct: ct);
+
+            await ReportAsync("done", "Concluído.", 100);
         }
         finally
         {

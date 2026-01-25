@@ -1,4 +1,5 @@
-﻿// ===============================
+(() => {
+// ===============================
 // Dashboard.js (i18n-ready)
 // ===============================
 
@@ -444,4 +445,6 @@ function refreshEnumDefaults() {
 
     const saved = localStorage.getItem("rh_active_menu") || "dashboard";
     setActiveMenu(saved);
+})();
+
 })();

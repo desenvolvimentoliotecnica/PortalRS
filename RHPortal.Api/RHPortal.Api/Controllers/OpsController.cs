@@ -3,13 +3,16 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Ops;
+using Microsoft.AspNetCore.SignalR;
 
 namespace RhPortal.Api.Controllers;
 
 public sealed record ResetDatabaseRequest(
     bool Reset = true,
     bool Clean = false,
-    bool Reseed = true);
+    bool Reseed = true,
+    string? ConnectionId = null);
 
 public sealed record ResetDatabaseResponse(
     bool Ok,
@@ -73,6 +76,13 @@ public sealed class OpsController : ControllerBase
 
         try
         {
+            IResetProgressReporter? reporter = null;
+            if (!string.IsNullOrWhiteSpace(body?.ConnectionId))
+            {
+                var hub = HttpContext.RequestServices.GetRequiredService<IHubContext<ResetProgressHub>>();
+                reporter = new SignalRResetProgressReporter(hub, body.ConnectionId);
+            }
+
             // ✅ Overrides finos (sem mexer no appsettings)
             // Quando reseed=true, forçamos:
             // - SeedEnabled = true
@@ -94,6 +104,7 @@ public sealed class OpsController : ControllerBase
                 forceResetDatabase: reset,
                 forceCleanDatabase: clean,
                 overrides: overrides,
+                progress: reporter,
                 ct: CancellationToken.None
             );
 
