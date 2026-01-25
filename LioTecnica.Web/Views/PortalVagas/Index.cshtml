@@ -826,6 +826,43 @@
             color: rgba(11, 18, 32, .55);
         }
 
+        #newJobModal .form-control,
+        #newJobModal .form-select {
+            background: #eef4ff;
+            border: 1px solid rgba(31, 111, 229, .18);
+            border-radius: 14px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.75);
+            color: #0b1220;
+            padding: .62rem .85rem;
+            transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+        }
+
+        #newJobModal .form-control::placeholder {
+            color: rgba(11, 18, 32, .45);
+        }
+
+        #newJobModal .form-control:focus,
+        #newJobModal .form-select:focus {
+            background: #eef4ff;
+            border-color: rgba(31, 111, 229, .55);
+            box-shadow: 0 0 0 .22rem rgba(31, 111, 229, .18);
+        }
+
+        #newJobModal .form-select {
+            background-color: #eef4ff;
+        }
+
+        #newJobModal .form-label {
+            font-size: .85rem;
+            font-weight: 600;
+            color: rgba(11, 18, 32, .75);
+            margin-bottom: .35rem;
+        }
+
+        #newJobModal .form-text {
+            color: rgba(11, 18, 32, .55);
+        }
+
         /* ===== Modal "Meu perfil" igual ao print ===== */
         #profileModal .modal-dialog {
             height: calc(100vh - 2rem);
@@ -903,6 +940,78 @@
             margin-top: auto;
         }
 
+        #newJobModal .modal-dialog {
+            height: calc(100vh - 2rem);
+            margin: 1rem auto;
+        }
+
+        #newJobModal .modal-dialog .modal-content {
+            height: 100%;
+        }
+
+        #newJobModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 2rem);
+            height: 100%;
+            border-radius: 22px;
+            border: 1px solid rgba(15, 23, 42, .10);
+            box-shadow: 0 18px 50px rgba(2, 6, 23, .14),
+            0 1px 0 rgba(255,255,255,.60) inset;
+            overflow: hidden;
+            background: #ffffff;
+            overflow-x: hidden;
+        }
+
+        #newJobModal form {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0;
+        }
+
+        #newJobModal .modal-header {
+            border-bottom: 1px solid rgba(15, 23, 42, .08);
+            padding: 18px 20px;
+            background: #ffffff;
+        }
+
+        #newJobModal .modal-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: #f3f7ff;
+            padding: 18px 20px;
+        }
+
+        #newJobModal .modal-body::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #newJobModal .modal-body::-webkit-scrollbar-track {
+            background: #e6ecfb;
+            border-radius: 999px;
+        }
+
+        #newJobModal .modal-body::-webkit-scrollbar-thumb {
+            background: #182b57;
+            border-radius: 999px;
+            border: 3px solid #e6ecfb;
+        }
+
+        #newJobModal .modal-body {
+            scrollbar-color: #182b57 #e6ecfb;
+            scrollbar-width: auto;
+        }
+
+        #newJobModal .modal-footer {
+            border-top: 1px solid rgba(15, 23, 42, .08);
+            background: #f3f7ff;
+            padding: 14px 20px;
+            margin-top: auto;
+        }
+
 
         @@media (max-width: 576px) {
             #profileModal .modal-dialog {
@@ -911,6 +1020,15 @@
             }
 
             #profileModal .modal-content {
+                max-height: calc(100vh - 1rem);
+            }
+
+            #newJobModal .modal-dialog {
+                height: calc(100vh - 1rem);
+                margin: .5rem auto;
+            }
+
+            #newJobModal .modal-content {
                 max-height: calc(100vh - 1rem);
             }
         }
@@ -929,6 +1047,17 @@
         }
 
             #profileModal .btn-close:hover {
+                opacity: 1;
+            }
+
+        #newJobModal .btn-close {
+            background-color: rgba(15,23,42,.06);
+            border-radius: 999px;
+            padding: 10px;
+            opacity: .9;
+        }
+
+            #newJobModal .btn-close:hover {
                 opacity: 1;
             }
 
@@ -1154,44 +1283,48 @@
                                 <select id="newJobSenioridade" class="form-select"></select>
                             </div>
 
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-3">
                                 <label class="form-label" for="newJobTipo">Tipo de contratacao</label>
                                 <select id="newJobTipo" class="form-select"></select>
                             </div>
 
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-3">
                                 <label class="form-label" for="newJobQuantidade">Quantidade de vagas</label>
                                 <input id="newJobQuantidade" class="form-control" type="number" min="1" value="1" required />
                             </div>
 
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-3">
                                 <label class="form-label" for="newJobMatch">Match minimo (%)</label>
                                 <input id="newJobMatch" class="form-control" type="number" min="0" max="100" value="60" required />
                             </div>
 
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-3">
                                 <label class="form-label" for="newJobVisibilidade">Visibilidade</label>
                                 <select id="newJobVisibilidade" class="form-select"></select>
                             </div>
 
-                            <div class="col-12 col-md-4">
-                                <label class="form-label" for="newJobCity">Cidade</label>
-                                <input id="newJobCity" class="form-control" type="text" maxlength="120" />
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobUf">UF</label>
+                                <select id="newJobUf" class="form-select">
+                                    <option value="" selected>Selecione</option>
+                                </select>
                             </div>
 
-                            <div class="col-12 col-md-2">
-                                <label class="form-label" for="newJobUf">UF</label>
-                                <input id="newJobUf" class="form-control" type="text" maxlength="2" />
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobCity">Cidade</label>
+                                <select id="newJobCity" class="form-select" disabled>
+                                    <option value="" selected>Selecione a UF primeiro</option>
+                                </select>
                             </div>
 
                             <div class="col-12 col-md-3">
                                 <label class="form-label" for="newJobSalaryMin">Salario minimo</label>
-                                <input id="newJobSalaryMin" class="form-control" type="number" step="0.01" />
+                                <input id="newJobSalaryMin" class="form-control" type="text" inputmode="decimal" />
                             </div>
 
                             <div class="col-12 col-md-3">
                                 <label class="form-label" for="newJobSalaryMax">Salario maximo</label>
-                                <input id="newJobSalaryMax" class="form-control" type="number" step="0.01" />
+                                <input id="newJobSalaryMax" class="form-control" type="text" inputmode="decimal" />
                             </div>
 
                             <div class="col-12">
@@ -4317,6 +4450,10 @@
           const newJobSubmit = document.getElementById("newJobSubmit");
           const newJobLoading = document.getElementById("newJobLoading");
           const newJobModal = newJobModalEl ? new bootstrap.Modal(newJobModalEl, { backdrop: true, keyboard: true }) : null;
+          const newJobUf = document.getElementById("newJobUf");
+          const newJobCity = document.getElementById("newJobCity");
+          const newJobSalaryMin = document.getElementById("newJobSalaryMin");
+          const newJobSalaryMax = document.getElementById("newJobSalaryMax");
 
           const applyForm = document.getElementById("applyForm");
           const applyAlert = document.getElementById("applyAlert");
@@ -4399,6 +4536,99 @@
             if (value === "" || value === null || value === undefined) return null;
             const parsed = Number(value);
             return Number.isFinite(parsed) ? parsed : null;
+          }
+
+          function digitsOnly(value) {
+            return (value || "").replace(/\D/g, "");
+          }
+
+          function formatMoneyBR(value) {
+            const digits = digitsOnly(value);
+            if (!digits) return "";
+            const cents = digits.padStart(3, "0");
+            const integerPart = cents.slice(0, -2);
+            const decimalPart = cents.slice(-2);
+            const integerFormatted = Number(integerPart).toLocaleString("pt-BR");
+            return `${integerFormatted},${decimalPart}`;
+          }
+
+          function parseMoneyBR(value) {
+            if (!value) return null;
+            const normalized = value.replace(/\./g, "").replace(",", ".");
+            const parsed = Number(normalized);
+            return Number.isFinite(parsed) ? parsed : null;
+          }
+
+          const newJobCityCache = new Map();
+          let newJobCachedUfs = null;
+
+          function setNewJobSelectLoading(select, label, disabled = true) {
+            if (!select) return;
+            select.disabled = disabled;
+            select.innerHTML = "";
+            const opt = document.createElement("option");
+            opt.value = "";
+            opt.textContent = label;
+            select.appendChild(opt);
+          }
+
+          async function fetchNewJobUfs() {
+            if (newJobCachedUfs) return newJobCachedUfs;
+            const res = await fetch(`${LOCATION_BASE}/Ufs`, { credentials: "same-origin" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            newJobCachedUfs = (Array.isArray(data) ? data : [])
+              .map((uf) => (uf || "").toString().trim().toUpperCase())
+              .filter(Boolean)
+              .sort((a, b) => a.localeCompare(b, "pt-BR"));
+            return newJobCachedUfs;
+          }
+
+          async function fetchNewJobCitiesForUf(uf) {
+            const key = (uf || "").trim().toUpperCase();
+            if (!key) return [];
+            if (newJobCityCache.has(key)) return newJobCityCache.get(key);
+            const res = await fetch(`${LOCATION_BASE}/Ufs/${encodeURIComponent(key)}/Cities`, { credentials: "same-origin" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const list = (Array.isArray(data) ? data : [])
+              .map((city) => (city || "").toString().trim())
+              .filter(Boolean)
+              .sort((a, b) => a.localeCompare(b, "pt-BR"));
+            newJobCityCache.set(key, list);
+            return list;
+          }
+
+          async function populateNewJobUfSelect(select) {
+            if (!select) return;
+            setNewJobSelectLoading(select, "Carregando UFs...", true);
+            const list = await fetchNewJobUfs();
+            select.disabled = false;
+            select.innerHTML = '<option value="" selected>Selecione</option>';
+            list.forEach((uf) => {
+              const opt = document.createElement("option");
+              opt.value = uf;
+              opt.textContent = uf;
+              select.appendChild(opt);
+            });
+          }
+
+          async function populateNewJobCitySelect(uf, select) {
+            if (!select) return;
+            if (!uf) {
+              setNewJobSelectLoading(select, "Selecione a UF primeiro", true);
+              return;
+            }
+            setNewJobSelectLoading(select, "Carregando municipios...", true);
+            const cities = await fetchNewJobCitiesForUf(uf);
+            select.disabled = false;
+            select.innerHTML = '<option value="" selected>Selecione</option>';
+            cities.forEach((city) => {
+              const opt = document.createElement("option");
+              opt.value = city;
+              opt.textContent = city;
+              select.appendChild(opt);
+            });
           }
 
           let newJobLookupsLoaded = false;
@@ -5018,10 +5248,30 @@
               clearNewJobAlert();
               try {
                 await loadNewJobLookups();
+                await populateNewJobUfSelect(newJobUf);
+                await populateNewJobCitySelect("", newJobCity);
               } catch (err) {
                 console.error(err);
                 setNewJobAlert("Nao foi possivel carregar os dados da vaga.");
               }
+            });
+          }
+
+          if (newJobUf && newJobCity) {
+            newJobUf.addEventListener("change", async () => {
+              await populateNewJobCitySelect(newJobUf.value, newJobCity);
+            });
+          }
+
+          if (newJobSalaryMin) {
+            newJobSalaryMin.addEventListener("input", () => {
+              newJobSalaryMin.value = formatMoneyBR(newJobSalaryMin.value);
+            });
+          }
+
+          if (newJobSalaryMax) {
+            newJobSalaryMax.addEventListener("input", () => {
+              newJobSalaryMax.value = formatMoneyBR(newJobSalaryMax.value);
             });
           }
 
@@ -5093,8 +5343,8 @@
                   politicaTrabalho: null,
                   observacoesDeslocamento: null,
                   moeda: null,
-                  salarioMinimo: toNumber(document.getElementById("newJobSalaryMin").value),
-                  salarioMaximo: toNumber(document.getElementById("newJobSalaryMax").value),
+                  salarioMinimo: parseMoneyBR(document.getElementById("newJobSalaryMin").value),
+                  salarioMaximo: parseMoneyBR(document.getElementById("newJobSalaryMax").value),
                   periodicidade: null,
                   bonusTipo: null,
                   bonusPercentual: null,
@@ -5140,6 +5390,11 @@
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok) {
                   setNewJobAlert(data.message || "Nao foi possivel criar a vaga.");
+                  window.Swal?.fire({
+                    icon: "error",
+                    title: "Falha ao salvar",
+                    text: data.message || "Nao foi possivel criar a vaga."
+                  });
                   return;
                 }
 
@@ -5149,9 +5404,19 @@
                   newJobForm.classList.remove("was-validated");
                 }
                 await loadJobs(true);
+                window.Swal?.fire({
+                  icon: "success",
+                  title: "Vaga salva",
+                  text: "A vaga foi criada com sucesso."
+                });
               } catch (err) {
                 console.error(err);
                 setNewJobAlert("Falha ao criar a vaga.");
+                window.Swal?.fire({
+                  icon: "error",
+                  title: "Erro inesperado",
+                  text: "Nao foi possivel criar a vaga."
+                });
               } finally {
                 toggleNewJobLoading(false);
               }
