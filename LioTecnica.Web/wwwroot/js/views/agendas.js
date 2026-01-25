@@ -9,7 +9,7 @@ const CANDIDATOS_API = "/api/candidatos";
 const VAGAS_API = "/api/vagas";
 
 // i18n helper
-const t = (k, fallback) => (window.__i18n && window.__i18n[k]) ? window.__i18n[k] : (fallback ?? k);
+const i18n = (k, fallback) => (window.__i18n && window.__i18n[k]) ? window.__i18n[k] : (fallback ?? k);
 
 // Locale helper (para FullCalendar + formatação)
 const APP_LOCALE = (document.documentElement.lang || "pt-BR").toLowerCase().startsWith("en") ? "en" : "pt-br";
@@ -32,7 +32,7 @@ function toast(msg) {
     const toastEl = ui("appToast");
     if (!toastEl || !window.bootstrap) return;
     const msgEl = ui("toastMsg");
-    if (msgEl) msgEl.textContent = msg ?? t("toastMsgDefault", "—");
+    if (msgEl) msgEl.textContent = msg ?? i18n("toastMsgDefault", "—");
     window.bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 2400 }).show();
 }
 
@@ -162,7 +162,7 @@ function renderCandidateSelect(selectedName) {
     const sel = ui("evCandidate");
     if (!sel) return;
 
-    const opt0 = `<option value="">${escapeHtml(t("Candidate_Select", APP_LOCALE === "en" ? "Select a candidate" : "Selecione um candidato"))}</option>`;
+    const opt0 = `<option value="">${escapeHtml(i18n("Candidate_Select", APP_LOCALE === "en" ? "Select a candidate" : "Selecione um candidato"))}</option>`;
     sel.innerHTML = opt0 + state.candidatos.map(c => {
         const label = `${c.nome || ""}${c.email ? ` • ${c.email}` : ""}`.trim();
         return `<option value="${escapeHtml(c.nome)}" ${c.nome === selectedName ? "selected" : ""}>${escapeHtml(label)}</option>`;
@@ -173,7 +173,7 @@ function renderVagaSelect(selectedLabel) {
     const sel = ui("evVaga");
     if (!sel) return;
 
-    const opt0 = `<option value="">${escapeHtml(t("Job_Select", APP_LOCALE === "en" ? "Select a job" : "Selecione uma vaga"))}</option>`;
+    const opt0 = `<option value="">${escapeHtml(i18n("Job_Select", APP_LOCALE === "en" ? "Select a job" : "Selecione uma vaga"))}</option>`;
     sel.innerHTML = opt0 + state.vagas.map(v => {
         const label = v.codigo ? `${v.titulo} (${v.codigo})` : v.titulo;
         const isSelected = label === selectedLabel;
@@ -231,7 +231,7 @@ function rebuildTypeSelects() {
     const evType = ui("evType");
     if (fType) {
         fType.innerHTML = [
-            `<option value="all">${escapeHtml(t("Status_All", APP_LOCALE === "en" ? "All" : "Todos"))}</option>`,
+            `<option value="all">${escapeHtml(i18n("Status_All", APP_LOCALE === "en" ? "All" : "Todos"))}</option>`,
             ...types.map(tt => `<option value="${escapeHtml(tt.code)}">${escapeHtml(tt.label)}</option>`)
         ].join("");
     }
@@ -338,7 +338,7 @@ function refreshSideList(calendar) {
         li.innerHTML = `
       <span class="evt-dot" style="background:${escapeHtml(dotColor)}"></span>
       <div style="min-width:0;">
-        <div class="evt-title">${escapeHtml(ev.title || t("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento"))}</div>
+        <div class="evt-title">${escapeHtml(ev.title || i18n("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento"))}</div>
         <div class="evt-meta">${escapeHtml(fmtTimeRange(start, end))}</div>
         <div class="evt-badges">
           <span class="tag"><i class="bi ${escapeHtml(p.icon || "bi-calendar")}"></i>${escapeHtml(typeLabel)}</span>
@@ -372,8 +372,8 @@ function refreshCalendarTitle(calendar) {
 function setEventModalMode(isEdit) {
     const mode = ui("eventModalMode");
     const title = ui("eventModalTitle");
-    if (mode) mode.textContent = isEdit ? t("Modal_EditEvent_MiniTitle", APP_LOCALE === "en" ? "Edit event" : "Editar evento") : t("Modal_NewEvent_MiniTitle", APP_LOCALE === "en" ? "New event" : "Novo evento");
-    if (title) title.textContent = isEdit ? t("Modal_Update_Title", APP_LOCALE === "en" ? "Update" : "Atualizar") : t("Modal_Schedule_Title", APP_LOCALE === "en" ? "Schedule" : "Agendar");
+    if (mode) mode.textContent = isEdit ? i18n("Modal_EditEvent_MiniTitle", APP_LOCALE === "en" ? "Edit event" : "Editar evento") : i18n("Modal_NewEvent_MiniTitle", APP_LOCALE === "en" ? "New event" : "Novo evento");
+    if (title) title.textContent = isEdit ? i18n("Modal_Update_Title", APP_LOCALE === "en" ? "Update" : "Atualizar") : i18n("Modal_Schedule_Title", APP_LOCALE === "en" ? "Schedule" : "Agendar");
 }
 
 function setEventFormDefaults(startDt, endDt) {
@@ -423,7 +423,7 @@ function collectEventFromForm() {
     const type = (ui("evType")?.value) || state.types[0]?.code || "entrevista";
 
     const id = (ui("evId")?.value) || "";
-    const title = ((ui("evTitle")?.value) || "").trim() || t("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento");
+    const title = ((ui("evTitle")?.value) || "").trim() || i18n("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento");
 
     const start = (ui("evStart")?.value) || toLocalIso(new Date());
     let end = (ui("evEnd")?.value) || "";
@@ -560,7 +560,7 @@ async function updateEventFromCalendar(fcEvent) {
     const p = ev.extendedProps || {};
 
     const request = {
-        title: fcEvent.title || ev.title || t("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento"),
+        title: fcEvent.title || ev.title || i18n("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento"),
         startAtUtc: toLocalIso(fcEvent.start),
         endAtUtc: toLocalIso(fcEvent.end || fcEvent.start),
         allDay: !!fcEvent.allDay,
@@ -597,7 +597,7 @@ async function importJsonText(text) {
     let parsed = null;
     try { parsed = JSON.parse(text); } catch { parsed = null; }
     if (!parsed || !Array.isArray(parsed.events)) {
-        toast(t("Import_InvalidJson", APP_LOCALE === "en" ? "Invalid JSON (expected: { events: [...] })." : "JSON inválido (esperado: { events: [...] })."));
+        toast(i18n("Import_InvalidJson", APP_LOCALE === "en" ? "Invalid JSON (expected: { events: [...] })." : "JSON inválido (esperado: { events: [...] })."));
         return;
     }
 
@@ -605,7 +605,7 @@ async function importJsonText(text) {
         const p = ev.extendedProps || {};
         const payload = {
             id: "",
-            title: ev.title || t("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento"),
+            title: ev.title || i18n("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento"),
             start: ev.start,
             end: ev.end || ev.start,
             type: p.type || state.types[0]?.code || "entrevista",
@@ -620,7 +620,7 @@ async function importJsonText(text) {
         await createOrUpdateEvent(payload);
     }
 
-    toast(t("Import_Success", APP_LOCALE === "en" ? "Agenda imported successfully." : "Agenda importada com sucesso."));
+    toast(i18n("Import_Success", APP_LOCALE === "en" ? "Agenda imported successfully." : "Agenda importada com sucesso."));
 }
 
 let modalEvent = null;
@@ -629,7 +629,7 @@ let calendar = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
-        if (ui("toastMsg")) ui("toastMsg").textContent = t("toastMsgDefault", "—");
+        if (ui("toastMsg")) ui("toastMsg").textContent = i18n("toastMsgDefault", "—");
 
         modalEvent = new bootstrap.Modal(ui("modalEvent"));
         modalView = new bootstrap.Modal(ui("modalView"));
@@ -675,13 +675,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             eventDrop: async function (info) {
                 await updateEventFromCalendar(info.event);
                 await refreshFromApi(calendar);
-                toast(t("Toast_EventMoved", APP_LOCALE === "en" ? "Event moved." : "Evento movido."));
+                toast(i18n("Toast_EventMoved", APP_LOCALE === "en" ? "Event moved." : "Evento movido."));
             },
 
             eventResize: async function (info) {
                 await updateEventFromCalendar(info.event);
                 await refreshFromApi(calendar);
-                toast(t("Toast_DurationUpdated", APP_LOCALE === "en" ? "Duration updated." : "Duração atualizada."));
+                toast(i18n("Toast_DurationUpdated", APP_LOCALE === "en" ? "Duration updated." : "Duração atualizada."));
             }
         });
 
@@ -733,7 +733,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             await createOrUpdateEvent(ev);
             await refreshFromApi(calendar);
             modalEvent.hide();
-            toast(t("Toast_EventSaved", APP_LOCALE === "en" ? "Event saved." : "Evento salvo."));
+            toast(i18n("Toast_EventSaved", APP_LOCALE === "en" ? "Event saved." : "Evento salvo."));
         });
 
         // Edit
@@ -747,12 +747,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         ui("btnDelete")?.addEventListener("click", async () => {
             const id = ui("viewId")?.value;
             if (!id) return;
-            if (!confirm(t("Confirm_Delete", APP_LOCALE === "en" ? "Delete this event?" : "Excluir este evento?"))) return;
+            if (!confirm(i18n("Confirm_Delete", APP_LOCALE === "en" ? "Delete this event?" : "Excluir este evento?"))) return;
 
             await apiFetchJson(`${AGENDA_API_BASE}/events/${id}`, { method: "DELETE" });
             await refreshFromApi(calendar);
             modalView.hide();
-            toast(t("Toast_EventDeleted", APP_LOCALE === "en" ? "Event deleted." : "Evento excluído."));
+            toast(i18n("Toast_EventDeleted", APP_LOCALE === "en" ? "Event deleted." : "Evento excluído."));
         });
 
         // Duplicate +7d
@@ -769,7 +769,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const p = src.extendedProps || {};
             const copy = {
                 id: "",
-                title: (src.title || t("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento")) + ` (${t("Copy_Suffix", APP_LOCALE === "en" ? "copy" : "cópia")})`,
+                title: (src.title || i18n("Event_DefaultTitle", APP_LOCALE === "en" ? "Event" : "Evento")) + ` (${i18n("Copy_Suffix", APP_LOCALE === "en" ? "copy" : "cópia")})`,
                 start: toLocalIso(plus7s),
                 end: toLocalIso(plus7e),
                 type: p.type || state.types[0]?.code || "entrevista",
@@ -785,7 +785,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             await createOrUpdateEvent(copy);
             await refreshFromApi(calendar);
             modalView.hide();
-            toast(t("Toast_EventDuplicated", APP_LOCALE === "en" ? "Event duplicated (+7 days)." : "Evento duplicado (+7 dias)."));
+            toast(i18n("Toast_EventDuplicated", APP_LOCALE === "en" ? "Event duplicated (+7 days)." : "Evento duplicado (+7 dias)."));
         });
 
         // Filters
@@ -804,14 +804,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             syncFiltersFromUI();
             applyFiltersToUI();
             rebuildCalendar(calendar);
-            toast(t("Toast_FiltersApplied", APP_LOCALE === "en" ? "Filters applied." : "Filtros aplicados."));
+            toast(i18n("Toast_FiltersApplied", APP_LOCALE === "en" ? "Filters applied." : "Filtros aplicados."));
         });
 
         ui("btnClearFilters")?.addEventListener("click", () => {
             state.settings.filters = { q: "", type: "all", status: "all" };
             applyFiltersToUI();
             rebuildCalendar(calendar);
-            toast(t("Toast_FiltersCleared", APP_LOCALE === "en" ? "Filters cleared." : "Filtros limpos."));
+            toast(i18n("Toast_FiltersCleared", APP_LOCALE === "en" ? "Filters cleared." : "Filtros limpos."));
         });
 
         ui("globalSearch")?.addEventListener("input", () => {
@@ -838,6 +838,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     } catch (err) {
         console.error(err);
-        toast(err?.message || t("Toast_GenericError", APP_LOCALE === "en" ? "Failed to load agenda." : "Falha ao carregar a agenda."));
+        toast(err?.message || i18n("Toast_GenericError", APP_LOCALE === "en" ? "Failed to load agenda." : "Falha ao carregar a agenda."));
     }
 });
