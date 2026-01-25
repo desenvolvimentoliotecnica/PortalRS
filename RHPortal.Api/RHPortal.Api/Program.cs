@@ -45,6 +45,7 @@ using RhPortal.Api.Infrastructure.Inbox;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Infrastructure.Ops;
 using RhPortal.Api.Swagger;
 using RhPortal.Api.Messaging.Email;
 
@@ -321,4 +322,5 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 app.MapControllers();
 // SignalR hub usado pela Inbox para push em tempo real.
 app.MapHub<InboxHub>("/hubs/inbox");
+app.MapHub<ResetProgressHub>("/hubs/ops-reset");
 app.Run();
