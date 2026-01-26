@@ -80,17 +80,20 @@
 
     <hr class="my-3 divider">
 
-        <lt-grid table-class="table table-sm align-middle mb-0" body-id="catTbody">
-      <lt-grid-header>
-        <tr>
+        <div class="table-responsive">
+  <table class="table table-sm align-middle mb-0">
+    <thead>
+<tr>
           <th>Categoria</th>
           <th>Status</th>
           <th>Requisitos</th>
           <th>Descricao</th>
           <th class="text-end">Acoes</th>
         </tr>
-      </lt-grid-header>
-    </lt-grid>
+    </thead>
+    <tbody id="catTbody"></tbody>
+  </table>
+</div>
 
     <div class="d-flex align-items-center justify-content-between mt-2">
       <div class="text-muted small" id="catHint">-</div>

@@ -87,9 +87,10 @@
 					</div>
 				</div>
 
-							<lt-grid table-class="table align-middle mb-0" body-id="tblVagas">
-				<lt-grid-header>
-					<tr>
+							<div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+<tr>
 						<th style="min-width: 240px;">Vaga</th>
 						<th style="min-width: 130px;">Area</th>
 						<th style="min-width: 150px;">Requisitos</th>
@@ -97,8 +98,10 @@
 						<th style="min-width: 120px;">Status</th>
 						<th class="text-end" style="min-width: 230px;">Acoes</th>
 					</tr>
-				</lt-grid-header>
-			</lt-grid>
+    </thead>
+    <tbody id="tblVagas"></tbody>
+  </table>
+</div>
 			</div>
 		</div>
 
@@ -277,9 +280,10 @@
 					<input class="form-control" id="reqSearch" placeholder="Filtrar requisitos..." style="border-color:var(--lt-border);">
 				</div>
 
-							<lt-grid table-class="table align-middle mb-0" body-id="tblReq">
-				<lt-grid-header>
-					<tr>
+							<div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+<tr>
 						<th style="min-width: 110px;">Obrig.</th>
 						<th style="min-width: 150px;">Categoria</th>
 						<th style="min-width: 220px;">Termo</th>
@@ -287,8 +291,10 @@
 						<th style="min-width: 220px;">Sinonimos</th>
 						<th class="text-end" style="min-width: 120px;">Acoes</th>
 					</tr>
-				</lt-grid-header>
-			</lt-grid>
+    </thead>
+    <tbody id="tblReq"></tbody>
+  </table>
+</div>
 
 				<div class="small text-muted mt-2">
 					Regras: score = soma(pesos encontrados) / soma(pesos totais) * 100.
@@ -373,17 +379,20 @@
 					<span class="badge-soft"><i class="bi bi-people me-1"></i>Relacionados</span>
 				</div>
 
-				<lt-grid table-class="table align-middle mb-0" body-id="tblVagaCands">
-					<lt-grid-header>
-						<tr>
+				<div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+<tr>
 							<th style="min-width: 220px;">Candidato</th>
 							<th style="min-width: 200px;">Email</th>
 							<th style="min-width: 120px;">Status</th>
 							<th style="min-width: 110px;">Match</th>
 							<th class="text-end" style="min-width: 120px;">Acoes</th>
 						</tr>
-					</lt-grid-header>
-				</lt-grid>
+    </thead>
+    <tbody id="tblVagaCands"></tbody>
+  </table>
+</div>
 			</div>
 		</div>
 	</div>

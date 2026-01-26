@@ -87,9 +87,10 @@
 
 		<hr class="my-3 divider">
 
-		<lt-grid table-class="table table-sm align-middle mb-0" body-id="ccTbody">
-			<lt-grid-header>
-				<tr>
+		<div class="table-responsive">
+  <table class="table table-sm align-middle mb-0">
+    <thead>
+<tr>
 					<th>Centro de Custo</th>
 					<th>Descricao</th>
 					<th class="text-nowrap">Departamentos</th>
@@ -97,8 +98,10 @@
 					<th>Status</th>
 					<th class="text-end">Acoes</th>
 				</tr>
-			</lt-grid-header>
-		</lt-grid>
+    </thead>
+    <tbody id="ccTbody"></tbody>
+  </table>
+</div>
 
 		<div class="d-flex align-items-center justify-content-between mt-2">
 			<div class="text-muted small" id="ccHint">-</div>

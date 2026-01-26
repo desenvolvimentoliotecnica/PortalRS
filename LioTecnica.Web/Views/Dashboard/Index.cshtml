@@ -130,9 +130,10 @@
             </div>
         </div>
 
-        <lt-grid table-class="table align-middle mb-0" body-id="tblBody">
-            <lt-grid-header>
-                <tr>
+        <div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+<tr>
                     <th style="min-width: 220px;">@T["Tbl_Job"]</th>
                     <th style="min-width: 200px;">@T["Tbl_Candidate"]</th>
                     <th style="min-width: 170px;">@T["Tbl_Source"]</th>
@@ -140,8 +141,10 @@
                     <th style="min-width: 170px;">@T["Tbl_Stage"]</th>
                     <th class="text-end" style="min-width: 150px;">@T["Tbl_Actions"]</th>
                 </tr>
-            </lt-grid-header>
-        </lt-grid>
+    </thead>
+    <tbody id="tblBody"></tbody>
+  </table>
+</div>
     </div>
 
     <div style="height: 14px;"></div>
@@ -161,9 +164,10 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="@T["Close"]"></button>
             </div>
             <div class="modal-body">
-                <lt-grid table-class="table align-middle mb-0" body-id="tblVagasAbertas">
-                    <lt-grid-header>
-                        <tr>
+                <div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+<tr>
                             <th style="min-width: 120px;">@T["Tbl_Code"]</th>
                             <th style="min-width: 240px;">@T["Tbl_Job"]</th>
                             <th style="min-width: 160px;">@T["Tbl_Area"]</th>
@@ -172,8 +176,10 @@
                             <th class="text-end" style="min-width: 140px;">@T["Tbl_Updated"]</th>
                             <th class="text-end" style="min-width: 120px;">@T["Tbl_Actions"]</th>
                         </tr>
-                    </lt-grid-header>
-                </lt-grid>
+    </thead>
+    <tbody id="tblVagasAbertas"></tbody>
+  </table>
+</div>
             </div>
         </div>
     </div>

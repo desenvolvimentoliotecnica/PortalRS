@@ -80,17 +80,20 @@
 
     <hr class="my-3 divider">
 
-        <lt-grid table-class="table table-sm align-middle mb-0" body-id="areaTbody">
-      <lt-grid-header>
-        <tr>
+        <div class="table-responsive">
+  <table class="table table-sm align-middle mb-0">
+    <thead>
+<tr>
           <th>Area</th>
           <th>Status</th>
           <th>Vagas</th>
           <th>Descricao</th>
           <th class="text-end">Acoes</th>
         </tr>
-      </lt-grid-header>
-    </lt-grid>
+    </thead>
+    <tbody id="areaTbody"></tbody>
+  </table>
+</div>
 
     <div class="d-flex align-items-center justify-content-between mt-2">
       <div class="text-muted small" id="areaHint">-</div>

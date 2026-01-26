@@ -76,9 +76,10 @@
 
 		<hr class="my-3 divider">
 
-				<lt-grid table-class="table table-sm align-middle mb-0" body-id="deptTbody">
-			<lt-grid-header>
-				<tr>
+				<div class="table-responsive">
+  <table class="table table-sm align-middle mb-0">
+    <thead>
+<tr>
 					<th colspan="2">Departamento</th>
 					<th>Gestor</th>
 					<th class="text-center">Centro de custo</th>
@@ -88,8 +89,10 @@
 					<th class="text-center">Status</th>
 					<th class="text-center">Acoes</th>
 				</tr>
-			</lt-grid-header>
-		</lt-grid>
+    </thead>
+    <tbody id="deptTbody"></tbody>
+  </table>
+</div>
 
 		<div class="d-flex align-items-center justify-content-between mt-2">
 			<div class="text-muted small" id="deptHint">-</div>
