@@ -51,6 +51,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoEducacaoItem> CandidatoEducacaoItens => Set<CandidatoEducacaoItem>();
     public DbSet<CandidatoExperiencia> CandidatoExperiencias => Set<CandidatoExperiencia>();
     public DbSet<CandidatoProjeto> CandidatoProjetos => Set<CandidatoProjeto>();
+    public DbSet<CandidatoPreferenciasVaga> CandidatoPreferenciasVaga => Set<CandidatoPreferenciasVaga>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -636,6 +637,39 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.Cascade);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoPreferenciasVaga>(b =>
+        {
+            b.ToTable("CandidatoPreferenciasVaga");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CargoAlvo).HasMaxLength(160);
+            b.Property(x => x.Senioridade).HasMaxLength(60);
+            b.Property(x => x.InicioDisponivel).HasMaxLength(60);
+            b.Property(x => x.Resumo).HasMaxLength(1200);
+            b.Property(x => x.AreasInteresse).HasMaxLength(240);
+            b.Property(x => x.ModeloTrabalho).HasMaxLength(40);
+            b.Property(x => x.Jornada).HasMaxLength(40);
+            b.Property(x => x.TipoContrato).HasMaxLength(40);
+            b.Property(x => x.Viagens).HasMaxLength(40);
+            b.Property(x => x.Mudanca).HasMaxLength(40);
+            b.Property(x => x.CidadePreferida).HasMaxLength(160);
+            b.Property(x => x.DistanciaMaxKm).HasMaxLength(20);
+            b.Property(x => x.ObsDeslocamento).HasMaxLength(200);
+            b.Property(x => x.PretensaoSalarial).HasMaxLength(40);
+            b.Property(x => x.PretensaoNegociavel).HasMaxLength(40);
+            b.Property(x => x.BeneficiosDesejados).HasMaxLength(200);
+            b.Property(x => x.NaoAbreMaoDe).HasMaxLength(200);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1244,6 +1278,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) projeto.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) projeto.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoPreferenciasVaga preferencias)
+            {
+                if (entry.State == EntityState.Added) preferencias.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) preferencias.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoStatusHistory history)

@@ -496,6 +496,62 @@ public sealed class PortalCandidatesApiClient
         return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover formacao.");
     }
 
+    public async Task<PortalApiResult<PortalCandidatePreferencesResponse>> GetPreferencesAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/preferences?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidatePreferencesResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidatePreferencesResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar preferencias.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidatePreferencesResponse>> UpdatePreferencesAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidatePreferencesRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/preferences?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidatePreferencesResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidatePreferencesResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(res.StatusCode, message ?? "Falha ao salvar preferencias.");
+    }
+
     public async Task<PortalApiResult<PortalCandidateExperienceProjectResponse>> GetExperienceProjectsAsync(
         string tenantId,
         Guid candidateId,

@@ -4199,6 +4199,10 @@
               rightCol.classList.remove("col-lg-7");
               if (!rightCol.classList.contains("col-lg-12")) rightCol.classList.add("col-lg-12");
             }
+
+            if (key === "pref" && typeof window.renderPreferences === "function") {
+              window.renderPreferences();
+            }
           }
     
 

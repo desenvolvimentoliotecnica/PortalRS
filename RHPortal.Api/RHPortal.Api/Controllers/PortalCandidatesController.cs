@@ -399,6 +399,115 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateEducationResponse(summaryDto, items));
     }
 
+    [HttpGet("{id:guid}/preferences")]
+    public async Task<ActionResult<PortalCandidatePreferencesResponse>> GetPreferences(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var prefs = await db.CandidatoPreferenciasVaga
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        return Ok(new PortalCandidatePreferencesResponse(
+            prefs?.CargoAlvo,
+            prefs?.Senioridade,
+            prefs?.InicioDisponivel,
+            prefs?.Resumo,
+            prefs?.AreasInteresse,
+            prefs?.ModeloTrabalho,
+            prefs?.Jornada,
+            prefs?.TipoContrato,
+            prefs?.Viagens,
+            prefs?.Mudanca,
+            prefs?.CidadePreferida,
+            prefs?.DistanciaMaxKm,
+            prefs?.ObsDeslocamento,
+            prefs?.PretensaoSalarial,
+            prefs?.PretensaoNegociavel,
+            prefs?.BeneficiosDesejados,
+            prefs?.NaoAbreMaoDe,
+            prefs?.UpdatedAtUtc
+        ));
+    }
+
+    [HttpPut("{id:guid}/preferences")]
+    public async Task<ActionResult<PortalCandidatePreferencesResponse>> UpdatePreferences(
+        Guid id,
+        [FromBody] PortalCandidatePreferencesRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var candidate = await db.Candidatos
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var prefs = await db.CandidatoPreferenciasVaga
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        if (prefs is null)
+        {
+            prefs = new CandidatoPreferenciasVaga
+            {
+                Id = Guid.NewGuid(),
+                TenantId = candidate.TenantId,
+                CandidatoId = candidate.Id
+            };
+            db.CandidatoPreferenciasVaga.Add(prefs);
+        }
+
+        prefs.CargoAlvo = NormalizeOptional(request.CargoAlvo);
+        prefs.Senioridade = NormalizeOptional(request.Senioridade);
+        prefs.InicioDisponivel = NormalizeOptional(request.InicioDisponivel);
+        prefs.Resumo = NormalizeOptional(request.Resumo);
+        prefs.AreasInteresse = NormalizeOptional(request.AreasInteresse);
+        prefs.ModeloTrabalho = NormalizeOptional(request.ModeloTrabalho);
+        prefs.Jornada = NormalizeOptional(request.Jornada);
+        prefs.TipoContrato = NormalizeOptional(request.TipoContrato);
+        prefs.Viagens = NormalizeOptional(request.Viagens);
+        prefs.Mudanca = NormalizeOptional(request.Mudanca);
+        prefs.CidadePreferida = NormalizeOptional(request.CidadePreferida);
+        prefs.DistanciaMaxKm = NormalizeOptional(request.DistanciaMaxKm);
+        prefs.ObsDeslocamento = NormalizeOptional(request.ObsDeslocamento);
+        prefs.PretensaoSalarial = NormalizeOptional(request.PretensaoSalarial);
+        prefs.PretensaoNegociavel = NormalizeOptional(request.PretensaoNegociavel);
+        prefs.BeneficiosDesejados = NormalizeOptional(request.BeneficiosDesejados);
+        prefs.NaoAbreMaoDe = NormalizeOptional(request.NaoAbreMaoDe);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidatePreferencesResponse(
+            prefs.CargoAlvo,
+            prefs.Senioridade,
+            prefs.InicioDisponivel,
+            prefs.Resumo,
+            prefs.AreasInteresse,
+            prefs.ModeloTrabalho,
+            prefs.Jornada,
+            prefs.TipoContrato,
+            prefs.Viagens,
+            prefs.Mudanca,
+            prefs.CidadePreferida,
+            prefs.DistanciaMaxKm,
+            prefs.ObsDeslocamento,
+            prefs.PretensaoSalarial,
+            prefs.PretensaoNegociavel,
+            prefs.BeneficiosDesejados,
+            prefs.NaoAbreMaoDe,
+            prefs.UpdatedAtUtc
+        ));
+    }
+
     [HttpPut("{id:guid}/education")]
     public async Task<ActionResult<PortalCandidateEducationSummaryDto>> UpdateEducationSummary(
         Guid id,

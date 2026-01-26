@@ -408,6 +408,37 @@ public sealed class PortalVagasController : Controller
     }
 
     [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Preferences")]
+    public async Task<IActionResult> GetPreferences(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetPreferencesAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar preferencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Preferences")]
+    public async Task<IActionResult> UpdatePreferences([FromBody] PortalCandidatePreferencesRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdatePreferencesAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar preferencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
     [HttpGet("/PortalVagas/ExperienceProjects")]
     public async Task<IActionResult> GetExperienceProjects(CancellationToken ct)
     {

@@ -1442,11 +1442,13 @@ function saveSkillsPreferences(){
     input.value = value.replace(".", ",");
   }
 
-  const prefSalaryInput = document.getElementById("prefSalary");
-  if (prefSalaryInput) {
-    prefSalaryInput.addEventListener("input", () => formatCurrencyInput(prefSalaryInput));
-    prefSalaryInput.addEventListener("blur", () => formatCurrencyInput(prefSalaryInput));
-  }
+  const prefSalaryInputs = document.querySelectorAll("#prefSalary");
+  prefSalaryInputs.forEach((input) => {
+    if (input.dataset.masked) return;
+    input.dataset.masked = "1";
+    input.addEventListener("input", () => formatCurrencyInput(input));
+    input.addEventListener("blur", () => formatCurrencyInput(input));
+  });
 
 function openSavedLink(which){
   const data = loadSkillsPortf();
@@ -2465,8 +2467,14 @@ function exportLgpdReceipt(){
 // Aba: Preferências de Vaga / Objetivos
 // ======================================
 const PREFS_STORAGE_KEY = "liotec_portal_preferences_v1";
+const PREFS_API_BASE = "/PortalVagas/Preferences";
+
+let prefsCache = defaultPreferences();
+let prefsLoaded = false;
+let prefsLoading = false;
 
 function loadPreferences(){
+  if(!STORAGE_ENABLED) return prefsCache;
   try{
     const raw = storageGet(PREFS_STORAGE_KEY);
     if(!raw) return null;
@@ -2506,15 +2514,16 @@ function defaultPreferences(){
 
 let __prefsHydratedOnce = false;
 
-function hydratePreferences(){
-  if(__prefsHydratedOnce) return;
+function hydratePreferences(force){
+  if(!force && __prefsHydratedOnce) return;
   __prefsHydratedOnce = true;
 
   const p = loadPreferences() || defaultPreferences();
-  try{ storageSet(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
 
+  const prefRoot = document.getElementById("tabPref");
+  const getPrefEl = (id) => prefRoot?.querySelector(`#${CSS.escape(id)}`) || document.getElementById(id);
   const setVal = (id, val) => {
-    const el = document.getElementById(id);
+    const el = getPrefEl(id);
     if(el) el.value = val ?? "";
   };
 
@@ -2542,10 +2551,100 @@ function hydratePreferences(){
   renderPreferencesSavedHint(p.updatedAt);
 }
 
+async function ensurePreferencesLoaded(){
+  if(STORAGE_ENABLED || prefsLoaded || prefsLoading) return;
+  prefsLoading = true;
+  try{
+    const res = await fetch(PREFS_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok){
+      prefsCache = mapPreferencesResponse(data);
+      __prefsHydratedOnce = false;
+    }
+  }catch{
+    // ignore
+  }finally{
+    prefsLoaded = true;
+    prefsLoading = false;
+  }
+}
+
+function mapPreferencesResponse(data){
+  const p = defaultPreferences();
+  p.role = data?.cargoAlvo || "";
+  p.seniority = data?.senioridade || "";
+  p.start = data?.inicioDisponivel || "";
+  p.summary = data?.resumo || "";
+
+  p.areas = data?.areasInteresse || "";
+  p.workMode = data?.modeloTrabalho || "";
+  p.shift = data?.jornada || "";
+  p.contract = data?.tipoContrato || "";
+  p.travel = data?.viagens || "";
+  p.relocation = data?.mudanca || "";
+
+  p.city = data?.cidadePreferida || "";
+  p.maxDistance = data?.distanciaMaxKm || "";
+  p.commuteNotes = data?.obsDeslocamento || "";
+
+  p.salary = data?.pretensaoSalarial || "";
+  p.salaryNegotiable = data?.pretensaoNegociavel || "";
+  p.benefits = data?.beneficiosDesejados || "";
+  p.dealbreakers = data?.naoAbreMaoDe || "";
+  p.updatedAt = data?.updatedAtUtc || p.updatedAt;
+  return p;
+}
+
+async function persistPreferences(p){
+  if(STORAGE_ENABLED){
+    try{ storageSet(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
+    return p;
+  }
+
+  const body = {
+    cargoAlvo: p.role,
+    senioridade: p.seniority,
+    inicioDisponivel: p.start,
+    resumo: p.summary,
+    areasInteresse: p.areas,
+    modeloTrabalho: p.workMode,
+    jornada: p.shift,
+    tipoContrato: p.contract,
+    viagens: p.travel,
+    mudanca: p.relocation,
+    cidadePreferida: p.city,
+    distanciaMaxKm: p.maxDistance,
+    obsDeslocamento: p.commuteNotes,
+    pretensaoSalarial: p.salary,
+    pretensaoNegociavel: p.salaryNegotiable,
+    beneficiosDesejados: p.benefits,
+    naoAbreMaoDe: p.dealbreakers
+  };
+
+  try{
+    const res = await fetch(PREFS_API_BASE, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body)
+    });
+    const payload = await res.json().catch(() => ({}));
+    if(res.ok){
+      prefsCache = mapPreferencesResponse(payload);
+      return prefsCache;
+    }
+  }catch{
+    // ignore
+  }
+  return null;
+}
+
 function savePreferences(){
   const p = loadPreferences() || defaultPreferences();
 
-  const val = (id) => (document.getElementById(id)?.value || "").trim();
+  const prefRoot = document.getElementById("tabPref");
+  const getPrefEl = (id) => prefRoot?.querySelector(`#${CSS.escape(id)}`) || document.getElementById(id);
+  const val = (id) => (getPrefEl(id)?.value || "").trim();
 
   p.role = val("prefRole");
   p.seniority = val("prefSeniority");
@@ -2570,8 +2669,15 @@ function savePreferences(){
 
   p.updatedAt = new Date().toISOString();
 
-  try{ storageSet(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
-  renderPreferencesSavedHint(p.updatedAt);
+  if(STORAGE_ENABLED){
+    try{ storageSet(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
+    renderPreferencesSavedHint(p.updatedAt);
+    return;
+  }
+
+  persistPreferences(p).then(saved => {
+    if(saved) renderPreferencesSavedHint(saved.updatedAt);
+  });
 }
 
 let __prefsSaveTimer = null;
@@ -2588,12 +2694,24 @@ function renderPreferencesSavedHint(updatedAtIso){
 }
 
 function renderPreferences(){
-  hydratePreferences();
+  if(!STORAGE_ENABLED && !prefsLoaded){
+    ensurePreferencesLoaded().then(() => renderPreferences());
+    return;
+  }
+  hydratePreferences(true);
   const p = loadPreferences() || defaultPreferences();
   renderPreferencesSavedHint(p.updatedAt);
 }
 
-function seedPreferences(){
+if (typeof window !== "undefined") {
+  window.renderPreferences = renderPreferences;
+  window.ensurePreferencesLoaded = ensurePreferencesLoaded;
+}
+
+async function seedPreferences(){
+  if(!STORAGE_ENABLED && !prefsLoaded){
+    await ensurePreferencesLoaded();
+  }
   const p = loadPreferences() || defaultPreferences();
 
   // se já tiver algo preenchido, avisa (para evitar sobrescrever sem querer)
@@ -2626,7 +2744,11 @@ function seedPreferences(){
 
   p.updatedAt = new Date().toISOString();
 
-  try{ storageSet(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
+  if(STORAGE_ENABLED){
+    try{ storageSet(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
+  }else{
+    await persistPreferences(p);
+  }
   __prefsHydratedOnce = false;
   renderPreferences();
 
@@ -2642,13 +2764,23 @@ function resetPreferences(){
     confirmButtonText:"Limpar",
     confirmButtonColor:"#004aad",
     cancelButtonText:"Cancelar"
-  }).then(r=>{
-    if(!r.isConfirmed) return;
-    storageRemove(PREFS_STORAGE_KEY);
-    __prefsHydratedOnce = false;
-    renderPreferences();
-    Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
-  });
+    }).then(r=>{
+      if(!r.isConfirmed) return;
+      if(STORAGE_ENABLED){
+        storageRemove(PREFS_STORAGE_KEY);
+        __prefsHydratedOnce = false;
+        renderPreferences();
+        Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+        return;
+      }
+
+      const cleared = defaultPreferences();
+      persistPreferences(cleared).then(() => {
+        __prefsHydratedOnce = false;
+        renderPreferences();
+        Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+      });
+    });
 }
 
 function previewPreferences(){
