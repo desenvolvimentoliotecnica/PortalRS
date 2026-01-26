@@ -16,15 +16,18 @@ public sealed class PortalVagasController : Controller
     private readonly AuthApiClient _authApi;
     private readonly PortalAuthApiClient _portalAuthApi;
     private readonly PortalCandidatesApiClient _portalCandidatesApi;
+    private readonly IConfiguration _configuration;
 
     public PortalVagasController(
         AuthApiClient authApi,
         PortalAuthApiClient portalAuthApi,
-        PortalCandidatesApiClient portalCandidatesApi)
+        PortalCandidatesApiClient portalCandidatesApi,
+        IConfiguration configuration)
     {
         _authApi = authApi;
         _portalAuthApi = portalAuthApi;
         _portalCandidatesApi = portalCandidatesApi;
+        _configuration = configuration;
     }
 
     [AllowAnonymous]
@@ -37,7 +40,7 @@ public sealed class PortalVagasController : Controller
             if (systemAuth.Principal.IsInRole("Admin"))
             {
                 HttpContext.User = systemAuth.Principal;
-                return View();
+                return View(BuildIndexViewModel(systemAuth.Principal));
             }
         }
 
@@ -50,7 +53,47 @@ public sealed class PortalVagasController : Controller
         }
 
         HttpContext.User = auth.Principal!;
-        return View();
+        return View(BuildIndexViewModel(auth.Principal));
+    }
+
+    private PortalVagasIndexViewModel BuildIndexViewModel(ClaimsPrincipal principal)
+    {
+        var tenantId = principal.FindFirst("tenant")?.Value?.Trim()
+            ?? Request.Query["tenantId"].ToString();
+        var name = principal.Identity?.Name?.Trim()
+            ?? principal.FindFirst(ClaimTypes.Name)?.Value?.Trim()
+            ?? string.Empty;
+        var email = principal.FindFirst(ClaimTypes.Email)?.Value?.Trim()
+            ?? principal.FindFirst("email")?.Value?.Trim()
+            ?? string.Empty;
+        var initials = BuildInitials(name, email);
+
+        return new PortalVagasIndexViewModel
+        {
+            TenantId = tenantId ?? string.Empty,
+            ApiBaseUrl = _configuration["Endpoints:RhApi"] ?? string.Empty,
+            IsAdmin = principal.IsInRole("Admin"),
+            UserDisplayName = string.IsNullOrWhiteSpace(name) ? email : name,
+            UserEmail = email,
+            UserInitials = initials
+        };
+    }
+
+    private static string BuildInitials(string name, string email)
+    {
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length >= 2)
+                return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+            if (parts.Length == 1 && parts[0].Length > 0)
+                return parts[0][0].ToString().ToUpperInvariant();
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+            return email[..1].ToUpperInvariant();
+
+        return "U";
     }
 
     [AllowAnonymous]

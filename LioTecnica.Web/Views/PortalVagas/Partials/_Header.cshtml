@@ -1,23 +1,4 @@
-@using System.Security.Claims
-@{
-    var userName = User?.Identity?.Name ?? "Candidato";
-    var userEmail = User?.FindFirst(ClaimTypes.Email)?.Value ?? string.Empty;
-    var initials = string.Empty;
-    var parts = userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-    if (parts.Length > 0)
-    {
-        initials += char.ToUpperInvariant(parts[0][0]);
-        if (parts.Length > 1)
-            initials += char.ToUpperInvariant(parts[parts.Length - 1][0]);
-    }
-    if (string.IsNullOrWhiteSpace(initials))
-        initials = "US";
-    var tenantId = Context.Request.Query["tenantId"].ToString();
-    if (string.IsNullOrWhiteSpace(tenantId))
-    {
-        tenantId = User?.FindFirst("tenant")?.Value ?? string.Empty;
-    }
-}
+@model LioTecnica.Web.ViewModels.Portal.PortalVagasIndexViewModel
 
 <div class="header-wrapper">
     <nav class="navbar">
@@ -35,10 +16,10 @@
                 }
                 <div class="dropdown portal-user-menu">
                     <button class="btn portal-user-btn dropdown-toggle" type="button" id="portalUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                        <span id="portalUserAvatar" class="portal-user-avatar">@initials</span>
+                        <span id="portalUserAvatar" class="portal-user-avatar">@Model.UserInitials</span>
                         <span class="text-start d-none d-md-block">
-                            <div id="portalUserName" class="portal-user-name">@userName</div>
-                            <div id="portalUserEmail" class="portal-user-email">@userEmail</div>
+                            <div id="portalUserName" class="portal-user-name">@Model.UserDisplayName</div>
+                            <div id="portalUserEmail" class="portal-user-email">@Model.UserEmail</div>
                         </span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="portalUserMenu">
@@ -47,7 +28,7 @@
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
-                            <form method="post" action="/PortalVagas/Logout?tenantId=@tenantId">
+                            <form method="post" action="/PortalVagas/Logout?tenantId=@Model.TenantId">
                                 <button class="dropdown-item text-danger" type="submit">Sair</button>
                             </form>
                         </li>

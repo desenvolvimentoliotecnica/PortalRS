@@ -1,8 +1,16 @@
+@model LioTecnica.Web.ViewModels.Portal.PortalVagasIndexViewModel
 @{
     Layout = "~/Views/PortalVagas/_Layout.cshtml";
 }
 
-    @await Html.PartialAsync("Partials/_Header")
+@section Head {
+    <meta name="portal-api-base" content="@Model.ApiBaseUrl" />
+    <meta name="portal-tenant-id" content="@Model.TenantId" />
+    <meta name="portal-tenant-claim" content="@Model.TenantId" />
+    <meta name="portal-is-admin" content="@(Model.IsAdmin.ToString().ToLowerInvariant())" />
+}
+
+    @await Html.PartialAsync("Partials/_Header", Model)
 
     <!-- Alertas (erro/sucesso) -->
     <div class="container py-3">
