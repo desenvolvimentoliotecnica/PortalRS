@@ -58,6 +58,7 @@ public sealed class Candidato : ITenantEntity
     public Guid? LastMatchVagaId { get; set; }
 
     public List<CandidatoDocumento> Documentos { get; set; } = new();
+    public List<CandidatoReferencia> Referencias { get; set; } = new();
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }

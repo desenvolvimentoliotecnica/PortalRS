@@ -3284,8 +3284,51 @@ function downloadDocumentsSummary(){
 // Aba: Referências Profissionais
 // ======================================
 const REFS_STORAGE_KEY = "liotec_portal_refs_v1";
+const REFS_API_BASE = "/PortalVagas/References";
+
+let refsCache = [];
+let refsLoaded = false;
+let refsLoading = false;
+
+function mapReferenceDto(r){
+  return {
+    id: r.id,
+    name: r.nome || "",
+    relation: r.relacao || "",
+    company: r.empresa || "",
+    role: r.cargo || "",
+    contact: r.contato || "",
+    period: r.periodo || "",
+    linkedin: r.linkedin || "",
+    notes: r.observacoes || "",
+    canContactNow: !!r.podeContatar,
+    updatedAt: r.updatedAtUtc || ""
+  };
+}
+
+function mapReferencesResponse(data){
+  return (data?.items || []).map(mapReferenceDto);
+}
+
+async function ensureReferencesLoaded(){
+  if(STORAGE_ENABLED || refsLoaded || refsLoading) return;
+  refsLoading = true;
+  try{
+    const res = await fetch(REFS_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok){
+      refsCache = mapReferencesResponse(data);
+    }
+  }catch{
+    // ignore
+  }finally{
+    refsLoaded = true;
+    refsLoading = false;
+  }
+}
 
 function loadReferences(){
+  if(!STORAGE_ENABLED) return refsCache;
   try{
     const raw = storageGet(REFS_STORAGE_KEY);
     if(!raw) return [];
@@ -3296,6 +3339,10 @@ function loadReferences(){
   }
 }
 function saveReferences(list){
+  if(!STORAGE_ENABLED){
+    refsCache = list;
+    return;
+  }
   try{ storageSet(REFS_STORAGE_KEY, JSON.stringify(list)); }catch{}
 }
 
@@ -3360,7 +3407,48 @@ function saveReferenceItem(){
   __saveRefPayload({ id, name, relation, company, role, contact, period, linkedin, notes, canContactNow }, list);
 }
 
-function __saveRefPayload(payload, list){
+async function __saveRefPayload(payload, list){
+  if(!STORAGE_ENABLED){
+    const request = {
+      nome: payload.name,
+      relacao: payload.relation || null,
+      empresa: payload.company || null,
+      cargo: payload.role || null,
+      contato: payload.contact || null,
+      periodo: payload.period || null,
+      linkedin: payload.linkedin || null,
+      observacoes: payload.notes || null,
+      podeContatar: payload.canContactNow
+    };
+
+    try{
+      const exists = list.some(x => x.id === payload.id);
+      const url = exists ? `${REFS_API_BASE}/${payload.id}` : REFS_API_BASE;
+      const method = exists ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(request)
+      });
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok) throw new Error(data?.message || "Falha ao salvar referencia.");
+
+      const saved = mapReferenceDto(data);
+      const updated = loadReferences();
+      const idx = updated.findIndex(x => x.id === saved.id);
+      if(idx >= 0) updated[idx] = saved;
+      else updated.push(saved);
+      saveReferences(updated);
+
+      bootstrap.Modal.getInstance(document.getElementById("refEditModal"))?.hide();
+      renderReferences();
+      Swal.fire({ toast:true, position:"top-end", icon:"success", title:"ReferÃªncia salva", showConfirmButton:false, timer:2000 });
+    }catch(err){
+      Swal.fire({ icon:"error", title:"Falha ao salvar", text: String(err?.message || err || "Erro inesperado"), confirmButtonColor:"#004aad" });
+    }
+    return;
+  }
   payload.updatedAt = new Date().toISOString();
   payload.createdAt = (list.find(x=>x.id===payload.id)?.createdAt) || new Date().toISOString();
 
@@ -3385,8 +3473,20 @@ function deleteReferenceItem(id){
     confirmButtonText:"Remover",
     confirmButtonColor:"#004aad",
     cancelButtonText:"Cancelar"
-  }).then(r=>{
+  }).then(async r=>{
     if(!r.isConfirmed) return;
+    if(!STORAGE_ENABLED){
+      try{
+        const res = await fetch(`${REFS_API_BASE}/${id}`, { method:"DELETE", headers:{ "Accept":"application/json" }, credentials:"same-origin" });
+        if(!res.ok){
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.message || "Falha ao remover referÃªncia.");
+        }
+      }catch(err){
+        Swal.fire({ icon:"error", title:"Falha ao remover", text: String(err?.message || err || "Erro inesperado"), confirmButtonColor:"#004aad" });
+        return;
+      }
+    }
     const list = loadReferences().filter(x => x.id !== id);
     saveReferences(list);
     renderReferences();
@@ -3397,6 +3497,11 @@ function renderReferences(){
   const host = document.getElementById("refsList");
   const empty = document.getElementById("refsEmpty");
   if(!host) return;
+
+  if(!STORAGE_ENABLED && !refsLoaded && !refsLoading){
+    ensureReferencesLoaded().then(() => renderReferences());
+    return;
+  }
 
   const search = (document.getElementById("refsSearch")?.value || "").trim().toLowerCase();
   const filterRelation = (document.getElementById("refsFilterRelation")?.value || "").trim();
@@ -3506,7 +3611,7 @@ function copyReferenceContact(text){
   });
 }
 
-function seedReferences(){
+async function seedReferences(){
   const list = loadReferences();
   if(list.length > 0){
     Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
@@ -3545,12 +3650,45 @@ function seedReferences(){
     }
   ];
 
+  if(!STORAGE_ENABLED){
+    try{
+      const created = [];
+      for (const item of demo){
+        const request = {
+          nome: item.name,
+          relacao: item.relation || null,
+          empresa: item.company || null,
+          cargo: item.role || null,
+          contato: item.contact || null,
+          periodo: item.period || null,
+          linkedin: item.linkedin || null,
+          observacoes: item.notes || null,
+          podeContatar: item.canContactNow
+        };
+        const res = await fetch(REFS_API_BASE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(request)
+        });
+        const data = await res.json().catch(() => ({}));
+        if(res.ok) created.push(mapReferenceDto(data));
+      }
+      saveReferences(created);
+      renderReferences();
+      Swal.fire({ icon:"success", title:"Exemplos inseridos!", confirmButtonColor:"#004aad" });
+    }catch{
+      Swal.fire({ icon:"error", title:"Falha ao inserir exemplos", confirmButtonColor:"#004aad" });
+    }
+    return;
+  }
+
   saveReferences(demo);
   renderReferences();
   Swal.fire({ icon:"success", title:"Exemplos inseridos!", confirmButtonColor:"#004aad" });
 }
 
-function resetReferences(){
+async function resetReferences(){
   Swal.fire({
     icon:"warning",
     title:"Limpar Referências?",
@@ -3559,9 +3697,22 @@ function resetReferences(){
     confirmButtonText:"Limpar",
     confirmButtonColor:"#004aad",
     cancelButtonText:"Cancelar"
-  }).then(r=>{
+  }).then(async r=>{
     if(!r.isConfirmed) return;
-    storageRemove(REFS_STORAGE_KEY);
+    if(!STORAGE_ENABLED){
+      await ensureReferencesLoaded();
+      const list = loadReferences();
+      for (const item of list){
+        try{
+          await fetch(`${REFS_API_BASE}/${item.id}`, { method:"DELETE", headers:{ "Accept":"application/json" }, credentials:"same-origin" });
+        }catch{
+          // ignore
+        }
+      }
+      saveReferences([]);
+    }else{
+      storageRemove(REFS_STORAGE_KEY);
+    }
     renderReferences();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
   });

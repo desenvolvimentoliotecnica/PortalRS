@@ -515,6 +515,68 @@ public sealed class PortalVagasController : Controller
     }
 
     [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/References")]
+    public async Task<IActionResult> GetReferences(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetReferencesAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar referencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/References")]
+    public async Task<IActionResult> CreateReference([FromBody] PortalCandidateReferenceRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateReferenceAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar referencia." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/References/{referenceId:guid}")]
+    public async Task<IActionResult> UpdateReference(Guid referenceId, [FromBody] PortalCandidateReferenceRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateReferenceAsync(tenantId, candidateId, referenceId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar referencia." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/References/{referenceId:guid}")]
+    public async Task<IActionResult> DeleteReference(Guid referenceId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteReferenceAsync(tenantId, candidateId, referenceId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover referencia." });
+
+        return Ok(new { ok = true });
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
     [HttpPost("/PortalVagas/Experiences")]
     public async Task<IActionResult> CreateExperience([FromBody] PortalCandidateExperienceRequest input, CancellationToken ct)
     {

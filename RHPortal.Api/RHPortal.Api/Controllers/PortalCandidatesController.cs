@@ -607,6 +607,147 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok();
     }
 
+    [HttpGet("{id:guid}/references")]
+    public async Task<ActionResult<PortalCandidateReferencesResponse>> GetReferences(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var items = await db.CandidatoReferencias
+            .AsNoTracking()
+            .Where(r => r.CandidatoId == id)
+            .OrderByDescending(r => r.UpdatedAtUtc)
+            .Select(r => new PortalCandidateReferenceDto(
+                r.Id,
+                r.Nome,
+                r.Relacao,
+                r.Empresa,
+                r.Cargo,
+                r.Contato,
+                r.Periodo,
+                r.Linkedin,
+                r.Observacoes,
+                r.PodeContatar,
+                r.UpdatedAtUtc
+            ))
+            .ToListAsync(ct);
+
+        return Ok(new PortalCandidateReferencesResponse(items));
+    }
+
+    [HttpPost("{id:guid}/references")]
+    public async Task<ActionResult<PortalCandidateReferenceDto>> CreateReference(
+        Guid id,
+        [FromBody] PortalCandidateReferenceRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var candidate = await db.Candidatos
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var entity = new CandidatoReferencia
+        {
+            Id = Guid.NewGuid(),
+            TenantId = candidate.TenantId,
+            CandidatoId = candidate.Id,
+            Nome = NormalizeRequired(request.Nome),
+            Relacao = NormalizeOptional(request.Relacao),
+            Empresa = NormalizeOptional(request.Empresa),
+            Cargo = NormalizeOptional(request.Cargo),
+            Contato = NormalizeOptional(request.Contato),
+            Periodo = NormalizeOptional(request.Periodo),
+            Linkedin = NormalizeOptional(request.Linkedin),
+            Observacoes = NormalizeOptional(request.Observacoes),
+            PodeContatar = request.PodeContatar
+        };
+
+        db.CandidatoReferencias.Add(entity);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateReferenceDto(
+            entity.Id,
+            entity.Nome,
+            entity.Relacao,
+            entity.Empresa,
+            entity.Cargo,
+            entity.Contato,
+            entity.Periodo,
+            entity.Linkedin,
+            entity.Observacoes,
+            entity.PodeContatar,
+            entity.UpdatedAtUtc
+        ));
+    }
+
+    [HttpPut("{id:guid}/references/{referenceId:guid}")]
+    public async Task<ActionResult<PortalCandidateReferenceDto>> UpdateReference(
+        Guid id,
+        Guid referenceId,
+        [FromBody] PortalCandidateReferenceRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var entity = await db.CandidatoReferencias
+            .FirstOrDefaultAsync(r => r.Id == referenceId && r.CandidatoId == id, ct);
+        if (entity is null)
+            return NotFound(new { message = "Referencia nao encontrada." });
+
+        entity.Nome = NormalizeRequired(request.Nome);
+        entity.Relacao = NormalizeOptional(request.Relacao);
+        entity.Empresa = NormalizeOptional(request.Empresa);
+        entity.Cargo = NormalizeOptional(request.Cargo);
+        entity.Contato = NormalizeOptional(request.Contato);
+        entity.Periodo = NormalizeOptional(request.Periodo);
+        entity.Linkedin = NormalizeOptional(request.Linkedin);
+        entity.Observacoes = NormalizeOptional(request.Observacoes);
+        entity.PodeContatar = request.PodeContatar;
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateReferenceDto(
+            entity.Id,
+            entity.Nome,
+            entity.Relacao,
+            entity.Empresa,
+            entity.Cargo,
+            entity.Contato,
+            entity.Periodo,
+            entity.Linkedin,
+            entity.Observacoes,
+            entity.PodeContatar,
+            entity.UpdatedAtUtc
+        ));
+    }
+
+    [HttpDelete("{id:guid}/references/{referenceId:guid}")]
+    public async Task<IActionResult> DeleteReference(
+        Guid id,
+        Guid referenceId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var entity = await db.CandidatoReferencias
+            .FirstOrDefaultAsync(r => r.Id == referenceId && r.CandidatoId == id, ct);
+        if (entity is null)
+            return NotFound(new { message = "Referencia nao encontrada." });
+
+        db.CandidatoReferencias.Remove(entity);
+        await db.SaveChangesAsync(ct);
+
+        return Ok();
+    }
+
     [HttpPut("{id:guid}/education")]
     public async Task<ActionResult<PortalCandidateEducationSummaryDto>> UpdateEducationSummary(
         Guid id,

@@ -52,6 +52,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoExperiencia> CandidatoExperiencias => Set<CandidatoExperiencia>();
     public DbSet<CandidatoProjeto> CandidatoProjetos => Set<CandidatoProjeto>();
     public DbSet<CandidatoPreferenciasVaga> CandidatoPreferenciasVaga => Set<CandidatoPreferenciasVaga>();
+    public DbSet<CandidatoReferencia> CandidatoReferencias => Set<CandidatoReferencia>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -483,6 +484,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Url).HasMaxLength(400);
             b.Property(x => x.ArquivoNome).HasMaxLength(260);
             b.Property(x => x.DataReferencia).HasMaxLength(20);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoReferencia>(b =>
+        {
+            b.ToTable("CandidatoReferencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Relacao).HasMaxLength(80);
+            b.Property(x => x.Empresa).HasMaxLength(160);
+            b.Property(x => x.Cargo).HasMaxLength(120);
+            b.Property(x => x.Contato).HasMaxLength(220);
+            b.Property(x => x.Periodo).HasMaxLength(60);
+            b.Property(x => x.Linkedin).HasMaxLength(260);
+            b.Property(x => x.Observacoes).HasMaxLength(1200);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
@@ -1238,6 +1258,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) cd.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) cd.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoReferencia referencia)
+            {
+                if (entry.State == EntityState.Added) referencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) referencia.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoCompetencia competencia)
