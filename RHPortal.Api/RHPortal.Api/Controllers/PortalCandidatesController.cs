@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -508,6 +510,103 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    [HttpGet("{id:guid}/documents")]
+    public async Task<ActionResult<PortalCandidateDocumentsResponse>> GetDocuments(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var docs = await db.CandidatoDocumentos
+            .AsNoTracking()
+            .Where(d => d.CandidatoId == id)
+            .OrderByDescending(d => d.UpdatedAtUtc)
+            .ToListAsync(ct);
+
+        var items = docs.Select(MapDocumentDto).ToList();
+        return Ok(new PortalCandidateDocumentsResponse(items));
+    }
+
+    [HttpPost("{id:guid}/documents")]
+    public async Task<ActionResult<PortalCandidateDocumentDto>> CreateDocument(
+        Guid id,
+        [FromBody] PortalCandidateDocumentRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var candidate = await db.Candidatos
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var doc = new CandidatoDocumento
+        {
+            Id = Guid.NewGuid(),
+            TenantId = candidate.TenantId,
+            CandidatoId = candidate.Id,
+            Tipo = ParseDocumentType(request.Tipo),
+            NomeArquivo = NormalizeRequired(request.Nome),
+            Url = NormalizeOptional(request.Link),
+            Descricao = NormalizeOptional(request.Observacoes),
+            DataReferencia = NormalizeOptional(request.Data),
+            ArquivoNome = NormalizeOptional(request.FileName)
+        };
+
+        db.CandidatoDocumentos.Add(doc);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(MapDocumentDto(doc));
+    }
+
+    [HttpPut("{id:guid}/documents/{documentId:guid}")]
+    public async Task<ActionResult<PortalCandidateDocumentDto>> UpdateDocument(
+        Guid id,
+        Guid documentId,
+        [FromBody] PortalCandidateDocumentRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var doc = await db.CandidatoDocumentos
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.CandidatoId == id, ct);
+        if (doc is null)
+            return NotFound(new { message = "Documento nao encontrado." });
+
+        doc.Tipo = ParseDocumentType(request.Tipo);
+        doc.NomeArquivo = NormalizeRequired(request.Nome);
+        doc.Url = NormalizeOptional(request.Link);
+        doc.Descricao = NormalizeOptional(request.Observacoes);
+        doc.DataReferencia = NormalizeOptional(request.Data);
+        doc.ArquivoNome = NormalizeOptional(request.FileName);
+
+        await db.SaveChangesAsync(ct);
+        return Ok(MapDocumentDto(doc));
+    }
+
+    [HttpDelete("{id:guid}/documents/{documentId:guid}")]
+    public async Task<IActionResult> DeleteDocument(
+        Guid id,
+        Guid documentId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var doc = await db.CandidatoDocumentos
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.CandidatoId == id, ct);
+        if (doc is null)
+            return NotFound(new { message = "Documento nao encontrado." });
+
+        db.CandidatoDocumentos.Remove(doc);
+        await db.SaveChangesAsync(ct);
+        return Ok();
+    }
+
     [HttpPut("{id:guid}/education")]
     public async Task<ActionResult<PortalCandidateEducationSummaryDto>> UpdateEducationSummary(
         Guid id,
@@ -1014,6 +1113,66 @@ public sealed class PortalCandidatesController : ControllerBase
     {
         var trimmed = (value ?? string.Empty).Trim();
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static CandidateDocumentType ParseDocumentType(string? value)
+    {
+        var normalized = NormalizeDocumentType(value);
+        return normalized switch
+        {
+            "curriculo" => CandidateDocumentType.Curriculo,
+            "certificado" => CandidateDocumentType.Certificado,
+            "diplomadeclaracao" => CandidateDocumentType.DiplomaDeclaracao,
+            "portfolio" => CandidateDocumentType.Portfolio,
+            "carteiraregistro" => CandidateDocumentType.CarteiraRegistro,
+            "outros" => CandidateDocumentType.Outros,
+            "documento" => CandidateDocumentType.Documento,
+            _ => CandidateDocumentType.Documento
+        };
+    }
+
+    private static string NormalizeDocumentType(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var cleaned = value.Trim().ToLowerInvariant();
+        cleaned = cleaned.Replace("/", string.Empty)
+            .Replace("-", string.Empty)
+            .Replace(" ", string.Empty);
+
+        cleaned = cleaned.Normalize(NormalizationForm.FormD);
+        var chars = cleaned.Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark);
+        return new string(chars.ToArray());
+    }
+
+    private static string MapDocumentTypeLabel(CandidateDocumentType tipo)
+    {
+        return tipo switch
+        {
+            CandidateDocumentType.Curriculo => "Currículo",
+            CandidateDocumentType.Certificado => "Certificado",
+            CandidateDocumentType.DiplomaDeclaracao => "Diploma/Declaração",
+            CandidateDocumentType.Portfolio => "Portfólio",
+            CandidateDocumentType.CarteiraRegistro => "Carteira/Registro",
+            CandidateDocumentType.Outros => "Outros",
+            CandidateDocumentType.Documento => "Documento",
+            _ => "Outros"
+        };
+    }
+
+    private static PortalCandidateDocumentDto MapDocumentDto(CandidatoDocumento doc)
+    {
+        return new PortalCandidateDocumentDto(
+            doc.Id,
+            MapDocumentTypeLabel(doc.Tipo),
+            doc.NomeArquivo,
+            doc.Url,
+            doc.DataReferencia,
+            doc.Descricao,
+            doc.ArquivoNome,
+            doc.CreatedAtUtc
+        );
     }
 
     private async Task<bool> CandidateExistsAsync(AppDbContext db, Guid id, CancellationToken ct)

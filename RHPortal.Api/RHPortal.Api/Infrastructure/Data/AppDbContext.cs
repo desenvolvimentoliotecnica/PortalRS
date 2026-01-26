@@ -481,6 +481,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Descricao).HasMaxLength(240);
             b.Property(x => x.StorageFileName).HasMaxLength(260);
             b.Property(x => x.Url).HasMaxLength(400);
+            b.Property(x => x.ArquivoNome).HasMaxLength(260);
+            b.Property(x => x.DataReferencia).HasMaxLength(20);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);

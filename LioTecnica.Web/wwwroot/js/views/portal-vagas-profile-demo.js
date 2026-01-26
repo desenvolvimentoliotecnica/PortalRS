@@ -2813,22 +2813,102 @@ function previewPreferences(){
 // ======================================
 // Aba: Documentos & Anexos
 // ======================================
-const DOCS_STORAGE_KEY = "liotec_portal_docs_v1";
-
-function loadDocuments(){
-  try{
-    const raw = storageGet(DOCS_STORAGE_KEY);
-    if(!raw) return [];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  }catch{
-    return [];
+  const DOCS_STORAGE_KEY = "liotec_portal_docs_v1";
+  const DOCS_API_BASE = "/PortalVagas/Documents";
+  
+  let docsCache = [];
+  let docsLoaded = false;
+  let docsLoading = false;
+  
+  function normalizeDocTypeValue(value){
+    const raw = (value || "").toString().trim().toLowerCase();
+    if(!raw) return "";
+    const noSlash = raw.replace(/[\\/\\-\\s]/g, "");
+    try{
+      return noSlash.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "");
+    }catch{
+      return noSlash;
+    }
   }
-}
-
-function saveDocuments(list){
-  try{ storageSet(DOCS_STORAGE_KEY, JSON.stringify(list)); }catch{}
-}
+  
+  function toEnumDocType(value){
+    const norm = normalizeDocTypeValue(value);
+    if(norm === "curriculo") return "Curriculo";
+    if(norm === "certificado") return "Certificado";
+    if(norm === "diplomadeclaracao") return "DiplomaDeclaracao";
+    if(norm === "portfolio") return "Portfolio";
+    if(norm === "carteiraregistro") return "CarteiraRegistro";
+    if(norm === "outros") return "Outros";
+    if(norm === "documento") return "Documento";
+    return "Documento";
+  }
+  
+  function toLabelDocType(value){
+    const norm = normalizeDocTypeValue(value);
+    if(norm === "curriculo") return "Currículo";
+    if(norm === "certificado") return "Certificado";
+    if(norm === "diplomadeclaracao") return "Diploma/Declaração";
+    if(norm === "portfolio") return "Portfólio";
+    if(norm === "carteiraregistro") return "Carteira/Registro";
+    if(norm === "outros") return "Outros";
+    if(norm === "documento") return "Documento";
+    return "Outros";
+  }
+  
+  function mapDocumentDto(d){
+    return {
+      id: d.id,
+      type: toLabelDocType(d.tipo || d.type),
+      name: d.nome || d.name || "",
+      link: d.link || "",
+      date: d.data || "",
+      notes: d.observacoes || "",
+      fileName: d.fileName || "",
+      updatedAt: d.createdAtUtc || d.updatedAt || "",
+      createdAt: d.createdAtUtc || d.createdAt || ""
+    };
+  }
+  
+  function mapDocumentsResponse(data){
+    return (data?.items || []).map(mapDocumentDto);
+  }
+  
+  async function ensureDocumentsLoaded(){
+    if(STORAGE_ENABLED || docsLoaded || docsLoading) return;
+    docsLoading = true;
+    try{
+      const res = await fetch(DOCS_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if(res.ok){
+        docsCache = mapDocumentsResponse(data);
+      }
+    }catch{
+      // ignore
+    }finally{
+      docsLoaded = true;
+      docsLoading = false;
+    }
+  }
+  
+  function loadDocuments(){
+    if(!STORAGE_ENABLED) return docsCache;
+    try{
+      const raw = storageGet(DOCS_STORAGE_KEY);
+      if(!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    }catch{
+      return [];
+    }
+  }
+  
+  function saveDocuments(list){
+    if(!STORAGE_ENABLED){
+      docsCache = list;
+      return;
+    }
+    try{ storageSet(DOCS_STORAGE_KEY, JSON.stringify(list)); }catch{}
+  }
 
 function openDocModal(id){
   const m = new bootstrap.Modal(document.getElementById("docEditModal"));
@@ -2860,12 +2940,12 @@ function handleDocFileChange(input){
   }
 }
 
-function saveDocumentItem(){
-  const list = loadDocuments();
-  const id = (document.getElementById("docId").value || "").trim() || uid();
-
-  const type = (document.getElementById("docType").value || "Outros").trim();
-  const name = (document.getElementById("docName").value || "").trim();
+  async function saveDocumentItem(){
+    const list = loadDocuments();
+    const id = (document.getElementById("docId").value || "").trim() || uid();
+  
+    const type = (document.getElementById("docType").value || "Outros").trim();
+    const name = (document.getElementById("docName").value || "").trim();
   const link = (document.getElementById("docLink").value || "").trim();
   const date = (document.getElementById("docDate").value || "").trim();
   const notes = (document.getElementById("docNotes").value || "").trim();
@@ -2873,67 +2953,122 @@ function saveDocumentItem(){
   const fileName = (document.getElementById("docFileName").textContent || "").trim();
   const finalFileName = (fileName && fileName !== "—") ? fileName : "";
 
-  if(!name){
-    Swal.fire({ icon:"warning", title:"Faltou o nome", text:"Informe o nome do documento.", confirmButtonColor:"#004aad" });
-    return;
+    if(!name){
+      Swal.fire({ icon:"warning", title:"Faltou o nome", text:"Informe o nome do documento.", confirmButtonColor:"#004aad" });
+      return;
+    }
+  
+    if(!STORAGE_ENABLED){
+      const request = {
+        tipo: toEnumDocType(type),
+        nome: name,
+        link: link || null,
+        data: date || null,
+        observacoes: notes || null,
+        fileName: finalFileName || null
+      };
+  
+      try{
+        const url = list.some(x => x.id === id) ? `${DOCS_API_BASE}/${id}` : DOCS_API_BASE;
+        const method = list.some(x => x.id === id) ? "PUT" : "POST";
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(request)
+        });
+        const data = await res.json().catch(() => ({}));
+        if(!res.ok) throw new Error(data?.message || "Falha ao salvar documento.");
+  
+        const payload = mapDocumentDto(data);
+        const updated = loadDocuments();
+        const idx = updated.findIndex(x => x.id === payload.id);
+        if(idx >= 0) updated[idx] = payload;
+        else updated.push(payload);
+        saveDocuments(updated);
+  
+        bootstrap.Modal.getInstance(document.getElementById("docEditModal"))?.hide();
+        renderDocuments();
+        Swal.fire({ toast:true, position:"top-end", icon:"success", title:"Documento salvo", showConfirmButton:false, timer:2000 });
+      }catch(err){
+        Swal.fire({ icon:"error", title:"Falha ao salvar", text: String(err?.message || err || "Erro inesperado"), confirmButtonColor:"#004aad" });
+      }
+      return;
+    }
+  
+    const payload = {
+      id,
+      type,
+      name,
+      link,
+      date,
+      notes,
+      fileName: finalFileName,
+      updatedAt: new Date().toISOString(),
+      createdAt: (list.find(x=>x.id===id)?.createdAt) || new Date().toISOString()
+    };
+  
+    const idx = list.findIndex(x => x.id === id);
+    if(idx >= 0) list[idx] = payload;
+    else list.push(payload);
+  
+    saveDocuments(list);
+  
+    bootstrap.Modal.getInstance(document.getElementById("docEditModal"))?.hide();
+    renderDocuments();
+  
+    Swal.fire({ toast:true, position:"top-end", icon:"success", title:"Documento salvo", showConfirmButton:false, timer:2000 });
   }
-
-  const payload = {
-    id,
-    type,
-    name,
-    link,
-    date,
-    notes,
-    fileName: finalFileName,
-    updatedAt: new Date().toISOString(),
-    createdAt: (list.find(x=>x.id===id)?.createdAt) || new Date().toISOString()
-  };
-
-  const idx = list.findIndex(x => x.id === id);
-  if(idx >= 0) list[idx] = payload;
-  else list.push(payload);
-
-  saveDocuments(list);
-
-  bootstrap.Modal.getInstance(document.getElementById("docEditModal"))?.hide();
-  renderDocuments();
-
-  Swal.fire({ toast:true, position:"top-end", icon:"success", title:"Documento salvo", showConfirmButton:false, timer:2000 });
-}
-
-function deleteDocumentItem(id){
-  Swal.fire({
-    title:"Remover documento?",
-    text:"Isso apaga do seu perfil (neste protótipo).",
-    icon:"warning",
+  
+  async function deleteDocumentItem(id){
+    Swal.fire({
+      title:"Remover documento?",
+      text:"Isso apaga do seu perfil (neste protótipo).",
+      icon:"warning",
     showCancelButton:true,
     confirmButtonText:"Remover",
     confirmButtonColor:"#004aad",
     cancelButtonText:"Cancelar"
-  }).then(r=>{
-    if(!r.isConfirmed) return;
-    const list = loadDocuments().filter(x => x.id !== id);
-    saveDocuments(list);
-    renderDocuments();
-  });
-}
-
-function iconForDocType(type){
-  switch(type){
-    case "Currículo": return "fa-file-alt";
-    case "Certificado": return "fa-certificate";
-    case "Diploma/Declaração": return "fa-graduation-cap";
-    case "Portfólio": return "fa-briefcase";
-    case "Carteira/Registro": return "fa-id-card";
-    default: return "fa-paperclip";
+    }).then(async r=>{
+      if(!r.isConfirmed) return;
+      if(!STORAGE_ENABLED){
+        try{
+          const res = await fetch(`${DOCS_API_BASE}/${id}`, { method:"DELETE", headers:{ "Accept":"application/json" }, credentials:"same-origin" });
+          if(!res.ok){
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data?.message || "Falha ao remover documento.");
+          }
+        }catch(err){
+          Swal.fire({ icon:"error", title:"Falha ao remover", text: String(err?.message || err || "Erro inesperado"), confirmButtonColor:"#004aad" });
+          return;
+        }
+      }
+      const list = loadDocuments().filter(x => x.id !== id);
+      saveDocuments(list);
+      renderDocuments();
+    });
   }
-}
-
-function renderDocuments(){
-  const host = document.getElementById("docsList");
-  const empty = document.getElementById("docsEmpty");
-  if(!host) return;
+  
+  function iconForDocType(type){
+    switch(normalizeDocTypeValue(type)){
+      case "curriculo": return "fa-file-alt";
+      case "certificado": return "fa-certificate";
+      case "diplomadeclaracao": return "fa-graduation-cap";
+      case "portfolio": return "fa-briefcase";
+      case "carteiraregistro": return "fa-id-card";
+      default: return "fa-paperclip";
+    }
+  }
+  
+  function renderDocuments(){
+    const host = document.getElementById("docsList");
+    const empty = document.getElementById("docsEmpty");
+    if(!host) return;
+  
+    if(!STORAGE_ENABLED && !docsLoaded && !docsLoading){
+      ensureDocumentsLoaded().then(() => renderDocuments());
+      return;
+    }
 
   const search = (document.getElementById("docsSearch")?.value || "").trim().toLowerCase();
   const filterType = (document.getElementById("docsFilterType")?.value || "").trim();
@@ -3022,12 +3157,12 @@ function renderDocuments(){
   });
 }
 
-function seedDocuments(){
-  const list = loadDocuments();
-  if(list.length > 0){
-    Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
-    return;
-  }
+  async function seedDocuments(){
+    const list = loadDocuments();
+    if(list.length > 0){
+      Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
+      return;
+    }
 
   const now = new Date().toISOString();
   const demo = [
@@ -3055,27 +3190,70 @@ function seedDocuments(){
     }
   ];
 
-  saveDocuments(demo);
-  renderDocuments();
-  Swal.fire({ icon:"success", title:"Exemplos inseridos!", confirmButtonColor:"#004aad" });
-}
-
-function resetDocuments(){
-  Swal.fire({
-    icon:"warning",
-    title:"Limpar Documentos & Anexos?",
-    text:"Isso apaga os dados desta aba neste navegador.",
+    if(!STORAGE_ENABLED){
+      try{
+        const created = [];
+        for (const item of demo){
+          const request = {
+            tipo: toEnumDocType(item.type),
+            nome: item.name,
+            link: item.link || null,
+            data: item.date || null,
+            observacoes: item.notes || null,
+            fileName: item.fileName || null
+          };
+          const res = await fetch(DOCS_API_BASE, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify(request)
+          });
+          const data = await res.json().catch(() => ({}));
+          if(res.ok) created.push(mapDocumentDto(data));
+        }
+        saveDocuments(created);
+        renderDocuments();
+        Swal.fire({ icon:"success", title:"Exemplos inseridos!", confirmButtonColor:"#004aad" });
+      }catch{
+        Swal.fire({ icon:"error", title:"Falha ao inserir exemplos", confirmButtonColor:"#004aad" });
+      }
+      return;
+    }
+  
+    saveDocuments(demo);
+    renderDocuments();
+    Swal.fire({ icon:"success", title:"Exemplos inseridos!", confirmButtonColor:"#004aad" });
+  }
+  
+  async function resetDocuments(){
+    Swal.fire({
+      icon:"warning",
+      title:"Limpar Documentos & Anexos?",
+      text:"Isso apaga os dados desta aba neste navegador.",
     showCancelButton:true,
     confirmButtonText:"Limpar",
     confirmButtonColor:"#004aad",
     cancelButtonText:"Cancelar"
-  }).then(r=>{
-    if(!r.isConfirmed) return;
-    storageRemove(DOCS_STORAGE_KEY);
-    renderDocuments();
-    Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
-  });
-}
+    }).then(async r=>{
+      if(!r.isConfirmed) return;
+      if(!STORAGE_ENABLED){
+        await ensureDocumentsLoaded();
+        const list = loadDocuments();
+        for (const item of list){
+          try{
+            await fetch(`${DOCS_API_BASE}/${item.id}`, { method:"DELETE", headers:{ "Accept":"application/json" }, credentials:"same-origin" });
+          }catch{
+            // ignore
+          }
+        }
+        saveDocuments([]);
+      }else{
+        storageRemove(DOCS_STORAGE_KEY);
+      }
+      renderDocuments();
+      Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+    });
+  }
 
 function downloadDocumentsSummary(){
   const list = loadDocuments();

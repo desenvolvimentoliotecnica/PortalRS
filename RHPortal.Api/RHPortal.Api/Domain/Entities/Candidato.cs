@@ -90,6 +90,12 @@ public sealed class CandidatoDocumento : ITenantEntity
     [StringLength(400)]
     public string? Url { get; set; }
 
+    [StringLength(260)]
+    public string? ArquivoNome { get; set; }
+
+    [StringLength(20)]
+    public string? DataReferencia { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }
