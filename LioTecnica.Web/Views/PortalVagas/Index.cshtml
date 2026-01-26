@@ -2104,16 +2104,16 @@
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <div>
               <div class="fw-bold" style="font-size:1.1rem;">Competências & Portfólio</div>
-              <div class="text-muted small">Organize skills, idiomas, certificados e links (salvo neste navegador).</div>
+              <div class="text-muted small">Organize skills, idiomas, certificados e links.</div>
             </div>
 
             <div class="d-flex gap-2">
               <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
                 <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
               </button>
-              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedSkillsPortfolio()">
-                <i class="fas fa-magic me-1"></i> Inserir exemplos
-              </button>
+                <button class="btn btn-sm btn-outline-secondary fw-bold d-none" type="button" onclick="seedSkillsPortfolio()">
+                  <i class="fas fa-magic me-1"></i> Inserir exemplos
+                </button>
               <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetSkillsPortfolio()">
                 <i class="fas fa-eraser me-1"></i> Limpar
               </button>
@@ -2129,7 +2129,7 @@
                 <div class="row g-2">
                   <div class="col-12 col-md-6">
                     <label class="form-label small text-muted mb-1">Modelo de trabalho</label>
-                    <select id="prefWorkModel" class="form-select form-select-sm" onchange="savePreferences()">
+                    <select id="prefWorkModel" class="form-select form-select-sm" onchange="saveSkillsPreferences()">
                       <option value="">Selecionar</option>
                       <option value="Presencial">Presencial</option>
                       <option value="Híbrido">Híbrido</option>
@@ -2139,7 +2139,7 @@
 
                   <div class="col-12 col-md-6">
                     <label class="form-label small text-muted mb-1">Disponibilidade</label>
-                    <select id="prefAvailability" class="form-select form-select-sm" onchange="savePreferences()">
+                    <select id="prefAvailability" class="form-select form-select-sm" onchange="saveSkillsPreferences()">
                       <option value="">Selecionar</option>
                       <option value="Imediata">Imediata</option>
                       <option value="Até 15 dias">Até 15 dias</option>
@@ -2151,12 +2151,12 @@
                   <div class="col-12 col-md-6">
                     <label class="form-label small text-muted mb-1">Pretensão (R$)</label>
                     <input id="prefSalary" class="form-control form-control-sm" placeholder="Ex.: 4500"
-                           inputmode="numeric" onchange="savePreferences()">
+                           inputmode="numeric" onchange="saveSkillsPreferences()">
                   </div>
 
                   <div class="col-12 col-md-6">
                     <label class="form-label small text-muted mb-1">Turno</label>
-                    <select id="prefShift" class="form-select form-select-sm" onchange="savePreferences()">
+                    <select id="prefShift" class="form-select form-select-sm" onchange="saveSkillsPreferences()">
                       <option value="">Selecionar</option>
                       <option value="Diurno">Diurno</option>
                       <option value="Noturno">Noturno</option>
@@ -2168,7 +2168,7 @@
                   <div class="col-12">
                     <label class="form-label small text-muted mb-1">Observação</label>
                     <input id="prefNote" class="form-control form-control-sm" placeholder="Ex.: Disponível para viagens"
-                           onchange="savePreferences()">
+                           onchange="saveSkillsPreferences()">
                   </div>
                 </div>
               </div>
@@ -2182,22 +2182,22 @@
                   <div class="col-12 col-md-6">
                     <label class="form-label small text-muted mb-1">LinkedIn</label>
                     <input id="linkLinkedIn" class="form-control form-control-sm" placeholder="https://linkedin.com/in/..."
-                           onchange="saveLinks()">
+                           onchange="saveSkillsLinks()">
                   </div>
                   <div class="col-12 col-md-6">
                     <label class="form-label small text-muted mb-1">GitHub</label>
                     <input id="linkGitHub" class="form-control form-control-sm" placeholder="https://github.com/..."
-                           onchange="saveLinks()">
+                           onchange="saveSkillsLinks()">
                   </div>
                   <div class="col-12 col-md-6">
                     <label class="form-label small text-muted mb-1">Portfólio</label>
                     <input id="linkPortfolio" class="form-control form-control-sm" placeholder="https://..."
-                           onchange="saveLinks()">
+                           onchange="saveSkillsLinks()">
                   </div>
                   <div class="col-12 col-md-6">
                     <label class="form-label small text-muted mb-1">Drive / Certificados</label>
                     <input id="linkDrive" class="form-control form-control-sm" placeholder="https://drive.google.com/..."
-                           onchange="saveLinks()">
+                           onchange="saveSkillsLinks()">
                   </div>
 
                   <div class="col-12 mt-1 d-flex gap-2 flex-wrap">
@@ -2215,9 +2215,6 @@
                     </button>
                   </div>
 
-                  <div class="small text-muted mt-2">
-                    Dica: no produto final, esses links podem ser compartilhados com o RH junto da candidatura.
-                  </div>
                 </div>
               </div>
             </div>

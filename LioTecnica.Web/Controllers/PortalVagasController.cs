@@ -177,6 +177,148 @@ public sealed class PortalVagasController : Controller
         return Ok(result.Data);
     }
 
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/SkillsPortfolio")]
+    public async Task<IActionResult> GetSkillsPortfolio(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetSkillsPortfolioAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar competencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/SkillsPortfolio")]
+    public async Task<IActionResult> UpdateSkillsPortfolio([FromBody] PortalCandidatePortfolioUpdateRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateSkillsPortfolioAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar preferencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/SkillsPortfolio/Skills")]
+    public async Task<IActionResult> CreateSkill([FromBody] PortalCandidateSkillRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateSkillAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar competencia." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/SkillsPortfolio/Skills/{skillId:guid}")]
+    public async Task<IActionResult> UpdateSkill(Guid skillId, [FromBody] PortalCandidateSkillRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateSkillAsync(tenantId, candidateId, skillId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar competencia." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/SkillsPortfolio/Skills/{skillId:guid}")]
+    public async Task<IActionResult> DeleteSkill(Guid skillId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteSkillAsync(tenantId, candidateId, skillId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover competencia." });
+
+        return NoContent();
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/SkillsPortfolio/Certifications")]
+    public async Task<IActionResult> CreateCertification([FromBody] PortalCandidateCertificationRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateCertificationAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar certificacao." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/SkillsPortfolio/Certifications/{certId:guid}")]
+    public async Task<IActionResult> UpdateCertification(Guid certId, [FromBody] PortalCandidateCertificationRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateCertificationAsync(tenantId, candidateId, certId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar certificacao." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/SkillsPortfolio/Certifications/{certId:guid}")]
+    public async Task<IActionResult> DeleteCertification(Guid certId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteCertificationAsync(tenantId, candidateId, certId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover certificacao." });
+
+        return NoContent();
+    }
+
     [AllowAnonymous]
     [HttpPost("/PortalVagas/Auth/Login")]
     public async Task<IActionResult> Login([FromBody] PortalCandidateLoginInput input, CancellationToken ct)

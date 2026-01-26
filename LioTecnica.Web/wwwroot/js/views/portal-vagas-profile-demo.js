@@ -728,8 +728,13 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
 // Aba: Competências & Portfólio (Drop-in)
 // ======================================
 const SKILLS_PORTF_STORAGE_KEY = "liotec_portal_skills_portf_v1";
+const SKILLS_PORTF_API_BASE = "/PortalVagas/SkillsPortfolio";
+let skillsPortfCache = { skills: [], certs: [], links: {}, prefs: {} };
+let skillsPortfLoaded = false;
+let skillsPortfLoading = false;
 
 function loadSkillsPortf(){
+  if(!STORAGE_ENABLED) return skillsPortfCache;
   try{
     const raw = storageGet(SKILLS_PORTF_STORAGE_KEY);
     if(!raw) return { skills: [], certs: [], links: {}, prefs: {} };
@@ -745,7 +750,232 @@ function loadSkillsPortf(){
   }
 }
 function saveSkillsPortf(data){
+  if(!STORAGE_ENABLED){
+    skillsPortfCache = data;
+    return;
+  }
   try{ storageSet(SKILLS_PORTF_STORAGE_KEY, JSON.stringify(data)); }catch{}
+}
+
+function mapSkillsPortfolioResponse(data){
+  return {
+    skills: Array.isArray(data?.skills) ? data.skills.map(s => ({
+      id: s.id,
+      type: s.tipo,
+      name: s.nome,
+      level: s.nivel,
+      evidence: s.evidencia || ""
+    })) : [],
+    certs: Array.isArray(data?.certifications) ? data.certifications.map(c => ({
+      id: c.id,
+      name: c.nome,
+      org: c.instituicao || "",
+      year: c.ano || "",
+      link: c.link || ""
+    })) : [],
+    links: {
+      linkedin: data?.links?.linkedin || "",
+      github: data?.links?.github || "",
+      portfolio: data?.links?.portfolio || "",
+      drive: data?.links?.drive || ""
+    },
+    prefs: {
+      workModel: data?.preferences?.workModel || "",
+      availability: data?.preferences?.availability || "",
+      salary: data?.preferences?.salary || "",
+      shift: data?.preferences?.shift || "",
+      note: data?.preferences?.note || ""
+    }
+  };
+}
+
+function buildPortfolioRequest(data){
+  return {
+    workModel: data.prefs?.workModel || "",
+    availability: data.prefs?.availability || "",
+    salary: data.prefs?.salary || "",
+    shift: data.prefs?.shift || "",
+    note: data.prefs?.note || "",
+    linkedin: data.links?.linkedin || "",
+    github: data.links?.github || "",
+    portfolio: data.links?.portfolio || "",
+    drive: data.links?.drive || ""
+  };
+}
+
+  async function ensureSkillsPortfolioLoaded(){
+    if(STORAGE_ENABLED || skillsPortfLoaded || skillsPortfLoading) return;
+    skillsPortfLoading = true;
+    try{
+      const res = await fetch(SKILLS_PORTF_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if(res.ok){
+        skillsPortfCache = mapSkillsPortfolioResponse(data);
+        __skillsHydratedOnce = false;
+      }
+    }catch{
+      // ignore
+    }finally{
+      skillsPortfLoaded = true;
+      skillsPortfLoading = false;
+    }
+  }
+
+async function persistPortfolio(data){
+  if(STORAGE_ENABLED){
+    saveSkillsPortf(data);
+    return true;
+  }
+  try{
+    const res = await fetch(SKILLS_PORTF_API_BASE, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(buildPortfolioRequest(data))
+    });
+    const payload = await res.json().catch(() => ({}));
+    if(res.ok){
+      skillsPortfCache.links = {
+        linkedin: payload?.links?.linkedin || "",
+        github: payload?.links?.github || "",
+        portfolio: payload?.links?.portfolio || "",
+        drive: payload?.links?.drive || ""
+      };
+      skillsPortfCache.prefs = {
+        workModel: payload?.preferences?.workModel || "",
+        availability: payload?.preferences?.availability || "",
+        salary: payload?.preferences?.salary || "",
+        shift: payload?.preferences?.shift || "",
+        note: payload?.preferences?.note || ""
+      };
+      return true;
+    }
+  }catch{
+    return false;
+  }
+  return false;
+}
+
+async function persistSkill(candidateSkill){
+  if(STORAGE_ENABLED){
+    const data = loadSkillsPortf();
+    const idx = data.skills.findIndex(x => x.id === candidateSkill.id);
+    if(idx >= 0) data.skills[idx] = candidateSkill;
+    else data.skills.push(candidateSkill);
+    saveSkillsPortf(data);
+    return candidateSkill;
+  }
+
+  const body = {
+    tipo: candidateSkill.type,
+    nome: candidateSkill.name,
+    nivel: candidateSkill.level,
+    evidencia: candidateSkill.evidence || ""
+  };
+
+  const isUpdate = !!candidateSkill.id && skillsPortfCache.skills.some(x => x.id === candidateSkill.id);
+  const url = isUpdate
+    ? `${SKILLS_PORTF_API_BASE}/Skills/${candidateSkill.id}`
+    : `${SKILLS_PORTF_API_BASE}/Skills`;
+  const method = isUpdate ? "PUT" : "POST";
+
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body)
+  });
+  const payload = await res.json().catch(() => ({}));
+  if(!res.ok) return null;
+
+  const saved = {
+    id: payload.id,
+    type: payload.tipo,
+    name: payload.nome,
+    level: payload.nivel,
+    evidence: payload.evidencia || ""
+  };
+  const idx = skillsPortfCache.skills.findIndex(x => x.id === saved.id);
+  if(idx >= 0) skillsPortfCache.skills[idx] = saved;
+  else skillsPortfCache.skills.push(saved);
+  return saved;
+}
+
+async function removeSkill(id){
+  if(STORAGE_ENABLED){
+    const data = loadSkillsPortf();
+    data.skills = data.skills.filter(x => x.id !== id);
+    saveSkillsPortf(data);
+    return true;
+  }
+  const res = await fetch(`${SKILLS_PORTF_API_BASE}/Skills/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  if(!res.ok) return false;
+  skillsPortfCache.skills = skillsPortfCache.skills.filter(x => x.id !== id);
+  return true;
+}
+
+async function persistCertification(cert){
+  if(STORAGE_ENABLED){
+    const data = loadSkillsPortf();
+    const idx = data.certs.findIndex(x => x.id === cert.id);
+    if(idx >= 0) data.certs[idx] = cert;
+    else data.certs.push(cert);
+    saveSkillsPortf(data);
+    return cert;
+  }
+
+  const body = {
+    nome: cert.name,
+    instituicao: cert.org || "",
+    ano: cert.year || "",
+    link: cert.link || ""
+  };
+
+  const isUpdate = !!cert.id && skillsPortfCache.certs.some(x => x.id === cert.id);
+  const url = isUpdate
+    ? `${SKILLS_PORTF_API_BASE}/Certifications/${cert.id}`
+    : `${SKILLS_PORTF_API_BASE}/Certifications`;
+  const method = isUpdate ? "PUT" : "POST";
+
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body)
+  });
+  const payload = await res.json().catch(() => ({}));
+  if(!res.ok) return null;
+
+  const saved = {
+    id: payload.id,
+    name: payload.nome,
+    org: payload.instituicao || "",
+    year: payload.ano || "",
+    link: payload.link || ""
+  };
+  const idx = skillsPortfCache.certs.findIndex(x => x.id === saved.id);
+  if(idx >= 0) skillsPortfCache.certs[idx] = saved;
+  else skillsPortfCache.certs.push(saved);
+  return saved;
+}
+
+async function removeCertification(id){
+  if(STORAGE_ENABLED){
+    const data = loadSkillsPortf();
+    data.certs = data.certs.filter(x => x.id !== id);
+    saveSkillsPortf(data);
+    return true;
+  }
+  const res = await fetch(`${SKILLS_PORTF_API_BASE}/Certifications/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  if(!res.ok) return false;
+  skillsPortfCache.certs = skillsPortfCache.certs.filter(x => x.id !== id);
+  return true;
 }
 
 function renderSkillsPortfolio(){
@@ -755,6 +985,11 @@ function renderSkillsPortfolio(){
   const certEmpty = document.getElementById("certEmpty");
 
   if(!chips || !certList) return;
+
+  if(!STORAGE_ENABLED && !skillsPortfLoaded){
+    ensureSkillsPortfolioLoaded().then(() => renderSkillsPortfolio());
+    return;
+  }
 
   const data = loadSkillsPortf();
 
@@ -789,12 +1024,14 @@ function renderSkillsPortfolio(){
         const title = `${s.type} • ${s.level}${s.evidence ? " • " + s.evidence : ""}`;
 
         chips.innerHTML += `
-          <span class="badge rounded-pill ${cls} me-1 mb-1"
+          <span class="badge rounded-pill ${cls} me-1 mb-1 skill-chip"
                 style="cursor:pointer; padding:.55rem .7rem;"
                 title="${escapeAttr(title)}"
-                onclick="openSkillModal('${s.id}')">
-            ${escapeHtml(s.name)} <span style="opacity:.85;">· ${escapeHtml(s.level)}</span>
-            <span class="ms-2" style="opacity:.9;">✎</span>
+                data-id="${escapeAttr(s.id)}">
+            <span class="skill-label">${escapeHtml(s.name)} <span style="opacity:.85;">| ${escapeHtml(s.level)}</span></span>
+            <button type="button" class="skill-remove ms-2" data-id="${escapeAttr(s.id)}"
+                    aria-label="Remover"
+                    style="background:transparent;border:0;color:inherit;opacity:.9;padding:0;line-height:1;">x</button>
           </span>
         `;
       });
@@ -863,7 +1100,7 @@ function hydratePrefsAndLinks(data){
   setVal("linkDrive", l.drive);
 }
 
-function savePreferences(){
+function saveSkillsPreferences(){
   const data = loadSkillsPortf();
   data.prefs = {
     workModel: (document.getElementById("prefWorkModel")?.value || "").trim(),
@@ -872,19 +1109,43 @@ function savePreferences(){
     shift: (document.getElementById("prefShift")?.value || "").trim(),
     note: (document.getElementById("prefNote")?.value || "").trim()
   };
-  saveSkillsPortf(data);
+  if(STORAGE_ENABLED){
+    saveSkillsPortf(data);
+    return;
+  }
+  persistPortfolio(data);
 }
 
-function saveLinks(){
-  const data = loadSkillsPortf();
-  data.links = {
-    linkedin: (document.getElementById("linkLinkedIn")?.value || "").trim(),
-    github: (document.getElementById("linkGitHub")?.value || "").trim(),
-    portfolio: (document.getElementById("linkPortfolio")?.value || "").trim(),
-    drive: (document.getElementById("linkDrive")?.value || "").trim()
-  };
-  saveSkillsPortf(data);
-}
+  function saveSkillsLinks(){
+    const data = loadSkillsPortf();
+    data.links = {
+      linkedin: (document.getElementById("linkLinkedIn")?.value || "").trim(),
+      github: (document.getElementById("linkGitHub")?.value || "").trim(),
+      portfolio: (document.getElementById("linkPortfolio")?.value || "").trim(),
+      drive: (document.getElementById("linkDrive")?.value || "").trim()
+    };
+    if(STORAGE_ENABLED){
+      saveSkillsPortf(data);
+      return;
+    }
+    persistPortfolio(data);
+  }
+
+  function formatCurrencyInput(input) {
+    const raw = (input.value || "").replace(/\D/g, "");
+    if (!raw) {
+      input.value = "";
+      return;
+    }
+    const value = (Number(raw) / 100).toFixed(2);
+    input.value = value.replace(".", ",");
+  }
+
+  const prefSalaryInput = document.getElementById("prefSalary");
+  if (prefSalaryInput) {
+    prefSalaryInput.addEventListener("input", () => formatCurrencyInput(prefSalaryInput));
+    prefSalaryInput.addEventListener("blur", () => formatCurrencyInput(prefSalaryInput));
+  }
 
 function openSavedLink(which){
   const data = loadSkillsPortf();
@@ -920,8 +1181,7 @@ function openSkillModal(skillId){
   m.show();
 }
 
-function saveSkill(){
-  const data = loadSkillsPortf();
+async function saveSkill(){
   const id = (document.getElementById("skillId").value || "").trim() || uid();
 
   const type = (document.getElementById("skillType").value || "Hard").trim();
@@ -936,14 +1196,13 @@ function saveSkill(){
 
   const payload = { id, type, name, level, evidence, updatedAt: new Date().toISOString() };
 
-  const idx = data.skills.findIndex(x => x.id === id);
-  if(idx >= 0) data.skills[idx] = payload;
-  else data.skills.push(payload);
-
-  saveSkillsPortf(data);
+  const saved = await persistSkill(payload);
+  if(!saved){
+    Swal.fire({ icon:"error", title:"Erro ao salvar", text:"Nao foi possivel salvar a competencia.", confirmButtonColor:"#004aad" });
+    return;
+  }
   bootstrap.Modal.getInstance(document.getElementById("skillEditModal"))?.hide();
   renderSkillsPortfolio();
-
   Swal.fire({ toast:true, position:"top-end", icon:"success", title:"Competência salva", showConfirmButton:false, timer:2000 });
 }
 
@@ -957,10 +1216,13 @@ function deleteSkill(id){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    const data = loadSkillsPortf();
-    data.skills = data.skills.filter(x => x.id !== id);
-    saveSkillsPortf(data);
-    renderSkillsPortfolio();
+    Promise.resolve(removeSkill(id)).then(ok => {
+      if(!ok){
+        Swal.fire({ icon:"error", title:"Erro ao remover", text:"Nao foi possivel remover a competencia.", confirmButtonColor:"#004aad" });
+        return;
+      }
+      renderSkillsPortfolio();
+    });
   });
 }
 
@@ -968,18 +1230,15 @@ function deleteSkill(id){
 document.addEventListener("contextmenu", (e) => {
   const t = e.target;
   if(!(t instanceof Element)) return;
-  const badge = t.closest?.("#skillChips .badge");
+  const badge = t.closest?.("#skillChips .skill-chip");
   if(!badge) return;
 
   e.preventDefault();
-  // tenta capturar id pelo onclick="openSkillModal('id')"
-  const onclick = badge.getAttribute("onclick") || "";
-  const match = onclick.match(/openSkillModal\('([^']+)'\)/);
-  const id = match?.[1];
+  const id = badge.getAttribute("data-id");
   if(!id) return;
 
   Swal.fire({
-    title:"Remover esta competência?",
+    title:"Remover esta compet??ncia?",
     text:"Dica: clique normal para editar.",
     icon:"warning",
     showCancelButton:true,
@@ -989,6 +1248,22 @@ document.addEventListener("contextmenu", (e) => {
   }).then(r=>{
     if(r.isConfirmed) deleteSkill(id);
   });
+});
+
+document.getElementById("skillChips")?.addEventListener("click", (e) => {
+  const target = e.target;
+  if(!(target instanceof Element)) return;
+  const removeBtn = target.closest(".skill-remove");
+  if(removeBtn){
+    e.stopPropagation();
+    const id = removeBtn.getAttribute("data-id");
+    if(id) deleteSkill(id);
+    return;
+  }
+  const chip = target.closest(".skill-chip");
+  if(!chip) return;
+  const id = chip.getAttribute("data-id");
+  if(id) openSkillModal(id);
 });
 
 // ----- Certs CRUD -----
@@ -1006,8 +1281,7 @@ function openCertModal(certId){
   m.show();
 }
 
-function saveCert(){
-  const data = loadSkillsPortf();
+async function saveCert(){
   const id = (document.getElementById("certId").value || "").trim() || uid();
 
   const name = (document.getElementById("certName").value || "").trim();
@@ -1021,15 +1295,13 @@ function saveCert(){
   }
 
   const payload = { id, name, org, year, link, updatedAt: new Date().toISOString() };
-
-  const idx = data.certs.findIndex(x => x.id === id);
-  if(idx >= 0) data.certs[idx] = payload;
-  else data.certs.push(payload);
-
-  saveSkillsPortf(data);
+  const saved = await persistCertification(payload);
+  if(!saved){
+    Swal.fire({ icon:"error", title:"Erro ao salvar", text:"Nao foi possivel salvar o curso/certificacao.", confirmButtonColor:"#004aad" });
+    return;
+  }
   bootstrap.Modal.getInstance(document.getElementById("certEditModal"))?.hide();
   renderSkillsPortfolio();
-
   Swal.fire({ toast:true, position:"top-end", icon:"success", title:"Curso/Certificação salva", showConfirmButton:false, timer:2000 });
 }
 
@@ -1043,41 +1315,44 @@ function deleteCert(id){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    const data = loadSkillsPortf();
-    data.certs = data.certs.filter(x => x.id !== id);
-    saveSkillsPortf(data);
-    renderSkillsPortfolio();
+    Promise.resolve(removeCertification(id)).then(ok => {
+      if(!ok){
+        Swal.fire({ icon:"error", title:"Erro ao remover", text:"Nao foi possivel remover o curso/certificacao.", confirmButtonColor:"#004aad" });
+        return;
+      }
+      renderSkillsPortfolio();
+    });
   });
 }
 
 // ----- Seeds / Reset -----
-function seedSkillsPortfolio(){
+async function seedSkillsPortfolio(){
   const data = loadSkillsPortf();
   if(data.skills.length || data.certs.length){
     Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
     return;
   }
 
-  data.skills = [
+  const seedSkills = [
     { id: uid(), type:"Hard",  name:"Excel", level:"Avançado", evidence:"Dashboards e relatórios", updatedAt:new Date().toISOString() },
     { id: uid(), type:"Hard",  name:"SAP", level:"Intermediário", evidence:"Rotinas de logística", updatedAt:new Date().toISOString() },
     { id: uid(), type:"Soft",  name:"Trabalho em equipe", level:"Avançado", evidence:"Projetos multidisciplinares", updatedAt:new Date().toISOString() },
     { id: uid(), type:"Idioma",name:"Inglês", level:"Intermediário", evidence:"Leitura técnica", updatedAt:new Date().toISOString() }
   ];
 
-  data.certs = [
+  const seedCerts = [
     { id: uid(), name:"NR-10", org:"SENAI", year:"2025", link:"", updatedAt:new Date().toISOString() },
     { id: uid(), name:"Excel Avançado", org:"Alura", year:"2024", link:"", updatedAt:new Date().toISOString() }
   ];
 
-  data.links = {
+  const seedLinks = {
     linkedin: "https://linkedin.com/in/seu-perfil",
     github: "https://github.com/seu-usuario",
     portfolio: "",
     drive: ""
   };
 
-  data.prefs = {
+  const seedPrefs = {
     workModel: "Híbrido",
     availability: "Até 15 dias",
     salary: "4500",
@@ -1085,11 +1360,21 @@ function seedSkillsPortfolio(){
     note: "Disponível para viagens ocasionais"
   };
 
-  saveSkillsPortf(data);
+  if(STORAGE_ENABLED){
+    data.skills = seedSkills;
+    data.certs = seedCerts;
+    data.links = seedLinks;
+    data.prefs = seedPrefs;
+    saveSkillsPortf(data);
+  }else{
+    await Promise.all(seedSkills.map(s => persistSkill(s)));
+    await Promise.all(seedCerts.map(c => persistCertification(c)));
+    skillsPortfCache.links = seedLinks;
+    skillsPortfCache.prefs = seedPrefs;
+    await persistPortfolio(skillsPortfCache);
+  }
 
-  // permite hidratar novamente (porque inserimos seed)
   __skillsHydratedOnce = false;
-
   renderSkillsPortfolio();
   Swal.fire({ icon:"success", title:"Exemplos inseridos!", confirmButtonColor:"#004aad" });
 }
@@ -1097,7 +1382,7 @@ function seedSkillsPortfolio(){
 function resetSkillsPortfolio(){
   Swal.fire({
     title:"Limpar Competências & Portfólio?",
-    text:"Isso apaga os dados dessa aba neste navegador.",
+    text:"Isso apaga os dados dessa aba.",
     icon:"warning",
     showCancelButton:true,
     confirmButtonText:"Limpar",
@@ -1105,10 +1390,27 @@ function resetSkillsPortfolio(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    storageRemove(SKILLS_PORTF_STORAGE_KEY);
-    __skillsHydratedOnce = false;
-    renderSkillsPortfolio();
-    Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+    if(STORAGE_ENABLED){
+      storageRemove(SKILLS_PORTF_STORAGE_KEY);
+      __skillsHydratedOnce = false;
+      renderSkillsPortfolio();
+      Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+      return;
+    }
+
+    const skillIds = skillsPortfCache.skills.map(s => s.id);
+    const certIds = skillsPortfCache.certs.map(c => c.id);
+
+    Promise.all([
+      ...skillIds.map(id => removeSkill(id)),
+      ...certIds.map(id => removeCertification(id))
+    ]).then(() => {
+      skillsPortfCache = { skills: [], certs: [], links: {}, prefs: {} };
+      persistPortfolio(skillsPortfCache);
+      __skillsHydratedOnce = false;
+      renderSkillsPortfolio();
+      Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+    });
   });
 }
 

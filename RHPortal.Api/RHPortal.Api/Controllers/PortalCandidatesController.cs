@@ -5,6 +5,7 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Hosting;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Contracts.Portal;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
@@ -107,6 +108,254 @@ public sealed class PortalCandidatesController : ControllerBase
             string.IsNullOrWhiteSpace(candidate.AvatarFileName) ? null : BuildAvatarUrl(candidate.Id),
             curriculo
         ));
+    }
+
+    [HttpGet("{id:guid}/skills-portfolio")]
+    public async Task<ActionResult<PortalCandidateSkillsPortfolioResponse>> GetSkillsPortfolio(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var skills = await db.CandidatoCompetencias
+            .AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderBy(x => x.Nome)
+            .Select(x => new PortalCandidateSkillDto(x.Id, x.Tipo, x.Nome, x.Nivel, x.Evidencia))
+            .ToListAsync(ct);
+
+        var certs = await db.CandidatoCertificacoes
+            .AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderByDescending(x => x.Ano)
+            .ThenBy(x => x.Nome)
+            .Select(x => new PortalCandidateCertificationDto(x.Id, x.Nome, x.Instituicao, x.Ano, x.Link))
+            .ToListAsync(ct);
+
+        var portfolio = await db.CandidatoPortfolios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        var links = new PortalCandidatePortfolioLinksDto(
+            portfolio?.Linkedin,
+            portfolio?.Github,
+            portfolio?.Portfolio,
+            portfolio?.Drive);
+
+        var prefs = new PortalCandidatePortfolioPrefsDto(
+            portfolio?.WorkModel,
+            portfolio?.Availability,
+            portfolio?.Salary,
+            portfolio?.Shift,
+            portfolio?.Note);
+
+        return Ok(new PortalCandidateSkillsPortfolioResponse(skills, certs, links, prefs));
+    }
+
+    [HttpPut("{id:guid}/skills-portfolio")]
+    public async Task<ActionResult<PortalCandidatePortfolioResponse>> UpdateSkillsPortfolio(
+        Guid id,
+        [FromBody] PortalCandidatePortfolioUpdateRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var portfolio = await db.CandidatoPortfolios
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        if (portfolio is null)
+        {
+            portfolio = new CandidatoPortfolio
+            {
+                Id = Guid.NewGuid(),
+                CandidatoId = id
+            };
+            db.CandidatoPortfolios.Add(portfolio);
+        }
+
+        portfolio.WorkModel = NormalizeOptional(request.WorkModel);
+        portfolio.Availability = NormalizeOptional(request.Availability);
+        portfolio.Salary = NormalizeOptional(request.Salary);
+        portfolio.Shift = NormalizeOptional(request.Shift);
+        portfolio.Note = NormalizeOptional(request.Note);
+        portfolio.Linkedin = NormalizeOptional(request.Linkedin);
+        portfolio.Github = NormalizeOptional(request.Github);
+        portfolio.Portfolio = NormalizeOptional(request.Portfolio);
+        portfolio.Drive = NormalizeOptional(request.Drive);
+
+        await db.SaveChangesAsync(ct);
+
+        var links = new PortalCandidatePortfolioLinksDto(
+            portfolio.Linkedin,
+            portfolio.Github,
+            portfolio.Portfolio,
+            portfolio.Drive);
+
+        var prefs = new PortalCandidatePortfolioPrefsDto(
+            portfolio.WorkModel,
+            portfolio.Availability,
+            portfolio.Salary,
+            portfolio.Shift,
+            portfolio.Note);
+
+        return Ok(new PortalCandidatePortfolioResponse(links, prefs));
+    }
+
+    [HttpPost("{id:guid}/skills-portfolio/skills")]
+    public async Task<ActionResult<PortalCandidateSkillDto>> CreateSkill(
+        Guid id,
+        [FromBody] PortalCandidateSkillRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var entity = new CandidatoCompetencia
+        {
+            Id = Guid.NewGuid(),
+            CandidatoId = id,
+            Tipo = NormalizeRequired(request.Tipo),
+            Nome = NormalizeRequired(request.Nome),
+            Nivel = NormalizeRequired(request.Nivel),
+            Evidencia = NormalizeOptional(request.Evidencia)
+        };
+
+        db.CandidatoCompetencias.Add(entity);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateSkillDto(entity.Id, entity.Tipo, entity.Nome, entity.Nivel, entity.Evidencia));
+    }
+
+    [HttpPut("{id:guid}/skills-portfolio/skills/{skillId:guid}")]
+    public async Task<ActionResult<PortalCandidateSkillDto>> UpdateSkill(
+        Guid id,
+        Guid skillId,
+        [FromBody] PortalCandidateSkillRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var entity = await db.CandidatoCompetencias
+            .FirstOrDefaultAsync(x => x.Id == skillId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        entity.Tipo = NormalizeRequired(request.Tipo);
+        entity.Nome = NormalizeRequired(request.Nome);
+        entity.Nivel = NormalizeRequired(request.Nivel);
+        entity.Evidencia = NormalizeOptional(request.Evidencia);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateSkillDto(entity.Id, entity.Tipo, entity.Nome, entity.Nivel, entity.Evidencia));
+    }
+
+    [HttpDelete("{id:guid}/skills-portfolio/skills/{skillId:guid}")]
+    public async Task<IActionResult> DeleteSkill(
+        Guid id,
+        Guid skillId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var entity = await db.CandidatoCompetencias
+            .FirstOrDefaultAsync(x => x.Id == skillId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        db.CandidatoCompetencias.Remove(entity);
+        await db.SaveChangesAsync(ct);
+
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/skills-portfolio/certifications")]
+    public async Task<ActionResult<PortalCandidateCertificationDto>> CreateCertification(
+        Guid id,
+        [FromBody] PortalCandidateCertificationRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var entity = new CandidatoCertificacao
+        {
+            Id = Guid.NewGuid(),
+            CandidatoId = id,
+            Nome = NormalizeRequired(request.Nome),
+            Instituicao = NormalizeOptional(request.Instituicao),
+            Ano = NormalizeOptional(request.Ano),
+            Link = NormalizeOptional(request.Link)
+        };
+
+        db.CandidatoCertificacoes.Add(entity);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateCertificationDto(entity.Id, entity.Nome, entity.Instituicao, entity.Ano, entity.Link));
+    }
+
+    [HttpPut("{id:guid}/skills-portfolio/certifications/{certId:guid}")]
+    public async Task<ActionResult<PortalCandidateCertificationDto>> UpdateCertification(
+        Guid id,
+        Guid certId,
+        [FromBody] PortalCandidateCertificationRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var entity = await db.CandidatoCertificacoes
+            .FirstOrDefaultAsync(x => x.Id == certId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        entity.Nome = NormalizeRequired(request.Nome);
+        entity.Instituicao = NormalizeOptional(request.Instituicao);
+        entity.Ano = NormalizeOptional(request.Ano);
+        entity.Link = NormalizeOptional(request.Link);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateCertificationDto(entity.Id, entity.Nome, entity.Instituicao, entity.Ano, entity.Link));
+    }
+
+    [HttpDelete("{id:guid}/skills-portfolio/certifications/{certId:guid}")]
+    public async Task<IActionResult> DeleteCertification(
+        Guid id,
+        Guid certId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var entity = await db.CandidatoCertificacoes
+            .FirstOrDefaultAsync(x => x.Id == certId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        db.CandidatoCertificacoes.Remove(entity);
+        await db.SaveChangesAsync(ct);
+
+        return NoContent();
     }
 
     [HttpPost("{id:guid}/avatar")]
@@ -246,6 +495,9 @@ public sealed class PortalCandidatesController : ControllerBase
         var trimmed = (value ?? string.Empty).Trim();
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
+
+    private async Task<bool> CandidateExistsAsync(AppDbContext db, Guid id, CancellationToken ct)
+        => await db.Candidatos.AnyAsync(x => x.Id == id, ct);
 
     private static string BuildAvatarUrl(Guid candidatoId)
         => $"/api/public/portal-candidates/{candidatoId}/avatar";

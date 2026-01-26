@@ -44,6 +44,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<VagaPergunta> VagaPerguntas => Set<VagaPergunta>();
     public DbSet<Candidato> Candidatos => Set<Candidato>();
     public DbSet<CandidatoDocumento> CandidatoDocumentos => Set<CandidatoDocumento>();
+    public DbSet<CandidatoCompetencia> CandidatoCompetencias => Set<CandidatoCompetencia>();
+    public DbSet<CandidatoCertificacao> CandidatoCertificacoes => Set<CandidatoCertificacao>();
+    public DbSet<CandidatoPortfolio> CandidatoPortfolios => Set<CandidatoPortfolio>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -475,6 +478,71 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Url).HasMaxLength(400);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoCompetencia>(b =>
+        {
+            b.ToTable("CandidatoCompetencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Nivel).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Evidencia).HasMaxLength(300);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoCertificacao>(b =>
+        {
+            b.ToTable("CandidatoCertificacoes");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Instituicao).HasMaxLength(160);
+            b.Property(x => x.Ano).HasMaxLength(10);
+            b.Property(x => x.Link).HasMaxLength(260);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoPortfolio>(b =>
+        {
+            b.ToTable("CandidatoPortfolios");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.WorkModel).HasMaxLength(40);
+            b.Property(x => x.Availability).HasMaxLength(40);
+            b.Property(x => x.Salary).HasMaxLength(40);
+            b.Property(x => x.Shift).HasMaxLength(40);
+            b.Property(x => x.Note).HasMaxLength(200);
+            b.Property(x => x.Linkedin).HasMaxLength(260);
+            b.Property(x => x.Github).HasMaxLength(260);
+            b.Property(x => x.Portfolio).HasMaxLength(260);
+            b.Property(x => x.Drive).HasMaxLength(260);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1041,6 +1109,24 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) cd.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) cd.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoCompetencia competencia)
+            {
+                if (entry.State == EntityState.Added) competencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) competencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoCertificacao cert)
+            {
+                if (entry.State == EntityState.Added) cert.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) cert.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoPortfolio portfolio)
+            {
+                if (entry.State == EntityState.Added) portfolio.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) portfolio.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoStatusHistory history)

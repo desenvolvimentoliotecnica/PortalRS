@@ -279,7 +279,6 @@
       setAvatar(data.avatarUrl || "", data.nome || payload.nome);
       setCurriculo(data.curriculo);
 
-      modal.hide();
       showSwal("success", "Perfil atualizado", "Seus dados foram salvos.");
     } catch (err) {
       console.error(err);
