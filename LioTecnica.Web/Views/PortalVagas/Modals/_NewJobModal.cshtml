@@ -1,0 +1,178 @@
+<div class="modal fade new-job-modal" id="newJobModal" tabindex="-1" aria-labelledby="newJobModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <form id="newJobForm" novalidate>
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="modal-title h5 mb-0" id="newJobModalLabel">Nova vaga</h2>
+                            <div class="text-secondary small">Preencha os dados principais para publicar a vaga.</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div id="newJobAlert" class="alert alert-danger d-none" role="alert"></div>
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label" for="newJobTitle">Titulo</label>
+                                <input id="newJobTitle" class="form-control" type="text" maxlength="160" required />
+                                <div class="invalid-feedback">Informe o titulo.</div>
+                            </div>
+
+                            <div class="col-12 col-lg-6">
+                                <label class="form-label" for="newJobArea">Area</label>
+                                <select id="newJobArea" class="form-select" required>
+                                    <option value="" selected>Selecione</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione a area.</div>
+                            </div>
+
+                            <div class="col-12 col-lg-6">
+                                <label class="form-label" for="newJobDepartment">Departamento</label>
+                                <select id="newJobDepartment" class="form-select" required>
+                                    <option value="" selected>Selecione</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione o departamento.</div>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobStatus">Status</label>
+                                <select id="newJobStatus" class="form-select" required></select>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobModalidade">Modalidade</label>
+                                <select id="newJobModalidade" class="form-select"></select>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobSenioridade">Senioridade</label>
+                                <select id="newJobSenioridade" class="form-select"></select>
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobTipo">Tipo de contratacao</label>
+                                <select id="newJobTipo" class="form-select"></select>
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobQuantidade">Quantidade de vagas</label>
+                                <input id="newJobQuantidade" class="form-control" type="number" min="1" value="1" required />
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobMatch">Match minimo (%)</label>
+                                <input id="newJobMatch" class="form-control" type="number" min="0" max="100" value="60" required />
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobVisibilidade">Visibilidade</label>
+                                <select id="newJobVisibilidade" class="form-select"></select>
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobUf">UF</label>
+                                <select id="newJobUf" class="form-select">
+                                    <option value="" selected>Selecione</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobCity">Cidade</label>
+                                <select id="newJobCity" class="form-select" disabled>
+                                    <option value="" selected>Selecione a UF primeiro</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobSalaryMin">Salario minimo</label>
+                                <input id="newJobSalaryMin" class="form-control" type="text" inputmode="decimal" />
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="newJobSalaryMax">Salario maximo</label>
+                                <input id="newJobSalaryMax" class="form-control" type="text" inputmode="decimal" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label" for="newJobResumo">Descricao publica</label>
+                                <textarea id="newJobResumo" class="form-control" rows="4"></textarea>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobTagsKeywords">Tags palavras-chave</label>
+                                <input id="newJobTagsKeywords" class="form-control" type="text" />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobTagsStack">Tags stack</label>
+                                <input id="newJobTagsStack" class="form-control" type="text" />
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="newJobTagsResp">Tags responsabilidades</label>
+                                <input id="newJobTagsResp" class="form-control" type="text" />
+                            </div>
+                        </div>
+
+                        <div class="border rounded-3 p-3 mt-4">
+                            <div class="fw-semibold mb-2">Opcoes</div>
+                            <div class="row g-2">
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobConfidencial" />
+                                        <label class="form-check-label" for="newJobConfidencial">Confidencial</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobAceitaPcd" />
+                                        <label class="form-check-label" for="newJobAceitaPcd">Aceita PcD</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobUrgente" />
+                                        <label class="form-check-label" for="newJobUrgente">Urgente</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobCanalSite" checked />
+                                        <label class="form-check-label" for="newJobCanalSite">Publicar no site</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobCanalLinkedIn" />
+                                        <label class="form-check-label" for="newJobCanalLinkedIn">LinkedIn</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobCanalIndicacao" />
+                                        <label class="form-check-label" for="newJobCanalIndicacao">Indicacao</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="newJobCanalPortais" />
+                                        <label class="form-check-label" for="newJobCanalPortais">Portais de emprego</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                        <button id="newJobSubmit" class="btn btn-primary" type="submit">
+                            <span id="newJobSubmitText">Salvar vaga</span>
+                            <span id="newJobLoading" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
