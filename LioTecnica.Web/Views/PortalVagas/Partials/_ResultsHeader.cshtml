@@ -1,0 +1,22 @@
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <div class="text-secondary">
+        <span id="resultsCount" class="fw-semibold">0</span> vagas encontradas
+    </div>
+
+    <div class="d-none d-md-inline-flex gap-2 align-items-center">
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="offcanvas" data-bs-target="#filtersDrawer" aria-controls="filtersDrawer">
+            Ajustar filtros
+        </button>
+
+        <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Ordenar
+            </button>
+            <ul class="dropdown-menu">
+                <li><button class="dropdown-item" type="button" data-sort="recent">Mais recentes</button></li>
+                <li><button class="dropdown-item" type="button" data-sort="salaryDesc">Faixa salarial (maior primeiro)</button></li>
+                <li><button class="dropdown-item" type="button" data-sort="companyAsc">Empresa (A-Z)</button></li>
+            </ul>
+        </div>
+    </div>
+</div>
