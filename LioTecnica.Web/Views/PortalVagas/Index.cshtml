@@ -1709,7 +1709,8 @@
 
                                         <div class="col-12">
                                             <label for="profileEmail" class="form-label">E-mail</label>
-                                            <input id="profileEmail" class="form-control" type="email" value="" />
+                                            <input id="profileEmail" class="form-control" type="email" value="" readonly />
+                                            <div class="form-text">O e-mail nao pode ser alterado.</div>
                                         </div>
 
                                         <div class="col-12 col-md-6">
@@ -1772,19 +1773,19 @@
     <div class="row g-3">
       <div class="col-md-6">
         <label class="form-label small fw-bold">Nome completo</label>
-        <input type="text" class="form-control" value="" />
+        <input id="profileDetailNameInput" type="text" class="form-control" value="" />
       </div>
       <div class="col-md-6">
         <label class="form-label small fw-bold">E-mail</label>
-        <input type="email" class="form-control" value="" />
+        <input id="profileDetailEmailInput" type="email" class="form-control" value="" readonly style="background-color:#e9ecef;" />
       </div>
       <div class="col-md-6">
         <label class="form-label small fw-bold">Telefone / WhatsApp</label>
-        <input type="text" class="form-control" value="" />
+        <input id="profileDetailPhoneInput" type="text" class="form-control" value="" />
       </div>
       <div class="col-md-6">
         <label class="form-label small fw-bold">LinkedIn (URL)</label>
-        <input type="text" class="form-control" value="" />
+        <input id="profileLinkedin" type="text" class="form-control" value="" />
       </div>
     </div>
   </div>
@@ -1804,14 +1805,14 @@
       <label class="btn btn-outline-primary w-100" for="profileAvatarInput">
         <i class="bi bi-camera me-1"></i> Alterar foto
       </label>
-      <input id="profileAvatarInput" type="file" accept="image/*" class="d-none" onchange="updateProfileAvatar(this)">
+      <input id="profileAvatarInput" type="file" accept="image/*" class="d-none">
     </div>
   </div>
 </div>
 
 <h6 class="text-primary fw-bold mb-3 border-bottom pb-2 mt-4"><i class="fas fa-user-edit me-2"></i>Resumo profissional</h6>
 <div class="mb-4">
-  <textarea class="form-control" rows="3"></textarea>
+  <textarea id="profileResumo" class="form-control" rows="3"></textarea>
 </div>
 
 <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-file-pdf me-2"></i>Meu curr&iacute;culo</h6>
@@ -1825,7 +1826,7 @@
   </div>
 
   <div>
-    <input type="file" id="cvFileInput" class="d-none" accept=".pdf,.doc,.docx" onchange="handleCvChange(this)" />
+    <input type="file" id="cvFileInput" class="d-none" accept=".pdf,.doc,.docx" />
     <button class="btn btn-sm btn-outline-primary fw-bold" onclick="document.getElementById('cvFileInput').click()">
       <i class="fas fa-upload me-1"></i> Alterar Arquivo
     </button>

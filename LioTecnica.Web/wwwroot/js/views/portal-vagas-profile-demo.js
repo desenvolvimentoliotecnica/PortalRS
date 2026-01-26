@@ -93,6 +93,7 @@ function setProfileAvatar(src){
 }
 
 function updateProfileAvatar(input){
+  if(!STORAGE_ENABLED) return;
   const file = input?.files?.[0];
   if(!file){
     setProfileAvatar("");
@@ -109,6 +110,7 @@ function updateProfileAvatar(input){
 }
 
 function loadProfileAvatar(){
+  if(!STORAGE_ENABLED) return;
   const stored = storageGet(PROFILE_AVATAR_STORAGE_KEY) || "";
   setProfileAvatar(stored);
 }

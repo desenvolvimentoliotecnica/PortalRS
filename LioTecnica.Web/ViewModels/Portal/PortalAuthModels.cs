@@ -84,6 +84,12 @@ public sealed class PortalCandidateProfileUpdateInput
     [Required, MaxLength(160)]
     public string Nome { get; set; } = string.Empty;
 
+    [MaxLength(260)]
+    public string? LinkedinUrl { get; set; }
+
+    [MaxLength(2000)]
+    public string? ResumoProfissional { get; set; }
+
     [Required, MaxLength(40)]
     public string Fone { get; set; } = string.Empty;
 
@@ -94,20 +100,36 @@ public sealed class PortalCandidateProfileUpdateInput
     public string Uf { get; set; } = string.Empty;
 }
 
+public sealed record PortalCandidateDocumentoSummary(
+    Guid Id,
+    string NomeArquivo,
+    DateTimeOffset CreatedAtUtc
+);
+
 public sealed record PortalCandidateProfileResponse(
     Guid Id,
     string Nome,
     string Email,
     string? Fone,
     string? Cidade,
-    string? Uf
+    string? Uf,
+    string? LinkedinUrl,
+    string? ResumoProfissional,
+    string? AvatarUrl,
+    PortalCandidateDocumentoSummary? Curriculo
 );
 
 public sealed record PortalCandidateProfileUpdateRequest(
     [Required, MaxLength(160)] string Nome,
     [Required, MaxLength(40)] string Fone,
     [Required, MaxLength(120)] string Cidade,
-    [Required, MaxLength(2)] string Uf
+    [Required, MaxLength(2)] string Uf,
+    [MaxLength(260)] string? LinkedinUrl,
+    [MaxLength(2000)] string? ResumoProfissional
+);
+
+public sealed record PortalCandidateAvatarResponse(
+    string? AvatarUrl
 );
 
 public sealed class PortalApiResult<T>

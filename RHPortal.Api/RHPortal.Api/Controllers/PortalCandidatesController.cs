@@ -2,9 +2,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Hosting;
+using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Contracts.Portal;
+using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
@@ -20,6 +24,11 @@ public sealed class PortalCandidatesController : ControllerBase
         _localizer = localizer;
     }
 
+    public sealed class PortalCandidateUploadFileInput
+    {
+        public IFormFile? Arquivo { get; set; }
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PortalCandidateProfileResponse>> GetProfile(
         Guid id,
@@ -28,10 +37,17 @@ public sealed class PortalCandidatesController : ControllerBase
     {
         var candidate = await db.Candidatos
             .AsNoTracking()
+            .Include(c => c.Documentos)
             .FirstOrDefaultAsync(c => c.Id == id, ct);
 
         if (candidate is null)
             return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var curriculo = candidate.Documentos
+            .Where(d => d.Tipo == CandidateDocumentType.Curriculo)
+            .OrderByDescending(d => d.CreatedAtUtc)
+            .Select(d => new PortalCandidateDocumentoSummary(d.Id, d.NomeArquivo, d.CreatedAtUtc))
+            .FirstOrDefault();
 
         return Ok(new PortalCandidateProfileResponse(
             candidate.Id,
@@ -39,7 +55,11 @@ public sealed class PortalCandidatesController : ControllerBase
             candidate.Email,
             candidate.Fone,
             candidate.Cidade,
-            candidate.Uf
+            candidate.Uf,
+            candidate.LinkedinUrl,
+            candidate.ResumoProfissional,
+            string.IsNullOrWhiteSpace(candidate.AvatarFileName) ? null : BuildAvatarUrl(candidate.Id),
+            curriculo
         ));
     }
 
@@ -63,8 +83,17 @@ public sealed class PortalCandidatesController : ControllerBase
         candidate.Fone = NormalizeRequired(request.Fone);
         candidate.Cidade = NormalizeRequired(request.Cidade);
         candidate.Uf = NormalizeUfRequired(request.Uf);
+        candidate.LinkedinUrl = NormalizeOptional(request.LinkedinUrl);
+        candidate.ResumoProfissional = NormalizeOptional(request.ResumoProfissional);
 
         await db.SaveChangesAsync(ct);
+
+        var curriculo = await db.CandidatoDocumentos
+            .AsNoTracking()
+            .Where(d => d.CandidatoId == candidate.Id && d.Tipo == CandidateDocumentType.Curriculo)
+            .OrderByDescending(d => d.CreatedAtUtc)
+            .Select(d => new PortalCandidateDocumentoSummary(d.Id, d.NomeArquivo, d.CreatedAtUtc))
+            .FirstOrDefaultAsync(ct);
 
         return Ok(new PortalCandidateProfileResponse(
             candidate.Id,
@@ -72,8 +101,138 @@ public sealed class PortalCandidatesController : ControllerBase
             candidate.Email,
             candidate.Fone,
             candidate.Cidade,
-            candidate.Uf
+            candidate.Uf,
+            candidate.LinkedinUrl,
+            candidate.ResumoProfissional,
+            string.IsNullOrWhiteSpace(candidate.AvatarFileName) ? null : BuildAvatarUrl(candidate.Id),
+            curriculo
         ));
+    }
+
+    [HttpPost("{id:guid}/avatar")]
+    [RequestSizeLimit(8_388_608)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 8_388_608)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<PortalCandidateAvatarResponse>> UploadAvatar(
+        Guid id,
+        [FromForm] PortalCandidateUploadFileInput input,
+        [FromServices] AppDbContext db,
+        [FromServices] ITenantContext tenantContext,
+        [FromServices] IHostEnvironment hostEnvironment,
+        CancellationToken ct)
+    {
+        var arquivo = input?.Arquivo;
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoFileInvalid"] });
+
+        var candidate = await db.Candidatos
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var folder = GetCandidateFolder(hostEnvironment, tenantContext, id);
+        Directory.CreateDirectory(folder);
+
+        var extension = Path.GetExtension(arquivo.FileName);
+        if (string.IsNullOrWhiteSpace(extension)) extension = ".png";
+        var safeExt = new string(extension.Where(c => char.IsLetterOrDigit(c) || c == '.').ToArray());
+        if (safeExt.Length > 12) safeExt = safeExt[..12];
+        var fileName = $"avatar{safeExt}";
+        var filePath = Path.Combine(folder, fileName);
+
+        if (!string.IsNullOrWhiteSpace(candidate.AvatarFileName))
+        {
+            var oldPath = Path.Combine(folder, candidate.AvatarFileName);
+            TryDeleteFile(oldPath);
+        }
+
+        await using (var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            await arquivo.CopyToAsync(stream, ct);
+        }
+
+        candidate.AvatarFileName = fileName;
+        candidate.AvatarContentType = NormalizeOptional(arquivo.ContentType);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateAvatarResponse(BuildAvatarUrl(id)));
+    }
+
+    [HttpGet("{id:guid}/avatar")]
+    public async Task<IActionResult> GetAvatar(
+        Guid id,
+        [FromServices] AppDbContext db,
+        [FromServices] ITenantContext tenantContext,
+        [FromServices] IHostEnvironment hostEnvironment,
+        CancellationToken ct)
+    {
+        var candidate = await db.Candidatos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+
+        if (candidate is null || string.IsNullOrWhiteSpace(candidate.AvatarFileName))
+            return NotFound();
+
+        var folder = GetCandidateFolder(hostEnvironment, tenantContext, id);
+        var path = Path.Combine(folder, candidate.AvatarFileName);
+        if (!System.IO.File.Exists(path))
+            return NotFound();
+
+        var contentType = string.IsNullOrWhiteSpace(candidate.AvatarContentType)
+            ? "application/octet-stream"
+            : candidate.AvatarContentType;
+
+        return PhysicalFile(path, contentType);
+    }
+
+    [HttpPost("{id:guid}/curriculos")]
+    [RequestSizeLimit(52_428_800)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<PortalCandidateDocumentoSummary>> UploadCurriculo(
+        Guid id,
+        [FromForm] PortalCandidateUploadFileInput input,
+        [FromServices] AppDbContext db,
+        [FromServices] ICandidatoService service,
+        CancellationToken ct)
+    {
+        var arquivo = input?.Arquivo;
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoFileInvalid"] });
+
+        var existing = await db.CandidatoDocumentos
+            .Where(d => d.CandidatoId == id && d.Tipo == CandidateDocumentType.Curriculo)
+            .Select(d => d.Id)
+            .ToListAsync(ct);
+
+        foreach (var docId in existing)
+        {
+            await service.DeleteDocumentoAsync(id, docId, ct);
+        }
+
+        var created = await service.AddDocumentoAsync(id, CandidateDocumentType.Curriculo, "Curriculo", arquivo, ct);
+        if (created is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        return Ok(new PortalCandidateDocumentoSummary(created.Id, created.NomeArquivo, created.CreatedAtUtc));
+    }
+
+    [HttpGet("{id:guid}/curriculos/{documentoId:guid}/download")]
+    public async Task<IActionResult> DownloadCurriculo(
+        Guid id,
+        Guid documentoId,
+        [FromServices] ICandidatoService service,
+        CancellationToken ct)
+    {
+        var file = await service.GetDocumentoFileAsync(id, documentoId, ct);
+        if (file is null) return NotFound();
+
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+            ? "application/octet-stream"
+            : file.ContentType;
+
+        return PhysicalFile(file.FilePath, contentType, file.FileName);
     }
 
     private static string NormalizeUfRequired(string? uf)
@@ -81,4 +240,37 @@ public sealed class PortalCandidatesController : ControllerBase
 
     private static string NormalizeRequired(string? value)
         => (value ?? string.Empty).Trim();
+
+    private static string? NormalizeOptional(string? value)
+    {
+        var trimmed = (value ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static string BuildAvatarUrl(Guid candidatoId)
+        => $"/api/public/portal-candidates/{candidatoId}/avatar";
+
+    private static string GetCandidateFolder(IHostEnvironment hostEnvironment, ITenantContext tenantContext, Guid candidatoId)
+    {
+        return Path.Combine(
+            hostEnvironment.ContentRootPath,
+            "App_Data",
+            "uploads",
+            tenantContext.TenantId,
+            "candidatos",
+            candidatoId.ToString("N"));
+    }
+
+    private static void TryDeleteFile(string filePath)
+    {
+        try
+        {
+            if (System.IO.File.Exists(filePath))
+                System.IO.File.Delete(filePath);
+        }
+        catch
+        {
+            // ignore
+        }
+    }
 }

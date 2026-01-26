@@ -5,6 +5,7 @@ using LioTecnica.Web.ViewModels.Portal;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -131,11 +132,47 @@ public sealed class PortalVagasController : Controller
             input.Nome.Trim(),
             input.Fone.Trim(),
             input.Cidade.Trim(),
-            input.Uf.Trim().ToUpperInvariant());
+            input.Uf.Trim().ToUpperInvariant(),
+            string.IsNullOrWhiteSpace(input.LinkedinUrl) ? null : input.LinkedinUrl.Trim(),
+            string.IsNullOrWhiteSpace(input.ResumoProfissional) ? null : input.ResumoProfissional.Trim());
 
         var result = await _portalCandidatesApi.UpdateProfileAsync(tenantId, candidateId, request, ct);
         if (!result.Success || result.Data is null)
             return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao atualizar perfil." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/Profile/Avatar")]
+    public async Task<IActionResult> UploadAvatar([FromForm(Name = "arquivo")] IFormFile arquivo, CancellationToken ct)
+    {
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = "Arquivo invalido." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UploadAvatarAsync(tenantId, candidateId, arquivo, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao enviar avatar." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/Profile/Curriculo")]
+    public async Task<IActionResult> UploadCurriculo([FromForm(Name = "arquivo")] IFormFile arquivo, CancellationToken ct)
+    {
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = "Arquivo invalido." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UploadCurriculoAsync(tenantId, candidateId, arquivo, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao enviar curriculo." });
 
         return Ok(result.Data);
     }

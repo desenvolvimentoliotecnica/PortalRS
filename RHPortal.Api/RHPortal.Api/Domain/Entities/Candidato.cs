@@ -23,6 +23,18 @@ public sealed class Candidato : ITenantEntity
     [StringLength(2)]
     public string? Uf { get; set; }
 
+    [StringLength(260)]
+    public string? LinkedinUrl { get; set; }
+
+    [StringLength(2000)]
+    public string? ResumoProfissional { get; set; }
+
+    [StringLength(260)]
+    public string? AvatarFileName { get; set; }
+
+    [StringLength(120)]
+    public string? AvatarContentType { get; set; }
+
     public CandidateOrigin Fonte { get; set; } = CandidateOrigin.Email;
     public CandidateStatus Status { get; set; } = CandidateStatus.Novo;
 
