@@ -23,13 +23,35 @@ function normalizeData(value){
   return value;
 }
 
+const STORAGE_ENABLED = false;
+const memoryStorage = new Map();
+const storageGet = (key) => {
+  if(STORAGE_ENABLED) return localStorage.getItem(key);
+  return memoryStorage.has(key) ? memoryStorage.get(key) : null;
+};
+const storageSet = (key, value) => {
+  if(STORAGE_ENABLED){
+    try{ localStorage.setItem(key, value); }catch{}
+    return;
+  }
+  memoryStorage.set(key, value);
+};
+const storageRemove = (key) => {
+  if(STORAGE_ENABLED){
+    localStorage.removeItem(key);
+    return;
+  }
+  memoryStorage.delete(key);
+};
+
 function normalizeStorageKey(key){
+  if(!STORAGE_ENABLED) return;
   try{
-    const raw = localStorage.getItem(key);
+    const raw = storageGet(key);
     if(!raw || (!raw.includes("\\u") && !/[\\u00C3\\u00C2\\u00E2]/.test(raw))) return;
     const parsed = JSON.parse(raw);
     const normalized = normalizeData(parsed);
-    localStorage.setItem(key, JSON.stringify(normalized));
+    storageSet(key, JSON.stringify(normalized));
   }catch{}
 }
 
@@ -49,7 +71,7 @@ function syncProfileAvatarMeta(){
   const nameLabel = document.getElementById("profileAvatarName");
   if(nameInput && nameLabel){
     const value = nameInput.value.trim();
-    nameLabel.textContent = value || "Usuário";
+    nameLabel.textContent = value || "";
   }
 }
 
@@ -74,20 +96,20 @@ function updateProfileAvatar(input){
   const file = input?.files?.[0];
   if(!file){
     setProfileAvatar("");
-    localStorage.removeItem(PROFILE_AVATAR_STORAGE_KEY);
+    storageRemove(PROFILE_AVATAR_STORAGE_KEY);
     return;
   }
   const reader = new FileReader();
   reader.onload = () => {
     const dataUrl = String(reader.result || "");
     setProfileAvatar(dataUrl);
-    try{ localStorage.setItem(PROFILE_AVATAR_STORAGE_KEY, dataUrl); }catch{}
+    try{ storageSet(PROFILE_AVATAR_STORAGE_KEY, dataUrl); }catch{}
   };
   reader.readAsDataURL(file);
 }
 
 function loadProfileAvatar(){
-  const stored = localStorage.getItem(PROFILE_AVATAR_STORAGE_KEY) || "";
+  const stored = storageGet(PROFILE_AVATAR_STORAGE_KEY) || "";
   setProfileAvatar(stored);
 }
   // Testes de RH (Aba "Testes")
@@ -104,7 +126,7 @@ function loadProfileAvatar(){
 
   function loadRhTests(){
     try{
-      const raw = localStorage.getItem(RH_TESTS_STORAGE_KEY);
+      const raw = storageGet(RH_TESTS_STORAGE_KEY);
       if(!raw) return structuredClone(defaultRhTests);
       const parsed = JSON.parse(raw);
       if(!Array.isArray(parsed) || parsed.length === 0) return structuredClone(defaultRhTests);
@@ -117,7 +139,7 @@ function loadProfileAvatar(){
   }
 
   function saveRhTests(list){
-    try{ localStorage.setItem(RH_TESTS_STORAGE_KEY, JSON.stringify(list)); }catch{}
+    try{ storageSet(RH_TESTS_STORAGE_KEY, JSON.stringify(list)); }catch{}
   }
 
   function formatDateTimeBr(iso){
@@ -305,7 +327,7 @@ function loadProfileAvatar(){
       cancelButtonText: "Cancelar"
     }).then((r) => {
       if(!r.isConfirmed) return;
-      localStorage.removeItem(RH_TESTS_STORAGE_KEY);
+      storageRemove(RH_TESTS_STORAGE_KEY);
       renderRhTests();
       Swal.fire({ icon:"success", title:"Pronto!", text:"Testes reiniciados.", confirmButtonColor:"#004aad" });
     });
@@ -373,7 +395,7 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
 
   function loadExpProj(){
     try{
-      const raw = localStorage.getItem(EXP_PROJ_STORAGE_KEY);
+      const raw = storageGet(EXP_PROJ_STORAGE_KEY);
       if(!raw) return { experiences: [], projects: [] };
       const obj = JSON.parse(raw);
       return {
@@ -385,7 +407,7 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
     }
   }
   function saveExpProj(data){
-    try{ localStorage.setItem(EXP_PROJ_STORAGE_KEY, JSON.stringify(data)); }catch{}
+    try{ storageSet(EXP_PROJ_STORAGE_KEY, JSON.stringify(data)); }catch{}
   }
 
   function uid(){
@@ -707,7 +729,7 @@ const SKILLS_PORTF_STORAGE_KEY = "liotec_portal_skills_portf_v1";
 
 function loadSkillsPortf(){
   try{
-    const raw = localStorage.getItem(SKILLS_PORTF_STORAGE_KEY);
+    const raw = storageGet(SKILLS_PORTF_STORAGE_KEY);
     if(!raw) return { skills: [], certs: [], links: {}, prefs: {} };
     const obj = JSON.parse(raw) || {};
     return {
@@ -721,7 +743,7 @@ function loadSkillsPortf(){
   }
 }
 function saveSkillsPortf(data){
-  try{ localStorage.setItem(SKILLS_PORTF_STORAGE_KEY, JSON.stringify(data)); }catch{}
+  try{ storageSet(SKILLS_PORTF_STORAGE_KEY, JSON.stringify(data)); }catch{}
 }
 
 function renderSkillsPortfolio(){
@@ -1081,7 +1103,7 @@ function resetSkillsPortfolio(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(SKILLS_PORTF_STORAGE_KEY);
+    storageRemove(SKILLS_PORTF_STORAGE_KEY);
     __skillsHydratedOnce = false;
     renderSkillsPortfolio();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
@@ -1096,7 +1118,7 @@ const EDUCATION_STORAGE_KEY = "liotec_portal_education_v1";
 
 function loadEducation(){
   try{
-    const raw = localStorage.getItem(EDUCATION_STORAGE_KEY);
+    const raw = storageGet(EDUCATION_STORAGE_KEY);
     if(!raw) return { summary: {}, items: [] };
     const obj = JSON.parse(raw) || {};
     return {
@@ -1108,7 +1130,7 @@ function loadEducation(){
   }
 }
 function saveEducation(data){
-  try{ localStorage.setItem(EDUCATION_STORAGE_KEY, JSON.stringify(data)); }catch{}
+  try{ storageSet(EDUCATION_STORAGE_KEY, JSON.stringify(data)); }catch{}
 }
 
 let __eduHydratedOnce = false;
@@ -1346,7 +1368,7 @@ function resetEducation(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(EDUCATION_STORAGE_KEY);
+    storageRemove(EDUCATION_STORAGE_KEY);
     __eduHydratedOnce = false;
     renderEducation();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
@@ -1361,7 +1383,7 @@ const LGPD_STORAGE_KEY = "liotec_portal_lgpd_v1";
 
 function loadLgpd(){
   try{
-    const raw = localStorage.getItem(LGPD_STORAGE_KEY);
+    const raw = storageGet(LGPD_STORAGE_KEY);
     if(!raw) return null;
     return JSON.parse(raw);
   }catch{
@@ -1372,11 +1394,11 @@ function loadLgpd(){
 function defaultLgpd(){
   return {
     // defaults "seguros"
-    candidatura: true,        // necessário para participar
-    contato: true,
+    candidatura: false,
+    contato: false,
     bancoTalentos: false,
-    retentionMonths: "12",
-    sharing: "rh_gestor",
+    retentionMonths: "",
+    sharing: "",
     sensivel: false,
     comunicacoes: false,
     createdAt: new Date().toISOString(),
@@ -1391,8 +1413,8 @@ function saveLgpd(){
   obj.candidatura = !!document.getElementById("lgpdCandidatura")?.checked;
   obj.contato = !!document.getElementById("lgpdContato")?.checked;
   obj.bancoTalentos = !!document.getElementById("lgpdBancoTalentos")?.checked;
-  obj.retentionMonths = (document.getElementById("lgpdRetention")?.value || "12").trim();
-  obj.sharing = (document.getElementById("lgpdSharing")?.value || "rh").trim();
+  obj.retentionMonths = (document.getElementById("lgpdRetention")?.value || "").trim();
+  obj.sharing = (document.getElementById("lgpdSharing")?.value || "").trim();
   obj.sensivel = !!document.getElementById("lgpdSensivel")?.checked;
   obj.comunicacoes = !!document.getElementById("lgpdComunicacoes")?.checked;
 
@@ -1405,7 +1427,7 @@ function saveLgpd(){
     obj.revokedAt = null;
   }
 
-  try{ localStorage.setItem(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+  try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
   renderLgpd();
 }
 
@@ -1416,7 +1438,7 @@ function hydrateLgpd(){
   __lgpdHydratedOnce = true;
 
   const obj = loadLgpd() || defaultLgpd();
-  try{ localStorage.setItem(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+  try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
 
   const setCheck = (id, val) => {
     const el = document.getElementById(id);
@@ -1430,8 +1452,8 @@ function hydrateLgpd(){
   setCheck("lgpdCandidatura", obj.candidatura);
   setCheck("lgpdContato", obj.contato);
   setCheck("lgpdBancoTalentos", obj.bancoTalentos);
-  setVal("lgpdRetention", obj.retentionMonths || "12");
-  setVal("lgpdSharing", obj.sharing || "rh_gestor");
+  setVal("lgpdRetention", obj.retentionMonths || "");
+  setVal("lgpdSharing", obj.sharing || "");
   setCheck("lgpdSensivel", obj.sensivel);
   setCheck("lgpdComunicacoes", obj.comunicacoes);
 }
@@ -1564,7 +1586,7 @@ function lgpdRevokeConsent(){
     obj.comunicacoes = false;
     obj.revokedAt = new Date().toISOString();
     obj.updatedAt = new Date().toISOString();
-    try{ localStorage.setItem(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+    try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
     __lgpdHydratedOnce = false;
     renderLgpd();
     Swal.fire({ icon:"success", title:"Consentimentos revogados", confirmButtonColor:"#004aad" });
@@ -1582,7 +1604,7 @@ function resetLgpd(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(LGPD_STORAGE_KEY);
+    storageRemove(LGPD_STORAGE_KEY);
     __lgpdHydratedOnce = false;
     renderLgpd();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Consentimentos reiniciados.", confirmButtonColor:"#004aad" });
@@ -1625,7 +1647,7 @@ const PREFS_STORAGE_KEY = "liotec_portal_preferences_v1";
 
 function loadPreferences(){
   try{
-    const raw = localStorage.getItem(PREFS_STORAGE_KEY);
+    const raw = storageGet(PREFS_STORAGE_KEY);
     if(!raw) return null;
     return JSON.parse(raw);
   }catch{
@@ -1668,7 +1690,7 @@ function hydratePreferences(){
   __prefsHydratedOnce = true;
 
   const p = loadPreferences() || defaultPreferences();
-  try{ localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
+  try{ storageSet(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
 
   const setVal = (id, val) => {
     const el = document.getElementById(id);
@@ -1727,7 +1749,7 @@ function savePreferences(){
 
   p.updatedAt = new Date().toISOString();
 
-  try{ localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
+  try{ storageSet(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
   renderPreferencesSavedHint(p.updatedAt);
 }
 
@@ -1783,7 +1805,7 @@ function seedPreferences(){
 
   p.updatedAt = new Date().toISOString();
 
-  try{ localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
+  try{ storageSet(PREFS_STORAGE_KEY, JSON.stringify(p)); }catch{}
   __prefsHydratedOnce = false;
   renderPreferences();
 
@@ -1801,7 +1823,7 @@ function resetPreferences(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(PREFS_STORAGE_KEY);
+    storageRemove(PREFS_STORAGE_KEY);
     __prefsHydratedOnce = false;
     renderPreferences();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
@@ -1842,7 +1864,7 @@ const DOCS_STORAGE_KEY = "liotec_portal_docs_v1";
 
 function loadDocuments(){
   try{
-    const raw = localStorage.getItem(DOCS_STORAGE_KEY);
+    const raw = storageGet(DOCS_STORAGE_KEY);
     if(!raw) return [];
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr : [];
@@ -1852,7 +1874,7 @@ function loadDocuments(){
 }
 
 function saveDocuments(list){
-  try{ localStorage.setItem(DOCS_STORAGE_KEY, JSON.stringify(list)); }catch{}
+  try{ storageSet(DOCS_STORAGE_KEY, JSON.stringify(list)); }catch{}
 }
 
 function openDocModal(id){
@@ -2096,7 +2118,7 @@ function resetDocuments(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(DOCS_STORAGE_KEY);
+    storageRemove(DOCS_STORAGE_KEY);
     renderDocuments();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
   });
@@ -2134,7 +2156,7 @@ const REFS_STORAGE_KEY = "liotec_portal_refs_v1";
 
 function loadReferences(){
   try{
-    const raw = localStorage.getItem(REFS_STORAGE_KEY);
+    const raw = storageGet(REFS_STORAGE_KEY);
     if(!raw) return [];
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr : [];
@@ -2143,7 +2165,7 @@ function loadReferences(){
   }
 }
 function saveReferences(list){
-  try{ localStorage.setItem(REFS_STORAGE_KEY, JSON.stringify(list)); }catch{}
+  try{ storageSet(REFS_STORAGE_KEY, JSON.stringify(list)); }catch{}
 }
 
 function openRefModal(id){
@@ -2408,7 +2430,7 @@ function resetReferences(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(REFS_STORAGE_KEY);
+    storageRemove(REFS_STORAGE_KEY);
     renderReferences();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
   });
@@ -2474,7 +2496,7 @@ function defaultA11y(){
 
 function loadA11y(){
   try{
-    const raw = localStorage.getItem(A11Y_STORAGE_KEY);
+    const raw = storageGet(A11Y_STORAGE_KEY);
     if(!raw) return null;
     return JSON.parse(raw);
   }catch{
@@ -2483,7 +2505,7 @@ function loadA11y(){
 }
 
 function saveA11yToStorage(obj){
-  try{ localStorage.setItem(A11Y_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+  try{ storageSet(A11Y_STORAGE_KEY, JSON.stringify(obj)); }catch{}
 }
 
 function hydrateA11y(){
@@ -2659,7 +2681,7 @@ function resetA11y(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(A11Y_STORAGE_KEY);
+    storageRemove(A11Y_STORAGE_KEY);
     __a11yHydratedOnce = false;
     renderA11y();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
@@ -2739,10 +2761,10 @@ function defaultAgenda(){
     notice: "",
     notes: "",
 
-    days: { mon:true, tue:true, wed:true, thu:true, fri:true, sat:false, sun:false },
-    times: { morning:true, afternoon:true, evening:false },
+    days: { mon:false, tue:false, wed:false, thu:false, fri:false, sat:false, sun:false },
+    times: { morning:false, afternoon:false, evening:false },
     preferredHours: "",
-    timezone: "America/Sao_Paulo",
+    timezone: "",
 
     blocks: [],
 
@@ -2753,7 +2775,7 @@ function defaultAgenda(){
 
 function loadAgenda(){
   try{
-    const raw = localStorage.getItem(AGENDA_STORAGE_KEY);
+    const raw = storageGet(AGENDA_STORAGE_KEY);
     if(!raw) return null;
     const obj = JSON.parse(raw);
     if(!obj || typeof obj !== "object") return null;
@@ -2766,7 +2788,7 @@ function loadAgenda(){
   }
 }
 function saveAgendaToStorage(obj){
-  try{ localStorage.setItem(AGENDA_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+  try{ storageSet(AGENDA_STORAGE_KEY, JSON.stringify(obj)); }catch{}
 }
 
 function hydrateAgenda(){
@@ -2797,7 +2819,7 @@ function hydrateAgenda(){
   setChk("agTimeEvening", !!a.times.evening);
 
   setVal("agPreferredHours", a.preferredHours);
-  setVal("agTimezone", a.timezone || "America/Sao_Paulo");
+  setVal("agTimezone", a.timezone || "");
 
   renderAgendaBlocks();
 }
@@ -3052,7 +3074,7 @@ function resetAgenda(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(AGENDA_STORAGE_KEY);
+    storageRemove(AGENDA_STORAGE_KEY);
     __agendaHydratedOnce = false;
     renderAgenda();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
@@ -3126,7 +3148,7 @@ function defaultAppsHistory(){
 
 function loadAppsHistory(){
   try{
-    const raw = localStorage.getItem(APPS_HISTORY_STORAGE_KEY);
+    const raw = storageGet(APPS_HISTORY_STORAGE_KEY);
     if(!raw) return null;
     const obj = JSON.parse(raw);
     if(!obj || typeof obj !== "object") return null;
@@ -3137,7 +3159,7 @@ function loadAppsHistory(){
   }
 }
 function saveAppsHistoryToStorage(obj){
-  try{ localStorage.setItem(APPS_HISTORY_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+  try{ storageSet(APPS_HISTORY_STORAGE_KEY, JSON.stringify(obj)); }catch{}
 }
 
 function hydrateAppsHistory(){
@@ -3622,7 +3644,7 @@ function resetAppsHistory(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(APPS_HISTORY_STORAGE_KEY);
+    storageRemove(APPS_HISTORY_STORAGE_KEY);
     __appsHydratedOnce = false;
     renderAppsHistory();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Histórico limpo.", confirmButtonColor:"#004aad" });
@@ -3670,27 +3692,27 @@ let __notifySaveTimer = null;
 
 function defaultNotify(){
   return {
-    channels: { email:true, whatsapp:true, sms:false, push:false },
-    frequency: "Imediato",
-    lang: "pt-BR",
+    channels: { email:false, whatsapp:false, sms:false, push:false },
+    frequency: "",
+    lang: "",
     emailAddr: "",
     phone: "",
-    allowContact: true,
+    allowContact: false,
 
     types: {
-      newJobs: true,
-      appUpdates: true,
-      interview: true,
-      messages: true,
-      docs: true,
-      reminders: true
+      newJobs: false,
+      appUpdates: false,
+      interview: false,
+      messages: false,
+      docs: false,
+      reminders: false
     },
 
     quiet: {
-      enabled: "Não",
-      start: "22:00",
-      end: "07:00",
-      priority: "Normal"
+      enabled: "",
+      start: "",
+      end: "",
+      priority: ""
     },
 
     signature: "",
@@ -3701,7 +3723,7 @@ function defaultNotify(){
 
 function loadNotify(){
   try{
-    const raw = localStorage.getItem(NOTIFY_STORAGE_KEY);
+    const raw = storageGet(NOTIFY_STORAGE_KEY);
     if(!raw) return null;
     const obj = JSON.parse(raw);
     if(!obj || typeof obj !== "object") return null;
@@ -3716,7 +3738,7 @@ function loadNotify(){
 }
 
 function saveNotifyToStorage(obj){
-  try{ localStorage.setItem(NOTIFY_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+  try{ storageSet(NOTIFY_STORAGE_KEY, JSON.stringify(obj)); }catch{}
 }
 
 function hydrateNotify(){
@@ -3734,8 +3756,8 @@ function hydrateNotify(){
   setChk("ntSms", !!n.channels.sms);
   setChk("ntPush", !!n.channels.push);
 
-  setVal("ntFrequency", n.frequency || "Imediato");
-  setVal("ntLang", n.lang || "pt-BR");
+  setVal("ntFrequency", n.frequency || "");
+  setVal("ntLang", n.lang || "");
   setVal("ntEmailAddr", n.emailAddr || "");
   setVal("ntPhone", n.phone || "");
   setChk("ntAllowContact", !!n.allowContact);
@@ -3747,10 +3769,10 @@ function hydrateNotify(){
   setChk("ntDocs", !!n.types.docs);
   setChk("ntReminders", !!n.types.reminders);
 
-  setVal("ntQuietEnabled", n.quiet.enabled || "Não");
-  setVal("ntQuietStart", n.quiet.start || "22:00");
-  setVal("ntQuietEnd", n.quiet.end || "07:00");
-  setVal("ntPriority", n.quiet.priority || "Normal");
+  setVal("ntQuietEnabled", n.quiet.enabled || "");
+  setVal("ntQuietStart", n.quiet.start || "");
+  setVal("ntQuietEnd", n.quiet.end || "");
+  setVal("ntPriority", n.quiet.priority || "");
 
   setVal("ntSignature", n.signature || "");
 
@@ -3768,8 +3790,8 @@ function getNotifyFromUI(){
       sms: chk("ntSms"),
       push: chk("ntPush")
     },
-    frequency: val("ntFrequency") || "Imediato",
-    lang: val("ntLang") || "pt-BR",
+    frequency: val("ntFrequency"),
+    lang: val("ntLang"),
     emailAddr: val("ntEmailAddr"),
     phone: val("ntPhone"),
     allowContact: chk("ntAllowContact"),
@@ -3784,10 +3806,10 @@ function getNotifyFromUI(){
     },
 
     quiet: {
-      enabled: val("ntQuietEnabled") || "Não",
-      start: val("ntQuietStart") || "22:00",
-      end: val("ntQuietEnd") || "07:00",
-      priority: val("ntPriority") || "Normal"
+      enabled: val("ntQuietEnabled"),
+      start: val("ntQuietStart"),
+      end: val("ntQuietEnd"),
+      priority: val("ntPriority")
     },
 
     signature: val("ntSignature")
@@ -3922,7 +3944,7 @@ function resetNotify(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    localStorage.removeItem(NOTIFY_STORAGE_KEY);
+    storageRemove(NOTIFY_STORAGE_KEY);
     __notifyHydratedOnce = false;
     renderNotify();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Preferências limpas.", confirmButtonColor:"#004aad" });
@@ -4012,7 +4034,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const nameInput = document.getElementById("profileName");
   if(nameInput){
     nameInput.addEventListener("input", () => {
-      const stored = localStorage.getItem(PROFILE_AVATAR_STORAGE_KEY);
+      const stored = storageGet(PROFILE_AVATAR_STORAGE_KEY);
       if(!stored) setProfileAvatar("");
       syncProfileAvatarMeta();
     });

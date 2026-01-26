@@ -1703,14 +1703,13 @@
                                     <div class="row g-3 flex-grow-1">
                                         <div class="col-12">
                                             <label for="profileName" class="form-label">Nome completo</label>
-                                            <input id="profileName" class="form-control" type="text" value="@userName" required />
+                                            <input id="profileName" class="form-control" type="text" value="" required />
                                             <div class="invalid-feedback">Informe seu nome completo.</div>
                                         </div>
 
                                         <div class="col-12">
                                             <label for="profileEmail" class="form-label">E-mail</label>
-                                            <input id="profileEmail" class="form-control" type="email" value="@userEmail" readonly />
-                                            <div class="form-text">O e-mail nao pode ser alterado.</div>
+                                            <input id="profileEmail" class="form-control" type="email" value="" />
                                         </div>
 
                                         <div class="col-12 col-md-6">
@@ -1773,19 +1772,19 @@
     <div class="row g-3">
       <div class="col-md-6">
         <label class="form-label small fw-bold">Nome completo</label>
-        <input type="text" class="form-control" value="Jo&atilde;o da Silva" />
+        <input type="text" class="form-control" value="" />
       </div>
       <div class="col-md-6">
         <label class="form-label small fw-bold">E-mail</label>
-        <input type="email" class="form-control" value="joao.silva@email.com" readonly style="background-color:#e9ecef;" />
+        <input type="email" class="form-control" value="" />
       </div>
       <div class="col-md-6">
         <label class="form-label small fw-bold">Telefone / WhatsApp</label>
-        <input type="text" class="form-control" value="(11) 99999-9999" />
+        <input type="text" class="form-control" value="" />
       </div>
       <div class="col-md-6">
         <label class="form-label small fw-bold">LinkedIn (URL)</label>
-        <input type="text" class="form-control" value="linkedin.com/in/joaosilva" />
+        <input type="text" class="form-control" value="" />
       </div>
     </div>
   </div>
@@ -1793,15 +1792,15 @@
     <div class="profile-avatar-card text-center">
       <div class="profile-avatar mx-auto mb-2" title="Alterar foto">
         <img id="profileAvatarImg" alt="Foto do usu&aacute;rio" style="display:none;">
-        <span id="profileAvatarFallback">LT</span>
+        <span id="profileAvatarFallback">U</span>
       </div>
-      <div class="fw-semibold" id="profileAvatarName">Jo&atilde;o Silva</div>
-      <div class="text-muted small mb-3" id="profileAvatarRole">Desenvolvedor Web</div>
+      <div class="fw-semibold" id="profileAvatarName"></div>
+      <div class="text-muted small mb-3" id="profileAvatarRole"></div>
       <div class="text-muted small mb-2">Progresso do perfil</div>
       <div class="progress profile-avatar-progress mb-2">
-        <div class="progress-bar bg-success" role="progressbar" style="width: 85%;" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100"></div>
+        <div class="progress-bar bg-success" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
       </div>
-      <div class="text-end small fw-semibold text-success mb-3">85%</div>
+      <div class="text-end small fw-semibold text-success mb-3">0%</div>
       <label class="btn btn-outline-primary w-100" for="profileAvatarInput">
         <i class="bi bi-camera me-1"></i> Alterar foto
       </label>
@@ -1812,7 +1811,7 @@
 
 <h6 class="text-primary fw-bold mb-3 border-bottom pb-2 mt-4"><i class="fas fa-user-edit me-2"></i>Resumo profissional</h6>
 <div class="mb-4">
-  <textarea class="form-control" rows="3">Desenvolvedor Web apaixonado...</textarea>
+  <textarea class="form-control" rows="3"></textarea>
 </div>
 
 <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-file-pdf me-2"></i>Meu curr&iacute;culo</h6>
@@ -1820,8 +1819,8 @@
   <div class="d-flex align-items-center">
     <i class="fas fa-file-pdf text-danger fa-2x me-3"></i>
     <div>
-      <div class="fw-bold text-dark" id="cvFileName">CV_Joao_Silva_2026.pdf</div>
-      <small class="text-muted" id="cvFileDate">Enviado em 10/01/2026 &agrave;s 14:30</small>
+      <div class="fw-bold text-dark" id="cvFileName"></div>
+      <small class="text-muted" id="cvFileDate"></small>
     </div>
   </div>
 
