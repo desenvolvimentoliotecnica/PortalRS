@@ -577,6 +577,37 @@ public sealed class PortalVagasController : Controller
     }
 
     [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Accessibility")]
+    public async Task<IActionResult> GetAccessibility(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetAccessibilityAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar acessibilidade." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Accessibility")]
+    public async Task<IActionResult> UpdateAccessibility([FromBody] PortalCandidateAccessibilityRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateAccessibilityAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar acessibilidade." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
     [HttpPost("/PortalVagas/Experiences")]
     public async Task<IActionResult> CreateExperience([FromBody] PortalCandidateExperienceRequest input, CancellationToken ct)
     {

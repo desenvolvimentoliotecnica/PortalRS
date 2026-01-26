@@ -958,6 +958,62 @@ public sealed class PortalCandidatesApiClient
         return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover referencia.");
     }
 
+    public async Task<PortalApiResult<PortalCandidateAccessibilityDto>> GetAccessibilityAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/accessibility?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateAccessibilityDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateAccessibilityDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(res.StatusCode, message ?? "Falha ao carregar acessibilidade.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateAccessibilityDto>> UpdateAccessibilityAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateAccessibilityRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/accessibility?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateAccessibilityDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateAccessibilityDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(res.StatusCode, message ?? "Falha ao salvar acessibilidade.");
+    }
+
     private static async Task<string?> TryReadMessageAsync(HttpResponseMessage response, CancellationToken ct)
     {
         var body = await response.Content.ReadAsStringAsync(ct);

@@ -3747,6 +3747,10 @@ function downloadReferencesSummary(){
 // Aba: Acessibilidade & Inclusão
 // ======================================
 const A11Y_STORAGE_KEY = "liotec_portal_a11y_v1";
+const A11Y_API_BASE = "/PortalVagas/Accessibility";
+let a11yCache = null;
+let a11yLoaded = false;
+let a11yLoading = false;
 let __a11yHydratedOnce = false;
 let __a11ySaveTimer = null;
 
@@ -3776,7 +3780,52 @@ function defaultA11y(){
   };
 }
 
+function mapA11yDto(dto){
+  if(!dto) return null;
+  return {
+    language: dto.idioma || "",
+    channel: dto.canal || "",
+    bestTime: dto.melhorHorario || "",
+    commNotes: dto.observacoesComunicacao || "",
+
+    needCaptions: !!dto.precisaLegendas,
+    needInterpreter: !!dto.precisaInterprete,
+    needScreenReader: !!dto.precisaLeitorTela,
+    needLowStim: !!dto.precisaBaixaEstimulo,
+    needMobility: !!dto.precisaMobilidade,
+    needExtraTime: !!dto.precisaTempoExtra,
+    needsDetails: dto.detalhesNecessidades || "",
+
+    pcdConsent: !!dto.consentimentoPcd,
+    pcdYesNo: dto.pcdIdentificacao || "",
+    pcdType: dto.pcdTipo || "",
+    pcdProof: dto.pcdComprovacao || "",
+    pcdNotes: dto.pcdObservacoes || "",
+
+    createdAt: dto.updatedAtUtc || new Date().toISOString(),
+    updatedAt: dto.updatedAtUtc || new Date().toISOString()
+  };
+}
+
+async function ensureA11yLoaded(){
+  if(STORAGE_ENABLED || a11yLoaded || a11yLoading) return;
+  a11yLoading = true;
+  try{
+    const res = await fetch(A11Y_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok){
+      a11yCache = mapA11yDto(data) || defaultA11y();
+    }
+  }catch{
+    // ignore
+  }finally{
+    a11yLoaded = true;
+    a11yLoading = false;
+  }
+}
+
 function loadA11y(){
+  if(!STORAGE_ENABLED) return a11yCache;
   try{
     const raw = storageGet(A11Y_STORAGE_KEY);
     if(!raw) return null;
@@ -3787,6 +3836,10 @@ function loadA11y(){
 }
 
 function saveA11yToStorage(obj){
+  if(!STORAGE_ENABLED){
+    a11yCache = obj;
+    return;
+  }
   try{ storageSet(A11Y_STORAGE_KEY, JSON.stringify(obj)); }catch{}
 }
 
@@ -3867,8 +3920,47 @@ function saveA11y(){
     merged.pcdNotes = "";
   }
 
-  saveA11yToStorage(merged);
-  renderA11yPcdBadge(merged);
+  if(STORAGE_ENABLED){
+    saveA11yToStorage(merged);
+    renderA11yPcdBadge(merged);
+    return;
+  }
+
+  const body = {
+    idioma: merged.language || null,
+    canal: merged.channel || null,
+    melhorHorario: merged.bestTime || null,
+    observacoesComunicacao: merged.commNotes || null,
+    precisaLegendas: !!merged.needCaptions,
+    precisaInterprete: !!merged.needInterpreter,
+    precisaLeitorTela: !!merged.needScreenReader,
+    precisaBaixaEstimulo: !!merged.needLowStim,
+    precisaMobilidade: !!merged.needMobility,
+    precisaTempoExtra: !!merged.needExtraTime,
+    detalhesNecessidades: merged.needsDetails || null,
+    consentimentoPcd: !!merged.pcdConsent,
+    pcdIdentificacao: merged.pcdYesNo || null,
+    pcdTipo: merged.pcdType || null,
+    pcdComprovacao: merged.pcdProof || null,
+    pcdObservacoes: merged.pcdNotes || null
+  };
+
+  fetch(A11Y_API_BASE, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body)
+  })
+    .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, data: d })))
+    .then(({ ok, data }) => {
+      if(!ok) throw new Error(data?.message || "Falha ao salvar acessibilidade.");
+      const saved = mapA11yDto(data) || merged;
+      saveA11yToStorage(saved);
+      renderA11yPcdBadge(saved);
+    })
+    .catch(err => {
+      Swal.fire({ icon:"error", title:"Falha ao salvar", text: String(err?.message || err || "Erro inesperado"), confirmButtonColor:"#004aad" });
+    });
 }
 
 function saveA11yDebounced(){
@@ -3914,6 +4006,10 @@ function renderA11yPcdBadge(a){
 }
 
 function renderA11y(){
+  if(!STORAGE_ENABLED && !a11yLoaded && !a11yLoading){
+    ensureA11yLoaded().then(() => renderA11y());
+    return;
+  }
   hydrateA11y();
   const a = loadA11y() || defaultA11y();
   renderA11yPcdBadge(a);
@@ -3945,11 +4041,51 @@ function seedA11y(){
   a.pcdConsent = false;
   a.updatedAt = new Date().toISOString();
 
-  saveA11yToStorage(a);
-  __a11yHydratedOnce = false;
-  renderA11y();
+  if(STORAGE_ENABLED){
+    saveA11yToStorage(a);
+    __a11yHydratedOnce = false;
+    renderA11y();
+    Swal.fire({ icon:"success", title:"Exemplo inserido!", confirmButtonColor:"#004aad" });
+    return;
+  }
 
-  Swal.fire({ icon:"success", title:"Exemplo inserido!", confirmButtonColor:"#004aad" });
+  const body = {
+    idioma: a.language || null,
+    canal: a.channel || null,
+    melhorHorario: a.bestTime || null,
+    observacoesComunicacao: a.commNotes || null,
+    precisaLegendas: !!a.needCaptions,
+    precisaInterprete: !!a.needInterpreter,
+    precisaLeitorTela: !!a.needScreenReader,
+    precisaBaixaEstimulo: !!a.needLowStim,
+    precisaMobilidade: !!a.needMobility,
+    precisaTempoExtra: !!a.needExtraTime,
+    detalhesNecessidades: a.needsDetails || null,
+    consentimentoPcd: !!a.pcdConsent,
+    pcdIdentificacao: a.pcdYesNo || null,
+    pcdTipo: a.pcdType || null,
+    pcdComprovacao: a.pcdProof || null,
+    pcdObservacoes: a.pcdNotes || null
+  };
+
+  fetch(A11Y_API_BASE, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body)
+  })
+    .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, data: d })))
+    .then(({ ok, data }) => {
+      if(!ok) throw new Error(data?.message || "Falha ao inserir exemplo.");
+      const saved = mapA11yDto(data) || a;
+      saveA11yToStorage(saved);
+      __a11yHydratedOnce = false;
+      renderA11y();
+      Swal.fire({ icon:"success", title:"Exemplo inserido!", confirmButtonColor:"#004aad" });
+    })
+    .catch(() => {
+      Swal.fire({ icon:"error", title:"Falha ao inserir exemplo", confirmButtonColor:"#004aad" });
+    });
 }
 
 function resetA11y(){
@@ -3963,10 +4099,52 @@ function resetA11y(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    storageRemove(A11Y_STORAGE_KEY);
-    __a11yHydratedOnce = false;
-    renderA11y();
-    Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+    if(STORAGE_ENABLED){
+      storageRemove(A11Y_STORAGE_KEY);
+      __a11yHydratedOnce = false;
+      renderA11y();
+      Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+      return;
+    }
+
+    const cleared = defaultA11y();
+    const body = {
+      idioma: null,
+      canal: null,
+      melhorHorario: null,
+      observacoesComunicacao: null,
+      precisaLegendas: false,
+      precisaInterprete: false,
+      precisaLeitorTela: false,
+      precisaBaixaEstimulo: false,
+      precisaMobilidade: false,
+      precisaTempoExtra: false,
+      detalhesNecessidades: null,
+      consentimentoPcd: false,
+      pcdIdentificacao: null,
+      pcdTipo: null,
+      pcdComprovacao: null,
+      pcdObservacoes: null
+    };
+
+    fetch(A11Y_API_BASE, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body)
+    })
+      .then(r2 => r2.json().catch(() => ({})).then(d => ({ ok: r2.ok, data: d })))
+      .then(({ ok, data }) => {
+        if(!ok) throw new Error(data?.message || "Falha ao limpar.");
+        const saved = mapA11yDto(data) || cleared;
+        saveA11yToStorage(saved);
+        __a11yHydratedOnce = false;
+        renderA11y();
+        Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+      })
+      .catch(() => {
+        Swal.fire({ icon:"error", title:"Falha ao limpar", confirmButtonColor:"#004aad" });
+      });
   });
 }
 

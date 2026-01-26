@@ -510,6 +510,111 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    [HttpGet("{id:guid}/accessibility")]
+    public async Task<ActionResult<PortalCandidateAccessibilityDto>> GetAccessibility(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var entity = await db.CandidatoAcessibilidades
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        return Ok(new PortalCandidateAccessibilityDto(
+            entity?.Idioma,
+            entity?.Canal,
+            entity?.MelhorHorario,
+            entity?.ObservacoesComunicacao,
+            entity?.PrecisaLegendas ?? false,
+            entity?.PrecisaInterprete ?? false,
+            entity?.PrecisaLeitorTela ?? false,
+            entity?.PrecisaBaixaEstimulo ?? false,
+            entity?.PrecisaMobilidade ?? false,
+            entity?.PrecisaTempoExtra ?? false,
+            entity?.DetalhesNecessidades,
+            entity?.ConsentimentoPcd ?? false,
+            entity?.PcdIdentificacao,
+            entity?.PcdTipo,
+            entity?.PcdComprovacao,
+            entity?.PcdObservacoes,
+            entity?.UpdatedAtUtc ?? DateTimeOffset.MinValue
+        ));
+    }
+
+    [HttpPut("{id:guid}/accessibility")]
+    public async Task<ActionResult<PortalCandidateAccessibilityDto>> UpdateAccessibility(
+        Guid id,
+        [FromBody] PortalCandidateAccessibilityRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var candidate = await db.Candidatos
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var entity = await db.CandidatoAcessibilidades
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        if (entity is null)
+        {
+            entity = new CandidatoAcessibilidade
+            {
+                Id = Guid.NewGuid(),
+                TenantId = candidate.TenantId,
+                CandidatoId = candidate.Id
+            };
+            db.CandidatoAcessibilidades.Add(entity);
+        }
+
+        entity.Idioma = NormalizeOptional(request.Idioma);
+        entity.Canal = NormalizeOptional(request.Canal);
+        entity.MelhorHorario = NormalizeOptional(request.MelhorHorario);
+        entity.ObservacoesComunicacao = NormalizeOptional(request.ObservacoesComunicacao);
+        entity.PrecisaLegendas = request.PrecisaLegendas;
+        entity.PrecisaInterprete = request.PrecisaInterprete;
+        entity.PrecisaLeitorTela = request.PrecisaLeitorTela;
+        entity.PrecisaBaixaEstimulo = request.PrecisaBaixaEstimulo;
+        entity.PrecisaMobilidade = request.PrecisaMobilidade;
+        entity.PrecisaTempoExtra = request.PrecisaTempoExtra;
+        entity.DetalhesNecessidades = NormalizeOptional(request.DetalhesNecessidades);
+        entity.ConsentimentoPcd = request.ConsentimentoPcd;
+        entity.PcdIdentificacao = NormalizeOptional(request.PcdIdentificacao);
+        entity.PcdTipo = NormalizeOptional(request.PcdTipo);
+        entity.PcdComprovacao = NormalizeOptional(request.PcdComprovacao);
+        entity.PcdObservacoes = NormalizeOptional(request.PcdObservacoes);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateAccessibilityDto(
+            entity.Idioma,
+            entity.Canal,
+            entity.MelhorHorario,
+            entity.ObservacoesComunicacao,
+            entity.PrecisaLegendas,
+            entity.PrecisaInterprete,
+            entity.PrecisaLeitorTela,
+            entity.PrecisaBaixaEstimulo,
+            entity.PrecisaMobilidade,
+            entity.PrecisaTempoExtra,
+            entity.DetalhesNecessidades,
+            entity.ConsentimentoPcd,
+            entity.PcdIdentificacao,
+            entity.PcdTipo,
+            entity.PcdComprovacao,
+            entity.PcdObservacoes,
+            entity.UpdatedAtUtc
+        ));
+    }
+
     [HttpGet("{id:guid}/documents")]
     public async Task<ActionResult<PortalCandidateDocumentsResponse>> GetDocuments(
         Guid id,

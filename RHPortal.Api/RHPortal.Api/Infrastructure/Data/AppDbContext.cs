@@ -53,6 +53,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoProjeto> CandidatoProjetos => Set<CandidatoProjeto>();
     public DbSet<CandidatoPreferenciasVaga> CandidatoPreferenciasVaga => Set<CandidatoPreferenciasVaga>();
     public DbSet<CandidatoReferencia> CandidatoReferencias => Set<CandidatoReferencia>();
+    public DbSet<CandidatoAcessibilidade> CandidatoAcessibilidades => Set<CandidatoAcessibilidade>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -503,6 +504,26 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Periodo).HasMaxLength(60);
             b.Property(x => x.Linkedin).HasMaxLength(260);
             b.Property(x => x.Observacoes).HasMaxLength(1200);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoAcessibilidade>(b =>
+        {
+            b.ToTable("CandidatoAcessibilidades");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Idioma).HasMaxLength(40);
+            b.Property(x => x.Canal).HasMaxLength(40);
+            b.Property(x => x.MelhorHorario).HasMaxLength(40);
+            b.Property(x => x.ObservacoesComunicacao).HasMaxLength(400);
+            b.Property(x => x.DetalhesNecessidades).HasMaxLength(1200);
+            b.Property(x => x.PcdIdentificacao).HasMaxLength(40);
+            b.Property(x => x.PcdTipo).HasMaxLength(60);
+            b.Property(x => x.PcdComprovacao).HasMaxLength(40);
+            b.Property(x => x.PcdObservacoes).HasMaxLength(1200);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
@@ -1264,6 +1285,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) referencia.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) referencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoAcessibilidade acessibilidade)
+            {
+                if (entry.State == EntityState.Added) acessibilidade.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) acessibilidade.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoCompetencia competencia)

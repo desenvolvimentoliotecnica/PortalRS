@@ -59,6 +59,7 @@ public sealed class Candidato : ITenantEntity
 
     public List<CandidatoDocumento> Documentos { get; set; } = new();
     public List<CandidatoReferencia> Referencias { get; set; } = new();
+    public CandidatoAcessibilidade? Acessibilidade { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
