@@ -291,6 +291,33 @@
       vertical-align: middle;
       border-top-color: rgba(16,82,144,.10);
     }
+
+    .table-sortable th.sortable{
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+      padding-right: 1.4rem;
+    }
+
+    .table-sortable th.sortable::after{
+      content: "↕";
+      position: absolute;
+      right: 0.45rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.7rem;
+      color: rgba(15, 23, 42, 0.45);
+    }
+
+    .table-sortable th.sortable.asc::after{
+      content: "↑";
+      color: rgba(15, 23, 42, 0.7);
+    }
+
+    .table-sortable th.sortable.desc::after{
+      content: "↓";
+      color: rgba(15, 23, 42, 0.7);
+    }
     .nowrap{ white-space: nowrap; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     .mini-title{

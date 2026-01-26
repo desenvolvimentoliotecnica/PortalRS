@@ -389,3 +389,104 @@
   update();
   setInterval(update, 30000);
 })();
+
+(() => {
+  const getCellValue = (row, index) => {
+    const cell = row.children[index];
+    if (!cell) return "";
+    const value = cell.getAttribute("data-sort-value");
+    if (value !== null) return value;
+    return (cell.textContent || "").trim();
+  };
+
+  const isNumericColumn = (rows, index) => {
+    return rows.every(row => {
+      const value = getCellValue(row, index);
+      if (!value) return true;
+      const normalized = value.replace(/\./g, "").replace(",", ".");
+      return !Number.isNaN(Number(normalized));
+    });
+  };
+
+  const normalizeValue = (value, numeric) => {
+    if (!numeric) return value.toLowerCase();
+    if (!value) return Number.NEGATIVE_INFINITY;
+    const normalized = value.replace(/\./g, "").replace(",", ".");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+  };
+
+  const sortTable = (table, index, direction) => {
+    const tbody = table.tBodies[0];
+    if (!tbody) return;
+    const rows = Array.from(tbody.rows);
+    if (!rows.length) return;
+    const numeric = isNumericColumn(rows, index);
+
+    rows.sort((a, b) => {
+      const av = normalizeValue(getCellValue(a, index), numeric);
+      const bv = normalizeValue(getCellValue(b, index), numeric);
+      if (numeric) return direction === "asc" ? av - bv : bv - av;
+      return direction === "asc"
+        ? av.localeCompare(bv, "pt-BR")
+        : bv.localeCompare(av, "pt-BR");
+    });
+
+    tbody.replaceChildren(...rows);
+  };
+
+  const applySortState = (table, th, direction) => {
+    table.querySelectorAll("th.sortable").forEach(cell => {
+      cell.classList.remove("asc", "desc");
+    });
+    th.classList.add(direction);
+  };
+
+  const enableSort = (table) => {
+    if (!table.tHead || !table.tBodies.length) return;
+    const headers = Array.from(table.tHead.rows[0]?.cells || []);
+    if (!headers.length) return;
+
+    table.classList.add("table-sortable");
+    headers.forEach((th, index) => {
+      if (th.dataset.sort === "none") return;
+      th.classList.add("sortable");
+      th.addEventListener("click", () => {
+        const current = th.classList.contains("asc") ? "asc" : th.classList.contains("desc") ? "desc" : null;
+        const direction = current === "asc" ? "desc" : "asc";
+        sortTable(table, index, direction);
+        applySortState(table, th, direction);
+      });
+    });
+
+    const runDefaultSort = () => {
+      const first = headers.find(th => th.dataset.sort !== "none");
+      if (!first) return;
+      sortTable(table, headers.indexOf(first), "asc");
+      applySortState(table, first, "asc");
+    };
+
+    const tbody = table.tBodies[0];
+    if (tbody.rows.length) {
+      runDefaultSort();
+    } else {
+      const observer = new MutationObserver(() => {
+        if (tbody.rows.length) {
+          runDefaultSort();
+          observer.disconnect();
+        }
+      });
+      observer.observe(tbody, { childList: true });
+    }
+  };
+
+  const init = () => {
+    document.querySelectorAll("table").forEach(enableSort);
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+})();
