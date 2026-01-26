@@ -7,13 +7,19 @@
         (async function () {
           const elAlert = document.getElementById("appAlert");
           const overlay = document.getElementById("loadingOverlay");
-          const apiBase = (window.__portalApiUrl || "").replace(/\/$/, "");
+          const apiMeta = document.querySelector("meta[name='portal-api-base']");
+          const tenantMeta = document.querySelector("meta[name='portal-tenant-id']");
+          const tenantClaimMeta = document.querySelector("meta[name='portal-tenant-claim']");
+          const adminMeta = document.querySelector("meta[name='portal-is-admin']");
+          const apiBase = (window.__portalApiUrl || apiMeta?.content || "").replace(/\/$/, "");
           const tenantId = window.__portalTenantId
+            || tenantMeta?.content
             || window.__portalTenantFromClaim
+            || tenantClaimMeta?.content
             || new URLSearchParams(window.location.search).get("tenantId")
             || new URLSearchParams(window.location.search).get("tenant")
             || "";
-          const isAdminUser = (window.__portalIsAdmin || "false") === "true";
+          const isAdminUser = ((window.__portalIsAdmin || adminMeta?.content || "false")) === "true";
           const grid = document.getElementById("jobsGrid");
           const gridLoading = document.getElementById("jobsLoading");
           let items = [];
