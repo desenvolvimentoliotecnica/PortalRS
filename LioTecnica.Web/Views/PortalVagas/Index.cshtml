@@ -37,44 +37,7 @@
 </head>
 
 <body>
-    <div class="header-wrapper">
-        <nav class="navbar">
-            <div class="container d-flex justify-content-between align-items-center">
-                <div class="portal-brand">
-                    <i class="fas fa-flask" aria-hidden="true"></i>
-                    <span>LT Portal de Vagas</span>
-                </div>
-                <div class="portal-actions">
-                    @if (User.IsInRole("Admin"))
-                    {
-                        <button class="btn btn-outline-primary portal-new-job" type="button" data-bs-toggle="modal" data-bs-target="#newJobModal">
-                            <i class="fas fa-plus me-1" aria-hidden="true"></i> Nova vaga
-                        </button>
-                    }
-                    <div class="dropdown portal-user-menu">
-                        <button class="btn portal-user-btn dropdown-toggle" type="button" id="portalUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
-                            <span id="portalUserAvatar" class="portal-user-avatar">@initials</span>
-                            <span class="text-start d-none d-md-block">
-                                <div id="portalUserName" class="portal-user-name">@userName</div>
-                                <div id="portalUserEmail" class="portal-user-email">@userEmail</div>
-                            </span>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="portalUserMenu">
-                            <li>
-                                <button class="dropdown-item" type="button" id="btnProfile">Ver perfil</button>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <form method="post" action="/PortalVagas/Logout?tenantId=@tenantId">
-                                    <button class="dropdown-item text-danger" type="submit">Sair</button>
-                                </form>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </nav>
-    </div>
+    @await Html.PartialAsync("Partials/_Header")
 
     <!-- Alertas (erro/sucesso) -->
     <div class="container py-3">
@@ -82,20 +45,20 @@
     </div>
 
     <section class="main-header">
-    <div class="container">
-        <h1 class="display-6 fw-semibold mb-2">Transforme o Futuro da Alimentação</h1>
-        <p class="lead mb-0">Ambiente inovador, tecnologia de ponta e paixão por qualidade.</p>
-    </div>
-</section>
+        <div class="container">
+            <h1 class="display-6 fw-semibold mb-2">Transforme o Futuro da Alimentação</h1>
+            <p class="lead mb-0">Ambiente inovador, tecnologia de ponta e paixão por qualidade.</p>
+        </div>
+    </section>
 
-<div class="container search-wrapper">
-    <div class="search-box">
-        <i class="fas fa-search"></i>
-        <input id="q" name="q" type="search" placeholder="Buscar por cargo, empresa, tecnologia..." autocomplete="off" />
-        <button id="searchBtn" class="btn-search" type="button">Buscar</button>
-        <button id="searchClearBtn" class="btn-clear" type="button">Limpar</button>
+    <div class="container search-wrapper">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input id="q" name="q" type="search" placeholder="Buscar por cargo, empresa, tecnologia..." autocomplete="off" />
+            <button id="searchBtn" class="btn-search" type="button">Buscar</button>
+            <button id="searchClearBtn" class="btn-clear" type="button">Limpar</button>
+        </div>
     </div>
-</div>
 
     <button class="btn btn-light border shadow-sm back-to-top px-3 py-2"
             type="button"
@@ -158,30 +121,24 @@
             <button class="btn btn-outline-secondary" type="button" id="emptyClearBtn">Limpar filtros</button>
         </section>
         <section id="jobsGrid" class="jobs-sections" aria-label="Lista de vagas">
-    <div class="jobs-loading" id="jobsLoading">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Carregando...</span>
-        </div>
-    </div>
-</section>
+            <div class="jobs-loading" id="jobsLoading">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Modal de detalhes -->
     @await Html.PartialAsync("Modals/_JobModal")
 
-
     <!-- Modal de candidatura -->
     @await Html.PartialAsync("Modals/_ApplyModal")
 
-
     <!-- Modal de perfil do candidato -->
     @await Html.PartialAsync("Modals/_ProfileModal")
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    
-
-
-    
     <script>
         window.__portalApiUrl = "@(Configuration["Endpoints:RhApi"] ?? string.Empty)".replace(/\/$/, "");
         window.__portalTenantId = "@(Context.Request.Query["tenantId"].ToString())";
