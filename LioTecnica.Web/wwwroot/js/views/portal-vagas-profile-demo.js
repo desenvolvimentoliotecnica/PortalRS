@@ -2203,8 +2203,15 @@ function resetEducation(){
 // Aba: Privacidade & Consentimentos (LGPD)
 // ======================================
 const LGPD_STORAGE_KEY = "liotec_portal_lgpd_v1";
+const LGPD_API_BASE = "/PortalVagas/Lgpd";
+const LGPD_RECEIPT_URL = "/PortalVagas/Lgpd/Receipt";
+
+let lgpdCache = defaultLgpd();
+let lgpdLoaded = false;
+let lgpdLoading = false;
 
 function loadLgpd(){
+  if(!STORAGE_ENABLED) return lgpdCache;
   try{
     const raw = storageGet(LGPD_STORAGE_KEY);
     if(!raw) return null;
@@ -2216,7 +2223,6 @@ function loadLgpd(){
 
 function defaultLgpd(){
   return {
-    // defaults "seguros"
     candidatura: false,
     contato: false,
     bancoTalentos: false,
@@ -2228,6 +2234,90 @@ function defaultLgpd(){
     updatedAt: new Date().toISOString(),
     revokedAt: null
   };
+}
+
+function mapSharingFromApi(value){
+  if(!value) return "";
+  const raw = String(value);
+  if(raw == "Rh") return "rh";
+  if(raw == "RhGestor") return "rh_gestor";
+  if(raw == "Interno") return "interno";
+  return "";
+}
+
+function mapSharingToApi(value){
+  if(value == "rh") return "Rh";
+  if(value == "rh_gestor") return "RhGestor";
+  if(value == "interno") return "Interno";
+  return null;
+}
+
+function mapLgpdResponse(data){
+  const obj = defaultLgpd();
+  obj.candidatura = !!(data && data.processarCandidatura);
+  obj.contato = !!(data && data.permitirContato);
+  obj.bancoTalentos = !!(data && data.bancoTalentos);
+  obj.retentionMonths = data && data.retencaoMeses != null ? String(data.retencaoMeses) : "";
+  obj.sharing = mapSharingFromApi(data && data.compartilhamento);
+  obj.sensivel = !!(data && data.dadosSensiveis);
+  obj.comunicacoes = !!(data && data.comunicacoes);
+  obj.createdAt = (data && data.consentidoEmUtc) || obj.createdAt;
+  obj.updatedAt = (data && data.updatedAtUtc) || obj.updatedAt;
+  obj.revokedAt = (data && data.revogadoEmUtc) || null;
+  return obj;
+}
+
+async function ensureLgpdLoaded(){
+  if(STORAGE_ENABLED || lgpdLoaded || lgpdLoading) return;
+  lgpdLoading = true;
+  try{
+    const res = await fetch(LGPD_API_BASE, {
+      headers: { "Accept": "application/json" },
+      credentials: "same-origin"
+    });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok){
+      lgpdCache = mapLgpdResponse(data);
+      __lgpdHydratedOnce = false;
+    }
+  }catch{
+  }finally{
+    lgpdLoaded = true;
+    lgpdLoading = false;
+  }
+}
+
+async function persistLgpd(obj){
+  if(STORAGE_ENABLED){
+    try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+    return obj;
+  }
+
+  const body = {
+    processarCandidatura: !!obj.candidatura,
+    permitirContato: !!obj.contato,
+    bancoTalentos: !!obj.bancoTalentos,
+    retencaoMeses: obj.retentionMonths ? Number(obj.retentionMonths) : null,
+    compartilhamento: mapSharingToApi(obj.sharing),
+    dadosSensiveis: !!obj.sensivel,
+    comunicacoes: !!obj.comunicacoes
+  };
+
+  try{
+    const res = await fetch(LGPD_API_BASE, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body)
+    });
+    const payload = await res.json().catch(() => ({}));
+    if(res.ok){
+      lgpdCache = mapLgpdResponse(payload);
+      return lgpdCache;
+    }
+  }catch{
+  }
+  return null;
 }
 
 function saveLgpd(){
@@ -2243,15 +2333,21 @@ function saveLgpd(){
 
   obj.updatedAt = new Date().toISOString();
 
-  // regra: se desmarcar candidatura, entendemos como revogação "forte" no MVP
   if(!obj.candidatura){
     obj.revokedAt = new Date().toISOString();
   }else{
     obj.revokedAt = null;
   }
 
-  try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
-  renderLgpd();
+  if(STORAGE_ENABLED){
+    try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+    renderLgpd();
+    return;
+  }
+
+  persistLgpd(obj).then(() => {
+    renderLgpd();
+  });
 }
 
 let __lgpdHydratedOnce = false;
@@ -2261,7 +2357,9 @@ function hydrateLgpd(){
   __lgpdHydratedOnce = true;
 
   const obj = loadLgpd() || defaultLgpd();
-  try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+  if(STORAGE_ENABLED){
+    try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+  }
 
   const setCheck = (id, val) => {
     const el = document.getElementById(id);
@@ -2282,13 +2380,19 @@ function hydrateLgpd(){
 }
 
 function formatDateTimeBrSafe(iso){
-  if(!iso) return "—";
+  if(!iso) return "?";
   const d = new Date(iso);
-  if(isNaN(d.getTime())) return "—";
+  if(isNaN(d.getTime())) return "?";
   return d.toLocaleString("pt-BR");
 }
 
 function renderLgpd(){
+  if(!STORAGE_ENABLED && !lgpdLoaded){
+    if(lgpdLoading) return;
+    ensureLgpdLoaded().then(() => renderLgpd());
+    return;
+  }
+
   hydrateLgpd();
 
   const obj = loadLgpd() || defaultLgpd();
@@ -2298,10 +2402,6 @@ function renderLgpd(){
 
   if(last) last.textContent = formatDateTimeBrSafe(obj.updatedAt);
 
-  // status:
-  // - "Ativo" se candidatura=true
-  // - "Parcial" se candidatura=true mas bancoTalentos=false etc.
-  // - "Revogado" se candidatura=false
   const active = !!obj.candidatura;
   const score =
     (obj.candidatura?1:0) +
@@ -2310,27 +2410,27 @@ function renderLgpd(){
     (obj.sensivel?1:0) +
     (obj.comunicacoes?1:0);
 
-  let statusLabel = "—";
+  let statusLabel = "?";
   let statusClass = "badge bg-secondary";
-  let statusText = "—";
+  let statusText = "?";
 
   if(!active){
     statusLabel = "Revogado";
     statusClass = "badge bg-danger";
-    statusText = `Você revogou os consentimentos em ${formatDateTimeBrSafe(obj.revokedAt)}.`;
+    statusText = "Voce revogou os consentimentos em " + formatDateTimeBrSafe(obj.revokedAt) + ".";
   }else{
     if(score >= 4){
       statusLabel = "Ativo";
       statusClass = "badge bg-success";
-      statusText = "Você concedeu consentimentos amplos para o processo e comunicações.";
+      statusText = "Voce concedeu consentimentos amplos para o processo e comunicacoes.";
     }else if(score >= 2){
       statusLabel = "Parcial";
       statusClass = "badge bg-primary";
-      statusText = "Você concedeu apenas parte dos consentimentos (ajustável a qualquer momento).";
+      statusText = "Voce concedeu apenas parte dos consentimentos (ajustavel a qualquer momento).";
     }else{
-      statusLabel = "Mínimo";
+      statusLabel = "Minimo";
       statusClass = "badge bg-warning text-dark";
-      statusText = "Apenas o mínimo para participar do processo está ativo.";
+      statusText = "Apenas o minimo para participar do processo esta ativo.";
     }
   }
 
@@ -2340,7 +2440,6 @@ function renderLgpd(){
   }
   if(txt) txt.textContent = statusText;
 
-  // regra UX: se candidatura desmarcada, desabilita os demais (MVP)
   const lock = !obj.candidatura;
 
   const toggleDisable = (id, disabled) => {
@@ -2356,14 +2455,13 @@ function renderLgpd(){
   toggleDisable("lgpdComunicacoes", lock);
 }
 
-// Ações simuladas (MVP)
 function lgpdRequestAccess(){
   Swal.fire({
     icon:"info",
-    title:"Solicitação de acesso (MVP)",
+    title:"Solicitacao de acesso (MVP)",
     html:`<div class="text-start">
       <div class="text-muted">No produto final, isso abriria um chamado para o DPO/RH com protocolo.</div>
-      <div class="mt-2"><strong>O que seria entregue:</strong> cópia dos dados, finalidades, prazos e compartilhamentos.</div>
+      <div class="mt-2"><strong>O que seria entregue:</strong> copia dos dados, finalidades, prazos e compartilhamentos.</div>
     </div>`,
     confirmButtonColor:"#004aad"
   });
@@ -2371,30 +2469,30 @@ function lgpdRequestAccess(){
 function lgpdRequestCorrection(){
   Swal.fire({
     icon:"info",
-    title:"Solicitação de correção (MVP)",
-    text:"No produto final, isso enviaria um pedido de correção de dados ao RH/DPO.",
+    title:"Solicitacao de correcao (MVP)",
+    text:"No produto final, isso enviaria um pedido de correcao de dados ao RH/DPO.",
     confirmButtonColor:"#004aad"
   });
 }
 function lgpdRequestDeletion(){
   Swal.fire({
     icon:"warning",
-    title:"Solicitar exclusão (MVP)",
-    text:"No produto final, isso abriria um processo de exclusão (respeitando obrigações legais).",
+    title:"Solicitar exclusao (MVP)",
+    text:"No produto final, isso abriria um processo de exclusao (respeitando obrigacoes legais).",
     showCancelButton:true,
     confirmButtonText:"Simular pedido",
     confirmButtonColor:"#004aad",
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    Swal.fire({ icon:"success", title:"Pedido registrado (simulação)", text:"Um protocolo seria gerado aqui.", confirmButtonColor:"#004aad" });
+    Swal.fire({ icon:"success", title:"Pedido registrado (simulacao)", text:"Um protocolo seria gerado aqui.", confirmButtonColor:"#004aad" });
   });
 }
 function lgpdRevokeConsent(){
   Swal.fire({
     icon:"warning",
     title:"Revogar consentimentos?",
-    text:"Isso desmarca o consentimento de candidatura e desativa os demais (neste navegador).",
+    text:"Isso desmarca o consentimento de candidatura e desativa os demais.",
     showCancelButton:true,
     confirmButtonText:"Revogar",
     confirmButtonColor:"#004aad",
@@ -2409,10 +2507,19 @@ function lgpdRevokeConsent(){
     obj.comunicacoes = false;
     obj.revokedAt = new Date().toISOString();
     obj.updatedAt = new Date().toISOString();
-    try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
-    __lgpdHydratedOnce = false;
-    renderLgpd();
-    Swal.fire({ icon:"success", title:"Consentimentos revogados", confirmButtonColor:"#004aad" });
+    if(STORAGE_ENABLED){
+      try{ storageSet(LGPD_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+      __lgpdHydratedOnce = false;
+      renderLgpd();
+      Swal.fire({ icon:"success", title:"Consentimentos revogados", confirmButtonColor:"#004aad" });
+      return;
+    }
+
+    persistLgpd(obj).then(() => {
+      __lgpdHydratedOnce = false;
+      renderLgpd();
+      Swal.fire({ icon:"success", title:"Consentimentos revogados", confirmButtonColor:"#004aad" });
+    });
   });
 }
 
@@ -2420,48 +2527,77 @@ function resetLgpd(){
   Swal.fire({
     icon:"warning",
     title:"Revogar tudo?",
-    text:"Isso remove/zera os consentimentos salvos neste navegador.",
+    text:"Isso remove/zera os consentimentos salvos.",
     showCancelButton:true,
     confirmButtonText:"Revogar",
     confirmButtonColor:"#004aad",
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    storageRemove(LGPD_STORAGE_KEY);
-    __lgpdHydratedOnce = false;
-    renderLgpd();
-    Swal.fire({ icon:"success", title:"Pronto!", text:"Consentimentos reiniciados.", confirmButtonColor:"#004aad" });
+    if(STORAGE_ENABLED){
+      storageRemove(LGPD_STORAGE_KEY);
+      __lgpdHydratedOnce = false;
+      renderLgpd();
+      Swal.fire({ icon:"success", title:"Pronto!", text:"Consentimentos reiniciados.", confirmButtonColor:"#004aad" });
+      return;
+    }
+
+    const obj = defaultLgpd();
+    persistLgpd(obj).then(() => {
+      __lgpdHydratedOnce = false;
+      renderLgpd();
+      Swal.fire({ icon:"success", title:"Pronto!", text:"Consentimentos reiniciados.", confirmButtonColor:"#004aad" });
+    });
   });
 }
 
 function exportLgpdReceipt(){
-  const obj = loadLgpd() || defaultLgpd();
+  if(STORAGE_ENABLED){
+    const obj = loadLgpd() || defaultLgpd();
+    const lines = [];
+    lines.push("Liotecnica ? Comprovante de Consentimentos (MVP)");
+    lines.push("Gerado em: " + new Date().toLocaleString("pt-BR"));
+    lines.push("");
+    lines.push("Candidatura: " + (obj.candidatura ? "SIM" : "NAO"));
+    lines.push("Contato: " + (obj.contato ? "SIM" : "NAO"));
+    lines.push("Banco de Talentos: " + (obj.bancoTalentos ? "SIM" : "NAO"));
+    lines.push("Retencao (meses): " + (obj.retentionMonths || "?"));
+    lines.push("Compartilhamento: " + (obj.sharing || "?"));
+    lines.push("Dados sensiveis (PcD): " + (obj.sensivel ? "SIM" : "NAO"));
+    lines.push("Comunicacoes: " + (obj.comunicacoes ? "SIM" : "NAO"));
+    lines.push("");
+    lines.push("Criado em: " + formatDateTimeBrSafe(obj.createdAt));
+    lines.push("Atualizado em: " + formatDateTimeBrSafe(obj.updatedAt));
+    lines.push("Revogado em: " + formatDateTimeBrSafe(obj.revokedAt));
 
-  const lines = [];
-  lines.push("Liotécnica — Comprovante de Consentimentos (MVP)");
-  lines.push("Gerado em: " + new Date().toLocaleString("pt-BR"));
-  lines.push("");
-  lines.push("Candidatura: " + (obj.candidatura ? "SIM" : "NÃO"));
-  lines.push("Contato: " + (obj.contato ? "SIM" : "NÃO"));
-  lines.push("Banco de Talentos: " + (obj.bancoTalentos ? "SIM" : "NÃO"));
-  lines.push("Retenção (meses): " + (obj.retentionMonths || "—"));
-  lines.push("Compartilhamento: " + (obj.sharing || "—"));
-  lines.push("Dados sensíveis (PcD): " + (obj.sensivel ? "SIM" : "NÃO"));
-  lines.push("Comunicações: " + (obj.comunicacoes ? "SIM" : "NÃO"));
-  lines.push("");
-  lines.push("Criado em: " + formatDateTimeBrSafe(obj.createdAt));
-  lines.push("Atualizado em: " + formatDateTimeBrSafe(obj.updatedAt));
-  lines.push("Revogado em: " + formatDateTimeBrSafe(obj.revokedAt));
+    const blob = new Blob([lines.join("\n")], { type:"text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "comprovante-lgpd-liotecnica.txt";
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(a.href);
+    a.remove();
+    return;
+  }
 
-  const blob = new Blob([lines.join("\n")], { type:"text/plain;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "comprovante-lgpd-liotecnica.txt";
-  document.body.appendChild(a);
-  a.click();
-  URL.revokeObjectURL(a.href);
-  a.remove();
+  fetch(LGPD_RECEIPT_URL, { headers: { "Accept": "application/json" }, credentials: "same-origin" })
+    .then(res => res.json().catch(() => ({})))
+    .then(payload => {
+      const html = payload && payload.html ? payload.html : "";
+      if(!html) return;
+      const w = window.open("", "_blank");
+      if(!w) return;
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+    });
 }
+
+
+window.renderLgpd = renderLgpd;
+window.ensureLgpdLoaded = ensureLgpdLoaded;
 
 // ======================================
 // Aba: Preferências de Vaga / Objetivos

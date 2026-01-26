@@ -522,6 +522,88 @@ public sealed class PortalCandidatesApiClient
         return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar preferencias.");
     }
 
+    public async Task<PortalApiResult<PortalCandidateLgpdResponse>> GetLgpdAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateLgpdResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/lgpd?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateLgpdResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateLgpdResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateLgpdResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateLgpdResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar LGPD.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateLgpdResponse>> UpdateLgpdAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateLgpdRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateLgpdResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/lgpd?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateLgpdResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateLgpdResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateLgpdResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateLgpdResponse>.Fail(res.StatusCode, message ?? "Falha ao salvar LGPD.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateLgpdReceiptResponse>> GetLgpdReceiptAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateLgpdReceiptResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/lgpd/receipt?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateLgpdReceiptResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateLgpdReceiptResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateLgpdReceiptResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateLgpdReceiptResponse>.Fail(res.StatusCode, message ?? "Falha ao gerar comprovante.");
+    }
+
     public async Task<PortalApiResult<PortalCandidatePreferencesResponse>> UpdatePreferencesAsync(
         string tenantId,
         Guid candidateId,
