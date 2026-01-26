@@ -287,6 +287,11 @@
       border-bottom-color: var(--lt-border) !important;
       white-space: nowrap;
     }
+    .table thead th{
+      background-color: #0b1f3b;
+      color: #fff;
+      border-bottom-color: rgba(255,255,255,.18) !important;
+    }
     .table td{
       vertical-align: middle;
       border-top-color: rgba(16,82,144,.10);
@@ -297,26 +302,27 @@
       position: relative;
       user-select: none;
       padding-right: 1.4rem;
+      background-color: #0b1f3b;
     }
 
     .table-sortable th.sortable::after{
-      content: "↕";
+      content: "△";
       position: absolute;
       right: 0.45rem;
       top: 50%;
       transform: translateY(-50%);
       font-size: 0.7rem;
-      color: rgba(15, 23, 42, 0.45);
+      color: rgba(255, 255, 255, 0.65);
     }
 
     .table-sortable th.sortable.asc::after{
-      content: "↑";
-      color: rgba(15, 23, 42, 0.7);
+      content: "▲";
+      color: rgba(255, 255, 255, 0.9);
     }
 
     .table-sortable th.sortable.desc::after{
-      content: "↓";
-      color: rgba(15, 23, 42, 0.7);
+      content: "▼";
+      color: rgba(255, 255, 255, 0.9);
     }
     .nowrap{ white-space: nowrap; }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
