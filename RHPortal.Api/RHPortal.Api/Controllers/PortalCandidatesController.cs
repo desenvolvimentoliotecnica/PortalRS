@@ -967,6 +967,147 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateDocumentsResponse(items));
     }
 
+    [HttpGet("{id:guid}/lgpd")]
+    public async Task<ActionResult<PortalCandidateLgpdResponse>> GetLgpd(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var consent = await db.CandidatoLgpdConsents
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        return Ok(new PortalCandidateLgpdResponse(
+            consent?.ProcessarCandidatura ?? false,
+            consent?.PermitirContato ?? false,
+            consent?.BancoTalentos ?? false,
+            consent?.RetencaoMeses,
+            consent?.Compartilhamento,
+            consent?.DadosSensiveis ?? false,
+            consent?.Comunicacoes ?? false,
+            consent?.ConsentidoEmUtc,
+            consent?.RevogadoEmUtc,
+            consent?.UpdatedAtUtc
+        ));
+    }
+
+    [HttpPut("{id:guid}/lgpd")]
+    public async Task<ActionResult<PortalCandidateLgpdResponse>> UpdateLgpd(
+        Guid id,
+        [FromBody] PortalCandidateLgpdRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var candidate = await db.Candidatos
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var consent = await db.CandidatoLgpdConsents
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        if (consent is null)
+        {
+            consent = new CandidatoLgpdConsent
+            {
+                Id = Guid.NewGuid(),
+                TenantId = candidate.TenantId,
+                CandidatoId = candidate.Id
+            };
+            db.CandidatoLgpdConsents.Add(consent);
+        }
+
+        consent.ProcessarCandidatura = request.ProcessarCandidatura;
+        consent.PermitirContato = request.PermitirContato;
+        consent.BancoTalentos = request.BancoTalentos;
+        consent.RetencaoMeses = request.RetencaoMeses;
+        consent.Compartilhamento = request.Compartilhamento;
+        consent.DadosSensiveis = request.DadosSensiveis;
+        consent.Comunicacoes = request.Comunicacoes;
+
+        if (request.ProcessarCandidatura)
+        {
+            consent.RevogadoEmUtc = null;
+            consent.ConsentidoEmUtc ??= DateTimeOffset.UtcNow;
+        }
+        else
+        {
+            consent.RevogadoEmUtc = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateLgpdResponse(
+            consent.ProcessarCandidatura,
+            consent.PermitirContato,
+            consent.BancoTalentos,
+            consent.RetencaoMeses,
+            consent.Compartilhamento,
+            consent.DadosSensiveis,
+            consent.Comunicacoes,
+            consent.ConsentidoEmUtc,
+            consent.RevogadoEmUtc,
+            consent.UpdatedAtUtc
+        ));
+    }
+
+    [HttpGet("{id:guid}/lgpd/receipt")]
+    public async Task<ActionResult<PortalCandidateLgpdReceiptResponse>> GetLgpdReceipt(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var consent = await db.CandidatoLgpdConsents
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        var html = $@"
+<html lang=""pt-br"">
+<head>
+  <meta charset=""utf-8"" />
+  <title>Comprovante LGPD</title>
+  <style>
+    body {{ font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }}
+    h1 {{ font-size: 20px; margin-bottom: 6px; }}
+    .muted {{ color: #6b7280; font-size: 12px; }}
+    .box {{ margin-top: 16px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }}
+    .row {{ margin-bottom: 8px; }}
+    .label {{ font-weight: 600; }}
+  </style>
+</head>
+<body>
+  <h1>Comprovante de Consentimentos (LGPD)</h1>
+  <div class=""muted"">Gerado em {DateTimeOffset.UtcNow:dd/MM/yyyy HH:mm} (UTC)</div>
+  <div class=""box"">
+    <div class=""row""><span class=""label"">Candidatura:</span> {(consent?.ProcessarCandidatura == true ? "SIM" : "NAO")}</div>
+    <div class=""row""><span class=""label"">Contato:</span> {(consent?.PermitirContato == true ? "SIM" : "NAO")}</div>
+    <div class=""row""><span class=""label"">Banco de talentos:</span> {(consent?.BancoTalentos == true ? "SIM" : "NAO")}</div>
+    <div class=""row""><span class=""label"">Retencao (meses):</span> {(consent?.RetencaoMeses?.ToString() ?? "-")}</div>
+    <div class=""row""><span class=""label"">Compartilhamento:</span> {(consent?.Compartilhamento?.ToString() ?? "-")}</div>
+    <div class=""row""><span class=""label"">Dados sensiveis:</span> {(consent?.DadosSensiveis == true ? "SIM" : "NAO")}</div>
+    <div class=""row""><span class=""label"">Comunicacoes:</span> {(consent?.Comunicacoes == true ? "SIM" : "NAO")}</div>
+    <div class=""row""><span class=""label"">Consentido em:</span> {(consent?.ConsentidoEmUtc?.ToString("dd/MM/yyyy HH:mm") ?? "-")}</div>
+    <div class=""row""><span class=""label"">Revogado em:</span> {(consent?.RevogadoEmUtc?.ToString("dd/MM/yyyy HH:mm") ?? "-")}</div>
+    <div class=""row""><span class=""label"">Ultima atualizacao:</span> {(consent is null ? "-" : consent.UpdatedAtUtc.ToString("dd/MM/yyyy HH:mm"))}</div>
+  </div>
+</body>
+</html>";
+
+        return Ok(new PortalCandidateLgpdReceiptResponse(html));
+    }
+
     [HttpPost("{id:guid}/documents")]
     public async Task<ActionResult<PortalCandidateDocumentDto>> CreateDocument(
         Guid id,

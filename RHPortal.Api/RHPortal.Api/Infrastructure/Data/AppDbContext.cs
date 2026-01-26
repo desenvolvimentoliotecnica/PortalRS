@@ -57,6 +57,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoAgendaPreferencia> CandidatoAgendaPreferencias => Set<CandidatoAgendaPreferencia>();
     public DbSet<CandidatoAgendaBloqueio> CandidatoAgendaBloqueios => Set<CandidatoAgendaBloqueio>();
     public DbSet<CandidatoNotificacaoPreferencia> CandidatoNotificacaoPreferencias => Set<CandidatoNotificacaoPreferencia>();
+    public DbSet<CandidatoLgpdConsent> CandidatoLgpdConsents => Set<CandidatoLgpdConsent>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -594,6 +595,24 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Candidato)
                 .WithOne(c => c.NotificacaoPreferencia)
                 .HasForeignKey<CandidatoNotificacaoPreferencia>(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.CandidatoId).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoLgpdConsent>(b =>
+        {
+            b.ToTable("CandidatoLgpdConsents");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Compartilhamento).HasConversion<short>();
+
+            b.HasOne(x => x.Candidato)
+                .WithOne(c => c.LgpdConsent)
+                .HasForeignKey<CandidatoLgpdConsent>(x => x.CandidatoId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             b.HasIndex(x => x.CandidatoId).IsUnique();
@@ -1381,6 +1400,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) notificacao.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) notificacao.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoLgpdConsent lgpdConsent)
+            {
+                if (entry.State == EntityState.Added) lgpdConsent.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) lgpdConsent.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoCompetencia competencia)
