@@ -26,6 +26,17 @@
   let cachedUfs = null;
   const cityCache = new Map();
 
+  window.initVLIBRAS = () => {
+    const widgetCtor =
+      window.VLibras?.Widget ||
+      window.VLibras?.default?.Widget ||
+      (typeof window.VLibras?.default === "function" ? window.VLibras.default : null);
+
+    if (typeof widgetCtor === "function") {
+      try { new widgetCtor("https://vlibras.gov.br/app"); } catch {}
+    }
+  };
+
   const getTenantId = () => (tenantInput?.value || "").trim();
   const getReturnUrl = () => (returnUrlInput?.value || "").trim();
 
