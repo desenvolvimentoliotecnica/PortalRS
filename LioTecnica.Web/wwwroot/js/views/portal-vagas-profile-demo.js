@@ -385,6 +385,7 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
   if (typeof renderAgenda === "function") renderAgenda();
   if (typeof renderApps === "function") renderApps();
   if (typeof renderNotify === "function") renderNotify();
+  if (typeof ensureTagRemoval === "function") ensureTagRemoval();
 
 });
 
@@ -394,8 +395,16 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
   // Aba: Experiência & Projetos (Drop-in)
   // =========================
   const EXP_PROJ_STORAGE_KEY = "liotec_portal_exp_proj_v1";
+  const EXP_PROJ_API_BASE = "/PortalVagas/ExperienceProjects";
+  const EXP_API_BASE = "/PortalVagas/Experiences";
+  const PROJ_API_BASE = "/PortalVagas/Projects";
+
+  let expProjCache = { experiences: [], projects: [] };
+  let expProjLoaded = false;
+  let expProjLoading = false;
 
   function loadExpProj(){
+    if(!STORAGE_ENABLED) return expProjCache;
     try{
       const raw = storageGet(EXP_PROJ_STORAGE_KEY);
       if(!raw) return { experiences: [], projects: [] };
@@ -409,7 +418,179 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
     }
   }
   function saveExpProj(data){
+    if(!STORAGE_ENABLED){
+      expProjCache = data;
+      return;
+    }
     try{ storageSet(EXP_PROJ_STORAGE_KEY, JSON.stringify(data)); }catch{}
+  }
+
+  function mapExpProjResponse(data){
+    return {
+      experiences: (data?.experiences || []).map(e => ({
+        id: e.id,
+        company: e.empresa || "",
+        role: e.cargo || "",
+        start: e.inicio || "",
+        end: e.fim || "",
+        place: e.local || "",
+        bullets: (e.atividades || "").split("\n").map(x => x.trim()).filter(Boolean),
+        updatedAt: ""
+      })),
+      projects: (data?.projects || []).map(p => ({
+        id: p.id,
+        name: p.nome || "",
+        period: p.periodo || "",
+        desc: p.descricao || "",
+        link: p.link || "",
+        stack: (p.stack || "").split(",").map(x => x.trim()).filter(Boolean),
+        highlights: (p.destaques || "").split("\n").map(x => x.trim()).filter(Boolean),
+        updatedAt: ""
+      }))
+    };
+  }
+
+  async function ensureExpProjLoaded(){
+    if(STORAGE_ENABLED || expProjLoaded || expProjLoading) return;
+    expProjLoading = true;
+    try{
+      const res = await fetch(EXP_PROJ_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+      const data = await res.json().catch(() => ({}));
+      if(res.ok){
+        expProjCache = mapExpProjResponse(data);
+      }
+    }catch{
+      // ignore
+    }finally{
+      expProjLoaded = true;
+      expProjLoading = false;
+    }
+  }
+
+  async function persistExperience(exp){
+    if(STORAGE_ENABLED){
+      const data = loadExpProj();
+      const idx = data.experiences.findIndex(x => x.id === exp.id);
+      if(idx >= 0) data.experiences[idx] = exp;
+      else data.experiences.push(exp);
+      saveExpProj(data);
+      return exp;
+    }
+
+    const body = {
+      empresa: exp.company || "",
+      cargo: exp.role || "",
+      inicio: exp.start || "",
+      fim: exp.end || "",
+      local: exp.place || "",
+      atividades: (exp.bullets || []).join("\n")
+    };
+
+    const isUpdate = !!exp.id && expProjCache.experiences.some(x => x.id === exp.id);
+    const url = isUpdate ? `${EXP_API_BASE}/${exp.id}` : EXP_API_BASE;
+    const method = isUpdate ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body)
+    });
+    if(!res.ok) return null;
+    const payload = await res.json().catch(() => ({}));
+
+    const saved = {
+      id: payload.id,
+      company: payload.empresa || "",
+      role: payload.cargo || "",
+      start: payload.inicio || "",
+      end: payload.fim || "",
+      place: payload.local || "",
+      bullets: (payload.atividades || "").split("\n").map(x => x.trim()).filter(Boolean),
+      updatedAt: ""
+    };
+
+    const idx = expProjCache.experiences.findIndex(x => x.id === saved.id);
+    if(idx >= 0) expProjCache.experiences[idx] = saved;
+    else expProjCache.experiences.push(saved);
+    return saved;
+  }
+
+  async function removeExperience(id){
+    if(STORAGE_ENABLED){
+      const data = loadExpProj();
+      data.experiences = data.experiences.filter(x => x.id !== id);
+      saveExpProj(data);
+      return true;
+    }
+
+    const res = await fetch(`${EXP_API_BASE}/${id}`, { method: "DELETE", credentials: "same-origin" });
+    if(!res.ok) return false;
+    expProjCache.experiences = expProjCache.experiences.filter(x => x.id !== id);
+    return true;
+  }
+
+  async function persistProject(proj){
+    if(STORAGE_ENABLED){
+      const data = loadExpProj();
+      const idx = data.projects.findIndex(x => x.id === proj.id);
+      if(idx >= 0) data.projects[idx] = proj;
+      else data.projects.push(proj);
+      saveExpProj(data);
+      return proj;
+    }
+
+    const body = {
+      nome: proj.name || "",
+      periodo: proj.period || "",
+      descricao: proj.desc || "",
+      link: proj.link || "",
+      stack: (proj.stack || []).join(", "),
+      destaques: (proj.highlights || []).join("\n")
+    };
+
+    const isUpdate = !!proj.id && expProjCache.projects.some(x => x.id === proj.id);
+    const url = isUpdate ? `${PROJ_API_BASE}/${proj.id}` : PROJ_API_BASE;
+    const method = isUpdate ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body)
+    });
+    if(!res.ok) return null;
+    const payload = await res.json().catch(() => ({}));
+
+    const saved = {
+      id: payload.id,
+      name: payload.nome || "",
+      period: payload.periodo || "",
+      desc: payload.descricao || "",
+      link: payload.link || "",
+      stack: (payload.stack || "").split(",").map(x => x.trim()).filter(Boolean),
+      highlights: (payload.destaques || "").split("\n").map(x => x.trim()).filter(Boolean),
+      updatedAt: ""
+    };
+
+    const idx = expProjCache.projects.findIndex(x => x.id === saved.id);
+    if(idx >= 0) expProjCache.projects[idx] = saved;
+    else expProjCache.projects.push(saved);
+    return saved;
+  }
+
+  async function removeProject(id){
+    if(STORAGE_ENABLED){
+      const data = loadExpProj();
+      data.projects = data.projects.filter(x => x.id !== id);
+      saveExpProj(data);
+      return true;
+    }
+
+    const res = await fetch(`${PROJ_API_BASE}/${id}`, { method: "DELETE", credentials: "same-origin" });
+    if(!res.ok) return false;
+    expProjCache.projects = expProjCache.projects.filter(x => x.id !== id);
+    return true;
   }
 
   function uid(){
@@ -432,8 +613,7 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
     m.show();
   }
 
-  function saveExperience(){
-    const data = loadExpProj();
+  async function saveExperience(){
     const id = (document.getElementById("expId").value || "").trim() || uid();
 
     const company = document.getElementById("expCompany").value.trim();
@@ -453,14 +633,11 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
       .filter(Boolean);
 
     const payload = { id, company, role, start, end, place, bullets, updatedAt: new Date().toISOString() };
-
-    const idx = data.experiences.findIndex(x => x.id === id);
-    if(idx >= 0) data.experiences[idx] = payload;
-    else data.experiences.push(payload);
-
-    data.experiences.sort((a,b) => (b.updatedAt||"").localeCompare(a.updatedAt||""));
-
-    saveExpProj(data);
+    const saved = await persistExperience(payload);
+    if(!saved){
+      Swal.fire({ icon:"error", title:"Erro ao salvar", text:"Nao foi possivel salvar a experiencia.", confirmButtonColor:"#004aad" });
+      return;
+    }
     bootstrap.Modal.getInstance(document.getElementById("experienceEditModal"))?.hide();
     renderExperienceProjects();
 
@@ -478,10 +655,13 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
       cancelButtonText:"Cancelar"
     }).then(r=>{
       if(!r.isConfirmed) return;
-      const data = loadExpProj();
-      data.experiences = data.experiences.filter(x=>x.id!==id);
-      saveExpProj(data);
-      renderExperienceProjects();
+      Promise.resolve(removeExperience(id)).then(ok => {
+        if(!ok){
+          Swal.fire({ icon:"error", title:"Erro ao remover", text:"Nao foi possivel remover a experiencia.", confirmButtonColor:"#004aad" });
+          return;
+        }
+        renderExperienceProjects();
+      });
     });
   }
 
@@ -501,8 +681,7 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
     m.show();
   }
 
-  function saveProject(){
-    const data = loadExpProj();
+  async function saveProject(){
     const id = (document.getElementById("projId").value || "").trim() || uid();
 
     const name = document.getElementById("projName").value.trim();
@@ -518,14 +697,11 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
     const highlights = document.getElementById("projHighlights").value.split("\n").map(x=>x.trim()).filter(Boolean);
 
     const payload = { id, name, period, desc, link, stack, highlights, updatedAt: new Date().toISOString() };
-
-    const idx = data.projects.findIndex(x => x.id === id);
-    if(idx >= 0) data.projects[idx] = payload;
-    else data.projects.push(payload);
-
-    data.projects.sort((a,b) => (b.updatedAt||"").localeCompare(a.updatedAt||""));
-
-    saveExpProj(data);
+    const saved = await persistProject(payload);
+    if(!saved){
+      Swal.fire({ icon:"error", title:"Erro ao salvar", text:"Nao foi possivel salvar o projeto.", confirmButtonColor:"#004aad" });
+      return;
+    }
     bootstrap.Modal.getInstance(document.getElementById("projectEditModal"))?.hide();
     renderExperienceProjects();
 
@@ -543,10 +719,13 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
       cancelButtonText:"Cancelar"
     }).then(r=>{
       if(!r.isConfirmed) return;
-      const data = loadExpProj();
-      data.projects = data.projects.filter(x=>x.id!==id);
-      saveExpProj(data);
-      renderExperienceProjects();
+      Promise.resolve(removeProject(id)).then(ok => {
+        if(!ok){
+          Swal.fire({ icon:"error", title:"Erro ao remover", text:"Nao foi possivel remover o projeto.", confirmButtonColor:"#004aad" });
+          return;
+        }
+        renderExperienceProjects();
+      });
     });
   }
 
@@ -560,9 +739,20 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
 
     if(!expList || !projList) return;
 
+    if(!STORAGE_ENABLED && !expProjLoaded){
+      ensureExpProjLoaded().then(() => renderExperienceProjects());
+      return;
+    }
+
     const data = loadExpProj();
     expCount && (expCount.textContent = data.experiences.length);
     projCount && (projCount.textContent = data.projects.length);
+
+    if(!STORAGE_ENABLED && !skillsPortfLoaded){
+      ensureSkillsPortfolioLoaded().then(() => renderTechTags());
+    }else{
+      renderTechTags();
+    }
 
     // Experiências
     expList.innerHTML = "";
@@ -640,69 +830,174 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
     }
   }
 
-  function seedExperiences(){
+  async function seedExperiences(){
+    if(!STORAGE_ENABLED && !expProjLoaded){
+      await ensureExpProjLoaded();
+    }
     const data = loadExpProj();
     if(data.experiences.length > 0){
-      Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Remova as experiências atuais para inserir exemplos.", confirmButtonColor:"#004aad" });
+      Swal.fire({ icon:"info", title:"Ja existe conteudo", text:"Remova as experiencias atuais para inserir exemplos.", confirmButtonColor:"#004aad" });
       return;
     }
-    data.experiences.push({
+    const payloads = [{
       id: uid(),
-      company: "Liotécnica",
+      company: "Liotecnica",
       role: "Desenvolvedor Web",
       start: "01/2025",
       end: "Atual",
-      place: "Embu das Artes • Híbrido",
+      place: "Embu das Artes - Hibrido",
       bullets: [
-        "Criou módulos de candidatura e perfil do candidato (Bootstrap + JS).",
+        "Criou modulos de candidatura e perfil do candidato (Bootstrap + JS).",
         "Otimizou performance e responsividade (mobile-first).",
-        "Implementou melhorias de UX com modais e notificações."
+        "Implementou melhorias de UX com modais e notificacoes."
       ],
       updatedAt: new Date().toISOString()
-    });
-    saveExpProj(data);
+    }];
+    if(STORAGE_ENABLED){
+      data.experiences.push(...payloads);
+      saveExpProj(data);
+    }else{
+      const saved = await Promise.all(payloads.map(p => persistExperience(p)));
+      expProjCache.experiences = saved.filter(Boolean);
+    }
     renderExperienceProjects();
   }
 
-  function seedProjects(){
+  async function seedProjects(){
+    if(!STORAGE_ENABLED && !expProjLoaded){
+      await ensureExpProjLoaded();
+    }
     const data = loadExpProj();
     if(data.projects.length > 0){
-      Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Remova os projetos atuais para inserir exemplos.", confirmButtonColor:"#004aad" });
+      Swal.fire({ icon:"info", title:"Ja existe conteudo", text:"Remova os projetos atuais para inserir exemplos.", confirmButtonColor:"#004aad" });
       return;
     }
-    data.projects.push({
+    const payloads = [{
       id: uid(),
       name: "Portal de Candidatos (MVP)",
-      period: "2025–2026",
-      desc: "Protótipo de portal para cadastro de candidatos e submissão de currículo.",
+      period: "2025-2026",
+      desc: "Prototipo de portal para cadastro de candidatos e submissao de curriculo.",
       link: "https://github.com/seu-usuario/seu-repo",
       stack: ["HTML", "Bootstrap 5", "JavaScript", "SweetAlert2"],
-      highlights: ["Fluxo de candidatura com modal", "Perfil com abas e persistência local (localStorage)"],
+      highlights: ["Fluxo de candidatura com modal", "Perfil com abas e persistencia local (localStorage)"],
       updatedAt: new Date().toISOString()
-    });
-    saveExpProj(data);
+    }];
+    if(STORAGE_ENABLED){
+      data.projects.push(...payloads);
+      saveExpProj(data);
+    }else{
+      const saved = await Promise.all(payloads.map(p => persistProject(p)));
+      expProjCache.projects = saved.filter(Boolean);
+    }
     renderExperienceProjects();
+  }
+
+  function ensureTagRemoval(){
+    const tagArea = document.getElementById("tagArea");
+    if(!tagArea || tagArea.dataset.bound === "true") return;
+    tagArea.dataset.bound = "true";
+
+    tagArea.querySelectorAll(".badge").forEach((badge) => {
+      badge.style.cursor = "pointer";
+      badge.title = "Remover tag";
+    });
+
+    tagArea.addEventListener("click", (event) => {
+      const badge = event.target.closest(".badge");
+      if(!badge || badge.closest("button")) return;
+
+      const label = (badge.textContent || "").trim();
+      Swal.fire({
+        title: "Remover tag?",
+        text: `Deseja remover \"${label}\"?`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Remover",
+        confirmButtonColor: "#004aad",
+        cancelButtonText: "Cancelar"
+      }).then(async (resp) => {
+        if(!resp.isConfirmed) return;
+        if(!STORAGE_ENABLED && !skillsPortfLoaded){
+          await ensureSkillsPortfolioLoaded();
+        }
+        badge.remove();
+        const nextTags = Array.from(tagArea.querySelectorAll(".badge"))
+          .map(el => (el.textContent || "").trim())
+          .filter(Boolean);
+        skillsPortfCache.tags = nextTags;
+        persistPortfolio(skillsPortfCache);
+      });
+    });
+  }
+
+  function renderTechTags(){
+    const tagArea = document.getElementById("tagArea");
+    if(!tagArea) return;
+
+    const addButton = tagArea.querySelector("button");
+    tagArea.querySelectorAll(".badge").forEach(el => el.remove());
+
+    const data = loadSkillsPortf();
+    const tags = Array.isArray(data.tags) ? data.tags : [];
+    tags.forEach(tag => {
+      const span = document.createElement("span");
+      span.className = "badge rounded-pill text-bg-dark";
+      span.textContent = tag;
+      span.style.cursor = "pointer";
+      span.title = "Remover tag";
+      if(addButton){
+        tagArea.insertBefore(span, addButton);
+      }else{
+        tagArea.appendChild(span);
+      }
+    });
+
+    if(!addButton){
+      const btn = document.createElement("button");
+      btn.className = "btn btn-sm btn-outline-secondary rounded-pill";
+      btn.type = "button";
+      btn.innerHTML = '<i class="fas fa-plus"></i> adicionar';
+      btn.addEventListener("click", addQuickTag);
+      tagArea.appendChild(btn);
+    }
+
+    ensureTagRemoval();
   }
 
   function addQuickTag(){
-    Swal.fire({
-      title: "Adicionar tag",
-      input: "text",
-      inputPlaceholder: "Ex.: PostgreSQL",
-      showCancelButton: true,
-      confirmButtonText: "Adicionar",
-      confirmButtonColor: "#004aad",
-      cancelButtonText: "Cancelar"
-    }).then(r=>{
-      const val = (r.value || "").trim();
-      if(!r.isConfirmed || !val) return;
-      const tagArea = document.getElementById("tagArea");
-      if(!tagArea) return;
-      const span = document.createElement("span");
-      span.className = "badge rounded-pill text-bg-dark";
-      span.textContent = val;
-      tagArea.insertBefore(span, tagArea.lastElementChild);
-    });
+    const modalEl = document.getElementById("tagEditModal");
+    if(!modalEl) return;
+    const input = modalEl.querySelector("#tagNameInput");
+    if(input) input.value = "";
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+    setTimeout(() => {
+      input?.focus();
+    }, 150);
+  }
+
+  async function saveQuickTag(){
+    const tagArea = document.getElementById("tagArea");
+    const input = document.getElementById("tagNameInput");
+    if(!tagArea || !input) return;
+    const val = (input.value || "").trim();
+    if(!val) return;
+
+    if(!STORAGE_ENABLED && !skillsPortfLoaded){
+      await ensureSkillsPortfolioLoaded();
+    }
+
+    const data = loadSkillsPortf();
+    const tags = Array.isArray(data.tags) ? data.tags.slice() : [];
+    if(!tags.some(t => t.toLowerCase() === val.toLowerCase())){
+      tags.push(val);
+      skillsPortfCache.tags = tags;
+      persistPortfolio(skillsPortfCache);
+    }
+
+    renderTechTags();
+
+    bootstrap.Modal.getInstance(document.getElementById("tagEditModal"))?.hide();
   }
 
   function fakeOpenLink(name){
@@ -729,7 +1024,7 @@ document.getElementById("profileModal")?.addEventListener("shown.bs.modal", () =
 // ======================================
 const SKILLS_PORTF_STORAGE_KEY = "liotec_portal_skills_portf_v1";
 const SKILLS_PORTF_API_BASE = "/PortalVagas/SkillsPortfolio";
-let skillsPortfCache = { skills: [], certs: [], links: {}, prefs: {} };
+let skillsPortfCache = { skills: [], certs: [], links: {}, prefs: {}, tags: [] };
 let skillsPortfLoaded = false;
 let skillsPortfLoading = false;
 
@@ -737,16 +1032,17 @@ function loadSkillsPortf(){
   if(!STORAGE_ENABLED) return skillsPortfCache;
   try{
     const raw = storageGet(SKILLS_PORTF_STORAGE_KEY);
-    if(!raw) return { skills: [], certs: [], links: {}, prefs: {} };
+    if(!raw) return { skills: [], certs: [], links: {}, prefs: {}, tags: [] };
     const obj = JSON.parse(raw) || {};
     return {
       skills: Array.isArray(obj.skills) ? obj.skills : [],
       certs: Array.isArray(obj.certs) ? obj.certs : [],
       links: (obj.links && typeof obj.links === "object") ? obj.links : {},
-      prefs: (obj.prefs && typeof obj.prefs === "object") ? obj.prefs : {}
+      prefs: (obj.prefs && typeof obj.prefs === "object") ? obj.prefs : {},
+      tags: Array.isArray(obj.tags) ? obj.tags : []
     };
   }catch{
-    return { skills: [], certs: [], links: {}, prefs: {} };
+    return { skills: [], certs: [], links: {}, prefs: {}, tags: [] };
   }
 }
 function saveSkillsPortf(data){
@@ -785,7 +1081,8 @@ function mapSkillsPortfolioResponse(data){
       salary: data?.preferences?.salary || "",
       shift: data?.preferences?.shift || "",
       note: data?.preferences?.note || ""
-    }
+    },
+    tags: (data?.tags || "").split(",").map(x => x.trim()).filter(Boolean)
   };
 }
 
@@ -799,7 +1096,8 @@ function buildPortfolioRequest(data){
     linkedin: data.links?.linkedin || "",
     github: data.links?.github || "",
     portfolio: data.links?.portfolio || "",
-    drive: data.links?.drive || ""
+    drive: data.links?.drive || "",
+    tags: (data.tags || []).join(", ")
   };
 }
 
@@ -848,6 +1146,7 @@ async function persistPortfolio(data){
         shift: payload?.preferences?.shift || "",
         note: payload?.preferences?.note || ""
       };
+      skillsPortfCache.tags = (payload?.tags || "").split(",").map(x => x.trim()).filter(Boolean);
       return true;
     }
   }catch{
@@ -1039,10 +1338,10 @@ function renderSkillsPortfolio(){
 
   // Certs list
   certList.innerHTML = "";
-  if(data.certs.length === 0){
-    if(certEmpty) certEmpty.style.display = "block";
-  }else{
-    if(certEmpty) certEmpty.style.display = "none";
+    if(data.certs.length === 0){
+      if(certEmpty) certEmpty.style.display = "block";
+    }else{
+      if(certEmpty) certEmpty.style.display = "none";
 
     [...data.certs]
       .sort((a,b) => String(b.year||"").localeCompare(String(a.year||"")))
@@ -1069,9 +1368,11 @@ function renderSkillsPortfolio(){
             </div>
           </div>
         `;
-      });
+        });
+    }
+
+    renderTechTags();
   }
-}
 
 let __skillsHydratedOnce = false;
 function hydratePrefsAndLinks(data){
@@ -1405,7 +1706,7 @@ function resetSkillsPortfolio(){
       ...skillIds.map(id => removeSkill(id)),
       ...certIds.map(id => removeCertification(id))
     ]).then(() => {
-      skillsPortfCache = { skills: [], certs: [], links: {}, prefs: {} };
+      skillsPortfCache = { skills: [], certs: [], links: {}, prefs: {}, tags: [] };
       persistPortfolio(skillsPortfCache);
       __skillsHydratedOnce = false;
       renderSkillsPortfolio();

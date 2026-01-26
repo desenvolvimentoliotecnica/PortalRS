@@ -940,6 +940,25 @@
             margin-top: auto;
         }
 
+        #tagEditModal .modal-dialog {
+            max-width: 360px;
+            height: auto;
+        }
+
+        #tagEditModal .modal-content {
+            height: auto;
+            max-height: none;
+        }
+
+        #tagEditModal .modal-body {
+            padding: 1rem 1.25rem;
+            flex: 0 0 auto;
+        }
+
+        #tagEditModal .modal-footer {
+            padding: .75rem 1rem 1rem;
+        }
+
         #newJobModal .modal-dialog {
             height: calc(100vh - 2rem);
             margin: 1rem auto;
@@ -1061,6 +1080,17 @@
                 opacity: 1;
             }
 
+    </style>
+    <style>
+        #tagArea .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem 0.6rem;
+            font-size: 0.78rem;
+            line-height: 1;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -1678,7 +1708,7 @@
     </div>
 
     <!-- Modal de perfil do candidato -->
-    <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+    <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true" data-bs-focus="false">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <form id="profileForm" class="needs-validation" novalidate>
@@ -1933,7 +1963,7 @@
               <div class="p-3 bg-white border rounded" style="border-radius:14px;">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                   <div class="fw-bold text-primary"><i class="fas fa-building me-2"></i>Experiências</div>
-                  <button class="btn btn-sm btn-outline-secondary" type="button" onclick="seedExperiences()">
+                  <button class="btn btn-sm btn-outline-secondary d-none" type="button" onclick="seedExperiences()">
                     <i class="fas fa-magic me-1"></i> Exemplo
                   </button>
                 </div>
@@ -1954,7 +1984,7 @@
               <div class="p-3 bg-white border rounded" style="border-radius:14px;">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                   <div class="fw-bold text-primary"><i class="fas fa-diagram-project me-2"></i>Projetos</div>
-                  <button class="btn btn-sm btn-outline-secondary" type="button" onclick="seedProjects()">
+                  <button class="btn btn-sm btn-outline-secondary d-none" type="button" onclick="seedProjects()">
                     <i class="fas fa-magic me-1"></i> Exemplo
                   </button>
                 </div>
@@ -1991,7 +2021,32 @@
         </div>
 
 
-        <!-- Modal: Nova Experiência -->
+        
+        <!-- Modal: Adicionar Tag -->
+        <div class="modal fade" id="tagEditModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+          <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+              <div class="modal-header bg-white border-bottom">
+                <h5 class="modal-title fw-bold text-primary"><i class="fas fa-tag me-2"></i>Adicionar tags</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <label class="form-label small fw-bold" for="tagNameInput">Tag, separe por vírgulas</label>
+                <input id="tagNameInput" class="form-control" placeholder="Ex.: PostgreSQL, Oracle, SQL" />
+              </div>
+
+              <div class="modal-footer bg-white border-top">
+                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveQuickTag()">
+                  <i class="fas fa-plus me-1"></i> Adicionar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+<!-- Modal: Nova Experiência -->
         <div class="modal fade" id="experienceEditModal" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">

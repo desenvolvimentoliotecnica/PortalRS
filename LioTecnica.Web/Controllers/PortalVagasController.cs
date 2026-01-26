@@ -407,6 +407,128 @@ public sealed class PortalVagasController : Controller
         return NoContent();
     }
 
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/ExperienceProjects")]
+    public async Task<IActionResult> GetExperienceProjects(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetExperienceProjectsAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar experiencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/Experiences")]
+    public async Task<IActionResult> CreateExperience([FromBody] PortalCandidateExperienceRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateExperienceAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar experiencia." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Experiences/{experienceId:guid}")]
+    public async Task<IActionResult> UpdateExperience(Guid experienceId, [FromBody] PortalCandidateExperienceRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateExperienceAsync(tenantId, candidateId, experienceId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar experiencia." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/Experiences/{experienceId:guid}")]
+    public async Task<IActionResult> DeleteExperience(Guid experienceId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteExperienceAsync(tenantId, candidateId, experienceId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover experiencia." });
+
+        return NoContent();
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/Projects")]
+    public async Task<IActionResult> CreateProject([FromBody] PortalCandidateProjectRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateProjectAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar projeto." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Projects/{projectId:guid}")]
+    public async Task<IActionResult> UpdateProject(Guid projectId, [FromBody] PortalCandidateProjectRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateProjectAsync(tenantId, candidateId, projectId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar projeto." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/Projects/{projectId:guid}")]
+    public async Task<IActionResult> DeleteProject(Guid projectId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteProjectAsync(tenantId, candidateId, projectId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover projeto." });
+
+        return NoContent();
+    }
+
     [AllowAnonymous]
     [HttpPost("/PortalVagas/Auth/Login")]
     public async Task<IActionResult> Login([FromBody] PortalCandidateLoginInput input, CancellationToken ct)

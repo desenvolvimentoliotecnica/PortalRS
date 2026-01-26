@@ -85,6 +85,9 @@ public sealed class CandidatoPortfolio : ITenantEntity
     [StringLength(260)]
     public string? Drive { get; set; }
 
+    [StringLength(400)]
+    public string? Tags { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

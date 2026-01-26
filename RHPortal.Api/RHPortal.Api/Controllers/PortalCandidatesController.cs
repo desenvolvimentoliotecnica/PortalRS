@@ -151,7 +151,7 @@ public sealed class PortalCandidatesController : ControllerBase
             portfolio?.Shift,
             portfolio?.Note);
 
-        return Ok(new PortalCandidateSkillsPortfolioResponse(skills, certs, links, prefs));
+        return Ok(new PortalCandidateSkillsPortfolioResponse(skills, certs, links, prefs, portfolio?.Tags));
     }
 
     [HttpPut("{id:guid}/skills-portfolio")]
@@ -189,6 +189,7 @@ public sealed class PortalCandidatesController : ControllerBase
         portfolio.Github = NormalizeOptional(request.Github);
         portfolio.Portfolio = NormalizeOptional(request.Portfolio);
         portfolio.Drive = NormalizeOptional(request.Drive);
+        portfolio.Tags = NormalizeOptional(request.Tags);
 
         await db.SaveChangesAsync(ct);
 
@@ -205,7 +206,7 @@ public sealed class PortalCandidatesController : ControllerBase
             portfolio.Shift,
             portfolio.Note);
 
-        return Ok(new PortalCandidatePortfolioResponse(links, prefs));
+        return Ok(new PortalCandidatePortfolioResponse(links, prefs, portfolio.Tags));
     }
 
     [HttpPost("{id:guid}/skills-portfolio/skills")]
@@ -534,6 +535,235 @@ public sealed class PortalCandidatesController : ControllerBase
             return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
 
         db.CandidatoEducacaoItens.Remove(entity);
+        await db.SaveChangesAsync(ct);
+
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}/experience-projects")]
+    public async Task<ActionResult<PortalCandidateExperienceProjectResponse>> GetExperienceProjects(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var experiences = await db.CandidatoExperiencias
+            .AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderByDescending(x => x.Fim)
+            .ThenByDescending(x => x.Inicio)
+            .ThenBy(x => x.Empresa)
+            .Select(x => new PortalCandidateExperienceDto(
+                x.Id,
+                x.Empresa,
+                x.Cargo,
+                x.Inicio,
+                x.Fim,
+                x.Local,
+                x.Atividades))
+            .ToListAsync(ct);
+
+        var projects = await db.CandidatoProjetos
+            .AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderByDescending(x => x.Periodo)
+            .ThenBy(x => x.Nome)
+            .Select(x => new PortalCandidateProjectDto(
+                x.Id,
+                x.Nome,
+                x.Periodo,
+                x.Descricao,
+                x.Link,
+                x.Stack,
+                x.Destaques))
+            .ToListAsync(ct);
+
+        return Ok(new PortalCandidateExperienceProjectResponse(experiences, projects));
+    }
+
+    [HttpPost("{id:guid}/experiences")]
+    public async Task<ActionResult<PortalCandidateExperienceDto>> CreateExperience(
+        Guid id,
+        [FromBody] PortalCandidateExperienceRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var entity = new CandidatoExperiencia
+        {
+            Id = Guid.NewGuid(),
+            CandidatoId = id,
+            Empresa = NormalizeRequired(request.Empresa),
+            Cargo = NormalizeRequired(request.Cargo),
+            Inicio = NormalizeOptional(request.Inicio),
+            Fim = NormalizeOptional(request.Fim),
+            Local = NormalizeOptional(request.Local),
+            Atividades = NormalizeOptional(request.Atividades)
+        };
+
+        db.CandidatoExperiencias.Add(entity);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateExperienceDto(
+            entity.Id,
+            entity.Empresa,
+            entity.Cargo,
+            entity.Inicio,
+            entity.Fim,
+            entity.Local,
+            entity.Atividades));
+    }
+
+    [HttpPut("{id:guid}/experiences/{experienceId:guid}")]
+    public async Task<ActionResult<PortalCandidateExperienceDto>> UpdateExperience(
+        Guid id,
+        Guid experienceId,
+        [FromBody] PortalCandidateExperienceRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var entity = await db.CandidatoExperiencias
+            .FirstOrDefaultAsync(x => x.Id == experienceId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        entity.Empresa = NormalizeRequired(request.Empresa);
+        entity.Cargo = NormalizeRequired(request.Cargo);
+        entity.Inicio = NormalizeOptional(request.Inicio);
+        entity.Fim = NormalizeOptional(request.Fim);
+        entity.Local = NormalizeOptional(request.Local);
+        entity.Atividades = NormalizeOptional(request.Atividades);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateExperienceDto(
+            entity.Id,
+            entity.Empresa,
+            entity.Cargo,
+            entity.Inicio,
+            entity.Fim,
+            entity.Local,
+            entity.Atividades));
+    }
+
+    [HttpDelete("{id:guid}/experiences/{experienceId:guid}")]
+    public async Task<IActionResult> DeleteExperience(
+        Guid id,
+        Guid experienceId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var entity = await db.CandidatoExperiencias
+            .FirstOrDefaultAsync(x => x.Id == experienceId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        db.CandidatoExperiencias.Remove(entity);
+        await db.SaveChangesAsync(ct);
+
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/projects")]
+    public async Task<ActionResult<PortalCandidateProjectDto>> CreateProject(
+        Guid id,
+        [FromBody] PortalCandidateProjectRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var entity = new CandidatoProjeto
+        {
+            Id = Guid.NewGuid(),
+            CandidatoId = id,
+            Nome = NormalizeRequired(request.Nome),
+            Periodo = NormalizeOptional(request.Periodo),
+            Descricao = NormalizeOptional(request.Descricao),
+            Link = NormalizeOptional(request.Link),
+            Stack = NormalizeOptional(request.Stack),
+            Destaques = NormalizeOptional(request.Destaques)
+        };
+
+        db.CandidatoProjetos.Add(entity);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateProjectDto(
+            entity.Id,
+            entity.Nome,
+            entity.Periodo,
+            entity.Descricao,
+            entity.Link,
+            entity.Stack,
+            entity.Destaques));
+    }
+
+    [HttpPut("{id:guid}/projects/{projectId:guid}")]
+    public async Task<ActionResult<PortalCandidateProjectDto>> UpdateProject(
+        Guid id,
+        Guid projectId,
+        [FromBody] PortalCandidateProjectRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var entity = await db.CandidatoProjetos
+            .FirstOrDefaultAsync(x => x.Id == projectId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        entity.Nome = NormalizeRequired(request.Nome);
+        entity.Periodo = NormalizeOptional(request.Periodo);
+        entity.Descricao = NormalizeOptional(request.Descricao);
+        entity.Link = NormalizeOptional(request.Link);
+        entity.Stack = NormalizeOptional(request.Stack);
+        entity.Destaques = NormalizeOptional(request.Destaques);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateProjectDto(
+            entity.Id,
+            entity.Nome,
+            entity.Periodo,
+            entity.Descricao,
+            entity.Link,
+            entity.Stack,
+            entity.Destaques));
+    }
+
+    [HttpDelete("{id:guid}/projects/{projectId:guid}")]
+    public async Task<IActionResult> DeleteProject(
+        Guid id,
+        Guid projectId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var entity = await db.CandidatoProjetos
+            .FirstOrDefaultAsync(x => x.Id == projectId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        db.CandidatoProjetos.Remove(entity);
         await db.SaveChangesAsync(ct);
 
         return NoContent();

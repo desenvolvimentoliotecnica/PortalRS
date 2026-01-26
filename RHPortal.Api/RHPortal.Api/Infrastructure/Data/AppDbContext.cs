@@ -49,6 +49,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoPortfolio> CandidatoPortfolios => Set<CandidatoPortfolio>();
     public DbSet<CandidatoEducacaoResumo> CandidatoEducacaoResumos => Set<CandidatoEducacaoResumo>();
     public DbSet<CandidatoEducacaoItem> CandidatoEducacaoItens => Set<CandidatoEducacaoItem>();
+    public DbSet<CandidatoExperiencia> CandidatoExperiencias => Set<CandidatoExperiencia>();
+    public DbSet<CandidatoProjeto> CandidatoProjetos => Set<CandidatoProjeto>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -538,6 +540,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Github).HasMaxLength(260);
             b.Property(x => x.Portfolio).HasMaxLength(260);
             b.Property(x => x.Drive).HasMaxLength(260);
+            b.Property(x => x.Tags).HasMaxLength(400);
 
             b.HasOne(x => x.Candidato)
                 .WithMany()
@@ -582,6 +585,50 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Fim).HasMaxLength(20);
             b.Property(x => x.Observacoes).HasMaxLength(800);
             b.Property(x => x.Link).HasMaxLength(260);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoExperiencia>(b =>
+        {
+            b.ToTable("CandidatoExperiencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Empresa).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Cargo).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Inicio).HasMaxLength(20);
+            b.Property(x => x.Fim).HasMaxLength(20);
+            b.Property(x => x.Local).HasMaxLength(160);
+            b.Property(x => x.Atividades).HasMaxLength(2400);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoProjeto>(b =>
+        {
+            b.ToTable("CandidatoProjetos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Periodo).HasMaxLength(60);
+            b.Property(x => x.Descricao).HasMaxLength(600);
+            b.Property(x => x.Link).HasMaxLength(260);
+            b.Property(x => x.Stack).HasMaxLength(400);
+            b.Property(x => x.Destaques).HasMaxLength(1600);
 
             b.HasOne(x => x.Candidato)
                 .WithMany()
@@ -1185,6 +1232,18 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) eduItem.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) eduItem.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoExperiencia experiencia)
+            {
+                if (entry.State == EntityState.Added) experiencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) experiencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoProjeto projeto)
+            {
+                if (entry.State == EntityState.Added) projeto.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) projeto.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoStatusHistory history)

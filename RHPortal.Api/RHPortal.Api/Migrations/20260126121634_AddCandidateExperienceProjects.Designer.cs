@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RhPortal.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using RhPortal.Api.Infrastructure.Data;
 namespace RHPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260126121634_AddCandidateExperienceProjects")]
+    partial class AddCandidateExperienceProjects
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1717,10 +1720,6 @@ namespace RHPortal.Api.Migrations
                     b.Property<string>("Shift")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
-
-                    b.Property<string>("Tags")
-                        .HasMaxLength(400)
-                        .HasColumnType("character varying(400)");
 
                     b.Property<string>("TenantId")
                         .IsRequired()

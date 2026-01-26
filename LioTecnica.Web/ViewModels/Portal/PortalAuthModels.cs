@@ -167,7 +167,8 @@ public sealed record PortalCandidateSkillsPortfolioResponse(
     IReadOnlyList<PortalCandidateSkillDto> Skills,
     IReadOnlyList<PortalCandidateCertificationDto> Certifications,
     PortalCandidatePortfolioLinksDto Links,
-    PortalCandidatePortfolioPrefsDto Preferences
+    PortalCandidatePortfolioPrefsDto Preferences,
+    string? Tags
 );
 
 public sealed record PortalCandidateSkillRequest(
@@ -193,12 +194,14 @@ public sealed record PortalCandidatePortfolioUpdateRequest(
     [MaxLength(260)] string? Linkedin,
     [MaxLength(260)] string? Github,
     [MaxLength(260)] string? Portfolio,
-    [MaxLength(260)] string? Drive
+    [MaxLength(260)] string? Drive,
+    [MaxLength(400)] string? Tags
 );
 
 public sealed record PortalCandidatePortfolioResponse(
     PortalCandidatePortfolioLinksDto Links,
-    PortalCandidatePortfolioPrefsDto Preferences
+    PortalCandidatePortfolioPrefsDto Preferences,
+    string? Tags
 );
 
 public sealed record PortalCandidateEducationSummaryDto(
@@ -241,6 +244,49 @@ public sealed record PortalCandidateEducationItemRequest(
     [MaxLength(20)] string? Fim,
     [MaxLength(800)] string? Observacoes,
     [MaxLength(260)] string? Link
+);
+
+public sealed record PortalCandidateExperienceDto(
+    Guid Id,
+    string Empresa,
+    string Cargo,
+    string? Inicio,
+    string? Fim,
+    string? Local,
+    string? Atividades
+);
+
+public sealed record PortalCandidateProjectDto(
+    Guid Id,
+    string Nome,
+    string? Periodo,
+    string? Descricao,
+    string? Link,
+    string? Stack,
+    string? Destaques
+);
+
+public sealed record PortalCandidateExperienceProjectResponse(
+    IReadOnlyList<PortalCandidateExperienceDto> Experiences,
+    IReadOnlyList<PortalCandidateProjectDto> Projects
+);
+
+public sealed record PortalCandidateExperienceRequest(
+    [Required, MaxLength(160)] string Empresa,
+    [Required, MaxLength(160)] string Cargo,
+    [MaxLength(20)] string? Inicio,
+    [MaxLength(20)] string? Fim,
+    [MaxLength(160)] string? Local,
+    [MaxLength(2400)] string? Atividades
+);
+
+public sealed record PortalCandidateProjectRequest(
+    [Required, MaxLength(160)] string Nome,
+    [MaxLength(60)] string? Periodo,
+    [MaxLength(600)] string? Descricao,
+    [MaxLength(260)] string? Link,
+    [MaxLength(400)] string? Stack,
+    [MaxLength(1600)] string? Destaques
 );
 
 public sealed class PortalApiResult<T>

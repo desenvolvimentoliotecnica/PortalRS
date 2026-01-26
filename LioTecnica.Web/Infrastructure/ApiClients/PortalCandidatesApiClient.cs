@@ -496,6 +496,196 @@ public sealed class PortalCandidatesApiClient
         return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover formacao.");
     }
 
+    public async Task<PortalApiResult<PortalCandidateExperienceProjectResponse>> GetExperienceProjectsAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateExperienceProjectResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/experience-projects?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateExperienceProjectResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateExperienceProjectResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateExperienceProjectResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateExperienceProjectResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar experiencias.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateExperienceDto>> CreateExperienceAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateExperienceRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateExperienceDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/experiences?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateExperienceDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateExperienceDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateExperienceDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateExperienceDto>.Fail(res.StatusCode, message ?? "Falha ao salvar experiencia.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateExperienceDto>> UpdateExperienceAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid experienceId,
+        PortalCandidateExperienceRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateExperienceDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/experiences/{experienceId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateExperienceDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateExperienceDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateExperienceDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateExperienceDto>.Fail(res.StatusCode, message ?? "Falha ao salvar experiencia.");
+    }
+
+    public async Task<PortalApiResult<bool>> DeleteExperienceAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid experienceId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<bool>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/experiences/{experienceId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Delete, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+            return PortalApiResult<bool>.Ok(true);
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover experiencia.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateProjectDto>> CreateProjectAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateProjectRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateProjectDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/projects?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateProjectDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateProjectDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateProjectDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateProjectDto>.Fail(res.StatusCode, message ?? "Falha ao salvar projeto.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateProjectDto>> UpdateProjectAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid projectId,
+        PortalCandidateProjectRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateProjectDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/projects/{projectId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateProjectDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateProjectDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateProjectDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateProjectDto>.Fail(res.StatusCode, message ?? "Falha ao salvar projeto.");
+    }
+
+    public async Task<PortalApiResult<bool>> DeleteProjectAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid projectId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<bool>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/projects/{projectId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Delete, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+            return PortalApiResult<bool>.Ok(true);
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover projeto.");
+    }
+
     private static async Task<string?> TryReadMessageAsync(HttpResponseMessage response, CancellationToken ct)
     {
         var body = await response.Content.ReadAsStringAsync(ct);

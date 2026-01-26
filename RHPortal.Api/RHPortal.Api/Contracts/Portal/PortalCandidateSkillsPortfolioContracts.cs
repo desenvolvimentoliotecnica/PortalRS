@@ -37,7 +37,8 @@ public sealed record PortalCandidateSkillsPortfolioResponse(
     IReadOnlyList<PortalCandidateSkillDto> Skills,
     IReadOnlyList<PortalCandidateCertificationDto> Certifications,
     PortalCandidatePortfolioLinksDto Links,
-    PortalCandidatePortfolioPrefsDto Preferences
+    PortalCandidatePortfolioPrefsDto Preferences,
+    string? Tags
 );
 
 public sealed record PortalCandidateSkillRequest(
@@ -63,10 +64,12 @@ public sealed record PortalCandidatePortfolioUpdateRequest(
     [MaxLength(260)] string? Linkedin,
     [MaxLength(260)] string? Github,
     [MaxLength(260)] string? Portfolio,
-    [MaxLength(260)] string? Drive
+    [MaxLength(260)] string? Drive,
+    [MaxLength(400)] string? Tags
 );
 
 public sealed record PortalCandidatePortfolioResponse(
     PortalCandidatePortfolioLinksDto Links,
-    PortalCandidatePortfolioPrefsDto Preferences
+    PortalCandidatePortfolioPrefsDto Preferences,
+    string? Tags
 );
