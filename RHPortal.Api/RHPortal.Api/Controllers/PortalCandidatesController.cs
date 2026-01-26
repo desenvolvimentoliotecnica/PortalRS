@@ -615,6 +615,222 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    [HttpGet("{id:guid}/agenda")]
+    public async Task<ActionResult<PortalCandidateAgendaResponse>> GetAgenda(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var prefs = await db.CandidatoAgendaPreferencias
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        var blocks = await db.CandidatoAgendaBloqueios
+            .AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .ToListAsync(ct);
+
+        var prefsDto = new PortalCandidateAgendaPreferencesDto(
+            prefs?.FormatoEntrevista,
+            prefs?.InicioDisponivel,
+            prefs?.AvisoPrevio,
+            prefs?.Observacoes,
+            prefs?.DiaSeg ?? false,
+            prefs?.DiaTer ?? false,
+            prefs?.DiaQua ?? false,
+            prefs?.DiaQui ?? false,
+            prefs?.DiaSex ?? false,
+            prefs?.DiaSab ?? false,
+            prefs?.DiaDom ?? false,
+            prefs?.PeriodoManha ?? false,
+            prefs?.PeriodoTarde ?? false,
+            prefs?.PeriodoNoite ?? false,
+            prefs?.HorarioPreferido,
+            prefs?.FusoHorario,
+            prefs?.UpdatedAtUtc ?? DateTimeOffset.MinValue
+        );
+
+        var blockDtos = blocks.Select(b => new PortalCandidateAgendaBlockDto(
+            b.Id,
+            b.Tipo,
+            b.Titulo,
+            b.Data,
+            b.Horario,
+            b.Observacoes,
+            b.UpdatedAtUtc
+        )).ToList();
+
+        return Ok(new PortalCandidateAgendaResponse(prefsDto, blockDtos));
+    }
+
+    [HttpPut("{id:guid}/agenda")]
+    public async Task<ActionResult<PortalCandidateAgendaPreferencesDto>> UpdateAgenda(
+        Guid id,
+        [FromBody] PortalCandidateAgendaPreferencesRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var candidate = await db.Candidatos
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var prefs = await db.CandidatoAgendaPreferencias
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        if (prefs is null)
+        {
+            prefs = new CandidatoAgendaPreferencia
+            {
+                Id = Guid.NewGuid(),
+                TenantId = candidate.TenantId,
+                CandidatoId = candidate.Id
+            };
+            db.CandidatoAgendaPreferencias.Add(prefs);
+        }
+
+        prefs.FormatoEntrevista = NormalizeOptional(request.FormatoEntrevista);
+        prefs.InicioDisponivel = NormalizeOptional(request.InicioDisponivel);
+        prefs.AvisoPrevio = NormalizeOptional(request.AvisoPrevio);
+        prefs.Observacoes = NormalizeOptional(request.Observacoes);
+        prefs.DiaSeg = request.DiaSeg;
+        prefs.DiaTer = request.DiaTer;
+        prefs.DiaQua = request.DiaQua;
+        prefs.DiaQui = request.DiaQui;
+        prefs.DiaSex = request.DiaSex;
+        prefs.DiaSab = request.DiaSab;
+        prefs.DiaDom = request.DiaDom;
+        prefs.PeriodoManha = request.PeriodoManha;
+        prefs.PeriodoTarde = request.PeriodoTarde;
+        prefs.PeriodoNoite = request.PeriodoNoite;
+        prefs.HorarioPreferido = NormalizeOptional(request.HorarioPreferido);
+        prefs.FusoHorario = NormalizeOptional(request.FusoHorario);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateAgendaPreferencesDto(
+            prefs.FormatoEntrevista,
+            prefs.InicioDisponivel,
+            prefs.AvisoPrevio,
+            prefs.Observacoes,
+            prefs.DiaSeg,
+            prefs.DiaTer,
+            prefs.DiaQua,
+            prefs.DiaQui,
+            prefs.DiaSex,
+            prefs.DiaSab,
+            prefs.DiaDom,
+            prefs.PeriodoManha,
+            prefs.PeriodoTarde,
+            prefs.PeriodoNoite,
+            prefs.HorarioPreferido,
+            prefs.FusoHorario,
+            prefs.UpdatedAtUtc
+        ));
+    }
+
+    [HttpPost("{id:guid}/agenda/blocks")]
+    public async Task<ActionResult<PortalCandidateAgendaBlockDto>> CreateAgendaBlock(
+        Guid id,
+        [FromBody] PortalCandidateAgendaBlockRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var candidate = await db.Candidatos
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var block = new CandidatoAgendaBloqueio
+        {
+            Id = Guid.NewGuid(),
+            TenantId = candidate.TenantId,
+            CandidatoId = candidate.Id,
+            Tipo = NormalizeOptional(request.Tipo),
+            Titulo = NormalizeOptional(request.Titulo),
+            Data = NormalizeOptional(request.Data),
+            Horario = NormalizeOptional(request.Horario),
+            Observacoes = NormalizeOptional(request.Observacoes)
+        };
+
+        db.CandidatoAgendaBloqueios.Add(block);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateAgendaBlockDto(
+            block.Id,
+            block.Tipo,
+            block.Titulo,
+            block.Data,
+            block.Horario,
+            block.Observacoes,
+            block.UpdatedAtUtc
+        ));
+    }
+
+    [HttpPut("{id:guid}/agenda/blocks/{blockId:guid}")]
+    public async Task<ActionResult<PortalCandidateAgendaBlockDto>> UpdateAgendaBlock(
+        Guid id,
+        Guid blockId,
+        [FromBody] PortalCandidateAgendaBlockRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var block = await db.CandidatoAgendaBloqueios
+            .FirstOrDefaultAsync(b => b.Id == blockId && b.CandidatoId == id, ct);
+        if (block is null)
+            return NotFound(new { message = "Bloqueio nao encontrado." });
+
+        block.Tipo = NormalizeOptional(request.Tipo);
+        block.Titulo = NormalizeOptional(request.Titulo);
+        block.Data = NormalizeOptional(request.Data);
+        block.Horario = NormalizeOptional(request.Horario);
+        block.Observacoes = NormalizeOptional(request.Observacoes);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateAgendaBlockDto(
+            block.Id,
+            block.Tipo,
+            block.Titulo,
+            block.Data,
+            block.Horario,
+            block.Observacoes,
+            block.UpdatedAtUtc
+        ));
+    }
+
+    [HttpDelete("{id:guid}/agenda/blocks/{blockId:guid}")]
+    public async Task<IActionResult> DeleteAgendaBlock(
+        Guid id,
+        Guid blockId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var block = await db.CandidatoAgendaBloqueios
+            .FirstOrDefaultAsync(b => b.Id == blockId && b.CandidatoId == id, ct);
+        if (block is null)
+            return NotFound(new { message = "Bloqueio nao encontrado." });
+
+        db.CandidatoAgendaBloqueios.Remove(block);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     [HttpGet("{id:guid}/documents")]
     public async Task<ActionResult<PortalCandidateDocumentsResponse>> GetDocuments(
         Guid id,

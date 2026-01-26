@@ -439,6 +439,85 @@ public sealed class PortalVagasController : Controller
     }
 
     [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Agenda")]
+    public async Task<IActionResult> GetAgenda(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetAgendaAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar agenda." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Agenda")]
+    public async Task<IActionResult> UpdateAgenda([FromBody] PortalCandidateAgendaPreferencesRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateAgendaAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar agenda." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/Agenda/Blocks")]
+    public async Task<IActionResult> CreateAgendaBlock([FromBody] PortalCandidateAgendaBlockRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateAgendaBlockAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar bloqueio." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Agenda/Blocks/{blockId:guid}")]
+    public async Task<IActionResult> UpdateAgendaBlock(Guid blockId, [FromBody] PortalCandidateAgendaBlockRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateAgendaBlockAsync(tenantId, candidateId, blockId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar bloqueio." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/Agenda/Blocks/{blockId:guid}")]
+    public async Task<IActionResult> DeleteAgendaBlock(Guid blockId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteAgendaBlockAsync(tenantId, candidateId, blockId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover bloqueio." });
+
+        return NoContent();
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
     [HttpGet("/PortalVagas/Documents")]
     public async Task<IActionResult> GetDocuments(CancellationToken ct)
     {

@@ -2112,7 +2112,7 @@ async function seedEducation(){
 
   const data = loadEducation();
   if((data.items || []).length > 0){
-    Swal.fire({ icon:"info", title:"J?? existe conte??do", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
+    Swal.fire({ icon:"info", title:"Ja existe conteudo", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
     return;
   }
 
@@ -4200,8 +4200,12 @@ function downloadA11ySummary(){
 // Aba: Disponibilidade & Agenda
 // ======================================
 const AGENDA_STORAGE_KEY = "liotec_portal_agenda_v1";
+const AGENDA_API_BASE = "/PortalVagas/Agenda";
 let __agendaHydratedOnce = false;
 let __agendaSaveTimer = null;
+let agendaCache = defaultAgenda();
+let agendaLoaded = false;
+let agendaLoading = false;
 
 function __fmtIsoOrFallback(iso){
   try{
@@ -4234,6 +4238,7 @@ function defaultAgenda(){
 }
 
 function loadAgenda(){
+  if(!STORAGE_ENABLED) return agendaCache;
   try{
     const raw = storageGet(AGENDA_STORAGE_KEY);
     if(!raw) return null;
@@ -4248,7 +4253,167 @@ function loadAgenda(){
   }
 }
 function saveAgendaToStorage(obj){
+  if(!STORAGE_ENABLED){
+    agendaCache = obj;
+    return;
+  }
   try{ storageSet(AGENDA_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+}
+
+function mapAgendaResponse(data){
+  const a = defaultAgenda();
+  const prefs = data?.preferences || {};
+  a.interviewMode = prefs.formatoEntrevista || "";
+  a.startDate = prefs.inicioDisponivel || "";
+  a.notice = prefs.avisoPrevio || "";
+  a.notes = prefs.observacoes || "";
+  a.days = {
+    mon: !!prefs.diaSeg,
+    tue: !!prefs.diaTer,
+    wed: !!prefs.diaQua,
+    thu: !!prefs.diaQui,
+    fri: !!prefs.diaSex,
+    sat: !!prefs.diaSab,
+    sun: !!prefs.diaDom
+  };
+  a.times = {
+    morning: !!prefs.periodoManha,
+    afternoon: !!prefs.periodoTarde,
+    evening: !!prefs.periodoNoite
+  };
+  a.preferredHours = prefs.horarioPreferido || "";
+  a.timezone = prefs.fusoHorario || "";
+  a.blocks = Array.isArray(data?.blocks)
+    ? data.blocks.map(b => ({
+        id: b.id,
+        type: b.tipo || "",
+        title: b.titulo || "",
+        date: b.data || "",
+        hours: b.horario || "",
+        notes: b.observacoes || "",
+        createdAt: b.updatedAtUtc || new Date().toISOString(),
+        updatedAt: b.updatedAtUtc || new Date().toISOString()
+      }))
+    : [];
+  a.updatedAt = prefs.updatedAtUtc || a.updatedAt;
+  return a;
+}
+
+async function ensureAgendaLoaded(){
+  if(STORAGE_ENABLED || agendaLoaded || agendaLoading) return;
+  agendaLoading = true;
+  try{
+    const res = await fetch(AGENDA_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok){
+      agendaCache = mapAgendaResponse(data);
+      __agendaHydratedOnce = false;
+    }
+  }catch{
+    // ignore
+  }finally{
+    agendaLoaded = true;
+    agendaLoading = false;
+  }
+}
+
+async function persistAgendaPreferences(obj){
+  if(STORAGE_ENABLED){
+    saveAgendaToStorage(obj);
+    return obj;
+  }
+
+  const body = {
+    formatoEntrevista: obj.interviewMode || "",
+    inicioDisponivel: obj.startDate || "",
+    avisoPrevio: obj.notice || "",
+    observacoes: obj.notes || "",
+    diaSeg: !!obj.days?.mon,
+    diaTer: !!obj.days?.tue,
+    diaQua: !!obj.days?.wed,
+    diaQui: !!obj.days?.thu,
+    diaSex: !!obj.days?.fri,
+    diaSab: !!obj.days?.sat,
+    diaDom: !!obj.days?.sun,
+    periodoManha: !!obj.times?.morning,
+    periodoTarde: !!obj.times?.afternoon,
+    periodoNoite: !!obj.times?.evening,
+    horarioPreferido: obj.preferredHours || "",
+    fusoHorario: obj.timezone || ""
+  };
+
+  try{
+    const res = await fetch(AGENDA_API_BASE, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body)
+    });
+    const payload = await res.json().catch(() => ({}));
+    if(res.ok){
+      agendaCache = {
+        ...agendaCache,
+        interviewMode: payload.formatoEntrevista || "",
+        startDate: payload.inicioDisponivel || "",
+        notice: payload.avisoPrevio || "",
+        notes: payload.observacoes || "",
+        days: {
+          mon: !!payload.diaSeg,
+          tue: !!payload.diaTer,
+          wed: !!payload.diaQua,
+          thu: !!payload.diaQui,
+          fri: !!payload.diaSex,
+          sat: !!payload.diaSab,
+          sun: !!payload.diaDom
+        },
+        times: {
+          morning: !!payload.periodoManha,
+          afternoon: !!payload.periodoTarde,
+          evening: !!payload.periodoNoite
+        },
+        preferredHours: payload.horarioPreferido || "",
+        timezone: payload.fusoHorario || "",
+        updatedAt: payload.updatedAtUtc || new Date().toISOString()
+      };
+      return agendaCache;
+    }
+  }catch{
+    // ignore
+  }
+  return null;
+}
+
+async function saveAgendaBlockFromSeed(block){
+  const body = {
+    tipo: block.type || "",
+    titulo: block.title || "",
+    data: block.date || "",
+    horario: block.hours || "",
+    observacoes: block.notes || ""
+  };
+  const res = await fetch(`${AGENDA_API_BASE}/Blocks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body)
+  });
+  const payload = await res.json().catch(() => ({}));
+  if(!res.ok) return;
+
+  const saved = {
+    id: payload.id,
+    type: payload.tipo || "",
+    title: payload.titulo || "",
+    date: payload.data || "",
+    hours: payload.horario || "",
+    notes: payload.observacoes || "",
+    createdAt: new Date().toISOString(),
+    updatedAt: payload.updatedAtUtc || new Date().toISOString()
+  };
+
+  const idx = agendaCache.blocks.findIndex(x => x.id === saved.id);
+  if(idx >= 0) agendaCache.blocks[idx] = saved;
+  else agendaCache.blocks.push(saved);
 }
 
 function hydrateAgenda(){
@@ -4325,6 +4490,9 @@ function saveAgenda(){
   };
 
   saveAgendaToStorage(merged);
+  if(!STORAGE_ENABLED){
+    persistAgendaPreferences(merged);
+  }
 }
 
 function saveAgendaDebounced(){
@@ -4348,7 +4516,7 @@ function openBlockModal(id){
   m.show();
 }
 
-function saveAgendaBlock(){
+async function saveAgendaBlock(){
   const a = loadAgenda() || defaultAgenda();
   a.blocks = Array.isArray(a.blocks) ? a.blocks : [];
 
@@ -4360,25 +4528,65 @@ function saveAgendaBlock(){
   const notes = (document.getElementById("agBlockNotes").value || "").trim();
 
   if(!title || !date){
-    Swal.fire({ icon:"warning", title:"Faltou algo", text:"Informe Título e Data.", confirmButtonColor:"#004aad" });
+    Swal.fire({ icon:"warning", title:"Faltou algo", text:"Informe Titulo e Data.", confirmButtonColor:"#004aad" });
     return;
   }
 
-  const payload = {
-    id, type, title, date, hours, notes,
-    updatedAt: new Date().toISOString(),
-    createdAt: (a.blocks.find(x=>x.id===id)?.createdAt) || new Date().toISOString()
-  };
+  if(!STORAGE_ENABLED){
+    const isUpdate = !!id && agendaCache.blocks.some(x => x.id === id);
+    const url = isUpdate ? `${AGENDA_API_BASE}/Blocks/${id}` : `${AGENDA_API_BASE}/Blocks`;
+    const method = isUpdate ? "PUT" : "POST";
+    const body = { tipo: type, titulo: title, data: date, horario: hours, observacoes: notes };
 
-  const idx = a.blocks.findIndex(x => x.id === id);
-  if(idx >= 0) a.blocks[idx] = payload;
-  else a.blocks.push(payload);
+    try{
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body)
+      });
+      const payload = await res.json().catch(() => ({}));
+      if(!res.ok) throw new Error("request_failed");
 
-  // ordena por updatedAt desc por padrão
-  a.blocks.sort((x,y)=>String(y.updatedAt||"").localeCompare(String(x.updatedAt||"")));
-  a.updatedAt = new Date().toISOString();
+      const saved = {
+        id: payload.id,
+        type: payload.tipo || "",
+        title: payload.titulo || "",
+        date: payload.data || "",
+        hours: payload.horario || "",
+        notes: payload.observacoes || "",
+        createdAt: a.blocks.find(x => x.id === payload.id)?.createdAt || new Date().toISOString(),
+        updatedAt: payload.updatedAtUtc || new Date().toISOString()
+      };
 
-  saveAgendaToStorage(a);
+      const idx = agendaCache.blocks.findIndex(x => x.id === saved.id);
+      if(idx >= 0) agendaCache.blocks[idx] = saved;
+      else agendaCache.blocks.push(saved);
+
+      agendaCache.blocks.sort((x,y)=>String(y.updatedAt||"").localeCompare(String(x.updatedAt||"")));
+      agendaCache.updatedAt = new Date().toISOString();
+      saveAgendaToStorage(agendaCache);
+    }catch{
+      Swal.fire({ icon:"error", title:"Erro ao salvar", text:"Nao foi possivel salvar o bloqueio.", confirmButtonColor:"#004aad" });
+      return;
+    }
+  }else{
+    const payload = {
+      id, type, title, date, hours, notes,
+      updatedAt: new Date().toISOString(),
+      createdAt: (a.blocks.find(x=>x.id===id)?.createdAt) || new Date().toISOString()
+    };
+
+    const idx = a.blocks.findIndex(x => x.id === id);
+    if(idx >= 0) a.blocks[idx] = payload;
+    else a.blocks.push(payload);
+
+    // ordena por updatedAt desc por padrao
+    a.blocks.sort((x,y)=>String(y.updatedAt||"").localeCompare(String(x.updatedAt||"")));
+    a.updatedAt = new Date().toISOString();
+
+    saveAgendaToStorage(a);
+  }
 
   bootstrap.Modal.getInstance(document.getElementById("agendaBlockModal"))?.hide();
   renderAgendaBlocks();
@@ -4389,7 +4597,7 @@ function saveAgendaBlock(){
 function deleteAgendaBlock(id){
   Swal.fire({
     title:"Remover bloqueio?",
-    text:"Isso apaga do seu perfil (neste protótipo).",
+    text:"Isso apaga do seu perfil (neste prototipo).",
     icon:"warning",
     showCancelButton:true,
     confirmButtonText:"Remover",
@@ -4397,6 +4605,20 @@ function deleteAgendaBlock(id){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
+    if(!STORAGE_ENABLED){
+      fetch(`${AGENDA_API_BASE}/Blocks/${id}`, { method:"DELETE", credentials:"same-origin" })
+        .then(res => {
+          if(!res.ok) throw new Error("delete_failed");
+          agendaCache.blocks = agendaCache.blocks.filter(x => x.id !== id);
+          agendaCache.updatedAt = new Date().toISOString();
+          saveAgendaToStorage(agendaCache);
+          renderAgendaBlocks();
+        })
+        .catch(() => {
+          Swal.fire({ icon:"error", title:"Erro ao remover", text:"Nao foi possivel remover o bloqueio.", confirmButtonColor:"#004aad" });
+        });
+      return;
+    }
     const a = loadAgenda() || defaultAgenda();
     a.blocks = (a.blocks||[]).filter(x=>x.id!==id);
     a.updatedAt = new Date().toISOString();
@@ -4450,7 +4672,7 @@ function renderAgendaBlocks(){
     switch(type){
       case "Entrevista": return "bg-primary";
       case "Viagem": return "bg-warning text-dark";
-      case "Saúde": return "bg-danger";
+      case "Saude": return "bg-danger";
       case "Compromisso": return "bg-secondary";
       default: return "bg-dark";
     }
@@ -4491,14 +4713,27 @@ function renderAgendaBlocks(){
 
 // ---------- Render / seed / reset / export ----------
 function renderAgenda(){
+  if(!STORAGE_ENABLED && !agendaLoaded){
+    ensureAgendaLoaded().then(() => renderAgenda());
+    return;
+  }
   hydrateAgenda();
   renderAgendaBlocks();
 }
 
-function seedAgenda(){
+if (typeof window !== "undefined") {
+  window.renderAgenda = renderAgenda;
+  window.ensureAgendaLoaded = ensureAgendaLoaded;
+}
+
+async function seedAgenda(){
+  if(!STORAGE_ENABLED && !agendaLoaded){
+    await ensureAgendaLoaded();
+  }
+
   const existing = loadAgenda();
   if(existing && (existing.startDate || existing.notes || (existing.blocks||[]).length)){
-    Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Limpe antes para inserir exemplo.", confirmButtonColor:"#004aad" });
+    Swal.fire({ icon:"info", title:"Ja existe conteudo", text:"Limpe antes para inserir exemplo.", confirmButtonColor:"#004aad" });
     return;
   }
 
@@ -4506,17 +4741,26 @@ function seedAgenda(){
   a.interviewMode = "Online";
   a.startDate = "Imediato";
   a.notice = "A combinar";
-  a.notes = "Prefiro confirmação por WhatsApp e entrevistas com 24h de antecedência.";
+  a.notes = "Prefiro confirmacao por WhatsApp e entrevistas com 24h de antecedencia.";
   a.days = { mon:true, tue:true, wed:true, thu:true, fri:true, sat:false, sun:false };
   a.times = { morning:true, afternoon:true, evening:false };
-  a.preferredHours = "09:00–11:00";
+  a.preferredHours = "09:00-11:00";
   a.timezone = "America/Sao_Paulo";
   a.blocks = [
-    { id: uid(), type:"Saúde", title:"Consulta médica", date:"30/01/2026", hours:"14:00–16:00", notes:"Indisponível nesse período.", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
+    { id: uid(), type:"Saude", title:"Consulta medica", date:"30/01/2026", hours:"14:00-16:00", notes:"Indisponivel nesse periodo.", createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
   ];
   a.updatedAt = new Date().toISOString();
 
-  saveAgendaToStorage(a);
+  if(STORAGE_ENABLED){
+    saveAgendaToStorage(a);
+  }else{
+    agendaCache = { ...a, blocks: [] };
+    await persistAgendaPreferences(agendaCache);
+    for (const block of [...a.blocks]){
+      await saveAgendaBlockFromSeed(block);
+    }
+  }
+
   __agendaHydratedOnce = false;
   renderAgenda();
 
@@ -4532,9 +4776,23 @@ function resetAgenda(){
     confirmButtonText:"Limpar",
     confirmButtonColor:"#004aad",
     cancelButtonText:"Cancelar"
-  }).then(r=>{
+  }).then(async r=>{
     if(!r.isConfirmed) return;
-    storageRemove(AGENDA_STORAGE_KEY);
+    if(!STORAGE_ENABLED){
+      await ensureAgendaLoaded();
+      for (const block of (agendaCache.blocks || [])){
+        try{
+          await fetch(`${AGENDA_API_BASE}/Blocks/${block.id}`, { method:"DELETE", credentials:"same-origin" });
+        }catch{
+          // ignore
+        }
+      }
+      agendaCache = defaultAgenda();
+      await persistAgendaPreferences(agendaCache);
+      saveAgendaToStorage(agendaCache);
+    }else{
+      storageRemove(AGENDA_STORAGE_KEY);
+    }
     __agendaHydratedOnce = false;
     renderAgenda();
     Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
@@ -5500,3 +5758,4 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+

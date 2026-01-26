@@ -54,6 +54,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoPreferenciasVaga> CandidatoPreferenciasVaga => Set<CandidatoPreferenciasVaga>();
     public DbSet<CandidatoReferencia> CandidatoReferencias => Set<CandidatoReferencia>();
     public DbSet<CandidatoAcessibilidade> CandidatoAcessibilidades => Set<CandidatoAcessibilidade>();
+    public DbSet<CandidatoAgendaPreferencia> CandidatoAgendaPreferencias => Set<CandidatoAgendaPreferencia>();
+    public DbSet<CandidatoAgendaBloqueio> CandidatoAgendaBloqueios => Set<CandidatoAgendaBloqueio>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -524,6 +526,49 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.PcdTipo).HasMaxLength(60);
             b.Property(x => x.PcdComprovacao).HasMaxLength(40);
             b.Property(x => x.PcdObservacoes).HasMaxLength(1200);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoAgendaPreferencia>(b =>
+        {
+            b.ToTable("CandidatoAgendaPreferencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.FormatoEntrevista).HasMaxLength(40);
+            b.Property(x => x.InicioDisponivel).HasMaxLength(40);
+            b.Property(x => x.AvisoPrevio).HasMaxLength(40);
+            b.Property(x => x.Observacoes).HasMaxLength(400);
+            b.Property(x => x.HorarioPreferido).HasMaxLength(40);
+            b.Property(x => x.FusoHorario).HasMaxLength(60);
+
+            b.HasOne(x => x.Candidato)
+                .WithOne(c => c.AgendaPreferencia)
+                .HasForeignKey<CandidatoAgendaPreferencia>(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoAgendaBloqueio>(b =>
+        {
+            b.ToTable("CandidatoAgendaBloqueios");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40);
+            b.Property(x => x.Titulo).HasMaxLength(120);
+            b.Property(x => x.Data).HasMaxLength(40);
+            b.Property(x => x.Horario).HasMaxLength(40);
+            b.Property(x => x.Observacoes).HasMaxLength(400);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany(c => c.AgendaBloqueios)
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
@@ -1291,6 +1336,18 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) acessibilidade.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) acessibilidade.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoAgendaPreferencia agendaPreferencia)
+            {
+                if (entry.State == EntityState.Added) agendaPreferencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) agendaPreferencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoAgendaBloqueio agendaBloqueio)
+            {
+                if (entry.State == EntityState.Added) agendaBloqueio.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) agendaBloqueio.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoCompetencia competencia)
