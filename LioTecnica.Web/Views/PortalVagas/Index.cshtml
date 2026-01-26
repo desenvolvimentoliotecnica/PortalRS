@@ -175,109 +175,8 @@
 
 
     <!-- Modal de perfil do candidato -->
-    <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true" data-bs-focus="false">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content">
-                <form id="profileForm" class="needs-validation" novalidate>
-                    <div class="modal-header">
-                        <div>
-                            <h2 class="modal-title h5 mb-0" id="profileModalLabel">Meu perfil</h2>
-                            <div class="text-secondary small">Atualize seus dados basicos e acompanhe o preenchimento das seções.</div>
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                    </div>
-
-                    <div class="modal-body">
-                        <div class="row g-3">
-                            <!-- Coluna: dados do candidato (100% altura da linha) -->
-                            <div class="col-12 col-lg-5 d-flex" id="profileLeftPanelCol">
-                                <div class="border rounded-4 p-3 bg-white flex-fill d-flex flex-column">
-                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                        <div class="fw-semibold">Dados do candidato</div>
-                                    </div>
-
-                                    <!-- Conteúdo -->
-                                    <div class="row g-3 flex-grow-1">
-                                        <div class="col-12">
-                                            <label for="profileName" class="form-label">Nome completo</label>
-                                            <input id="profileName" class="form-control" type="text" value="" required />
-                                            <div class="invalid-feedback">Informe seu nome completo.</div>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label for="profileEmail" class="form-label">E-mail</label>
-                                            <input id="profileEmail" class="form-control" type="email" value="" readonly />
-                                            <div class="form-text">O e-mail nao pode ser alterado.</div>
-                                        </div>
-
-                                        <div class="col-12 col-md-6">
-                                            <label for="profilePhone" class="form-label">Telefone</label>
-                                            <input id="profilePhone" class="form-control" type="tel" required />
-                                            <div class="invalid-feedback">Informe um telefone para contato.</div>
-                                        </div>
-
-                                        <div class="col-12 col-md-6">
-                                            <label for="profileUf" class="form-label">UF</label>
-                                            <select id="profileUf" class="form-select" required>
-                                                <option value="" selected>Selecione</option>
-                                            </select>
-                                            <div class="invalid-feedback">Selecione a UF.</div>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label for="profileCity" class="form-label">Cidade</label>
-                                            <select id="profileCity" class="form-select" required disabled>
-                                                <option value="" selected>Selecione a UF primeiro</option>
-                                            </select>
-                                            <div class="invalid-feedback">Selecione a cidade.</div>
-                                        </div>
-
-                                        <!-- Empurra a LGPD pro final do card, se sobrar altura -->
-                                        <div class="col-12 mt-auto">
-                                            <div class="small text-secondary">
-                                                <i class="bi bi-shield-lock me-1"></i>Seus dados sao tratados de acordo com a LGPD.
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Coluna: seções (cards) -->
-                            <!-- Coluna: seções (cards) - 100% altura como a esquerda -->
-                            <div class="col-12 col-lg-7 d-flex" id="profileSectionsCol">
-                                <div class="sections-panel flex-fill d-flex flex-column">
-    <div id="profileSectionsCards" class="profile-sections-cards flex-grow-1">
-        <div class="topics-grid" id="profileTopicsGrid"></div>
-    </div>
-
-    <div id="profileSectionsContent" class="profile-sections-content flex-grow-1 d-none">
-                <div class="tab-content" id="profileTabsContent">
-        <!-- Aba: Perfil -->
-                        @await Html.PartialAsync("Sections/_TabProfileSection")
-@await Html.PartialAsync("Sections/_TabTestsSection")
-@await Html.PartialAsync("Sections/_TabExperienceSection")
-@await Html.PartialAsync("Sections/_TabSkillsSection")
-@await Html.PartialAsync("Sections/_TabEduSection")
-@await Html.PartialAsync("Sections/_TabLgpdSection")
-@await Html.PartialAsync("Sections/_TabPrefSection")
-@await Html.PartialAsync("Sections/_TabDocsSection")
-@await Html.PartialAsync("Sections/_TabRefsSection")
-@await Html.PartialAsync("Sections/_TabA11ySection")
-@await Html.PartialAsync("Sections/_TabAgendaSection")
-@await Html.PartialAsync("Sections/_TabAppsSection")
-@await Html.PartialAsync("Sections/_TabNotifySection")
-                    <div class="modal-footer">
-                        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
-                        <button id="profileSaveBtn" class="btn btn-primary" type="submit">Salvar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    @await Html.PartialAsync("Modals/_ProfileModal")
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     
 
@@ -302,6 +201,7 @@
     <script src="~/js/views/portal-vagas/portal-vagas-agenda.js" asp-append-version="true"></script>
     <script src="~/js/views/portal-vagas/portal-vagas-apps.js" asp-append-version="true"></script>
     <script src="~/js/views/portal-vagas/portal-vagas-notifications.js" asp-append-version="true"></script>
+    <script src="~/js/views/portal-vagas/portal-vagas-profile-modal.js" asp-append-version="true"></script>
     <script src="~/js/views/portal-vagas/portal-vagas-index.js" asp-append-version="true"></script>
 </body>
 </html>
