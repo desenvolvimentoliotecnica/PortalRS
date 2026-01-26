@@ -56,6 +56,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoAcessibilidade> CandidatoAcessibilidades => Set<CandidatoAcessibilidade>();
     public DbSet<CandidatoAgendaPreferencia> CandidatoAgendaPreferencias => Set<CandidatoAgendaPreferencia>();
     public DbSet<CandidatoAgendaBloqueio> CandidatoAgendaBloqueios => Set<CandidatoAgendaBloqueio>();
+    public DbSet<CandidatoNotificacaoPreferencia> CandidatoNotificacaoPreferencias => Set<CandidatoNotificacaoPreferencia>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -571,6 +572,32 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.Cascade);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoNotificacaoPreferencia>(b =>
+        {
+            b.ToTable("CandidatoNotificacaoPreferencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Frequencia).HasMaxLength(40);
+            b.Property(x => x.Idioma).HasMaxLength(20);
+            b.Property(x => x.Email).HasMaxLength(180);
+            b.Property(x => x.Telefone).HasMaxLength(40);
+            b.Property(x => x.SilencioAtivo).HasMaxLength(10);
+            b.Property(x => x.SilencioInicio).HasMaxLength(10);
+            b.Property(x => x.SilencioFim).HasMaxLength(10);
+            b.Property(x => x.SilencioPrioridade).HasMaxLength(20);
+            b.Property(x => x.Assinatura).HasMaxLength(200);
+
+            b.HasOne(x => x.Candidato)
+                .WithOne(c => c.NotificacaoPreferencia)
+                .HasForeignKey<CandidatoNotificacaoPreferencia>(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.CandidatoId).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1348,6 +1375,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) agendaBloqueio.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) agendaBloqueio.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoNotificacaoPreferencia notificacao)
+            {
+                if (entry.State == EntityState.Added) notificacao.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) notificacao.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoCompetencia competencia)

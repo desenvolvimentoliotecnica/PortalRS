@@ -5402,11 +5402,15 @@ function renderApps(){
 
 
 // ======================================
-// Aba: Notificações & Comunicação
+// Aba: Notificacoes & Comunicacao
 // ======================================
 const NOTIFY_STORAGE_KEY = "liotec_portal_notify_v1";
+const NOTIFY_API_BASE = "/PortalVagas/Notifications";
+
 let __notifyHydratedOnce = false;
 let __notifySaveTimer = null;
+let notifyLoaded = false;
+let notifyLoading = false;
 
 function defaultNotify(){
   return {
@@ -5439,7 +5443,10 @@ function defaultNotify(){
   };
 }
 
+let notifyCache = defaultNotify();
+
 function loadNotify(){
+  if(!STORAGE_ENABLED) return notifyCache;
   try{
     const raw = storageGet(NOTIFY_STORAGE_KEY);
     if(!raw) return null;
@@ -5456,7 +5463,109 @@ function loadNotify(){
 }
 
 function saveNotifyToStorage(obj){
+  if(!STORAGE_ENABLED){
+    notifyCache = obj;
+    return;
+  }
   try{ storageSet(NOTIFY_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+}
+
+function mapNotifyResponse(data){
+  const n = defaultNotify();
+  if(!data) return n;
+  n.channels = {
+    email: !!data.canalEmail,
+    whatsapp: !!data.canalWhatsapp,
+    sms: !!data.canalSms,
+    push: !!data.canalPush
+  };
+  n.frequency = data.frequencia || "";
+  n.lang = data.idioma || "";
+  n.emailAddr = data.email || "";
+  n.phone = data.telefone || "";
+  n.allowContact = !!data.permiteContato;
+  n.types = {
+    newJobs: !!data.alertaNovasVagas,
+    appUpdates: !!data.alertaAtualizacoes,
+    interview: !!data.alertaEntrevistas,
+    messages: !!data.alertaMensagens,
+    docs: !!data.alertaDocumentos,
+    reminders: !!data.alertaLembretes
+  };
+  n.quiet = {
+    enabled: data.silencioAtivo || "",
+    start: data.silencioInicio || "",
+    end: data.silencioFim || "",
+    priority: data.silencioPrioridade || ""
+  };
+  n.signature = data.assinatura || "";
+  n.updatedAt = data.updatedAtUtc || n.updatedAt;
+  return n;
+}
+
+async function ensureNotifyLoaded(){
+  if(STORAGE_ENABLED || notifyLoaded || notifyLoading) return;
+  notifyLoading = true;
+  try{
+    const res = await fetch(NOTIFY_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok){
+      notifyCache = mapNotifyResponse(data);
+      __notifyHydratedOnce = false;
+    }
+  }catch{
+    // ignore
+  }finally{
+    notifyLoaded = true;
+    notifyLoading = false;
+  }
+}
+
+async function persistNotifyPreferences(obj){
+  if(STORAGE_ENABLED){
+    saveNotifyToStorage(obj);
+    return obj;
+  }
+
+  const body = {
+    canalEmail: !!obj.channels?.email,
+    canalWhatsapp: !!obj.channels?.whatsapp,
+    canalSms: !!obj.channels?.sms,
+    canalPush: !!obj.channels?.push,
+    frequencia: obj.frequency || "",
+    idioma: obj.lang || "",
+    email: obj.emailAddr || "",
+    telefone: obj.phone || "",
+    permiteContato: !!obj.allowContact,
+    alertaNovasVagas: !!obj.types?.newJobs,
+    alertaAtualizacoes: !!obj.types?.appUpdates,
+    alertaEntrevistas: !!obj.types?.interview,
+    alertaMensagens: !!obj.types?.messages,
+    alertaDocumentos: !!obj.types?.docs,
+    alertaLembretes: !!obj.types?.reminders,
+    silencioAtivo: obj.quiet?.enabled || "",
+    silencioInicio: obj.quiet?.start || "",
+    silencioFim: obj.quiet?.end || "",
+    silencioPrioridade: obj.quiet?.priority || "",
+    assinatura: obj.signature || ""
+  };
+
+  try{
+    const res = await fetch(NOTIFY_API_BASE, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body)
+    });
+    const payload = await res.json().catch(() => ({}));
+    if(res.ok){
+      notifyCache = mapNotifyResponse(payload);
+      return notifyCache;
+    }
+  }catch{
+    // ignore
+  }
+  return null;
 }
 
 function hydrateNotify(){
@@ -5545,6 +5654,9 @@ function saveNotify(){
   };
 
   saveNotifyToStorage(merged);
+  if(!STORAGE_ENABLED){
+    persistNotifyPreferences(merged);
+  }
   updateNotifyPreview();
 }
 
@@ -5573,13 +5685,16 @@ function updateNotifyPreview(){
   if(n.types.reminders) types.push("Lembretes");
 
   const quiet = (n.quiet.enabled === "Sim")
-    ? `Silêncio: ${n.quiet.start}–${n.quiet.end} (${n.quiet.priority})`
-    : "Sem silêncio";
+    ? `Silencio: ${n.quiet.start}�${n.quiet.end} (${n.quiet.priority})`
+    : "Sem silencio";
 
-  el.textContent = `${channels.join(", ") || "Nenhum canal"} • ${n.frequency} • ${types.join(", ") || "Sem alertas"} • ${quiet}`;
+  el.textContent = `${channels.join(", ") || "Nenhum canal"} � ${n.frequency} � ${types.join(", ") || "Sem alertas"} � ${quiet}`;
 }
 
-function testNotify(){
+async function testNotify(){
+  if(!STORAGE_ENABLED && !notifyLoaded){
+    await ensureNotifyLoaded();
+  }
   hydrateNotify();
   const n = loadNotify() || defaultNotify();
 
@@ -5593,24 +5708,24 @@ function testNotify(){
 
   Swal.fire({
     icon: "info",
-    title: "Teste de notificação (simulado)",
+    title: "Teste de notificacao (simulado)",
     html: `
       <div class="text-start">
         <div class="text-muted small mb-2">Canais ativos:</div>
         <div class="fw-bold mb-2">${escapeHtml(channels.join(", ") || "Nenhum")}</div>
 
-        <div class="text-muted small mb-2">Frequência:</div>
+        <div class="text-muted small mb-2">Frequencia:</div>
         <div class="fw-bold mb-2">${escapeHtml(n.frequency)}</div>
 
-        <div class="text-muted small mb-2">Horário silencioso:</div>
-        <div class="fw-bold">${escapeHtml(quietOn ? `${n.quiet.start}–${n.quiet.end} (${n.quiet.priority})` : "Desativado")}</div>
+        <div class="text-muted small mb-2">Horario silencioso:</div>
+        <div class="fw-bold">${escapeHtml(quietOn ? `${n.quiet.start}�${n.quiet.end} (${n.quiet.priority})` : "Desativado")}</div>
 
         <hr>
 
         <div class="text-muted small">Exemplo:</div>
         <div class="p-3 border rounded" style="border-radius:14px;background:#f8f9fa;">
-          <div class="fw-bold">Atualização de candidatura</div>
-          <div class="small text-muted">Sua candidatura avançou para <strong>Entrevista</strong>.</div>
+          <div class="fw-bold">Atualizacao de candidatura</div>
+          <div class="small text-muted">Sua candidatura avancou para <strong>Entrevista</strong>.</div>
           ${n.signature ? `<div class="small text-muted mt-2">${escapeHtml(n.signature)}</div>` : ""}
         </div>
       </div>
@@ -5620,14 +5735,17 @@ function testNotify(){
   });
 }
 
-function seedNotify(){
+async function seedNotify(){
+  if(!STORAGE_ENABLED && !notifyLoaded){
+    await ensureNotifyLoaded();
+  }
+
   const existing = loadNotify();
   if(existing && (existing.emailAddr || existing.phone || existing.updatedAt)){
-    // só evita overwriting se já tiver algo significativo
     const hasAny = (existing.emailAddr || "").trim() || (existing.phone || "").trim();
     const hasPrefs = existing && existing.channels && (existing.channels.sms || existing.channels.push);
     if(hasAny || hasPrefs){
-      Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Limpe antes para inserir exemplo.", confirmButtonColor:"#004aad" });
+      Swal.fire({ icon:"info", title:"Ja existe conteudo", text:"Limpe antes para inserir exemplo.", confirmButtonColor:"#004aad" });
       return;
     }
   }
@@ -5641,10 +5759,15 @@ function seedNotify(){
   n.allowContact = true;
   n.types = { newJobs:true, appUpdates:true, interview:true, messages:true, docs:true, reminders:true };
   n.quiet = { enabled:"Sim", start:"22:00", end:"07:00", priority:"Normal" };
-  n.signature = "Obrigado! — (Seu nome)";
+  n.signature = "Obrigado! � (Seu nome)";
   n.updatedAt = new Date().toISOString();
 
-  saveNotifyToStorage(n);
+  if(STORAGE_ENABLED){
+    saveNotifyToStorage(n);
+  }else{
+    notifyCache = n;
+    await persistNotifyPreferences(notifyCache);
+  }
   __notifyHydratedOnce = false;
   renderNotify();
 
@@ -5654,18 +5777,23 @@ function seedNotify(){
 function resetNotify(){
   Swal.fire({
     icon:"warning",
-    title:"Limpar Notificações?",
-    text:"Isso apaga as preferências desta aba neste navegador.",
+    title:"Limpar Notificacoes?",
+    text:"Isso apaga as preferencias desta aba neste navegador.",
     showCancelButton:true,
     confirmButtonText:"Limpar",
     confirmButtonColor:"#004aad",
     cancelButtonText:"Cancelar"
-  }).then(r=>{
+  }).then(async r=>{
     if(!r.isConfirmed) return;
-    storageRemove(NOTIFY_STORAGE_KEY);
+    if(STORAGE_ENABLED){
+      storageRemove(NOTIFY_STORAGE_KEY);
+    }else{
+      notifyCache = defaultNotify();
+      await persistNotifyPreferences(notifyCache);
+    }
     __notifyHydratedOnce = false;
     renderNotify();
-    Swal.fire({ icon:"success", title:"Pronto!", text:"Preferências limpas.", confirmButtonColor:"#004aad" });
+    Swal.fire({ icon:"success", title:"Pronto!", text:"Preferencias limpas.", confirmButtonColor:"#004aad" });
   });
 }
 
@@ -5680,39 +5808,39 @@ function downloadNotifySummary(){
 
   const types = [];
   if(n.types.newJobs) types.push("Novas vagas");
-  if(n.types.appUpdates) types.push("Atualização de status");
+  if(n.types.appUpdates) types.push("Atualizacao de status");
   if(n.types.interview) types.push("Entrevistas");
   if(n.types.messages) types.push("Mensagens do RH");
   if(n.types.docs) types.push("Documentos");
   if(n.types.reminders) types.push("Lembretes");
 
   const lines = [];
-  lines.push("Liotécnica — Resumo Notificações & Comunicação (MVP)");
+  lines.push("Liotecnica � Resumo Notificacoes & Comunicacao (MVP)");
   lines.push("Gerado em: " + new Date().toLocaleString("pt-BR"));
   lines.push("");
 
   lines.push("Canais:");
   lines.push("- Ativos: " + (channels.join(", ") || "Nenhum"));
-  lines.push("- Frequência: " + (n.frequency || "—"));
-  lines.push("- Idioma: " + (n.lang || "—"));
-  lines.push("- E-mail: " + (n.emailAddr || "—"));
-  lines.push("- Telefone: " + (n.phone || "—"));
-  lines.push("- Autorizo contato (operacional): " + (n.allowContact ? "Sim" : "Não"));
+  lines.push("- Frequencia: " + (n.frequency || "�"));
+  lines.push("- Idioma: " + (n.lang || "�"));
+  lines.push("- E-mail: " + (n.emailAddr || "�"));
+  lines.push("- Telefone: " + (n.phone || "�"));
+  lines.push("- Autorizo contato (operacional): " + (n.allowContact ? "Sim" : "Nao"));
   lines.push("");
 
   lines.push("Tipos de alerta:");
   lines.push("- " + (types.join(", ") || "Nenhum"));
   lines.push("");
 
-  lines.push("Horário silencioso:");
-  lines.push("- Ativo: " + (n.quiet.enabled || "Não"));
-  lines.push("- Início: " + (n.quiet.start || "—"));
-  lines.push("- Fim: " + (n.quiet.end || "—"));
-  lines.push("- Prioridade: " + (n.quiet.priority || "—"));
+  lines.push("Horario silencioso:");
+  lines.push("- Ativo: " + (n.quiet.enabled || "Nao"));
+  lines.push("- Inicio: " + (n.quiet.start || "�"));
+  lines.push("- Fim: " + (n.quiet.end || "�"));
+  lines.push("- Prioridade: " + (n.quiet.priority || "�"));
   lines.push("");
 
   lines.push("Assinatura:");
-  lines.push("- " + (n.signature || "—"));
+  lines.push("- " + (n.signature || "�"));
 
   const blob = new Blob([lines.join("\n")], { type:"text/plain;charset=utf-8" });
   const dl = document.createElement("a");
@@ -5725,8 +5853,17 @@ function downloadNotifySummary(){
 }
 
 function renderNotify(){
+  if(!STORAGE_ENABLED && !notifyLoaded){
+    ensureNotifyLoaded().then(() => renderNotify());
+    return;
+  }
   hydrateNotify();
   updateNotifyPreview();
+}
+
+if (typeof window !== "undefined") {
+  window.renderNotify = renderNotify;
+  window.ensureNotifyLoaded = ensureNotifyLoaded;
 }
 
 (function normalizePortalStorage(){
@@ -5758,4 +5895,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

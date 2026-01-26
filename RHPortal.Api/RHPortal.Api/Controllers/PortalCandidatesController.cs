@@ -831,6 +831,123 @@ public sealed class PortalCandidatesController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("{id:guid}/notifications")]
+    public async Task<ActionResult<PortalCandidateNotificationsResponse>> GetNotifications(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var prefs = await db.CandidatoNotificacaoPreferencias
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        return Ok(new PortalCandidateNotificationsResponse(
+            prefs?.CanalEmail ?? false,
+            prefs?.CanalWhatsapp ?? false,
+            prefs?.CanalSms ?? false,
+            prefs?.CanalPush ?? false,
+            prefs?.Frequencia,
+            prefs?.Idioma,
+            prefs?.Email,
+            prefs?.Telefone,
+            prefs?.PermiteContato ?? false,
+            prefs?.AlertaNovasVagas ?? false,
+            prefs?.AlertaAtualizacoes ?? false,
+            prefs?.AlertaEntrevistas ?? false,
+            prefs?.AlertaMensagens ?? false,
+            prefs?.AlertaDocumentos ?? false,
+            prefs?.AlertaLembretes ?? false,
+            prefs?.SilencioAtivo,
+            prefs?.SilencioInicio,
+            prefs?.SilencioFim,
+            prefs?.SilencioPrioridade,
+            prefs?.Assinatura,
+            prefs?.UpdatedAtUtc
+        ));
+    }
+
+    [HttpPut("{id:guid}/notifications")]
+    public async Task<ActionResult<PortalCandidateNotificationsResponse>> UpdateNotifications(
+        Guid id,
+        [FromBody] PortalCandidateNotificationsRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var candidate = await db.Candidatos
+            .FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var prefs = await db.CandidatoNotificacaoPreferencias
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        if (prefs is null)
+        {
+            prefs = new CandidatoNotificacaoPreferencia
+            {
+                Id = Guid.NewGuid(),
+                TenantId = candidate.TenantId,
+                CandidatoId = candidate.Id
+            };
+            db.CandidatoNotificacaoPreferencias.Add(prefs);
+        }
+
+        prefs.CanalEmail = request.CanalEmail;
+        prefs.CanalWhatsapp = request.CanalWhatsapp;
+        prefs.CanalSms = request.CanalSms;
+        prefs.CanalPush = request.CanalPush;
+        prefs.Frequencia = NormalizeOptional(request.Frequencia);
+        prefs.Idioma = NormalizeOptional(request.Idioma);
+        prefs.Email = NormalizeOptional(request.Email);
+        prefs.Telefone = NormalizeOptional(request.Telefone);
+        prefs.PermiteContato = request.PermiteContato;
+        prefs.AlertaNovasVagas = request.AlertaNovasVagas;
+        prefs.AlertaAtualizacoes = request.AlertaAtualizacoes;
+        prefs.AlertaEntrevistas = request.AlertaEntrevistas;
+        prefs.AlertaMensagens = request.AlertaMensagens;
+        prefs.AlertaDocumentos = request.AlertaDocumentos;
+        prefs.AlertaLembretes = request.AlertaLembretes;
+        prefs.SilencioAtivo = NormalizeOptional(request.SilencioAtivo);
+        prefs.SilencioInicio = NormalizeOptional(request.SilencioInicio);
+        prefs.SilencioFim = NormalizeOptional(request.SilencioFim);
+        prefs.SilencioPrioridade = NormalizeOptional(request.SilencioPrioridade);
+        prefs.Assinatura = NormalizeOptional(request.Assinatura);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateNotificationsResponse(
+            prefs.CanalEmail,
+            prefs.CanalWhatsapp,
+            prefs.CanalSms,
+            prefs.CanalPush,
+            prefs.Frequencia,
+            prefs.Idioma,
+            prefs.Email,
+            prefs.Telefone,
+            prefs.PermiteContato,
+            prefs.AlertaNovasVagas,
+            prefs.AlertaAtualizacoes,
+            prefs.AlertaEntrevistas,
+            prefs.AlertaMensagens,
+            prefs.AlertaDocumentos,
+            prefs.AlertaLembretes,
+            prefs.SilencioAtivo,
+            prefs.SilencioInicio,
+            prefs.SilencioFim,
+            prefs.SilencioPrioridade,
+            prefs.Assinatura,
+            prefs.UpdatedAtUtc
+        ));
+    }
+
     [HttpGet("{id:guid}/documents")]
     public async Task<ActionResult<PortalCandidateDocumentsResponse>> GetDocuments(
         Guid id,

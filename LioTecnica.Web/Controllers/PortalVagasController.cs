@@ -518,6 +518,34 @@ public sealed class PortalVagasController : Controller
     }
 
     [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Notifications")]
+    public async Task<IActionResult> GetNotifications(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetNotificationsAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar notificacoes." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Notifications")]
+    public async Task<IActionResult> UpdateNotifications([FromBody] PortalCandidateNotificationsRequest input, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateNotificationsAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar notificacoes." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
     [HttpGet("/PortalVagas/Documents")]
     public async Task<IActionResult> GetDocuments(CancellationToken ct)
     {

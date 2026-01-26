@@ -62,6 +62,7 @@ public sealed class Candidato : ITenantEntity
     public CandidatoAcessibilidade? Acessibilidade { get; set; }
     public CandidatoAgendaPreferencia? AgendaPreferencia { get; set; }
     public List<CandidatoAgendaBloqueio> AgendaBloqueios { get; set; } = new();
+    public CandidatoNotificacaoPreferencia? NotificacaoPreferencia { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
