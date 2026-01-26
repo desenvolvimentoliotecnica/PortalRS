@@ -358,6 +358,187 @@ public sealed class PortalCandidatesController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("{id:guid}/education")]
+    public async Task<ActionResult<PortalCandidateEducationResponse>> GetEducation(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var summary = await db.CandidatoEducacaoResumos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        var items = await db.CandidatoEducacaoItens
+            .AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderByDescending(x => x.Fim)
+            .ThenByDescending(x => x.Inicio)
+            .ThenBy(x => x.Curso)
+            .Select(x => new PortalCandidateEducationItemDto(
+                x.Id,
+                x.Curso,
+                x.Instituicao,
+                x.Tipo,
+                x.Status,
+                x.Inicio,
+                x.Fim,
+                x.Observacoes,
+                x.Link))
+            .ToListAsync(ct);
+
+        var summaryDto = new PortalCandidateEducationSummaryDto(
+            summary?.Nivel,
+            summary?.AreaPrincipal,
+            summary?.Situacao,
+            summary?.Destaques);
+
+        return Ok(new PortalCandidateEducationResponse(summaryDto, items));
+    }
+
+    [HttpPut("{id:guid}/education")]
+    public async Task<ActionResult<PortalCandidateEducationSummaryDto>> UpdateEducationSummary(
+        Guid id,
+        [FromBody] PortalCandidateEducationSummaryRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var summary = await db.CandidatoEducacaoResumos
+            .FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+
+        if (summary is null)
+        {
+            summary = new CandidatoEducacaoResumo
+            {
+                Id = Guid.NewGuid(),
+                CandidatoId = id
+            };
+            db.CandidatoEducacaoResumos.Add(summary);
+        }
+
+        summary.Nivel = NormalizeOptional(request.Nivel);
+        summary.AreaPrincipal = NormalizeOptional(request.AreaPrincipal);
+        summary.Situacao = NormalizeOptional(request.Situacao);
+        summary.Destaques = NormalizeOptional(request.Destaques);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateEducationSummaryDto(
+            summary.Nivel,
+            summary.AreaPrincipal,
+            summary.Situacao,
+            summary.Destaques));
+    }
+
+    [HttpPost("{id:guid}/education/items")]
+    public async Task<ActionResult<PortalCandidateEducationItemDto>> CreateEducationItem(
+        Guid id,
+        [FromBody] PortalCandidateEducationItemRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var entity = new CandidatoEducacaoItem
+        {
+            Id = Guid.NewGuid(),
+            CandidatoId = id,
+            Curso = NormalizeRequired(request.Curso),
+            Instituicao = NormalizeOptional(request.Instituicao),
+            Tipo = NormalizeOptional(request.Tipo),
+            Status = NormalizeOptional(request.Status),
+            Inicio = NormalizeOptional(request.Inicio),
+            Fim = NormalizeOptional(request.Fim),
+            Observacoes = NormalizeOptional(request.Observacoes),
+            Link = NormalizeOptional(request.Link)
+        };
+
+        db.CandidatoEducacaoItens.Add(entity);
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateEducationItemDto(
+            entity.Id,
+            entity.Curso,
+            entity.Instituicao,
+            entity.Tipo,
+            entity.Status,
+            entity.Inicio,
+            entity.Fim,
+            entity.Observacoes,
+            entity.Link));
+    }
+
+    [HttpPut("{id:guid}/education/items/{itemId:guid}")]
+    public async Task<ActionResult<PortalCandidateEducationItemDto>> UpdateEducationItem(
+        Guid id,
+        Guid itemId,
+        [FromBody] PortalCandidateEducationItemRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var entity = await db.CandidatoEducacaoItens
+            .FirstOrDefaultAsync(x => x.Id == itemId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        entity.Curso = NormalizeRequired(request.Curso);
+        entity.Instituicao = NormalizeOptional(request.Instituicao);
+        entity.Tipo = NormalizeOptional(request.Tipo);
+        entity.Status = NormalizeOptional(request.Status);
+        entity.Inicio = NormalizeOptional(request.Inicio);
+        entity.Fim = NormalizeOptional(request.Fim);
+        entity.Observacoes = NormalizeOptional(request.Observacoes);
+        entity.Link = NormalizeOptional(request.Link);
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new PortalCandidateEducationItemDto(
+            entity.Id,
+            entity.Curso,
+            entity.Instituicao,
+            entity.Tipo,
+            entity.Status,
+            entity.Inicio,
+            entity.Fim,
+            entity.Observacoes,
+            entity.Link));
+    }
+
+    [HttpDelete("{id:guid}/education/items/{itemId:guid}")]
+    public async Task<IActionResult> DeleteEducationItem(
+        Guid id,
+        Guid itemId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var entity = await db.CandidatoEducacaoItens
+            .FirstOrDefaultAsync(x => x.Id == itemId && x.CandidatoId == id, ct);
+
+        if (entity is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        db.CandidatoEducacaoItens.Remove(entity);
+        await db.SaveChangesAsync(ct);
+
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/avatar")]
     [RequestSizeLimit(8_388_608)]
     [RequestFormLimits(MultipartBodyLengthLimit = 8_388_608)]

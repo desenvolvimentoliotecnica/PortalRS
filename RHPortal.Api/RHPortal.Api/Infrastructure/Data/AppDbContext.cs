@@ -47,6 +47,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoCompetencia> CandidatoCompetencias => Set<CandidatoCompetencia>();
     public DbSet<CandidatoCertificacao> CandidatoCertificacoes => Set<CandidatoCertificacao>();
     public DbSet<CandidatoPortfolio> CandidatoPortfolios => Set<CandidatoPortfolio>();
+    public DbSet<CandidatoEducacaoResumo> CandidatoEducacaoResumos => Set<CandidatoEducacaoResumo>();
+    public DbSet<CandidatoEducacaoItem> CandidatoEducacaoItens => Set<CandidatoEducacaoItem>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -543,6 +545,50 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.Cascade);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoEducacaoResumo>(b =>
+        {
+            b.ToTable("CandidatoEducacaoResumos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nivel).HasMaxLength(60);
+            b.Property(x => x.AreaPrincipal).HasMaxLength(120);
+            b.Property(x => x.Situacao).HasMaxLength(40);
+            b.Property(x => x.Destaques).HasMaxLength(260);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoEducacaoItem>(b =>
+        {
+            b.ToTable("CandidatoEducacaoItens");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Curso).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Instituicao).HasMaxLength(160);
+            b.Property(x => x.Tipo).HasMaxLength(40);
+            b.Property(x => x.Status).HasMaxLength(40);
+            b.Property(x => x.Inicio).HasMaxLength(20);
+            b.Property(x => x.Fim).HasMaxLength(20);
+            b.Property(x => x.Observacoes).HasMaxLength(800);
+            b.Property(x => x.Link).HasMaxLength(260);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1127,6 +1173,18 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) portfolio.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) portfolio.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoEducacaoResumo eduResumo)
+            {
+                if (entry.State == EntityState.Added) eduResumo.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) eduResumo.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoEducacaoItem eduItem)
+            {
+                if (entry.State == EntityState.Added) eduItem.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) eduItem.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoStatusHistory history)

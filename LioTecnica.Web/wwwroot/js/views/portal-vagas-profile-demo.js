@@ -1419,8 +1419,13 @@ function resetSkillsPortfolio(){
 // Aba: Formação & Educação (Drop-in)
 // ======================================
 const EDUCATION_STORAGE_KEY = "liotec_portal_education_v1";
+const EDUCATION_API_BASE = "/PortalVagas/Education";
+let educationCache = { summary: {}, items: [] };
+let educationLoaded = false;
+let educationLoading = false;
 
 function loadEducation(){
+  if(!STORAGE_ENABLED) return educationCache;
   try{
     const raw = storageGet(EDUCATION_STORAGE_KEY);
     if(!raw) return { summary: {}, items: [] };
@@ -1434,10 +1439,157 @@ function loadEducation(){
   }
 }
 function saveEducation(data){
+  if(!STORAGE_ENABLED){
+    educationCache = data;
+    return;
+  }
   try{ storageSet(EDUCATION_STORAGE_KEY, JSON.stringify(data)); }catch{}
 }
 
 let __eduHydratedOnce = false;
+
+async function ensureEducationLoaded(){
+  if(STORAGE_ENABLED || educationLoaded || educationLoading) return;
+  educationLoading = true;
+  try{
+    const res = await fetch(EDUCATION_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok){
+      educationCache = mapEducationResponse(data);
+      __eduHydratedOnce = false;
+    }
+  }catch{
+    // ignore
+  }finally{
+    educationLoaded = true;
+    educationLoading = false;
+  }
+}
+
+function mapEducationResponse(data){
+  return {
+    summary: {
+      level: data?.summary?.nivel || "",
+      mainArea: data?.summary?.areaPrincipal || "",
+      mainStatus: data?.summary?.situacao || "",
+      highlights: data?.summary?.destaques || ""
+    },
+    items: Array.isArray(data?.items) ? data.items.map(i => ({
+      id: i.id,
+      course: i.curso,
+      institution: i.instituicao || "",
+      type: i.tipo || "",
+      status: i.status || "",
+      start: i.inicio || "",
+      end: i.fim || "",
+      notes: i.observacoes || "",
+      link: i.link || "",
+      updatedAt: new Date().toISOString()
+    })) : []
+  };
+}
+
+async function persistEducationSummary(data){
+  if(STORAGE_ENABLED){
+    saveEducation(data);
+    return true;
+  }
+  try{
+    const res = await fetch(`${EDUCATION_API_BASE}/Summary`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        nivel: data.summary?.level || "",
+        areaPrincipal: data.summary?.mainArea || "",
+        situacao: data.summary?.mainStatus || "",
+        destaques: data.summary?.highlights || ""
+      })
+    });
+    const payload = await res.json().catch(() => ({}));
+    if(res.ok){
+      educationCache.summary = {
+        level: payload?.nivel || "",
+        mainArea: payload?.areaPrincipal || "",
+        mainStatus: payload?.situacao || "",
+        highlights: payload?.destaques || ""
+      };
+      return true;
+    }
+  }catch{
+    return false;
+  }
+  return false;
+}
+
+async function persistEducationItem(item){
+  if(STORAGE_ENABLED){
+    const data = loadEducation();
+    const idx = (data.items || []).findIndex(x => x.id === item.id);
+    if(idx >= 0) data.items[idx] = item;
+    else data.items.push(item);
+    saveEducation(data);
+    return item;
+  }
+
+  const body = {
+    curso: item.course,
+    instituicao: item.institution || "",
+    tipo: item.type || "",
+    status: item.status || "",
+    inicio: item.start || "",
+    fim: item.end || "",
+    observacoes: item.notes || "",
+    link: item.link || ""
+  };
+
+  const isUpdate = !!item.id && educationCache.items.some(x => x.id === item.id);
+  const url = isUpdate ? `${EDUCATION_API_BASE}/Items/${item.id}` : `${EDUCATION_API_BASE}/Items`;
+  const method = isUpdate ? "PUT" : "POST";
+
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body)
+  });
+  const payload = await res.json().catch(() => ({}));
+  if(!res.ok) return null;
+
+  const saved = {
+    id: payload.id,
+    course: payload.curso,
+    institution: payload.instituicao || "",
+    type: payload.tipo || "",
+    status: payload.status || "",
+    start: payload.inicio || "",
+    end: payload.fim || "",
+    notes: payload.observacoes || "",
+    link: payload.link || "",
+    updatedAt: new Date().toISOString()
+  };
+
+  const idx = educationCache.items.findIndex(x => x.id === saved.id);
+  if(idx >= 0) educationCache.items[idx] = saved;
+  else educationCache.items.push(saved);
+  return saved;
+}
+
+async function removeEducationItem(id){
+  if(STORAGE_ENABLED){
+    const data = loadEducation();
+    data.items = (data.items || []).filter(x => x.id !== id);
+    saveEducation(data);
+    return true;
+  }
+  const res = await fetch(`${EDUCATION_API_BASE}/Items/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  if(!res.ok) return false;
+  educationCache.items = educationCache.items.filter(x => x.id !== id);
+  return true;
+}
 
 function hydrateEducationSummary(){
   if(__eduHydratedOnce) return;
@@ -1465,13 +1617,22 @@ function saveEducationSummary(){
     mainStatus: (document.getElementById("eduMainStatus")?.value || "").trim(),
     highlights: (document.getElementById("eduHighlights")?.value || "").trim()
   };
-  saveEducation(data);
+  if(STORAGE_ENABLED){
+    saveEducation(data);
+    return;
+  }
+  persistEducationSummary(data);
 }
 
 function renderEducation(){
   const list = document.getElementById("eduList");
   const empty = document.getElementById("eduEmpty");
   if(!list) return;
+
+  if(!STORAGE_ENABLED && !educationLoaded){
+    ensureEducationLoaded().then(() => renderEducation());
+    return;
+  }
 
   hydrateEducationSummary();
 
@@ -1564,8 +1725,29 @@ function openEducationModal(id){
   m.show();
 }
 
-function saveEducationItem(){
-  const data = loadEducation();
+async function saveEducationItem(){
+  const modalEl = document.getElementById("eduEditModal");
+  const cancelBtn = modalEl?.querySelector("#eduCancelBtn");
+  const saveBtn = modalEl?.querySelector("#eduSaveBtn");
+  if(saveBtn?.dataset.loading === "true") return;
+
+  const setLoading = (isLoading) => {
+    if(!saveBtn) return;
+    if(isLoading){
+      saveBtn.dataset.loading = "true";
+      if(!saveBtn.dataset.label) saveBtn.dataset.label = saveBtn.innerHTML;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Salvando...';
+      saveBtn.disabled = true;
+      if(cancelBtn) cancelBtn.disabled = true;
+      return;
+    }
+
+    saveBtn.dataset.loading = "false";
+    saveBtn.innerHTML = saveBtn.dataset.label || '<i class="fas fa-save me-1"></i> Salvar';
+    saveBtn.disabled = false;
+    if(cancelBtn) cancelBtn.disabled = false;
+  };
+
   const id = (document.getElementById("eduId").value || "").trim() || uid();
 
   const course = (document.getElementById("eduCourse").value || "").trim();
@@ -1583,16 +1765,20 @@ function saveEducationItem(){
   }
 
   const payload = { id, course, institution, type, status, start, end, notes, link, updatedAt: new Date().toISOString() };
+  setLoading(true);
+  try{
+    const saved = await persistEducationItem(payload);
+    if(!saved){
+      Swal.fire({ icon:"error", title:"Erro ao salvar", text:"Nao foi possivel salvar a formacao.", confirmButtonColor:"#004aad" });
+      return;
+    }
+    bootstrap.Modal.getInstance(document.getElementById("eduEditModal"))?.hide();
+    renderEducation();
 
-  const idx = (data.items || []).findIndex(x => x.id === id);
-  if(idx >= 0) data.items[idx] = payload;
-  else data.items.push(payload);
-
-  saveEducation(data);
-  bootstrap.Modal.getInstance(document.getElementById("eduEditModal"))?.hide();
-  renderEducation();
-
-  Swal.fire({ toast:true, position:"top-end", icon:"success", title:"Formação salva", showConfirmButton:false, timer:2000 });
+    Swal.fire({ toast:true, position:"top-end", icon:"success", title:"Formação salva", showConfirmButton:false, timer:2000 });
+  }finally{
+    setLoading(false);
+  }
 }
 
 function deleteEducationItem(id){
@@ -1606,28 +1792,35 @@ function deleteEducationItem(id){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    const data = loadEducation();
-    data.items = (data.items || []).filter(x => x.id !== id);
-    saveEducation(data);
-    renderEducation();
+    Promise.resolve(removeEducationItem(id)).then(ok => {
+      if(!ok){
+        Swal.fire({ icon:"error", title:"Erro ao remover", text:"Nao foi possivel remover a formacao.", confirmButtonColor:"#004aad" });
+        return;
+      }
+      renderEducation();
+    });
   });
 }
 
-function seedEducation(){
+async function seedEducation(){
+  if(!STORAGE_ENABLED && !educationLoaded){
+    await ensureEducationLoaded();
+  }
+
   const data = loadEducation();
   if((data.items || []).length > 0){
-    Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
+    Swal.fire({ icon:"info", title:"J?? existe conte??do", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
     return;
   }
 
-  data.summary = {
+  const seedSummary = {
     level: "Superior",
-    mainArea: "Logística",
-    mainStatus: "Concluído",
-    highlights: "TCC: Otimização de estoque • Projeto de melhoria contínua"
+    mainArea: "Log??stica",
+    mainStatus: "Conclu??do",
+    highlights: "TCC: Otimização de estoque ??? Projeto de melhoria contínua"
   };
 
-  data.items = [
+  const seedItems = [
     {
       id: uid(),
       course: "Tecnólogo em Logística",
@@ -1636,7 +1829,7 @@ function seedEducation(){
       status: "Concluído",
       start: "2021",
       end: "2023",
-      notes: "Ênfase em Supply Chain • Projeto integrador em WMS",
+      notes: "Ênfase em Supply Chain, Projeto integrador em WMS",
       link: "",
       updatedAt: new Date().toISOString()
     },
@@ -1654,7 +1847,17 @@ function seedEducation(){
     }
   ];
 
-  saveEducation(data);
+  if(STORAGE_ENABLED){
+    data.summary = seedSummary;
+    data.items = seedItems;
+    saveEducation(data);
+  }else{
+    educationCache.summary = seedSummary;
+    await persistEducationSummary(educationCache);
+    const savedItems = await Promise.all(seedItems.map(item => persistEducationItem(item)));
+    educationCache.items = savedItems.filter(Boolean);
+  }
+
   __eduHydratedOnce = false;
   renderEducation();
 
@@ -1672,10 +1875,23 @@ function resetEducation(){
     cancelButtonText:"Cancelar"
   }).then(r=>{
     if(!r.isConfirmed) return;
-    storageRemove(EDUCATION_STORAGE_KEY);
-    __eduHydratedOnce = false;
-    renderEducation();
-    Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+    if(STORAGE_ENABLED){
+      storageRemove(EDUCATION_STORAGE_KEY);
+      __eduHydratedOnce = false;
+      renderEducation();
+      Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+      return;
+    }
+
+    const itemIds = (educationCache.items || []).map(i => i.id);
+    Promise.all(itemIds.map(id => removeEducationItem(id))).then(() => {
+      educationCache = { summary: {}, items: [] };
+      persistEducationSummary(educationCache).then(() => {
+        __eduHydratedOnce = false;
+        renderEducation();
+        Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+      });
+    });
   });
 }
 

@@ -319,6 +319,94 @@ public sealed class PortalVagasController : Controller
         return NoContent();
     }
 
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Education")]
+    public async Task<IActionResult> GetEducation(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetEducationAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar formacao." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Education/Summary")]
+    public async Task<IActionResult> UpdateEducationSummary([FromBody] PortalCandidateEducationSummaryRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateEducationSummaryAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar resumo." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/Education/Items")]
+    public async Task<IActionResult> CreateEducationItem([FromBody] PortalCandidateEducationItemRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateEducationItemAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar formacao." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Education/Items/{itemId:guid}")]
+    public async Task<IActionResult> UpdateEducationItem(Guid itemId, [FromBody] PortalCandidateEducationItemRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!ModelState.IsValid)
+            return BadRequest(new { message = "Dados invalidos. Revise os campos e tente novamente." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateEducationItemAsync(tenantId, candidateId, itemId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar formacao." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/Education/Items/{itemId:guid}")]
+    public async Task<IActionResult> DeleteEducationItem(Guid itemId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteEducationItemAsync(tenantId, candidateId, itemId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover formacao." });
+
+        return NoContent();
+    }
+
     [AllowAnonymous]
     [HttpPost("/PortalVagas/Auth/Login")]
     public async Task<IActionResult> Login([FromBody] PortalCandidateLoginInput input, CancellationToken ct)
