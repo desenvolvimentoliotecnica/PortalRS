@@ -1,0 +1,211 @@
+<div class="tab-pane fade" id="tabA11y" role="tabpanel" aria-labelledby="a11y-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Acessibilidade & Inclusão</div>
+              <div class="text-muted small">
+                Opcional. Preencha apenas o que você quiser compartilhar. (MVP: salvo neste navegador)
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
+              <button class="d-none btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedA11y()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplo
+              </button>
+              <button class="d-none btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="downloadA11ySummary()">
+                <i class="fas fa-download me-1"></i> Baixar resumo
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetA11y()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Aviso LGPD -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;background:#f8f9fa;">
+            <div class="d-flex gap-2">
+              <div style="font-size:1.25rem; line-height:1;">
+                <i class="fas fa-shield-alt text-primary"></i>
+              </div>
+              <div>
+                <div class="fw-bold">Privacidade e autonomia</div>
+                <div class="text-muted small" style="line-height:1.55;">
+                  Você controla o que compartilhar. Informações sensíveis (como PcD) só serão consideradas se você marcar
+                  <strong>consentimento</strong>. No produto final, isso deve seguir políticas e base legal.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comunicação -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-comments me-1"></i> Preferências de comunicação</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Idioma</label>
+                <select id="a11yLanguage" class="form-select form-select-sm" onchange="saveA11y()">
+                  <option value="">Selecionar</option>
+                  <option value="Português">Português</option>
+                  <option value="Inglês">Inglês</option>
+                  <option value="Espanhol">Espanhol</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Meio preferido</label>
+                <select id="a11yChannel" class="form-select form-select-sm" onchange="saveA11y()">
+                  <option value="">Selecionar</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="E-mail">E-mail</option>
+                  <option value="Telefone">Telefone</option>
+                  <option value="Videochamada">Videochamada</option>
+                  <option value="Indiferente">Indiferente</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Melhor horário</label>
+                <select id="a11yBestTime" class="form-select form-select-sm" onchange="saveA11y()">
+                  <option value="">Selecionar</option>
+                  <option value="Manhã">Manhã</option>
+                  <option value="Tarde">Tarde</option>
+                  <option value="Noite">Noite</option>
+                  <option value="Comercial">Comercial</option>
+                  <option value="A combinar">A combinar</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label small text-muted mb-1">Observações (opcional)</label>
+                <input id="a11yCommNotes" class="form-control form-control-sm"
+                       placeholder="Ex.: prefiro mensagens por escrito antes de ligações"
+                       oninput="saveA11yDebounced()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Recursos e acomodação -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="fw-bold mb-2"><i class="fas fa-wheelchair me-1"></i> Recursos e acomodação</div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-2">Se você desejar, selecione necessidades de acessibilidade</label>
+
+                <div class="d-flex flex-column gap-2">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedCaptions" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedCaptions">Legendas em videochamada / vídeos</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedInterpreter" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedInterpreter">Intérprete de Libras</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedScreenReader" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedScreenReader">Compatibilidade com leitor de tela</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedLowStim" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedLowStim">Ambiente com baixa estimulação (ruído/luz)</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedMobility" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedMobility">Acessibilidade física (rampas/elevador)</label>
+                  </div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="a11yNeedExtraTime" onchange="saveA11y()">
+                    <label class="form-check-label" for="a11yNeedExtraTime">Tempo adicional em testes/etapas</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted mb-1">Detalhes adicionais (opcional)</label>
+                <textarea id="a11yNeedsDetails" class="form-control form-control-sm" rows="7"
+                          placeholder="Ex.: em entrevistas online, prefiro perguntas por escrito / pausas entre etapas"
+                          oninput="saveA11yDebounced()"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- PcD (opcional) com consentimento -->
+          <div class="border rounded p-3" style="border-radius:14px;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <div class="fw-bold"><i class="fas fa-hand-holding-heart me-1"></i> Informações PcD (opcional)</div>
+              <span class="badge rounded-pill bg-secondary" id="a11yPcdBadge">Não informado</span>
+            </div>
+
+            <div class="text-muted small mt-1" style="line-height:1.55;">
+              Se você desejar informar PcD, marque o consentimento. No MVP, isso fica salvo localmente.
+            </div>
+
+            <div class="form-check form-switch mt-3">
+              <input class="form-check-input" type="checkbox" id="a11yPcdConsent" onchange="toggleA11yPcdFields()">
+              <label class="form-check-label" for="a11yPcdConsent">
+                <strong>Eu autorizo compartilhar informações PcD para fins de recrutamento</strong>
+                <div class="text-muted small">Você pode desfazer a qualquer momento.</div>
+              </label>
+            </div>
+
+            <div id="a11yPcdFields" class="mt-3" style="display:none;">
+              <div class="row g-2">
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted mb-1">Você se identifica como PcD?</label>
+                  <select id="a11yPcdYesNo" class="form-select form-select-sm" onchange="saveA11y()">
+                    <option value="">Selecionar</option>
+                    <option value="Sim">Sim</option>
+                    <option value="Não">Não</option>
+                    <option value="Prefiro não dizer">Prefiro não dizer</option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted mb-1">Tipo (opcional)</label>
+                  <select id="a11yPcdType" class="form-select form-select-sm" onchange="saveA11y()">
+                    <option value="">Selecionar</option>
+                    <option value="Auditiva">Auditiva</option>
+                    <option value="Visual">Visual</option>
+                    <option value="Física/Motora">Física/Motora</option>
+                    <option value="Intelectual">Intelectual</option>
+                    <option value="Psicossocial">Psicossocial</option>
+                    <option value="Neurodiversidade">Neurodiversidade</option>
+                    <option value="Múltipla">Múltipla</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted mb-1">Laudo/Comprovação</label>
+                  <select id="a11yPcdProof" class="form-select form-select-sm" onchange="saveA11y()">
+                    <option value="">Selecionar</option>
+                    <option value="Tenho laudo">Tenho laudo</option>
+                    <option value="Não tenho laudo">Não tenho laudo</option>
+                    <option value="Prefiro não dizer">Prefiro não dizer</option>
+                  </select>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Notas (opcional)</label>
+                  <textarea id="a11yPcdNotes" class="form-control form-control-sm" rows="3"
+                            placeholder="Ex.: Preferências de acomodação específicas para entrevistas/ambiente"
+                            oninput="saveA11yDebounced()"></textarea>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        

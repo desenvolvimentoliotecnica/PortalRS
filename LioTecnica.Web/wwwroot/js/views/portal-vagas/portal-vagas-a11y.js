@@ -1,0 +1,453 @@
+// Aba: Acessibilidade & Inclusão
+// ======================================
+const A11Y_STORAGE_KEY = "liotec_portal_a11y_v1";
+const A11Y_API_BASE = "/PortalVagas/Accessibility";
+let a11yCache = null;
+let a11yLoaded = false;
+let a11yLoading = false;
+let __a11yHydratedOnce = false;
+let __a11ySaveTimer = null;
+
+function defaultA11y(){
+  return {
+    language: "",
+    channel: "",
+    bestTime: "",
+    commNotes: "",
+
+    needCaptions: false,
+    needInterpreter: false,
+    needScreenReader: false,
+    needLowStim: false,
+    needMobility: false,
+    needExtraTime: false,
+    needsDetails: "",
+
+    pcdConsent: false,
+    pcdYesNo: "",
+    pcdType: "",
+    pcdProof: "",
+    pcdNotes: "",
+
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function mapA11yDto(dto){
+  if(!dto) return null;
+  return {
+    language: dto.idioma || "",
+    channel: dto.canal || "",
+    bestTime: dto.melhorHorario || "",
+    commNotes: dto.observacoesComunicacao || "",
+
+    needCaptions: !!dto.precisaLegendas,
+    needInterpreter: !!dto.precisaInterprete,
+    needScreenReader: !!dto.precisaLeitorTela,
+    needLowStim: !!dto.precisaBaixaEstimulo,
+    needMobility: !!dto.precisaMobilidade,
+    needExtraTime: !!dto.precisaTempoExtra,
+    needsDetails: dto.detalhesNecessidades || "",
+
+    pcdConsent: !!dto.consentimentoPcd,
+    pcdYesNo: dto.pcdIdentificacao || "",
+    pcdType: dto.pcdTipo || "",
+    pcdProof: dto.pcdComprovacao || "",
+    pcdNotes: dto.pcdObservacoes || "",
+
+    createdAt: dto.updatedAtUtc || new Date().toISOString(),
+    updatedAt: dto.updatedAtUtc || new Date().toISOString()
+  };
+}
+
+async function ensureA11yLoaded(){
+  if(STORAGE_ENABLED || a11yLoaded || a11yLoading) return;
+  a11yLoading = true;
+  try{
+    const res = await fetch(A11Y_API_BASE, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok){
+      a11yCache = mapA11yDto(data) || defaultA11y();
+    }
+  }catch{
+    // ignore
+  }finally{
+    a11yLoaded = true;
+    a11yLoading = false;
+  }
+}
+
+function loadA11y(){
+  if(!STORAGE_ENABLED) return a11yCache;
+  try{
+    const raw = storageGet(A11Y_STORAGE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch{
+    return null;
+  }
+}
+
+function saveA11yToStorage(obj){
+  if(!STORAGE_ENABLED){
+    a11yCache = obj;
+    return;
+  }
+  try{ storageSet(A11Y_STORAGE_KEY, JSON.stringify(obj)); }catch{}
+}
+
+function hydrateA11y(){
+  if(__a11yHydratedOnce) return;
+  __a11yHydratedOnce = true;
+
+  const a = loadA11y() || defaultA11y();
+  saveA11yToStorage(a);
+
+  const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val ?? ""; };
+  const setChk = (id, val) => { const el = document.getElementById(id); if(el) el.checked = !!val; };
+
+  setVal("a11yLanguage", a.language);
+  setVal("a11yChannel", a.channel);
+  setVal("a11yBestTime", a.bestTime);
+  setVal("a11yCommNotes", a.commNotes);
+
+  setChk("a11yNeedCaptions", a.needCaptions);
+  setChk("a11yNeedInterpreter", a.needInterpreter);
+  setChk("a11yNeedScreenReader", a.needScreenReader);
+  setChk("a11yNeedLowStim", a.needLowStim);
+  setChk("a11yNeedMobility", a.needMobility);
+  setChk("a11yNeedExtraTime", a.needExtraTime);
+  setVal("a11yNeedsDetails", a.needsDetails);
+
+  setChk("a11yPcdConsent", a.pcdConsent);
+  setVal("a11yPcdYesNo", a.pcdYesNo);
+  setVal("a11yPcdType", a.pcdType);
+  setVal("a11yPcdProof", a.pcdProof);
+  setVal("a11yPcdNotes", a.pcdNotes);
+
+  toggleA11yPcdFields(true);
+  renderA11yPcdBadge(a);
+}
+
+function getA11yFromUI(){
+  const val = (id) => (document.getElementById(id)?.value || "").trim();
+  const chk = (id) => !!document.getElementById(id)?.checked;
+
+  return {
+    language: val("a11yLanguage"),
+    channel: val("a11yChannel"),
+    bestTime: val("a11yBestTime"),
+    commNotes: val("a11yCommNotes"),
+
+    needCaptions: chk("a11yNeedCaptions"),
+    needInterpreter: chk("a11yNeedInterpreter"),
+    needScreenReader: chk("a11yNeedScreenReader"),
+    needLowStim: chk("a11yNeedLowStim"),
+    needMobility: chk("a11yNeedMobility"),
+    needExtraTime: chk("a11yNeedExtraTime"),
+    needsDetails: val("a11yNeedsDetails"),
+
+    pcdConsent: chk("a11yPcdConsent"),
+    pcdYesNo: val("a11yPcdYesNo"),
+    pcdType: val("a11yPcdType"),
+    pcdProof: val("a11yPcdProof"),
+    pcdNotes: val("a11yPcdNotes")
+  };
+}
+
+function saveA11y(){
+  const existing = loadA11y() || defaultA11y();
+  const ui = getA11yFromUI();
+
+  const merged = {
+    ...existing,
+    ...ui,
+    updatedAt: new Date().toISOString()
+  };
+
+  // se não tem consentimento, zera campos PcD por segurança
+  if(!merged.pcdConsent){
+    merged.pcdYesNo = "";
+    merged.pcdType = "";
+    merged.pcdProof = "";
+    merged.pcdNotes = "";
+  }
+
+  if(STORAGE_ENABLED){
+    saveA11yToStorage(merged);
+    renderA11yPcdBadge(merged);
+    return;
+  }
+
+  const body = {
+    idioma: merged.language || null,
+    canal: merged.channel || null,
+    melhorHorario: merged.bestTime || null,
+    observacoesComunicacao: merged.commNotes || null,
+    precisaLegendas: !!merged.needCaptions,
+    precisaInterprete: !!merged.needInterpreter,
+    precisaLeitorTela: !!merged.needScreenReader,
+    precisaBaixaEstimulo: !!merged.needLowStim,
+    precisaMobilidade: !!merged.needMobility,
+    precisaTempoExtra: !!merged.needExtraTime,
+    detalhesNecessidades: merged.needsDetails || null,
+    consentimentoPcd: !!merged.pcdConsent,
+    pcdIdentificacao: merged.pcdYesNo || null,
+    pcdTipo: merged.pcdType || null,
+    pcdComprovacao: merged.pcdProof || null,
+    pcdObservacoes: merged.pcdNotes || null
+  };
+
+  fetch(A11Y_API_BASE, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body)
+  })
+    .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, data: d })))
+    .then(({ ok, data }) => {
+      if(!ok) throw new Error(data?.message || "Falha ao salvar acessibilidade.");
+      const saved = mapA11yDto(data) || merged;
+      saveA11yToStorage(saved);
+      renderA11yPcdBadge(saved);
+    })
+    .catch(err => {
+      Swal.fire({ icon:"error", title:"Falha ao salvar", text: String(err?.message || err || "Erro inesperado"), confirmButtonColor:"#004aad" });
+    });
+}
+
+function saveA11yDebounced(){
+  clearTimeout(__a11ySaveTimer);
+  __a11ySaveTimer = setTimeout(() => saveA11y(), 250);
+}
+
+function toggleA11yPcdFields(skipSave){
+  const consent = !!document.getElementById("a11yPcdConsent")?.checked;
+  const box = document.getElementById("a11yPcdFields");
+  if(box) box.style.display = consent ? "block" : "none";
+
+  if(!skipSave) saveA11y();
+}
+
+function renderA11yPcdBadge(a){
+  const badge = document.getElementById("a11yPcdBadge");
+  if(!badge) return;
+
+  if(!a?.pcdConsent){
+    badge.className = "badge rounded-pill bg-secondary";
+    badge.textContent = "Não informado";
+    return;
+  }
+
+  const yn = (a.pcdYesNo || "").trim();
+  if(!yn){
+    badge.className = "badge rounded-pill bg-warning text-dark";
+    badge.textContent = "Consentido (sem detalhes)";
+    return;
+  }
+
+  if(yn === "Sim"){
+    badge.className = "badge rounded-pill bg-success";
+    badge.textContent = a.pcdType ? `PcD • ${a.pcdType}` : "PcD • Sim";
+  }else if(yn === "Não"){
+    badge.className = "badge rounded-pill bg-primary";
+    badge.textContent = "PcD • Não";
+  }else{
+    badge.className = "badge rounded-pill bg-secondary";
+    badge.textContent = "Prefiro não dizer";
+  }
+}
+
+function renderA11y(){
+  if(!STORAGE_ENABLED && !a11yLoaded && !a11yLoading){
+    ensureA11yLoaded().then(() => renderA11y());
+    return;
+  }
+  hydrateA11y();
+  const a = loadA11y() || defaultA11y();
+  renderA11yPcdBadge(a);
+}
+
+function seedA11y(){
+  const a = loadA11y() || defaultA11y();
+
+  const hasAny = !!(a.language || a.channel || a.commNotes || a.needsDetails || a.pcdConsent);
+  if(hasAny){
+    Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Limpe antes para inserir exemplo.", confirmButtonColor:"#004aad" });
+    return;
+  }
+
+  a.language = "Português";
+  a.channel = "WhatsApp";
+  a.bestTime = "Comercial";
+  a.commNotes = "Prefiro receber detalhes por escrito antes de ligações.";
+
+  a.needCaptions = true;
+  a.needInterpreter = false;
+  a.needScreenReader = false;
+  a.needLowStim = true;
+  a.needMobility = false;
+  a.needExtraTime = true;
+  a.needsDetails = "Em entrevistas online, gosto de pausas entre etapas e perguntas objetivas.";
+
+  // exemplo SEM PcD (fica só em acessibilidade geral)
+  a.pcdConsent = false;
+  a.updatedAt = new Date().toISOString();
+
+  if(STORAGE_ENABLED){
+    saveA11yToStorage(a);
+    __a11yHydratedOnce = false;
+    renderA11y();
+    Swal.fire({ icon:"success", title:"Exemplo inserido!", confirmButtonColor:"#004aad" });
+    return;
+  }
+
+  const body = {
+    idioma: a.language || null,
+    canal: a.channel || null,
+    melhorHorario: a.bestTime || null,
+    observacoesComunicacao: a.commNotes || null,
+    precisaLegendas: !!a.needCaptions,
+    precisaInterprete: !!a.needInterpreter,
+    precisaLeitorTela: !!a.needScreenReader,
+    precisaBaixaEstimulo: !!a.needLowStim,
+    precisaMobilidade: !!a.needMobility,
+    precisaTempoExtra: !!a.needExtraTime,
+    detalhesNecessidades: a.needsDetails || null,
+    consentimentoPcd: !!a.pcdConsent,
+    pcdIdentificacao: a.pcdYesNo || null,
+    pcdTipo: a.pcdType || null,
+    pcdComprovacao: a.pcdProof || null,
+    pcdObservacoes: a.pcdNotes || null
+  };
+
+  fetch(A11Y_API_BASE, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body)
+  })
+    .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, data: d })))
+    .then(({ ok, data }) => {
+      if(!ok) throw new Error(data?.message || "Falha ao inserir exemplo.");
+      const saved = mapA11yDto(data) || a;
+      saveA11yToStorage(saved);
+      __a11yHydratedOnce = false;
+      renderA11y();
+      Swal.fire({ icon:"success", title:"Exemplo inserido!", confirmButtonColor:"#004aad" });
+    })
+    .catch(() => {
+      Swal.fire({ icon:"error", title:"Falha ao inserir exemplo", confirmButtonColor:"#004aad" });
+    });
+}
+
+function resetA11y(){
+  Swal.fire({
+    icon:"warning",
+    title:"Limpar Acessibilidade & Inclusão?",
+    text:"Isso apaga os dados desta aba neste navegador.",
+    showCancelButton:true,
+    confirmButtonText:"Limpar",
+    confirmButtonColor:"#004aad",
+    cancelButtonText:"Cancelar"
+  }).then(r=>{
+    if(!r.isConfirmed) return;
+    if(STORAGE_ENABLED){
+      storageRemove(A11Y_STORAGE_KEY);
+      __a11yHydratedOnce = false;
+      renderA11y();
+      Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+      return;
+    }
+
+    const cleared = defaultA11y();
+    const body = {
+      idioma: null,
+      canal: null,
+      melhorHorario: null,
+      observacoesComunicacao: null,
+      precisaLegendas: false,
+      precisaInterprete: false,
+      precisaLeitorTela: false,
+      precisaBaixaEstimulo: false,
+      precisaMobilidade: false,
+      precisaTempoExtra: false,
+      detalhesNecessidades: null,
+      consentimentoPcd: false,
+      pcdIdentificacao: null,
+      pcdTipo: null,
+      pcdComprovacao: null,
+      pcdObservacoes: null
+    };
+
+    fetch(A11Y_API_BASE, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body)
+    })
+      .then(r2 => r2.json().catch(() => ({})).then(d => ({ ok: r2.ok, data: d })))
+      .then(({ ok, data }) => {
+        if(!ok) throw new Error(data?.message || "Falha ao limpar.");
+        const saved = mapA11yDto(data) || cleared;
+        saveA11yToStorage(saved);
+        __a11yHydratedOnce = false;
+        renderA11y();
+        Swal.fire({ icon:"success", title:"Pronto!", text:"Aba limpa.", confirmButtonColor:"#004aad" });
+      })
+      .catch(() => {
+        Swal.fire({ icon:"error", title:"Falha ao limpar", confirmButtonColor:"#004aad" });
+      });
+  });
+}
+
+function downloadA11ySummary(){
+  const a = loadA11y() || defaultA11y();
+
+  const lines = [];
+  lines.push("Liotécnica — Resumo Acessibilidade & Inclusão (MVP)");
+  lines.push("Gerado em: " + new Date().toLocaleString("pt-BR"));
+  lines.push("");
+
+  lines.push("Preferências de comunicação:");
+  lines.push(`- Idioma: ${a.language || "—"}`);
+  lines.push(`- Canal: ${a.channel || "—"}`);
+  lines.push(`- Melhor horário: ${a.bestTime || "—"}`);
+  lines.push(`- Obs.: ${a.commNotes || "—"}`);
+  lines.push("");
+
+  lines.push("Necessidades de acessibilidade:");
+  const flags = [];
+  if(a.needCaptions) flags.push("Legendas");
+  if(a.needInterpreter) flags.push("Intérprete Libras");
+  if(a.needScreenReader) flags.push("Leitor de tela");
+  if(a.needLowStim) flags.push("Baixa estimulação");
+  if(a.needMobility) flags.push("Acessibilidade física");
+  if(a.needExtraTime) flags.push("Tempo adicional");
+  lines.push("- Itens: " + (flags.length ? flags.join(", ") : "—"));
+  lines.push("- Detalhes: " + (a.needsDetails || "—"));
+  lines.push("");
+
+  lines.push("PcD (opcional):");
+  lines.push("- Consentimento: " + (a.pcdConsent ? "SIM" : "NÃO"));
+  if(a.pcdConsent){
+    lines.push("- PcD: " + (a.pcdYesNo || "—"));
+    lines.push("- Tipo: " + (a.pcdType || "—"));
+    lines.push("- Laudo/Comprovação: " + (a.pcdProof || "—"));
+    lines.push("- Notas: " + (a.pcdNotes || "—"));
+  }
+
+  const blob = new Blob([lines.join("\n")], { type:"text/plain;charset=utf-8" });
+  const dl = document.createElement("a");
+  dl.href = URL.createObjectURL(blob);
+  dl.download = "resumo-acessibilidade-liotecnica.txt";
+  document.body.appendChild(dl);
+  dl.click();
+  URL.revokeObjectURL(dl.href);
+  dl.remove();
+}
+
+
+
+// ======================================

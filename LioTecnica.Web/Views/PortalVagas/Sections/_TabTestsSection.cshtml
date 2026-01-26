@@ -1,0 +1,52 @@
+<div class="tab-pane fade" id="tabTests" role="tabpanel" aria-labelledby="tests-tab">
+                          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                            <div>
+                              <h6 class="text-primary fw-bold mb-1"><i class="fas fa-clipboard-list me-2"></i>Testes de RH</h6>
+                              <div class="text-muted small">Complete os testes para enriquecer seu perfil e aumentar o match com as vagas.</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+                              </button>
+                              <button class="btn btn-sm btn-outline-primary fw-bold" type="button" onclick="resetAllTests()">
+                                <i class="fas fa-redo me-1"></i> Reiniciar
+                              </button>
+                              <button class="d-none btn btn-sm btn-success fw-bold" type="button" onclick="downloadTestsSummary()">
+                                <i class="fas fa-file-download me-1"></i> Baixar resumo
+                              </button>
+                            </div>
+                          </div>
+
+                          <div class="alert alert-info d-flex align-items-start gap-2" role="alert" style="border-radius:14px;">
+                            <i class="fas fa-info-circle mt-1"></i>
+                            <div class="small">
+                              <strong>Dica:</strong> você pode fazer 1 teste por vez. Ao finalizar, o resultado fica salvo neste protótipo (localStorage).
+                            </div>
+                          </div>
+
+                          <div id="testsContainer" class="d-grid gap-3"></div>
+
+                          <hr class="my-4"/>
+
+                          <div class="row g-3">
+                            <div class="col-lg-6">
+                              <div class="p-3 bg-light border rounded" style="border-radius:14px;">
+                                <div class="fw-bold text-primary mb-1"><i class="fas fa-star me-2"></i>O que isso melhora?</div>
+                                <div class="text-muted small">
+                                  Os testes ajudam a destacar seu estilo de trabalho, preferências e aderência cultural — facilitando a triagem e recomendações.
+                                </div>
+                              </div>
+                            </div>
+                            <div class="col-lg-6">
+                              <div class="p-3 bg-white border rounded" style="border-radius:14px;">
+                                <div class="fw-bold text-primary mb-1"><i class="fas fa-shield-alt me-2"></i>Privacidade</div>
+                                <div class="text-muted small">
+                                  Neste MVP, os resultados ficam somente no seu navegador. Em produção, você controla o compartilhamento (RH / somente match / oculto).
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+        				<!-- Aba: Experiência & Projetos -->
+        
