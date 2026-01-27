@@ -490,3 +490,118 @@
     init();
   }
 })();
+
+(() => {
+  const url = window.__notificationsUrl;
+  if (!url) return;
+
+  const badge = document.querySelector('[data-role="notif-count"]');
+  const dropdownList = document.querySelector('[data-role="notif-dropdown-list"]');
+  const pageList = document.querySelector('[data-role="notif-page-list"]');
+
+  const levelToBadge = (level) => {
+    const norm = (level || "").toString().toLowerCase();
+    if (norm === "danger" || norm === "error" || norm === "critical") return "text-bg-danger";
+    if (norm === "warning" || norm === "warn") return "text-bg-warning";
+    if (norm === "success" || norm === "ok") return "text-bg-success";
+    return "text-bg-primary";
+  };
+
+  const renderEmpty = (root, text) => {
+    if (!root) return;
+    const wrap = document.createElement("div");
+    wrap.className = root === dropdownList
+      ? "px-3 py-3 text-muted small"
+      : "empty";
+    wrap.textContent = text || "Sem notificacoes no momento.";
+    root.replaceChildren(wrap);
+  };
+
+  const buildDropdownItem = (item) => {
+    const a = document.createElement("a");
+    a.className = "list-group-item list-group-item-action notif-item";
+    a.href = item.url || "/Notificacoes";
+
+    const title = item.title || "Notificacao";
+    const msg = item.message || "";
+    const when = window.fmtDate ? window.fmtDate(item.createdAt) : "";
+
+    a.innerHTML = `
+      <div class="d-flex justify-content-between">
+        <div class="fw-semibold">${window.escapeHtml(title)}</div>
+        <span class="text-muted small">${window.escapeHtml(when)}</span>
+      </div>
+      <div class="small text-muted">${window.escapeHtml(msg)}</div>
+    `;
+    return a;
+  };
+
+  const buildPageItem = (item) => {
+    const a = document.createElement("a");
+    a.className = "card-soft p-3 text-decoration-none";
+    a.href = item.url || "/Notificacoes";
+
+    const title = item.title || "Notificacao";
+    const msg = item.message || "";
+    const when = window.fmtDate ? window.fmtDate(item.createdAt) : "";
+    const badgeClass = levelToBadge(item.level);
+
+    a.innerHTML = `
+      <div class="d-flex align-items-start justify-content-between gap-2">
+        <div>
+          <div class="fw-semibold">${window.escapeHtml(title)}</div>
+          <div class="text-muted small">${window.escapeHtml(msg)}</div>
+        </div>
+        <span class="badge ${badgeClass}">${window.escapeHtml(when)}</span>
+      </div>
+    `;
+    return a;
+  };
+
+  const updateBadge = (count) => {
+    if (!badge) return;
+    const value = Number(count || 0);
+    badge.textContent = String(value);
+    badge.classList.toggle("d-none", value <= 0);
+  };
+
+  const renderLists = (items) => {
+    if (dropdownList) {
+      if (!items.length) {
+        renderEmpty(dropdownList, "Sem notificacoes recentes.");
+      } else {
+        dropdownList.replaceChildren(...items.slice(0, 5).map(buildDropdownItem));
+      }
+    }
+    if (pageList) {
+      if (!items.length) {
+        renderEmpty(pageList, "Sem notificacoes no momento.");
+      } else {
+        pageList.replaceChildren(...items.map(buildPageItem));
+      }
+    }
+  };
+
+  const load = async () => {
+    try {
+      const res = await fetch(url, {
+        headers: { "Accept": "application/json", "X-LT-Silent": "1" },
+        credentials: "same-origin"
+      });
+      if (res.status === 401) return;
+      if (!res.ok) throw new Error(`notifications ${res.status}`);
+      const data = await res.json();
+      const items = Array.isArray(data?.items) ? data.items : [];
+      updateBadge(data?.unreadCount ?? items.length);
+      renderLists(items);
+    } catch (err) {
+      renderLists([]);
+    }
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", load, { once: true });
+  } else {
+    load();
+  }
+})();
