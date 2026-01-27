@@ -6,8 +6,10 @@ using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.Candidatos;
@@ -34,14 +36,22 @@ public sealed class CandidatoService : ICandidatoService
     private readonly IHostEnvironment _hostEnvironment;
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly NotificationPublisher _notificationPublisher;
 
-    public CandidatoService(AppDbContext db, ITenantContext tenantContext, IHostEnvironment hostEnvironment, IHttpContextAccessor httpContextAccessor, IStringLocalizer<ServiceMessages> localizer)
+    public CandidatoService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IHostEnvironment hostEnvironment,
+        IHttpContextAccessor httpContextAccessor,
+        IStringLocalizer<ServiceMessages> localizer,
+        NotificationPublisher notificationPublisher)
     {
         _db = db;
         _tenantContext = tenantContext;
         _hostEnvironment = hostEnvironment;
         _httpContextAccessor = httpContextAccessor;
         _localizer = localizer;
+        _notificationPublisher = notificationPublisher;
     }
 
     public async Task<IReadOnlyList<CandidateListItemResponse>> ListAsync(CandidateListQuery query, CancellationToken ct)
@@ -141,6 +151,8 @@ public sealed class CandidatoService : ICandidatoService
 
         _db.Candidatos.Add(entity);
         await _db.SaveChangesAsync(ct);
+
+        await NotifyNewCandidateAsync(entity, ct);
 
         return (await GetByIdAsync(entity.Id, ct))!;
     }
@@ -546,5 +558,48 @@ public sealed class CandidatoService : ICandidatoService
         var id = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
         var name = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
         return (id, name);
+    }
+
+    private async Task NotifyNewCandidateAsync(Candidato entity, CancellationToken ct)
+    {
+        try
+        {
+            var vagaInfo = await _db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == entity.VagaId)
+                .Select(v => new { v.Codigo, v.Titulo })
+                .FirstOrDefaultAsync(ct);
+
+            var parts = new List<string>
+            {
+                $"Nome: {entity.Nome}",
+                $"Email: {entity.Email}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(entity.Fone))
+                parts.Add($"Fone: {entity.Fone}");
+
+            if (vagaInfo is not null)
+            {
+                var code = string.IsNullOrWhiteSpace(vagaInfo.Codigo) ? "—" : vagaInfo.Codigo;
+                parts.Add($"Vaga: {vagaInfo.Titulo} ({code})");
+            }
+
+            var message = string.Join(" | ", parts);
+            var request = new NotificationSendRequest(
+                NotificationScope.Tenant,
+                "Novo candidato cadastrado",
+                message,
+                "info",
+                "/Candidatos",
+                _tenantContext.TenantId,
+                null);
+
+            await _notificationPublisher.PublishToTenantsAsync(new[] { _tenantContext.TenantId }, request, ct);
+        }
+        catch
+        {
+            // best-effort: falha na notificacao nao deve bloquear cadastro
+        }
     }
 }
