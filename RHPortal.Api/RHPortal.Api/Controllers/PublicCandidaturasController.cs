@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
+using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Controllers;
@@ -46,6 +48,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         [FromForm] PortalCandidaturaRequest request,
         [FromServices] ICandidatoService service,
         [FromServices] AppDbContext db,
+        [FromServices] NotificationPublisher notificationPublisher,
         [FromServices] IEmailQueueService emailQueue,
         CancellationToken ct)
     {
@@ -66,6 +69,9 @@ public sealed class PublicCandidaturasController : ControllerBase
         var obs = BuildObs(request);
 
         CandidateResponse result;
+        var shouldNotify = false;
+        var notifyCandidateId = Guid.Empty;
+        var notifyTenantId = "liotecnica";
 
         try
         {
@@ -81,6 +87,9 @@ public sealed class PublicCandidaturasController : ControllerBase
                 existing.Obs = obs ?? existing.Obs;
 
                 await db.SaveChangesAsync(ct);
+                shouldNotify = true;
+                notifyCandidateId = existing.Id;
+                notifyTenantId = existing.TenantId;
 
                 result = new CandidateResponse(
     existing.Id,
@@ -133,6 +142,9 @@ public sealed class PublicCandidaturasController : ControllerBase
                 );
 
                 result = await service.CreateAsync(create, ct);
+                shouldNotify = true;
+                notifyCandidateId = result.Id;
+                notifyTenantId = "liotecnica";
 
                 if (request.Arquivo is { Length: > 0 })
                 {
@@ -171,6 +183,16 @@ public sealed class PublicCandidaturasController : ControllerBase
             }
             catch { /* best-effort */ }
 
+            if (shouldNotify)
+            {
+                await NotifyPortalCandidaturaAsync(
+                    db,
+                    notificationPublisher,
+                    notifyTenantId,
+                    notifyCandidateId,
+                    ct);
+            }
+
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -205,5 +227,61 @@ public sealed class PublicCandidaturasController : ControllerBase
             lines.Add($"Observacoes: {request.Observacoes}");
 
         return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
+    }
+
+    private static async Task NotifyPortalCandidaturaAsync(
+        AppDbContext db,
+        NotificationPublisher notificationPublisher,
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var data = await db.Candidatos
+                .AsNoTracking()
+                .Where(x => x.Id == candidateId)
+                .Select(x => new { x.Nome, x.Email, x.Fone, x.VagaId })
+                .FirstOrDefaultAsync(ct);
+
+            if (data is null) return;
+
+            var vagaInfo = await db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == data.VagaId)
+                .Select(v => new { v.Codigo, v.Titulo })
+                .FirstOrDefaultAsync(ct);
+
+            var parts = new List<string>
+            {
+                $"Nome: {data.Nome}",
+                $"Email: {data.Email}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(data.Fone))
+                parts.Add($"Fone: {data.Fone}");
+
+            if (vagaInfo is not null)
+            {
+                var code = string.IsNullOrWhiteSpace(vagaInfo.Codigo) ? "—" : vagaInfo.Codigo;
+                parts.Add($"Vaga: {vagaInfo.Titulo} ({code})");
+            }
+
+            var message = string.Join(" | ", parts);
+            var request = new NotificationSendRequest(
+                NotificationScope.Tenant,
+                "Novo candidato cadastrado",
+                message,
+                "info",
+                "/Candidatos",
+                tenantId,
+                null);
+
+            await notificationPublisher.PublishToTenantsAsync(new[] { tenantId }, request, ct);
+        }
+        catch
+        {
+            // best-effort
+        }
     }
 }
