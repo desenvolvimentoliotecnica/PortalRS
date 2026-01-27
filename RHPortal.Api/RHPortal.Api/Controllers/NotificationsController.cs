@@ -20,6 +20,10 @@ public sealed class NotificationsController : ControllerBase
         [FromQuery] int take = 20,
         CancellationToken ct = default)
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userId, out var parsedUserId))
+            return Unauthorized();
+
         var safeTake = Math.Clamp(take, 1, 100);
         var rawItems = await db.Notifications
             .AsNoTracking()
@@ -28,6 +32,12 @@ public sealed class NotificationsController : ControllerBase
             .ToListAsync(ct);
 
         var ids = rawItems.Select(x => x.Id).ToArray();
+        var userReceipts = await db.NotificationReceipts
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.NotificationId) && x.UserId == parsedUserId)
+            .ToListAsync(ct);
+
+        var userReceiptMap = userReceipts.ToDictionary(x => x.NotificationId, x => x);
         var receiptCounts = await db.NotificationReceipts
             .AsNoTracking()
             .Where(x => ids.Contains(x.NotificationId))
@@ -44,6 +54,7 @@ public sealed class NotificationsController : ControllerBase
         var items = rawItems.Select(x =>
         {
             var counts = countMap.TryGetValue(x.Id, out var c) ? c : null;
+            var receipt = userReceiptMap.TryGetValue(x.Id, out var r) ? r : null;
             return new NotificationItem(
                 x.Id,
                 x.Title,
@@ -51,7 +62,7 @@ public sealed class NotificationsController : ControllerBase
                 x.Level,
                 x.CreatedAtUtc,
                 x.Url,
-                x.IsRead,
+                receipt?.ReadAtUtc != null,
                 counts?.Seen ?? 0,
                 counts?.Read ?? 0
             );
@@ -59,7 +70,7 @@ public sealed class NotificationsController : ControllerBase
 
         var unreadCount = await db.Notifications
             .AsNoTracking()
-            .CountAsync(x => !x.IsRead, ct);
+            .CountAsync(n => !db.NotificationReceipts.Any(r => r.NotificationId == n.Id && r.UserId == parsedUserId && r.ReadAtUtc != null), ct);
 
         return Ok(new NotificationsListResponse(unreadCount, items));
     }
