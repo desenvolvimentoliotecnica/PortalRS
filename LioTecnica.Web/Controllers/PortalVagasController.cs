@@ -66,6 +66,12 @@ public sealed class PortalVagasController : Controller
         var email = principal.FindFirst(ClaimTypes.Email)?.Value?.Trim()
             ?? principal.FindFirst("email")?.Value?.Trim()
             ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(name) && name.StartsWith("Seed.", StringComparison.OrdinalIgnoreCase))
+        {
+            var tenantLabel = string.IsNullOrWhiteSpace(tenantId) ? string.Empty : tenantId.ToUpperInvariant();
+            name = string.IsNullOrWhiteSpace(tenantLabel) ? string.Empty : $"{tenantLabel} Administrador";
+        }
+
         var initials = BuildInitials(name, email);
 
         return new PortalVagasIndexViewModel

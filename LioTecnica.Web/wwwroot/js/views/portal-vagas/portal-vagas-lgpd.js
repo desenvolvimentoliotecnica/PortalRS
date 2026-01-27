@@ -280,7 +280,7 @@ function lgpdRequestDeletion(){
     showCancelButton:true,
     confirmButtonText:"Simular pedido",
     confirmButtonColor:"#004aad",
-    cancelButtonText:"Cancelar"
+    cancelButtonText: S.common.cancel
   }).then(r=>{
     if(!r.isConfirmed) return;
     Swal.fire({ icon:"success", title:"Pedido registrado (simulacao)", text:"Um protocolo seria gerado aqui.", confirmButtonColor:"#004aad" });
@@ -294,7 +294,7 @@ function lgpdRevokeConsent(){
     showCancelButton:true,
     confirmButtonText:"Revogar",
     confirmButtonColor:"#004aad",
-    cancelButtonText:"Cancelar"
+    cancelButtonText: S.common.cancel
   }).then(r=>{
     if(!r.isConfirmed) return;
     const obj = loadLgpd() || defaultLgpd();
@@ -329,7 +329,7 @@ function resetLgpd(){
     showCancelButton:true,
     confirmButtonText:"Revogar",
     confirmButtonColor:"#004aad",
-    cancelButtonText:"Cancelar"
+    cancelButtonText: S.common.cancel
   }).then(r=>{
     if(!r.isConfirmed) return;
     if(STORAGE_ENABLED){

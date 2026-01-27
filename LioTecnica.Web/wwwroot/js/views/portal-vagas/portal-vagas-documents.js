@@ -1,7 +1,7 @@
 // Aba: Documentos & Anexos
 // ======================================
-  const DOCS_STORAGE_KEY = "liotec_portal_docs_v1";
-  const DOCS_API_BASE = "/PortalVagas/Documents";
+const DOCS_STORAGE_KEY = "liotec_portal_docs_v1";
+const DOCS_API_BASE = "/PortalVagas/Documents";
   
   let docsCache = [];
   let docsLoaded = false;
@@ -32,10 +32,10 @@
   
   function toLabelDocType(value){
     const norm = normalizeDocTypeValue(value);
-    if(norm === "curriculo") return "Currículo";
+    if(norm === "curriculo") return "CurrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­culo";
     if(norm === "certificado") return "Certificado";
-    if(norm === "diplomadeclaracao") return "Diploma/Declaração";
-    if(norm === "portfolio") return "Portfólio";
+    if(norm === "diplomadeclaracao") return "Diploma/DeclaraÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o";
+    if(norm === "portfolio") return "PortfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³lio";
     if(norm === "carteiraregistro") return "Carteira/Registro";
     if(norm === "outros") return "Outros";
     if(norm === "documento") return "Documento";
@@ -103,17 +103,17 @@ function openDocModal(id){
   const d = id ? list.find(x => x.id === id) : null;
 
   document.getElementById("docId").value = d?.id || "";
-  document.getElementById("docType").value = d?.type || "Currículo";
+  document.getElementById("docType").value = d?.type || "CurrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­culo";
   document.getElementById("docName").value = d?.name || "";
   document.getElementById("docLink").value = d?.link || "";
   document.getElementById("docDate").value = d?.date || "";
   document.getElementById("docNotes").value = d?.notes || "";
 
-  // limpa file input (não dá pra setar value por segurança)
+  // limpa file input (nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ pra setar value por seguranÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§a)
   const fileInput = document.getElementById("docFile");
   if(fileInput) fileInput.value = "";
 
-  document.getElementById("docFileName").textContent = d?.fileName || "—";
+  document.getElementById("docFileName").textContent = d?.fileName || "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â";
   m.show();
 }
 
@@ -123,7 +123,7 @@ function handleDocFileChange(input){
     const name = input.files[0].name;
     if(label) label.textContent = name;
   }else{
-    if(label) label.textContent = "—";
+    if(label) label.textContent = "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â";
   }
 }
 
@@ -138,7 +138,7 @@ function handleDocFileChange(input){
   const notes = (document.getElementById("docNotes").value || "").trim();
 
   const fileName = (document.getElementById("docFileName").textContent || "").trim();
-  const finalFileName = (fileName && fileName !== "—") ? fileName : "";
+  const finalFileName = (fileName && fileName !== "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â") ? fileName : "";
 
     if(!name){
       Swal.fire({ icon:"warning", title:"Faltou o nome", text:"Informe o nome do documento.", confirmButtonColor:"#004aad" });
@@ -165,7 +165,7 @@ function handleDocFileChange(input){
           body: JSON.stringify(request)
         });
         const data = await res.json().catch(() => ({}));
-        if(!res.ok) throw new Error(data?.message || "Falha ao salvar documento.");
+        if(!res.ok) throw new Error(data?.message || S.documents.saveFail);
   
         const payload = mapDocumentDto(data);
         const updated = loadDocuments();
@@ -178,7 +178,7 @@ function handleDocFileChange(input){
         renderDocuments();
         Swal.fire({ toast:true, position:"top-end", icon:"success", title:"Documento salvo", showConfirmButton:false, timer:2000 });
       }catch(err){
-        Swal.fire({ icon:"error", title:"Falha ao salvar", text: String(err?.message || err || "Erro inesperado"), confirmButtonColor:"#004aad" });
+        Swal.fire({ icon:"error", title: S.documents.saveFailTitle, text: String(err?.message || err || S.documents.unexpectedError), confirmButtonColor:"#004aad" });
       }
       return;
     }
@@ -209,13 +209,13 @@ function handleDocFileChange(input){
   
   async function deleteDocumentItem(id){
     Swal.fire({
-      title:"Remover documento?",
-      text:"Isso apaga do seu perfil (neste protótipo).",
+      title: S.documents.removeTitle,
+      text:"Isso apaga do seu perfil (neste protÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³tipo).",
       icon:"warning",
     showCancelButton:true,
-    confirmButtonText:"Remover",
+    confirmButtonText: S.common.remove,
     confirmButtonColor:"#004aad",
-    cancelButtonText:"Cancelar"
+    cancelButtonText: S.common.cancel
     }).then(async r=>{
       if(!r.isConfirmed) return;
       if(!STORAGE_ENABLED){
@@ -223,10 +223,10 @@ function handleDocFileChange(input){
           const res = await fetch(`${DOCS_API_BASE}/${id}`, { method:"DELETE", headers:{ "Accept":"application/json" }, credentials:"same-origin" });
           if(!res.ok){
             const data = await res.json().catch(() => ({}));
-            throw new Error(data?.message || "Falha ao remover documento.");
+            throw new Error(data?.message || S.documents.removeFail);
           }
         }catch(err){
-          Swal.fire({ icon:"error", title:"Falha ao remover", text: String(err?.message || err || "Erro inesperado"), confirmButtonColor:"#004aad" });
+          Swal.fire({ icon:"error", title: S.documents.removeFailTitle, text: String(err?.message || err || S.documents.unexpectedError), confirmButtonColor:"#004aad" });
           return;
         }
       }
@@ -296,7 +296,7 @@ function handleDocFileChange(input){
 
   list.forEach(d => {
     const ico = iconForDocType(d.type || "Outros");
-    const when = d.date ? escapeHtml(d.date) : (d.updatedAt ? formatDateTimeBrSafe(d.updatedAt) : "—");
+    const when = d.date ? escapeHtml(d.date) : (d.updatedAt ? formatDateTimeBrSafe(d.updatedAt) : "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â");
     const linkBtn = d.link
       ? `<a class="btn btn-sm btn-outline-secondary fw-bold" href="${escapeAttr(d.link)}" target="_blank" rel="noopener">
            <i class="fas fa-link me-1"></i> Abrir
@@ -347,7 +347,7 @@ function handleDocFileChange(input){
   async function seedDocuments(){
     const list = loadDocuments();
     if(list.length > 0){
-      Swal.fire({ icon:"info", title:"Já existe conteúdo", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
+      Swal.fire({ icon:"info", title:"JÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ existe conteÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºdo", text:"Limpe antes para inserir exemplos.", confirmButtonColor:"#004aad" });
       return;
     }
 
@@ -355,11 +355,11 @@ function handleDocFileChange(input){
   const demo = [
     {
       id: uid(),
-      type: "Currículo",
-      name: "Currículo — versão 2026",
+      type: "CurrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­culo",
+      name: "CurrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­culo ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â versÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o 2026",
       link: "",
       date: "01/2026",
-      notes: "Versão atualizada com experiências e projetos recentes.",
+      notes: "VersÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o atualizada com experiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âªncias e projetos recentes.",
       fileName: "curriculo_2026.pdf",
       createdAt: now,
       updatedAt: now
@@ -367,10 +367,10 @@ function handleDocFileChange(input){
     {
       id: uid(),
       type: "Certificado",
-      name: "Certificação Excel Avançado",
+      name: "CertificaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o Excel AvanÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ado",
       link: "https://drive.google.com/",
       date: "2024",
-      notes: "Certificado SENAI • dashboards e tabelas dinâmicas.",
+      notes: "Certificado SENAI ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ dashboards e tabelas dinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢micas.",
       fileName: "",
       createdAt: now,
       updatedAt: now
@@ -402,7 +402,7 @@ function handleDocFileChange(input){
         renderDocuments();
         Swal.fire({ icon:"success", title:"Exemplos inseridos!", confirmButtonColor:"#004aad" });
       }catch{
-        Swal.fire({ icon:"error", title:"Falha ao inserir exemplos", confirmButtonColor:"#004aad" });
+        Swal.fire({ icon:"error", title: S.documents.insertExamplesFailTitle, confirmButtonColor:"#004aad" });
       }
       return;
     }
@@ -415,12 +415,12 @@ function handleDocFileChange(input){
   async function resetDocuments(){
     Swal.fire({
       icon:"warning",
-      title:"Limpar Documentos & Anexos?",
+      title: S.documents.clearTitle,
       text:"Isso apaga os dados desta aba neste navegador.",
     showCancelButton:true,
-    confirmButtonText:"Limpar",
+    confirmButtonText: S.common.clear,
     confirmButtonColor:"#004aad",
-    cancelButtonText:"Cancelar"
+    cancelButtonText: S.common.cancel
     }).then(async r=>{
       if(!r.isConfirmed) return;
       if(!STORAGE_ENABLED){
@@ -445,7 +445,7 @@ function handleDocFileChange(input){
 function downloadDocumentsSummary(){
   const list = loadDocuments();
   const lines = [];
-  lines.push("Liotécnica — Resumo de Documentos & Anexos (MVP)");
+  lines.push("LiotÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©cnica ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Resumo de Documentos & Anexos (MVP)");
   lines.push("Gerado em: " + new Date().toLocaleString("pt-BR"));
   lines.push("");
 
@@ -453,7 +453,7 @@ function downloadDocumentsSummary(){
     lines.push("Nenhum documento anexado.");
   }else{
     list.forEach(d => {
-      lines.push(`${d.type || "Outros"}: ${d.name} | Arquivo: ${(d.fileName||"—")} | Link: ${(d.link||"—")} | Data: ${(d.date||"—")}`);
+      lines.push(`${d.type || "Outros"}: ${d.name} | Arquivo: ${(d.fileName||"ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â")} | Link: ${(d.link||"ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â")} | Data: ${(d.date||"ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â")}`);
     });
   }
 
