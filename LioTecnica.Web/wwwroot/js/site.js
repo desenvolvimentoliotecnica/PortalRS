@@ -245,6 +245,7 @@
   window.addEventListener("load", end);
 
   document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-no-nav]")) return;
     const link = event.target.closest("a");
     if (!link) return;
     if (link.hasAttribute("download")) return;
@@ -498,6 +499,15 @@
   const badge = document.querySelector('[data-role="notif-count"]');
   const dropdownList = document.querySelector('[data-role="notif-dropdown-list"]');
   const pageList = document.querySelector('[data-role="notif-page-list"]');
+  const isAdmin = window.__isAdmin === "1";
+  const receiptsModalEl = document.getElementById("notifReceiptsModal");
+  const receiptsListEl = document.getElementById("notifReceiptsList");
+  const getProp = (obj, ...keys) => {
+    for (const key of keys) {
+      if (obj && obj[key] !== undefined && obj[key] !== null) return obj[key];
+    }
+    return undefined;
+  };
   let items = [];
 
   const levelToBadge = (level) => {
@@ -521,11 +531,11 @@
   const buildDropdownItem = (item) => {
     const a = document.createElement("a");
     a.className = "list-group-item list-group-item-action notif-item";
-    a.href = item.url || "/Notificacoes";
+    a.href = getProp(item, "url", "Url") || "/Notificacoes";
 
-    const title = item.title || "Notificacao";
-    const msg = item.message || "";
-    const when = window.fmtDate ? window.fmtDate(item.createdAt) : "";
+    const title = getProp(item, "title", "Title") || "Notificacao";
+    const msg = getProp(item, "message", "Message") || "";
+    const when = window.fmtDate ? window.fmtDate(getProp(item, "createdAt", "CreatedAt")) : "";
 
     a.innerHTML = `
       <div class="d-flex justify-content-between">
@@ -540,12 +550,20 @@
   const buildPageItem = (item) => {
     const a = document.createElement("a");
     a.className = "card-soft p-3 text-decoration-none";
-    a.href = item.url || "/Notificacoes";
+    a.href = getProp(item, "url", "Url") || "/Notificacoes";
 
-    const title = item.title || "Notificacao";
-    const msg = item.message || "";
-    const when = window.fmtDate ? window.fmtDate(item.createdAt) : "";
-    const badgeClass = levelToBadge(item.level);
+    const title = getProp(item, "title", "Title") || "Notificacao";
+    const msg = getProp(item, "message", "Message") || "";
+    const when = window.fmtDate ? window.fmtDate(getProp(item, "createdAt", "CreatedAt")) : "";
+    const badgeClass = levelToBadge(getProp(item, "level", "Level"));
+    const readCount = Number(getProp(item, "readCount", "ReadCount") || 0);
+    const seenCount = Number(getProp(item, "seenCount", "SeenCount") || 0);
+    const receiptsAction = isAdmin
+      ? `<button class="btn btn-ghost btn-sm notif-receipts" type="button" data-no-nav="1" data-id="${window.escapeHtml(getProp(item, "id", "Id"))}">
+            <i class="bi bi-eye me-1"></i>Lido por ${readCount} usuarios
+         </button>
+         <div class="text-muted small">Visto por ${seenCount} usuarios</div>`
+      : "";
 
     a.innerHTML = `
       <div class="d-flex align-items-start justify-content-between gap-2">
@@ -555,6 +573,7 @@
         </div>
         <span class="badge ${badgeClass}">${window.escapeHtml(when)}</span>
       </div>
+      ${receiptsAction ? `<div class="mt-2">${receiptsAction}</div>` : ""}
     `;
     return a;
   };
@@ -579,6 +598,7 @@
         renderEmpty(pageList, "Sem notificacoes no momento.");
       } else {
         pageList.replaceChildren(...list.map(buildPageItem));
+        if (isAdmin) bindReceiptsButtons();
       }
     }
   };
@@ -587,6 +607,78 @@
     items = Array.isArray(list) ? list : [];
     updateBadge(unreadCount ?? items.length);
     renderLists(items);
+  };
+
+  const markSeen = async (id) => {
+    if (!id) return;
+    try {
+      await fetch(`/Notifications/_api/seen/${encodeURIComponent(id)}`, {
+        method: "POST",
+        headers: { "X-LT-Silent": "1" },
+        credentials: "same-origin"
+      });
+    } catch {}
+  };
+
+  const markRead = async (id) => {
+    if (!id) return;
+    try {
+      await fetch(`/Notifications/_api/read/${encodeURIComponent(id)}`, {
+        method: "POST",
+        headers: { "X-LT-Silent": "1" },
+        credentials: "same-origin"
+      });
+    } catch {}
+  };
+
+  const markVisibleAsSeen = () => {
+    const list = dropdownList ? items.slice(0, 5) : [];
+    list.forEach(item => markSeen(getProp(item, "id", "Id")));
+  };
+
+  const bindReceiptsButtons = () => {
+    if (!receiptsModalEl || !receiptsListEl || !window.bootstrap) return;
+    pageList.querySelectorAll(".notif-receipts").forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const id = btn.getAttribute("data-id");
+        if (!id) return;
+        receiptsListEl.innerHTML = `<div class="text-muted small">Carregando...</div>`;
+        const modal = window.bootstrap.Modal.getOrCreateInstance(receiptsModalEl);
+        modal.show();
+        try {
+          const res = await fetch(`/Notifications/_api/receipts/${encodeURIComponent(id)}`, {
+            headers: { "Accept": "application/json", "X-LT-Silent": "1" },
+            credentials: "same-origin"
+          });
+          if (!res.ok) throw new Error(`status ${res.status}`);
+          const data = await res.json();
+          const list = Array.isArray(data?.items) ? data.items : [];
+          if (!list.length) {
+            receiptsListEl.innerHTML = `<div class="text-muted small">Nenhum registro ainda.</div>`;
+            return;
+          }
+          const rows = list.map(x => {
+            const name = window.escapeHtml(getProp(x, "name", "Name") || "Usuario");
+            const email = window.escapeHtml(getProp(x, "email", "Email") || "-");
+            const seenAt = window.fmtDate ? window.fmtDate(getProp(x, "seenAt", "SeenAt")) : "";
+            const readAt = window.fmtDate ? window.fmtDate(getProp(x, "readAt", "ReadAt")) : "";
+            return `
+              <div class="card-soft p-2">
+                <div class="fw-semibold">${name}</div>
+                <div class="text-muted small">${email}</div>
+                <div class="small mt-1">Visto em: ${window.escapeHtml(seenAt || "—")}</div>
+                <div class="small">Lido em: ${window.escapeHtml(readAt || "—")}</div>
+              </div>
+            `;
+          }).join("");
+          receiptsListEl.innerHTML = rows;
+        } catch (err) {
+          receiptsListEl.innerHTML = `<div class="text-muted small">Falha ao carregar.</div>`;
+        }
+      }, { once: true });
+    });
   };
 
   const load = async () => {
@@ -599,7 +691,7 @@
       if (!res.ok) throw new Error(`notifications ${res.status}`);
       const data = await res.json();
       const list = Array.isArray(data?.items) ? data.items : [];
-      applyItems(list, data?.unreadCount);
+      applyItems(list, getProp(data, "unreadCount", "UnreadCount"));
     } catch (err) {
       renderLists([]);
     }
@@ -631,13 +723,35 @@
     }
   };
 
+  const bindDropdownSeen = () => {
+    if (!dropdownList) return;
+    const dropdown = dropdownList.closest(".dropdown");
+    if (!dropdown) return;
+    dropdown.addEventListener("shown.bs.dropdown", () => {
+      markVisibleAsSeen();
+    });
+  };
+
+  const bindReadAll = () => {
+    const btn = document.getElementById("btnMarkAllRead");
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+      await Promise.all(items.map(item => markRead(item.id)));
+      if (window.toast) window.toast("Notificacoes marcadas como lidas.");
+    });
+  };
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       load();
       startHub();
+      bindDropdownSeen();
+      bindReadAll();
     }, { once: true });
   } else {
     load();
     startHub();
+    bindDropdownSeen();
+    bindReadAll();
   }
 })();
