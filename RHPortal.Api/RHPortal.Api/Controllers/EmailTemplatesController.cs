@@ -9,6 +9,9 @@ using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Templates de e-mail: versões, ativação e manutenção.
+/// </summary>
 [ApiController]
 [Authorize]
 [Route("api/email-templates")]
@@ -21,7 +24,11 @@ public sealed class EmailTemplatesController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Lista templates de e-mail (com opção de incluir inativos).
+    /// </summary>
     [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<EmailTemplateListItem>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<EmailTemplateListItem>>> List(
         [FromServices] AppDbContext db,
         [FromQuery] bool includeInactive = false,
@@ -47,7 +54,12 @@ public sealed class EmailTemplatesController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Obtém um template de e-mail por ID.
+    /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EmailTemplateResponse>> Get(
         Guid id,
         [FromServices] AppDbContext db,
@@ -67,7 +79,12 @@ public sealed class EmailTemplatesController : ControllerBase
             entity.UpdatedAtUtc));
     }
 
+    /// <summary>
+    /// Cria um template de e-mail (versão inicial).
+    /// </summary>
     [HttpPost]
+    [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<EmailTemplateResponse>> Create(
         [FromBody] EmailTemplateCreateRequest request,
         [FromServices] AppDbContext db,
@@ -110,7 +127,12 @@ public sealed class EmailTemplatesController : ControllerBase
             entity.UpdatedAtUtc));
     }
 
+    /// <summary>
+    /// Atualiza um template criando uma nova versão ativa.
+    /// </summary>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(EmailTemplateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EmailTemplateResponse>> Update(
         Guid id,
         [FromBody] EmailTemplateUpdateRequest request,
@@ -152,7 +174,12 @@ public sealed class EmailTemplatesController : ControllerBase
             entity.UpdatedAtUtc));
     }
 
+    /// <summary>
+    /// Define um template como ativo (desativa versões irmãs).
+    /// </summary>
     [HttpPost("{id:guid}/set-active")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetActive(
         Guid id,
         [FromServices] AppDbContext db,

@@ -5,18 +5,30 @@ using RhPortal.Api.Contracts.Managers;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Cadastro de gestores.
+/// </summary>
 [ApiController]
 [Route("api/managers")]
 public sealed class ManagersController : ControllerBase
 {
+    /// <summary>
+    /// Lista gestores com paginação e filtros.
+    /// </summary>
     [HttpGet]
+    [ProducesResponseType(typeof(PagedResult<ManagerGridRowResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<ManagerGridRowResponse>>> List(
         [FromQuery] ManagerListQuery query,
         [FromServices] IListManagersHandler handler,
         CancellationToken ct)
         => Ok(await handler.HandleAsync(query, ct));
 
+    /// <summary>
+    /// Consulta um gestor pelo ID.
+    /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(ManagerResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ManagerResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] IGetManagerByIdHandler handler,
@@ -26,7 +38,12 @@ public sealed class ManagersController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    /// <summary>
+    /// Cria um novo gestor.
+    /// </summary>
     [HttpPost]
+    [ProducesResponseType(typeof(ManagerResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ManagerResponse>> Create(
         [FromBody] ManagerCreateRequest request,
         [FromServices] ICreateManagerHandler handler,
@@ -43,7 +60,13 @@ public sealed class ManagersController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Atualiza um gestor.
+    /// </summary>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(ManagerResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ManagerResponse>> Update(
         [FromRoute] Guid id,
         [FromBody] ManagerUpdateRequest request,
@@ -61,7 +84,12 @@ public sealed class ManagersController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Remove um gestor.
+    /// </summary>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] IDeleteManagerHandler handler,

@@ -15,6 +15,9 @@ using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Caixa de entrada: mensagens, anexos e status de processamento.
+/// </summary>
 [ApiController]
 [Route("api/inbox")]
 public sealed class InboxController : ControllerBase
@@ -30,7 +33,11 @@ public sealed class InboxController : ControllerBase
         _infraLocalizer = infraLocalizer;
     }
 
+    /// <summary>
+    /// Lista itens da inbox com filtros (origem, status, vaga e busca).
+    /// </summary>
     [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<InboxResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<InboxResponse>>> List(
         [FromServices] AppDbContext db,
         [FromQuery] string? origem,
@@ -71,7 +78,12 @@ public sealed class InboxController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Obtém um item da inbox pelo ID.
+    /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(InboxResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<InboxResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,
@@ -85,7 +97,12 @@ public sealed class InboxController : ControllerBase
         return item is null ? NotFound() : Ok(MapResponse(item));
     }
 
+    /// <summary>
+    /// Cria um item da inbox (ex.: entrada manual).
+    /// </summary>
     [HttpPost]
+    [ProducesResponseType(typeof(InboxResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<InboxResponse>> Create(
         [FromBody] InboxCreateRequest request,
         [FromServices] AppDbContext db,
@@ -142,8 +159,13 @@ public sealed class InboxController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapResponse(entity));
     }
 
+    /// <summary>
+    /// Envia um arquivo para processamento (currículo, e-mail etc.).
+    /// </summary>
     [HttpPost("upload")]
     [Consumes("multipart/form-data")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Upload(
         [FromForm] InboxUploadRequest request,
         [FromServices] InboxFileProcessor processor,
@@ -176,7 +198,13 @@ public sealed class InboxController : ControllerBase
         return Ok(new { status = "queued" });
     }
 
+    /// <summary>
+    /// Atualiza um item da inbox.
+    /// </summary>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(InboxResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<InboxResponse>> Update(
         [FromRoute] Guid id,
         [FromBody] InboxUpdateRequest request,
@@ -258,7 +286,12 @@ public sealed class InboxController : ControllerBase
         return Ok(MapResponse(entity));
     }
 
+    /// <summary>
+    /// Remove um item da inbox.
+    /// </summary>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,

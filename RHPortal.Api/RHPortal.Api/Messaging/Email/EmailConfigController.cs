@@ -10,6 +10,9 @@ using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Messaging.Email;
 
+/// <summary>
+/// Configuração de e-mail (SMTP/IMAP) do tenant.
+/// </summary>
 [ApiController]
 [Authorize]
 [Route("api/email-config")]
@@ -24,7 +27,12 @@ public sealed class EmailConfigController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Obtém a configuração de e-mail atual (valores sensíveis mascarados).
+    /// </summary>
     [HttpGet]
+    [ProducesResponseType(typeof(EmailConfigView), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EmailConfigView>> Get(CancellationToken ct)
     {
         var data = await _service.GetAsync(ct);
@@ -33,14 +41,23 @@ public sealed class EmailConfigController : ControllerBase
         return Ok(data);
     }
 
+    /// <summary>
+    /// Salva a configuração de e-mail (SMTP/IMAP).
+    /// </summary>
     [HttpPut]
+    [ProducesResponseType(typeof(EmailConfigView), StatusCodes.Status200OK)]
     public async Task<ActionResult<EmailConfigView>> Save([FromBody] EmailConfigDto dto, CancellationToken ct)
     {
         var data = await _service.SaveAsync(dto, ct);
         return Ok(data);
     }
 
+    /// <summary>
+    /// Testa o envio via SMTP usando os dados informados (ou atuais).
+    /// </summary>
     [HttpPost("test-smtp")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> TestSmtp([FromBody] EmailTestRequest request, CancellationToken ct)
     {
         var config = await _service.GetDecryptedAsync(ct);
@@ -80,7 +97,12 @@ public sealed class EmailConfigController : ControllerBase
         return Ok(new { message = _localizer["InfrastructureEmail.SmtpOk"] });
     }
 
+    /// <summary>
+    /// Testa a autenticação IMAP usando os dados informados (ou atuais).
+    /// </summary>
     [HttpPost("test-imap")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> TestImap([FromBody] EmailTestRequest request, CancellationToken ct)
     {
         var config = await _service.GetDecryptedAsync(ct);

@@ -7,11 +7,18 @@ using RhPortal.Api.Infrastructure.Data;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Dados do dashboard (visão rápida de RH).
+/// </summary>
 [ApiController]
 [Route("api/dashboard")]
 public sealed class DashboardController : ControllerBase
 {
+    /// <summary>
+    /// Indicadores principais do dashboard (vagas abertas, candidatos do dia, pendentes e aprovados).
+    /// </summary>
     [HttpGet("kpis")]
+    [ProducesResponseType(typeof(DashboardKpisResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<DashboardKpisResponse>> GetKpis(
         [FromServices] AppDbContext db,
         CancellationToken ct)
@@ -40,7 +47,12 @@ public sealed class DashboardController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Série diária de candidatos recebidos.
+    /// </summary>
+    /// <param name="days">Quantidade de dias (1 a 60).</param>
     [HttpGet("recebidos-series")]
+    [ProducesResponseType(typeof(DashboardSeriesResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<DashboardSeriesResponse>> GetRecebidosSeries(
         [FromQuery] int days,
         [FromServices] AppDbContext db,
@@ -72,7 +84,11 @@ public sealed class DashboardController : ControllerBase
         return Ok(new DashboardSeriesResponse(labels, values));
     }
 
+    /// <summary>
+    /// Funil de candidatos por status.
+    /// </summary>
     [HttpGet("funil")]
+    [ProducesResponseType(typeof(DashboardFunnelResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<DashboardFunnelResponse>> GetFunnel(
         [FromServices] AppDbContext db,
         CancellationToken ct)
@@ -93,7 +109,16 @@ public sealed class DashboardController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Lista top matches (candidatos com maior score).
+    /// </summary>
+    /// <param name="minMatch">Score mínimo (0 a 100).</param>
+    /// <param name="vagaId">Filtrar por vaga.</param>
+    /// <param name="from">Data inicial do match.</param>
+    /// <param name="to">Data final do match.</param>
+    /// <param name="take">Quantidade de itens (1 a 100).</param>
     [HttpGet("top-matches")]
+    [ProducesResponseType(typeof(IReadOnlyList<DashboardTopMatchResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DashboardTopMatchResponse>>> GetTopMatches(
         [FromQuery] int minMatch,
         [FromQuery] Guid? vagaId,
@@ -142,7 +167,12 @@ public sealed class DashboardController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Lista vagas abertas para cartões/resumo.
+    /// </summary>
+    /// <param name="take">Quantidade de itens (1 a 300).</param>
     [HttpGet("open-vagas")]
+    [ProducesResponseType(typeof(IReadOnlyList<DashboardOpenVagaResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DashboardOpenVagaResponse>>> GetOpenVagas(
         [FromQuery] int take,
         [FromServices] AppDbContext db,
@@ -171,7 +201,11 @@ public sealed class DashboardController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Lookup simples de vagas (id, código e título).
+    /// </summary>
     [HttpGet("vagas")]
+    [ProducesResponseType(typeof(IReadOnlyList<DashboardVagaLookupResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DashboardVagaLookupResponse>>> GetVagasLookup(
         [FromServices] AppDbContext db,
         CancellationToken ct)
@@ -184,7 +218,11 @@ public sealed class DashboardController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Lookup simples de áreas.
+    /// </summary>
     [HttpGet("areas")]
+    [ProducesResponseType(typeof(IReadOnlyList<DashboardAreaLookupResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DashboardAreaLookupResponse>>> GetAreasLookup(
         [FromServices] AppDbContext db,
         CancellationToken ct)

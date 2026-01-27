@@ -6,12 +6,21 @@ using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Auditoria: consultas de transações e trilhas de alteração.
+/// </summary>
 [ApiController]
 [Route("api/audit")]
 public sealed class AuditController : ControllerBase
 {
+    /// <summary>
+    /// Lista transações de auditoria com filtros e paginação.
+    /// </summary>
     [RequirePermission("audit.view")]
     [HttpGet("transactions")]
+    [ProducesResponseType(typeof(AuditTransactionListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<AuditTransactionListResponse>> List(
         [FromServices] AppDbContext db,
         [FromQuery] DateTimeOffset? from = null,
@@ -83,8 +92,15 @@ public sealed class AuditController : ControllerBase
         return Ok(new AuditTransactionListResponse(items, page, pageSize, totalItems, totalPages));
     }
 
+    /// <summary>
+    /// Detalha uma transação de auditoria com eventos e mudanças.
+    /// </summary>
     [RequirePermission("audit.view")]
     [HttpGet("transactions/{id:guid}")]
+    [ProducesResponseType(typeof(AuditTransactionDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<AuditTransactionDetailResponse>> GetById(
         Guid id,
         [FromServices] AppDbContext db,
@@ -186,8 +202,14 @@ public sealed class AuditController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Resumo de auditoria: rotas, usuários e status mais frequentes.
+    /// </summary>
     [RequirePermission("audit.view")]
     [HttpGet("summary")]
+    [ProducesResponseType(typeof(AuditSummaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<AuditSummaryResponse>> Summary(
         [FromServices] AppDbContext db,
         [FromQuery] DateTimeOffset? from = null,

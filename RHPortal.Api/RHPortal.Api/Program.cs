@@ -142,14 +142,14 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 
 // Identity
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
-    {
-        options.User.RequireUniqueEmail = true;
-        options.Password.RequireDigit = true;
-        options.Password.RequireUppercase = true;
-        options.Password.RequireLowercase = true;
-        options.Password.RequireNonAlphanumeric = true;
-        options.Password.RequiredLength = 8;
-    })
+{
+    options.User.RequireUniqueEmail = true;
+    options.Password.RequireDigit = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredLength = 8;
+})
     .AddErrorDescriber<LocalizedIdentityErrorDescriber>()
     .AddRoles<ApplicationRole>()
     .AddEntityFrameworkStores<AppDbContext>()
@@ -287,7 +287,16 @@ var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocali
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        // Ordena operações dentro do controller (normalmente existe em versões antigas)
+        var opSorterProp = c.ConfigObject.GetType().GetProperty("OperationsSorter");
+        opSorterProp?.SetValue(c.ConfigObject, "alpha"); // ou "method"
+
+        // Ordena controllers/tags (em versões novas existe; em antigas não — por isso reflection)
+        var tagsSorterProp = c.ConfigObject.GetType().GetProperty("TagsSorter");
+        tagsSorterProp?.SetValue(c.ConfigObject, "alpha");
+    });
 }
 
 app.UseExceptionHandler();

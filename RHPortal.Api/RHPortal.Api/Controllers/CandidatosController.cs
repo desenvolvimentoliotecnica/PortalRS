@@ -9,6 +9,9 @@ using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Candidatos (admin/RH): cadastro, atualização, documentos e histórico.
+/// </summary>
 [ApiController]
 [Route("api/candidatos")]
 public sealed class CandidatosController : ControllerBase
@@ -20,7 +23,11 @@ public sealed class CandidatosController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Lista candidatos com filtros (busca, status, vaga e origem).
+    /// </summary>
     [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<CandidateListItemResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<CandidateListItemResponse>>> List(
         [FromQuery] string? q,
         [FromQuery] CandidateStatus? status,
@@ -34,7 +41,12 @@ public sealed class CandidatosController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Obtém um candidato pelo ID.
+    /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(CandidateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CandidateResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] IGetCandidatoByIdHandler handler,
@@ -44,7 +56,12 @@ public sealed class CandidatosController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    /// <summary>
+    /// Cria um novo candidato.
+    /// </summary>
     [HttpPost]
+    [ProducesResponseType(typeof(CandidateResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CandidateResponse>> Create(
         [FromBody] CandidateCreateRequest request,
         [FromServices] ICreateCandidatoHandler handler,
@@ -61,7 +78,13 @@ public sealed class CandidatosController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Atualiza um candidato existente.
+    /// </summary>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(CandidateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CandidateResponse>> Update(
         [FromRoute] Guid id,
         [FromBody] CandidateUpdateRequest request,
@@ -79,7 +102,12 @@ public sealed class CandidatosController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Remove um candidato.
+    /// </summary>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] IDeleteCandidatoHandler handler,
@@ -89,11 +117,17 @@ public sealed class CandidatosController : ControllerBase
         return deleted ? NoContent() : NotFound();
     }
 
+    /// <summary>
+    /// Envia um documento do candidato (upload).
+    /// </summary>
     [HttpPost("{id:guid}/documentos")]
     [RequestSizeLimit(52_428_800)]
     [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
     [Consumes("multipart/form-data")]
     [ApiExplorerSettings(IgnoreApi = true)]
+    [ProducesResponseType(typeof(CandidateDocumentoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CandidateDocumentoResponse>> UploadDocumento(
         [FromRoute] Guid id,
         [FromForm] CandidateDocumentoUploadRequest request,
@@ -128,7 +162,12 @@ public sealed class CandidatosController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Faz download de um documento do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/documentos/{documentoId:guid}/download")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DownloadDocumento(
         [FromRoute] Guid id,
         [FromRoute] Guid documentoId,
@@ -145,7 +184,12 @@ public sealed class CandidatosController : ControllerBase
         return PhysicalFile(file.FilePath, contentType, file.FileName);
     }
 
+    /// <summary>
+    /// Remove um documento do candidato.
+    /// </summary>
     [HttpDelete("{id:guid}/documentos/{documentoId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteDocumento(
         [FromRoute] Guid id,
         [FromRoute] Guid documentoId,
@@ -156,7 +200,11 @@ public sealed class CandidatosController : ControllerBase
         return deleted ? NoContent() : NotFound();
     }
 
+    /// <summary>
+    /// Lista o histórico de status do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/status-history")]
+    [ProducesResponseType(typeof(IReadOnlyList<CandidateStatusHistoryItemResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<CandidateStatusHistoryItemResponse>>> GetStatusHistory(
         [FromRoute] Guid id,
         [FromServices] ICandidatoService service,

@@ -12,6 +12,9 @@ using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Candidatura pública do Portal de Vagas (envio de currículo).
+/// </summary>
 [ApiController]
 [AllowAnonymous]
 [Route("api/public/candidaturas")]
@@ -24,7 +27,18 @@ public sealed class PublicCandidaturasController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Envia uma candidatura para uma vaga (com currículo opcional).
+    /// </summary>
+    /// <remarks>
+    /// - Se o e-mail já existir, a candidatura é atualizada para a nova vaga.
+    /// - Se o currículo for enviado, ele é anexado ao candidato.
+    /// </remarks>
     [HttpPost]
+    [ProducesResponseType(typeof(CandidateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [RequestSizeLimit(52_428_800)]
     [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
     [Consumes("multipart/form-data")]
