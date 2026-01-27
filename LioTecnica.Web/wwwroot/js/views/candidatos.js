@@ -32,9 +32,13 @@
       selectedId: null,
       filters: { q:"", status:"all", vagaId:"all" },
       pendingDocs: [],
-      pendingDocsCandidateId: null
+      pendingDocsCandidateId: null,
+      matchRenderToken: 0
     };
     const detailLoads = new Set();
+    const detailLoaded = new Set();
+    const vagaDetailLoads = new Set();
+    const vagaDetailLoaded = new Set();
 
     function formatFileSize(bytes){
       if(bytes === null || bytes === undefined) return EMPTY_TEXT;
@@ -144,6 +148,9 @@
         xhr.open(opts.method || "GET", targetUrl, true);
         xhr.withCredentials = true;
         Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+        if(headers["X-LT-Silent"] || headers["x-lt-silent"]){
+          xhr._ltTrack = false;
+        }
         xhr.timeout = 20000;
         xhr.onload = () => {
           const status = xhr.status;
@@ -273,10 +280,6 @@
       };
     }
 
-    async function fetchVagaById(id){
-      return apiFetchJson(`${VAGAS_API_URL}/${id}`, { method: "GET" });
-    }
-
     async function syncVagasSummary(){
       const list = await apiFetchJson(VAGAS_API_URL, { method: "GET" });
       state.vagas = Array.isArray(list)
@@ -284,23 +287,32 @@
         : [];
     }
 
-    async function syncVagaDetailsForCandidates(){
-      const ids = new Set(state.candidatos.map(c => c.vagaId).filter(Boolean));
-      const detailList = await Promise.all(Array.from(ids).map(async id => {
-        try{
-          return await fetchVagaById(id);
-        }catch{
-          return null;
-        }
-      }));
+    async function ensureVagaDetails(id){
+      if(!id) return null;
+      if(vagaDetailLoaded.has(id)) return findVaga(id);
+      if(vagaDetailLoads.has(id)) return findVaga(id);
 
-      detailList.filter(Boolean).forEach(detail => {
+      vagaDetailLoads.add(id);
+      try{
+        const detail = await apiFetchJson(`${VAGAS_API_URL}/${id}`, {
+          method: "GET",
+          headers: { "X-LT-Silent": "1" }
+        });
         const mapped = mapVagaFromDetail(detail);
-        if(!mapped) return;
-        const idx = state.vagas.findIndex(v => v.id === mapped.id);
-        if(idx >= 0) state.vagas[idx] = { ...state.vagas[idx], ...mapped };
-        else state.vagas.push(mapped);
-      });
+        if(mapped){
+          const idx = state.vagas.findIndex(v => v.id === mapped.id);
+          if(idx >= 0) state.vagas[idx] = { ...state.vagas[idx], ...mapped };
+          else state.vagas.push(mapped);
+          vagaDetailLoaded.add(id);
+          return mapped;
+        }
+      }catch(err){
+        console.error(err);
+      }finally{
+        vagaDetailLoads.delete(id);
+      }
+
+      return findVaga(id);
     }
 
     async function syncCandidatosFromApi(){
@@ -322,14 +334,22 @@
     async function ensureCandidateDetails(id){
       const current = findCand(id);
       if(!current || current.documentos !== null) return current;
+      if(detailLoaded.has(id)) return current;
       if(detailLoads.has(id)) return current;
 
       detailLoads.add(id);
       try{
-        const detail = await apiFetchJson(`${CANDIDATOS_API_URL}/${id}`, { method: "GET" });
+        const detail = await apiFetchJson(`${CANDIDATOS_API_URL}/${id}`, {
+          method: "GET",
+          headers: { "X-LT-Silent": "1" }
+        });
         const mapped = mapCandidateFromApi(detail);
         if(mapped){
+          if(mapped.documentos === null){
+            mapped.documentos = [];
+          }
           state.candidatos = state.candidatos.map(c => c.id === id ? { ...c, ...mapped } : c);
+          detailLoaded.add(id);
           return mapped;
         }
       }catch(err){
@@ -493,6 +513,7 @@
 
         const tr = cloneTemplate("tpl-cand-row");
         if(!tr) return;
+        tr.dataset.candId = c.id;
         tr.style.cursor = "default";
         if(isSel) tr.classList.add("table-active");
 
@@ -551,17 +572,41 @@
       });
     }
 
+    function updateSelectedRow(prevId, nextId){
+      if(prevId && prevId !== nextId){
+        const prevRow = document.querySelector(`tr[data-cand-id="${prevId}"]`);
+        if(prevRow) prevRow.classList.remove("table-active");
+      }
+      if(nextId){
+        const nextRow = document.querySelector(`tr[data-cand-id="${nextId}"]`);
+        if(nextRow) nextRow.classList.add("table-active");
+      }
+    }
+
     function selectCand(id){
+      const prevId = state.selectedId;
       state.selectedId = id;
-      renderList();
-      renderDetail();
+      updateSelectedRow(prevId, id);
+      requestRenderDetail();
     }
 
     async function openDetailModal(id){
-      await ensureCandidateDetails(id);
+      const cand = findCand(id);
+      if(cand?.vagaId && !vagaDetailLoaded.has(cand.vagaId)){
+        ensureVagaDetails(cand.vagaId).then(() => {
+          if(state.selectedId === id){
+            requestRenderDetail();
+          }
+        });
+      }
       selectCand(id);
       const modal = bootstrap.Modal.getOrCreateInstance($("#modalCandDetalhes"));
       modal.show();
+      ensureCandidateDetails(id).then(() => {
+        if(state.selectedId === id){
+          requestRenderDetail();
+        }
+      });
     }
 
     // ========= Detail UI
@@ -771,7 +816,29 @@
       return { successCount, failedCount };
     }
 
-    function renderDetail(){
+    let detailRenderInProgress = false;
+    let detailRenderQueued = false;
+
+    function requestRenderDetail(){
+      if(detailRenderInProgress){
+        detailRenderQueued = true;
+        return;
+      }
+      detailRenderInProgress = true;
+      requestAnimationFrame(() => {
+        try{
+          renderDetailCore();
+        }finally{
+          detailRenderInProgress = false;
+          if(detailRenderQueued){
+            detailRenderQueued = false;
+            requestRenderDetail();
+          }
+        }
+      });
+    }
+
+    function renderDetailCore(){
       const host = $("#detailHost");
       host.replaceChildren();
 
@@ -835,53 +902,56 @@
 
       renderDocumentList(root, c);
 
-      const m = calcMatchForCand(c);
-      const thr = m.threshold ?? (v ? v.threshold : 0);
-      const pass = !!m.pass;
-
       toggleRole(root, "match-has-vaga", !!v);
       toggleRole(root, "match-no-vaga", !v);
-
+      const matchRenderToken = ++state.matchRenderToken;
       if(v){
-        const matchStatusHost = root.querySelector('[data-role="match-status-host"]');
-        if(matchStatusHost){
-          const tag = cloneTemplate("tpl-cand-status-tag");
-          if(tag){
-            tag.classList.toggle("ok", pass);
-            tag.classList.toggle("bad", !pass);
-            const icon = tag.querySelector('[data-role="icon"]');
-            if(icon) icon.className = pass ? "bi bi-check2-circle" : "bi bi-x-circle";
-            const label = tag.querySelector('[data-role="text"]');
-            if(label) label.textContent = pass ? "Dentro do minimo" : "Abaixo do minimo";
-            matchStatusHost.replaceChildren(tag);
+        requestAnimationFrame(() => {
+          if(state.matchRenderToken !== matchRenderToken) return;
+          const m = calcMatchForCand(c);
+          const thr = m.threshold ?? (v ? v.threshold : 0);
+          const pass = !!m.pass;
+
+          const matchStatusHost = root.querySelector('[data-role="match-status-host"]');
+          if(matchStatusHost){
+            const tag = cloneTemplate("tpl-cand-status-tag");
+            if(tag){
+              tag.classList.toggle("ok", pass);
+              tag.classList.toggle("bad", !pass);
+              const icon = tag.querySelector('[data-role="icon"]');
+              if(icon) icon.className = pass ? "bi bi-check2-circle" : "bi bi-x-circle";
+              const label = tag.querySelector('[data-role="text"]');
+              if(label) label.textContent = pass ? "Dentro do minimo" : "Abaixo do minimo";
+              matchStatusHost.replaceChildren(tag);
+            }
           }
-        }
 
-        const score = clamp(parseInt(m.score||0,10)||0,0,100);
-        const thrValue = clamp(parseInt(thr||0,10)||0,0,100);
-        const progress = root.querySelector('[data-role="match-progress"]');
-        if(progress) progress.style.width = `${score}%`;
-        setText(root, "match-score", `${score}%`);
-        setText(root, "match-thr", `${thrValue}%`);
-        setText(root, "match-hits-count", (m.hits||[]).length);
-        setText(root, "match-miss-count", (m.missMandatory||[]).length);
+          const score = clamp(parseInt(m.score||0,10)||0,0,100);
+          const thrValue = clamp(parseInt(thr||0,10)||0,0,100);
+          const progress = root.querySelector('[data-role="match-progress"]');
+          if(progress) progress.style.width = `${score}%`;
+          setText(root, "match-score", `${score}%`);
+          setText(root, "match-thr", `${thrValue}%`);
+          setText(root, "match-hits-count", (m.hits||[]).length);
+          setText(root, "match-miss-count", (m.missMandatory||[]).length);
 
-        const hits = (m.hits || []).map(r => r.termo).slice(0, 12);
-        const misses = (m.missMandatory || []).map(r => r.termo).slice(0, 12);
+          const hits = (m.hits || []).map(r => r.termo).slice(0, 12);
+          const misses = (m.missMandatory || []).map(r => r.termo).slice(0, 12);
 
-        const missBlock = root.querySelector('[data-role="match-miss-block"]');
-        if(missBlock) missBlock.classList.toggle("d-none", !misses.length);
-        setText(root, "match-miss-list", misses.join(", "));
-        setText(root, "match-hit-list", hits.length ? hits.join(", ") : EMPTY_TEXT);
+          const missBlock = root.querySelector('[data-role="match-miss-block"]');
+          if(missBlock) missBlock.classList.toggle("d-none", !misses.length);
+          setText(root, "match-miss-list", misses.join(", "));
+          setText(root, "match-hit-list", hits.length ? hits.join(", ") : EMPTY_TEXT);
+        });
       }
 
       host.appendChild(root);
       bindDetailActions(c);
 
-      if(c.documentos === null){
-        ensureCandidateDetails(c.id).then(() => {
+      if(v && !vagaDetailLoaded.has(v.id) && (!v.requisitos || v.requisitos.length === 0)){
+        ensureVagaDetails(v.id).then(() => {
           if(state.selectedId === c.id){
-            renderDetail();
+            requestRenderDetail();
           }
         });
       }
@@ -1117,11 +1187,10 @@
           toast("Candidato criado.");
         }
 
-        await syncVagaDetailsForCandidates();
         updateKpis();
         renderVagaFilters();
         renderList();
-        renderDetail();
+        requestRenderDetail();
 
         if(!id && state.pendingDocs.length){
           const modalEl = $("#modalCand");
@@ -1171,7 +1240,7 @@
         }
         updateKpis();
         renderList();
-        renderDetail();
+        requestRenderDetail();
         toast("Candidato excluido.");
       }catch(err){
         console.error(err);
@@ -1197,7 +1266,7 @@
         const mapped = mapCandidateFromApi(saved);
         if(mapped) state.candidatos = state.candidatos.map(x => x.id === mapped.id ? mapped : x);
         renderList();
-        renderDetail();
+        requestRenderDetail();
         toast("Texto do CV salvo.");
       }catch(err){
         console.error(err);
@@ -1232,7 +1301,7 @@
         if(mapped) state.candidatos = state.candidatos.map(x => x.id === mapped.id ? mapped : x);
         updateKpis();
         renderList();
-        renderDetail();
+        requestRenderDetail();
         toast("Status/Vaga atualizados.");
       }catch(err){
         console.error(err);
@@ -1257,7 +1326,7 @@
         const mapped = mapCandidateFromApi(saved);
         if(mapped) state.candidatos = state.candidatos.map(x => x.id === mapped.id ? mapped : x);
         renderList();
-        renderDetail();
+        requestRenderDetail();
         toast("Match recalculado.");
       }catch(err){
         console.error(err);
@@ -1344,7 +1413,13 @@
       let openId = params.get("open");
       if(!openId){
         const match = (window.location.href || "").match(/[?&]open=([^&]+)/i);
-        openId = match ? decodeURIComponent(match[1]) : null;
+        if(match){
+          try{
+            openId = decodeURIComponent(match[1]);
+          }catch{
+            openId = match[1];
+          }
+        }
       }
       if(!openId) return null;
       params.delete("open");
@@ -1354,66 +1429,62 @@
       return openId;
     }
 
-    function tryOpenCandidateFromQuery(){
+    async function tryOpenCandidateFromQuery(){
       const openId = consumeOpenCandidateQuery();
       if(!openId) return false;
       const cand = findCand(openId);
       if(!cand) return false;
-      selectCand(openId);
-      const modalEl = $("#modalCandDetalhes");
-      if(modalEl){
-        requestAnimationFrame(() => {
-          const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-          modal.show();
-        });
-      }
+      openDetailModal(openId);
       return true;
     }
 
     // ========= Init
     (async function init(){
-      initLogo();
-      wireClock();
-
-      await ensureEnumData();
-      refreshEnumDefaults();
-      applyEnumSelects();
-
-      let ready = false;
       try{
+        initLogo();
+        wireClock();
+
+        await ensureEnumData();
+        refreshEnumDefaults();
+        applyEnumSelects();
+
+        let ready = false;
+        try{
         await syncVagasSummary();
         await syncCandidatosFromApi();
-        await syncVagaDetailsForCandidates();
-        ready = true;
+          ready = true;
+        }catch(err){
+          console.error(err);
+          toast("Falha ao carregar candidatos/vagas.");
+        }
+
+        if(ready){
+          renderVagaFilters();
+          updateKpis();
+          renderList();
+          requestRenderDetail();
+        }else{
+          renderVagaFilters();
+          updateKpis();
+          renderList();
+          document.getElementById("globalLoading")?.classList.remove("active");
+        }
+
+        wireFilters();
+        wireButtons();
+
+        const opened = await tryOpenCandidateFromQuery();
+
+        if(!opened && !state.selectedId && state.candidatos.length){
+          state.selectedId = state.candidatos[0].id;
+          renderList();
+          requestRenderDetail();
+        }
       }catch(err){
         console.error(err);
-        toast("Falha ao carregar candidatos/vagas.");
-      }
-
-      if(ready){
-        renderVagaFilters();
-        updateKpis();
-        renderList();
-        renderDetail();
-      }else{
-        renderVagaFilters();
-        updateKpis();
-        renderList();
-        document.getElementById("globalLoading")?.classList.remove("active");
-      }
-
-      wireFilters();
-      wireButtons();
-
-      const opened = tryOpenCandidateFromQuery();
-
-      if(!opened && !state.selectedId && state.candidatos.length){
-        state.selectedId = state.candidatos[0].id;
-        renderList();
-        renderDetail();
-      }
-
-      if(window.LioTecnicaLoading?.end){
-        setTimeout(() => window.LioTecnicaLoading.end(), 600);
+      }finally{
+        if(window.LioTecnicaLoading?.end){
+          setTimeout(() => window.LioTecnicaLoading.end(), 600);
+        }
       }
     })();

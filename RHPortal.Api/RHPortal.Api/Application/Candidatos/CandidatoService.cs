@@ -591,7 +591,7 @@ public sealed class CandidatoService : ICandidatoService
                 "Novo candidato cadastrado",
                 message,
                 "info",
-                "/Candidatos",
+                $"/Candidatos?open={entity.Id}",
                 _tenantContext.TenantId,
                 null);
 

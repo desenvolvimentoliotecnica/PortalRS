@@ -10,6 +10,7 @@ using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Notifications;
+using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Controllers;
@@ -49,6 +50,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         [FromServices] ICandidatoService service,
         [FromServices] AppDbContext db,
         [FromServices] NotificationPublisher notificationPublisher,
+        [FromServices] ITenantContext tenantContext,
         [FromServices] IEmailQueueService emailQueue,
         CancellationToken ct)
     {
@@ -71,7 +73,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         CandidateResponse result;
         var shouldNotify = false;
         var notifyCandidateId = Guid.Empty;
-        var notifyTenantId = "liotecnica";
+        var notifyTenantId = tenantContext.TenantId;
 
         try
         {
@@ -144,7 +146,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                 result = await service.CreateAsync(create, ct);
                 shouldNotify = true;
                 notifyCandidateId = result.Id;
-                notifyTenantId = "liotecnica";
+                notifyTenantId = tenantContext.TenantId;
 
                 if (request.Arquivo is { Length: > 0 })
                 {
@@ -273,7 +275,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                 "Novo candidato cadastrado",
                 message,
                 "info",
-                "/Candidatos",
+                $"/Candidatos?open={candidateId}",
                 tenantId,
                 null);
 

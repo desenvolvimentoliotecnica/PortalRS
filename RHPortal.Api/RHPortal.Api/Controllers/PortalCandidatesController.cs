@@ -6,11 +6,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Hosting;
 using RhPortal.Api.Application.Candidatos;
+using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -85,6 +87,7 @@ public sealed class PortalCandidatesController : ControllerBase
         Guid id,
         [FromBody] PortalCandidateProfileUpdateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] NotificationPublisher notificationPublisher,
         CancellationToken ct)
     {
         if (!ModelState.IsValid)
@@ -104,6 +107,8 @@ public sealed class PortalCandidatesController : ControllerBase
         candidate.ResumoProfissional = NormalizeOptional(request.ResumoProfissional);
 
         await db.SaveChangesAsync(ct);
+
+        await NotifyProfileUpdatedAsync(db, notificationPublisher, candidate, ct);
 
         var curriculo = await db.CandidatoDocumentos
             .AsNoTracking()
@@ -2102,6 +2107,53 @@ public sealed class PortalCandidatesController : ControllerBase
     {
         var trimmed = (value ?? string.Empty).Trim();
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static async Task NotifyProfileUpdatedAsync(
+        AppDbContext db,
+        NotificationPublisher notificationPublisher,
+        Candidato candidate,
+        CancellationToken ct)
+    {
+        try
+        {
+            var vagaInfo = await db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == candidate.VagaId)
+                .Select(v => new { v.Codigo, v.Titulo })
+                .FirstOrDefaultAsync(ct);
+
+            var parts = new List<string>
+            {
+                $"Nome: {candidate.Nome}",
+                $"Email: {candidate.Email}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(candidate.Fone))
+                parts.Add($"Fone: {candidate.Fone}");
+
+            if (vagaInfo is not null)
+            {
+                var code = string.IsNullOrWhiteSpace(vagaInfo.Codigo) ? "—" : vagaInfo.Codigo;
+                parts.Add($"Vaga: {vagaInfo.Titulo} ({code})");
+            }
+
+            var message = string.Join(" | ", parts);
+            var request = new NotificationSendRequest(
+                NotificationScope.Tenant,
+                "Perfil atualizado pelo candidato",
+                message,
+                "info",
+                $"/Candidatos?open={candidate.Id}",
+                candidate.TenantId,
+                null);
+
+            await notificationPublisher.PublishToTenantsAsync(new[] { candidate.TenantId }, request, ct);
+        }
+        catch
+        {
+            // best-effort
+        }
     }
 
     private static CandidateDocumentType ParseDocumentType(string? value)
