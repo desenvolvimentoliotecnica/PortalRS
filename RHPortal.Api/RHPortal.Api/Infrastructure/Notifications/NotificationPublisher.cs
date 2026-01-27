@@ -82,6 +82,8 @@ public sealed class NotificationPublisher
             notification.Level,
             notification.CreatedAtUtc,
             notification.Url,
-            notification.IsRead
+            notification.IsRead,
+            0,
+            0
         );
 }

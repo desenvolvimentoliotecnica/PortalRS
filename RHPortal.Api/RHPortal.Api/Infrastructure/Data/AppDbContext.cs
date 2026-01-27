@@ -70,6 +70,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<AgendaEventType> AgendaEventTypes => Set<AgendaEventType>();
     public DbSet<AgendaEvent> AgendaEvents => Set<AgendaEvent>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationReceipt> NotificationReceipts => Set<NotificationReceipt>();
 
 
 
@@ -1036,6 +1037,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<NotificationReceipt>(b =>
+        {
+            b.ToTable("NotificationReceipts");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NotificationId).IsRequired();
+            b.Property(x => x.UserId).IsRequired();
+            b.Property(x => x.SeenAtUtc);
+            b.Property(x => x.ReadAtUtc);
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.NotificationId });
+            b.HasIndex(x => new { x.TenantId, x.UserId });
+            b.HasIndex(x => new { x.TenantId, x.NotificationId, x.UserId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<AuditTransaction>(b =>
         {
             b.ToTable("AuditTransactions");
@@ -1515,6 +1535,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) notification.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) notification.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is NotificationReceipt receipt)
+            {
+                if (entry.State == EntityState.Added) receipt.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) receipt.UpdatedAtUtc = now;
             }
         }
         return await base.SaveChangesAsync(cancellationToken);

@@ -7,7 +7,9 @@ public sealed record NotificationItem(
     string Level,
     DateTimeOffset CreatedAt,
     string? Url,
-    bool IsRead
+    bool IsRead,
+    int SeenCount,
+    int ReadCount
 );
 
 public sealed record NotificationsListResponse(

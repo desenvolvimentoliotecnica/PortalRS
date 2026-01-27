@@ -50,6 +50,30 @@ public class NotificationsController : Controller
         return ToContentResult(resp);
     }
 
+    [HttpPost("/Notifications/_api/seen/{id:guid}")]
+    public async Task<IActionResult> MarkSeen(Guid id, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _notificationsApi.MarkSeenAsync(tenantId, id, ct);
+        return ToContentResult(resp);
+    }
+
+    [HttpPost("/Notifications/_api/read/{id:guid}")]
+    public async Task<IActionResult> MarkRead(Guid id, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _notificationsApi.MarkReadAsync(tenantId, id, ct);
+        return ToContentResult(resp);
+    }
+
+    [HttpGet("/Notifications/_api/receipts/{id:guid}")]
+    public async Task<IActionResult> Receipts(Guid id, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _notificationsApi.GetReceiptsRawAsync(tenantId, id, ct);
+        return ToContentResult(resp);
+    }
+
     private static IActionResult ToContentResult(ApiRawResponse resp)
     {
         if (string.IsNullOrWhiteSpace(resp.Content))

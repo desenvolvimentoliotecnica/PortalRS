@@ -12,6 +12,15 @@ public sealed class NotificationsApiClient
     public Task<ApiRawResponse> SendNotificationRawAsync(string tenantId, string jsonBody, CancellationToken ct)
         => SendAsync(BuildRequest(HttpMethod.Post, "api/notifications", tenantId, jsonBody), ct);
 
+    public Task<ApiRawResponse> MarkSeenAsync(string tenantId, Guid id, CancellationToken ct)
+        => SendAsync(BuildRequest(HttpMethod.Post, $"api/notifications/{id}/seen", tenantId), ct);
+
+    public Task<ApiRawResponse> MarkReadAsync(string tenantId, Guid id, CancellationToken ct)
+        => SendAsync(BuildRequest(HttpMethod.Post, $"api/notifications/{id}/read", tenantId), ct);
+
+    public Task<ApiRawResponse> GetReceiptsRawAsync(string tenantId, Guid id, CancellationToken ct)
+        => SendAsync(BuildRequest(HttpMethod.Get, $"api/notifications/{id}/receipts", tenantId), ct);
+
     private static HttpRequestMessage BuildRequest(HttpMethod method, string url, string tenantId, string? jsonBody = null)
     {
         var req = new HttpRequestMessage(method, url);

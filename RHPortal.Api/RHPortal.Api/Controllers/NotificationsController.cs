@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Notifications;
@@ -19,20 +21,41 @@ public sealed class NotificationsController : ControllerBase
         CancellationToken ct = default)
     {
         var safeTake = Math.Clamp(take, 1, 100);
-        var items = await db.Notifications
+        var rawItems = await db.Notifications
             .AsNoTracking()
             .OrderByDescending(x => x.CreatedAtUtc)
             .Take(safeTake)
-            .Select(x => new NotificationItem(
+            .ToListAsync(ct);
+
+        var ids = rawItems.Select(x => x.Id).ToArray();
+        var receiptCounts = await db.NotificationReceipts
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.NotificationId))
+            .GroupBy(x => x.NotificationId)
+            .Select(g => new
+            {
+                NotificationId = g.Key,
+                Seen = g.Count(x => x.SeenAtUtc != null),
+                Read = g.Count(x => x.ReadAtUtc != null)
+            })
+            .ToListAsync(ct);
+
+        var countMap = receiptCounts.ToDictionary(x => x.NotificationId, x => x);
+        var items = rawItems.Select(x =>
+        {
+            var counts = countMap.TryGetValue(x.Id, out var c) ? c : null;
+            return new NotificationItem(
                 x.Id,
                 x.Title,
                 x.Message,
                 x.Level,
                 x.CreatedAtUtc,
                 x.Url,
-                x.IsRead
-            ))
-            .ToListAsync(ct);
+                x.IsRead,
+                counts?.Seen ?? 0,
+                counts?.Read ?? 0
+            );
+        }).ToList();
 
         var unreadCount = await db.Notifications
             .AsNoTracking()
@@ -79,5 +102,102 @@ public sealed class NotificationsController : ControllerBase
         }
 
         return Ok(new { count = items.Count });
+    }
+
+    [HttpPost("{id:guid}/seen")]
+    public async Task<IActionResult> MarkSeen(
+        [FromServices] AppDbContext db,
+        Guid id,
+        CancellationToken ct)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userId, out var parsedUserId))
+            return Unauthorized();
+
+        var receipt = await db.NotificationReceipts
+            .FirstOrDefaultAsync(x => x.NotificationId == id && x.UserId == parsedUserId, ct);
+
+        if (receipt is null)
+        {
+            receipt = new Domain.Entities.NotificationReceipt
+            {
+                Id = Guid.NewGuid(),
+                NotificationId = id,
+                UserId = parsedUserId,
+                SeenAtUtc = DateTimeOffset.UtcNow
+            };
+            db.NotificationReceipts.Add(receipt);
+        }
+        else if (receipt.SeenAtUtc is null)
+        {
+            receipt.SeenAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/read")]
+    public async Task<IActionResult> MarkRead(
+        [FromServices] AppDbContext db,
+        Guid id,
+        CancellationToken ct)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userId, out var parsedUserId))
+            return Unauthorized();
+
+        var receipt = await db.NotificationReceipts
+            .FirstOrDefaultAsync(x => x.NotificationId == id && x.UserId == parsedUserId, ct);
+
+        if (receipt is null)
+        {
+            var now = DateTimeOffset.UtcNow;
+            receipt = new Domain.Entities.NotificationReceipt
+            {
+                Id = Guid.NewGuid(),
+                NotificationId = id,
+                UserId = parsedUserId,
+                SeenAtUtc = now,
+                ReadAtUtc = now
+            };
+            db.NotificationReceipts.Add(receipt);
+        }
+        else
+        {
+            var now = DateTimeOffset.UtcNow;
+            receipt.SeenAtUtc ??= now;
+            receipt.ReadAtUtc ??= now;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}/receipts")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetReceipts(
+        [FromServices] AppDbContext db,
+        Guid id,
+        CancellationToken ct)
+    {
+        var receipts = await db.NotificationReceipts
+            .AsNoTracking()
+            .Where(x => x.NotificationId == id)
+            .Join(db.Users.AsNoTracking(),
+                receipt => receipt.UserId,
+                user => user.Id,
+                (receipt, user) => new
+                {
+                    userId = user.Id,
+                    name = user.FullName,
+                    email = user.Email,
+                    seenAt = receipt.SeenAtUtc,
+                    readAt = receipt.ReadAtUtc
+                })
+            .OrderByDescending(x => x.readAt ?? x.seenAt)
+            .ToListAsync(ct);
+
+        return Ok(new { items = receipts });
     }
 }

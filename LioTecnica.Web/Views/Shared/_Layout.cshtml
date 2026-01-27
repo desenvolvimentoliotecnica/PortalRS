@@ -83,6 +83,7 @@
 		window.__tenantId = "@tenantId";
 		window.__apiAccessToken = "@accessToken";
 		window.__notificationsHubUrl = "@((Configuration["Endpoints:RhApi"] ?? string.Empty).TrimEnd('/') + "/hubs/notifications")";
+		window.__isAdmin = "@(User?.IsInRole("Admin") == true ? "1" : "0")";
 	</script>
 	<script src="~/lib/signalr/signalr.min.js"></script>
 	<script src="~/js/utils.js" asp-append-version="true"></script>

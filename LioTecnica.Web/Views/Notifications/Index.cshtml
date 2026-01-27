@@ -21,7 +21,7 @@
                 <button class="btn btn-ghost btn-sm" type="button" id="btnTestNotification">
                     <i class="bi bi-bell me-1"></i>Testar notificacao
                 </button>
-                <button class="btn btn-ghost btn-sm" type="button">
+                <button class="btn btn-ghost btn-sm" type="button" id="btnMarkAllRead">
                     <i class="bi bi-check2-all me-1"></i>Marcar tudo como lido
                 </button>
                 <button class="btn btn-brand btn-sm" type="button">
@@ -33,6 +33,23 @@
         <div class="d-flex flex-column gap-2" data-role="notif-page-list"></div>
     </div>
 </section>
+
+<div class="modal fade" id="notifReceiptsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold">Visualizacoes e leituras</h5>
+                    <div class="text-muted small">Usuarios que viram / leram</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="notifReceiptsList" class="d-flex flex-column gap-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
 
 @section Footer {
     @await Html.PartialAsync("_Footer", new[] { new { Icon = "bi-bell", Text = "Notificacoes em tempo real" } })
