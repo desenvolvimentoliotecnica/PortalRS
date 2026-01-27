@@ -18,6 +18,9 @@
         <div class="d-flex align-items-center justify-content-between mb-3">
             <div class="fw-bold">Caixa de entrada</div>
             <div class="d-flex gap-2">
+                <button class="btn btn-ghost btn-sm" type="button" id="btnTestNotification">
+                    <i class="bi bi-bell me-1"></i>Testar notificacao
+                </button>
                 <button class="btn btn-ghost btn-sm" type="button">
                     <i class="bi bi-check2-all me-1"></i>Marcar tudo como lido
                 </button>
@@ -33,4 +36,27 @@
 
 @section Footer {
     @await Html.PartialAsync("_Footer", new[] { new { Icon = "bi-bell", Text = "Notificacoes em tempo real" } })
+}
+
+@section Scripts {
+    <script>
+        (() => {
+            const btn = document.getElementById("btnTestNotification");
+            if (!btn) return;
+            btn.addEventListener("click", async () => {
+                try {
+                    const res = await fetch("/Notifications/_api/send", {
+                        method: "POST",
+                        headers: { "Accept": "application/json", "X-LT-Silent": "1" },
+                        credentials: "same-origin"
+                    });
+                    if (!res.ok) throw new Error(`status ${res.status}`);
+                    if (window.toast) window.toast("Notificacao enviada.");
+                } catch (err) {
+                    console.error(err);
+                    if (window.toast) window.toast("Falha ao enviar notificacao.");
+                }
+            });
+        })();
+    </script>
 }

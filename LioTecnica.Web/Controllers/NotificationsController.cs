@@ -32,6 +32,24 @@ public class NotificationsController : Controller
         return ToContentResult(resp);
     }
 
+    [HttpPost("/Notifications/_api/send")]
+    public async Task<IActionResult> Send(CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var payload = new
+        {
+            scope = "Tenant",
+            title = "Notificacao de teste",
+            message = "Esta é uma notificacao padrao do sistema.",
+            level = "info",
+            url = "/Notificacoes"
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(payload);
+        var resp = await _notificationsApi.SendNotificationRawAsync(tenantId, json, ct);
+        return ToContentResult(resp);
+    }
+
     private static IActionResult ToContentResult(ApiRawResponse resp)
     {
         if (string.IsNullOrWhiteSpace(resp.Content))
