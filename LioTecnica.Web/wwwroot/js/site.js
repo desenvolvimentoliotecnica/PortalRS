@@ -509,6 +509,7 @@
     return undefined;
   };
   let items = [];
+  let unreadCount = 0;
 
   const levelToBadge = (level) => {
     const norm = (level || "").toString().toLowerCase();
@@ -603,10 +604,39 @@
     }
   };
 
-  const applyItems = (list, unreadCount) => {
+  const applyItems = (list, incomingUnread) => {
     items = Array.isArray(list) ? list : [];
-    updateBadge(unreadCount ?? items.length);
+    unreadCount = Number((incomingUnread ?? items.length) || 0);
+    updateBadge(unreadCount);
     renderLists(items);
+  };
+
+  const normalizeBool = (value) => value === true || value === "true" || value === 1 || value === "1";
+  const hasSeen = (item) => normalizeBool(getProp(item, "seen", "Seen", "isSeen", "IsSeen")) || !!getProp(item, "seenAt", "SeenAt");
+  const hasRead = (item) => normalizeBool(getProp(item, "read", "Read", "isRead", "IsRead")) || !!getProp(item, "readAt", "ReadAt");
+  const applySeen = (item) => {
+    if (!item) return;
+    if (!hasSeen(item)) {
+      item.seen = true;
+      item.isSeen = true;
+      item.seenAt = item.seenAt || new Date().toISOString();
+    }
+  };
+  const applyRead = (item) => {
+    if (!item) return;
+    if (!hasRead(item)) {
+      const wasSeen = hasSeen(item);
+      item.read = true;
+      item.isRead = true;
+      item.readAt = item.readAt || new Date().toISOString();
+      if (!wasSeen) {
+        item.seen = true;
+        item.isSeen = true;
+        item.seenAt = item.seenAt || new Date().toISOString();
+      }
+      unreadCount = Math.max(0, unreadCount - 1);
+      updateBadge(unreadCount);
+    }
   };
 
   const markSeen = async (id) => {
@@ -617,6 +647,8 @@
         headers: { "X-LT-Silent": "1" },
         credentials: "same-origin"
       });
+      const item = items.find(x => getProp(x, "id", "Id") === id);
+      applySeen(item);
     } catch {}
   };
 
@@ -628,6 +660,8 @@
         headers: { "X-LT-Silent": "1" },
         credentials: "same-origin"
       });
+      const item = items.find(x => getProp(x, "id", "Id") === id);
+      applyRead(item);
     } catch {}
   };
 
@@ -712,7 +746,8 @@
       const exists = items.some(x => x.id === payload.id);
       if (exists) return;
       items = [payload, ...items];
-      updateBadge((Number(badge?.textContent || 0) || 0) + 1);
+      unreadCount = (Number(unreadCount || 0) || 0) + 1;
+      updateBadge(unreadCount);
       renderLists(items);
     });
 
@@ -737,6 +772,8 @@
     if (!btn) return;
     btn.addEventListener("click", async () => {
       await Promise.all(items.map(item => markRead(item.id)));
+      unreadCount = 0;
+      updateBadge(unreadCount);
       if (window.toast) window.toast("Notificacoes marcadas como lidas.");
     });
   };
