@@ -22,7 +22,7 @@
         <button class="btn btn-ghost" type="button" id="btnAccessClear">
             <i class="bi bi-x-circle"></i><span class="d-none d-sm-inline ms-1">Limpar</span>
         </button>
-        @await Html.PartialAsync("_TopbarUserMenu", "Admin")
+        @await Html.PartialAsync("_TopbarUserActions", "Admin")
     </div>
 }
 
@@ -179,3 +179,4 @@
 @section Scripts {
     <script src="~/js/views/admin-accesses.js" asp-append-version="true"></script>
 }
+

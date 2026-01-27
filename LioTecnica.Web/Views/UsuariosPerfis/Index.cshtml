@@ -24,7 +24,7 @@
               <i class="bi bi-person-plus"></i><span class="d-none d-sm-inline ms-1">Novo usuário</span>
             </button>
 
-                        @await Html.PartialAsync("_TopbarUserMenu", "Admin")
+                        @await Html.PartialAsync("_TopbarUserActions", "Admin")
           </div>
 }
 
@@ -237,4 +237,5 @@
 @section Scripts {
 <script src="~/js/views/usuarios-perfis.js" asp-append-version="true"></script>
 }
+
 

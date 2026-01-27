@@ -1,10 +1,10 @@
-Ôªø@model PageSeedViewModel
+@model PageSeedViewModel
 @using Microsoft.AspNetCore.Mvc.Localization
 @inject IViewLocalizer T
 
 @{
-    ViewData["Title"] = T["Page_Title"].Value;                 // "Portal RH ‚Ä¢ Devcraft Studio ‚Äî Agenda"
-    ViewData["SidebarSubtitle"] = T["Sidebar_Subtitle"].Value; // "Agenda ‚Ä¢ Entrevistas ‚Ä¢ Eventos"
+    ViewData["Title"] = T["Page_Title"].Value;                 // "Portal RH ï Devcraft Studio ó Agenda"
+    ViewData["SidebarSubtitle"] = T["Sidebar_Subtitle"].Value; // "Agenda ï Entrevistas ï Eventos"
 }
 
 <style>
@@ -17,7 +17,7 @@
         min-height: 640px;
         width: 100%;
         max-width: 100%;
-        overflow: hidden; /* evita scrollbar horizontal na p√°gina */
+        overflow: hidden; /* evita scrollbar horizontal na p·gina */
     }
 
     #calendar {
@@ -37,7 +37,7 @@
         width: 100%;
     }
 
-    /* mant√©m header e body sincronizados quando aparece scrollbar vertical */
+    /* mantÈm header e body sincronizados quando aparece scrollbar vertical */
     #calendarHost .fc-scroller {
         scrollbar-gutter: stable;
     }
@@ -46,10 +46,10 @@
     #calendarHost .fc table {
         border-collapse: separate !important;
         border-spacing: 0 !important;
-        /* N√ÉO use padding aqui (isso quebra o layout interno do FullCalendar) */
+        /* N√O use padding aqui (isso quebra o layout interno do FullCalendar) */
     }
 
-    /* ‚ö† estica o ‚Äúscrollgrid‚Äù e as tabelas que definem as colunas */
+    /* ? estica o ìscrollgridî e as tabelas que definem as colunas */
     #calendarHost .fc .fc-scrollgrid,
     #calendarHost .fc .fc-scrollgrid table,
     #calendarHost .fc .fc-col-header table,
@@ -63,7 +63,7 @@
         width: 100% !important;
     }
 
-    /* ‚ö† a largura real vem do COLGROUP (1¬™ coluna) */
+    /* ? a largura real vem do COLGROUP (1™ coluna) */
     #calendarHost .fc .fc-timegrid-slots table colgroup col:first-child,
     #calendarHost .fc .fc-timegrid-cols table colgroup col:first-child,
     #calendarHost .fc .fc-col-header table colgroup col:first-child,
@@ -71,7 +71,7 @@
         width: var(--fc-time-label-width) !important;
     }
 
-    /* refor√ßo (visual) nas c√©lulas */
+    /* reforÁo (visual) nas cÈlulas */
     #calendarHost .fc th.fc-timegrid-slot-label,
     #calendarHost .fc td.fc-timegrid-slot-label,
     #calendarHost .fc th.fc-timegrid-axis,
@@ -160,18 +160,18 @@
     }
 
         #calendarHost .fc .fc-scrollgrid {
-            border: 0 !important; /* a borda agora √© do #calendarHost */
+            border: 0 !important; /* a borda agora È do #calendarHost */
             border-radius: 0 !important;
             overflow: visible !important;
         }
 
-        /* mant√©m as bordas internas do grid */
+        /* mantÈm as bordas internas do grid */
         #calendarHost .fc-theme-standard td,
         #calendarHost .fc-theme-standard th {
             border-color: rgba(16,82,144,.14);
         }
 
-        /* opcional: garante que nada pinte por tr√°s do wrapper */
+        /* opcional: garante que nada pinte por tr·s do wrapper */
         #calendarHost .fc {
             background: transparent;
         }
@@ -263,7 +263,7 @@
             <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">@T["Btn_NewEvent"]</span>
         </button>
 
-        @await Html.PartialAsync("_TopbarUserMenu", "RH")
+        @await Html.PartialAsync("_TopbarUserActions", "RH")
     </div>
 }
 
@@ -271,7 +271,7 @@
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1085;">
     <div id="appToast" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="d-flex">
-            <div class="toast-body" id="toastMsg">‚Äî</div>
+            <div class="toast-body" id="toastMsg">ó</div>
             <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="@T["Close"]"></button>
         </div>
     </div>
@@ -312,7 +312,7 @@
                         <button class="btn btn-ghost btn-sm" type="button" id="calNext" title="@T["Cal_Next_Title"]"><i class="bi bi-chevron-right"></i></button>
                     </div>
 
-                    <div class="fw-bold" id="calTitle" style="font-size:1.05rem;">‚Äî</div>
+                    <div class="fw-bold" id="calTitle" style="font-size:1.05rem;">ó</div>
 
                     <div class="d-flex align-items-center gap-2">
                         <div class="btn-group" role="group" aria-label="@T["Aria_ViewMode"]">
@@ -481,14 +481,14 @@
                     <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                         <div>
                             <div class="mini-title mb-1">@T["Modal_View_MiniTitle"]</div>
-                            <div class="fw-bold" style="font-size:1.08rem;" id="viewTitle">‚Äî</div>
+                            <div class="fw-bold" style="font-size:1.08rem;" id="viewTitle">ó</div>
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
-                            <span class="badge-soft" id="viewType">‚Äî</span>
-                            <span class="badge-soft" id="viewStatus">‚Äî</span>
+                            <span class="badge-soft" id="viewType">ó</span>
+                            <span class="badge-soft" id="viewStatus">ó</span>
                         </div>
                     </div>
-                    <div class="text-muted small mt-1" id="viewWhen">‚Äî</div>
+                    <div class="text-muted small mt-1" id="viewWhen">ó</div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="@T["Close"]"></button>
             </div>
@@ -500,32 +500,32 @@
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Candidate"]</div>
-                            <div class="fw-semibold" id="viewCandidate">‚Äî</div>
+                            <div class="fw-semibold" id="viewCandidate">ó</div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Job"]</div>
-                            <div class="fw-semibold" id="viewVaga">‚Äî</div>
-                            <div class="text-muted small mono" id="viewVagaCode">‚Äî</div>
+                            <div class="fw-semibold" id="viewVaga">ó</div>
+                            <div class="text-muted small mono" id="viewVagaCode">ó</div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Location"]</div>
-                            <div class="fw-semibold" id="viewLocation">‚Äî</div>
+                            <div class="fw-semibold" id="viewLocation">ó</div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Owner"]</div>
-                            <div class="fw-semibold" id="viewOwner">‚Äî</div>
+                            <div class="fw-semibold" id="viewOwner">ó</div>
                         </div>
                     </div>
                     <div class="col-12">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Notes"]</div>
-                            <div class="text-muted" id="viewNotes" style="white-space:pre-wrap;">‚Äî</div>
+                            <div class="text-muted" id="viewNotes" style="white-space:pre-wrap;">ó</div>
                         </div>
                     </div>
                 </div>
@@ -559,10 +559,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@@fullcalendar/bootstrap5@6.1.11/index.global.min.js"></script>
 
     <script>
-        // Strings para o JS (agendas.js) ‚Äî use: const t = k => (window.__i18n?.[k] ?? k);
+        // Strings para o JS (agendas.js) ó use: const t = k => (window.__i18n?.[k] ?? k);
         window.__i18n = {
             toastCloseAria: "@T["Close"]",
-            toastMsgDefault: "‚Äî",
+            toastMsgDefault: "ó",
 
             // Topbar
             topbarBrand: "@T["Topbar_Brand"]",
@@ -614,3 +614,4 @@
 
     <script src="~/js/views/agendas.js" asp-append-version="true"></script>
 }
+

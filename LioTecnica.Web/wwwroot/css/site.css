@@ -168,6 +168,21 @@
     .topbar .btn{
       white-space: nowrap;
     }
+    .notif-dropdown{
+      min-width: 320px;
+      max-width: 420px;
+      border: 1px solid var(--lt-border);
+      border-radius: 14px;
+      box-shadow: var(--lt-shadow);
+      background: #fff;
+    }
+    .notif-item{
+      white-space: normal;
+    }
+    .notif-badge{
+      font-size: .72rem;
+      font-weight: 700;
+    }
     .searchbox{
       max-width: 620px;
       width: 100%;

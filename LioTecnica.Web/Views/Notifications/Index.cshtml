@@ -1,0 +1,69 @@
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Caixa de entrada de notificacoes")
+
+    <div class="d-flex align-items-center gap-2">
+        @await Html.PartialAsync("_TopbarUserActions", "RH")
+    </div>
+}
+
+<section class="content">
+    <div class="page-title">
+        <div>
+            <h4>Notificacoes</h4>
+            <div class="subtitle">Central de avisos e comunicacoes do portal</div>
+        </div>
+    </div>
+
+    <div class="card-soft p-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="fw-bold">Caixa de entrada</div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-ghost btn-sm" type="button">
+                    <i class="bi bi-check2-all me-1"></i>Marcar tudo como lido
+                </button>
+                <button class="btn btn-brand btn-sm" type="button">
+                    <i class="bi bi-funnel me-1"></i>Filtrar
+                </button>
+            </div>
+        </div>
+
+        <div class="d-flex flex-column gap-2">
+            <a class="card-soft p-3 text-decoration-none" href="#">
+                <div class="d-flex align-items-start justify-content-between gap-2">
+                    <div>
+                        <div class="fw-semibold"><i class="bi bi-person-plus me-1"></i>Novo candidato recebido</div>
+                        <div class="text-muted small">Vaga: Analista de Dados (BI) - Origem: Email</div>
+                        <div class="small">Candidato: Sofia Lima - CV extraido com sucesso</div>
+                    </div>
+                    <span class="badge text-bg-primary">Agora</span>
+                </div>
+            </a>
+
+            <a class="card-soft p-3 text-decoration-none" href="#">
+                <div class="d-flex align-items-start justify-content-between gap-2">
+                    <div>
+                        <div class="fw-semibold"><i class="bi bi-calendar-event me-1"></i>Entrevista agendada</div>
+                        <div class="text-muted small">Analista de Marketing Jr - 15/01/2025 14:00</div>
+                        <div class="small">Responsavel: Fernanda Lima</div>
+                    </div>
+                    <span class="badge text-bg-warning">Em 2 dias</span>
+                </div>
+            </a>
+
+            <a class="card-soft p-3 text-decoration-none" href="#">
+                <div class="d-flex align-items-start justify-content-between gap-2">
+                    <div>
+                        <div class="fw-semibold"><i class="bi bi-exclamation-triangle me-1"></i>SLA de triagem proximo do limite</div>
+                        <div class="text-muted small">Vaga: Supervisor de Qualidade - 6 candidatos aguardando</div>
+                        <div class="small">Ultima atualizacao: ha 3h</div>
+                    </div>
+                    <span class="badge text-bg-danger">Urgente</span>
+                </div>
+            </a>
+        </div>
+    </div>
+</section>
+
+@section Footer {
+    @await Html.PartialAsync("_Footer", new[] { new { Icon = "bi-bell", Text = "Notificacoes em tempo real" } })
+}
