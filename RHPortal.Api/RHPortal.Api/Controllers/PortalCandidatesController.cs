@@ -15,6 +15,9 @@ using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Perfil do candidato no Portal de Vagas (dados pessoais e secoes do perfil).
+/// </summary>
 [ApiController]
 [AllowAnonymous]
 [Route("api/public/portal-candidates")]
@@ -32,7 +35,12 @@ public sealed class PortalCandidatesController : ControllerBase
         public IFormFile? Arquivo { get; set; }
     }
 
+    /// <summary>
+    /// Consulta o perfil basico do candidato (dados pessoais + curriculo atual).
+    /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateProfileResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateProfileResponse>> GetProfile(
         Guid id,
         [FromServices] AppDbContext db,
@@ -66,7 +74,13 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Atualiza os dados pessoais do candidato.
+    /// </summary>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateProfileResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateProfileResponse>> UpdateProfile(
         Guid id,
         [FromBody] PortalCandidateProfileUpdateRequest request,
@@ -112,7 +126,12 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Retorna competencias, certificacoes e links de portfolio do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/skills-portfolio")]
+    [ProducesResponseType(typeof(PortalCandidateSkillsPortfolioResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateSkillsPortfolioResponse>> GetSkillsPortfolio(
         Guid id,
         [FromServices] AppDbContext db,
@@ -156,7 +175,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateSkillsPortfolioResponse(skills, certs, links, prefs, portfolio?.Tags));
     }
 
+    /// <summary>
+    /// Atualiza preferencias e links do portfolio (sem alterar competencias).
+    /// </summary>
     [HttpPut("{id:guid}/skills-portfolio")]
+    [ProducesResponseType(typeof(PortalCandidatePortfolioResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidatePortfolioResponse>> UpdateSkillsPortfolio(
         Guid id,
         [FromBody] PortalCandidatePortfolioUpdateRequest request,
@@ -211,7 +236,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidatePortfolioResponse(links, prefs, portfolio.Tags));
     }
 
+    /// <summary>
+    /// Adiciona uma competencia ao candidato.
+    /// </summary>
     [HttpPost("{id:guid}/skills-portfolio/skills")]
+    [ProducesResponseType(typeof(PortalCandidateSkillDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateSkillDto>> CreateSkill(
         Guid id,
         [FromBody] PortalCandidateSkillRequest request,
@@ -240,7 +271,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateSkillDto(entity.Id, entity.Tipo, entity.Nome, entity.Nivel, entity.Evidencia));
     }
 
+    /// <summary>
+    /// Atualiza uma competencia existente.
+    /// </summary>
     [HttpPut("{id:guid}/skills-portfolio/skills/{skillId:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateSkillDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateSkillDto>> UpdateSkill(
         Guid id,
         Guid skillId,
@@ -267,7 +304,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateSkillDto(entity.Id, entity.Tipo, entity.Nome, entity.Nivel, entity.Evidencia));
     }
 
+    /// <summary>
+    /// Remove uma competencia.
+    /// </summary>
     [HttpDelete("{id:guid}/skills-portfolio/skills/{skillId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteSkill(
         Guid id,
         Guid skillId,
@@ -286,7 +328,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Adiciona uma certificacao/curso.
+    /// </summary>
     [HttpPost("{id:guid}/skills-portfolio/certifications")]
+    [ProducesResponseType(typeof(PortalCandidateCertificationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateCertificationDto>> CreateCertification(
         Guid id,
         [FromBody] PortalCandidateCertificationRequest request,
@@ -315,7 +363,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateCertificationDto(entity.Id, entity.Nome, entity.Instituicao, entity.Ano, entity.Link));
     }
 
+    /// <summary>
+    /// Atualiza uma certificacao/curso.
+    /// </summary>
     [HttpPut("{id:guid}/skills-portfolio/certifications/{certId:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateCertificationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateCertificationDto>> UpdateCertification(
         Guid id,
         Guid certId,
@@ -342,7 +396,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateCertificationDto(entity.Id, entity.Nome, entity.Instituicao, entity.Ano, entity.Link));
     }
 
+    /// <summary>
+    /// Remove uma certificacao/curso.
+    /// </summary>
     [HttpDelete("{id:guid}/skills-portfolio/certifications/{certId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteCertification(
         Guid id,
         Guid certId,
@@ -361,7 +420,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Retorna formacao e itens de educacao do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/education")]
+    [ProducesResponseType(typeof(PortalCandidateEducationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateEducationResponse>> GetEducation(
         Guid id,
         [FromServices] AppDbContext db,
@@ -401,7 +465,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateEducationResponse(summaryDto, items));
     }
 
+    /// <summary>
+    /// Retorna preferencias de vaga/objetivos.
+    /// </summary>
     [HttpGet("{id:guid}/preferences")]
+    [ProducesResponseType(typeof(PortalCandidatePreferencesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidatePreferencesResponse>> GetPreferences(
         Guid id,
         [FromServices] AppDbContext db,
@@ -437,7 +506,13 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Atualiza preferencias de vaga/objetivos.
+    /// </summary>
     [HttpPut("{id:guid}/preferences")]
+    [ProducesResponseType(typeof(PortalCandidatePreferencesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidatePreferencesResponse>> UpdatePreferences(
         Guid id,
         [FromBody] PortalCandidatePreferencesRequest request,
@@ -510,7 +585,12 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Retorna dados de acessibilidade e inclusao.
+    /// </summary>
     [HttpGet("{id:guid}/accessibility")]
+    [ProducesResponseType(typeof(PortalCandidateAccessibilityDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateAccessibilityDto>> GetAccessibility(
         Guid id,
         [FromServices] AppDbContext db,
@@ -545,7 +625,13 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Atualiza dados de acessibilidade e inclusao.
+    /// </summary>
     [HttpPut("{id:guid}/accessibility")]
+    [ProducesResponseType(typeof(PortalCandidateAccessibilityDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateAccessibilityDto>> UpdateAccessibility(
         Guid id,
         [FromBody] PortalCandidateAccessibilityRequest request,
@@ -615,7 +701,12 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Retorna disponibilidade e agenda do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/agenda")]
+    [ProducesResponseType(typeof(PortalCandidateAgendaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateAgendaResponse>> GetAgenda(
         Guid id,
         [FromServices] AppDbContext db,
@@ -668,7 +759,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateAgendaResponse(prefsDto, blockDtos));
     }
 
+    /// <summary>
+    /// Atualiza preferencias gerais de agenda.
+    /// </summary>
     [HttpPut("{id:guid}/agenda")]
+    [ProducesResponseType(typeof(PortalCandidateAgendaPreferencesDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateAgendaPreferencesDto>> UpdateAgenda(
         Guid id,
         [FromBody] PortalCandidateAgendaPreferencesRequest request,
@@ -738,7 +835,13 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Adiciona um bloqueio de agenda.
+    /// </summary>
     [HttpPost("{id:guid}/agenda/blocks")]
+    [ProducesResponseType(typeof(PortalCandidateAgendaBlockDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateAgendaBlockDto>> CreateAgendaBlock(
         Guid id,
         [FromBody] PortalCandidateAgendaBlockRequest request,
@@ -779,7 +882,13 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Atualiza um bloqueio de agenda.
+    /// </summary>
     [HttpPut("{id:guid}/agenda/blocks/{blockId:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateAgendaBlockDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateAgendaBlockDto>> UpdateAgendaBlock(
         Guid id,
         Guid blockId,
@@ -814,7 +923,12 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Remove um bloqueio de agenda.
+    /// </summary>
     [HttpDelete("{id:guid}/agenda/blocks/{blockId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteAgendaBlock(
         Guid id,
         Guid blockId,
@@ -831,7 +945,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Retorna preferencias de notificacao e comunicacao.
+    /// </summary>
     [HttpGet("{id:guid}/notifications")]
+    [ProducesResponseType(typeof(PortalCandidateNotificationsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateNotificationsResponse>> GetNotifications(
         Guid id,
         [FromServices] AppDbContext db,
@@ -870,7 +989,13 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Atualiza preferencias de notificacao e comunicacao.
+    /// </summary>
     [HttpPut("{id:guid}/notifications")]
+    [ProducesResponseType(typeof(PortalCandidateNotificationsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateNotificationsResponse>> UpdateNotifications(
         Guid id,
         [FromBody] PortalCandidateNotificationsRequest request,
@@ -948,7 +1073,12 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Lista documentos anexos do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/documents")]
+    [ProducesResponseType(typeof(PortalCandidateDocumentsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateDocumentsResponse>> GetDocuments(
         Guid id,
         [FromServices] AppDbContext db,
@@ -967,7 +1097,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateDocumentsResponse(items));
     }
 
+    /// <summary>
+    /// Retorna preferencias LGPD (consentimentos).
+    /// </summary>
     [HttpGet("{id:guid}/lgpd")]
+    [ProducesResponseType(typeof(PortalCandidateLgpdResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateLgpdResponse>> GetLgpd(
         Guid id,
         [FromServices] AppDbContext db,
@@ -995,7 +1130,13 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Atualiza preferencias LGPD (consentimentos).
+    /// </summary>
     [HttpPut("{id:guid}/lgpd")]
+    [ProducesResponseType(typeof(PortalCandidateLgpdResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateLgpdResponse>> UpdateLgpd(
         Guid id,
         [FromBody] PortalCandidateLgpdRequest request,
@@ -1059,7 +1200,12 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Gera o comprovante de consentimentos LGPD.
+    /// </summary>
     [HttpGet("{id:guid}/lgpd/receipt")]
+    [ProducesResponseType(typeof(PortalCandidateLgpdReceiptResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateLgpdReceiptResponse>> GetLgpdReceipt(
         Guid id,
         [FromServices] AppDbContext db,
@@ -1108,7 +1254,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateLgpdReceiptResponse(html));
     }
 
+    /// <summary>
+    /// Adiciona um documento anexo.
+    /// </summary>
     [HttpPost("{id:guid}/documents")]
+    [ProducesResponseType(typeof(PortalCandidateDocumentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateDocumentDto>> CreateDocument(
         Guid id,
         [FromBody] PortalCandidateDocumentRequest request,
@@ -1142,7 +1294,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(MapDocumentDto(doc));
     }
 
+    /// <summary>
+    /// Atualiza um documento anexo.
+    /// </summary>
     [HttpPut("{id:guid}/documents/{documentId:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateDocumentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateDocumentDto>> UpdateDocument(
         Guid id,
         Guid documentId,
@@ -1169,7 +1327,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(MapDocumentDto(doc));
     }
 
+    /// <summary>
+    /// Remove um documento anexo.
+    /// </summary>
     [HttpDelete("{id:guid}/documents/{documentId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteDocument(
         Guid id,
         Guid documentId,
@@ -1186,7 +1349,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok();
     }
 
+    /// <summary>
+    /// Lista referencias profissionais do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/references")]
+    [ProducesResponseType(typeof(PortalCandidateReferencesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateReferencesResponse>> GetReferences(
         Guid id,
         [FromServices] AppDbContext db,
@@ -1217,7 +1385,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateReferencesResponse(items));
     }
 
+    /// <summary>
+    /// Adiciona uma referencia profissional.
+    /// </summary>
     [HttpPost("{id:guid}/references")]
+    [ProducesResponseType(typeof(PortalCandidateReferenceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateReferenceDto>> CreateReference(
         Guid id,
         [FromBody] PortalCandidateReferenceRequest request,
@@ -1266,7 +1440,13 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Atualiza uma referencia profissional.
+    /// </summary>
     [HttpPut("{id:guid}/references/{referenceId:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateReferenceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateReferenceDto>> UpdateReference(
         Guid id,
         Guid referenceId,
@@ -1309,7 +1489,12 @@ public sealed class PortalCandidatesController : ControllerBase
         ));
     }
 
+    /// <summary>
+    /// Remove uma referencia profissional.
+    /// </summary>
     [HttpDelete("{id:guid}/references/{referenceId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteReference(
         Guid id,
         Guid referenceId,
@@ -1327,7 +1512,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok();
     }
 
+    /// <summary>
+    /// Atualiza resumo de formacao (nivel/area/situacao).
+    /// </summary>
     [HttpPut("{id:guid}/education")]
+    [ProducesResponseType(typeof(PortalCandidateEducationSummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateEducationSummaryDto>> UpdateEducationSummary(
         Guid id,
         [FromBody] PortalCandidateEducationSummaryRequest request,
@@ -1367,7 +1558,13 @@ public sealed class PortalCandidatesController : ControllerBase
             summary.Destaques));
     }
 
+    /// <summary>
+    /// Adiciona um item de formacao.
+    /// </summary>
     [HttpPost("{id:guid}/education/items")]
+    [ProducesResponseType(typeof(PortalCandidateEducationItemDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateEducationItemDto>> CreateEducationItem(
         Guid id,
         [FromBody] PortalCandidateEducationItemRequest request,
@@ -1409,7 +1606,13 @@ public sealed class PortalCandidatesController : ControllerBase
             entity.Link));
     }
 
+    /// <summary>
+    /// Atualiza um item de formacao.
+    /// </summary>
     [HttpPut("{id:guid}/education/items/{itemId:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateEducationItemDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateEducationItemDto>> UpdateEducationItem(
         Guid id,
         Guid itemId,
@@ -1449,7 +1652,12 @@ public sealed class PortalCandidatesController : ControllerBase
             entity.Link));
     }
 
+    /// <summary>
+    /// Remove um item de formacao.
+    /// </summary>
     [HttpDelete("{id:guid}/education/items/{itemId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteEducationItem(
         Guid id,
         Guid itemId,
@@ -1468,7 +1676,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Retorna experiencias e projetos do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/experience-projects")]
+    [ProducesResponseType(typeof(PortalCandidateExperienceProjectResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateExperienceProjectResponse>> GetExperienceProjects(
         Guid id,
         [FromServices] AppDbContext db,
@@ -1511,7 +1724,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateExperienceProjectResponse(experiences, projects));
     }
 
+    /// <summary>
+    /// Adiciona uma experiencia profissional.
+    /// </summary>
     [HttpPost("{id:guid}/experiences")]
+    [ProducesResponseType(typeof(PortalCandidateExperienceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateExperienceDto>> CreateExperience(
         Guid id,
         [FromBody] PortalCandidateExperienceRequest request,
@@ -1549,7 +1768,13 @@ public sealed class PortalCandidatesController : ControllerBase
             entity.Atividades));
     }
 
+    /// <summary>
+    /// Atualiza uma experiencia profissional.
+    /// </summary>
     [HttpPut("{id:guid}/experiences/{experienceId:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateExperienceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateExperienceDto>> UpdateExperience(
         Guid id,
         Guid experienceId,
@@ -1585,7 +1810,12 @@ public sealed class PortalCandidatesController : ControllerBase
             entity.Atividades));
     }
 
+    /// <summary>
+    /// Remove uma experiencia profissional.
+    /// </summary>
     [HttpDelete("{id:guid}/experiences/{experienceId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteExperience(
         Guid id,
         Guid experienceId,
@@ -1604,7 +1834,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Adiciona um projeto.
+    /// </summary>
     [HttpPost("{id:guid}/projects")]
+    [ProducesResponseType(typeof(PortalCandidateProjectDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateProjectDto>> CreateProject(
         Guid id,
         [FromBody] PortalCandidateProjectRequest request,
@@ -1642,7 +1878,13 @@ public sealed class PortalCandidatesController : ControllerBase
             entity.Destaques));
     }
 
+    /// <summary>
+    /// Atualiza um projeto.
+    /// </summary>
     [HttpPut("{id:guid}/projects/{projectId:guid}")]
+    [ProducesResponseType(typeof(PortalCandidateProjectDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PortalCandidateProjectDto>> UpdateProject(
         Guid id,
         Guid projectId,
@@ -1678,7 +1920,12 @@ public sealed class PortalCandidatesController : ControllerBase
             entity.Destaques));
     }
 
+    /// <summary>
+    /// Remove um projeto.
+    /// </summary>
     [HttpDelete("{id:guid}/projects/{projectId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteProject(
         Guid id,
         Guid projectId,
@@ -1697,7 +1944,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Faz upload da foto de perfil do candidato.
+    /// </summary>
     [HttpPost("{id:guid}/avatar")]
+    [ProducesResponseType(typeof(PortalCandidateAvatarResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [RequestSizeLimit(8_388_608)]
     [RequestFormLimits(MultipartBodyLengthLimit = 8_388_608)]
     [Consumes("multipart/form-data")]
@@ -1747,7 +2000,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateAvatarResponse(BuildAvatarUrl(id)));
     }
 
+    /// <summary>
+    /// Download/visualizacao da foto de perfil do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/avatar")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAvatar(
         Guid id,
         [FromServices] AppDbContext db,
@@ -1774,7 +2032,13 @@ public sealed class PortalCandidatesController : ControllerBase
         return PhysicalFile(path, contentType);
     }
 
+    /// <summary>
+    /// Faz upload do curriculo (documento principal).
+    /// </summary>
     [HttpPost("{id:guid}/curriculos")]
+    [ProducesResponseType(typeof(PortalCandidateDocumentoSummary), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [RequestSizeLimit(52_428_800)]
     [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
     [Consumes("multipart/form-data")]
@@ -1806,7 +2070,12 @@ public sealed class PortalCandidatesController : ControllerBase
         return Ok(new PortalCandidateDocumentoSummary(created.Id, created.NomeArquivo, created.CreatedAtUtc));
     }
 
+    /// <summary>
+    /// Download do curriculo do candidato.
+    /// </summary>
     [HttpGet("{id:guid}/curriculos/{documentoId:guid}/download")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DownloadCurriculo(
         Guid id,
         Guid documentoId,

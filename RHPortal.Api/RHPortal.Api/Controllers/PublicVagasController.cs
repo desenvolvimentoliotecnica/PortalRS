@@ -10,6 +10,9 @@ using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Catálogo público de vagas exibidas no Portal de Vagas (sem autenticação).
+/// </summary>
 [ApiController]
 [AllowAnonymous]
 [Route("api/public/vagas")]
@@ -24,6 +27,22 @@ public sealed class PublicVagasController : ControllerBase
         _tenantContext = tenantContext;
     }
 
+    /// <summary>
+    /// Lista vagas públicas com filtros simples (busca, localização, modalidade, tipo e senioridade).
+    /// </summary>
+    /// <param name="q">Texto livre para busca (título, código, cidade, UF, tags e área).</param>
+    /// <param name="location">Cidade/UF (ex.: "São Paulo, SP") ou "Remoto".</param>
+    /// <param name="mode">Modalidade (ex.: Presencial, Hibrido, Remoto).</param>
+    /// <param name="type">Tipo de contratação (ex.: CLT, PJ).</param>
+    /// <param name="level">Senioridade (ex.: Junior, Pleno, Senior).</param>
+    /// <param name="area">Área da vaga.</param>
+    /// <param name="minSalary">Filtra por salário máximo maior/igual a este valor.</param>
+    /// <param name="sort">Ordenação: salaryDesc, companyAsc ou recent (padrão).</param>
+    /// <param name="page">Página (1‑based).</param>
+    /// <param name="pageSize">Quantidade por página (1 a 100). Valores fora disso voltam para 12.</param>
+    /// <param name="ct">Token de cancelamento.</param>
+    /// <returns>Lista paginada com os cards de vaga.</returns>
+    [ProducesResponseType(typeof(PagedResult<PortalVagaCardResponse>), StatusCodes.Status200OK)]
     [HttpGet]
     public async Task<ActionResult<PagedResult<PortalVagaCardResponse>>> List(
         [FromQuery] string? q,
