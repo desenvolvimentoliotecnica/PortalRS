@@ -46,6 +46,7 @@ using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Infrastructure.Ops;
+using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Swagger;
 using RhPortal.Api.Messaging.Email;
 
@@ -122,6 +123,7 @@ builder.Services.AddScoped<InboxFileProcessor>();
 builder.Services.AddHostedService<InboxFolderWatcherService>();
 
 builder.Services.AddSingleton<ResetState>();
+builder.Services.AddScoped<NotificationPublisher>();
 
 // Email messaging (queue + SMTP/IMAP)
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
@@ -185,6 +187,17 @@ builder.Services
 
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrWhiteSpace(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            },
             OnTokenValidated = context =>
             {
                 var tenantContext = context.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
@@ -336,4 +349,5 @@ app.MapControllers();
 // SignalR hub usado pela Inbox para push em tempo real.
 app.MapHub<InboxHub>("/hubs/inbox");
 app.MapHub<ResetProgressHub>("/hubs/ops-reset");
+app.MapHub<NotificationsHub>("/hubs/notifications");
 app.Run();

@@ -69,6 +69,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<InboxAnexo> InboxAttachments => Set<InboxAnexo>();
     public DbSet<AgendaEventType> AgendaEventTypes => Set<AgendaEventType>();
     public DbSet<AgendaEvent> AgendaEvents => Set<AgendaEvent>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
 
 
@@ -1016,6 +1017,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<Notification>(b =>
+        {
+            b.ToTable("Notifications");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Message).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.Level).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Url).HasMaxLength(500);
+            b.Property(x => x.IsRead).IsRequired();
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasIndex(x => new { x.TenantId, x.IsRead });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<AuditTransaction>(b =>
         {
             b.ToTable("AuditTransactions");
@@ -1489,6 +1509,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) agendaEvent.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) agendaEvent.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is Notification notification)
+            {
+                if (entry.State == EntityState.Added) notification.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) notification.UpdatedAtUtc = now;
             }
         }
         return await base.SaveChangesAsync(cancellationToken);

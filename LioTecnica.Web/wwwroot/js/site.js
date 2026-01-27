@@ -498,6 +498,7 @@
   const badge = document.querySelector('[data-role="notif-count"]');
   const dropdownList = document.querySelector('[data-role="notif-dropdown-list"]');
   const pageList = document.querySelector('[data-role="notif-page-list"]');
+  let items = [];
 
   const levelToBadge = (level) => {
     const norm = (level || "").toString().toLowerCase();
@@ -565,21 +566,27 @@
     badge.classList.toggle("d-none", value <= 0);
   };
 
-  const renderLists = (items) => {
+  const renderLists = (list) => {
     if (dropdownList) {
-      if (!items.length) {
+      if (!list.length) {
         renderEmpty(dropdownList, "Sem notificacoes recentes.");
       } else {
-        dropdownList.replaceChildren(...items.slice(0, 5).map(buildDropdownItem));
+        dropdownList.replaceChildren(...list.slice(0, 5).map(buildDropdownItem));
       }
     }
     if (pageList) {
-      if (!items.length) {
+      if (!list.length) {
         renderEmpty(pageList, "Sem notificacoes no momento.");
       } else {
-        pageList.replaceChildren(...items.map(buildPageItem));
+        pageList.replaceChildren(...list.map(buildPageItem));
       }
     }
+  };
+
+  const applyItems = (list, unreadCount) => {
+    items = Array.isArray(list) ? list : [];
+    updateBadge(unreadCount ?? items.length);
+    renderLists(items);
   };
 
   const load = async () => {
@@ -591,17 +598,46 @@
       if (res.status === 401) return;
       if (!res.ok) throw new Error(`notifications ${res.status}`);
       const data = await res.json();
-      const items = Array.isArray(data?.items) ? data.items : [];
-      updateBadge(data?.unreadCount ?? items.length);
-      renderLists(items);
+      const list = Array.isArray(data?.items) ? data.items : [];
+      applyItems(list, data?.unreadCount);
     } catch (err) {
       renderLists([]);
     }
   };
 
+  const startHub = async () => {
+    if (!window.signalR) return;
+    if (!window.__notificationsHubUrl || !window.__tenantId || !window.__apiAccessToken) return;
+
+    const hubUrl = `${window.__notificationsHubUrl}?tenantId=${encodeURIComponent(window.__tenantId)}`;
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(hubUrl, { accessTokenFactory: () => window.__apiAccessToken })
+      .withAutomaticReconnect([0, 2000, 5000, 10000])
+      .build();
+
+    connection.on("notification.received", (payload) => {
+      if (!payload || !payload.id) return;
+      const exists = items.some(x => x.id === payload.id);
+      if (exists) return;
+      items = [payload, ...items];
+      updateBadge((Number(badge?.textContent || 0) || 0) + 1);
+      renderLists(items);
+    });
+
+    try {
+      await connection.start();
+    } catch (err) {
+      console.warn("NotificationsHub falhou", err);
+    }
+  };
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", load, { once: true });
+    document.addEventListener("DOMContentLoaded", () => {
+      load();
+      startHub();
+    }, { once: true });
   } else {
     load();
+    startHub();
   }
 })();

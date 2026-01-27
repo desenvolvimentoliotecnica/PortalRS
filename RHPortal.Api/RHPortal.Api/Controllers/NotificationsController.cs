@@ -1,5 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Notifications;
+using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Notifications;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
@@ -7,42 +11,73 @@ namespace RhPortal.Api.Controllers;
 [Route("api/notifications")]
 public sealed class NotificationsController : ControllerBase
 {
-    private static readonly NotificationItem[] SampleItems =
-    [
-        new NotificationItem(
-            Guid.Parse("2c4f7a5e-4a1f-4a1d-8c3b-7c0e6f8f4b31"),
-            "Novo candidato recebido",
-            "Vaga: Analista de Dados (BI) - Origem: Email",
-            "info",
-            DateTimeOffset.UtcNow.AddMinutes(-8),
-            "/Notificacoes",
-            false),
-        new NotificationItem(
-            Guid.Parse("0c7c8a7e-2b2a-4b41-9d36-8e2a0b4cc1b2"),
-            "Entrevista agendada",
-            "Mariana Souza - 15/01/2026 14:00",
-            "warning",
-            DateTimeOffset.UtcNow.AddHours(-3),
-            "/Notificacoes",
-            false),
-        new NotificationItem(
-            Guid.Parse("4b8c2e63-2a2a-4e0f-9ad9-efb3a1b2e4a7"),
-            "SLA de triagem proximo do limite",
-            "Supervisor de Qualidade - 6 candidatos aguardando",
-            "danger",
-            DateTimeOffset.UtcNow.AddHours(-6),
-            "/Notificacoes",
-            false)
-    ];
-
     [HttpGet]
-    public ActionResult<NotificationsListResponse> List([FromQuery] int take = 20)
+    [ProducesResponseType(typeof(NotificationsListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<NotificationsListResponse>> List(
+        [FromServices] AppDbContext db,
+        [FromQuery] int take = 20,
+        CancellationToken ct = default)
     {
-        var items = SampleItems
-            .Take(Math.Clamp(take, 1, 100))
-            .ToArray();
+        var safeTake = Math.Clamp(take, 1, 100);
+        var items = await db.Notifications
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(safeTake)
+            .Select(x => new NotificationItem(
+                x.Id,
+                x.Title,
+                x.Message,
+                x.Level,
+                x.CreatedAtUtc,
+                x.Url,
+                x.IsRead
+            ))
+            .ToListAsync(ct);
 
-        var unreadCount = items.Count(i => !i.IsRead);
+        var unreadCount = await db.Notifications
+            .AsNoTracking()
+            .CountAsync(x => !x.IsRead, ct);
+
         return Ok(new NotificationsListResponse(unreadCount, items));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Send(
+        [FromServices] NotificationPublisher publisher,
+        [FromServices] ITenantContext tenantContext,
+        [FromBody] NotificationSendRequest request,
+        CancellationToken ct)
+    {
+        if (request is null)
+            return BadRequest("Payload is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Message))
+            return BadRequest("Title and message are required.");
+
+        IReadOnlyList<string> tenantIds = request.Scope switch
+        {
+            NotificationScope.All => Array.Empty<string>(),
+            NotificationScope.Tenants => (request.TenantIds ?? Array.Empty<string>())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
+            _ => new[] { string.IsNullOrWhiteSpace(request.TenantId) ? tenantContext.TenantId : request.TenantId.Trim() }
+        };
+
+        if (request.Scope == NotificationScope.Tenants && tenantIds.Count == 0)
+            return BadRequest("TenantIds is required for scope Tenants.");
+
+        IReadOnlyList<NotificationItem> items;
+        if (request.Scope == NotificationScope.All)
+        {
+            items = await publisher.PublishToAllTenantsAsync(request, ct);
+        }
+        else
+        {
+            items = await publisher.PublishToTenantsAsync(tenantIds, request, ct);
+        }
+
+        return Ok(new { count = items.Count });
     }
 }
