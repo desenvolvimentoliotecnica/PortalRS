@@ -7,6 +7,9 @@ using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Cadastro de centros de custo.
+/// </summary>
 [ApiController]
 [Route("api/cost-centers")]
 public sealed class CostCentersController : ControllerBase
@@ -18,7 +21,11 @@ public sealed class CostCentersController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Lista centros de custo.
+    /// </summary>
     [HttpGet]
+    [ProducesResponseType(typeof(List<CostCenterResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<CostCenterResponse>>> List([FromServices] AppDbContext db, CancellationToken ct)
     {
         var items = await db.CostCenters
@@ -30,7 +37,12 @@ public sealed class CostCentersController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Consulta um centro de custo pelo ID.
+    /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(CostCenterResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CostCenterResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,
@@ -45,7 +57,12 @@ public sealed class CostCentersController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    /// <summary>
+    /// Cria um novo centro de custo.
+    /// </summary>
     [HttpPost]
+    [ProducesResponseType(typeof(CostCenterResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CostCenterResponse>> Create(
         [FromBody] CostCenterCreateRequest request,
         [FromServices] AppDbContext db,
@@ -72,7 +89,13 @@ public sealed class CostCentersController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, response);
     }
 
+    /// <summary>
+    /// Atualiza um centro de custo.
+    /// </summary>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(CostCenterResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CostCenterResponse>> Update(
         [FromRoute] Guid id,
         [FromBody] CostCenterUpdateRequest request,
@@ -98,7 +121,13 @@ public sealed class CostCentersController : ControllerBase
         return Ok(new CostCenterResponse(entity.Id, entity.Code, entity.Name, entity.Description, entity.GroupName, entity.UnitName, entity.IsActive));
     }
 
+    /// <summary>
+    /// Remove um centro de custo (se não houver dependências).
+    /// </summary>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,

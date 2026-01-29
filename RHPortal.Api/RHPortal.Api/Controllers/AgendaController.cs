@@ -7,6 +7,9 @@ using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Agenda corporativa: tipos e eventos (criação, edição, listagem).
+/// </summary>
 [ApiController]
 [Route("api/agenda")]
 public sealed class AgendaController : ControllerBase
@@ -18,8 +21,14 @@ public sealed class AgendaController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Lista os tipos de eventos disponíveis na agenda.
+    /// </summary>
     [RequirePermission("agenda.view")]
     [HttpGet("types")]
+    [ProducesResponseType(typeof(IReadOnlyList<ScheduleEventTypeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<IReadOnlyList<ScheduleEventTypeResponse>>> ListTypes(
         [FromServices] AgendaService service,
         CancellationToken ct)
@@ -28,8 +37,14 @@ public sealed class AgendaController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Lista eventos da agenda com filtros (período, tipo, participante, etc.).
+    /// </summary>
     [RequirePermission("agenda.view")]
     [HttpGet("events")]
+    [ProducesResponseType(typeof(IReadOnlyList<ScheduleEventResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<IReadOnlyList<ScheduleEventResponse>>> ListEvents(
         [FromQuery] ScheduleEventsQuery query,
         [FromServices] AgendaService service,
@@ -39,8 +54,15 @@ public sealed class AgendaController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Obtém um evento da agenda pelo ID.
+    /// </summary>
     [RequirePermission("agenda.view")]
     [HttpGet("events/{id:guid}")]
+    [ProducesResponseType(typeof(ScheduleEventResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ScheduleEventResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] AgendaService service,
@@ -50,8 +72,15 @@ public sealed class AgendaController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    /// <summary>
+    /// Cria um novo evento na agenda.
+    /// </summary>
     [RequirePermission("agenda.view")]
     [HttpPost("events")]
+    [ProducesResponseType(typeof(ScheduleEventResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ScheduleEventResponse>> Create(
         [FromBody] ScheduleEventCreateRequest request,
         [FromServices] AgendaService service,
@@ -73,8 +102,16 @@ public sealed class AgendaController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Atualiza um evento da agenda pelo ID.
+    /// </summary>
     [RequirePermission("agenda.view")]
     [HttpPut("events/{id:guid}")]
+    [ProducesResponseType(typeof(ScheduleEventResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ScheduleEventResponse>> Update(
         [FromRoute] Guid id,
         [FromBody] ScheduleEventUpdateRequest request,
@@ -97,8 +134,15 @@ public sealed class AgendaController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Remove um evento da agenda.
+    /// </summary>
     [RequirePermission("agenda.view")]
     [HttpDelete("events/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] AgendaService service,

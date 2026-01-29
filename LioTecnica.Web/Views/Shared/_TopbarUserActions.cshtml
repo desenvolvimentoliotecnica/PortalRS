@@ -1,0 +1,28 @@
+@model string
+@using Microsoft.AspNetCore.Mvc.Localization
+@inject IViewLocalizer T
+
+<div class="dropdown">
+    <button class="btn btn-ghost dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-bell me-1"></i><span class="d-none d-sm-inline">@T["UserMenu_Notifications"]</span>
+        <span class="badge text-bg-danger ms-1 notif-badge d-none" data-role="notif-count">0</span>
+    </button>
+
+    <div class="dropdown-menu dropdown-menu-end p-0 notif-dropdown">
+        <div class="px-3 py-2 border-bottom">
+            <div class="fw-semibold">@T["UserMenu_Notifications"]</div>
+            <div class="text-muted small">Ultimas atualizacoes</div>
+        </div>
+
+        <div class="list-group list-group-flush" data-role="notif-dropdown-list"></div>
+
+        <div class="p-2 border-top d-flex gap-2">
+            <a class="btn btn-ghost btn-sm w-100" href="/Notificacoes">
+                <i class="bi bi-inbox me-1"></i>Ver todas
+            </a>
+        </div>
+    </div>
+</div>
+
+@await Html.PartialAsync("_TopbarUserMenu", Model)
+

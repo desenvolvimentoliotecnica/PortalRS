@@ -2,10 +2,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Portal;
+using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Notifications;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.Portal;
 
@@ -20,12 +23,21 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
     private readonly AppDbContext _db;
     private readonly IPasswordHasher<Candidato> _passwordHasher;
     private readonly IStringLocalizer<ServiceMessages> _localizer;
+    private readonly NotificationPublisher _notificationPublisher;
+    private readonly ITenantContext _tenantContext;
 
-    public PortalCandidateAuthService(AppDbContext db, IPasswordHasher<Candidato> passwordHasher, IStringLocalizer<ServiceMessages> localizer)
+    public PortalCandidateAuthService(
+        AppDbContext db,
+        IPasswordHasher<Candidato> passwordHasher,
+        IStringLocalizer<ServiceMessages> localizer,
+        NotificationPublisher notificationPublisher,
+        ITenantContext tenantContext)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _localizer = localizer;
+        _notificationPublisher = notificationPublisher;
+        _tenantContext = tenantContext;
     }
 
     public async Task<PortalCandidateAuthResponse?> LoginAsync(PortalCandidateLoginRequest request, CancellationToken ct)
@@ -74,6 +86,7 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
             candidato.PortalPasswordHash = _passwordHasher.HashPassword(candidato, request.Password);
 
             await _db.SaveChangesAsync(ct);
+            await NotifyPortalRegisterAsync(candidato, ct);
             return new PortalCandidateAuthResponse(candidato.Id, candidato.Nome, candidato.Email);
         }
 
@@ -95,6 +108,7 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
 
         _db.Candidatos.Add(entity);
         await _db.SaveChangesAsync(ct);
+        await NotifyPortalRegisterAsync(entity, ct);
 
         return new PortalCandidateAuthResponse(entity.Id, entity.Nome, entity.Email);
     }
@@ -112,5 +126,39 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
     {
         var raw = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
         return raw.TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    }
+
+    private async Task NotifyPortalRegisterAsync(Candidato candidato, CancellationToken ct)
+    {
+        try
+        {
+            var tenantId = string.IsNullOrWhiteSpace(candidato.TenantId) ? _tenantContext.TenantId : candidato.TenantId;
+            var parts = new List<string>
+            {
+                $"Nome: {candidato.Nome}",
+                $"Email: {candidato.Email}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(candidato.Fone))
+                parts.Add($"Fone: {candidato.Fone}");
+            if (!string.IsNullOrWhiteSpace(candidato.Cidade) || !string.IsNullOrWhiteSpace(candidato.Uf))
+                parts.Add($"Cidade/UF: {candidato.Cidade} - {candidato.Uf}");
+
+            var message = string.Join(" | ", parts);
+            var request = new NotificationSendRequest(
+                NotificationScope.Tenant,
+                "Novo candidato cadastrado",
+                message,
+                "info",
+                $"/Candidatos?open={candidato.Id}",
+                tenantId,
+                null);
+
+            await _notificationPublisher.PublishToTenantsAsync(new[] { tenantId }, request, ct);
+        }
+        catch
+        {
+            // best-effort
+        }
     }
 }

@@ -7,6 +7,9 @@ using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Cadastro de categorias de requisitos.
+/// </summary>
 [ApiController]
 [Route("api/requisito-categorias")]
 public sealed class RequisitoCategoriasController : ControllerBase
@@ -18,7 +21,11 @@ public sealed class RequisitoCategoriasController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Lista categorias de requisito.
+    /// </summary>
     [HttpGet]
+    [ProducesResponseType(typeof(List<RequisitoCategoriaResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<RequisitoCategoriaResponse>>> List([FromServices] AppDbContext db, CancellationToken ct)
     {
         var items = await db.RequisitoCategorias
@@ -30,7 +37,12 @@ public sealed class RequisitoCategoriasController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Consulta uma categoria pelo ID.
+    /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(RequisitoCategoriaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<RequisitoCategoriaResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,
@@ -45,7 +57,12 @@ public sealed class RequisitoCategoriasController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    /// <summary>
+    /// Cria uma nova categoria de requisito.
+    /// </summary>
     [HttpPost]
+    [ProducesResponseType(typeof(RequisitoCategoriaResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<RequisitoCategoriaResponse>> Create(
         [FromBody] RequisitoCategoriaCreateRequest request,
         [FromServices] AppDbContext db,
@@ -70,7 +87,13 @@ public sealed class RequisitoCategoriasController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, response);
     }
 
+    /// <summary>
+    /// Atualiza uma categoria de requisito.
+    /// </summary>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(RequisitoCategoriaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<RequisitoCategoriaResponse>> Update(
         [FromRoute] Guid id,
         [FromBody] RequisitoCategoriaUpdateRequest request,
@@ -94,7 +117,13 @@ public sealed class RequisitoCategoriasController : ControllerBase
         return Ok(new RequisitoCategoriaResponse(entity.Id, entity.Code, entity.Name, entity.Description, entity.IsActive));
     }
 
+    /// <summary>
+    /// Remove uma categoria de requisito (se não houver dependências).
+    /// </summary>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,

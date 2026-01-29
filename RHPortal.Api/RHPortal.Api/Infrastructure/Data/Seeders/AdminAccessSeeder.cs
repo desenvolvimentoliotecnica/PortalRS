@@ -38,6 +38,9 @@ public static class AdminAccessSeeder
 
         var adminEmail = $"admin@{emailDomain}";
         var adminUser = await userManager.Users.FirstOrDefaultAsync(x => x.Email == adminEmail, ct);
+        var adminDisplayName = localizer["Seed.AdminUserNameFormat", tenantId.ToUpperInvariant()].Value;
+        if (string.IsNullOrWhiteSpace(adminDisplayName) || adminDisplayName == "Seed.AdminUserNameFormat")
+            adminDisplayName = $"{tenantId.ToUpperInvariant()} Administrador";
         if (adminUser is null)
         {
             adminUser = new ApplicationUser
@@ -45,13 +48,20 @@ public static class AdminAccessSeeder
                 Id = Guid.NewGuid(),
                 Email = adminEmail,
                 UserName = adminEmail,
-                FullName = localizer["Seed.AdminUserNameFormat", tenantId.ToUpperInvariant()],
+                FullName = adminDisplayName,
                 IsActive = true
             };
 
             var userResult = await userManager.CreateAsync(adminUser, adminPassword);
             if (!userResult.Succeeded)
                 throw new InvalidOperationException(string.Join("; ", userResult.Errors.Select(x => x.Description)));
+        }
+        else if (string.IsNullOrWhiteSpace(adminUser.FullName) || adminUser.FullName == "Seed.AdminUserNameFormat")
+        {
+            adminUser.FullName = adminDisplayName;
+            var updateResult = await userManager.UpdateAsync(adminUser);
+            if (!updateResult.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", updateResult.Errors.Select(x => x.Description)));
         }
 
         var isInRole = await userManager.IsInRoleAsync(adminUser, "Admin");

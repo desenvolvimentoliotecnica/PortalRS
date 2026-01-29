@@ -51,6 +51,13 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoEducacaoItem> CandidatoEducacaoItens => Set<CandidatoEducacaoItem>();
     public DbSet<CandidatoExperiencia> CandidatoExperiencias => Set<CandidatoExperiencia>();
     public DbSet<CandidatoProjeto> CandidatoProjetos => Set<CandidatoProjeto>();
+    public DbSet<CandidatoPreferenciasVaga> CandidatoPreferenciasVaga => Set<CandidatoPreferenciasVaga>();
+    public DbSet<CandidatoReferencia> CandidatoReferencias => Set<CandidatoReferencia>();
+    public DbSet<CandidatoAcessibilidade> CandidatoAcessibilidades => Set<CandidatoAcessibilidade>();
+    public DbSet<CandidatoAgendaPreferencia> CandidatoAgendaPreferencias => Set<CandidatoAgendaPreferencia>();
+    public DbSet<CandidatoAgendaBloqueio> CandidatoAgendaBloqueios => Set<CandidatoAgendaBloqueio>();
+    public DbSet<CandidatoNotificacaoPreferencia> CandidatoNotificacaoPreferencias => Set<CandidatoNotificacaoPreferencia>();
+    public DbSet<CandidatoLgpdConsent> CandidatoLgpdConsents => Set<CandidatoLgpdConsent>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
@@ -62,6 +69,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<InboxAnexo> InboxAttachments => Set<InboxAnexo>();
     public DbSet<AgendaEventType> AgendaEventTypes => Set<AgendaEventType>();
     public DbSet<AgendaEvent> AgendaEvents => Set<AgendaEvent>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationReceipt> NotificationReceipts => Set<NotificationReceipt>();
 
 
 
@@ -480,8 +489,136 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Descricao).HasMaxLength(240);
             b.Property(x => x.StorageFileName).HasMaxLength(260);
             b.Property(x => x.Url).HasMaxLength(400);
+            b.Property(x => x.ArquivoNome).HasMaxLength(260);
+            b.Property(x => x.DataReferencia).HasMaxLength(20);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoReferencia>(b =>
+        {
+            b.ToTable("CandidatoReferencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Relacao).HasMaxLength(80);
+            b.Property(x => x.Empresa).HasMaxLength(160);
+            b.Property(x => x.Cargo).HasMaxLength(120);
+            b.Property(x => x.Contato).HasMaxLength(220);
+            b.Property(x => x.Periodo).HasMaxLength(60);
+            b.Property(x => x.Linkedin).HasMaxLength(260);
+            b.Property(x => x.Observacoes).HasMaxLength(1200);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoAcessibilidade>(b =>
+        {
+            b.ToTable("CandidatoAcessibilidades");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Idioma).HasMaxLength(40);
+            b.Property(x => x.Canal).HasMaxLength(40);
+            b.Property(x => x.MelhorHorario).HasMaxLength(40);
+            b.Property(x => x.ObservacoesComunicacao).HasMaxLength(400);
+            b.Property(x => x.DetalhesNecessidades).HasMaxLength(1200);
+            b.Property(x => x.PcdIdentificacao).HasMaxLength(40);
+            b.Property(x => x.PcdTipo).HasMaxLength(60);
+            b.Property(x => x.PcdComprovacao).HasMaxLength(40);
+            b.Property(x => x.PcdObservacoes).HasMaxLength(1200);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoAgendaPreferencia>(b =>
+        {
+            b.ToTable("CandidatoAgendaPreferencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.FormatoEntrevista).HasMaxLength(40);
+            b.Property(x => x.InicioDisponivel).HasMaxLength(40);
+            b.Property(x => x.AvisoPrevio).HasMaxLength(40);
+            b.Property(x => x.Observacoes).HasMaxLength(400);
+            b.Property(x => x.HorarioPreferido).HasMaxLength(40);
+            b.Property(x => x.FusoHorario).HasMaxLength(60);
+
+            b.HasOne(x => x.Candidato)
+                .WithOne(c => c.AgendaPreferencia)
+                .HasForeignKey<CandidatoAgendaPreferencia>(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoAgendaBloqueio>(b =>
+        {
+            b.ToTable("CandidatoAgendaBloqueios");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40);
+            b.Property(x => x.Titulo).HasMaxLength(120);
+            b.Property(x => x.Data).HasMaxLength(40);
+            b.Property(x => x.Horario).HasMaxLength(40);
+            b.Property(x => x.Observacoes).HasMaxLength(400);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany(c => c.AgendaBloqueios)
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoNotificacaoPreferencia>(b =>
+        {
+            b.ToTable("CandidatoNotificacaoPreferencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Frequencia).HasMaxLength(40);
+            b.Property(x => x.Idioma).HasMaxLength(20);
+            b.Property(x => x.Email).HasMaxLength(180);
+            b.Property(x => x.Telefone).HasMaxLength(40);
+            b.Property(x => x.SilencioAtivo).HasMaxLength(10);
+            b.Property(x => x.SilencioInicio).HasMaxLength(10);
+            b.Property(x => x.SilencioFim).HasMaxLength(10);
+            b.Property(x => x.SilencioPrioridade).HasMaxLength(20);
+            b.Property(x => x.Assinatura).HasMaxLength(200);
+
+            b.HasOne(x => x.Candidato)
+                .WithOne(c => c.NotificacaoPreferencia)
+                .HasForeignKey<CandidatoNotificacaoPreferencia>(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.CandidatoId).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoLgpdConsent>(b =>
+        {
+            b.ToTable("CandidatoLgpdConsents");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Compartilhamento).HasConversion<short>();
+
+            b.HasOne(x => x.Candidato)
+                .WithOne(c => c.LgpdConsent)
+                .HasForeignKey<CandidatoLgpdConsent>(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.CandidatoId).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -636,6 +773,39 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.Cascade);
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoPreferenciasVaga>(b =>
+        {
+            b.ToTable("CandidatoPreferenciasVaga");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CargoAlvo).HasMaxLength(160);
+            b.Property(x => x.Senioridade).HasMaxLength(60);
+            b.Property(x => x.InicioDisponivel).HasMaxLength(60);
+            b.Property(x => x.Resumo).HasMaxLength(1200);
+            b.Property(x => x.AreasInteresse).HasMaxLength(240);
+            b.Property(x => x.ModeloTrabalho).HasMaxLength(40);
+            b.Property(x => x.Jornada).HasMaxLength(40);
+            b.Property(x => x.TipoContrato).HasMaxLength(40);
+            b.Property(x => x.Viagens).HasMaxLength(40);
+            b.Property(x => x.Mudanca).HasMaxLength(40);
+            b.Property(x => x.CidadePreferida).HasMaxLength(160);
+            b.Property(x => x.DistanciaMaxKm).HasMaxLength(20);
+            b.Property(x => x.ObsDeslocamento).HasMaxLength(200);
+            b.Property(x => x.PretensaoSalarial).HasMaxLength(40);
+            b.Property(x => x.PretensaoNegociavel).HasMaxLength(40);
+            b.Property(x => x.BeneficiosDesejados).HasMaxLength(200);
+            b.Property(x => x.NaoAbreMaoDe).HasMaxLength(200);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -845,6 +1015,44 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.Restrict);
 
             b.HasIndex(x => new { x.TenantId, x.StartAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Notification>(b =>
+        {
+            b.ToTable("Notifications");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Message).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.Level).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Url).HasMaxLength(500);
+            b.Property(x => x.IsRead).IsRequired();
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasIndex(x => new { x.TenantId, x.IsRead });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<NotificationReceipt>(b =>
+        {
+            b.ToTable("NotificationReceipts");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NotificationId).IsRequired();
+            b.Property(x => x.UserId).IsRequired();
+            b.Property(x => x.SeenAtUtc);
+            b.Property(x => x.ReadAtUtc);
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.NotificationId });
+            b.HasIndex(x => new { x.TenantId, x.UserId });
+            b.HasIndex(x => new { x.TenantId, x.NotificationId, x.UserId }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1204,6 +1412,42 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 if (entry.State is EntityState.Added or EntityState.Modified) cd.UpdatedAtUtc = now;
             }
 
+            if (entry.Entity is CandidatoReferencia referencia)
+            {
+                if (entry.State == EntityState.Added) referencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) referencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoAcessibilidade acessibilidade)
+            {
+                if (entry.State == EntityState.Added) acessibilidade.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) acessibilidade.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoAgendaPreferencia agendaPreferencia)
+            {
+                if (entry.State == EntityState.Added) agendaPreferencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) agendaPreferencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoAgendaBloqueio agendaBloqueio)
+            {
+                if (entry.State == EntityState.Added) agendaBloqueio.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) agendaBloqueio.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoNotificacaoPreferencia notificacao)
+            {
+                if (entry.State == EntityState.Added) notificacao.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) notificacao.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoLgpdConsent lgpdConsent)
+            {
+                if (entry.State == EntityState.Added) lgpdConsent.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) lgpdConsent.UpdatedAtUtc = now;
+            }
+
             if (entry.Entity is CandidatoCompetencia competencia)
             {
                 if (entry.State == EntityState.Added) competencia.CreatedAtUtc = now;
@@ -1246,6 +1490,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 if (entry.State is EntityState.Added or EntityState.Modified) projeto.UpdatedAtUtc = now;
             }
 
+            if (entry.Entity is CandidatoPreferenciasVaga preferencias)
+            {
+                if (entry.State == EntityState.Added) preferencias.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) preferencias.UpdatedAtUtc = now;
+            }
+
             if (entry.Entity is CandidatoStatusHistory history)
             {
                 if (entry.State == EntityState.Added) history.CreatedAtUtc = now;
@@ -1279,6 +1529,18 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) agendaEvent.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) agendaEvent.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is Notification notification)
+            {
+                if (entry.State == EntityState.Added) notification.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) notification.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is NotificationReceipt receipt)
+            {
+                if (entry.State == EntityState.Added) receipt.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) receipt.UpdatedAtUtc = now;
             }
         }
         return await base.SaveChangesAsync(cancellationToken);

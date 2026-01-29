@@ -5,5 +5,8 @@ public enum CandidateDocumentType
     Curriculo,
     Documento,
     Certificado,
-    Portfolio
+    Portfolio,
+    DiplomaDeclaracao,
+    CarteiraRegistro,
+    Outros
 }

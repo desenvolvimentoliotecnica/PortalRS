@@ -3,15 +3,21 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
+using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Notifications;
+using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Candidatura pública do Portal de Vagas (envio de currículo).
+/// </summary>
 [ApiController]
 [AllowAnonymous]
 [Route("api/public/candidaturas")]
@@ -24,7 +30,18 @@ public sealed class PublicCandidaturasController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Envia uma candidatura para uma vaga (com currículo opcional).
+    /// </summary>
+    /// <remarks>
+    /// - Se o e-mail já existir, a candidatura é atualizada para a nova vaga.
+    /// - Se o currículo for enviado, ele é anexado ao candidato.
+    /// </remarks>
     [HttpPost]
+    [ProducesResponseType(typeof(CandidateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [RequestSizeLimit(52_428_800)]
     [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
     [Consumes("multipart/form-data")]
@@ -32,6 +49,8 @@ public sealed class PublicCandidaturasController : ControllerBase
         [FromForm] PortalCandidaturaRequest request,
         [FromServices] ICandidatoService service,
         [FromServices] AppDbContext db,
+        [FromServices] NotificationPublisher notificationPublisher,
+        [FromServices] ITenantContext tenantContext,
         [FromServices] IEmailQueueService emailQueue,
         CancellationToken ct)
     {
@@ -52,6 +71,9 @@ public sealed class PublicCandidaturasController : ControllerBase
         var obs = BuildObs(request);
 
         CandidateResponse result;
+        var shouldNotify = false;
+        var notifyCandidateId = Guid.Empty;
+        var notifyTenantId = tenantContext.TenantId;
 
         try
         {
@@ -67,6 +89,9 @@ public sealed class PublicCandidaturasController : ControllerBase
                 existing.Obs = obs ?? existing.Obs;
 
                 await db.SaveChangesAsync(ct);
+                shouldNotify = true;
+                notifyCandidateId = existing.Id;
+                notifyTenantId = existing.TenantId;
 
                 result = new CandidateResponse(
     existing.Id,
@@ -119,6 +144,9 @@ public sealed class PublicCandidaturasController : ControllerBase
                 );
 
                 result = await service.CreateAsync(create, ct);
+                shouldNotify = true;
+                notifyCandidateId = result.Id;
+                notifyTenantId = tenantContext.TenantId;
 
                 if (request.Arquivo is { Length: > 0 })
                 {
@@ -157,6 +185,16 @@ public sealed class PublicCandidaturasController : ControllerBase
             }
             catch { /* best-effort */ }
 
+            if (shouldNotify)
+            {
+                await NotifyPortalCandidaturaAsync(
+                    db,
+                    notificationPublisher,
+                    notifyTenantId,
+                    notifyCandidateId,
+                    ct);
+            }
+
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -191,5 +229,61 @@ public sealed class PublicCandidaturasController : ControllerBase
             lines.Add($"Observacoes: {request.Observacoes}");
 
         return lines.Count == 0 ? null : string.Join(Environment.NewLine, lines);
+    }
+
+    private static async Task NotifyPortalCandidaturaAsync(
+        AppDbContext db,
+        NotificationPublisher notificationPublisher,
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var data = await db.Candidatos
+                .AsNoTracking()
+                .Where(x => x.Id == candidateId)
+                .Select(x => new { x.Nome, x.Email, x.Fone, x.VagaId })
+                .FirstOrDefaultAsync(ct);
+
+            if (data is null) return;
+
+            var vagaInfo = await db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == data.VagaId)
+                .Select(v => new { v.Codigo, v.Titulo })
+                .FirstOrDefaultAsync(ct);
+
+            var parts = new List<string>
+            {
+                $"Nome: {data.Nome}",
+                $"Email: {data.Email}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(data.Fone))
+                parts.Add($"Fone: {data.Fone}");
+
+            if (vagaInfo is not null)
+            {
+                var code = string.IsNullOrWhiteSpace(vagaInfo.Codigo) ? "—" : vagaInfo.Codigo;
+                parts.Add($"Vaga: {vagaInfo.Titulo} ({code})");
+            }
+
+            var message = string.Join(" | ", parts);
+            var request = new NotificationSendRequest(
+                NotificationScope.Tenant,
+                "Novo candidato cadastrado",
+                message,
+                "info",
+                $"/Candidatos?open={candidateId}",
+                tenantId,
+                null);
+
+            await notificationPublisher.PublishToTenantsAsync(new[] { tenantId }, request, ct);
+        }
+        catch
+        {
+            // best-effort
+        }
     }
 }

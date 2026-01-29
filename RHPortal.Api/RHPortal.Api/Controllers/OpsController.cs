@@ -23,17 +23,27 @@ public sealed record ResetDatabaseResponse(
     string? Message = null
 );
 
+/// <summary>
+/// Operações administrativas do ambiente (uso interno).
+/// </summary>
 [ApiController]
 [Route("api/ops")]
 public sealed class OpsController : ControllerBase
 {
     /// <summary>
-    /// Reseta o banco (DROP SCHEMA/EnsureDeleted), executa migrations e (opcionalmente) roda o seed.
-    /// Proteções:
-    /// - Bloqueia fora de Development
-    /// - (Opcional) exige header X-OPS-RESET-KEY se estiver configurado em Ops:ResetKey
+    /// Reseta/limpa o banco e (opcionalmente) roda o seed.
     /// </summary>
+    /// <remarks>
+    /// Uso interno e seguro:
+    /// - Bloqueado fora de Development
+    /// - Pode exigir header <c>X-OPS-RESET-KEY</c> se configurado em <c>Ops:ResetKey</c>
+    /// </remarks>
     [HttpPost("reset-database")]
+    [ProducesResponseType(typeof(ResetDatabaseResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<ResetDatabaseResponse>> ResetDatabase(
         [FromServices] IServiceProvider services,
         [FromServices] IConfiguration config,

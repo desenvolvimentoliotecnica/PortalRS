@@ -11,6 +11,9 @@ using System.Text.RegularExpressions;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Lookups e enums para preencher selects/combos do sistema.
+/// </summary>
 [ApiController]
 [Route("api/lookup")]
 public sealed class LookupController : ControllerBase
@@ -24,7 +27,11 @@ public sealed class LookupController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Lista unidades (para dropdowns).
+    /// </summary>
     [HttpGet("units")]
+    [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<OptionResponse>>> Units(CancellationToken ct)
     {
         var items = await _db.Units
@@ -36,7 +43,11 @@ public sealed class LookupController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Lista áreas (para dropdowns).
+    /// </summary>
     [HttpGet("areas")]
+    [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<OptionResponse>>> Areas(CancellationToken ct)
     {
         var items = await _db.Areas
@@ -48,7 +59,11 @@ public sealed class LookupController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Lista departamentos (para dropdowns).
+    /// </summary>
     [HttpGet("departments")]
+    [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<OptionResponse>>> Departments(CancellationToken ct)
     {
         var items = await _db.Departments
@@ -60,7 +75,11 @@ public sealed class LookupController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Lista cargos (job positions). Pode filtrar por área.
+    /// </summary>
     [HttpGet("job-positions")]
+    [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<OptionResponse>>> JobPositions(
         [FromQuery] Guid? areaId,
         CancellationToken ct)
@@ -78,7 +97,11 @@ public sealed class LookupController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Lista enums e opções específicas de Vaga para filtros e formulários.
+    /// </summary>
     [HttpGet("vaga-enums")]
+    [ProducesResponseType(typeof(Dictionary<string, IReadOnlyList<EnumOptionResponse>>), StatusCodes.Status200OK)]
     public ActionResult<Dictionary<string, IReadOnlyList<EnumOptionResponse>>> VagaEnums()
     {
         var areaFilterAll = _localizer["Lookup.AreaFilterAll"].Value;
@@ -118,7 +141,11 @@ public sealed class LookupController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Busca gestores com paginação (para seleção e filtros).
+    /// </summary>
     [HttpGet("managers")]
+    [ProducesResponseType(typeof(LookupResponse<ManagerLookupItem>), StatusCodes.Status200OK)]
     public async Task<ActionResult<LookupResponse<ManagerLookupItem>>> Gestores(
         [FromQuery] string? q,
         [FromQuery] bool onlyActive = true,
@@ -194,7 +221,11 @@ public sealed class LookupController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Lista enums gerais do sistema (candidatos, vagas, filtros e relatórios).
+    /// </summary>
     [HttpGet("enums")]
+    [ProducesResponseType(typeof(Dictionary<string, IReadOnlyList<EnumOptionResponse>>), StatusCodes.Status200OK)]
     public ActionResult<Dictionary<string, IReadOnlyList<EnumOptionResponse>>> Enums()
     {
         var candidatoStatus = BuildEnumOptions<CandidateStatus>();

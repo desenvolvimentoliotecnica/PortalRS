@@ -46,6 +46,7 @@ using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Infrastructure.Ops;
+using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Swagger;
 using RhPortal.Api.Messaging.Email;
 
@@ -87,6 +88,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddSwaggerGen(c =>
 {
     c.OperationFilter<TenantHeaderOperationFilter>();
+    var xmlName = $"{typeof(Program).Assembly.GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlName);
+    if (File.Exists(xmlPath))
+        c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
 });
 
 builder.Services.AddHealthChecks()
@@ -118,6 +123,7 @@ builder.Services.AddScoped<InboxFileProcessor>();
 builder.Services.AddHostedService<InboxFolderWatcherService>();
 
 builder.Services.AddSingleton<ResetState>();
+builder.Services.AddScoped<NotificationPublisher>();
 
 // Email messaging (queue + SMTP/IMAP)
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
@@ -138,14 +144,14 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 
 // Identity
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
-    {
-        options.User.RequireUniqueEmail = true;
-        options.Password.RequireDigit = true;
-        options.Password.RequireUppercase = true;
-        options.Password.RequireLowercase = true;
-        options.Password.RequireNonAlphanumeric = true;
-        options.Password.RequiredLength = 8;
-    })
+{
+    options.User.RequireUniqueEmail = true;
+    options.Password.RequireDigit = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredLength = 8;
+})
     .AddErrorDescriber<LocalizedIdentityErrorDescriber>()
     .AddRoles<ApplicationRole>()
     .AddEntityFrameworkStores<AppDbContext>()
@@ -181,6 +187,17 @@ builder.Services
 
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrWhiteSpace(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            },
             OnTokenValidated = context =>
             {
                 var tenantContext = context.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
@@ -283,7 +300,16 @@ var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocali
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        // Ordena operações dentro do controller (normalmente existe em versões antigas)
+        var opSorterProp = c.ConfigObject.GetType().GetProperty("OperationsSorter");
+        opSorterProp?.SetValue(c.ConfigObject, "alpha"); // ou "method"
+
+        // Ordena controllers/tags (em versões novas existe; em antigas não — por isso reflection)
+        var tagsSorterProp = c.ConfigObject.GetType().GetProperty("TagsSorter");
+        tagsSorterProp?.SetValue(c.ConfigObject, "alpha");
+    });
 }
 
 app.UseExceptionHandler();
@@ -323,4 +349,5 @@ app.MapControllers();
 // SignalR hub usado pela Inbox para push em tempo real.
 app.MapHub<InboxHub>("/hubs/inbox");
 app.MapHub<ResetProgressHub>("/hubs/ops-reset");
+app.MapHub<NotificationsHub>("/hubs/notifications");
 app.Run();

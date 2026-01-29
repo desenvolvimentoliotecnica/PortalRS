@@ -7,6 +7,9 @@ using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Cadastro de áreas.
+/// </summary>
 [ApiController]
 [Route("api/areas")]
 public sealed class AreasController : ControllerBase
@@ -18,7 +21,11 @@ public sealed class AreasController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Lista todas as áreas.
+    /// </summary>
     [HttpGet]
+    [ProducesResponseType(typeof(List<AreaResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<AreaResponse>>> List([FromServices] AppDbContext db, CancellationToken ct)
     {
         var items = await db.Areas
@@ -30,7 +37,12 @@ public sealed class AreasController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Consulta uma área pelo ID.
+    /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(AreaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<AreaResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,
@@ -45,7 +57,12 @@ public sealed class AreasController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    /// <summary>
+    /// Cria uma nova área.
+    /// </summary>
     [HttpPost]
+    [ProducesResponseType(typeof(AreaResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AreaResponse>> Create(
         [FromBody] AreaCreateRequest request,
         [FromServices] AppDbContext db,
@@ -70,7 +87,13 @@ public sealed class AreasController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, response);
     }
 
+    /// <summary>
+    /// Atualiza uma área.
+    /// </summary>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(AreaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AreaResponse>> Update(
         [FromRoute] Guid id,
         [FromBody] AreaUpdateRequest request,
@@ -94,7 +117,13 @@ public sealed class AreasController : ControllerBase
         return Ok(new AreaResponse(entity.Id, entity.Code, entity.Name, entity.Description, entity.IsActive));
     }
 
+    /// <summary>
+    /// Remove uma área (se não houver dependências).
+    /// </summary>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,

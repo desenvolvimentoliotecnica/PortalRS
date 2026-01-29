@@ -11,6 +11,9 @@ using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
 
+/// <summary>
+/// Autenticação e identidade do usuário do sistema (admin/operacional).
+/// </summary>
 [ApiController]
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
@@ -22,8 +25,16 @@ public sealed class AuthController : ControllerBase
         _localizer = localizer;
     }
 
+    /// <summary>
+    /// Autentica com e-mail e senha e devolve token + dados do usuário.
+    /// </summary>
+    /// <remarks>
+    /// Use este endpoint para login tradicional do usuário do sistema.
+    /// </remarks>
     [AllowAnonymous]
     [HttpPost("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<LoginResponse>> Login(
         [FromBody] LoginRequest request,
         [FromServices] AuthenticationService service,
@@ -43,8 +54,16 @@ public sealed class AuthController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Autentica via Entra ID (Microsoft) e devolve token + dados do usuário.
+    /// </summary>
+    /// <remarks>
+    /// Use quando o login é feito por SSO da Microsoft (Entra ID).
+    /// </remarks>
     [AllowAnonymous]
     [HttpPost("entra-login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<LoginResponse>> EntraLogin(
         [FromBody] EntraLoginRequest request,
         [FromServices] AuthenticationService service,
@@ -64,8 +83,16 @@ public sealed class AuthController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Cria um novo usuário do sistema (administrativo/operacional).
+    /// </summary>
+    /// <remarks>
+    /// Requer permissão <c>users.write</c>.
+    /// </remarks>
     [RequirePermission("users.write")]
     [HttpPost("register")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<UserResponse>> Register(
         [FromBody] UserCreateRequest request,
         [FromServices] UserAdministrationService service,
@@ -87,7 +114,13 @@ public sealed class AuthController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Retorna os dados do usuário autenticado (perfil atual).
+    /// </summary>
     [HttpGet("me")]
+    [ProducesResponseType(typeof(CurrentUserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CurrentUserResponse>> Me(
         [FromServices] AuthenticationService service,
         CancellationToken ct)

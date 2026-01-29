@@ -1,0 +1,40 @@
+@model LioTecnica.Web.ViewModels.Portal.PortalVagasIndexViewModel
+
+<div class="header-wrapper">
+    <nav class="navbar">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="portal-brand">
+                <i class="fas fa-flask" aria-hidden="true"></i>
+                <span>LT Portal de Vagas</span>
+            </div>
+            <div class="portal-actions">
+                @if (User.IsInRole("Admin"))
+                {
+                    <button class="btn btn-outline-primary portal-new-job" type="button" data-bs-toggle="modal" data-bs-target="#newJobModal">
+                        <i class="fas fa-plus me-1" aria-hidden="true"></i> Nova vaga
+                    </button>
+                }
+                <div class="dropdown portal-user-menu">
+                    <button class="btn portal-user-btn dropdown-toggle" type="button" id="portalUserMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span id="portalUserAvatar" class="portal-user-avatar">@Model.UserInitials</span>
+                        <span class="text-start d-none d-md-block">
+                            <div id="portalUserName" class="portal-user-name">@Model.UserDisplayName</div>
+                            <div id="portalUserEmail" class="portal-user-email">@Model.UserEmail</div>
+                        </span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="portalUserMenu">
+                        <li>
+                            <button class="dropdown-item" type="button" id="btnProfile">Ver perfil</button>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="post" action="/PortalVagas/Logout?tenantId=@Model.TenantId">
+                                <button class="dropdown-item text-danger" type="submit">Sair</button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+</div>

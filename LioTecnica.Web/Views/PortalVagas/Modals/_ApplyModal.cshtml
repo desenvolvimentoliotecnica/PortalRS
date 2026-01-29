@@ -1,0 +1,158 @@
+<div class="modal fade" id="applyModal" tabindex="-1" aria-labelledby="applyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <form id="applyForm" class="modal-content needs-validation" novalidate>
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="modal-title h5 mb-0" id="applyModalLabel">Enviar candidatura</h2>
+                            <div class="text-secondary small" id="applyModalJobLine"></div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <!-- Alerta interno do modal (erros de validação/envio) -->
+                        <div id="applyAlert" class="alert alert-danger d-none" role="alert" aria-live="polite"></div>
+
+                        <!-- Dados da vaga (readonly, para evitar erro humano) -->
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label for="applyJobTitle" class="form-label">Vaga</label>
+                                <input id="applyJobTitle" class="form-control" type="text" readonly />
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label for="applyCompany" class="form-label">Empresa</label>
+                                <input id="applyCompany" class="form-control" type="text" readonly />
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Dados do candidato -->
+                        <h3 class="h6 fw-semibold mb-3">Dados do candidato</h3>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label for="fullName" class="form-label">Nome completo</label>
+                                <input id="fullName" name="fullName" class="form-control" type="text" required readonly />
+                                <div class="invalid-feedback">Informe seu nome completo.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="email" class="form-label">E-mail</label>
+                                <input id="email" name="email" class="form-control" type="email" required autocomplete="email" readonly />
+                                <div class="invalid-feedback">Informe um e-mail válido.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="phone" class="form-label">Telefone / WhatsApp</label>
+                                <input id="phone" name="phone" class="form-control" type="tel" required placeholder="(DD) 9XXXX-XXXX" autocomplete="tel" readonly />
+                                <div class="invalid-feedback">Informe um telefone para contato.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="candidateUf" class="form-label">UF</label>
+                                <select id="candidateUf" name="candidateUf" class="form-select" required disabled>
+                                    <option value="" selected>Selecione</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione a UF.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="candidateCity" class="form-label">Cidade</label>
+                                <select id="candidateCity" name="candidateCity" class="form-select" required disabled>
+                                    <option value="" selected>Selecione a UF primeiro</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione a cidade.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="linkedin" class="form-label">LinkedIn</label>
+                                <input id="linkedin" name="linkedin" class="form-control" type="url" placeholder="https://linkedin.com/in/..." />
+                                <div class="form-text">Opcional, mas ajuda bastante na triagem.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="portfolio" class="form-label">Portfólio / GitHub</label>
+                                <input id="portfolio" name="portfolio" class="form-control" type="url" placeholder="https://..." />
+                                <div class="form-text">Opcional (ideal para Design/Engenharia/Dados).</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="currentRole" class="form-label">Cargo atual</label>
+                                <input id="currentRole" name="currentRole" class="form-control" type="text" required />
+                                <div class="invalid-feedback">Informe seu cargo atual (ou último).</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="experienceYears" class="form-label">Anos de experiência</label>
+                                <input id="experienceYears" name="experienceYears" class="form-control" type="number" min="0" step="1" required />
+                                <div class="invalid-feedback">Informe um número válido.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="salaryExpectation" class="form-label">Pretensao (R$)</label>
+                                <input id="salaryExpectation" name="salaryExpectation" class="form-control" type="text" required placeholder="Ex.: 12000" />
+                                <div class="invalid-feedback">Informe sua pretensao salarial.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="availability" class="form-label">Disponibilidade para iniciar</label>
+                                <select id="availability" name="availability" class="form-select" required>
+                                    <option value="" selected>Selecione</option>
+                                    <option>Imediata</option>
+                                    <option>Até 15 dias</option>
+                                    <option>Até 30 dias</option>
+                                    <option>Mais de 30 dias</option>
+                                </select>
+                                <div class="invalid-feedback">Selecione sua disponibilidade.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="highlights" class="form-label">Resumo profissional</label>
+                                <textarea id="highlights" name="highlights" class="form-control" rows="4" required
+                                          placeholder="Conte, em poucas linhas, os pontos mais relevantes: impacto, projetos, stack, resultados."></textarea>
+                                <div class="invalid-feedback">Escreva um breve resumo profissional.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="recruiterNotes" class="form-label">Informações adicionais</label>
+                                <textarea id="recruiterNotes" name="recruiterNotes" class="form-control" rows="3"
+                                          placeholder="Ex.: preferências de formato (remoto/híbrido), viagem/mudança, certificações, etc."></textarea>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="attachment" class="form-label">Anexo (opcional)</label>
+                                <input id="attachment" name="attachment" class="form-control" type="file"
+                                       accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                                <div class="form-text" id="attachmentHint">Tipos aceitos: PDF, DOC, DOCX. Tamanho máximo: 5MB.</div>
+                                <div class="invalid-feedback" id="attachmentInvalid">Arquivo inválido.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <!-- Regra importante: consentimento explícito -->
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="1" id="consent" name="consent" required>
+                                    <label class="form-check-label" for="consent">
+                                        Concordo em compartilhar meus dados para fins de recrutamento e seleção.
+                                    </label>
+                                    <div class="invalid-feedback">Você precisa concordar para enviar a candidatura.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            Cancelar
+                        </button>
+
+                        <button id="sendApplicationBtn" type="submit" class="btn btn-primary">
+                            <span id="sendBtnText">Enviar candidatura</span>
+                            <span id="sendBtnSpinner" class="spinner-border spinner-border-sm ms-2 d-none" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>

@@ -7,7 +7,7 @@
     @await Html.PartialAsync("_TopbarBrand", "Tela: Configuracao Entra ID")
 
     <div class="d-flex align-items-center gap-2">
-        @await Html.PartialAsync("_TopbarUserMenu", "Admin")
+        @await Html.PartialAsync("_TopbarUserActions", "Admin")
     </div>
 }
 
@@ -87,3 +87,4 @@
     }
     @await Html.PartialAsync("_Footer", footerItems)
 }
+

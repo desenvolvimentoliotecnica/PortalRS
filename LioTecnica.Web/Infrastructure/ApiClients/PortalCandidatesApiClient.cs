@@ -496,6 +496,446 @@ public sealed class PortalCandidatesApiClient
         return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover formacao.");
     }
 
+    public async Task<PortalApiResult<PortalCandidatePreferencesResponse>> GetPreferencesAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/preferences?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidatePreferencesResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidatePreferencesResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar preferencias.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateLgpdResponse>> GetLgpdAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateLgpdResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/lgpd?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateLgpdResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateLgpdResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateLgpdResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateLgpdResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar LGPD.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateLgpdResponse>> UpdateLgpdAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateLgpdRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateLgpdResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/lgpd?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateLgpdResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateLgpdResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateLgpdResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateLgpdResponse>.Fail(res.StatusCode, message ?? "Falha ao salvar LGPD.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateLgpdReceiptResponse>> GetLgpdReceiptAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateLgpdReceiptResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/lgpd/receipt?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateLgpdReceiptResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateLgpdReceiptResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateLgpdReceiptResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateLgpdReceiptResponse>.Fail(res.StatusCode, message ?? "Falha ao gerar comprovante.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidatePreferencesResponse>> UpdatePreferencesAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidatePreferencesRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/preferences?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidatePreferencesResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidatePreferencesResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidatePreferencesResponse>.Fail(res.StatusCode, message ?? "Falha ao salvar preferencias.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateAgendaResponse>> GetAgendaAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateAgendaResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/agenda?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateAgendaResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateAgendaResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateAgendaResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateAgendaResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar agenda.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateAgendaPreferencesDto>> UpdateAgendaAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateAgendaPreferencesRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateAgendaPreferencesDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/agenda?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateAgendaPreferencesDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateAgendaPreferencesDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateAgendaPreferencesDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateAgendaPreferencesDto>.Fail(res.StatusCode, message ?? "Falha ao salvar agenda.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateAgendaBlockDto>> CreateAgendaBlockAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateAgendaBlockRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateAgendaBlockDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/agenda/blocks?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateAgendaBlockDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateAgendaBlockDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateAgendaBlockDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateAgendaBlockDto>.Fail(res.StatusCode, message ?? "Falha ao salvar bloqueio.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateAgendaBlockDto>> UpdateAgendaBlockAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid blockId,
+        PortalCandidateAgendaBlockRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateAgendaBlockDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/agenda/blocks/{blockId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateAgendaBlockDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateAgendaBlockDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateAgendaBlockDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateAgendaBlockDto>.Fail(res.StatusCode, message ?? "Falha ao salvar bloqueio.");
+    }
+
+    public async Task<PortalApiResult<bool>> DeleteAgendaBlockAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid blockId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<bool>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/agenda/blocks/{blockId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Delete, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+            return PortalApiResult<bool>.Ok(true);
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover bloqueio.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateNotificationsResponse>> GetNotificationsAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateNotificationsResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/notifications?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateNotificationsResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateNotificationsResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateNotificationsResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateNotificationsResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar notificacoes.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateNotificationsResponse>> UpdateNotificationsAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateNotificationsRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateNotificationsResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/notifications?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateNotificationsResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateNotificationsResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateNotificationsResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateNotificationsResponse>.Fail(res.StatusCode, message ?? "Falha ao salvar notificacoes.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateDocumentsResponse>> GetDocumentsAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateDocumentsResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/documents?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateDocumentsResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateDocumentsResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateDocumentsResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateDocumentsResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar documentos.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateDocumentDto>> CreateDocumentAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateDocumentRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateDocumentDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/documents?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateDocumentDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateDocumentDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateDocumentDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateDocumentDto>.Fail(res.StatusCode, message ?? "Falha ao salvar documento.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateDocumentDto>> UpdateDocumentAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid documentId,
+        PortalCandidateDocumentRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateDocumentDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/documents/{documentId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateDocumentDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateDocumentDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateDocumentDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateDocumentDto>.Fail(res.StatusCode, message ?? "Falha ao salvar documento.");
+    }
+
+    public async Task<PortalApiResult<bool>> DeleteDocumentAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid documentId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<bool>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/documents/{documentId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Delete, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+            return PortalApiResult<bool>.Ok(true);
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover documento.");
+    }
+
     public async Task<PortalApiResult<PortalCandidateExperienceProjectResponse>> GetExperienceProjectsAsync(
         string tenantId,
         Guid candidateId,
@@ -684,6 +1124,170 @@ public sealed class PortalCandidatesApiClient
 
         var message = await TryReadMessageAsync(res, ct);
         return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover projeto.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateReferencesResponse>> GetReferencesAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateReferencesResponse>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/references?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateReferencesResponse>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateReferencesResponse>.Ok(data);
+
+            return PortalApiResult<PortalCandidateReferencesResponse>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateReferencesResponse>.Fail(res.StatusCode, message ?? "Falha ao carregar referencias.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateReferenceDto>> CreateReferenceAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateReferenceRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateReferenceDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/references?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateReferenceDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateReferenceDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateReferenceDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateReferenceDto>.Fail(res.StatusCode, message ?? "Falha ao salvar referencia.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateReferenceDto>> UpdateReferenceAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid referenceId,
+        PortalCandidateReferenceRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateReferenceDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/references/{referenceId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateReferenceDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateReferenceDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateReferenceDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateReferenceDto>.Fail(res.StatusCode, message ?? "Falha ao salvar referencia.");
+    }
+
+    public async Task<PortalApiResult<bool>> DeleteReferenceAsync(
+        string tenantId,
+        Guid candidateId,
+        Guid referenceId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<bool>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/references/{referenceId}?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Delete, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+            return PortalApiResult<bool>.Ok(true);
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<bool>.Fail(res.StatusCode, message ?? "Falha ao remover referencia.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateAccessibilityDto>> GetAccessibilityAsync(
+        string tenantId,
+        Guid candidateId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/accessibility?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateAccessibilityDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateAccessibilityDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(res.StatusCode, message ?? "Falha ao carregar acessibilidade.");
+    }
+
+    public async Task<PortalApiResult<PortalCandidateAccessibilityDto>> UpdateAccessibilityAsync(
+        string tenantId,
+        Guid candidateId,
+        PortalCandidateAccessibilityRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(System.Net.HttpStatusCode.BadRequest, "Tenant nao informado.");
+
+        var url = $"api/public/portal-candidates/{candidateId}/accessibility?tenantId={Uri.EscapeDataString(tenantId)}";
+        using var req = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = JsonContent.Create(request)
+        };
+        req.Headers.TryAddWithoutValidation("X-Tenant-Id", tenantId);
+
+        using var res = await _http.SendAsync(req, ct);
+        if (res.IsSuccessStatusCode)
+        {
+            var data = await res.Content.ReadFromJsonAsync<PortalCandidateAccessibilityDto>(cancellationToken: ct);
+            if (data is not null)
+                return PortalApiResult<PortalCandidateAccessibilityDto>.Ok(data);
+
+            return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(res.StatusCode, "Resposta invalida da API.");
+        }
+
+        var message = await TryReadMessageAsync(res, ct);
+        return PortalApiResult<PortalCandidateAccessibilityDto>.Fail(res.StatusCode, message ?? "Falha ao salvar acessibilidade.");
     }
 
     private static async Task<string?> TryReadMessageAsync(HttpResponseMessage response, CancellationToken ct)

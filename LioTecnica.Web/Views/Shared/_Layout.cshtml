@@ -1,3 +1,5 @@
+@using System.Security.Claims
+@inject IConfiguration Configuration
 <!doctype html>
 <html lang="pt-br">
 <head>
@@ -28,7 +30,7 @@
 		<aside class="sidebar d-none d-lg-block">
 			<div class="sidebar-inner">
 				<div class="brand">
-					<img id="logoDesktop" alt="Devcraft Studio" src="https://ugc.production.linktr.ee/cR5FRLAQhMjM5iY6KkQV_N7guc4j7zk8o2yfc?io=true&size=avatar-v3_0">
+					<span id="logoDesktop" class="logo-initials" aria-label="LT">LT</span>
 					<div class="title">
 						<strong>Portal RH</strong>
 						<span>@ViewHelpers.SidebarSubtitle(ViewData)</span>
@@ -68,12 +70,22 @@
 	</div>
 
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+	@{
+		var accessToken = User?.FindFirst("access_token")?.Value ?? string.Empty;
+		var tenantId = User?.FindFirst("tenant")?.Value ?? string.Empty;
+	}
 	<script>
 		window.__enumData = {};
 		window.__enumDataLoaded = false;
 		window.__enumsUrl = "@Url.Content("~/api/lookup/enums")";
 		window.__healthUrl = "@Url.Content("~/api/health")";
+		window.__notificationsUrl = "@Url.Content("~/Notifications/_api/list")";
+		window.__tenantId = "@tenantId";
+		window.__apiAccessToken = "@accessToken";
+		window.__notificationsHubUrl = "@((Configuration["Endpoints:RhApi"] ?? string.Empty).TrimEnd('/') + "/hubs/notifications")";
+		window.__isAdmin = "@(User?.IsInRole("Admin") == true ? "1" : "0")";
 	</script>
+	<script src="~/lib/signalr/signalr.min.js"></script>
 	<script src="~/js/utils.js" asp-append-version="true"></script>
 	<script src="~/js/site.js" asp-append-version="true"></script>
 	@RenderSection("Scripts", required: false)

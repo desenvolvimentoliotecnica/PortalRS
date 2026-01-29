@@ -1,0 +1,913 @@
+Listagem de caminhos de pasta
+O número de série do volume é F815-A523
+C:.
+|   Dockerfile
+|   estrutura.txt
+|   RHPortal.Api.sln
+|   
+\---RHPortal.Api
+    |   appsettings.Development.json
+    |   appsettings.Homologation.json
+    |   appsettings.json
+    |   appsettings.Production.json
+    |   Program.cs
+    |   RHPortal.Api.csproj
+    |   RHPortal.Api.csproj.user
+    |   RHPortal.Api.http
+    |   
+    +---Application
+    |   +---Agenda
+    |   |       AgendaService.cs
+    |   |       
+    |   +---Authentication
+    |   |       AuthenticationService.cs
+    |   |       EntraIdConfigService.cs
+    |   |       EntraTokenValidator.cs
+    |   |       
+    |   +---Candidatos
+    |   |   |   CandidatoService.cs
+    |   |   |   
+    |   |   \---Handlers
+    |   |           CreateCandidatoHandler.cs
+    |   |           DeleteCandidatoHandler.cs
+    |   |           GetCandidatoByIdHandler.cs
+    |   |           ListCandidatosHandler.cs
+    |   |           UpdateCandidatoHandler.cs
+    |   |           
+    |   +---Departments
+    |   |   |   DepartmentService.cs
+    |   |   |   
+    |   |   \---Handlers
+    |   |           CreateDepartmentHandler.cs
+    |   |           DeleteDepartmentHandler.cs
+    |   |           GetDepartmentByIdHandler.cs
+    |   |           ListDepartmentsHandler.cs
+    |   |           UpdateDepartmentHandler.cs
+    |   |           
+    |   +---JobPositions
+    |   |   |   JobPositionService.cs
+    |   |   |   
+    |   |   \---Handlers
+    |   |           CreateJobPositionHandler.cs
+    |   |           DeleteJobPositionHandler.cs
+    |   |           GetJobPositionByIdHandler.cs
+    |   |           ListJobPositionsHandler.cs
+    |   |           UpdateJobPositionHandler.cs
+    |   |           
+    |   +---Localization
+    |   |       LocalizationConfigService.cs
+    |   |       
+    |   +---Managers
+    |   |   |   ManagerService.cs
+    |   |   |   
+    |   |   \---Handlers
+    |   |           CreateManagerHandler.cs
+    |   |           DeleteManagerHandler.cs
+    |   |           GetManagerByIdHandler.cs
+    |   |           ListManagersHandler.cs
+    |   |           UpdateManagerHandler.cs
+    |   |           
+    |   +---Menus
+    |   |       MenuAdministrationService.cs
+    |   |       
+    |   +---Portal
+    |   |       PortalCandidateAuthService.cs
+    |   |       
+    |   +---Roles
+    |   |       RoleAdministrationService.cs
+    |   |       
+    |   +---Units
+    |   |   |   UnitService.cs
+    |   |   |   
+    |   |   \---Handlers
+    |   |           CreateUnitHandler.cs
+    |   |           DeleteUnitHandler.cs
+    |   |           GetUnitByIdHandler.cs
+    |   |           ListUnitsHandler.cs
+    |   |           UpdateUnitHandler.cs
+    |   |           
+    |   +---Users
+    |   |       UserAdministrationService.cs
+    |   |       
+    |   \---Vagas
+    |       |   VagaService.cs
+    |       |   
+    |       \---Handlers
+    |               CreateVagaHandler.cs
+    |               DeleteVagaHandler.cs
+    |               GetVagaByIdHandler.cs
+    |               ListVagasHandler.cs
+    |               UpdateVagaHandler.cs
+    |               
+    +---App_Data
+    |   |   rhportal.db
+    |   |   rhportal.db-shm
+    |   |   rhportal.db-wal
+    |   |   
+    |   \---uploads
+    |       \---liotecnica
+    |           \---candidatos
+    |               +---071ccb29146e4b0dbc4db9f3714d4dd5
+    |               |       4a7795f932194b35af1b2ad80dae2b23.html
+    |               |       
+    |               +---0eaa5c051479466982fb1990ba7b13d0
+    |               |       b64158366753437fa238d65b74edf928.docx
+    |               |       
+    |               +---0ee52ff1bb30493d8b6e1963a3192d35
+    |               |       test.txt
+    |               |       
+    |               +---1d62fac0a9c345f69afde1f317467a97
+    |               |       abc13d8dd0b849f1b1ec1de61d0c0c6f.docx
+    |               |       
+    |               +---2174e287fb08407c856ad67d1d85fa24
+    |               |       5efa3639341f4d5cac1e53bc98546b42.docx
+    |               |       
+    |               +---253e5fcfd12e4326a2d304002b1d08d1
+    |               |       a95b3f60d1b8455a993600b2530fb7a9.docx
+    |               |       
+    |               +---27c1d517e24c468d9d6196269b13df0d
+    |               |       65010e8affb84abba715f5e30103ba32.docx
+    |               |       
+    |               +---2d89edadc78e4487947814c697d79f53
+    |               |       c195943d967a4f5c9e8994654018b11b.docx
+    |               |       
+    |               +---2da51bc43b08486d8b1f8544564ded0b
+    |               |       204e2ab3a7614ad59df716242a9732b5.docx
+    |               |       
+    |               +---40e6c1917f5e457c8177c62bddb00dd1
+    |               |       4300e00747ba41c6abc6c2bd136993d1.docx
+    |               |       
+    |               +---4f6ad25cf50949fea1b908eabf44d26e
+    |               |       6528932e03804b298b743cee7ef62a23.docx
+    |               |       
+    |               +---6202d7f7da5e47299c74b2e1078008f7
+    |               |       d3192e9ad7944aefb550ca55b3fc5c73.docx
+    |               |       
+    |               +---6aaf3a8dd7814e42ba62c5aeef403643
+    |               |       avatar.png
+    |               |       c37f238af30e4c2fb395a5109371f48f.docx
+    |               |       
+    |               +---7910300d24814f62b57957dd5fd5d3a9
+    |               |       c352136e0b2b416faa4402c3063a7c9b.docx
+    |               |       
+    |               +---7af0301d059a40e78036cfea96d23eec
+    |               |       29a26d56c0ae469d961ec9a332e9d32d.docx
+    |               |       
+    |               +---84a53d824643441288558bc7a61e9ec5
+    |               |       f7f4a34ac27d4e8fb9490b90195dad66.docx
+    |               |       
+    |               +---9269afd9062947b38d8ff903de07854e
+    |               |       bf58535129e148d499b320a6005af53a.docx
+    |               |       
+    |               +---9f6614af67fe4608bf8d0ff202a34fb8
+    |               |       9e7006b286344502adb336e150c25676.docx
+    |               |       
+    |               +---a2fc4e206756400ba4080e34bcb9f745
+    |               |       1f808909c26e4ae69b3c89f04ef17459.docx
+    |               |       
+    |               +---aafcdaee0b98451980ae889c821f9774
+    |               |       99035571447c4f46871ea924480fc28f.docx
+    |               |       
+    |               +---b4cde610c6f74dcc980ce38648fb4391
+    |               |       a3ec9693734a412e8589b08bf1044cda.docx
+    |               |       
+    |               +---b716088503844e05a9463ba4cbea7391
+    |               |       2a07027a33404b14ab6d153be291b7ad.docx
+    |               |       
+    |               +---bec194f2d7624740811e30b9e881b9d2
+    |               |       c7590852645644359edfcf625eee4d18.docx
+    |               |       
+    |               +---c01cbd5d74524bd6bc47ba25a85bc097
+    |               |       075660c830444b3295e3e6caf98345cf.docx
+    |               |       
+    |               +---c830cc00430749de93903c490a4835ff
+    |               |       49ab1a32e26c4428aacd228533c199ec.docx
+    |               |       
+    |               +---cb50d6410f314c11b17e9935359673ee
+    |               |       2e811174291048d6bae7610d1bd1c0ff.docx
+    |               |       
+    |               +---d83289b8b9d04590ae0d963caaafa836
+    |               |       41546e6c71cd40a788a2c3b409d3cdca.docx
+    |               |       
+    |               +---dbaa41c332a642f2aeb3fefe871bb235
+    |               |       a4e370eb83cf4187b04ecb9619363e56.docx
+    |               |       
+    |               +---ee738835dded40edb70c912095e76fd7
+    |               |       5d625b4015b747b1a523d60e6a36e7a5.docx
+    |               |       
+    |               +---f10201aa7fcc4e779c27263cdb44cf78
+    |               |       b1c68e3da7484812b0d4781c54c2f3f7.docx
+    |               |       
+    |               +---fd3d9aaa2d6c4f399289f26dd9fc3156
+    |               |       8bf1dfce184e49ccb6892625f91e1612.docx
+    |               |       
+    |               \---fed395e740e348fa8e9377f51cd94b87
+    |                       739358730e824b2fbad1e46c3f26a58d.pdf
+    |                       
+    +---Auditing
+    |   +---Context
+    |   |       AuditContext.cs
+    |   |       AuditContextAccessor.cs
+    |   |       IAuditContextAccessor.cs
+    |   |       
+    |   +---EF
+    |   |       AuditSaveChangesInterceptor.cs
+    |   |       
+    |   +---Entities
+    |   |       AuditEntityChange.cs
+    |   |       AuditEntityPropertyChange.cs
+    |   |       AuditEvent.cs
+    |   |       AuditTransaction.cs
+    |   |       
+    |   +---Helpers
+    |   |       AuditBodyReader.cs
+    |   |       AuditJsonMasker.cs
+    |   |       AuditValueFormatter.cs
+    |   |       
+    |   +---Middleware
+    |   |       AuditMiddleware.cs
+    |   |       
+    |   \---Services
+    |           AuditWriter.cs
+    |           
+    +---bin
+    |   +---Debug
+    |   |   \---net9.0
+    |   |       |   appsettings.Development.json
+    |   |       |   appsettings.Homologation.json
+    |   |       |   appsettings.json
+    |   |       |   appsettings.Production.json
+    |   |       |   Bogus.dll
+    |   |       |   BouncyCastle.Cryptography.dll
+    |   |       |   DocumentFormat.OpenXml.dll
+    |   |       |   DocumentFormat.OpenXml.Framework.dll
+    |   |       |   Humanizer.dll
+    |   |       |   MailKit.dll
+    |   |       |   Microsoft.AspNetCore.Authentication.JwtBearer.dll
+    |   |       |   Microsoft.AspNetCore.Cryptography.Internal.dll
+    |   |       |   Microsoft.AspNetCore.Cryptography.KeyDerivation.dll
+    |   |       |   Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
+    |   |       |   Microsoft.AspNetCore.OpenApi.dll
+    |   |       |   Microsoft.Bcl.AsyncInterfaces.dll
+    |   |       |   Microsoft.Build.Locator.dll
+    |   |       |   Microsoft.CodeAnalysis.CSharp.dll
+    |   |       |   Microsoft.CodeAnalysis.CSharp.Workspaces.dll
+    |   |       |   Microsoft.CodeAnalysis.dll
+    |   |       |   Microsoft.CodeAnalysis.Workspaces.dll
+    |   |       |   Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.dll
+    |   |       |   Microsoft.CodeAnalysis.Workspaces.MSBuild.dll
+    |   |       |   Microsoft.EntityFrameworkCore.Abstractions.dll
+    |   |       |   Microsoft.EntityFrameworkCore.Design.dll
+    |   |       |   Microsoft.EntityFrameworkCore.dll
+    |   |       |   Microsoft.EntityFrameworkCore.Relational.dll
+    |   |       |   Microsoft.Extensions.Caching.Abstractions.dll
+    |   |       |   Microsoft.Extensions.Caching.Memory.dll
+    |   |       |   Microsoft.Extensions.Configuration.Abstractions.dll
+    |   |       |   Microsoft.Extensions.DependencyInjection.Abstractions.dll
+    |   |       |   Microsoft.Extensions.DependencyInjection.dll
+    |   |       |   Microsoft.Extensions.DependencyModel.dll
+    |   |       |   Microsoft.Extensions.Diagnostics.Abstractions.dll
+    |   |       |   Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions.dll
+    |   |       |   Microsoft.Extensions.Diagnostics.HealthChecks.dll
+    |   |       |   Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore.dll
+    |   |       |   Microsoft.Extensions.FileProviders.Abstractions.dll
+    |   |       |   Microsoft.Extensions.Hosting.Abstractions.dll
+    |   |       |   Microsoft.Extensions.Identity.Core.dll
+    |   |       |   Microsoft.Extensions.Identity.Stores.dll
+    |   |       |   Microsoft.Extensions.Logging.Abstractions.dll
+    |   |       |   Microsoft.Extensions.Logging.dll
+    |   |       |   Microsoft.Extensions.Options.dll
+    |   |       |   Microsoft.Extensions.Primitives.dll
+    |   |       |   Microsoft.IdentityModel.Abstractions.dll
+    |   |       |   Microsoft.IdentityModel.JsonWebTokens.dll
+    |   |       |   Microsoft.IdentityModel.Logging.dll
+    |   |       |   Microsoft.IdentityModel.Protocols.dll
+    |   |       |   Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+    |   |       |   Microsoft.IdentityModel.Tokens.dll
+    |   |       |   Microsoft.OpenApi.dll
+    |   |       |   MimeKit.dll
+    |   |       |   Mono.TextTemplating.dll
+    |   |       |   Npgsql.dll
+    |   |       |   Npgsql.EntityFrameworkCore.PostgreSQL.dll
+    |   |       |   RHPortal.Api.deps.json
+    |   |       |   RHPortal.Api.dll
+    |   |       |   RHPortal.Api.exe
+    |   |       |   RHPortal.Api.pdb
+    |   |       |   RHPortal.Api.runtimeconfig.json
+    |   |       |   RHPortal.Api.staticwebassets.endpoints.json
+    |   |       |   RHPortal.Api.xml
+    |   |       |   Swashbuckle.AspNetCore.Swagger.dll
+    |   |       |   Swashbuckle.AspNetCore.SwaggerGen.dll
+    |   |       |   Swashbuckle.AspNetCore.SwaggerUI.dll
+    |   |       |   System.CodeDom.dll
+    |   |       |   System.Composition.AttributedModel.dll
+    |   |       |   System.Composition.Convention.dll
+    |   |       |   System.Composition.Hosting.dll
+    |   |       |   System.Composition.Runtime.dll
+    |   |       |   System.Composition.TypedParts.dll
+    |   |       |   System.IdentityModel.Tokens.Jwt.dll
+    |   |       |   System.IO.Packaging.dll
+    |   |       |   UglyToad.PdfPig.Core.dll
+    |   |       |   UglyToad.PdfPig.dll
+    |   |       |   UglyToad.PdfPig.Fonts.dll
+    |   |       |   UglyToad.PdfPig.Tokenization.dll
+    |   |       |   UglyToad.PdfPig.Tokens.dll
+    |   |       |   
+    |   |       +---App_Data
+    |   |       |       audit-debug.log
+    |   |       |       
+    |   |       +---cs
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---de
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---en-US
+    |   |       |       RHPortal.Api.resources.dll
+    |   |       |       
+    |   |       +---es
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---fr
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---Infrastructure
+    |   |       |   \---Data
+    |   |       |       \---SeedData
+    |   |       |               vaga-patterns.json
+    |   |       |               vaga-requisitos.json
+    |   |       |               
+    |   |       +---it
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---ja
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---ko
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---pl
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---pt-BR
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       RHPortal.Api.resources.dll
+    |   |       |       
+    |   |       +---ru
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---tr
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       +---zh-Hans
+    |   |       |       Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |       |       Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |       |       
+    |   |       \---zh-Hant
+    |   |               Microsoft.CodeAnalysis.CSharp.resources.dll
+    |   |               Microsoft.CodeAnalysis.CSharp.Workspaces.resources.dll
+    |   |               Microsoft.CodeAnalysis.resources.dll
+    |   |               Microsoft.CodeAnalysis.Workspaces.MSBuild.BuildHost.resources.dll
+    |   |               Microsoft.CodeAnalysis.Workspaces.resources.dll
+    |   |               
+    |   \---Release
+    |       \---net9.0
+    +---Contracts
+    |   |   VagaListItemResponse.cs
+    |   |   
+    |   +---Areas
+    |   |       AreaContracts.cs
+    |   |       
+    |   +---Auditing
+    |   |       AuditContracts.cs
+    |   |       
+    |   +---Authentication
+    |   |       AuthenticationContracts.cs
+    |   |       
+    |   +---Candidatos
+    |   |       CandidateContracts.cs
+    |   |       CandidatoListQuery.cs
+    |   |       
+    |   +---Common
+    |   |       EnumOptionResponse.cs
+    |   |       OptionResponse.cs
+    |   |       PagedResult.cs
+    |   |       
+    |   +---CostCenters
+    |   |       CostCenterContracts.cs
+    |   |       
+    |   +---Dashboard
+    |   |       DashboardContracts.cs
+    |   |       
+    |   +---Departments
+    |   |       DepartmentContracts.cs
+    |   |       DepartmentGridRowResponse.cs
+    |   |       DepartmentListQuery.cs
+    |   |       DepartmentStatus.cs
+    |   |       
+    |   +---Emails
+    |   |       EmailTemplateContracts.cs
+    |   |       
+    |   +---Inbox
+    |   |       InboxContracts.cs
+    |   |       InboxUploadRequest.cs
+    |   |       
+    |   +---JobPositions
+    |   |       JobPositionCrudContracts.cs
+    |   |       JobPositionGridRowResponse.cs
+    |   |       JobPositionListQuery.cs
+    |   |       
+    |   +---Logging
+    |   |       LoggingContracts.cs
+    |   |       
+    |   +---Lookups
+    |   |       ManagerLookupItem.cs
+    |   |       
+    |   +---Managers
+    |   |       ManagerCrudContracts.cs
+    |   |       ManagerGridRowResponse.cs
+    |   |       ManagerListQuery.cs
+    |   |       
+    |   +---Menus
+    |   |       MenuContracts.cs
+    |   |       
+    |   +---Portal
+    |   |       PortalAuthContracts.cs
+    |   |       PortalCandidateAccessibilityContracts.cs
+    |   |       PortalCandidateAgendaContracts.cs
+    |   |       PortalCandidateDocumentsContracts.cs
+    |   |       PortalCandidateEducationContracts.cs
+    |   |       PortalCandidateExperienceContracts.cs
+    |   |       PortalCandidateLgpdContracts.cs
+    |   |       PortalCandidateNotificationsContracts.cs
+    |   |       PortalCandidatePreferencesContracts.cs
+    |   |       PortalCandidateProfileContracts.cs
+    |   |       PortalCandidateReferencesContracts.cs
+    |   |       PortalCandidateSkillsPortfolioContracts.cs
+    |   |       PortalCandidaturaRequest.cs
+    |   |       PortalVagaCardResponse.cs
+    |   |       
+    |   +---Reports
+    |   |       ReportContracts.cs
+    |   |       
+    |   +---RequisitoCategorias
+    |   |       RequisitoCategoriaContracts.cs
+    |   |       
+    |   +---Roles
+    |   |       RoleContracts.cs
+    |   |       
+    |   +---Schedule
+    |   |       ScheduleContracts.cs
+    |   |       
+    |   +---Units
+    |   |       CargoStatus.cs
+    |   |       SeniorityLevel.cs
+    |   |       UnitContracts.cs
+    |   |       UnitGridRowResponse.cs
+    |   |       UnitListQuery.cs
+    |   |       
+    |   +---Users
+    |   |       UserContracts.cs
+    |   |       
+    |   \---Vagas
+    |           VagaContracts.cs
+    |           VagaListQuery.cs
+    |           
+    +---Controllers
+    |       AgendaController.cs
+    |       AreasController.cs
+    |       AuditController.cs
+    |       AuthController.cs
+    |       CandidatosController.cs
+    |       CostCentersController.cs
+    |       DashboardController.cs
+    |       DepartmentsController.cs
+    |       EmailTemplatesController.cs
+    |       EntraIdConfigController.cs
+    |       InboxController.cs
+    |       JobPositionsController.cs
+    |       LocalizationConfigController.cs
+    |       LoggingController.cs
+    |       LookupController.cs
+    |       ManagersController.cs
+    |       MenusController.cs
+    |       OpsController.cs
+    |       PortalAuthController.cs
+    |       PortalCandidatesController.cs
+    |       PublicCandidaturasController.cs
+    |       PublicVagasController.cs
+    |       ReportsController.cs
+    |       RequisitoCategoriasController.cs
+    |       RolesController.cs
+    |       UnitsController.cs
+    |       UsersController.cs
+    |       VagasController.cs
+    |       
+    +---Domain
+    |   +---Entities
+    |   |       AgendaEvent.cs
+    |   |       AgendaEventType.cs
+    |   |       ApplicationRole.cs
+    |   |       ApplicationUser.cs
+    |   |       ApplicationUserRole.cs
+    |   |       Area.cs
+    |   |       Candidato.cs
+    |   |       CandidatoAcessibilidade.cs
+    |   |       CandidatoAgenda.cs
+    |   |       CandidatoCompetencias.cs
+    |   |       CandidatoEducacao.cs
+    |   |       CandidatoExperienciaProjeto.cs
+    |   |       CandidatoLgpdConsent.cs
+    |   |       CandidatoNotificacao.cs
+    |   |       CandidatoPreferenciasVaga.cs
+    |   |       CandidatoReferencias.cs
+    |   |       CandidatoStatusHistory.cs
+    |   |       CostCenter.cs
+    |   |       Department.cs
+    |   |       EmailConfig.cs
+    |   |       EmailMessage.cs
+    |   |       EntraIdConfig.cs
+    |   |       InboxItem.cs
+    |   |       ITenantEntity.cs
+    |   |       JobPosition.cs
+    |   |       LocalizationConfig.cs
+    |   |       Manager.cs
+    |   |       Menu.cs
+    |   |       RequisitoCategoria.cs
+    |   |       RoleMenu.cs
+    |   |       Tenant.cs
+    |   |       Unit.cs
+    |   |       Vaga.cs
+    |   |       
+    |   \---Enums
+    |           CandidatoDocumentoTipo.cs
+    |           CandidatoFonte.cs
+    |           CandidatoStatus.cs
+    |           EmailMessageStatus.cs
+    |           InboxOrigem.cs
+    |           InboxStatus.cs
+    |           LgpdSharingScope.cs
+    |           ManagerStatus.cs
+    |           UnitStatus.cs
+    |           VagaArea.cs
+    |           VagaAreaTime.cs
+    |           VagaBeneficioRecorrencia.cs
+    |           VagaBeneficioTipo.cs
+    |           VagaBonusTipo.cs
+    |           VagaDepartamento.cs
+    |           VagaEscalaTrabalho.cs
+    |           VagaEscolaridade.cs
+    |           VagaEtapaModo.cs
+    |           VagaEtapaResponsavel.cs
+    |           VagaFormacaoArea.cs
+    |           VagaGeneroPreferencia.cs
+    |           VagaModalidade.cs
+    |           VagaMoeda.cs
+    |           VagaMotivoAbertura.cs
+    |           VagaOrcamentoAprovado.cs
+    |           VagaPerguntaTipo.cs
+    |           VagaPeso.cs
+    |           VagaPrioridade.cs
+    |           VagaPublicacaoVisibilidade.cs
+    |           VagaRegimeJornada.cs
+    |           VagaRemuneracaoPeriodicidade.cs
+    |           VagaRequisitoAvaliacao.cs
+    |           VagaRequisitoNivel.cs
+    |           VagaSenioridade.cs
+    |           VagaStatus.cs
+    |           VagaTipoContratacao.cs
+    |           
+    +---Infrastructure
+    |   +---Data
+    |   |   |   AppDbContext.cs
+    |   |   |   DbSeeder.cs
+    |   |   |   ResetState.cs
+    |   |   |   
+    |   |   +---SeedData
+    |   |   |       vaga-patterns.json
+    |   |   |       vaga-requisitos.json
+    |   |   |       
+    |   |   \---Seeders
+    |   |           AdminAccessSeeder.cs
+    |   |           AgendaEventSeeder.cs
+    |   |           AgendaTypeSeeder.cs
+    |   |           AreaDepartmentSeeder.cs
+    |   |           CandidatoSeeder.cs
+    |   |           EmailConfigSeeder.cs
+    |   |           EmailMessageSeeder.cs
+    |   |           EmailTemplateSeeder.cs
+    |   |           InboxItemSeeder.cs
+    |   |           JobPositionSeeder.cs
+    |   |           ManagerSeeder.cs
+    |   |           MenuRoleSeeder.cs
+    |   |           MenuSeeder.cs
+    |   |           TenantSeeder.cs
+    |   |           UnitSeeder.cs
+    |   |           VagaSeeder.cs
+    |   |           
+    |   +---Inbox
+    |   |       InboxFileProcessor.cs
+    |   |       InboxFolderOptions.cs
+    |   |       InboxFolderWatcherService.cs
+    |   |       InboxHub.cs
+    |   |       InboxRealtimeMessage.cs
+    |   |       ResumeTextExtractor.cs
+    |   |       
+    |   +---Localization
+    |   |       ControllerMessages.cs
+    |   |       InfrastructureMessages.cs
+    |   |       LocalizedIdentityErrorDescriber.cs
+    |   |       SeedMessages.cs
+    |   |       ServiceMessages.cs
+    |   |       TenantCultureProvider.cs
+    |   |       ValidationMessages.cs
+    |   |       
+    |   +---Ops
+    |   |       ResetProgressHub.cs
+    |   |       ResetProgressMessage.cs
+    |   |       ResetProgressReporter.cs
+    |   |       
+    |   +---Security
+    |   |       JwtOptions.cs
+    |   |       PermissionAuthorizationHandler.cs
+    |   |       PermissionConstants.cs
+    |   |       PermissionPolicyProvider.cs
+    |   |       PermissionRequirement.cs
+    |   |       RequirePermissionAttribute.cs
+    |   |       SecretProtector.cs
+    |   |       
+    |   \---Tenancy
+    |           TenantContext.cs
+    |           TenantMiddleware.cs
+    |           
+    +---Logging
+    |   +---Context
+    |   |       ILogContextAccessor.cs
+    |   |       LogContext.cs
+    |   |       LogContextAccessor.cs
+    |   |       
+    |   +---Entities
+    |   |       ExceptionLog.cs
+    |   |       LogEntry.cs
+    |   |       RequestLog.cs
+    |   |       
+    |   +---Filters
+    |   |       ProblemDetailsLoggingFilter.cs
+    |   |       
+    |   +---Helpers
+    |   |       DeviceResolver.cs
+    |   |       EnvironmentResolver.cs
+    |   |       ExceptionLoggingHelper.cs
+    |   |       Hashing.cs
+    |   |       MaskingAndTruncation.cs
+    |   |       
+    |   +---Logger
+    |   |       DbLogger.cs
+    |   |       DbLoggerProvider.cs
+    |   |       DbLogQueue.cs
+    |   |       LogEntryEnvelope.cs
+    |   |       
+    |   +---Middleware
+    |   |       ExceptionLoggingMiddleware.cs
+    |   |       RequestLogMiddleware.cs
+    |   |       
+    |   \---Writer
+    |           DbLogWriterService.cs
+    |           
+    +---Messaging
+    |   \---Email
+    |           EmailConfigController.cs
+    |           EmailConfigService.cs
+    |           EmailController.cs
+    |           EmailDispatchWorker.cs
+    |           EmailOptions.cs
+    |           EmailQueueService.cs
+    |           EmailTemplateRenderer.cs
+    |           SmtpEmailSender.cs
+    |           
+    +---Migrations
+    |       20260118163142_InitialPostgres.cs
+    |       20260118163142_InitialPostgres.Designer.cs
+    |       20260118172218_AddVagaWeightsAndRequisitoCategoria.cs
+    |       20260118172218_AddVagaWeightsAndRequisitoCategoria.Designer.cs
+    |       20260118193515_AddAreaDescription.cs
+    |       20260118193515_AddAreaDescription.Designer.cs
+    |       20260118210301_AddRequisitoCategorias.cs
+    |       20260118210301_AddRequisitoCategorias.Designer.cs
+    |       20260118212141_AddCostCenters.cs
+    |       20260118212141_AddCostCenters.Designer.cs
+    |       20260118225543_AddInbox.cs
+    |       20260118225543_AddInbox.Designer.cs
+    |       20260119123027_AddAgendaEvents.cs
+    |       20260119123027_AddAgendaEvents.Designer.cs
+    |       20260119141550_AddAuditTables.cs
+    |       20260119141550_AddAuditTables.Designer.cs
+    |       20260119160008_AddLoggingTables.cs
+    |       20260119160008_AddLoggingTables.Designer.cs
+    |       20260119234124_AddCandidatoStatusHistory.cs
+    |       20260119234124_AddCandidatoStatusHistory.Designer.cs
+    |       20260120001923_AddInboxSuggestedVagas.cs
+    |       20260120001923_AddInboxSuggestedVagas.Designer.cs
+    |       20260120013335_AddInboxCandidateLink.cs
+    |       20260120013335_AddInboxCandidateLink.Designer.cs
+    |       20260121120950_AddMenuOpenInNewTab.cs
+    |       20260121120950_AddMenuOpenInNewTab.Designer.cs
+    |       20260121160223_AddCandidateAccessKey.cs
+    |       20260121160223_AddCandidateAccessKey.Designer.cs
+    |       20260121160350_AddCandidatePortalAccessKey.cs
+    |       20260121160350_AddCandidatePortalAccessKey.Designer.cs
+    |       20260121164133_AddEmailMessaging.cs
+    |       20260121164133_AddEmailMessaging.Designer.cs
+    |       20260121190201_AddEmailConfig.cs
+    |       20260121190201_AddEmailConfig.Designer.cs
+    |       20260122161503_AddCandidatePortalPassword.cs
+    |       20260122161503_AddCandidatePortalPassword.Designer.cs
+    |       20260122171044_AllowCandidateWithoutVaga.cs
+    |       20260122171044_AllowCandidateWithoutVaga.Designer.cs
+    |       20260122222457_AddEntraIdConfig.cs
+    |       20260122222457_AddEntraIdConfig.Designer.cs
+    |       20260123115752_AddLocalizationConfig.cs
+    |       20260123115752_AddLocalizationConfig.Designer.cs
+    |       20260123144238_AddMenuDisplayNameKey.cs
+    |       20260123144238_AddMenuDisplayNameKey.Designer.cs
+    |       20260123181814_ExpandLogMetadataLengths.cs
+    |       20260123181814_ExpandLogMetadataLengths.Designer.cs
+    |       20260123181839_ExpandLogMetadataLengthsV2.cs
+    |       20260123181839_ExpandLogMetadataLengthsV2.Designer.cs
+    |       20260126023749_AddCandidateProfileFields.cs
+    |       20260126023749_AddCandidateProfileFields.Designer.cs
+    |       20260126032322_AddCandidateSkillsPortfolio.cs
+    |       20260126032322_AddCandidateSkillsPortfolio.Designer.cs
+    |       20260126111922_AddCandidateEducation.cs
+    |       20260126111922_AddCandidateEducation.Designer.cs
+    |       20260126121634_AddCandidateExperienceProjects.cs
+    |       20260126121634_AddCandidateExperienceProjects.Designer.cs
+    |       20260126125825_AddPortfolioTagsFix.cs
+    |       20260126125825_AddPortfolioTagsFix.Designer.cs
+    |       20260126135851_AddCandidatePreferences.cs
+    |       20260126135851_AddCandidatePreferences.Designer.cs
+    |       20260126161558_AddCandidateDocumentColumns.cs
+    |       20260126161558_AddCandidateDocumentColumns.Designer.cs
+    |       20260126163113_AddCandidateReferences.cs
+    |       20260126163113_AddCandidateReferences.Designer.cs
+    |       20260126165928_AddCandidateAccessibility.cs
+    |       20260126165928_AddCandidateAccessibility.Designer.cs
+    |       20260126174448_AddCandidateAgenda.cs
+    |       20260126174448_AddCandidateAgenda.Designer.cs
+    |       20260126185400_AddCandidateNotifications.cs
+    |       20260126185400_AddCandidateNotifications.Designer.cs
+    |       20260126195531_AddCandidateLgpdConsent.cs
+    |       20260126195531_AddCandidateLgpdConsent.Designer.cs
+    |       AppDbContextModelSnapshot.cs
+    |       
+    +---obj
+    |   |   project.assets.json
+    |   |   project.nuget.cache
+    |   |   RHPortal.Api.csproj.nuget.dgspec.json
+    |   |   RHPortal.Api.csproj.nuget.g.props
+    |   |   RHPortal.Api.csproj.nuget.g.targets
+    |   |   
+    |   +---Debug
+    |   |   \---net9.0
+    |   |       |   .NETCoreApp,Version=v9.0.AssemblyAttributes.cs
+    |   |       |   ApiEndpoints.json
+    |   |       |   apphost.exe
+    |   |       |   RHPortal.Api.AssemblyInfo.cs
+    |   |       |   RHPortal.Api.AssemblyInfoInputs.cache
+    |   |       |   RHPortal.Api.assets.cache
+    |   |       |   RHPortal.Api.csproj.AssemblyReference.cache
+    |   |       |   RHPortal.Api.csproj.BuildWithSkipAnalyzers
+    |   |       |   RHPortal.Api.csproj.CoreCompileInputs.cache
+    |   |       |   RHPortal.Api.csproj.FileListAbsolute.txt
+    |   |       |   RHPortal.Api.csproj.GenerateResource.cache
+    |   |       |   RHPortal.Api.dll
+    |   |       |   RHPortal.Api.GeneratedMSBuildEditorConfig.editorconfig
+    |   |       |   RHPortal.Api.genruntimeconfig.cache
+    |   |       |   RHPortal.Api.GlobalUsings.g.cs
+    |   |       |   RHPortal.Api.MvcApplicationPartsAssemblyInfo.cache
+    |   |       |   RHPortal.Api.MvcApplicationPartsAssemblyInfo.cs
+    |   |       |   RHPortal.Api.pdb
+    |   |       |   RHPortal.Api.Resources.Infrastructure.Localization.InfrastructureMessages.en-US.resources
+    |   |       |   RHPortal.Api.Resources.Infrastructure.Localization.InfrastructureMessages.pt-BR.resources
+    |   |       |   RHPortal.Api.Resources.Infrastructure.Localization.SeedMessages.en-US.resources
+    |   |       |   RHPortal.Api.Resources.Infrastructure.Localization.SeedMessages.pt-BR.resources
+    |   |       |   RHPortal.Api.Resources.Infrastructure.Localization.ServiceMessages.en-US.resources
+    |   |       |   RHPortal.Api.Resources.Infrastructure.Localization.ServiceMessages.pt-BR.resources
+    |   |       |   RHPortal.Api.Resources.Infrastructure.Localization.ValidationMessages.en-US.resources
+    |   |       |   RHPortal.Api.Resources.Infrastructure.Localization.ValidationMessages.pt-BR.resources
+    |   |       |   RHPortal.Api.Resources.RhPortal.Api.Infrastructure.Localization.ControllerMessages.en-US.resources
+    |   |       |   RHPortal.Api.Resources.RhPortal.Api.Infrastructure.Localization.ControllerMessages.pt-BR.resources
+    |   |       |   RHPortal.Api.sourcelink.json
+    |   |       |   RHPortal.Api.xml
+    |   |       |   RHPortal.F5B71DB5.Up2Date
+    |   |       |   rjsmcshtml.dswa.cache.json
+    |   |       |   rjsmrazor.dswa.cache.json
+    |   |       |   rpswa.dswa.cache.json
+    |   |       |   staticwebassets.build.endpoints.json
+    |   |       |   staticwebassets.build.json
+    |   |       |   staticwebassets.build.json.cache
+    |   |       |   staticwebassets.references.upToDateCheck.txt
+    |   |       |   staticwebassets.removed.txt
+    |   |       |   swae.build.ex.cache
+    |   |       |   
+    |   |       +---en-US
+    |   |       |       RHPortal.Api.resources.dll
+    |   |       |       
+    |   |       +---EndpointInfo
+    |   |       |       RHPortal.Api.json
+    |   |       |       RHPortal.Api.OpenApiFiles.cache
+    |   |       |       
+    |   |       +---pt-BR
+    |   |       |       RHPortal.Api.resources.dll
+    |   |       |       
+    |   |       +---ref
+    |   |       |       RHPortal.Api.dll
+    |   |       |       
+    |   |       +---refint
+    |   |       |       RHPortal.Api.dll
+    |   |       |       
+    |   |       \---staticwebassets
+    |   \---Release
+    |       \---net9.0
+    |           |   .NETCoreApp,Version=v9.0.AssemblyAttributes.cs
+    |           |   RHPortal.Api.AssemblyInfo.cs
+    |           |   RHPortal.Api.AssemblyInfoInputs.cache
+    |           |   RHPortal.Api.assets.cache
+    |           |   RHPortal.Api.csproj.AssemblyReference.cache
+    |           |   RHPortal.Api.csproj.CoreCompileInputs.cache
+    |           |   RHPortal.Api.csproj.FileListAbsolute.txt
+    |           |   RHPortal.Api.GeneratedMSBuildEditorConfig.editorconfig
+    |           |   RHPortal.Api.GlobalUsings.g.cs
+    |           |   RHPortal.Api.MvcApplicationPartsAssemblyInfo.cache
+    |           |   RHPortal.Api.MvcApplicationPartsAssemblyInfo.cs
+    |           |   RHPortal.Api.sourcelink.json
+    |           |   rpswa.dswa.cache.json
+    |           |   
+    |           +---ref
+    |           +---refint
+    |           \---staticwebassets
+    +---Properties
+    |       launchSettings.json
+    |       
+    +---Resources
+    |       Infrastructure.Localization.InfrastructureMessages.en-US.resx
+    |       Infrastructure.Localization.InfrastructureMessages.pt-BR.resx
+    |       Infrastructure.Localization.SeedMessages.en-US.resx
+    |       Infrastructure.Localization.SeedMessages.pt-BR.resx
+    |       Infrastructure.Localization.ServiceMessages.en-US.resx
+    |       Infrastructure.Localization.ServiceMessages.pt-BR.resx
+    |       Infrastructure.Localization.ValidationMessages.en-US.resx
+    |       Infrastructure.Localization.ValidationMessages.pt-BR.resx
+    |       RhPortal.Api.Infrastructure.Localization.ControllerMessages.en-US.resx
+    |       RhPortal.Api.Infrastructure.Localization.ControllerMessages.pt-BR.resx
+    |       
+    \---Swagger
+            TenantHeaderOperationFilter.cs
+            

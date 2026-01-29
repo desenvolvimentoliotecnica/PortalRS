@@ -16,15 +16,18 @@ public sealed class PortalVagasController : Controller
     private readonly AuthApiClient _authApi;
     private readonly PortalAuthApiClient _portalAuthApi;
     private readonly PortalCandidatesApiClient _portalCandidatesApi;
+    private readonly IConfiguration _configuration;
 
     public PortalVagasController(
         AuthApiClient authApi,
         PortalAuthApiClient portalAuthApi,
-        PortalCandidatesApiClient portalCandidatesApi)
+        PortalCandidatesApiClient portalCandidatesApi,
+        IConfiguration configuration)
     {
         _authApi = authApi;
         _portalAuthApi = portalAuthApi;
         _portalCandidatesApi = portalCandidatesApi;
+        _configuration = configuration;
     }
 
     [AllowAnonymous]
@@ -37,7 +40,7 @@ public sealed class PortalVagasController : Controller
             if (systemAuth.Principal.IsInRole("Admin"))
             {
                 HttpContext.User = systemAuth.Principal;
-                return View();
+                return View(BuildIndexViewModel(systemAuth.Principal));
             }
         }
 
@@ -50,7 +53,53 @@ public sealed class PortalVagasController : Controller
         }
 
         HttpContext.User = auth.Principal!;
-        return View();
+        return View(BuildIndexViewModel(auth.Principal));
+    }
+
+    private PortalVagasIndexViewModel BuildIndexViewModel(ClaimsPrincipal principal)
+    {
+        var tenantId = principal.FindFirst("tenant")?.Value?.Trim()
+            ?? Request.Query["tenantId"].ToString();
+        var name = principal.Identity?.Name?.Trim()
+            ?? principal.FindFirst(ClaimTypes.Name)?.Value?.Trim()
+            ?? string.Empty;
+        var email = principal.FindFirst(ClaimTypes.Email)?.Value?.Trim()
+            ?? principal.FindFirst("email")?.Value?.Trim()
+            ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(name) && name.StartsWith("Seed.", StringComparison.OrdinalIgnoreCase))
+        {
+            var tenantLabel = string.IsNullOrWhiteSpace(tenantId) ? string.Empty : tenantId.ToUpperInvariant();
+            name = string.IsNullOrWhiteSpace(tenantLabel) ? string.Empty : $"{tenantLabel} Administrador";
+        }
+
+        var initials = BuildInitials(name, email);
+
+        return new PortalVagasIndexViewModel
+        {
+            TenantId = tenantId ?? string.Empty,
+            ApiBaseUrl = _configuration["Endpoints:RhApi"] ?? string.Empty,
+            IsAdmin = principal.IsInRole("Admin"),
+            UserDisplayName = string.IsNullOrWhiteSpace(name) ? email : name,
+            UserEmail = email,
+            UserInitials = initials
+        };
+    }
+
+    private static string BuildInitials(string name, string email)
+    {
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length >= 2)
+                return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+            if (parts.Length == 1 && parts[0].Length > 0)
+                return parts[0][0].ToString().ToUpperInvariant();
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+            return email[..1].ToUpperInvariant();
+
+        return "U";
     }
 
     [AllowAnonymous]
@@ -408,6 +457,251 @@ public sealed class PortalVagasController : Controller
     }
 
     [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Preferences")]
+    public async Task<IActionResult> GetPreferences(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetPreferencesAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar preferencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Preferences")]
+    public async Task<IActionResult> UpdatePreferences([FromBody] PortalCandidatePreferencesRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdatePreferencesAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar preferencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Lgpd")]
+    public async Task<IActionResult> GetLgpd(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetLgpdAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar LGPD." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Lgpd")]
+    public async Task<IActionResult> UpdateLgpd([FromBody] PortalCandidateLgpdRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateLgpdAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar LGPD." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Lgpd/Receipt")]
+    public async Task<IActionResult> GetLgpdReceipt(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetLgpdReceiptAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao gerar comprovante." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Agenda")]
+    public async Task<IActionResult> GetAgenda(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetAgendaAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar agenda." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Agenda")]
+    public async Task<IActionResult> UpdateAgenda([FromBody] PortalCandidateAgendaPreferencesRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateAgendaAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar agenda." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/Agenda/Blocks")]
+    public async Task<IActionResult> CreateAgendaBlock([FromBody] PortalCandidateAgendaBlockRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateAgendaBlockAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar bloqueio." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Agenda/Blocks/{blockId:guid}")]
+    public async Task<IActionResult> UpdateAgendaBlock(Guid blockId, [FromBody] PortalCandidateAgendaBlockRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateAgendaBlockAsync(tenantId, candidateId, blockId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar bloqueio." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/Agenda/Blocks/{blockId:guid}")]
+    public async Task<IActionResult> DeleteAgendaBlock(Guid blockId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteAgendaBlockAsync(tenantId, candidateId, blockId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover bloqueio." });
+
+        return NoContent();
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Notifications")]
+    public async Task<IActionResult> GetNotifications(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetNotificationsAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar notificacoes." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Notifications")]
+    public async Task<IActionResult> UpdateNotifications([FromBody] PortalCandidateNotificationsRequest input, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateNotificationsAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar notificacoes." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Documents")]
+    public async Task<IActionResult> GetDocuments(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetDocumentsAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar documentos." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/Documents")]
+    public async Task<IActionResult> CreateDocument([FromBody] PortalCandidateDocumentRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateDocumentAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar documento." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Documents/{documentId:guid}")]
+    public async Task<IActionResult> UpdateDocument(Guid documentId, [FromBody] PortalCandidateDocumentRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateDocumentAsync(tenantId, candidateId, documentId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar documento." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/Documents/{documentId:guid}")]
+    public async Task<IActionResult> DeleteDocument(Guid documentId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteDocumentAsync(tenantId, candidateId, documentId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover documento." });
+
+        return Ok(new { ok = true });
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
     [HttpGet("/PortalVagas/ExperienceProjects")]
     public async Task<IActionResult> GetExperienceProjects(CancellationToken ct)
     {
@@ -417,6 +711,99 @@ public sealed class PortalVagasController : Controller
         var result = await _portalCandidatesApi.GetExperienceProjectsAsync(tenantId, candidateId, ct);
         if (!result.Success || result.Data is null)
             return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar experiencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/References")]
+    public async Task<IActionResult> GetReferences(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetReferencesAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar referencias." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPost("/PortalVagas/References")]
+    public async Task<IActionResult> CreateReference([FromBody] PortalCandidateReferenceRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.CreateReferenceAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar referencia." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/References/{referenceId:guid}")]
+    public async Task<IActionResult> UpdateReference(Guid referenceId, [FromBody] PortalCandidateReferenceRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateReferenceAsync(tenantId, candidateId, referenceId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar referencia." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpDelete("/PortalVagas/References/{referenceId:guid}")]
+    public async Task<IActionResult> DeleteReference(Guid referenceId, CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.DeleteReferenceAsync(tenantId, candidateId, referenceId, ct);
+        if (!result.Success)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao remover referencia." });
+
+        return Ok(new { ok = true });
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpGet("/PortalVagas/Accessibility")]
+    public async Task<IActionResult> GetAccessibility(CancellationToken ct)
+    {
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.GetAccessibilityAsync(tenantId, candidateId, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao carregar acessibilidade." });
+
+        return Ok(result.Data);
+    }
+
+    [Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme)]
+    [HttpPut("/PortalVagas/Accessibility")]
+    public async Task<IActionResult> UpdateAccessibility([FromBody] PortalCandidateAccessibilityRequest input, CancellationToken ct)
+    {
+        if (input is null)
+            return BadRequest(new { message = "Requisicao invalida." });
+
+        if (!TryGetCandidateContext(out var candidateId, out var tenantId, out var error))
+            return error;
+
+        var result = await _portalCandidatesApi.UpdateAccessibilityAsync(tenantId, candidateId, input, ct);
+        if (!result.Success || result.Data is null)
+            return StatusCode((int)result.StatusCode, new { message = result.Message ?? "Falha ao salvar acessibilidade." });
 
         return Ok(result.Data);
     }

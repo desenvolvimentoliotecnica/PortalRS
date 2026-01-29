@@ -58,6 +58,12 @@ public sealed class Candidato : ITenantEntity
     public Guid? LastMatchVagaId { get; set; }
 
     public List<CandidatoDocumento> Documentos { get; set; } = new();
+    public List<CandidatoReferencia> Referencias { get; set; } = new();
+    public CandidatoAcessibilidade? Acessibilidade { get; set; }
+    public CandidatoAgendaPreferencia? AgendaPreferencia { get; set; }
+    public List<CandidatoAgendaBloqueio> AgendaBloqueios { get; set; } = new();
+    public CandidatoNotificacaoPreferencia? NotificacaoPreferencia { get; set; }
+    public CandidatoLgpdConsent? LgpdConsent { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
@@ -89,6 +95,12 @@ public sealed class CandidatoDocumento : ITenantEntity
 
     [StringLength(400)]
     public string? Url { get; set; }
+
+    [StringLength(260)]
+    public string? ArquivoNome { get; set; }
+
+    [StringLength(20)]
+    public string? DataReferencia { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
