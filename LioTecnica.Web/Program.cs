@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -8,13 +8,20 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using LioTecnica.Web.Infrastructure.ApiClients;
+using LioTecnica.Web.Infrastructure.Logging;
 using LioTecnica.Web.Infrastructure.Security;
 using LioTecnica.Web.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using RhPortal.Web.Infrastructure.ApiClients;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("entra-config.json", optional: true, reloadOnChange: true);
+
+// Use safe exception console formatter to avoid TypeLoadException when logging exceptions
+// whose stack trace contains Razor-generated view types (AspNetCoreGeneratedDocument.Views_*).
+builder.Logging.AddConsoleFormatter<SafeExceptionConsoleFormatter, SimpleConsoleFormatterOptions>();
 
 // =========================
 // Localization (i18n)
@@ -26,7 +33,12 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add(new AuthorizeFilter());
 })
 .AddViewLocalization()
-.AddDataAnnotationsLocalization();
+.AddDataAnnotationsLocalization()
+.AddRazorOptions(options =>
+{
+    options.ViewLocationFormats.Add("/Views/Shared/Components/{1}/{0}.cshtml");
+    options.ViewLocationFormats.Add("/Views/Shared/Components/MainMenu/{0}.cshtml");
+});
 
 builder.Services.AddHttpContextAccessor();
 
@@ -119,10 +131,13 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
+    options.AddPolicy("OwnerOrCookie", policy =>
+        policy.Requirements.Add(new LioTecnica.Web.Infrastructure.Security.OwnerOrCookieRequirement()));
 });
 
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, LioTecnica.Web.Infrastructure.Security.OwnerOrCookieAuthorizationHandler>();
 builder.Services.AddScoped<PortalTenantContext>();
 builder.Services.AddTransient<ApiAuthenticationHandler>();
 builder.Services.AddSingleton<IEntraIdLocalConfigStore, EntraIdLocalConfigStore>();
@@ -177,6 +192,11 @@ builder.Services.AddHttpClient<CandidatosApiClient>(http =>
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
+builder.Services.AddHttpClient<MatchingApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
 builder.Services.AddHttpClient<DashboardApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
@@ -206,6 +226,26 @@ builder.Services.AddHttpClient<PortalAuthApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 });
+
+builder.Services.AddHttpClient<OwnerAuthApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+});
+
+builder.Services.AddHttpClient<OwnerTenantsApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
+builder.Services.AddHttpClient<OwnerTenantUsersApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
+builder.Services.AddHttpClient<MeApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
 builder.Services.AddHttpClient<PortalCandidatesApiClient>(http =>
 {
@@ -326,13 +366,11 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<TenantValidationMiddleware>();
 app.UseAuthorization();
+app.UseMiddleware<OwnerRedirectMiddleware>();
 app.UseMiddleware<ApiUnauthorizedMiddleware>();
-
-app.MapStaticAssets();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Dashboard}/{action=Index}/{id?}")
-    .WithStaticAssets();
+    pattern: "{controller=Dashboard}/{action=Index}/{id?}");
 
 app.Run();
