@@ -1,0 +1,1974 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Auditing.Entities;
+using RhPortal.Api.Logging.Entities;
+using RhPortal.Api.Infrastructure.Tenancy;
+using RHPortal.Api.Domain.Entities;
+
+namespace RhPortal.Api.Infrastructure.Data;
+
+public sealed class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid, IdentityUserClaim<Guid>, ApplicationUserRole, IdentityUserLogin<Guid>, IdentityRoleClaim<Guid>, IdentityUserToken<Guid>>
+{
+    private readonly ITenantContext _tenantContext;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext)
+        : base(options)
+    {
+        _tenantContext = tenantContext;
+    }
+
+    public DbSet<AuditTransaction> AuditTransactions => Set<AuditTransaction>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<AuditEntityChange> AuditEntityChanges => Set<AuditEntityChange>();
+    public DbSet<AuditEntityPropertyChange> AuditEntityPropertyChanges => Set<AuditEntityPropertyChange>();
+    public DbSet<RequestLog> RequestLogs => Set<RequestLog>();
+    public DbSet<LogEntry> LogEntries => Set<LogEntry>();
+    public DbSet<ExceptionLog> ExceptionLogs => Set<ExceptionLog>();
+    public DbSet<Menu> Menus => Set<Menu>();
+    public DbSet<RoleMenu> RoleMenus => Set<RoleMenu>();
+
+    public DbSet<Department> Departments => Set<Department>();
+    public DbSet<Area> Areas => Set<Area>();
+    public DbSet<RequisitoCategoria> RequisitoCategorias => Set<RequisitoCategoria>();
+    public DbSet<Unit> Units => Set<Unit>();
+    public DbSet<UserUnit> UserUnits => Set<UserUnit>();
+    public DbSet<JobPosition> JobPositions => Set<JobPosition>();
+    public DbSet<Pessoa> Pessoas => Set<Pessoa>();
+    public DbSet<PessoaBloqueio> PessoaBloqueios => Set<PessoaBloqueio>();
+    public DbSet<Talento> Talentos => Set<Talento>();
+    public DbSet<TalentoCompetencia> TalentoCompetencias => Set<TalentoCompetencia>();
+    public DbSet<TalentoExperiencia> TalentoExperiencias => Set<TalentoExperiencia>();
+    public DbSet<TalentoTreinamento> TalentoTreinamentos => Set<TalentoTreinamento>();
+    public DbSet<TalentoFormacao> TalentoFormacoes => Set<TalentoFormacao>();
+    public DbSet<TalentoDocumento> TalentoDocumentos => Set<TalentoDocumento>();
+    public DbSet<TalentoCvImportJob> TalentoCvImportJobs => Set<TalentoCvImportJob>();
+    public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
+    public DbSet<Vaga> Vagas => Set<Vaga>();
+    public DbSet<VagaBeneficio> VagaBeneficios => Set<VagaBeneficio>();
+    public DbSet<VagaRequisito> VagaRequisitos => Set<VagaRequisito>();
+    public DbSet<VagaEtapa> VagaEtapas => Set<VagaEtapa>();
+    public DbSet<VagaPergunta> VagaPerguntas => Set<VagaPergunta>();
+    public DbSet<Candidato> Candidatos => Set<Candidato>();
+    public DbSet<CandidatoDocumento> CandidatoDocumentos => Set<CandidatoDocumento>();
+    public DbSet<CandidatoCompetencia> CandidatoCompetencias => Set<CandidatoCompetencia>();
+    public DbSet<CandidatoCertificacao> CandidatoCertificacoes => Set<CandidatoCertificacao>();
+    public DbSet<CandidatoPortfolio> CandidatoPortfolios => Set<CandidatoPortfolio>();
+    public DbSet<CandidatoEducacaoResumo> CandidatoEducacaoResumos => Set<CandidatoEducacaoResumo>();
+    public DbSet<CandidatoEducacaoItem> CandidatoEducacaoItens => Set<CandidatoEducacaoItem>();
+    public DbSet<CandidatoExperiencia> CandidatoExperiencias => Set<CandidatoExperiencia>();
+    public DbSet<CandidatoProjeto> CandidatoProjetos => Set<CandidatoProjeto>();
+    public DbSet<CandidatoPreferenciasVaga> CandidatoPreferenciasVaga => Set<CandidatoPreferenciasVaga>();
+    public DbSet<CandidatoReferencia> CandidatoReferencias => Set<CandidatoReferencia>();
+    public DbSet<CandidatoAcessibilidade> CandidatoAcessibilidades => Set<CandidatoAcessibilidade>();
+    public DbSet<CandidatoAgendaPreferencia> CandidatoAgendaPreferencias => Set<CandidatoAgendaPreferencia>();
+    public DbSet<CandidatoAgendaBloqueio> CandidatoAgendaBloqueios => Set<CandidatoAgendaBloqueio>();
+    public DbSet<CandidatoNotificacaoPreferencia> CandidatoNotificacaoPreferencias => Set<CandidatoNotificacaoPreferencia>();
+    public DbSet<CandidatoLgpdConsent> CandidatoLgpdConsents => Set<CandidatoLgpdConsent>();
+    public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
+    public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
+    public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
+    public DbSet<LocalizationConfig> LocalizationConfigs => Set<LocalizationConfig>();
+    public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
+    public DbSet<EmailAttempt> EmailAttempts => Set<EmailAttempt>();
+    public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
+    public DbSet<InboxItem> InboxItems => Set<InboxItem>();
+    public DbSet<InboxAnexo> InboxAttachments => Set<InboxAnexo>();
+    public DbSet<AgendaEventType> AgendaEventTypes => Set<AgendaEventType>();
+    public DbSet<AgendaEvent> AgendaEvents => Set<AgendaEvent>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationReceipt> NotificationReceipts => Set<NotificationReceipt>();
+    public DbSet<CelebrationPost> CelebrationPosts => Set<CelebrationPost>();
+    public DbSet<CelebrationMention> CelebrationMentions => Set<CelebrationMention>();
+    public DbSet<FeedbackItem> FeedbackItems => Set<FeedbackItem>();
+    public DbSet<DevelopmentPlan> DevelopmentPlans => Set<DevelopmentPlan>();
+    public DbSet<DevelopmentPlanGoal> DevelopmentPlanGoals => Set<DevelopmentPlanGoal>();
+    public DbSet<OneOnOneMeeting> OneOnOneMeetings => Set<OneOnOneMeeting>();
+    public DbSet<RenderCoinBalance> RenderCoinBalances => Set<RenderCoinBalance>();
+    public DbSet<RenderCoinTransaction> RenderCoinTransactions => Set<RenderCoinTransaction>();
+
+
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<ApplicationUser>(b =>
+        {
+            b.ToTable("Users");
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.FullName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.IsActive).IsRequired();
+
+            b.HasOne(x => x.Funcionario)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => x.NormalizedUserName)
+                .HasDatabaseName("UserNameIndex")
+                .IsUnique(false);
+
+            b.HasIndex(x => x.NormalizedEmail)
+                .HasDatabaseName("EmailIndex")
+                .IsUnique(false);
+
+            b.HasIndex(x => new { x.TenantId, x.NormalizedUserName }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.NormalizedEmail }).IsUnique(false);
+
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<ApplicationRole>(b =>
+        {
+            b.ToTable("Roles");
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(400);
+            b.Property(x => x.IsActive).IsRequired();
+            b.Property(x => x.VisibilityScope).HasDefaultValue(RHPortal.Api.Domain.Enums.ProfileVisibilityScope.FullStructure);
+            b.Property(x => x.VagasDataScope).HasDefaultValue(RHPortal.Api.Domain.Enums.VagasDataScope.All);
+            b.Property(x => x.AccessMode).HasDefaultValue(RHPortal.Api.Domain.Enums.ProfileAccessMode.Full);
+
+            b.HasIndex(x => x.NormalizedName)
+                .HasDatabaseName("RoleNameIndex")
+                .IsUnique(false);
+
+            b.HasIndex(x => new { x.TenantId, x.NormalizedName }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<ApplicationUserRole>(b =>
+        {
+            b.ToTable("UserRoles");
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.UserId });
+            b.HasIndex(x => new { x.TenantId, x.RoleId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Menu>(b =>
+        {
+            b.ToTable("Menus");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.DisplayName).HasMaxLength(160).IsRequired();
+            b.Property(x => x.DisplayNameKey).HasMaxLength(200);
+            b.Property(x => x.Route).HasMaxLength(240).IsRequired();
+            b.Property(x => x.Icon).HasMaxLength(120);
+            b.Property(x => x.PermissionKey).HasMaxLength(160).IsRequired();
+            b.Property(x => x.IsActive).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.PermissionKey }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Route });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RoleMenu>(b =>
+        {
+            b.ToTable("RoleMenus");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.PermissionKey).HasMaxLength(160).IsRequired();
+
+            b.HasOne(x => x.Role)
+                .WithMany()
+                .HasForeignKey(x => x.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Menu)
+                .WithMany()
+                .HasForeignKey(x => x.MenuId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.RoleId, x.MenuId, x.PermissionKey }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Area>(b =>
+        {
+            b.ToTable("Areas");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(1000);
+
+            b.HasOne(x => x.Parent)
+                .WithMany(x => x.Children)
+                .HasForeignKey(x => x.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.OwnerFuncionario)
+                .WithMany()
+                .HasForeignKey(x => x.OwnerFuncionarioId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => x.ParentId);
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RequisitoCategoria>(b =>
+        {
+            b.ToTable("RequisitoCategorias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(1000);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Department>(b =>
+        {
+            b.ToTable("Departments");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+
+            b.Property(x => x.ManagerName).HasMaxLength(120);
+            b.Property(x => x.ManagerEmail).HasMaxLength(180);
+            b.Property(x => x.Phone).HasMaxLength(40);
+            b.Property(x => x.BranchOrLocation).HasMaxLength(80);
+            b.Property(x => x.Description).HasMaxLength(1000);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+
+            b.HasOne(x => x.Area)
+             .WithMany()
+             .HasForeignKey(x => x.AreaId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Unit>(b =>
+        {
+            b.ToTable("Units");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+
+            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(140).IsRequired();
+
+            b.Property(x => x.City).HasMaxLength(120);
+            b.Property(x => x.Uf).HasMaxLength(2);
+
+            b.Property(x => x.AddressLine).HasMaxLength(220);
+            b.Property(x => x.Neighborhood).HasMaxLength(120);
+            b.Property(x => x.ZipCode).HasMaxLength(12);
+
+            b.Property(x => x.Email).HasMaxLength(180);
+            b.Property(x => x.Phone).HasMaxLength(40);
+
+            b.Property(x => x.ResponsibleName).HasMaxLength(140);
+            b.Property(x => x.Type).HasMaxLength(120);
+
+            b.Property(x => x.Notes).HasMaxLength(1000);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<UserUnit>(b =>
+        {
+            b.ToTable("UserUnits");
+            b.HasKey(x => new { x.UserId, x.UnitId });
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Unit)
+                .WithMany()
+                .HasForeignKey(x => x.UnitId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.UnitId);
+        });
+
+        modelBuilder.Entity<JobPosition > (b =>
+        {
+            b.ToTable("JobPositions");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+
+            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(160).IsRequired();
+
+            b.Property(x => x.Type).HasMaxLength(180);
+            b.Property(x => x.Description).HasMaxLength(1000);
+
+            b.HasOne(x => x.Area)
+                .WithMany()
+                .HasForeignKey(x => x.AreaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Pessoa>(b =>
+        {
+            b.ToTable("Pessoas");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Origem).HasConversion<int>();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Email).HasMaxLength(180).IsRequired();
+            b.Property(x => x.Fone).HasMaxLength(40);
+            b.Property(x => x.Cidade).HasMaxLength(120);
+            b.Property(x => x.Uf).HasMaxLength(2);
+            b.Property(x => x.LinkedinUrl).HasMaxLength(260);
+            b.Property(x => x.ResumoProfissional).HasMaxLength(2000);
+            b.Property(x => x.Obs).HasMaxLength(2000);
+
+            b.HasIndex(x => new { x.TenantId, x.Email });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Talento>(b =>
+        {
+            b.ToTable("Talentos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CvProfileJson);
+            b.Property(x => x.Versao);
+
+            b.HasOne(x => x.Pessoa)
+                .WithMany()
+                .HasForeignKey(x => x.PessoaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.PessoaId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<TalentoCompetencia>(b =>
+        {
+            b.ToTable("TalentoCompetencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Nivel).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Evidencia).HasMaxLength(300);
+
+            b.HasOne(x => x.Talento)
+                .WithMany(x => x.Competencias)
+                .HasForeignKey(x => x.TalentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.TalentoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<TalentoExperiencia>(b =>
+        {
+            b.ToTable("TalentoExperiencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Empresa).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Cargo).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Inicio).HasMaxLength(20);
+            b.Property(x => x.Fim).HasMaxLength(20);
+            b.Property(x => x.TipoContratacao).HasMaxLength(40);
+            b.Property(x => x.Local).HasMaxLength(160);
+            b.Property(x => x.Atividades).HasMaxLength(2400);
+            b.Property(x => x.ResumoAtividades).HasMaxLength(800);
+            b.Property(x => x.NivelSenioridade).HasMaxLength(40);
+            b.Property(x => x.NivelHierarquico).HasMaxLength(80);
+
+            b.HasOne(x => x.Talento)
+                .WithMany(x => x.Experiencias)
+                .HasForeignKey(x => x.TalentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.TalentoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<TalentoTreinamento>(b =>
+        {
+            b.ToTable("TalentoTreinamentos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Instituicao).HasMaxLength(160);
+            b.Property(x => x.Ano).HasMaxLength(10);
+            b.Property(x => x.Link).HasMaxLength(260);
+
+            b.HasOne(x => x.Talento)
+                .WithMany(x => x.Treinamentos)
+                .HasForeignKey(x => x.TalentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.TalentoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<TalentoFormacao>(b =>
+        {
+            b.ToTable("TalentoFormacoes");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Curso).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Instituicao).HasMaxLength(160);
+            b.Property(x => x.Tipo).HasMaxLength(40);
+            b.Property(x => x.Status).HasMaxLength(40);
+            b.Property(x => x.Inicio).HasMaxLength(20);
+            b.Property(x => x.Fim).HasMaxLength(20);
+            b.Property(x => x.Observacoes).HasMaxLength(800);
+            b.Property(x => x.Link).HasMaxLength(260);
+
+            b.HasOne(x => x.Talento)
+                .WithMany(x => x.Formacao)
+                .HasForeignKey(x => x.TalentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.TalentoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<TalentoDocumento>(b =>
+        {
+            b.ToTable("TalentoDocumentos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NomeArquivo).HasMaxLength(200).IsRequired();
+            b.Property(x => x.ContentType).HasMaxLength(120);
+            b.Property(x => x.Descricao).HasMaxLength(240);
+            b.Property(x => x.StorageFileName).HasMaxLength(260);
+            b.Property(x => x.DataReferencia).HasMaxLength(20);
+
+            b.HasOne(x => x.Talento)
+                .WithMany(x => x.Documentos)
+                .HasForeignKey(x => x.TalentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.TalentoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<TalentoCvImportJob>(b =>
+        {
+            b.ToTable("TalentoCvImportJobs");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.SuggestedDataJson);
+            b.Property(x => x.ErrorMessage).HasMaxLength(2000);
+
+            b.HasOne(x => x.Talento)
+                .WithMany()
+                .HasForeignKey(x => x.TalentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.TalentoDocumento)
+                .WithMany()
+                .HasForeignKey(x => x.TalentoDocumentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.TalentoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<PessoaBloqueio>(b =>
+        {
+            b.ToTable("PessoaBloqueios");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Motivo).HasMaxLength(500);
+            b.Property(x => x.CreatedByUserId).HasMaxLength(120);
+
+            b.HasOne(x => x.Pessoa)
+                .WithMany(x => x.Bloqueios)
+                .HasForeignKey(x => x.PessoaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.PessoaId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Funcionario>(b =>
+        {
+            b.ToTable("Funcionarios");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Email).HasMaxLength(180).IsRequired();
+            b.Property(x => x.Phone).HasMaxLength(40);
+            b.Property(x => x.Notes).HasMaxLength(1000);
+            b.Property(x => x.Headcount);
+
+            b.HasOne(x => x.Pessoa)
+                .WithMany()
+                .HasForeignKey(x => x.PessoaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.Unit)
+                .WithMany()
+                .HasForeignKey(x => x.UnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.Area)
+                .WithMany()
+                .HasForeignKey(x => x.AreaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.JobPosition)
+                .WithMany()
+                .HasForeignKey(x => x.JobPositionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // VAGAS
+        modelBuilder.Entity<Vaga>(b =>
+        {
+            b.ToTable("Vagas");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+
+            b.Property(x => x.Codigo).HasMaxLength(40);
+            b.Property(x => x.Titulo).HasMaxLength(160).IsRequired();
+
+            b.Property(x => x.CodigoInterno).HasMaxLength(40);
+            b.Property(x => x.CodigoCbo).HasMaxLength(20);
+
+            b.Property(x => x.GestorRequisitante).HasMaxLength(120);
+            b.Property(x => x.RecrutadorResponsavel).HasMaxLength(120);
+            b.Property(x => x.PublicoAfirmativo).HasMaxLength(120);
+
+            b.Property(x => x.ProjetoNome).HasMaxLength(160);
+            b.Property(x => x.ProjetoClienteAreaImpactada).HasMaxLength(160);
+            b.Property(x => x.ProjetoPrazoPrevisto).HasMaxLength(80);
+
+            b.Property(x => x.Cep).HasMaxLength(12);
+            b.Property(x => x.Logradouro).HasMaxLength(160);
+            b.Property(x => x.Numero).HasMaxLength(20);
+            b.Property(x => x.Bairro).HasMaxLength(120);
+            b.Property(x => x.Cidade).HasMaxLength(120);
+            b.Property(x => x.Uf).HasMaxLength(2);
+
+            b.Property(x => x.PoliticaTrabalho).HasMaxLength(200);
+            b.Property(x => x.ObservacoesDeslocamento).HasMaxLength(200);
+            b.Property(x => x.ObservacoesRemuneracao).HasMaxLength(240);
+
+            // Decimais
+            b.Property(x => x.SalarioMinimo).HasPrecision(18, 2);
+            b.Property(x => x.SalarioMaximo).HasPrecision(18, 2);
+
+            // ✅ AREA (FK + Navegação)
+            // Se você quer obrigar AreaId, deixe IsRequired()
+            b.Property(x => x.AreaId).IsRequired();
+
+            b.Property(x => x.DepartmentId).IsRequired();
+
+            b.HasOne(x => x.Area)
+                .WithMany() // ou .WithMany(a => a.Vagas) se você tiver coleção em Area
+                .HasForeignKey(x => x.AreaId)
+                .OnDelete(DeleteBehavior.Restrict); // ou NoAction se preferir
+
+            b.HasOne(x => x.Department)
+                 .WithMany()
+                 .HasForeignKey(x => x.DepartmentId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.RecrutadorResponsavelUser)
+                .WithMany()
+                .HasForeignKey(x => x.RecrutadorResponsavelUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Relacionamentos (listas do modal)
+            b.HasMany(x => x.Beneficios)
+                .WithOne(x => x.Vaga)
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasMany(x => x.Requisitos)
+                .WithOne(x => x.Vaga)
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasMany(x => x.Etapas)
+                .WithOne(x => x.Vaga)
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasMany(x => x.PerguntasTriagem)
+                .WithOne(x => x.Vaga)
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Índices úteis
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.DepartmentId });
+
+            // ✅ antes era x.Area (enum) -> agora é AreaId (Guid)
+            b.HasIndex(x => new { x.TenantId, x.AreaId });
+
+            // Multi-tenant
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<VagaBeneficio>(b =>
+        {
+            b.ToTable("VagaBeneficios");
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.VagaId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<VagaRequisito>(b =>
+        {
+            b.ToTable("VagaRequisitos");
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.VagaId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<VagaEtapa>(b =>
+        {
+            b.ToTable("VagaEtapas");
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.VagaId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<VagaPergunta>(b =>
+        {
+            b.ToTable("VagaPerguntas");
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.VagaId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Candidato>(b =>
+        {
+            b.ToTable("Candidatos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Email).HasMaxLength(180).IsRequired();
+            b.Property(x => x.Fone).HasMaxLength(40);
+            b.Property(x => x.Cidade).HasMaxLength(120);
+            b.Property(x => x.Uf).HasMaxLength(2);
+            b.Property(x => x.Obs).HasMaxLength(2000);
+            b.Property(x => x.PortalAccessKey).HasMaxLength(80);
+            b.Property(x => x.PortalPasswordHash).HasMaxLength(400);
+            b.Property(x => x.ApplicationRecruiterUserId).HasMaxLength(120);
+            b.Property(x => x.ApplicationRecruiterUserName).HasMaxLength(200);
+            b.Property(x => x.VagaId).IsRequired(false);
+
+            b.HasIndex(x => new { x.TenantId, x.Email });
+            b.HasIndex(x => new { x.TenantId, x.VagaId });
+
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.Talento)
+                .WithMany(x => x.Candidaturas)
+                .HasForeignKey(x => x.TalentoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasMany(x => x.Documentos)
+                .WithOne(x => x.Candidato)
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoDocumento>(b =>
+        {
+            b.ToTable("CandidatoDocumentos");
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NomeArquivo).HasMaxLength(200).IsRequired();
+            b.Property(x => x.ContentType).HasMaxLength(120);
+            b.Property(x => x.Descricao).HasMaxLength(240);
+            b.Property(x => x.StorageFileName).HasMaxLength(260);
+            b.Property(x => x.Url).HasMaxLength(400);
+            b.Property(x => x.ArquivoNome).HasMaxLength(260);
+            b.Property(x => x.DataReferencia).HasMaxLength(20);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoReferencia>(b =>
+        {
+            b.ToTable("CandidatoReferencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Relacao).HasMaxLength(80);
+            b.Property(x => x.Empresa).HasMaxLength(160);
+            b.Property(x => x.Cargo).HasMaxLength(120);
+            b.Property(x => x.Contato).HasMaxLength(220);
+            b.Property(x => x.Periodo).HasMaxLength(60);
+            b.Property(x => x.Linkedin).HasMaxLength(260);
+            b.Property(x => x.Observacoes).HasMaxLength(1200);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoAcessibilidade>(b =>
+        {
+            b.ToTable("CandidatoAcessibilidades");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Idioma).HasMaxLength(40);
+            b.Property(x => x.Canal).HasMaxLength(40);
+            b.Property(x => x.MelhorHorario).HasMaxLength(40);
+            b.Property(x => x.ObservacoesComunicacao).HasMaxLength(400);
+            b.Property(x => x.DetalhesNecessidades).HasMaxLength(1200);
+            b.Property(x => x.PcdIdentificacao).HasMaxLength(40);
+            b.Property(x => x.PcdTipo).HasMaxLength(60);
+            b.Property(x => x.PcdComprovacao).HasMaxLength(40);
+            b.Property(x => x.PcdObservacoes).HasMaxLength(1200);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoAgendaPreferencia>(b =>
+        {
+            b.ToTable("CandidatoAgendaPreferencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.FormatoEntrevista).HasMaxLength(40);
+            b.Property(x => x.InicioDisponivel).HasMaxLength(40);
+            b.Property(x => x.AvisoPrevio).HasMaxLength(40);
+            b.Property(x => x.Observacoes).HasMaxLength(400);
+            b.Property(x => x.HorarioPreferido).HasMaxLength(40);
+            b.Property(x => x.FusoHorario).HasMaxLength(60);
+
+            b.HasOne(x => x.Candidato)
+                .WithOne(c => c.AgendaPreferencia)
+                .HasForeignKey<CandidatoAgendaPreferencia>(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoAgendaBloqueio>(b =>
+        {
+            b.ToTable("CandidatoAgendaBloqueios");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40);
+            b.Property(x => x.Titulo).HasMaxLength(120);
+            b.Property(x => x.Data).HasMaxLength(40);
+            b.Property(x => x.Horario).HasMaxLength(40);
+            b.Property(x => x.Observacoes).HasMaxLength(400);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany(c => c.AgendaBloqueios)
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoNotificacaoPreferencia>(b =>
+        {
+            b.ToTable("CandidatoNotificacaoPreferencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Frequencia).HasMaxLength(40);
+            b.Property(x => x.Idioma).HasMaxLength(20);
+            b.Property(x => x.Email).HasMaxLength(180);
+            b.Property(x => x.Telefone).HasMaxLength(40);
+            b.Property(x => x.SilencioAtivo).HasMaxLength(10);
+            b.Property(x => x.SilencioInicio).HasMaxLength(10);
+            b.Property(x => x.SilencioFim).HasMaxLength(10);
+            b.Property(x => x.SilencioPrioridade).HasMaxLength(20);
+            b.Property(x => x.Assinatura).HasMaxLength(200);
+
+            b.HasOne(x => x.Candidato)
+                .WithOne(c => c.NotificacaoPreferencia)
+                .HasForeignKey<CandidatoNotificacaoPreferencia>(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.CandidatoId).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoLgpdConsent>(b =>
+        {
+            b.ToTable("CandidatoLgpdConsents");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Compartilhamento).HasConversion<short>();
+
+            b.HasOne(x => x.Candidato)
+                .WithOne(c => c.LgpdConsent)
+                .HasForeignKey<CandidatoLgpdConsent>(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.CandidatoId).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoCompetencia>(b =>
+        {
+            b.ToTable("CandidatoCompetencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Nivel).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Evidencia).HasMaxLength(300);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoCertificacao>(b =>
+        {
+            b.ToTable("CandidatoCertificacoes");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Instituicao).HasMaxLength(160);
+            b.Property(x => x.Ano).HasMaxLength(10);
+            b.Property(x => x.Link).HasMaxLength(260);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoPortfolio>(b =>
+        {
+            b.ToTable("CandidatoPortfolios");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.WorkModel).HasMaxLength(40);
+            b.Property(x => x.Availability).HasMaxLength(40);
+            b.Property(x => x.Salary).HasMaxLength(40);
+            b.Property(x => x.Shift).HasMaxLength(40);
+            b.Property(x => x.Note).HasMaxLength(200);
+            b.Property(x => x.Linkedin).HasMaxLength(260);
+            b.Property(x => x.Github).HasMaxLength(260);
+            b.Property(x => x.Portfolio).HasMaxLength(260);
+            b.Property(x => x.Drive).HasMaxLength(260);
+            b.Property(x => x.Tags).HasMaxLength(400);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoEducacaoResumo>(b =>
+        {
+            b.ToTable("CandidatoEducacaoResumos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nivel).HasMaxLength(60);
+            b.Property(x => x.AreaPrincipal).HasMaxLength(120);
+            b.Property(x => x.Situacao).HasMaxLength(40);
+            b.Property(x => x.Destaques).HasMaxLength(260);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoEducacaoItem>(b =>
+        {
+            b.ToTable("CandidatoEducacaoItens");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Curso).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Instituicao).HasMaxLength(160);
+            b.Property(x => x.Tipo).HasMaxLength(40);
+            b.Property(x => x.Status).HasMaxLength(40);
+            b.Property(x => x.Inicio).HasMaxLength(20);
+            b.Property(x => x.Fim).HasMaxLength(20);
+            b.Property(x => x.Observacoes).HasMaxLength(800);
+            b.Property(x => x.Link).HasMaxLength(260);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoExperiencia>(b =>
+        {
+            b.ToTable("CandidatoExperiencias");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Empresa).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Cargo).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Inicio).HasMaxLength(20);
+            b.Property(x => x.Fim).HasMaxLength(20);
+            b.Property(x => x.Local).HasMaxLength(160);
+            b.Property(x => x.Atividades).HasMaxLength(2400);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoProjeto>(b =>
+        {
+            b.ToTable("CandidatoProjetos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Periodo).HasMaxLength(60);
+            b.Property(x => x.Descricao).HasMaxLength(600);
+            b.Property(x => x.Link).HasMaxLength(260);
+            b.Property(x => x.Stack).HasMaxLength(400);
+            b.Property(x => x.Destaques).HasMaxLength(1600);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoPreferenciasVaga>(b =>
+        {
+            b.ToTable("CandidatoPreferenciasVaga");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CargoAlvo).HasMaxLength(160);
+            b.Property(x => x.Senioridade).HasMaxLength(60);
+            b.Property(x => x.InicioDisponivel).HasMaxLength(60);
+            b.Property(x => x.Resumo).HasMaxLength(1200);
+            b.Property(x => x.AreasInteresse).HasMaxLength(240);
+            b.Property(x => x.ModeloTrabalho).HasMaxLength(40);
+            b.Property(x => x.Jornada).HasMaxLength(40);
+            b.Property(x => x.TipoContrato).HasMaxLength(40);
+            b.Property(x => x.Viagens).HasMaxLength(40);
+            b.Property(x => x.Mudanca).HasMaxLength(40);
+            b.Property(x => x.CidadePreferida).HasMaxLength(160);
+            b.Property(x => x.DistanciaMaxKm).HasMaxLength(20);
+            b.Property(x => x.ObsDeslocamento).HasMaxLength(200);
+            b.Property(x => x.PretensaoSalarial).HasMaxLength(40);
+            b.Property(x => x.PretensaoNegociavel).HasMaxLength(40);
+            b.Property(x => x.BeneficiosDesejados).HasMaxLength(200);
+            b.Property(x => x.NaoAbreMaoDe).HasMaxLength(200);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoStatusHistory>(b =>
+        {
+            b.ToTable("CandidatoStatusHistories");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Reason).HasMaxLength(120);
+            b.Property(x => x.Note).HasMaxLength(400);
+            b.Property(x => x.Source).HasMaxLength(60);
+            b.Property(x => x.UserId).HasMaxLength(120);
+            b.Property(x => x.UserName).HasMaxLength(200);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmailMessage>(b =>
+        {
+            b.ToTable("EmailMessages");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.OwnerUserId).HasMaxLength(120);
+            b.Property(x => x.OwnerUserName).HasMaxLength(200);
+            b.Property(x => x.Source).HasMaxLength(120);
+            b.Property(x => x.To).HasMaxLength(320).IsRequired();
+            b.Property(x => x.Cc).HasMaxLength(640);
+            b.Property(x => x.Bcc).HasMaxLength(640);
+            b.Property(x => x.Subject).HasMaxLength(260).IsRequired();
+            b.Property(x => x.TemplateName).HasMaxLength(120);
+            b.Property(x => x.LastError).HasMaxLength(1200);
+
+            b.HasMany(x => x.Attempts)
+                .WithOne(x => x.EmailMessage)
+                .HasForeignKey(x => x.EmailMessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.OwnerUserId });
+            b.HasIndex(x => new { x.TenantId, x.IsSystem });
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmailConfig>(b =>
+        {
+            b.ToTable("EmailConfigs");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Provider).HasMaxLength(20).IsRequired();
+            b.Property(x => x.SmtpHost).HasMaxLength(200);
+            b.Property(x => x.SmtpUserName).HasMaxLength(200);
+            b.Property(x => x.SmtpFromName).HasMaxLength(200);
+            b.Property(x => x.SmtpFromAddress).HasMaxLength(200);
+            b.Property(x => x.ImapHost).HasMaxLength(200);
+            b.Property(x => x.ImapUserName).HasMaxLength(200);
+
+            b.HasIndex(x => new { x.TenantId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EntraIdConfig>(b =>
+        {
+            b.ToTable("EntraIdConfigs");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.EntraTenantId).HasMaxLength(120);
+            b.Property(x => x.ClientId).HasMaxLength(120);
+            b.Property(x => x.ClientSecretEncrypted).HasMaxLength(400);
+            b.Property(x => x.CallbackPath).HasMaxLength(120);
+            b.Property(x => x.IsEnabled).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<LocalizationConfig>(b =>
+        {
+            b.ToTable("LocalizationConfigs");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Culture).HasMaxLength(20);
+            b.Property(x => x.UiCulture).HasMaxLength(20);
+
+            b.HasIndex(x => new { x.TenantId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmailAttempt>(b =>
+        {
+            b.ToTable("EmailAttempts");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Provider).HasMaxLength(40).IsRequired();
+            b.Property(x => x.ErrorMessage).HasMaxLength(1200);
+            b.Property(x => x.ErrorStackTrace).HasMaxLength(2000);
+            b.HasIndex(x => new { x.TenantId, x.EmailMessageId });
+            b.HasIndex(x => new { x.TenantId, x.StartedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmailTemplate>(b =>
+        {
+            b.ToTable("EmailTemplates");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.SubjectTemplate).HasMaxLength(200).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.Name, x.Version });
+            b.HasIndex(x => new { x.TenantId, x.Name, x.IsActive });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<InboxItem>(b =>
+        {
+            b.ToTable("InboxItems");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Remetente).HasMaxLength(180);
+            b.Property(x => x.Assunto).HasMaxLength(220);
+            b.Property(x => x.Destinatario).HasMaxLength(200);
+            b.Property(x => x.ProcessamentoEtapa).HasMaxLength(120);
+            b.Property(x => x.ProcessamentoUltimoErro).HasMaxLength(400);
+            b.Property(x => x.SuggestedVagasJson).HasColumnType("jsonb");
+
+            b.HasIndex(x => new { x.TenantId, x.Origem });
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.RecebidoEm });
+
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasMany(x => x.Anexos)
+                .WithOne(x => x.InboxItem)
+                .HasForeignKey(x => x.InboxItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<InboxAnexo>(b =>
+        {
+            b.ToTable("InboxAttachments");
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(20);
+            b.Property(x => x.Hash).HasMaxLength(120);
+
+            b.HasIndex(x => new { x.TenantId, x.InboxItemId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AgendaEventType>(b =>
+        {
+            b.ToTable("AgendaEventTypes");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Label).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Color).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Icon).HasMaxLength(80).IsRequired();
+            b.Property(x => x.IsActive).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AgendaEvent>(b =>
+        {
+            b.ToTable("AgendaEvents");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(240).IsRequired();
+            b.Property(x => x.Status).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Location).HasMaxLength(160);
+            b.Property(x => x.Owner).HasMaxLength(120);
+            b.Property(x => x.Candidate).HasMaxLength(160);
+            b.Property(x => x.VagaTitle).HasMaxLength(200);
+            b.Property(x => x.VagaCode).HasMaxLength(40);
+            b.Property(x => x.Notes).HasMaxLength(2000);
+
+            b.HasOne(x => x.Type)
+                .WithMany()
+                .HasForeignKey(x => x.TypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.StartAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CelebrationPost>(b =>
+        {
+            b.ToTable("CelebrationPosts");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Content).HasMaxLength(4000).IsRequired();
+
+            b.HasOne(x => x.Author)
+                .WithMany()
+                .HasForeignKey(x => x.AuthorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CelebrationMention>(b =>
+        {
+            b.ToTable("CelebrationMentions");
+            b.HasKey(x => x.Id);
+
+            b.HasOne(x => x.Post)
+                .WithMany(x => x.Mentions)
+                .HasForeignKey(x => x.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => x.PostId);
+        });
+
+        modelBuilder.Entity<FeedbackItem>(b =>
+        {
+            b.ToTable("FeedbackItems");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Content).HasMaxLength(4000).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40);
+
+            b.HasOne(x => x.FromUser)
+                .WithMany()
+                .HasForeignKey(x => x.FromUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.ToUser)
+                .WithMany()
+                .HasForeignKey(x => x.ToUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasIndex(x => new { x.TenantId, x.ToUserId });
+            b.HasIndex(x => new { x.TenantId, x.FromUserId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<DevelopmentPlan>(b =>
+        {
+            b.ToTable("DevelopmentPlans");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(2000);
+
+            b.HasOne(x => x.OwnerUser)
+                .WithMany()
+                .HasForeignKey(x => x.OwnerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.TargetUser)
+                .WithMany()
+                .HasForeignKey(x => x.TargetUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.OwnerUserId });
+            b.HasIndex(x => new { x.TenantId, x.TargetUserId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<DevelopmentPlanGoal>(b =>
+        {
+            b.ToTable("DevelopmentPlanGoals");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.Description).HasMaxLength(500).IsRequired();
+
+            b.HasOne(x => x.Plan)
+                .WithMany(x => x.Goals)
+                .HasForeignKey(x => x.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.PlanId);
+        });
+
+        modelBuilder.Entity<OneOnOneMeeting>(b =>
+        {
+            b.ToTable("OneOnOneMeetings");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Subject).HasMaxLength(200);
+            b.Property(x => x.Notes).HasMaxLength(4000);
+
+            b.HasOne(x => x.Manager)
+                .WithMany()
+                .HasForeignKey(x => x.ManagerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.Collaborator)
+                .WithMany()
+                .HasForeignKey(x => x.CollaboratorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.MeetingDate });
+            b.HasIndex(x => new { x.TenantId, x.ManagerId });
+            b.HasIndex(x => new { x.TenantId, x.CollaboratorId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RenderCoinBalance>(b =>
+        {
+            b.ToTable("RenderCoinBalances");
+            b.HasKey(x => new { x.TenantId, x.UserId });
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Balance).HasPrecision(18, 4).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.Balance });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RenderCoinTransaction>(b =>
+        {
+            b.ToTable("RenderCoinTransactions");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Amount).HasPrecision(18, 4).IsRequired();
+            b.Property(x => x.Reason).HasMaxLength(200);
+            b.Property(x => x.SourceType).HasMaxLength(40);
+            b.Property(x => x.SourceId).HasMaxLength(100);
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.UserId });
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Notification>(b =>
+        {
+            b.ToTable("Notifications");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Message).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.Level).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Url).HasMaxLength(500);
+            b.Property(x => x.IsRead).IsRequired();
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasIndex(x => new { x.TenantId, x.IsRead });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<NotificationReceipt>(b =>
+        {
+            b.ToTable("NotificationReceipts");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NotificationId).IsRequired();
+            b.Property(x => x.UserId).IsRequired();
+            b.Property(x => x.SeenAtUtc);
+            b.Property(x => x.ReadAtUtc);
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.NotificationId });
+            b.HasIndex(x => new { x.TenantId, x.UserId });
+            b.HasIndex(x => new { x.TenantId, x.NotificationId, x.UserId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AuditTransaction>(b =>
+        {
+            b.ToTable("AuditTransactions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TransactionId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.CorrelationId).HasMaxLength(200);
+            b.Property(x => x.TraceId).HasMaxLength(200);
+            b.Property(x => x.SpanId).HasMaxLength(200);
+            b.Property(x => x.ParentSpanId).HasMaxLength(200);
+            b.Property(x => x.Environment).HasMaxLength(40);
+            b.Property(x => x.AppVersion).HasMaxLength(40);
+            b.Property(x => x.Method).HasMaxLength(16).IsRequired();
+            b.Property(x => x.Path).HasMaxLength(512).IsRequired();
+            b.Property(x => x.QueryString).HasMaxLength(1024);
+            b.Property(x => x.RouteTemplate).HasMaxLength(512);
+            b.Property(x => x.Controller).HasMaxLength(120);
+            b.Property(x => x.Action).HasMaxLength(120);
+            b.Property(x => x.UserId).HasMaxLength(120);
+            b.Property(x => x.UserName).HasMaxLength(200);
+            b.Property(x => x.ClientId).HasMaxLength(120);
+            b.Property(x => x.Ip).HasMaxLength(80);
+            b.Property(x => x.UserAgent).HasMaxLength(400);
+            b.Property(x => x.Host).HasMaxLength(200);
+            b.Property(x => x.RequestBodyHash).HasMaxLength(64);
+            b.Property(x => x.ResponseBodyHash).HasMaxLength(64);
+
+            b.HasIndex(x => x.TransactionId).IsUnique();
+            b.HasIndex(x => x.StartedAt);
+            b.HasIndex(x => new { x.TenantId, x.StartedAt });
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.Path);
+            b.HasIndex(x => x.StatusCode);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AuditEvent>(b =>
+        {
+            b.ToTable("AuditEvents");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.EventType).HasMaxLength(40).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            b.Property(x => x.DataJson).HasColumnType("jsonb");
+
+            b.HasOne(x => x.Transaction)
+                .WithMany(t => t.Events)
+                .HasForeignKey(x => x.AuditTransactionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.AuditTransactionId, x.Order });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AuditEntityChange>(b =>
+        {
+            b.ToTable("AuditEntityChanges");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.EntityName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.TableName).HasMaxLength(200);
+            b.Property(x => x.State).HasMaxLength(20).IsRequired();
+            b.Property(x => x.PrimaryKeyJson).HasColumnType("jsonb").IsRequired();
+            b.Property(x => x.BeforeJson).HasColumnType("jsonb");
+            b.Property(x => x.AfterJson).HasColumnType("jsonb");
+            b.Property(x => x.ChangedColumns).HasMaxLength(500);
+            b.Property(x => x.DataJson).HasColumnType("jsonb");
+
+            b.HasOne(x => x.Transaction)
+                .WithMany()
+                .HasForeignKey(x => x.AuditTransactionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Event)
+                .WithMany(e => e.EntityChanges)
+                .HasForeignKey(x => x.AuditEventId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.EntityName });
+            b.HasIndex(x => new { x.TenantId, x.OccurredAt });
+            b.HasIndex(x => x.AuditTransactionId);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AuditEntityPropertyChange>(b =>
+        {
+            b.ToTable("AuditEntityPropertyChanges");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.PropertyName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.BeforeValue).HasMaxLength(2000);
+            b.Property(x => x.AfterValue).HasMaxLength(2000);
+
+            b.HasOne(x => x.EntityChange)
+                .WithMany(c => c.PropertyChanges)
+                .HasForeignKey(x => x.AuditEntityChangeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => x.AuditEntityChangeId);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RequestLog>(b =>
+        {
+            b.ToTable("RequestLogs");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TransactionId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.CorrelationId).HasMaxLength(200);
+            b.Property(x => x.TraceId).HasMaxLength(200);
+            b.Property(x => x.EnvironmentName).HasMaxLength(80).IsRequired();
+            b.Property(x => x.EnvironmentNormalized).HasMaxLength(16).IsRequired();
+            b.Property(x => x.DeviceId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.DeviceType).HasMaxLength(40);
+            b.Property(x => x.Platform).HasMaxLength(40);
+            b.Property(x => x.Browser).HasMaxLength(40);
+            b.Property(x => x.DeviceAppVersion).HasMaxLength(120);
+            b.Property(x => x.Locale).HasMaxLength(200);
+            b.Property(x => x.Method).HasMaxLength(16).IsRequired();
+            b.Property(x => x.Path).HasMaxLength(512).IsRequired();
+            b.Property(x => x.QueryString).HasMaxLength(1024);
+            b.Property(x => x.UserId).HasMaxLength(120);
+            b.Property(x => x.UserName).HasMaxLength(200);
+            b.Property(x => x.ClientId).HasMaxLength(120);
+            b.Property(x => x.Ip).HasMaxLength(80);
+            b.Property(x => x.UserAgent).HasMaxLength(400);
+            b.Property(x => x.Host).HasMaxLength(200);
+            b.Property(x => x.Controller).HasMaxLength(120);
+            b.Property(x => x.Action).HasMaxLength(120);
+            b.Property(x => x.RouteTemplate).HasMaxLength(512);
+            b.Property(x => x.RequestBodySnippet).HasMaxLength(4096);
+            b.Property(x => x.ResponseBodySnippet).HasMaxLength(4096);
+
+            b.HasIndex(x => new { x.TenantId, x.StartedAt });
+            b.HasIndex(x => new { x.TenantId, x.TransactionId });
+            b.HasIndex(x => new { x.TenantId, x.EnvironmentNormalized, x.StartedAt });
+            b.HasIndex(x => new { x.TenantId, x.DeviceId, x.StartedAt });
+            b.HasIndex(x => new { x.TenantId, x.Path });
+            b.HasIndex(x => new { x.TenantId, x.StatusCode });
+            b.HasIndex(x => new { x.TenantId, x.UserId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<LogEntry>(b =>
+        {
+            b.ToTable("LogEntries");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TransactionId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.EnvironmentName).HasMaxLength(80).IsRequired();
+            b.Property(x => x.EnvironmentNormalized).HasMaxLength(16).IsRequired();
+            b.Property(x => x.DeviceId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.DeviceType).HasMaxLength(40);
+            b.Property(x => x.Platform).HasMaxLength(40);
+            b.Property(x => x.Browser).HasMaxLength(40);
+            b.Property(x => x.DeviceAppVersion).HasMaxLength(120);
+            b.Property(x => x.Locale).HasMaxLength(200);
+            b.Property(x => x.Level).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Category).HasMaxLength(200).IsRequired();
+            b.Property(x => x.EventName).HasMaxLength(200);
+            b.Property(x => x.Message).HasMaxLength(8192).IsRequired();
+            b.Property(x => x.ExceptionType).HasMaxLength(300);
+            b.Property(x => x.ExceptionMessage).HasMaxLength(8192);
+            b.Property(x => x.ExceptionStackTrace).HasMaxLength(16384);
+            b.Property(x => x.PropertiesJson).HasColumnType("jsonb");
+
+            b.HasIndex(x => new { x.TenantId, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.Level });
+            b.HasIndex(x => new { x.TenantId, x.Category });
+            b.HasIndex(x => new { x.TenantId, x.EnvironmentNormalized, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.DeviceId, x.OccurredAt });
+            b.HasIndex(x => new { x.RequestLogId, x.Order });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<ExceptionLog>(b =>
+        {
+            b.ToTable("ExceptionLogs");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TransactionId).HasMaxLength(120).IsRequired();
+            b.Property(x => x.EnvironmentName).HasMaxLength(80).IsRequired();
+            b.Property(x => x.EnvironmentNormalized).HasMaxLength(16).IsRequired();
+            b.Property(x => x.DeviceId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.DeviceType).HasMaxLength(40);
+            b.Property(x => x.Platform).HasMaxLength(40);
+            b.Property(x => x.Browser).HasMaxLength(40);
+            b.Property(x => x.DeviceAppVersion).HasMaxLength(120);
+            b.Property(x => x.Locale).HasMaxLength(200);
+            b.Property(x => x.ExceptionType).HasMaxLength(300).IsRequired();
+            b.Property(x => x.Message).HasMaxLength(4096).IsRequired();
+            b.Property(x => x.StackTrace).HasMaxLength(16384);
+            b.Property(x => x.InnerExceptionType).HasMaxLength(300);
+            b.Property(x => x.InnerMessage).HasMaxLength(4096);
+            b.Property(x => x.ProblemTitle).HasMaxLength(4096);
+            b.Property(x => x.ProblemDetail).HasMaxLength(4096);
+            b.Property(x => x.ProblemType).HasMaxLength(200);
+            b.Property(x => x.ValidationErrorsJson).HasColumnType("jsonb");
+            b.Property(x => x.Tags).HasMaxLength(200);
+
+            b.HasIndex(x => new { x.TenantId, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.ExceptionType });
+            b.HasIndex(x => new { x.TenantId, x.StatusCode });
+            b.HasIndex(x => new { x.TenantId, x.EnvironmentNormalized, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.DeviceId, x.OccurredAt });
+            b.HasIndex(x => new { x.TenantId, x.TransactionId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var entry in ChangeTracker.Entries())
+        {
+            if (entry.Entity is ITenantEntity tenantEntity)
+            {
+                if (entry.State == EntityState.Added)
+                    tenantEntity.TenantId = _tenantContext.TenantId;
+            }
+
+            if (entry.Entity is Tenant tenant)
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    tenant.CreatedAtUtc = now;
+                    tenant.UpdatedAtUtc = now;
+                }
+
+                if (entry.State == EntityState.Modified)
+                    tenant.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is ApplicationUser user)
+            {
+                if (entry.State == EntityState.Added)
+                    user.CreatedAtUtc = now;
+
+                if (entry.State is EntityState.Added or EntityState.Modified)
+                    user.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is ApplicationRole role)
+            {
+                if (entry.State == EntityState.Added)
+                    role.CreatedAtUtc = now;
+
+                if (entry.State is EntityState.Added or EntityState.Modified)
+                    role.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is Menu menu)
+            {
+                if (entry.State == EntityState.Added)
+                    menu.CreatedAtUtc = now;
+
+                if (entry.State is EntityState.Added or EntityState.Modified)
+                    menu.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is RoleMenu roleMenu)
+            {
+                if (entry.State == EntityState.Added)
+                    roleMenu.CreatedAtUtc = now;
+            }
+
+            if (entry.Entity is Department dep)
+            {
+                if (entry.State == EntityState.Added)
+                    dep.CreatedAtUtc = now;
+
+                if (entry.State is EntityState.Added or EntityState.Modified)
+                    dep.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is Unit unit)
+            {
+                if (entry.State == EntityState.Added)
+                    unit.CreatedAtUtc = now;
+
+                if (entry.State is EntityState.Added or EntityState.Modified)
+                    unit.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is JobPosition jp)
+            {
+                if (entry.State == EntityState.Added)
+                    jp.CreatedAtUtc = now;
+
+                if (entry.State is EntityState.Added or EntityState.Modified)
+                    jp.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is Funcionario f)
+            {
+                if (entry.State == EntityState.Added)
+                    f.CreatedAtUtc = now;
+
+                if (entry.State is EntityState.Added or EntityState.Modified)
+                    f.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is Vaga v)
+            {
+                if (entry.State == EntityState.Added) v.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) v.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is VagaBeneficio vb)
+            {
+                if (entry.State == EntityState.Added) vb.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) vb.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is VagaRequisito vr)
+            {
+                if (entry.State == EntityState.Added) vr.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) vr.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is VagaEtapa ve)
+            {
+                if (entry.State == EntityState.Added) ve.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) ve.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is VagaPergunta vp)
+            {
+                if (entry.State == EntityState.Added) vp.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) vp.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is Candidato c)
+            {
+                if (entry.State == EntityState.Added) c.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) c.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoDocumento cd)
+            {
+                if (entry.State == EntityState.Added) cd.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) cd.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoReferencia referencia)
+            {
+                if (entry.State == EntityState.Added) referencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) referencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoAcessibilidade acessibilidade)
+            {
+                if (entry.State == EntityState.Added) acessibilidade.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) acessibilidade.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoAgendaPreferencia agendaPreferencia)
+            {
+                if (entry.State == EntityState.Added) agendaPreferencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) agendaPreferencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoAgendaBloqueio agendaBloqueio)
+            {
+                if (entry.State == EntityState.Added) agendaBloqueio.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) agendaBloqueio.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoNotificacaoPreferencia notificacao)
+            {
+                if (entry.State == EntityState.Added) notificacao.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) notificacao.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoLgpdConsent lgpdConsent)
+            {
+                if (entry.State == EntityState.Added) lgpdConsent.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) lgpdConsent.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoCompetencia competencia)
+            {
+                if (entry.State == EntityState.Added) competencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) competencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoCertificacao cert)
+            {
+                if (entry.State == EntityState.Added) cert.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) cert.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoPortfolio portfolio)
+            {
+                if (entry.State == EntityState.Added) portfolio.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) portfolio.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoEducacaoResumo eduResumo)
+            {
+                if (entry.State == EntityState.Added) eduResumo.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) eduResumo.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoEducacaoItem eduItem)
+            {
+                if (entry.State == EntityState.Added) eduItem.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) eduItem.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoExperiencia experiencia)
+            {
+                if (entry.State == EntityState.Added) experiencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) experiencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoProjeto projeto)
+            {
+                if (entry.State == EntityState.Added) projeto.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) projeto.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is TalentoCompetencia talentoCompetencia)
+            {
+                if (entry.State == EntityState.Added) talentoCompetencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) talentoCompetencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is TalentoExperiencia talentoExperiencia)
+            {
+                if (entry.State == EntityState.Added) talentoExperiencia.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) talentoExperiencia.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is TalentoTreinamento talentoTreinamento)
+            {
+                if (entry.State == EntityState.Added) talentoTreinamento.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) talentoTreinamento.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is TalentoFormacao talentoFormacao)
+            {
+                if (entry.State == EntityState.Added) talentoFormacao.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) talentoFormacao.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is TalentoDocumento talentoDocumento)
+            {
+                if (entry.State == EntityState.Added) talentoDocumento.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) talentoDocumento.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is TalentoCvImportJob cvImportJob)
+            {
+                if (entry.State == EntityState.Added) cvImportJob.CreatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoPreferenciasVaga preferencias)
+            {
+                if (entry.State == EntityState.Added) preferencias.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) preferencias.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoStatusHistory history)
+            {
+                if (entry.State == EntityState.Added) history.CreatedAtUtc = now;
+            }
+
+            if (entry.Entity is InboxItem inbox)
+            {
+                if (entry.State == EntityState.Added) inbox.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) inbox.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is InboxAnexo inboxAnexo)
+            {
+                if (entry.State == EntityState.Added) inboxAnexo.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) inboxAnexo.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is EntraIdConfig entraConfig)
+            {
+                if (entry.State == EntityState.Added) entraConfig.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) entraConfig.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is AgendaEventType agendaType)
+            {
+                if (entry.State == EntityState.Added) agendaType.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) agendaType.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is AgendaEvent agendaEvent)
+            {
+                if (entry.State == EntityState.Added) agendaEvent.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) agendaEvent.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is Notification notification)
+            {
+                if (entry.State == EntityState.Added) notification.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) notification.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is NotificationReceipt receipt)
+            {
+                if (entry.State == EntityState.Added) receipt.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) receipt.UpdatedAtUtc = now;
+            }
+        }
+        return await base.SaveChangesAsync(cancellationToken);
+    }
+}

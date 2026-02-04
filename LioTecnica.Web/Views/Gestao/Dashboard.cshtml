@@ -1,0 +1,92 @@
+@{
+	ViewData["Title"] = "Portal RH • Gestão • Dashboard";
+	ViewData["SidebarSubtitle"] = "Gestão";
+}
+
+@section Topbar {
+	@await Html.PartialAsync("_TopbarBrand", "Gestão • Dashboard")
+
+	<div class="d-flex align-items-center gap-2">
+		<button class="btn btn-ghost" type="button" title="Atualizar">
+			<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+		</button>
+		@await Html.PartialAsync("_TopbarUserActions", "RH")
+	</div>
+}
+
+<section class="content">
+	<div class="page-title">
+		<div>
+			<h4>Dashboard</h4>
+			<div class="subtitle">Visão geral da gestão: planos de desenvolvimento, humor da equipe e resumo de atividades.</div>
+		</div>
+	</div>
+
+	<div class="row g-3">
+		<div class="col-12 col-md-6 col-xl-3">
+			<div class="card-soft p-3">
+				<div class="d-flex align-items-center gap-2">
+					<div class="iconbox"><i class="bi bi-journal-check"></i></div>
+					<div>
+						<div class="fw-bold">Planos ativos</div>
+						<div class="text-muted small">Planos de desenvolvimento em andamento</div>
+					</div>
+				</div>
+				<div class="mt-2 fs-4 fw-semibold" id="kpiPlanos">—</div>
+			</div>
+		</div>
+		<div class="col-12 col-md-6 col-xl-3">
+			<div class="card-soft p-3">
+				<div class="d-flex align-items-center gap-2">
+					<div class="iconbox"><i class="bi bi-emoji-smile"></i></div>
+					<div>
+						<div class="fw-bold">Humor da equipe</div>
+						<div class="text-muted small">Média do último período</div>
+					</div>
+				</div>
+				<div class="mt-2 fs-4 fw-semibold" id="kpiHumor">—</div>
+			</div>
+		</div>
+		<div class="col-12 col-md-6 col-xl-3">
+			<div class="card-soft p-3">
+				<div class="d-flex align-items-center gap-2">
+					<div class="iconbox"><i class="bi bi-calendar2-event"></i></div>
+					<div>
+						<div class="fw-bold">Reuniões 1:1</div>
+						<div class="text-muted small">Agendadas este mês</div>
+					</div>
+				</div>
+				<div class="mt-2 fs-4 fw-semibold" id="kpiReunioes">—</div>
+			</div>
+		</div>
+		<div class="col-12 col-md-6 col-xl-3">
+			<div class="card-soft p-3">
+				<div class="d-flex align-items-center gap-2">
+					<div class="iconbox"><i class="bi bi-activity"></i></div>
+					<div>
+						<div class="fw-bold">Metas concluídas</div>
+						<div class="text-muted small">No período</div>
+					</div>
+				</div>
+				<div class="mt-2 fs-4 fw-semibold" id="kpiMetas">—</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mt-1">
+		<div class="col-12 col-lg-6">
+			<div class="card-soft p-3">
+				<div class="fw-bold mb-2">Resumo recente</div>
+				<div class="text-muted small">Atividades e atualizações recentes da equipe serão exibidas aqui.</div>
+				<div class="mt-3 text-muted small"><i class="bi bi-info-circle me-1"></i>Conecte à API de gestão para carregar os dados.</div>
+			</div>
+		</div>
+		<div class="col-12 col-lg-6">
+			<div class="card-soft p-3">
+				<div class="fw-bold mb-2">Próximas ações</div>
+				<div class="text-muted small">Reuniões e prazos de metas próximos.</div>
+				<div class="mt-3 text-muted small"><i class="bi bi-info-circle me-1"></i>Conecte à API de gestão para carregar os dados.</div>
+			</div>
+		</div>
+	</div>
+</section>

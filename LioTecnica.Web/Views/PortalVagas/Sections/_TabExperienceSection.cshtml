@@ -1,0 +1,238 @@
+<div class="tab-pane fade" id="tabExperience" role="tabpanel" aria-labelledby="exp-tab">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div>
+              <h6 class="text-primary fw-bold mb-1">
+                <i class="fas fa-briefcase me-2"></i>Experiência & Projetos
+              </h6>
+              <div class="text-muted small">
+                Adicione suas experiências e projetos. Isso aumenta o match e ajuda o RH a entender seu nível.
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
+              <button class="btn btn-sm btn-outline-primary fw-bold" type="button" onclick="openExperienceModal()">
+                <i class="fas fa-plus me-1"></i> Nova experiência
+              </button>
+              <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openProjectModal()">
+                <i class="fas fa-plus me-1"></i> Novo projeto
+              </button>
+            </div>
+          </div>
+
+          <!-- Resumo rápido -->
+          <div class="row g-3 mb-3">
+            <div class="col-lg-6">
+              <div class="p-3 bg-light border rounded" style="border-radius:14px;">
+                <div class="small text-muted">Experiências cadastradas</div>
+                <div class="h4 fw-bold text-primary mb-0" id="expCount">0</div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="p-3 bg-white border rounded" style="border-radius:14px;">
+                <div class="small text-muted">Projetos cadastrados</div>
+                <div class="h4 fw-bold text-primary mb-0" id="projCount">0</div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="row g-3">
+            <!-- Experiências -->
+            <div class="col-lg-6">
+              <div class="p-3 bg-white border rounded" style="border-radius:14px;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="fw-bold text-primary"><i class="fas fa-building me-2"></i>Experiências</div>
+                  <button class="btn btn-sm btn-outline-secondary d-none" type="button" onclick="seedExperiences()">
+                    <i class="fas fa-magic me-1"></i> Exemplo
+                  </button>
+                </div>
+                <div class="text-muted small mb-3">Linha do tempo (da mais recente para a mais antiga).</div>
+
+                <div id="expList" class="d-grid gap-2"></div>
+
+                <div id="expEmpty" class="text-center text-muted py-4" style="display:none;">
+                  <i class="fas fa-briefcase fa-2x mb-2 opacity-50"></i>
+                  <div class="fw-bold">Nenhuma experiência ainda</div>
+                  <div class="small">Clique em “Nova experiência” para adicionar.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Projetos -->
+            <div class="col-lg-6">
+              <div class="p-3 bg-white border rounded" style="border-radius:14px;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="fw-bold text-primary"><i class="fas fa-diagram-project me-2"></i>Projetos</div>
+                  <button class="btn btn-sm btn-outline-secondary d-none" type="button" onclick="seedProjects()">
+                    <i class="fas fa-magic me-1"></i> Exemplo
+                  </button>
+                </div>
+                <div class="text-muted small mb-3">Destaque 3–5 projetos que provem sua experiência.</div>
+
+                <div id="projList" class="row g-2"></div>
+
+                <div id="projEmpty" class="text-center text-muted py-4" style="display:none;">
+                  <i class="fas fa-folder-open fa-2x mb-2 opacity-50"></i>
+                  <div class="fw-bold">Nenhum projeto ainda</div>
+                  <div class="small">Clique em “Novo projeto” para adicionar.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-4"/>
+
+          <!-- Tecnologias / Tags rápidas (opcional) -->
+          <div class="p-3 bg-light border rounded" style="border-radius:14px;">
+            <div class="fw-bold text-primary mb-2"><i class="fas fa-tags me-2"></i>Tecnologias / Palavras-chave</div>
+            <div class="text-muted small mb-2">Use tags para facilitar o match (ex.: C#, .NET, SQL, React...)</div>
+
+            <div class="d-flex flex-wrap gap-2" id="tagArea">
+              <span class="badge rounded-pill text-bg-dark">C#</span>
+              <span class="badge rounded-pill text-bg-dark">.NET</span>
+              <span class="badge rounded-pill text-bg-dark">SQL</span>
+              <span class="badge rounded-pill text-bg-dark">JavaScript</span>
+              <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" onclick="addQuickTag()">
+                <i class="fas fa-plus"></i> adicionar
+              </button>
+            </div>
+          </div>
+        </div>
+
+
+        
+        <!-- Modal: Adicionar Tag -->
+        <div class="modal fade" id="tagEditModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+          <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+              <div class="modal-header bg-white border-bottom">
+                <h5 class="modal-title fw-bold text-primary"><i class="fas fa-tag me-2"></i>Adicionar tags</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <label class="form-label small fw-bold" for="tagNameInput">Tag, separe por vírgulas</label>
+                <input id="tagNameInput" class="form-control" placeholder="Ex.: PostgreSQL, Oracle, SQL" />
+              </div>
+
+              <div class="modal-footer bg-white border-top">
+                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveQuickTag()">
+                  <i class="fas fa-plus me-1"></i> Adicionar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+<!-- Modal: Nova Experiência -->
+        <div class="modal fade" id="experienceEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+              <div class="modal-header bg-white border-bottom">
+                <h5 class="modal-title fw-bold text-primary"><i class="fas fa-briefcase me-2"></i>Experiência</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="expId" />
+
+                <div class="row g-3">
+                  <div class="col-md-7">
+                    <label class="form-label small fw-bold">Empresa</label>
+                    <input class="form-control" id="expCompany" placeholder="Ex.: Liotécnica" />
+                  </div>
+                  <div class="col-md-5">
+                    <label class="form-label small fw-bold">Cargo</label>
+                    <input class="form-control" id="expRole" placeholder="Ex.: Desenvolvedor Web" />
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold">Início</label>
+                    <input class="form-control" id="expStart" placeholder="MM/AAAA" />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold">Fim</label>
+                    <input class="form-control" id="expEnd" placeholder="MM/AAAA ou Atual" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold">Local / Modelo</label>
+                    <input class="form-control" id="expPlace" placeholder="Ex.: São Paulo • Híbrido" />
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small fw-bold">Atividades e resultados (bullet points)</label>
+                    <textarea class="form-control" rows="4" id="expBullets"
+                      placeholder="- Implementou...\n- Reduziu...\n- Automatizou..."></textarea>
+                    <div class="form-text">Dica: escreva em tópicos curtos, com impacto.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-footer bg-white border-top">
+                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveExperience()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Novo Projeto -->
+        <div class="modal fade" id="projectEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+              <div class="modal-header bg-white border-bottom">
+                <h5 class="modal-title fw-bold text-primary"><i class="fas fa-diagram-project me-2"></i>Projeto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="projId" />
+
+                <div class="row g-3">
+                  <div class="col-md-8">
+                    <label class="form-label small fw-bold">Nome do projeto</label>
+                    <input class="form-control" id="projName" placeholder="Ex.: Portal de Candidatos" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small fw-bold">Ano / Período</label>
+                    <input class="form-control" id="projPeriod" placeholder="Ex.: 2025–2026" />
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small fw-bold">Descrição curta</label>
+                    <input class="form-control" id="projDesc" placeholder="O que é e qual problema resolve (1 linha)." />
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold">Link (GitHub / Demo)</label>
+                    <input class="form-control" id="projLink" placeholder="https://..." />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-bold">Tech stack (separe por vírgula)</label>
+                    <input class="form-control" id="projStack" placeholder="C#, .NET, PostgreSQL, Bootstrap..." />
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small fw-bold">Resultados / Destaques</label>
+                    <textarea class="form-control" rows="3" id="projHighlights"
+                      placeholder="- Aumentou conversão...\n- Automatizou triagem...\n- Melhorou performance..."></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-footer bg-white border-top">
+                <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveProject()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        

@@ -1,0 +1,177 @@
+<div class="tab-pane fade" id="tabRefs" role="tabpanel" aria-labelledby="refs-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Referências Profissionais</div>
+              <div class="text-muted small">
+                Cadastre pessoas que podem referenciar seu trabalho (MVP: salvo neste navegador).
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
+              <button class="d-none btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="seedReferences()">
+                <i class="fas fa-magic me-1"></i> Inserir exemplos
+              </button>
+              <button class="d-none btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="downloadReferencesSummary()">
+                <i class="fas fa-download me-1"></i> Baixar resumo
+              </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetReferences()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Aviso -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;background:#f8f9fa;">
+            <div class="d-flex gap-2">
+              <div style="font-size:1.25rem; line-height:1;">
+                <i class="fas fa-info-circle text-primary"></i>
+              </div>
+              <div>
+                <div class="fw-bold">Dica importante</div>
+                <div class="text-muted small" style="line-height:1.55;">
+                  Peça autorização antes de compartilhar contatos. Se marcar <strong>“Pode contatar agora”</strong>,
+                  considere que o RH pode entrar em contato a qualquer momento (no produto final).
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ações / filtros -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div class="fw-bold"><i class="fas fa-address-book me-1"></i> Lista de referências</div>
+              <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openRefModal()">
+                <i class="fas fa-plus me-1"></i> Adicionar
+              </button>
+            </div>
+
+            <div class="row g-2 mt-2">
+              <div class="col-12 col-md-6">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text"><i class="fas fa-search"></i></span>
+                  <input id="refsSearch" class="form-control" placeholder="Buscar por nome/empresa/cargo..."
+                         oninput="renderReferences()">
+                </div>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <select id="refsFilterRelation" class="form-select form-select-sm" onchange="renderReferences()">
+                  <option value="">Filtrar por relação (todas)</option>
+                  <option value="Líder direto">Líder direto</option>
+                  <option value="Gestor">Gestor</option>
+                  <option value="Coordenador(a)">Coordenador(a)</option>
+                  <option value="Colega">Colega</option>
+                  <option value="Cliente">Cliente</option>
+                  <option value="Professor(a)">Professor(a)</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-3">
+                <select id="refsSort" class="form-select form-select-sm" onchange="renderReferences()">
+                  <option value="new">Mais recentes</option>
+                  <option value="old">Mais antigas</option>
+                  <option value="name">Nome (A–Z)</option>
+                  <option value="company">Empresa (A–Z)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="refsList" class="row g-2"></div>
+          <div id="refsEmpty" class="text-muted small mt-2" style="display:none;">
+            Nenhuma referência cadastrada ainda.
+          </div>
+
+        </div>
+
+        <!-- Modal: Referência Profissional -->
+        <div class="modal fade" id="refEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-user-tie me-1"></i> Referência Profissional</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="refId">
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-7">
+                    <label class="form-label small text-muted mb-1">Nome</label>
+                    <input id="refName" class="form-control form-control-sm" placeholder="Ex.: Maria Oliveira">
+                  </div>
+
+                  <div class="col-12 col-md-5">
+                    <label class="form-label small text-muted mb-1">Relação</label>
+                    <select id="refRelation" class="form-select form-select-sm">
+                      <option value="Líder direto">Líder direto</option>
+                      <option value="Gestor">Gestor</option>
+                      <option value="Coordenador(a)">Coordenador(a)</option>
+                      <option value="Colega">Colega</option>
+                      <option value="Cliente">Cliente</option>
+                      <option value="Professor(a)">Professor(a)</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Empresa</label>
+                    <input id="refCompany" class="form-control form-control-sm" placeholder="Ex.: Liotécnica">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Cargo</label>
+                    <input id="refRole" class="form-control form-control-sm" placeholder="Ex.: Supervisora de Qualidade">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Contato (e-mail/telefone)</label>
+                    <input id="refContact" class="form-control form-control-sm" placeholder="Ex.: maria@email.com • (11) 99999-9999">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Período (opcional)</label>
+                    <input id="refPeriod" class="form-control form-control-sm" placeholder="Ex.: 2023–2025">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">LinkedIn (opcional)</label>
+                    <input id="refLinkedin" class="form-control form-control-sm" placeholder="https://linkedin.com/in/...">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Observações (opcional)</label>
+                    <textarea id="refNotes" class="form-control form-control-sm" rows="3"
+                              placeholder="Ex.: Liderou meu time • Pode falar sobre resultados em auditoria e indicadores."></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="refCanContactNow">
+                      <label class="form-check-label" for="refCanContactNow">
+                        <strong>Pode contatar agora</strong>
+                        <div class="text-muted small">Marque somente se a pessoa autorizou contato imediato.</div>
+                      </label>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveReferenceItem()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        

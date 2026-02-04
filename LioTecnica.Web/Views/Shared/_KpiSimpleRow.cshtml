@@ -1,0 +1,19 @@
+﻿@model IEnumerable<dynamic>
+<div class="row g-2 mb-2">
+@foreach (var item in Model)
+{
+  var icon = item.GetType().GetProperty("Icon")?.GetValue(item) as string;
+  <div class="@item.ColClass">
+    <div class="card-soft p-3 kpi simple">
+      <div class="meta">
+        <div class="n" id="@item.ValueId">@item.Value</div>
+        <div class="l">@item.Label</div>
+      </div>
+      @if (!string.IsNullOrWhiteSpace(icon))
+      {
+        <div class="icon"><i class="bi @icon"></i></div>
+      }
+    </div>
+  </div>
+}
+</div>

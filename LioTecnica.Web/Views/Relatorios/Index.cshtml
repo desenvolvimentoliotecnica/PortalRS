@@ -1,0 +1,211 @@
+@model PageSeedViewModel
+@{
+	ViewData["Title"] = "Portal RH • Devcraft Studio • Relatórios";
+	ViewData["SidebarSubtitle"] = "Relatórios";
+}
+
+
+
+<!-- MOBILE SIDEBAR OFFCANVAS -->
+@section Topbar {
+	@await Html.PartialAsync("_TopbarBrand", "Tela: Relatórios")
+
+	<div class="d-flex align-items-center gap-2">
+		<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar dados">
+			<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+		</button>
+
+		<button class="btn btn-ghost" type="button" id="btnExport" title="Exportar relatório atual (CSV)">
+			<i class="bi bi-filetype-csv"></i><span class="d-none d-sm-inline ms-1">Exportar CSV</span>
+		</button>
+
+		<button class="btn btn-brand" type="button" id="btnRun">
+			<i class="bi bi-play-circle"></i><span class="d-none d-sm-inline ms-1">Gerar</span>
+		</button>
+
+		@await Html.PartialAsync("_TopbarUserActions", "RH")
+	</div>
+}
+
+<!-- CONTENT -->
+<section class="content">
+	<div class="page-title">
+		<div>
+			<h4>Relatórios</h4>
+			<div class="subtitle">Gere relatórios operacionais e gerenciais. No sistema real: filtros & query Postgres & exportação.</div>
+		</div>
+	</div>
+
+		<div class="card-soft p-3 mb-3">
+		<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+			<div>
+				<div class="fw-bold">Filtros</div>
+				<div class="text-muted small">Os filtros alteram a tabela/gráfico do relatório selecionado.</div>
+			</div>
+			<div class="d-flex flex-wrap gap-2">
+				<button class="btn btn-brand btn-sm" id="btnApply"><i class="bi bi-filter-circle me-1"></i>Aplicar</button>
+				<button class="btn btn-ghost btn-sm" id="btnClear"><i class="bi bi-x-circle me-1"></i>Limpar</button>
+			</div>
+		</div>
+
+		<div class="row g-2 mt-2 align-items-end">
+			<div class="col-12 col-lg-2">
+				<label class="form-label small">Perí­odo</label>
+				<select class="form-select" id="fPeriod" data-enum="relatorioPeriodo" data-selected="30d" style="min-width: 200px; border-color:var(--lt-border);"></select>
+			</div>
+
+			<div class="col-12 col-lg-3">
+				<label class="form-label small">Vaga</label>
+				<select class="form-select" id="fVaga" style="min-width: 240px; border-color:var(--lt-border);"></select>
+			</div>
+
+			<div class="col-12 col-lg-2">
+				<label class="form-label small">Origem</label>
+				<select class="form-select" id="fOrigem" data-enum="origemFilterSimple" style="min-width: 180px; border-color:var(--lt-border);"></select>
+			</div>
+
+			<div class="col-12 col-lg-2">
+				<label class="form-label small">Status</label>
+				<select class="form-select" id="fStatus" data-enum="inboxStatusFilterSimple" style="min-width: 180px; border-color:var(--lt-border);"></select>
+			</div>
+
+			<div class="col-12 col-lg-3">
+				<label class="form-label small">Buscar</label>
+				<div class="input-group">
+					<span class="input-group-text" style="background:rgba(255,255,255,.65)"><i class="bi bi-search"></i></span>
+					<input class="form-control" id="fSearch" placeholder="Nome, email, assunto, arquivo...">
+				</div>
+			</div>
+		</div>
+
+		<div class="text-muted small mt-2">
+			<i class="bi bi-info-circle me-1"></i>
+			No produto real: filtros viram parâmetros de query e agregações no Postgres.
+		</div>
+	</div>
+<div class="grid2">
+				<!-- LEFT: catálogo de relatórios -->
+		<div>
+			<div class="card-soft p-3">
+				<div class="d-flex align-items-start justify-content-between gap-2">
+					<div>
+						<div class="fw-bold">Catálogo de relatórios</div>
+						<div class="text-muted small">Selecione um relatório e configure filtros.</div>
+					</div>
+				</div>
+
+				<hr class="my-3 divider">
+
+				<lt-list class="d-grid gap-2" id="reportList"></lt-list>
+			</div>
+		</div>
+<!-- RIGHT: relatório selecionado -->
+		<div>
+			<div class="card-soft p-3 mb-3">
+				<div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+					<div>
+						<div class="fw-bold" id="reportTitle">•</div>
+						<div class="text-muted small" id="reportDesc">Selecione um relatório no catálogo.</div>
+					</div>
+					<div class="d-flex flex-wrap gap-2 justify-content-end">
+						<span class="tag" id="tagScope"><i class="bi bi-sliders"></i>escopo</span>
+						<span class="tag ok" id="tagFresh"><i class="bi bi-clock-history"></i>atual</span>
+					</div>
+				</div>
+
+				<hr class="my-3 divider">
+
+				<div class="chart-wrap mb-3">
+					<!-- grÃ¡fico simples em canvas (mocado) -->
+					<canvas id="chart" style="width:100%; height:100%;"></canvas>
+				</div>
+
+				<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+					<div class="mini-title">Resultados</div>
+					<div class="d-flex gap-2 flex-wrap">
+						<span class="pill"><i class="bi bi-table"></i><span id="rowCount">0</span> linhas</span>
+						<span class="pill"><i class="bi bi-filetype-csv"></i>exportável</span>
+					</div>
+				</div>
+
+				<div class="table-responsive mt-2">
+  <table class="table table-sm align-middle mb-0" id="resultTable">
+    <thead>
+<tr id="theadRow"></tr>
+    </thead>
+    <tbody id="tbodyRows"></tbody>
+  </table>
+</div>
+
+				<div class="text-muted small mt-3" id="resultHint"></div>
+			</div>
+
+			<div class="card-soft p-3">
+				<div class="fw-bold">Agendamento</div>
+				<div class="text-muted small">Exemplo visual de como seria agendar envio automático por e-mail.</div>
+
+				<div class="row g-2 mt-2">
+					<div class="col-12 col-md-6">
+						<label class="form-label small">Destinatários</label>
+						<input class="form-control" placeholder="ex.: rh@@empresa.com; gestor@@empresa.com">
+					</div>
+					<div class="col-6 col-md-3">
+						<label class="form-label small">Frequência</label>
+						<select class="form-select" id="fFrequency" data-enum="relatorioFrequencia" data-selected="weekly"></select>
+					</div>
+					<div class="col-6 col-md-3">
+						<label class="form-label small">Dia/Hora</label>
+						<input class="form-control" placeholder="Seg 09:00">
+					</div>
+				</div>
+
+				<div class="d-flex flex-wrap gap-2 mt-3">
+					<button class="btn btn-ghost btn-sm"><i class="bi bi-calendar2-check me-1"></i>Salvar agendamento</button>
+					<button class="btn btn-ghost btn-sm"><i class="bi bi-send me-1"></i>Enviar agora (teste)</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div style="height:14px;"></div>
+</section>
+
+<!-- Templates -->
+<template id="tpl-report-tile">
+	<div class="tile">
+		<div class="d-flex align-items-start justify-content-between gap-2">
+			<div class="d-flex align-items-center gap-2">
+				<div class="iconbox"><i class="bi" data-role="tile-icon"></i></div>
+				<div>
+					<div class="fw-bold" data-role="tile-title"></div>
+					<div class="text-muted small" data-role="tile-desc"></div>
+				</div>
+			</div>
+			<span class="pill"><i class="bi bi-tag"></i><span data-role="tile-scope"></span></span>
+		</div>
+	</div>
+</template>
+
+@section Footer {
+	@{
+		var footerItems = new[]
+		{
+			new { Icon = "bi-graph-up", Text = "Relat?rios", Id = "", Class = "" },
+			new { Icon = "bi-shield-check", Text = "LGPD", Id = "", Class = "" },
+			new { Icon = "", Text = "build: demo", Id = "buildId", Class = "mono muted" }
+		  };
+	}
+	@await Html.PartialAsync("_Footer", footerItems)
+      }
+
+
+
+<!-- Bootstrap JS (CDN) -->
+@section Scripts {
+	<script src="~/js/views/relatorios.js" asp-append-version="true"></script>
+}
+
+
+
+
+

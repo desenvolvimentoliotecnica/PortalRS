@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SeedErrors.NoAreas" xml:space="preserve">
+    <value>Nenhuma Area ativa encontrada. Rode o seed de Areas antes.</value>
+  </data>
+  <data name="SeedErrors.NoDepartments" xml:space="preserve">
+    <value>Nenhum Department encontrado/ativo. Rode o seed de Departments antes.</value>
+  </data>
+  <data name="SeedErrors.NoUnits" xml:space="preserve">
+    <value>Nenhuma Unit encontrada. Rode o seed de Units antes.</value>
+  </data>
+  <data name="SeedErrors.NoManagers" xml:space="preserve">
+    <value>Nenhum manager encontrado. Rode o seed de Managers antes.</value>
+  </data>
+  <data name="SeedErrors.NoJobPositions" xml:space="preserve">
+    <value>Nenhum JobPosition encontrado. Rode o seed de JobPositions antes.</value>
+  </data>
+  <data name="SeedErrors.NoValidManager" xml:space="preserve">
+    <value>Nenhum manager valido encontrado.</value>
+  </data>
+  <data name="SeedErrors.NoFuncionarios" xml:space="preserve">
+    <value>Nenhum funcionario encontrado. Rode o seed de Funcionarios antes.</value>
+  </data>
+  <data name="SeedErrors.NoValidFuncionario" xml:space="preserve">
+    <value>Nenhum funcionario valido encontrado.</value>
+  </data>
+  <data name="SeedErrors.NoValidJobPosition" xml:space="preserve">
+    <value>Nenhum JobPosition valido encontrado.</value>
+  </data>
+  <data name="SeedErrors.TitlePatternsMissing" xml:space="preserve">
+    <value>Seed title patterns nao encontrados para a area '{0}' e '{1}'.</value>
+  </data>
+  <data name="SeedErrors.PatternsFileRequired" xml:space="preserve">
+    <value>Seed:Vagas:PatternsFile e obrigatorio.</value>
+  </data>
+  <data name="SeedErrors.PatternsFileNotFound" xml:space="preserve">
+    <value>Arquivo de patterns do seed nao encontrado: {0}</value>
+  </data>
+  <data name="SeedErrors.PatternsFileInvalid" xml:space="preserve">
+    <value>Arquivo de patterns do seed e invalido.</value>
+  </data>
+  <data name="SeedErrors.RequirementsFileRequired" xml:space="preserve">
+    <value>Seed:Vagas:RequirementsFile e obrigatorio.</value>
+  </data>
+  <data name="SeedErrors.RequirementsFileNotFound" xml:space="preserve">
+    <value>Arquivo de requisitos do seed nao encontrado: {0}</value>
+  </data>
+  <data name="SeedErrors.RequirementsFileInvalid" xml:space="preserve">
+    <value>Arquivo de requisitos do seed e invalido.</value>
+  </data>
+  <data name="SeedErrors.RequirementsMissingForArea" xml:space="preserve">
+    <value>Requisitos do seed ausentes para a area '{0}'.</value>
+  </data>
+  <data name="SeedErrors.RequirementsEmptyForArea" xml:space="preserve">
+    <value>Requisitos do seed vazios para a area '{0}'.</value>
+  </data>
+  <data name="SeedErrors.PatternValueMissing" xml:space="preserve">
+    <value>Seed {0} ausente para a area '{1}' e '{2}'.</value>
+  </data>
+  <data name="SeedErrors.AreaNotFound" xml:space="preserve">
+    <value>Area '{0}' nao foi encontrada no seed.</value>
+  </data>
+  <data name="SeedErrors.AdminPasswordRequired" xml:space="preserve">
+    <value>Seed:AdminPassword e obrigatorio.</value>
+  </data>
+  <data name="Seed.EmailSubjectConfirmacao" xml:space="preserve">
+    <value>Confirmacao de candidatura</value>
+  </data>
+  <data name="Seed.EmailSubjectEntrevista" xml:space="preserve">
+    <value>Convite para entrevista</value>
+  </data>
+  <data name="Seed.EmailSubjectRetorno" xml:space="preserve">
+    <value>Retorno sobre candidatura</value>
+  </data>
+  <data name="Seed.EmailSubjectAtualizacao" xml:space="preserve">
+    <value>Atualizacao do processo seletivo</value>
+  </data>
+  <data name="Seed.EmailSubjectLembrete" xml:space="preserve">
+    <value>Lembrete de documentacao</value>
+  </data>
+  <data name="Seed.EmailSubjectFeedback" xml:space="preserve">
+    <value>Feedback da vaga</value>
+  </data>
+  <data name="Seed.EmailSendFailure" xml:space="preserve">
+    <value>Falha ao enviar email (SMTP).</value>
+  </data>
+  <data name="Seed.SmtpTimeout" xml:space="preserve">
+    <value>Timeout no servidor SMTP.</value>
+  </data>
+  <data name="Seed.AdminRoleDescription" xml:space="preserve">
+    <value>Administrador do tenant</value>
+  </data>
+  <data name="Seed.AdminUserNameFormat" xml:space="preserve">
+    <value>{0} Administrador</value>
+  </data>
+  <data name="Seed.OperationalRoleDescription" xml:space="preserve">
+    <value>Acesso operacional</value>
+  </data>
+  <data name="Seed.GestorRoleDescription" xml:space="preserve">
+    <value>Gestor de area - visao e acoes limitadas a sua area</value>
+  </data>
+  <data name="Seed.RecruiterRoleDescription" xml:space="preserve">
+    <value>Recrutador - vagas, candidatos, triagem e matching</value>
+  </data>
+  <data name="Seed.Menu.Dashboard" xml:space="preserve">
+    <value>Dashboard</value>
+  </data>
+  <data name="Seed.Menu.Agenda" xml:space="preserve">
+    <value>Agenda</value>
+  </data>
+  <data name="Seed.Menu.Vagas" xml:space="preserve">
+    <value>Vagas</value>
+  </data>
+  <data name="Seed.Menu.Candidatos" xml:space="preserve">
+    <value>Candidatos</value>
+  </data>
+  <data name="Seed.Menu.Talentos" xml:space="preserve">
+    <value>Talentos</value>
+  </data>
+  <data name="Seed.Menu.Triagem" xml:space="preserve">
+    <value>Triagem</value>
+  </data>
+  <data name="Seed.Menu.Matching" xml:space="preserve">
+    <value>Matching</value>
+  </data>
+  <data name="Seed.Menu.PortalVagas" xml:space="preserve">
+    <value>Portal de Vagas</value>
+  </data>
+  <data name="Seed.Menu.Entrada" xml:space="preserve">
+    <value>Entrada (Email/Pasta)</value>
+  </data>
+  <data name="Seed.Menu.Relatorios" xml:space="preserve">
+    <value>Relatorios</value>
+  </data>
+  <data name="Seed.Menu.Celebracao" xml:space="preserve">
+    <value>Celebracao</value>
+  </data>
+  <data name="Seed.Menu.Desenvolvimento" xml:space="preserve">
+    <value>Desenvolvimento</value>
+  </data>
+  <data name="Seed.Menu.EnviarFeedback" xml:space="preserve">
+    <value>Enviar feedback</value>
+  </data>
+  <data name="Seed.Menu.Feedbacks" xml:space="preserve">
+    <value>Feedbacks</value>
+  </data>
+  <data name="Seed.Menu.MeusPlanos" xml:space="preserve">
+    <value>Meus planos de desenvolvimento</value>
+  </data>
+  <data name="Seed.Menu.Reunioes1a1" xml:space="preserve">
+    <value>Reunioes 1:1</value>
+  </data>
+  <data name="Seed.Menu.Gamificacao" xml:space="preserve">
+    <value>Gamificacao</value>
+  </data>
+  <data name="Seed.Menu.Gestao" xml:space="preserve">
+    <value>Gestao</value>
+  </data>
+  <data name="Seed.Menu.GestaoDashboard" xml:space="preserve">
+    <value>Dashboard</value>
+  </data>
+  <data name="Seed.Menu.GestaoPlanos" xml:space="preserve">
+    <value>Gestao dos Planos de Desenvolvimento</value>
+  </data>
+  <data name="Seed.Menu.GestaoHumor" xml:space="preserve">
+    <value>Humor</value>
+  </data>
+  <data name="Seed.Menu.GestaoResumo" xml:space="preserve">
+    <value>Resumo de Atividades</value>
+  </data>
+  <data name="Seed.Menu.Departamentos" xml:space="preserve">
+    <value>Departamentos</value>
+  </data>
+  <data name="Seed.Menu.Areas" xml:space="preserve">
+    <value>Areas</value>
+  </data>
+  <data name="Seed.Menu.Categorias" xml:space="preserve">
+    <value>Categorias</value>
+  </data>
+  <data name="Seed.Menu.Cargos" xml:space="preserve">
+    <value>Cargos</value>
+  </data>
+  <data name="Seed.Menu.Unidades" xml:space="preserve">
+    <value>Unidades</value>
+  </data>
+  <data name="Seed.Menu.Gestores" xml:space="preserve">
+    <value>Gestores</value>
+  </data>
+  <data name="Seed.Menu.Funcionarios" xml:space="preserve">
+    <value>Funcionários</value>
+  </data>
+  <data name="Seed.Menu.BloqueioPessoa" xml:space="preserve">
+    <value>Pessoa</value>
+  </data>
+  <data name="Seed.Menu.Usuarios" xml:space="preserve">
+    <value>Usuarios</value>
+  </data>
+  <data name="Seed.Menu.Perfis" xml:space="preserve">
+    <value>Perfis</value>
+  </data>
+  <data name="Seed.Menu.Menus" xml:space="preserve">
+    <value>Menus</value>
+  </data>
+  <data name="Seed.Menu.Acessos" xml:space="preserve">
+    <value>Acessos</value>
+  </data>
+  <data name="Seed.Menu.LogsTransacionais" xml:space="preserve">
+    <value>Logs Transacionais</value>
+  </data>
+  <data name="Seed.Menu.LogsOperacionais" xml:space="preserve">
+    <value>Logs Operacionais</value>
+  </data>
+  <data name="Seed.Menu.TemplatesEmail" xml:space="preserve">
+    <value>Templates de Email</value>
+  </data>
+  <data name="Seed.Menu.Emails" xml:space="preserve">
+    <value>Emails</value>
+  </data>
+  <data name="Seed.Menu.ConfigEmail" xml:space="preserve">
+    <value>Config Email</value>
+  </data>
+  <data name="Seed.Menu.ConfigEntraId" xml:space="preserve">
+    <value>Config Entra ID</value>
+  </data>
+  <data name="Seed.Menu.Idioma" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="Seed.AgendaTypeInterview" xml:space="preserve">
+    <value>Entrevista</value>
+  </data>
+  <data name="Seed.AgendaTypeMeeting" xml:space="preserve">
+    <value>Reuniao</value>
+  </data>
+  <data name="Seed.AgendaTypeOnboarding" xml:space="preserve">
+    <value>Onboarding</value>
+  </data>
+  <data name="Seed.AgendaTypeAssessment" xml:space="preserve">
+    <value>Assessment</value>
+  </data>
+  <data name="Seed.AgendaTypeFollowUp" xml:space="preserve">
+    <value>Follow-up</value>
+  </data>
+  <data name="Seed.AgendaTypeOther" xml:space="preserve">
+    <value>Outro</value>
+  </data>
+  <data name="Seed.EmailSourcePortal" xml:space="preserve">
+    <value>portal</value>
+  </data>
+  <data name="Seed.EmailSourceSystem" xml:space="preserve">
+    <value>sistema</value>
+  </data>
+  <data name="Seed.EmailSourceScreening" xml:space="preserve">
+    <value>triagem</value>
+  </data>
+  <data name="Seed.EmailSourceAgenda" xml:space="preserve">
+    <value>agenda</value>
+  </data>
+  <data name="Seed.EmailTemplateCandidaturaSubject" xml:space="preserve">
+    <value>Confirmacao da sua candidatura - {{VagaTitulo}}</value>
+  </data>
+  <data name="Seed.EmailTemplateCandidaturaBody" xml:space="preserve">
+    <value><![CDATA[<div style="font-family:Arial,sans-serif;line-height:1.6">
+                <h2>Obrigado pela candidatura, {{Nome}}!</h2>
+                <p>Recebemos sua candidatura para a vaga <strong>{{VagaTitulo}}</strong>.</p>
+                <p>Guarde sua chave unica de acesso ao portal:</p>
+                <p style="font-size:18px;font-weight:bold">{{PortalAccessKey}}</p>
+                <p>Em breve voce recebera novidades sobre o processo seletivo.</p>
+                <p>Equipe RH</p>
+            </div>]]></value>
+  </data>
+</root>

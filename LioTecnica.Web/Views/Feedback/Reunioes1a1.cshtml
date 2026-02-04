@@ -1,0 +1,64 @@
+@{
+	ViewData["Title"] = "Portal RH • Feedback • Reuniões 1:1";
+	ViewData["SidebarSubtitle"] = "Feedback";
+}
+
+@section Topbar {
+	@await Html.PartialAsync("_TopbarBrand", "Feedback • Reuniões 1:1")
+	<button class="btn btn-primary" type="button" id="btnNew" title="Nova reunião">Nova reunião</button>
+	<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar">Atualizar</button>
+	@await Html.PartialAsync("_TopbarUserActions", "RH")
+}
+
+<section class="content">
+	<div class="page-title">
+		<div>
+			<h4>Reuniões 1:1</h4>
+			<div class="subtitle">Reuniões e conversas com seus colaboradores.</div>
+		</div>
+	</div>
+	<div class="card-soft p-3">
+		<div id="meetingsList"></div>
+		<div id="meetingsEmpty" class="text-muted text-center py-4 d-none">Nenhuma reunião encontrada.</div>
+	</div>
+</section>
+
+<div class="modal fade" id="modalMeeting" tabindex="-1" aria-labelledby="modalMeetingLabel" aria-hidden="true">
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="modalMeetingLabel">Nova reunião 1:1</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+			</div>
+			<div class="modal-body">
+				<input type="hidden" id="meetingId" />
+				<div class="mb-3">
+					<label for="meetingCollaboratorId" class="form-label">Colaborador</label>
+					<select class="form-select" id="meetingCollaboratorId" required>
+						<option value="">Selecione...</option>
+					</select>
+				</div>
+				<div class="mb-3">
+					<label for="meetingDate" class="form-label">Data da reunião</label>
+					<input type="datetime-local" class="form-control" id="meetingDate" required />
+				</div>
+				<div class="mb-3">
+					<label for="meetingSubject" class="form-label">Assunto (opcional)</label>
+					<input type="text" class="form-control" id="meetingSubject" maxlength="200" />
+				</div>
+				<div class="mb-3">
+					<label for="meetingNotes" class="form-label">Notas / Resumo</label>
+					<textarea class="form-control" id="meetingNotes" rows="4" maxlength="4000"></textarea>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+				<button type="button" class="btn btn-primary" id="btnSaveMeeting">Salvar</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+@section Scripts {
+	<script src="~/js/views/feedback-reunioes1a1.js" asp-append-version="true"></script>
+}

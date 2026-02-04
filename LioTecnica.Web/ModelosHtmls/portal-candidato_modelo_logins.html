@@ -1,0 +1,4411 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portal RH - Liotécnica</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Open+Sans:wght@400;600;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root{
+      --ink: #0b1b33;
+      --ink-soft: #4b5a72;
+      --primary: #1f6fe5;
+      --primary-dark: #154ea7;
+      --primary-strong: #2b8cff;
+      --accent: #ff9f2c;
+      --accent-strong: #ff7b20;
+      --primary-rgb: 31, 111, 229;
+      --accent-rgb: 255, 159, 44;
+      --paper: #f7f9fc;
+      --surface: #ffffff;
+      --surface-muted: #f1f4f9;
+      --surface-strong: rgba(255, 255, 255, 0.95);
+      --surface-mid: rgba(255, 255, 255, 0.85);
+      --surface-soft: rgba(255, 255, 255, 0.78);
+      --surface-outline: rgba(255, 255, 255, 0.7);
+      --card: var(--surface-strong);
+      --line: rgba(13, 27, 42, 0.14);
+      --border: #d7dce3;
+      --shadow: 0 28px 60px rgba(13, 27, 42, 0.2);
+      --shadow-soft: 0 16px 32px rgba(13, 27, 42, 0.12);
+      --panel-dark: #17192f;
+      --panel-dark-strong: #0f1222;
+      --spotlight-start: #0f2f63;
+      --spotlight-end: #1a4a8f;
+      --bg-grad-start: rgba(12, 35, 72, 0.58);
+      --bg-grad-mid: rgba(15, 54, 106, 0.42);
+      --bg-grad-end: rgba(237, 242, 251, 0.6);
+      --grid-opacity: 0.22;
+      --banner-opacity: 0.7;
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --auth-bg: #f4f6f9;
+      --auth-card: #ffffff;
+      --auth-border: #d0d5dd;
+      --auth-muted: #667085;
+      --auth-link: #1f6fe5;
+      --auth-btn: #475467;
+      --auth-btn-hover: #344054;
+      --auth-input-bg: #ffffff;
+      --auth-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    body[data-theme="dark"]{
+      --ink: #f4f7ff;
+      --ink-soft: #c3ccda;
+      --primary: #3aa0ff;
+      --primary-dark: #1f6fd8;
+      --primary-strong: #60b6ff;
+      --accent: #ffb24a;
+      --accent-strong: #ff8a3d;
+      --primary-rgb: 58, 160, 255;
+      --accent-rgb: 255, 178, 74;
+      --paper: #0b1220;
+      --surface: #0f1627;
+      --surface-muted: #111b2f;
+      --surface-strong: rgba(15, 22, 39, 0.96);
+      --surface-mid: rgba(15, 22, 39, 0.88);
+      --surface-soft: rgba(15, 22, 39, 0.82);
+      --surface-outline: rgba(255, 255, 255, 0.08);
+      --card: var(--surface-strong);
+      --line: rgba(255, 255, 255, 0.12);
+      --border: rgba(255, 255, 255, 0.14);
+      --shadow: 0 28px 60px rgba(0, 0, 0, 0.45);
+      --shadow-soft: 0 16px 32px rgba(0, 0, 0, 0.35);
+      --panel-dark: #0a0f1e;
+      --panel-dark-strong: #050a16;
+      --spotlight-start: #0b1224;
+      --spotlight-end: #132348;
+      --bg-grad-start: rgba(6, 14, 28, 0.78);
+      --bg-grad-mid: rgba(10, 22, 45, 0.68);
+      --bg-grad-end: rgba(13, 20, 35, 0.9);
+      --grid-opacity: 0.1;
+      --banner-opacity: 0.6;
+      --auth-bg: #0b1220;
+      --auth-card: #0f1627;
+      --auth-border: rgba(255, 255, 255, 0.12);
+      --auth-muted: #b4bfd4;
+      --auth-link: #7fb4ff;
+      --auth-btn: #2b3d5f;
+      --auth-btn-hover: #3a5685;
+      --auth-input-bg: #0b1324;
+      --auth-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    *{ box-sizing: border-box; }
+    html{ scroll-behavior: smooth; }
+    body{
+      margin: 0;
+      font-family: "Sora", sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, var(--bg-grad-start) 0%, var(--bg-grad-mid) 38%, var(--bg-grad-end) 100%),
+        url("C:/dev/img/portal-bg.png") top center / cover no-repeat fixed;
+      background-color: var(--paper);
+      min-height: 100vh;
+    }
+
+    body::after{
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.22), transparent 55%),
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+      background-size: 38px 38px, 32px 32px, 32px 32px;
+      opacity: var(--grid-opacity);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body.auth-view{
+      background: var(--auth-bg);
+      background-image: none;
+      font-family: "Open Sans", "Sora", sans-serif;
+    }
+    body.auth-view::after{
+      opacity: 0;
+    }
+    body.auth-view h1,
+    body.auth-view h2,
+    body.auth-view h3{
+      font-family: "Open Sans", "Sora", sans-serif;
+      letter-spacing: 0;
+    }
+
+    .page{
+      position: relative;
+      z-index: 1;
+    }
+
+    .container{
+      width: min(1180px, 92vw);
+      margin: 0 auto;
+    }
+
+    h1, h2, h3{
+      font-family: "Fraunces", serif;
+      letter-spacing: 0.2px;
+      margin: 0;
+    }
+
+    a{ color: inherit; text-decoration: none; }
+    [hidden]{ display: none !important; }
+
+    .btn{
+      border: none;
+      border-radius: 999px;
+      padding: 0.75rem 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+      box-shadow: var(--shadow-soft);
+    }
+    .btn:focus-visible{
+      outline: 3px solid rgba(var(--accent-rgb), 0.6);
+      outline-offset: 2px;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn-primary{
+      background: linear-gradient(135deg, var(--primary-strong), var(--primary));
+      color: #fff;
+      box-shadow: 0 16px 28px rgba(var(--primary-rgb), 0.32);
+    }
+    .btn-primary:hover{
+      transform: translateY(-2px);
+      box-shadow: 0 20px 36px rgba(var(--primary-rgb), 0.36);
+    }
+    .btn-ghost{
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      color: var(--primary);
+      box-shadow: var(--shadow-soft);
+    }
+    .btn-ghost:hover{ background: var(--surface-mid); }
+
+    .theme-toggle-group{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    [vw]{
+      display: block;
+    }
+    [vw-access-button]{
+      position: fixed;
+      top: 50%;
+      right: 16px;
+      transform: translateY(-50%);
+      z-index: 80;
+      display: inline-flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      align-items: center;
+      gap: 0.5rem;
+      height: 44px;
+      padding: 0 1rem 0 0.9rem;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 16px 28px rgba(var(--primary-rgb), 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+    [vw-access-button]::after{
+      content: attr(data-label);
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.01em;
+    }
+    [vw-access-button] img,
+    [vw-access-button] svg{
+      width: 20px;
+      height: 20px;
+      filter: brightness(0) invert(1);
+    }
+    [vw-access-button]:hover{
+      transform: translateY(-50%) translateY(-2px);
+      box-shadow: 0 20px 34px rgba(var(--primary-rgb), 0.4);
+    }
+    .libras-fallback{
+      position: fixed;
+      top: 50%;
+      right: 16px;
+      transform: translateY(-50%);
+      z-index: 81;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      height: 44px;
+      padding: 0 1rem 0 0.9rem;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      box-shadow: 0 16px 28px rgba(var(--primary-rgb), 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+    .libras-fallback.is-visible{
+      display: inline-flex;
+    }
+    .libras-fallback:hover{
+      transform: translateY(-50%) translateY(-2px);
+      box-shadow: 0 20px 34px rgba(var(--primary-rgb), 0.4);
+    }
+    .theme-toggle-btn{
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      color: var(--primary);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+      box-shadow: var(--shadow-soft);
+    }
+    .theme-toggle-btn:hover{
+      transform: translateY(-1px);
+      background: var(--surface-mid);
+    }
+    .theme-toggle-btn.is-active{
+      background: linear-gradient(135deg, var(--primary-strong), var(--primary));
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 14px 24px rgba(var(--primary-rgb), 0.35);
+    }
+    .theme-toggle-btn svg{
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+    }
+    .theme-toggle-btn:focus-visible{
+      outline: 3px solid rgba(var(--accent-rgb), 0.6);
+      outline-offset: 2px;
+    }
+    body.auth-view .theme-toggle-btn:not(.is-active){
+      border-color: var(--auth-border);
+      background: var(--auth-card);
+      box-shadow: var(--auth-shadow);
+    }
+
+    .chip{
+      border-radius: 999px;
+      border: 1px solid rgba(var(--primary-rgb), 0.25);
+      background: rgba(var(--primary-rgb), 0.12);
+      color: var(--primary-dark);
+      padding: 0.4rem 0.9rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+      box-shadow: 0 8px 16px rgba(var(--primary-rgb), 0.18);
+    }
+    .chip:hover{
+      transform: translateY(-1px);
+      border-color: rgba(var(--primary-rgb), 0.45);
+      background: rgba(var(--primary-rgb), 0.2);
+    }
+
+    .site-header{
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--surface-soft);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--surface-outline);
+    }
+    body.auth-view .site-header{
+      display: none;
+    }
+    .header-inner{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 0;
+    }
+    .brand{
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+    }
+    .logo{
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, var(--primary-strong), var(--primary-dark));
+      color: #fff;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 12px 20px rgba(var(--primary-rgb), 0.35);
+    }
+    .brand-name{
+      font-weight: 700;
+      font-size: 1.02rem;
+    }
+    .brand-tag{
+      font-size: 0.8rem;
+      color: var(--ink-soft);
+    }
+
+    .nav-links{
+      display: flex;
+      gap: 1.2rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .nav-links a{
+      position: relative;
+      padding-bottom: 0.2rem;
+    }
+    .nav-links a::after{
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0%;
+      height: 2px;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+    .nav-links a:hover::after{ width: 100%; }
+
+    .header-actions{
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+    .user-pill{
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      box-shadow: var(--shadow-soft);
+    }
+    .user-avatar{
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary-strong), var(--primary-dark));
+      color: #fff;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+    }
+    .user-name{
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .user-role{
+      font-size: 0.75rem;
+      color: var(--ink-soft);
+    }
+
+    .auth-actions{
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .user-actions{
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .auth-section{
+      padding: 0;
+    }
+    .auth-screen{
+      min-height: 100vh;
+    }
+    .auth-header{
+      background: var(--auth-card);
+      border-bottom: 1px solid var(--auth-border);
+    }
+    .auth-container{
+      width: min(1100px, 92vw);
+      margin: 0 auto;
+    }
+    .auth-header-inner{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 0;
+    }
+    .auth-header-actions{
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-left: auto;
+    }
+    .auth-help{
+      font-size: 0.9rem;
+      color: var(--auth-muted);
+    }
+    .auth-help:hover{
+      color: var(--auth-link);
+    }
+    .auth-body{
+      padding: 2.5rem 0 3.5rem;
+    }
+    .auth-content{
+      display: grid;
+      grid-template-columns: minmax(0, 520px);
+      gap: 2rem;
+      justify-content: center;
+      align-items: start;
+    }
+    .auth-card{
+      width: 100%;
+      background: var(--auth-card);
+      border: 1px solid var(--auth-border);
+      border-radius: 6px;
+      padding: 1.6rem;
+      box-shadow: var(--auth-shadow);
+      display: grid;
+      gap: 1rem;
+    }
+    .auth-card-main{
+      gap: 1.2rem;
+    }
+    .auth-card-secondary{
+      padding: 1.3rem;
+      gap: 0.7rem;
+      box-shadow: none;
+      text-align: center;
+    }
+    .auth-card-secondary h3{
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .auth-card-secondary p{
+      margin: 0;
+      color: var(--auth-muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .auth-title{
+      display: grid;
+      gap: 0.3rem;
+      text-align: center;
+    }
+    .auth-title h1{
+      font-size: 1.45rem;
+      margin: 0;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .auth-title h1 span{
+      display: block;
+    }
+    .auth-logo{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      align-self: center;
+      width: auto;
+      margin: 0 auto;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      text-align: center;
+    }
+    .auth-logo-text{
+      display: block;
+      width: 100%;
+      font-family: "Open Sans", "Sora", sans-serif;
+      font-weight: 800;
+      font-style: italic;
+      letter-spacing: 0.08rem;
+      font-size: 2.1rem;
+      color: var(--auth-link);
+      text-align: center;
+    }
+    .auth-title h2{
+      margin: 0;
+      font-size: 0.98rem;
+      font-weight: 400;
+      color: var(--auth-muted);
+      line-height: 1.5;
+    }
+    .auth-tabs{
+      display: none;
+    }
+    .tab-btn{
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 0.6rem 0.8rem;
+      border-radius: 999px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--ink-soft);
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .tab-btn.is-active{
+      color: var(--primary);
+    }
+    .auth-form{
+      display: grid;
+      gap: 0.85rem;
+    }
+    .auth-footer{
+      display: flex;
+      gap: 0.6rem;
+      flex-direction: column;
+      width: 100%;
+      justify-content: center;
+      margin-top: 0.3rem;
+    }
+    .auth-footer .btn{
+      width: 100%;
+    }
+    .auth-note{
+      font-size: 0.82rem;
+      color: var(--auth-muted);
+    }
+    .auth-links{
+      margin-top: 0.9rem;
+      display: grid;
+      gap: 0.45rem;
+      font-size: 0.88rem;
+      text-align: center;
+      justify-items: center;
+    }
+    .auth-links a{
+      color: var(--auth-link);
+    }
+    .auth-links a:hover{
+      text-decoration: underline;
+    }
+    .auth-links .btn{
+      width: 100%;
+    }
+    .auth-terms-link{
+      color: var(--auth-link);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .auth-terms-link:hover{
+      text-decoration: underline;
+    }
+    .auth-divider{
+      display: none;
+      align-items: center;
+      gap: 0.8rem;
+      color: var(--auth-muted);
+      font-size: 0.85rem;
+      margin: 1rem 0 0.4rem;
+    }
+    .auth-divider::before,
+    .auth-divider::after{
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--auth-border);
+    }
+    .auth-divider span{
+      white-space: nowrap;
+    }
+    .auth-submit{
+      width: 100%;
+      height: 44px;
+      border-radius: 6px;
+      background: var(--auth-btn);
+      color: #fff;
+      box-shadow: none;
+      font-weight: 600;
+      letter-spacing: 0;
+      font-size: 0.95rem;
+    }
+    .auth-submit:hover{
+      background: var(--auth-btn-hover);
+      transform: none;
+    }
+    .auth-primary{
+      background: var(--primary);
+    }
+    .auth-primary:hover{
+      background: var(--primary-dark);
+    }
+    .auth-secondary-btn{
+      width: 100%;
+      height: 44px;
+      border-radius: 6px;
+      border: 1px solid var(--auth-border);
+      background: transparent;
+      color: var(--auth-link);
+      box-shadow: none;
+      font-weight: 600;
+      letter-spacing: 0;
+      font-size: 0.95rem;
+    }
+    .auth-secondary-btn:hover{
+      background: var(--surface-muted);
+    }
+    .auth-section .field label{
+      font-size: 0.85rem;
+      color: var(--auth-muted);
+      font-weight: 600;
+    }
+    .auth-section .field input,
+    .auth-section .field select{
+      height: 44px;
+      border-radius: 6px;
+      border: 1px solid var(--auth-border);
+      background: var(--auth-input-bg);
+      box-shadow: none;
+      padding: 0.6rem 0.75rem;
+      color: var(--ink);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .auth-section .field textarea{
+      border-radius: 6px;
+      border: 1px solid var(--auth-border);
+      background: var(--auth-input-bg);
+      box-shadow: none;
+      padding: 0.6rem 0.75rem;
+      color: var(--ink);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .auth-language-footer{
+      border-top: 1px solid var(--auth-border);
+      background: var(--auth-card);
+      padding: 1.2rem 0;
+      margin-top: 1rem;
+    }
+    .language-switcher{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+    .language-label{
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--auth-muted);
+    }
+    .language-flags{
+      display: flex;
+      gap: 0.6rem;
+    }
+    .lang-btn{
+      width: 42px;
+      height: 32px;
+      border-radius: 10px;
+      border: 1px solid var(--auth-border);
+      background: var(--auth-card);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      box-shadow: var(--auth-shadow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .lang-btn .flag{
+      width: 26px;
+      height: 18px;
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+    }
+    .flag-br{
+      background: #009b3a;
+    }
+    .flag-br::before{
+      content: "";
+      position: absolute;
+      inset: 3px;
+      background: #ffdf00;
+      transform: rotate(45deg);
+    }
+    .flag-br::after{
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #002776;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .flag-us{
+      background: repeating-linear-gradient(180deg, #b22234 0 2px, #ffffff 2px 4px);
+    }
+    .flag-us::before{
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 40%;
+      height: 55%;
+      background: #3c3b6e;
+    }
+    .flag-es{
+      background: linear-gradient(180deg, #aa151b 0 25%, #f1bf00 25% 75%, #aa151b 75% 100%);
+    }
+    .lang-btn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(var(--primary-rgb), 0.45);
+    }
+    .lang-btn.is-active{
+      border-color: var(--primary);
+      box-shadow: 0 10px 18px rgba(var(--primary-rgb), 0.28);
+    }
+    body:not(.auth-view) .language-switcher .language-label{
+      color: var(--ink-soft);
+    }
+    body:not(.auth-view) .lang-btn{
+      background: var(--surface-soft);
+      border-color: var(--border);
+      box-shadow: var(--shadow-soft);
+    }
+    .field-checkbox{
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .auth-section .field-checkbox input{
+      width: 16px;
+      height: 16px;
+      margin-top: 0.2rem;
+      padding: 0;
+      border-radius: 4px;
+      accent-color: var(--primary);
+    }
+    .auth-section .field-checkbox label{
+      font-size: 0.82rem;
+      color: var(--auth-muted);
+      font-weight: 400;
+      line-height: 1.4;
+    }
+    .auth-section .field input::placeholder,
+    .auth-section .field textarea::placeholder{
+      color: var(--auth-muted);
+    }
+    .auth-section .field input:focus,
+    .auth-section .field select:focus,
+    .auth-section .field textarea:focus{
+      outline: 2px solid rgba(var(--primary-rgb), 0.25);
+      border-color: var(--primary);
+      transform: translateY(-1px);
+    }
+    .auth-section .input-animate:focus{
+      animation: inputPulse 0.35s ease;
+    }
+
+    .profile-section{
+      padding: 2.5rem 0 1.5rem;
+    }
+    .stepper{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      margin-bottom: 1.4rem;
+    }
+    .stepper-item{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      background: rgba(var(--primary-rgb), 0.08);
+      color: var(--ink-soft);
+      font-size: 0.85rem;
+    }
+    .stepper-item.is-active{
+      background: rgba(var(--primary-rgb), 0.2);
+      color: var(--primary-dark);
+      font-weight: 600;
+    }
+    .stepper-index{
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .profile-grid{
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 1.6rem;
+      align-items: start;
+    }
+    .profile-card{
+      background: var(--card);
+      border: 1px solid var(--surface-outline);
+      border-radius: var(--radius-xl);
+      padding: 1.4rem;
+      box-shadow: var(--shadow-soft);
+      display: grid;
+      gap: 0.9rem;
+      backdrop-filter: blur(10px);
+    }
+    .profile-card p{
+      color: var(--ink-soft);
+      margin: 0;
+      line-height: 1.6;
+    }
+    .span-2{
+      grid-column: 1 / -1;
+    }
+    .match-actions{
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .match-card{
+      margin-top: 1.5rem;
+      background: var(--surface-mid);
+      border: 1px solid var(--surface-outline);
+      border-radius: var(--radius-xl);
+      padding: 1.4rem;
+      display: grid;
+      gap: 1rem;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(10px);
+    }
+    .match-header{
+      display: grid;
+      gap: 0.4rem;
+    }
+    .match-meter{
+      position: relative;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(var(--primary-rgb), 0.12);
+      overflow: hidden;
+    }
+    .match-bar{
+      position: absolute;
+      inset: 0;
+      width: 0%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+    .match-score{
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+    .match-jobs{
+      display: grid;
+      gap: 0.6rem;
+    }
+    .match-job{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(var(--primary-rgb), 0.18);
+      background: rgba(var(--primary-rgb), 0.08);
+      padding: 0.7rem 0.9rem;
+      font-size: 0.9rem;
+    }
+    .match-job strong{ color: var(--primary-dark); }
+    .profile-note{
+      border-radius: var(--radius-lg);
+      border: 1px dashed rgba(var(--primary-rgb), 0.35);
+      padding: 0.8rem 1rem;
+      color: var(--ink-soft);
+      background: rgba(var(--primary-rgb), 0.08);
+    }
+    .hero-copy{
+      background: var(--surface-soft);
+      border: 1px solid var(--surface-outline);
+      border-radius: var(--radius-xl);
+      padding: 1.4rem;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+    .hero{
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 2rem;
+      padding: 3.5rem 0 2.5rem;
+      align-items: center;
+    }
+    .eyebrow{
+      display: inline-flex;
+      gap: 0.5rem;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.35rem 0.8rem;
+      background: rgba(var(--accent-rgb), 0.12);
+      color: var(--accent-strong);
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .hero h1{
+      font-size: clamp(2.4rem, 4vw, 3.4rem);
+      margin: 0.8rem 0;
+      text-shadow: 0 10px 22px rgba(13, 27, 42, 0.15);
+    }
+    .hero p.lead{
+      font-size: 1.1rem;
+      color: var(--ink-soft);
+      margin: 0 0 1.5rem;
+      line-height: 1.6;
+    }
+
+    .search-panel{
+      background: var(--card);
+      border: 1px solid var(--surface-outline);
+      border-radius: var(--radius-xl);
+      padding: 1.2rem;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 1rem;
+      backdrop-filter: blur(10px);
+    }
+    .search-row{
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr auto;
+      gap: 0.7rem;
+    }
+    .search-row input,
+    .search-row select{
+      width: 100%;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      padding: 0.75rem 0.85rem;
+      font-size: 0.95rem;
+      background: var(--surface);
+      font-family: inherit;
+    }
+    .search-row button{ align-self: stretch; }
+
+    .quick-filters{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .hero-stats{
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.9rem;
+      margin-top: 1.5rem;
+    }
+    .stat-card{
+      background: var(--surface-mid);
+      border: 1px solid var(--surface-outline);
+      border-radius: var(--radius-lg);
+      padding: 0.9rem 1rem;
+      display: grid;
+      gap: 0.4rem;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(10px);
+    }
+    .stat-card strong{
+      font-size: 1.4rem;
+    }
+    .stat-card span{
+      font-size: 0.9rem;
+      color: var(--ink-soft);
+    }
+
+    .hero-panel{
+      display: grid;
+      gap: 1rem;
+    }
+    .spotlight-card{
+      background: linear-gradient(160deg, var(--spotlight-start) 0%, var(--spotlight-end) 100%);
+      color: #f5f9ff;
+      border-radius: var(--radius-xl);
+      padding: 1.4rem;
+      display: grid;
+      gap: 0.9rem;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .spotlight-card::after{
+      content: "";
+      position: absolute;
+      right: -30%;
+      top: -40%;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(var(--accent-rgb), 0.35), transparent 60%);
+    }
+    .spotlight-badge{
+      align-self: start;
+      display: inline-flex;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .spotlight-meta{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .spotlight-meta span{
+      padding: 0.3rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .spotlight-actions{
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .timeline-card{
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--surface-outline);
+      padding: 1.1rem;
+      display: grid;
+      gap: 0.8rem;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(10px);
+    }
+    .timeline-steps{
+      display: grid;
+      gap: 0.6rem;
+      font-size: 0.9rem;
+      color: var(--ink-soft);
+    }
+    .timeline-steps span{
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .dot{
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex: 0 0 auto;
+    }
+
+    .jobs{
+      padding: 1rem 0 2.5rem;
+    }
+    .jobs-header{
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .jobs-header p{
+      margin: 0.4rem 0 0;
+      color: var(--ink-soft);
+    }
+    .jobs-actions{
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    .job-grid{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.4rem;
+    }
+    .job-card{
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--surface-strong) 0%, var(--surface-mid) 100%);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--surface-outline);
+      padding: 1.2rem;
+      display: grid;
+      gap: 0.9rem;
+      box-shadow: var(--shadow-soft);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      animation: rise 0.6s ease both;
+      animation-delay: var(--delay, 0s);
+      backdrop-filter: blur(8px);
+    }
+    .job-card::before{
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary-strong), var(--primary), var(--accent));
+    }
+    .job-card:hover{
+      transform: translateY(-6px);
+      box-shadow: var(--shadow);
+    }
+    .job-card header{
+      display: grid;
+      gap: 0.4rem;
+    }
+    .job-badge{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--primary-dark);
+      background: rgba(var(--primary-rgb), 0.16);
+      border: 1px solid rgba(var(--primary-rgb), 0.3);
+      padding: 0.3rem 0.6rem;
+      border-radius: 999px;
+      width: fit-content;
+    }
+    .job-summary{
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .job-meta{
+      display: grid;
+      gap: 0.35rem;
+      font-size: 0.88rem;
+      color: var(--ink-soft);
+    }
+    .job-meta strong{ color: var(--primary-dark); }
+    .job-tags{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .job-tags span{
+      border-radius: 999px;
+      padding: 0.3rem 0.6rem;
+      border: 1px solid rgba(var(--primary-rgb), 0.2);
+      font-size: 0.78rem;
+      background: rgba(var(--primary-rgb), 0.1);
+      color: var(--primary-dark);
+      font-weight: 600;
+    }
+    .job-actions{
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .empty-state{
+      margin-top: 1.5rem;
+      padding: 1.2rem;
+      border-radius: var(--radius-lg);
+      border: 1px dashed var(--border);
+      background: var(--surface-soft);
+      color: var(--ink-soft);
+    }
+
+    .process{
+      padding: 3rem 0;
+      background: var(--surface-soft);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .process-grid{
+      margin-top: 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    .process-card{
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--surface-outline);
+      padding: 1rem;
+      display: grid;
+      gap: 0.6rem;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(10px);
+    }
+    .step{
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: rgba(var(--primary-rgb), 0.14);
+      color: var(--primary-dark);
+      font-weight: 700;
+    }
+
+    .benefits{
+      padding: 2.5rem 0;
+    }
+    .benefits-grid{
+      margin-top: 1.4rem;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    .benefit-card{
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--surface-outline);
+      padding: 1.2rem;
+      display: grid;
+      gap: 0.6rem;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(10px);
+    }
+
+    .cta{
+      margin: 3rem 0 4rem;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15), rgba(var(--accent-rgb), 0.2));
+      padding: 2rem;
+      border: 1px solid rgba(var(--primary-rgb), 0.18);
+      display: grid;
+      gap: 1rem;
+    }
+    .cta-actions{
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    footer{
+      padding: 2rem 0 3rem;
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+    }
+    .footer-grid{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.6rem;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface-soft);
+      border: 1px solid var(--surface-outline);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.2rem;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(10px);
+    }
+
+    body.modal-open{
+      overflow: hidden;
+    }
+    .modal{
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      z-index: 40;
+    }
+    .modal.is-open{
+      display: flex;
+    }
+    .modal-overlay{
+      position: absolute;
+      inset: 0;
+      background: rgba(12, 27, 50, 0.6);
+      backdrop-filter: blur(2px);
+    }
+    .modal-dialog{
+      position: relative;
+      width: min(720px, 92vw);
+      max-height: 90vh;
+      overflow: auto;
+      background: var(--card);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--surface-outline);
+      box-shadow: var(--shadow);
+      padding: 1.6rem;
+      animation: rise 0.35s ease both;
+      backdrop-filter: blur(12px);
+    }
+    .modal-close{
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface-strong);
+      box-shadow: var(--shadow-soft);
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+    .modal-header{
+      display: grid;
+      gap: 0.35rem;
+      padding-right: 2.2rem;
+    }
+    .modal-eyebrow{
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--ink-soft);
+    }
+    .modal-subtitle{
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .modal-badge{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--primary-dark);
+      background: rgba(var(--primary-rgb), 0.18);
+      border: 1px solid rgba(var(--primary-rgb), 0.28);
+      padding: 0.3rem 0.6rem;
+      border-radius: 999px;
+      width: fit-content;
+    }
+    .modal-body{
+      margin-top: 1.1rem;
+      display: grid;
+      gap: 1.2rem;
+    }
+    .modal-footer{
+      margin-top: 1.2rem;
+      display: flex;
+      gap: 0.8rem;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .modal-footer .btn{
+      width: min(320px, 100%);
+    }
+    .detail-grid{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.8rem;
+    }
+    .detail-item{
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(var(--primary-rgb), 0.16);
+      background: rgba(var(--primary-rgb), 0.06);
+      padding: 0.7rem 0.8rem;
+      display: grid;
+      gap: 0.25rem;
+      font-size: 0.9rem;
+    }
+    .detail-item span{
+      color: var(--ink-soft);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .detail-tags{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .detail-tags span{
+      border-radius: 999px;
+      padding: 0.3rem 0.6rem;
+      border: 1px solid rgba(var(--primary-rgb), 0.2);
+      font-size: 0.8rem;
+      background: rgba(var(--primary-rgb), 0.1);
+      color: var(--primary-dark);
+      font-weight: 600;
+    }
+    .detail-section{
+      display: grid;
+      gap: 0.4rem;
+    }
+    .detail-section h4{
+      margin: 0;
+      font-size: 1rem;
+      color: var(--ink);
+    }
+    .detail-list{
+      margin: 0;
+      padding-left: 1.1rem;
+      color: var(--ink-soft);
+      display: grid;
+      gap: 0.4rem;
+    }
+    .form-grid{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
+    }
+    .field{
+      display: grid;
+      gap: 0.35rem;
+    }
+    .field.field-checkbox{
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .field.field-checkbox input{
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      padding: 0;
+      border-radius: 4px;
+      accent-color: var(--primary);
+    }
+    .field.field-checkbox label{
+      margin: 0;
+      font-weight: 400;
+    }
+    .field label{
+      font-size: 0.85rem;
+      color: var(--ink-soft);
+      font-weight: 600;
+    }
+    .field input,
+    .field textarea,
+    .field select{
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      padding: 0.7rem 0.8rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      background: var(--surface);
+    }
+    .field textarea{ resize: vertical; }
+    .search-row input:focus,
+    .search-row select:focus,
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus{
+      outline: none;
+      border-color: rgba(var(--primary-rgb), 0.45);
+      box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.18);
+    }
+    .field-hint{
+      font-size: 0.78rem;
+      color: var(--ink-soft);
+    }
+    .modal-alert{
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(var(--primary-rgb), 0.28);
+      background: rgba(var(--primary-rgb), 0.12);
+      color: var(--primary-dark);
+      padding: 0.8rem 1rem;
+      font-weight: 600;
+    }
+
+    @keyframes inputPulse{
+      0%{ box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.25); }
+      70%{ box-shadow: 0 0 0 8px rgba(var(--primary-rgb), 0.2); }
+      100%{ box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15); }
+    }
+
+    @keyframes rise{
+      from{ opacity: 0; transform: translateY(12px); }
+      to{ opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 960px){
+      .auth-content{ grid-template-columns: 1fr; }
+      .auth-divider{ display: flex; }
+    }
+
+    @media (max-width: 1024px){
+      .hero{ grid-template-columns: 1fr; }
+      .profile-grid{ grid-template-columns: 1fr; }
+      .search-row{ grid-template-columns: 1fr 1fr; }
+      .hero-stats{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .job-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .process-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .benefits-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 840px){
+      body{ background-attachment: scroll; }
+      .nav-links{ display: none; }
+      .header-inner{ flex-wrap: wrap; }
+      .header-actions{
+        width: 100%;
+        justify-content: space-between;
+      }
+      .auth-actions,
+      .user-actions{
+        width: 100%;
+        justify-content: space-between;
+      }
+      body.auth-view .auth-header-inner{ flex-wrap: wrap; }
+      body.auth-view .auth-header-actions{
+        width: 100%;
+        justify-content: space-between;
+      }
+      .hero-stats{ grid-template-columns: 1fr; }
+      .search-row{ grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px){
+      .jobs-header{ flex-direction: column; align-items: flex-start; }
+      .job-grid{ grid-template-columns: 1fr; }
+      .process-grid{ grid-template-columns: 1fr; }
+      .benefits-grid{ grid-template-columns: 1fr; }
+      [vw-access-button]{
+        top: auto;
+        bottom: 16px;
+        right: 12px;
+        transform: none;
+      }
+      [vw-access-button]:hover{
+        transform: translateY(-2px);
+      }
+      .libras-fallback{
+        top: auto;
+        bottom: 16px;
+        right: 12px;
+        transform: none;
+      }
+      .libras-fallback:hover{
+        transform: translateY(-2px);
+      }
+    }
+
+    @media (max-width: 720px){
+      .form-grid{ grid-template-columns: 1fr; }
+      .modal-dialog{ padding: 1.3rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *, *::before, *::after{ animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body data-theme="light">
+  <div class="page">
+    <header class="site-header">
+      <div class="container header-inner">
+        <div class="brand">
+          <div class="logo">RH</div>
+          <div>
+            <div class="brand-name">Portal RH</div>
+            <div class="brand-tag" data-i18n="brand_tagline">Tenha o DNA Lio.</div>
+          </div>
+        </div>
+
+        <nav class="nav-links">
+          <a href="#vagas" data-i18n="nav_jobs">Vagas</a>
+          <a href="#processo" data-i18n="nav_process">Como funciona</a>
+          <a href="#beneficios" data-i18n="nav_benefits">Porque aqui</a>
+          <a href="#faq" data-i18n="nav_faq">FAQ</a>
+        </nav>
+
+        <div class="header-actions">
+          <div class="auth-actions" id="authActions">
+            <button class="btn btn-ghost" type="button" data-auth-view="login" data-i18n="header_login">Entrar</button>
+            <button class="btn btn-primary" type="button" data-open-register data-i18n="header_register">Criar conta</button>
+          </div>
+          <div class="user-actions" id="userActions" hidden>
+            <div class="user-pill">
+              <div class="user-avatar" id="userAvatar">LH</div>
+              <div>
+                <div class="user-name" id="userName">Luiz Henrique</div>
+                <div class="user-role" data-i18n="user_role">Candidato logado</div>
+              </div>
+            </div>
+            <button class="btn btn-ghost" type="button" id="profileShortcut" data-i18n="header_profile">Meu perfil</button>
+          </div>
+          <div class="theme-toggle-group" role="group" aria-label="Tema">
+            <button class="theme-toggle-btn" type="button" data-theme-set="light" data-i18n-aria="theme_light" aria-label="Modo claro">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="4"></circle>
+                <line x1="12" y1="2" x2="12" y2="5"></line>
+                <line x1="12" y1="19" x2="12" y2="22"></line>
+                <line x1="2" y1="12" x2="5" y2="12"></line>
+                <line x1="19" y1="12" x2="22" y2="12"></line>
+                <line x1="4.5" y1="4.5" x2="6.6" y2="6.6"></line>
+                <line x1="17.4" y1="17.4" x2="19.5" y2="19.5"></line>
+                <line x1="17.4" y1="6.6" x2="19.5" y2="4.5"></line>
+                <line x1="4.5" y1="19.5" x2="6.6" y2="17.4"></line>
+              </svg>
+            </button>
+            <button class="theme-toggle-btn" type="button" data-theme-set="dark" data-i18n-aria="theme_dark" aria-label="Modo escuro">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section id="authSection" class="auth-section auth-screen">
+      <header class="auth-header">
+        <div class="auth-container auth-header-inner">
+          <div class="auth-header-actions">
+            <a class="auth-help" href="https://portalrh-liotecnica.com.br/ajuda" target="_blank" rel="noopener" data-i18n="auth_help">Ajuda</a>
+            <div class="theme-toggle-group" role="group" aria-label="Tema">
+              <button class="theme-toggle-btn" type="button" data-theme-set="light" data-i18n-aria="theme_light" aria-label="Modo claro">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4"></circle>
+                  <line x1="12" y1="2" x2="12" y2="5"></line>
+                  <line x1="12" y1="19" x2="12" y2="22"></line>
+                  <line x1="2" y1="12" x2="5" y2="12"></line>
+                  <line x1="19" y1="12" x2="22" y2="12"></line>
+                  <line x1="4.5" y1="4.5" x2="6.6" y2="6.6"></line>
+                  <line x1="17.4" y1="17.4" x2="19.5" y2="19.5"></line>
+                  <line x1="17.4" y1="6.6" x2="19.5" y2="4.5"></line>
+                  <line x1="4.5" y1="19.5" x2="6.6" y2="17.4"></line>
+                </svg>
+              </button>
+              <button class="theme-toggle-btn" type="button" data-theme-set="dark" data-i18n-aria="theme_dark" aria-label="Modo escuro">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="auth-body">
+        <div class="auth-container auth-content">
+          <div class="auth-card auth-card-main">
+            <div class="auth-title" data-auth-title="login">
+              <div class="auth-logo" role="img" aria-label="Liotécnica">
+                <span class="auth-logo-text">Liotécnica</span>
+              </div>
+              <h2 data-i18n="auth_login_subtitle">Faca o seu login ou crie a sua conta. E simples e rapido.</h2>
+            </div>
+            <div class="auth-title" data-auth-title="register" hidden>
+              <h1 data-i18n="auth_register_title">Crie sua conta gratuitamente</h1>
+              <h2 data-i18n="auth_register_subtitle">Conclua seu cadastro.</h2>
+            </div>
+
+            <div class="auth-tabs" aria-hidden="true">
+              <button class="tab-btn is-active" type="button" data-auth-tab="login">Entrar</button>
+              <button class="tab-btn" type="button" data-auth-tab="register">Cadastrar</button>
+            </div>
+
+            <div class="auth-panel" data-auth-panel="login">
+              <form id="loginForm" class="auth-form">
+                <div class="field">
+                  <label for="loginEmail" data-i18n="auth_email_or_cpf_label">E-mail ou CPF</label>
+                  <input id="loginEmail" class="input-animate" type="text" placeholder="Seu e-mail ou CPF" data-i18n-placeholder="auth_email_or_cpf_placeholder" required />
+                </div>
+                <div class="field">
+                  <label for="loginPassword" data-i18n="auth_password_label">Senha</label>
+                  <input id="loginPassword" class="input-animate" type="password" placeholder="Digite sua senha" data-i18n-placeholder="auth_password_placeholder" required />
+                </div>
+                <div class="auth-note" data-i18n="auth_demo_note">Para a demo, qualquer email e senha funcionam.</div>
+                <div class="auth-footer">
+                  <button class="btn auth-submit" type="submit" data-i18n="auth_login_button">Entrar</button>
+                </div>
+              </form>
+              <div class="auth-links">
+                <button class="btn auth-secondary-btn" type="button" data-open-register data-i18n="auth_link_create">Crie sua conta</button>
+                <a href="https://portalrh-liotecnica.com.br/recuperar-acesso" target="_blank" rel="noopener" data-i18n="auth_link_recover">Recuperar acesso</a>
+              </div>
+            </div>
+
+            <div class="auth-panel" data-auth-panel="register" hidden>
+              <form id="registerForm" class="auth-form">
+                <div class="form-grid">
+                  <div class="field span-2">
+                    <label for="registerEmail" data-i18n="register_email_label">Email</label>
+                    <input id="registerEmail" class="input-animate" type="email" placeholder="voce@exemplo.com" data-i18n-placeholder="register_email_placeholder" required />
+                  </div>
+                  <div class="field span-2">
+                    <label for="registerPassword" data-i18n="register_password_label">Senha</label>
+                    <input id="registerPassword" class="input-animate" type="password" placeholder="Crie uma senha" data-i18n-placeholder="register_password_placeholder" required />
+                  </div>
+                  <div class="field">
+                    <label for="registerCpf" data-i18n="register_cpf_label">CPF</label>
+                    <input id="registerCpf" type="text" placeholder="000.000.000-00" data-i18n-placeholder="register_cpf_placeholder" required />
+                  </div>
+                  <div class="field span-2 field-checkbox">
+                    <input id="registerTerms" type="checkbox" required />
+                    <label for="registerTerms">
+                      <span data-i18n="register_terms_prefix">Li e aceito os</span>
+                      <a class="auth-terms-link" href="#" data-terms-link="terms" data-i18n="register_terms_terms">Termos de Uso</a>
+                      <span data-i18n="register_terms_connector">e as</span>
+                      <a class="auth-terms-link" href="#" data-terms-link="privacy" data-i18n="register_terms_privacy">Politicas de Privacidade</a>
+                    </label>
+                  </div>
+                </div>
+                <div class="auth-footer">
+                  <button class="btn auth-primary auth-submit" type="submit" data-i18n="register_create_button">Criar conta</button>
+                  <button class="btn auth-secondary-btn" type="button" data-auth-view="login" data-i18n="register_back_button">Voltar ao login</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="auth-divider"><span data-i18n="auth_divider">Ou</span></div>
+
+          <div class="auth-card auth-card-secondary" data-auth-cta="register" hidden>
+            <h3 data-i18n="auth_secondary_title_register">Ja possui cadastro?</h3>
+            <p data-i18n="auth_secondary_copy_register">Acesse sua conta.</p>
+            <button class="btn btn-ghost auth-secondary-btn" type="button" data-auth-view="login" data-i18n="auth_secondary_button_register">Voltar ao login</button>
+          </div>
+        </div>
+      </div>
+      <footer class="auth-language-footer">
+        <div class="auth-container language-switcher">
+          <span class="language-label" data-i18n="lang_label">Idioma do perfil</span>
+          <div class="language-flags">
+            <button class="lang-btn" type="button" data-lang="pt" data-i18n-aria="lang_pt" aria-label="Portugues">
+              <span class="flag flag-br" aria-hidden="true"></span>
+            </button>
+            <button class="lang-btn" type="button" data-lang="en" data-i18n-aria="lang_en" aria-label="Ingles">
+              <span class="flag flag-us" aria-hidden="true"></span>
+            </button>
+            <button class="lang-btn" type="button" data-lang="es" data-i18n-aria="lang_es" aria-label="Espanhol">
+              <span class="flag flag-es" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+      </footer>
+    </section>
+
+    <section id="profileSection" class="profile-section" hidden>
+      <div class="container">
+        <div class="stepper">
+          <div class="stepper-item"><span class="stepper-index">1</span><span data-i18n="step_login">Login/Cadastro</span></div>
+          <div class="stepper-item is-active"><span class="stepper-index">2</span><span data-i18n="step_profile">Complemento de perfil</span></div>
+          <div class="stepper-item"><span class="stepper-index">3</span><span data-i18n="step_jobs">Vagas</span></div>
+        </div>
+
+        <div class="profile-grid">
+          <div class="profile-card">
+            <h2 data-i18n="profile_title">Complemento de perfil</h2>
+            <p>
+              <span data-i18n="profile_copy">Responda as perguntas e importe seu CV para calcular a aderencia com as vagas em aberto.</span>
+            </p>
+            <form id="profileForm" class="auth-form">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="profileArea" data-i18n="profile_area_label">Area de interesse</label>
+                  <select id="profileArea" required>
+                    <option value="" data-i18n="select_placeholder">Selecione...</option>
+                    <option value="Tecnologia" data-i18n="area_tecnologia">Tecnologia</option>
+                    <option value="Engenharia" data-i18n="area_engenharia">Engenharia</option>
+                    <option value="Operacoes" data-i18n="area_operacoes">Operacoes</option>
+                    <option value="Qualidade" data-i18n="area_qualidade">Qualidade</option>
+                    <option value="Suprimentos" data-i18n="area_suprimentos">Suprimentos</option>
+                    <option value="Design" data-i18n="area_design">Design</option>
+                    <option value="RH" data-i18n="area_rh">RH</option>
+                    <option value="Logistica" data-i18n="area_logistica">Logistica</option>
+                    <option value="Qualquer" data-i18n="option_any">Qualquer</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="profileLevel" data-i18n="profile_level_label">Nivel</label>
+                  <select id="profileLevel" required>
+                    <option value="" data-i18n="select_placeholder">Selecione...</option>
+                    <option value="Estagio" data-i18n="level_estagio">Estagio</option>
+                    <option value="Junior" data-i18n="level_junior">Junior</option>
+                    <option value="Pleno" data-i18n="level_pleno">Pleno</option>
+                    <option value="Senior" data-i18n="level_senior">Senior</option>
+                    <option value="Gestao" data-i18n="level_gestao">Gestao</option>
+                    <option value="Qualquer" data-i18n="option_any">Qualquer</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="profileMode" data-i18n="profile_mode_label">Modalidade preferida</label>
+                  <select id="profileMode" required>
+                    <option value="" data-i18n="select_placeholder">Selecione...</option>
+                    <option value="Presencial" data-i18n="mode_presencial">Presencial</option>
+                    <option value="Hibrido" data-i18n="mode_hibrido">Hibrido</option>
+                    <option value="Remoto" data-i18n="mode_remoto">Remoto</option>
+                    <option value="Qualquer" data-i18n="option_any">Qualquer</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="profileLocation" data-i18n="profile_location_label">Localidade</label>
+                  <select id="profileLocation" required>
+                    <option value="" data-i18n="select_placeholder">Selecione...</option>
+                    <option value="Qualquer" data-i18n="option_any">Qualquer</option>
+                    <option value="Remoto" data-i18n="mode_remoto">Remoto</option>
+                    <option value="Sao Paulo, SP" data-i18n="location_sao_paulo">Sao Paulo, SP</option>
+                    <option value="Embu das Artes, SP" data-i18n="location_embu">Embu das Artes, SP</option>
+                    <option value="Campinas, SP" data-i18n="location_campinas">Campinas, SP</option>
+                    <option value="Jundiai, SP" data-i18n="location_jundiai">Jundiai, SP</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="profileAvailability" data-i18n="profile_availability_label">Disponibilidade</label>
+                  <select id="profileAvailability" required>
+                    <option value="" data-i18n="select_placeholder">Selecione...</option>
+                    <option value="Imediata" data-i18n="availability_immediate">Imediata</option>
+                    <option value="15 dias" data-i18n="availability_15">15 dias</option>
+                    <option value="30 dias" data-i18n="availability_30">30 dias</option>
+                    <option value="60 dias" data-i18n="availability_60">60 dias</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="profileSalary" data-i18n="profile_salary_label">Pretensao salarial</label>
+                  <input id="profileSalary" type="text" placeholder="Ex.: R$ 6.000" data-i18n-placeholder="profile_salary_placeholder" />
+                </div>
+                <div class="field span-2">
+                  <label for="profileCv" data-i18n="profile_cv_label">Importe seu CV</label>
+                  <input id="profileCv" type="file" accept=".pdf,.doc,.docx,.txt" required />
+                  <span class="field-hint" data-i18n="profile_cv_hint">Leitura automatica simulada para este mock.</span>
+                </div>
+                <div class="field span-2">
+                  <label for="profileCvNotes" data-i18n="profile_cv_notes_label">Trecho do CV (opcional)</label>
+                  <textarea id="profileCvNotes" rows="3" placeholder="Cole as principais skills para melhorar o matching." data-i18n-placeholder="profile_cv_notes_placeholder"></textarea>
+                </div>
+              </div>
+              <div class="modal-alert" id="profileNotice" hidden></div>
+              <div class="match-actions">
+                <button class="btn btn-primary" type="button" id="matchButton" data-i18n="profile_match_button">Calcular aderencia</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="profile-card">
+            <h3 data-i18n="profile_how_title">Como avaliamos sua aderencia</h3>
+            <p>
+              <span data-i18n="profile_how_copy">Consideramos o alinhamento com area, modalidade, localidade e nivel desejado. O CV e comparado com requisitos chave das vagas abertas.</span>
+            </p>
+            <div class="profile-note" data-i18n="profile_note">
+              Quanto mais skills relevantes no CV, maior a chance de aderencia as oportunidades.
+            </div>
+          </div>
+        </div>
+
+        <div id="matchResult" class="match-card" hidden>
+          <div class="match-header">
+            <span class="modal-badge" id="matchBadge"></span>
+            <h3 id="matchTitle"></h3>
+            <p class="modal-subtitle" id="matchCopy"></p>
+          </div>
+          <div class="match-meter">
+            <div class="match-bar" id="matchBar"></div>
+          </div>
+          <div class="match-score" id="matchScore"></div>
+          <div class="detail-section">
+            <h4 data-i18n="match_skills_title">Skills identificadas no CV</h4>
+            <div id="matchSkills" class="detail-tags"></div>
+          </div>
+          <div class="detail-section">
+            <h4 data-i18n="match_jobs_title">Vagas mais aderentes</h4>
+            <div id="matchJobs" class="match-jobs"></div>
+          </div>
+          <div class="match-actions">
+            <button class="btn btn-primary" type="button" id="enterPortalBtn" hidden data-i18n="match_view_jobs">Ver vagas disponiveis</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div id="portalContent" hidden>
+    <main class="container">
+      <section class="hero">
+        <div class="hero-copy">
+          <span class="eyebrow" data-i18n="hero_eyebrow">2026 - vagas abertas</span>
+          <h1 data-i18n="hero_title">Encontre a vaga certa para voce e candidate-se em minutos.</h1>
+          <p class="lead">
+            <span data-i18n="hero_lead">Um portal direto ao ponto para candidatos: veja vagas disponiveis, compare requisitos e acompanhe o processo com clareza.</span>
+          </p>
+
+          <div class="search-panel">
+            <div class="search-row">
+              <input id="searchInput" type="search" placeholder="Buscar por cargo, area ou palavra-chave" data-i18n-placeholder="search_placeholder" />
+              <select id="filterArea">
+                <option value="all" data-i18n="filter_area_label">Area</option>
+                <option value="Tecnologia" data-i18n="area_tecnologia">Tecnologia</option>
+                <option value="Engenharia" data-i18n="area_engenharia">Engenharia</option>
+                <option value="Operacoes" data-i18n="area_operacoes">Operacoes</option>
+                <option value="Qualidade" data-i18n="area_qualidade">Qualidade</option>
+                <option value="Suprimentos" data-i18n="area_suprimentos">Suprimentos</option>
+                <option value="RH" data-i18n="area_rh">RH</option>
+                <option value="Logistica" data-i18n="area_logistica">Logistica</option>
+                <option value="Design" data-i18n="area_design">Design</option>
+              </select>
+              <select id="filterLocation">
+                <option value="all" data-i18n="filter_location_label">Local</option>
+                <option value="Remoto" data-i18n="mode_remoto">Remoto</option>
+                <option value="Sao Paulo, SP" data-i18n="location_sao_paulo">Sao Paulo, SP</option>
+                <option value="Embu das Artes, SP" data-i18n="location_embu">Embu das Artes, SP</option>
+                <option value="Campinas, SP" data-i18n="location_campinas">Campinas, SP</option>
+                <option value="Jundiai, SP" data-i18n="location_jundiai">Jundiai, SP</option>
+              </select>
+              <select id="filterMode">
+                <option value="all" data-i18n="filter_mode_label">Modalidade</option>
+                <option value="Presencial" data-i18n="mode_presencial">Presencial</option>
+                <option value="Hibrido" data-i18n="mode_hibrido">Hibrido</option>
+                <option value="Remoto" data-i18n="mode_remoto">Remoto</option>
+              </select>
+              <button class="btn btn-primary" type="button" id="searchButton" data-i18n="search_button">Buscar vagas</button>
+            </div>
+
+            <div class="quick-filters">
+              <button class="chip" type="button" data-quick-mode="Remoto" data-i18n="quick_remote">Remoto</button>
+              <button class="chip" type="button" data-quick-type="Estagio" data-i18n="quick_internship">Estagio</button>
+              <button class="chip" type="button" data-quick-area="Tecnologia" data-i18n="quick_tech">Tecnologia</button>
+              <button class="chip" type="button" data-quick-area="Qualidade" data-i18n="quick_quality">Qualidade</button>
+              <button class="chip" type="button" data-quick-area="Operacoes" data-i18n="quick_operations">Operacoes</button>
+            </div>
+          </div>
+
+          <div class="hero-stats">
+            <div class="stat-card">
+              <strong>18</strong>
+              <span data-i18n="stat_open">vagas abertas hoje</span>
+            </div>
+            <div class="stat-card">
+              <strong>6</strong>
+              <span data-i18n="stat_remote">posicoes remotas</span>
+            </div>
+            <div class="stat-card">
+              <strong>12 dias</strong>
+              <span data-i18n="stat_time">tempo medio de resposta</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-panel">
+          <div class="spotlight-card">
+            <span class="spotlight-badge" data-i18n="spotlight_badge">Vaga destaque</span>
+            <h3 data-i18n="spotlight_title">Engenheiro de Processos Senior</h3>
+            <p class="job-summary" data-i18n="spotlight_summary">Melhore fluxos de producao e conecte areas com impacto direto.</p>
+            <div class="spotlight-meta">
+              <span data-spotlight-meta="location">Embu das Artes, SP</span>
+              <span data-spotlight-meta="mode">Presencial</span>
+              <span data-spotlight-meta="type">CLT</span>
+              <span data-spotlight-meta="salary">R$ 12.000 a 15.000</span>
+            </div>
+            <div class="spotlight-actions">
+              <button class="btn btn-primary" type="button" data-action="apply" data-job-id="engenheiro-processos" data-i18n="spotlight_apply">Candidatar</button>
+              <button class="btn btn-ghost" type="button" data-action="details" data-job-id="engenheiro-processos" data-i18n="spotlight_details">Detalhes</button>
+            </div>
+          </div>
+
+          <div class="timeline-card">
+            <strong data-i18n="timeline_title">Como funciona o processo</strong>
+            <div class="timeline-steps">
+              <span><span class="dot"></span><span data-i18n="timeline_step1">Cadastro rapido e perfil unico</span></span>
+              <span><span class="dot"></span><span data-i18n="timeline_step2">Triagem e retorno em ate 5 dias</span></span>
+              <span><span class="dot"></span><span data-i18n="timeline_step3">Entrevista com gestor</span></span>
+              <span><span class="dot"></span><span data-i18n="timeline_step4">Proposta e onboarding</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="vagas" class="jobs">
+        <div class="jobs-header">
+          <div>
+            <h2 data-i18n="jobs_title">Vagas disponiveis</h2>
+            <p id="resultsCount">8 vagas encontradas</p>
+          </div>
+          <div class="jobs-actions">
+            <button class="btn btn-ghost" type="button" id="clearFilters" data-i18n="clear_filters">Limpar filtros</button>
+          </div>
+        </div>
+
+        <div class="job-grid" id="jobGrid">
+          <article class="job-card" style="--delay: 0.05s" data-job-id="analista-dados-pleno" data-area="Tecnologia" data-location="Remoto" data-mode="Remoto" data-type="CLT" data-level="Pleno" data-salary="R$ 6.000 a 8.000" data-posted="ha 2 dias" data-salary-label="range" data-tags="SQL|Power BI|Analytics|Python" data-search="analista de dados pleno sql power bi remoto tecnologia">
+            <header>
+              <span class="job-badge">Alta demanda</span>
+              <h3>Analista de Dados Pleno</h3>
+              <p class="job-summary">Construa dashboards e modelos de dados para operacoes e vendas.</p>
+            </header>
+            <div class="job-meta">
+              <div><strong data-i18n="label_location">Local</strong>: <span data-meta="location">Remoto</span></div>
+              <div><strong data-i18n="label_mode">Modalidade</strong>: <span data-meta="mode">Remoto</span> - <span data-meta="type">CLT</span></div>
+              <div><strong data-i18n="label_range">Faixa</strong>: <span data-meta="salary">R$ 6.000 a 8.000</span></div>
+              <div><strong data-i18n="label_posted">Publicado</strong>: <span data-meta="posted">ha 2 dias</span></div>
+            </div>
+            <div class="job-tags">
+              <span>SQL</span>
+              <span>Power BI</span>
+              <span>Analytics</span>
+              <span>Python</span>
+            </div>
+            <div class="job-actions">
+              <button class="btn btn-primary" type="button" data-action="apply" data-i18n="job_apply_button">Quero me candidatar</button>
+              <button class="btn btn-ghost" type="button" data-action="details" data-i18n="job_details_button">Ver detalhes</button>
+            </div>
+          </article>
+
+          <article class="job-card" style="--delay: 0.1s" data-job-id="tecnico-manutencao" data-area="Operacoes" data-location="Embu das Artes, SP" data-mode="Presencial" data-type="CLT" data-level="Pleno" data-salary="R$ 3.800 a 4.600" data-posted="ha 4 dias" data-salary-label="range" data-tags="Eletrica|Automacao|TPM" data-search="tecnico de manutencao maquinas operacoes presencial embu das artes">
+            <header>
+              <span class="job-badge">Turno fixo</span>
+              <h3>Tecnico de Manutencao</h3>
+              <p class="job-summary">Cuide de maquinas criticas e garanta continuidade operacional.</p>
+            </header>
+            <div class="job-meta">
+              <div><strong data-i18n="label_location">Local</strong>: <span data-meta="location">Embu das Artes, SP</span></div>
+              <div><strong data-i18n="label_mode">Modalidade</strong>: <span data-meta="mode">Presencial</span> - <span data-meta="type">CLT</span></div>
+              <div><strong data-i18n="label_range">Faixa</strong>: <span data-meta="salary">R$ 3.800 a 4.600</span></div>
+              <div><strong data-i18n="label_posted">Publicado</strong>: <span data-meta="posted">ha 4 dias</span></div>
+            </div>
+            <div class="job-tags">
+              <span>Eletrica</span>
+              <span>Automacao</span>
+              <span>TPM</span>
+            </div>
+            <div class="job-actions">
+              <button class="btn btn-primary" type="button" data-action="apply" data-i18n="job_apply_button">Quero me candidatar</button>
+              <button class="btn btn-ghost" type="button" data-action="details" data-i18n="job_details_button">Ver detalhes</button>
+            </div>
+          </article>
+
+          <article class="job-card" style="--delay: 0.15s" data-job-id="engenheiro-processos" data-area="Engenharia" data-location="Sao Paulo, SP" data-mode="Hibrido" data-type="CLT" data-level="Senior" data-salary="R$ 12.000 a 15.000" data-posted="ha 1 dia" data-salary-label="range" data-tags="Lean|Six Sigma|Kaizen" data-search="engenheiro de processos senior lean six sigma hibrido sao paulo">
+            <header>
+              <span class="job-badge">Destaque</span>
+              <h3>Engenheiro de Processos</h3>
+              <p class="job-summary">Otimize fluxo, reduza perdas e lidere iniciativas lean.</p>
+            </header>
+            <div class="job-meta">
+              <div><strong data-i18n="label_location">Local</strong>: <span data-meta="location">Sao Paulo, SP</span></div>
+              <div><strong data-i18n="label_mode">Modalidade</strong>: <span data-meta="mode">Hibrido</span> - <span data-meta="type">CLT</span></div>
+              <div><strong data-i18n="label_range">Faixa</strong>: <span data-meta="salary">R$ 12.000 a 15.000</span></div>
+              <div><strong data-i18n="label_posted">Publicado</strong>: <span data-meta="posted">ha 1 dia</span></div>
+            </div>
+            <div class="job-tags">
+              <span>Lean</span>
+              <span>Six Sigma</span>
+              <span>Kaizen</span>
+            </div>
+            <div class="job-actions">
+              <button class="btn btn-primary" type="button" data-action="apply" data-i18n="job_apply_button">Quero me candidatar</button>
+              <button class="btn btn-ghost" type="button" data-action="details" data-i18n="job_details_button">Ver detalhes</button>
+            </div>
+          </article>
+
+          <article class="job-card" style="--delay: 0.2s" data-job-id="estagio-qualidade" data-area="Qualidade" data-location="Embu das Artes, SP" data-mode="Presencial" data-type="Estagio" data-level="Estagio" data-salary="R$ 1.600" data-posted="ha 3 dias" data-salary-label="stipend" data-tags="ISO 9001|Laboratorio|Documentacao" data-search="estagio qualidade laboratorio embu das artes">
+            <header>
+              <span class="job-badge">Inicio rapido</span>
+              <h3>Estagio em Qualidade</h3>
+              <p class="job-summary">Aprenda sobre testes, normas e melhoria continua.</p>
+            </header>
+            <div class="job-meta">
+              <div><strong data-i18n="label_location">Local</strong>: <span data-meta="location">Embu das Artes, SP</span></div>
+              <div><strong data-i18n="label_mode">Modalidade</strong>: <span data-meta="mode">Presencial</span> - <span data-meta="type">Estagio</span></div>
+              <div><strong data-i18n="label_stipend">Bolsa</strong>: <span data-meta="salary">R$ 1.600</span></div>
+              <div><strong data-i18n="label_posted">Publicado</strong>: <span data-meta="posted">ha 3 dias</span></div>
+            </div>
+            <div class="job-tags">
+              <span>ISO 9001</span>
+              <span>Laboratorio</span>
+              <span>Documentacao</span>
+            </div>
+            <div class="job-actions">
+              <button class="btn btn-primary" type="button" data-action="apply" data-i18n="job_apply_button">Quero me candidatar</button>
+              <button class="btn btn-ghost" type="button" data-action="details" data-i18n="job_details_button">Ver detalhes</button>
+            </div>
+          </article>
+
+          <article class="job-card" style="--delay: 0.25s" data-job-id="analista-compras-jr" data-area="Suprimentos" data-location="Campinas, SP" data-mode="Hibrido" data-type="CLT" data-level="Junior" data-salary="R$ 3.200 a 3.800" data-posted="ha 5 dias" data-salary-label="range" data-tags="Excel|Negociacao|ERP" data-search="analista de compras junior suprimentos fornecedores campinas">
+            <header>
+              <span class="job-badge">Novo time</span>
+              <h3>Analista de Compras Jr</h3>
+              <p class="job-summary">Negociacao com fornecedores e apoio a planejamento.</p>
+            </header>
+            <div class="job-meta">
+              <div><strong data-i18n="label_location">Local</strong>: <span data-meta="location">Campinas, SP</span></div>
+              <div><strong data-i18n="label_mode">Modalidade</strong>: <span data-meta="mode">Hibrido</span> - <span data-meta="type">CLT</span></div>
+              <div><strong data-i18n="label_range">Faixa</strong>: <span data-meta="salary">R$ 3.200 a 3.800</span></div>
+              <div><strong data-i18n="label_posted">Publicado</strong>: <span data-meta="posted">ha 5 dias</span></div>
+            </div>
+            <div class="job-tags">
+              <span>Excel</span>
+              <span>Negociacao</span>
+              <span>ERP</span>
+            </div>
+            <div class="job-actions">
+              <button class="btn btn-primary" type="button" data-action="apply" data-i18n="job_apply_button">Quero me candidatar</button>
+              <button class="btn btn-ghost" type="button" data-action="details" data-i18n="job_details_button">Ver detalhes</button>
+            </div>
+          </article>
+
+          <article class="job-card" style="--delay: 0.3s" data-job-id="designer-produto" data-area="Design" data-location="Remoto" data-mode="Remoto" data-type="PJ" data-level="Pleno" data-salary="R$ 7.000 a 9.000" data-posted="ha 6 dias" data-salary-label="range" data-tags="UX|UI|Discovery" data-search="designer de produto ux ui remoto design pj">
+            <header>
+              <span class="job-badge">Portfolio</span>
+              <h3>Designer de Produto</h3>
+              <p class="job-summary">Conecte pesquisa, interface e negocio em times digitais.</p>
+            </header>
+            <div class="job-meta">
+              <div><strong data-i18n="label_location">Local</strong>: <span data-meta="location">Remoto</span></div>
+              <div><strong data-i18n="label_mode">Modalidade</strong>: <span data-meta="mode">Remoto</span> - <span data-meta="type">PJ</span></div>
+              <div><strong data-i18n="label_range">Faixa</strong>: <span data-meta="salary">R$ 7.000 a 9.000</span></div>
+              <div><strong data-i18n="label_posted">Publicado</strong>: <span data-meta="posted">ha 6 dias</span></div>
+            </div>
+            <div class="job-tags">
+              <span>UX</span>
+              <span>UI</span>
+              <span>Discovery</span>
+            </div>
+            <div class="job-actions">
+              <button class="btn btn-primary" type="button" data-action="apply" data-i18n="job_apply_button">Quero me candidatar</button>
+              <button class="btn btn-ghost" type="button" data-action="details" data-i18n="job_details_button">Ver detalhes</button>
+            </div>
+          </article>
+
+          <article class="job-card" style="--delay: 0.35s" data-job-id="coordenador-rh" data-area="RH" data-location="Sao Paulo, SP" data-mode="Presencial" data-type="CLT" data-level="Gestao" data-salary="R$ 9.000 a 11.000" data-posted="ha 1 semana" data-salary-label="range" data-tags="People Analytics|Treinamento|Gestao" data-search="coordenador de rh gestao sao paulo presencial">
+            <header>
+              <span class="job-badge">Lideranca</span>
+              <h3>Coordenador de RH</h3>
+              <p class="job-summary">Lidere desenvolvimento e cultura com foco em dados.</p>
+            </header>
+            <div class="job-meta">
+              <div><strong data-i18n="label_location">Local</strong>: <span data-meta="location">Sao Paulo, SP</span></div>
+              <div><strong data-i18n="label_mode">Modalidade</strong>: <span data-meta="mode">Presencial</span> - <span data-meta="type">CLT</span></div>
+              <div><strong data-i18n="label_range">Faixa</strong>: <span data-meta="salary">R$ 9.000 a 11.000</span></div>
+              <div><strong data-i18n="label_posted">Publicado</strong>: <span data-meta="posted">ha 1 semana</span></div>
+            </div>
+            <div class="job-tags">
+              <span>People Analytics</span>
+              <span>Treinamento</span>
+              <span>Gestao</span>
+            </div>
+            <div class="job-actions">
+              <button class="btn btn-primary" type="button" data-action="apply" data-i18n="job_apply_button">Quero me candidatar</button>
+              <button class="btn btn-ghost" type="button" data-action="details" data-i18n="job_details_button">Ver detalhes</button>
+            </div>
+          </article>
+
+          <article class="job-card" style="--delay: 0.4s" data-job-id="especialista-logistica" data-area="Logistica" data-location="Jundiai, SP" data-mode="Presencial" data-type="CLT" data-level="Senior" data-salary="R$ 8.500 a 10.000" data-posted="ha 3 dias" data-salary-label="range" data-tags="WMS|Roteirizacao|KPIs" data-search="especialista logistica senior jundiai supply chain">
+            <header>
+              <span class="job-badge">Supply chain</span>
+              <h3>Especialista em Logistica</h3>
+              <p class="job-summary">Planeje demanda, rota e controle custos de distribuicao.</p>
+            </header>
+            <div class="job-meta">
+              <div><strong data-i18n="label_location">Local</strong>: <span data-meta="location">Jundiai, SP</span></div>
+              <div><strong data-i18n="label_mode">Modalidade</strong>: <span data-meta="mode">Presencial</span> - <span data-meta="type">CLT</span></div>
+              <div><strong data-i18n="label_range">Faixa</strong>: <span data-meta="salary">R$ 8.500 a 10.000</span></div>
+              <div><strong data-i18n="label_posted">Publicado</strong>: <span data-meta="posted">ha 3 dias</span></div>
+            </div>
+            <div class="job-tags">
+              <span>WMS</span>
+              <span>Roteirizacao</span>
+              <span>KPIs</span>
+            </div>
+            <div class="job-actions">
+              <button class="btn btn-primary" type="button" data-action="apply" data-i18n="job_apply_button">Quero me candidatar</button>
+              <button class="btn btn-ghost" type="button" data-action="details" data-i18n="job_details_button">Ver detalhes</button>
+            </div>
+          </article>
+        </div>
+
+        <div id="emptyState" class="empty-state" hidden data-i18n="empty_state">
+          Nenhuma vaga encontrada com os filtros atuais. Tente ajustar area, local ou modalidade.
+        </div>
+      </section>
+    </main>
+
+    <section id="processo" class="process">
+      <div class="container">
+        <h2 data-i18n="process_title">Etapas do processo</h2>
+        <p data-i18n="process_subtitle">Transparencia do inicio ao fim para voce saber o que esperar.</p>
+        <div class="process-grid">
+          <div class="process-card">
+            <div class="step">1</div>
+            <strong data-i18n="process_step1_title">Cadastro</strong>
+            <span data-i18n="process_step1_desc">Crie seu perfil e anexe seu curriculo.</span>
+          </div>
+          <div class="process-card">
+            <div class="step">2</div>
+            <strong data-i18n="process_step2_title">Triagem</strong>
+            <span data-i18n="process_step2_desc">Analise inicial e retorno rapido por email.</span>
+          </div>
+          <div class="process-card">
+            <div class="step">3</div>
+            <strong data-i18n="process_step3_title">Entrevistas</strong>
+            <span data-i18n="process_step3_desc">Conversa tecnica e cultural com o time.</span>
+          </div>
+          <div class="process-card">
+            <div class="step">4</div>
+            <strong data-i18n="process_step4_title">Proposta</strong>
+            <span data-i18n="process_step4_desc">Alinhamento final e onboarding.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="beneficios" class="benefits container">
+      <h2 data-i18n="benefits_title">Porque trabalhar aqui</h2>
+      <p data-i18n="benefits_subtitle">Um ambiente que valoriza autonomia, aprendizado e impacto.</p>
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <strong data-i18n="benefit1_title">Projetos com impacto real</strong>
+          <span data-i18n="benefit1_desc">Times multidisciplinares com metas claras e autonomia.</span>
+        </div>
+        <div class="benefit-card">
+          <strong data-i18n="benefit2_title">Desenvolvimento continuo</strong>
+          <span data-i18n="benefit2_desc">Planos de carreira e trilhas de aprendizado.</span>
+        </div>
+        <div class="benefit-card">
+          <strong data-i18n="benefit3_title">Bem estar e equilibrio</strong>
+          <span data-i18n="benefit3_desc">Beneficios flexiveis e apoio ao dia a dia.</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="container">
+      <h2 data-i18n="faq_title">FAQ rapido</h2>
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <strong data-i18n="faq_q1">Posso me candidatar a mais de uma vaga?</strong>
+          <span data-i18n="faq_a1">Sim. Recomendamos candidaturas alinhadas ao seu perfil.</span>
+        </div>
+        <div class="benefit-card">
+          <strong data-i18n="faq_q2">Preciso ter experiencia previa?</strong>
+          <span data-i18n="faq_a2">Algumas vagas aceitam inicio de carreira e estagio.</span>
+        </div>
+        <div class="benefit-card">
+          <strong data-i18n="faq_q3">Como acompanho meu status?</strong>
+          <span data-i18n="faq_a3">Voce recebe atualizacoes por email a cada etapa.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="container cta">
+      <h2 data-i18n="cta_title">Pronto para dar o proximo passo?</h2>
+      <p data-i18n="cta_desc">Crie seu perfil e receba alertas de novas vagas.</p>
+      <div class="cta-actions">
+        <button class="btn btn-primary" type="button" data-i18n="cta_primary">Criar meu perfil</button>
+        <button class="btn btn-ghost" type="button" data-i18n="cta_secondary">Assinar alertas</button>
+      </div>
+    </section>
+
+    <footer class="container">
+      <div class="footer-grid">
+        <div>
+          <strong data-i18n="footer_title">Portal RH</strong>
+          <div data-i18n="brand_tagline">Tenha o DNA Lio.</div>
+          <div data-i18n="footer_desc">Portal de candidatos com dados mockados para demo.</div>
+          <div data-i18n="footer_disclaimer">O matching nao garante a vaga, apenas habilita a concorrer.</div>
+        </div>
+        <div class="footer-lang">
+          <div class="language-switcher">
+            <span class="language-label" data-i18n="lang_label">Idioma do perfil</span>
+            <div class="language-flags">
+              <button class="lang-btn" type="button" data-lang="pt" data-i18n-aria="lang_pt" aria-label="Portugues">
+                <span class="flag flag-br" aria-hidden="true"></span>
+              </button>
+              <button class="lang-btn" type="button" data-lang="en" data-i18n-aria="lang_en" aria-label="Ingles">
+                <span class="flag flag-us" aria-hidden="true"></span>
+              </button>
+              <button class="lang-btn" type="button" data-lang="es" data-i18n-aria="lang_es" aria-label="Espanhol">
+                <span class="flag flag-es" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div><span data-i18n="footer_contact">Contato:</span> talentos@liotecnica.com</div>
+      </div>
+    </footer>
+  </div>
+</div>
+
+  <div class="vlibras-widget enabled" vw>
+    <div vw-access-button class="active" role="button" tabindex="0" data-label="Acessivel em Libras" data-i18n-aria="libras_button" aria-label="Acessivel em Libras"></div>
+    <div vw-plugin-wrapper>
+      <div class="vw-plugin-top-wrapper"></div>
+    </div>
+  </div>
+  <button class="libras-fallback" type="button" data-libras-trigger data-i18n="libras_button">Acessivel em Libras</button>
+
+  <div class="modal" id="registerModal" aria-hidden="true">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="registerTitle">
+      <button class="modal-close" type="button" data-close-modal aria-label="Fechar modal" data-i18n-aria="modal_close_aria">x</button>
+      <div class="modal-header">
+        <div class="modal-eyebrow" data-i18n="register_modal_eyebrow">Cadastro rapido</div>
+        <h3 id="registerTitle" data-i18n="auth_register_title">Crie sua conta gratuitamente</h3>
+        <p class="modal-subtitle" data-i18n="auth_register_subtitle">Conclua seu cadastro.</p>
+      </div>
+      <div class="modal-body">
+        <form id="registerModalForm" class="auth-form">
+          <div class="field">
+            <label for="registerModalEmail" data-i18n="register_email_label">Email</label>
+            <input id="registerModalEmail" class="input-animate" type="email" placeholder="voce@exemplo.com" data-i18n-placeholder="register_email_placeholder" required />
+          </div>
+          <div class="field">
+            <label for="registerModalPassword" data-i18n="register_password_label">Senha</label>
+            <input id="registerModalPassword" class="input-animate" type="password" placeholder="Crie uma senha" data-i18n-placeholder="register_password_placeholder" required />
+          </div>
+          <div class="field">
+            <label for="registerModalCpf" data-i18n="register_cpf_label">CPF</label>
+            <input id="registerModalCpf" type="text" placeholder="000.000.000-00" data-i18n-placeholder="register_cpf_placeholder" required />
+          </div>
+          <div class="field field-checkbox">
+            <input id="registerModalTerms" type="checkbox" required />
+            <label for="registerModalTerms">
+              <span data-i18n="register_terms_prefix">Li e aceito os</span>
+              <a class="auth-terms-link" href="#" data-terms-link="terms" data-i18n="register_terms_terms">Termos de Uso</a>
+              <span data-i18n="register_terms_connector">e as</span>
+              <a class="auth-terms-link" href="#" data-terms-link="privacy" data-i18n="register_terms_privacy">Politicas de Privacidade</a>
+            </label>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" type="button" data-close-modal data-i18n="modal_cancel">Cancelar</button>
+            <button class="btn btn-primary" type="submit" data-i18n="register_create_button">Criar conta</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="jobDetailsModal" aria-hidden="true">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+      <button class="modal-close" type="button" data-close-modal aria-label="Fechar modal" data-i18n-aria="modal_close_aria">x</button>
+      <div class="modal-header">
+        <div class="modal-eyebrow" data-i18n="modal_details_eyebrow">Detalhes da vaga</div>
+        <h3 id="detailTitle"></h3>
+        <p class="modal-subtitle" id="detailSummary"></p>
+        <span class="modal-badge" id="detailBadge"></span>
+      </div>
+      <div class="modal-body">
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span data-i18n="label_area">Area</span>
+            <strong id="detailArea"></strong>
+          </div>
+          <div class="detail-item">
+            <span data-i18n="label_location">Local</span>
+            <strong id="detailLocation"></strong>
+          </div>
+          <div class="detail-item">
+            <span data-i18n="label_mode">Modalidade</span>
+            <strong id="detailMode"></strong>
+          </div>
+          <div class="detail-item">
+            <span data-i18n="label_type">Tipo</span>
+            <strong id="detailType"></strong>
+          </div>
+          <div class="detail-item">
+            <span data-i18n="label_level">Nivel</span>
+            <strong id="detailLevel"></strong>
+          </div>
+          <div class="detail-item">
+            <span id="detailSalaryLabel" data-i18n="label_range">Faixa</span>
+            <strong id="detailSalary"></strong>
+          </div>
+          <div class="detail-item">
+            <span data-i18n="label_posted">Publicado</span>
+            <strong id="detailPosted"></strong>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4 data-i18n="modal_requirements_title">Requisitos principais</h4>
+          <div id="detailTags" class="detail-tags"></div>
+        </div>
+
+        <div class="detail-section">
+          <h4 data-i18n="modal_responsibilities_title">Responsabilidades (mock)</h4>
+          <ul id="detailList" class="detail-list"></ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" data-close-modal data-i18n="modal_close">Fechar</button>
+        <button class="btn btn-primary" type="button" id="detailApplyBtn" data-i18n="modal_apply">Quero me candidatar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="applyModal" aria-hidden="true">
+    <div class="modal-overlay" data-close-modal></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="applyTitle">
+      <button class="modal-close" type="button" data-close-modal aria-label="Fechar modal" data-i18n-aria="modal_close_aria">x</button>
+      <div class="modal-header">
+        <div class="modal-eyebrow" data-i18n="modal_apply_eyebrow">Candidatura rapida</div>
+        <h3 id="applyTitle" data-i18n="modal_apply_title">Candidatura</h3>
+        <p class="modal-subtitle" id="applySubtitle"></p>
+      </div>
+      <div class="modal-body">
+        <form id="applyForm">
+          <div class="form-grid">
+            <div class="field">
+              <label for="applyName" data-i18n="modal_name_label">Nome completo</label>
+              <input id="applyName" type="text" readonly />
+            </div>
+            <div class="field">
+              <label for="applyEmail" data-i18n="modal_email_label">Email</label>
+              <input id="applyEmail" type="email" placeholder="seu.email@exemplo.com" data-i18n-placeholder="modal_email_placeholder" required />
+            </div>
+            <div class="field">
+              <label for="applyPhone" data-i18n="modal_phone_label">Telefone</label>
+              <input id="applyPhone" type="tel" placeholder="(11) 99999-9999" data-i18n-placeholder="modal_phone_placeholder" />
+            </div>
+            <div class="field">
+              <label for="applyLinkedIn" data-i18n="modal_linkedin_label">LinkedIn</label>
+              <input id="applyLinkedIn" type="url" placeholder="https://linkedin.com/in/..." data-i18n-placeholder="modal_linkedin_placeholder" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="applyMessage" data-i18n="modal_message_label">Mensagem ao recrutador</label>
+            <textarea id="applyMessage" rows="3" placeholder="Conte um pouco sobre voce e seu interesse." data-i18n-placeholder="modal_message_placeholder"></textarea>
+          </div>
+          <div class="field">
+            <label for="applyResume" data-i18n="modal_resume_label">Curriculo (opcional)</label>
+            <input id="applyResume" type="file" accept=".pdf,.doc,.docx" />
+            <span class="field-hint" data-i18n="modal_resume_hint">Aceitamos PDF ou DOC.</span>
+          </div>
+          <div class="modal-alert" id="applySuccess" hidden></div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" type="button" data-close-modal data-i18n="modal_cancel">Cancelar</button>
+            <button class="btn btn-primary" type="submit" id="applySubmit" data-i18n="modal_submit">Enviar candidatura</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const searchInput = document.getElementById("searchInput");
+    const filterArea = document.getElementById("filterArea");
+    const filterLocation = document.getElementById("filterLocation");
+    const filterMode = document.getElementById("filterMode");
+    const searchButton = document.getElementById("searchButton");
+    const clearFilters = document.getElementById("clearFilters");
+    const resultsCount = document.getElementById("resultsCount");
+    const emptyState = document.getElementById("emptyState");
+    const cards = Array.from(document.querySelectorAll(".job-card"));
+    const detailsModal = document.getElementById("jobDetailsModal");
+    const applyModal = document.getElementById("applyModal");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailSummary = document.getElementById("detailSummary");
+    const detailBadge = document.getElementById("detailBadge");
+    const detailArea = document.getElementById("detailArea");
+    const detailLocation = document.getElementById("detailLocation");
+    const detailMode = document.getElementById("detailMode");
+    const detailType = document.getElementById("detailType");
+    const detailLevel = document.getElementById("detailLevel");
+    const detailSalary = document.getElementById("detailSalary");
+    const detailSalaryLabel = document.getElementById("detailSalaryLabel");
+    const detailPosted = document.getElementById("detailPosted");
+    const detailTags = document.getElementById("detailTags");
+    const detailList = document.getElementById("detailList");
+    const detailApplyBtn = document.getElementById("detailApplyBtn");
+    const applyTitle = document.getElementById("applyTitle");
+    const applySubtitle = document.getElementById("applySubtitle");
+    const applyForm = document.getElementById("applyForm");
+    const applySuccess = document.getElementById("applySuccess");
+    const applySubmit = document.getElementById("applySubmit");
+    const applyName = document.getElementById("applyName");
+    const applyEmail = document.getElementById("applyEmail");
+    const registerModal = document.getElementById("registerModal");
+    const registerModalForm = document.getElementById("registerModalForm");
+    const registerModalEmail = document.getElementById("registerModalEmail");
+    const registerOpenButtons = Array.from(document.querySelectorAll("[data-open-register]"));
+    const authSection = document.getElementById("authSection");
+    const profileSection = document.getElementById("profileSection");
+    const portalContent = document.getElementById("portalContent");
+    const authActions = document.getElementById("authActions");
+    const userActions = document.getElementById("userActions");
+    const userName = document.getElementById("userName");
+    const userAvatar = document.getElementById("userAvatar");
+    const profileShortcut = document.getElementById("profileShortcut");
+    const authTabs = Array.from(document.querySelectorAll("[data-auth-tab]"));
+    const authPanels = Array.from(document.querySelectorAll("[data-auth-panel]"));
+    const authTitles = Array.from(document.querySelectorAll("[data-auth-title]"));
+    const authCtas = Array.from(document.querySelectorAll("[data-auth-cta]"));
+    const authDivider = document.querySelector(".auth-divider");
+    const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
+    const registerEmail = document.getElementById("registerEmail");
+    const loginEmail = document.getElementById("loginEmail");
+    const profileForm = document.getElementById("profileForm");
+    const profileArea = document.getElementById("profileArea");
+    const profileLevel = document.getElementById("profileLevel");
+    const profileMode = document.getElementById("profileMode");
+    const profileLocation = document.getElementById("profileLocation");
+    const profileAvailability = document.getElementById("profileAvailability");
+    const profileCv = document.getElementById("profileCv");
+    const profileCvNotes = document.getElementById("profileCvNotes");
+    const profileNotice = document.getElementById("profileNotice");
+    const matchButton = document.getElementById("matchButton");
+    const matchResult = document.getElementById("matchResult");
+    const matchBadge = document.getElementById("matchBadge");
+    const matchTitle = document.getElementById("matchTitle");
+    const matchCopy = document.getElementById("matchCopy");
+    const matchBar = document.getElementById("matchBar");
+    const matchScore = document.getElementById("matchScore");
+    const matchSkills = document.getElementById("matchSkills");
+    const matchJobs = document.getElementById("matchJobs");
+    const enterPortalBtn = document.getElementById("enterPortalBtn");
+    const themeToggles = Array.from(document.querySelectorAll("[data-theme-set]"));
+    const languageButtons = Array.from(document.querySelectorAll("[data-lang]"));
+    const librasFallback = document.querySelector("[data-libras-trigger]");
+
+    function normalize(value){
+      return (value || "").toLowerCase().trim();
+    }
+
+    function normalizeText(value){
+      return (value || "")
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s+.#-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    let currentLang = localStorage.getItem("portal-lang") || "pt";
+    const translations = { pt: {}, en: {}, es: {} };
+    const valueTranslations = { pt: {}, en: {}, es: {} };
+    const postedTranslations = { en: {}, es: {} };
+    const tagTranslations = { en: {}, es: {} };
+    const jobTranslations = {};
+
+    Object.assign(translations.pt, {
+      theme_dark: "Modo escuro",
+      theme_light: "Modo claro",
+      nav_jobs: "Vagas",
+      nav_process: "Como funciona",
+      nav_benefits: "Porque aqui",
+      nav_faq: "FAQ",
+      header_login: "Entrar",
+      header_register: "Criar conta",
+      header_profile: "Meu perfil",
+      user_role: "Candidato logado",
+      brand_tagline: "Tenha o DNA Lio.",
+      generic_candidate: "Candidato",
+      badge_default: "Vaga",
+      auth_help: "Ajuda",
+      libras_button: "Acessivel em Libras",
+      auth_login_title_line1: "Seja bem-vindo.",
+      auth_login_title_line2: "A sua proxima oportunidade de trabalho, pode estar aqui.",
+      auth_login_subtitle: "Faca o seu login ou crie a sua conta. E simples e rapido.",
+      auth_register_title: "Crie sua conta gratuitamente",
+      auth_register_subtitle: "Conclua seu cadastro.",
+      register_modal_eyebrow: "Cadastro rapido",
+      auth_email_or_cpf_label: "E-mail ou CPF",
+      auth_email_or_cpf_placeholder: "Seu e-mail ou CPF",
+      auth_password_label: "Senha",
+      auth_password_placeholder: "Digite sua senha",
+      auth_demo_note: "Para a demo, qualquer email e senha funcionam.",
+      auth_login_button: "Entrar",
+      auth_link_create: "Crie sua conta",
+      auth_link_recover: "Recuperar acesso",
+      register_email_label: "Email",
+      register_email_placeholder: "voce@exemplo.com",
+      register_password_label: "Senha",
+      register_password_placeholder: "Crie uma senha",
+      register_cpf_label: "CPF",
+      register_cpf_placeholder: "000.000.000-00",
+      register_terms_prefix: "Li e aceito os",
+      register_terms_terms: "Termos de Uso",
+      register_terms_connector: "e as",
+      register_terms_privacy: "Politicas de Privacidade",
+      register_create_button: "Criar conta",
+      register_back_button: "Voltar ao login",
+      auth_secondary_title_login: "Nao tem uma conta? Cadastre-se",
+      auth_secondary_copy_login: "Ainda nao tem cadastro? Cadastre-se.",
+      auth_secondary_button_login: "Criar conta",
+      auth_secondary_title_register: "Ja possui cadastro?",
+      auth_secondary_copy_register: "Acesse sua conta.",
+      auth_secondary_button_register: "Voltar ao login",
+      auth_divider: "Ou",
+      lang_label: "Idioma do perfil",
+      lang_pt: "Portugues",
+      lang_en: "Ingles",
+      lang_es: "Espanhol"
+    });
+
+    Object.assign(translations.pt, {
+      step_login: "Login/Cadastro",
+      step_profile: "Complemento de perfil",
+      step_jobs: "Vagas",
+      profile_title: "Complemento de perfil",
+      profile_copy: "Responda as perguntas e importe seu CV para calcular a aderencia com as vagas em aberto.",
+      profile_area_label: "Area de interesse",
+      profile_level_label: "Nivel",
+      profile_mode_label: "Modalidade preferida",
+      profile_location_label: "Localidade",
+      profile_availability_label: "Disponibilidade",
+      profile_salary_label: "Pretensao salarial",
+      profile_salary_placeholder: "Ex.: R$ 6.000",
+      profile_cv_label: "Importe seu CV",
+      profile_cv_hint: "Leitura automatica simulada para este mock.",
+      profile_cv_notes_label: "Trecho do CV (opcional)",
+      profile_cv_notes_placeholder: "Cole as principais skills para melhorar o matching.",
+      profile_match_button: "Calcular aderencia",
+      profile_how_title: "Como avaliamos sua aderencia",
+      profile_how_copy: "Consideramos o alinhamento com area, modalidade, localidade e nivel desejado. O CV e comparado com requisitos chave das vagas abertas.",
+      profile_note: "Quanto mais skills relevantes no CV, maior a chance de aderencia as oportunidades.",
+      match_badge_yes: "Perfil aderente",
+      match_badge_no: "Perfil em desenvolvimento",
+      match_title_yes: "Perfil aderente a {count} vaga{plural}",
+      match_title_no: "Perfil ainda nao aderente",
+      match_copy_yes: "Suas respostas e o CV indicam boa aderencia com as vagas abertas.",
+      match_copy_no: "Complete seu perfil e atualize o CV para melhorar a aderencia.",
+      match_score_label: "Score geral: {score}%",
+      match_skills_title: "Skills identificadas no CV",
+      match_jobs_title: "Vagas mais aderentes",
+      match_no_skills: "Nenhuma skill identificada",
+      match_view_jobs: "Ver vagas disponiveis",
+      match_notice_cv: "Importe seu CV para calcular a aderencia.",
+      match_read_error: "Nao foi possivel ler o CV. Tente outro arquivo."
+    });
+
+    Object.assign(translations.pt, {
+      hero_eyebrow: "2026 - vagas abertas",
+      hero_title: "Encontre a vaga certa para voce e candidate-se em minutos.",
+      hero_lead: "Um portal direto ao ponto para candidatos: veja vagas disponiveis, compare requisitos e acompanhe o processo com clareza.",
+      search_placeholder: "Buscar por cargo, area ou palavra-chave",
+      filter_area_label: "Area",
+      filter_location_label: "Local",
+      filter_mode_label: "Modalidade",
+      search_button: "Buscar vagas",
+      quick_remote: "Remoto",
+      quick_internship: "Estagio",
+      quick_tech: "Tecnologia",
+      quick_quality: "Qualidade",
+      quick_operations: "Operacoes",
+      stat_open: "vagas abertas hoje",
+      stat_remote: "posicoes remotas",
+      stat_time: "tempo medio de resposta",
+      spotlight_badge: "Vaga destaque",
+      spotlight_title: "Engenheiro de Processos Senior",
+      spotlight_summary: "Melhore fluxos de producao e conecte areas com impacto direto.",
+      spotlight_apply: "Candidatar",
+      spotlight_details: "Detalhes",
+      timeline_title: "Como funciona o processo",
+      timeline_step1: "Cadastro rapido e perfil unico",
+      timeline_step2: "Triagem e retorno em ate 5 dias",
+      timeline_step3: "Entrevista com gestor",
+      timeline_step4: "Proposta e onboarding",
+      jobs_title: "Vagas disponiveis",
+      clear_filters: "Limpar filtros",
+      empty_state: "Nenhuma vaga encontrada com os filtros atuais. Tente ajustar area, local ou modalidade."
+    });
+
+    Object.assign(translations.pt, {
+      process_title: "Etapas do processo",
+      process_subtitle: "Transparencia do inicio ao fim para voce saber o que esperar.",
+      process_step1_title: "Cadastro",
+      process_step1_desc: "Crie seu perfil e anexe seu curriculo.",
+      process_step2_title: "Triagem",
+      process_step2_desc: "Analise inicial e retorno rapido por email.",
+      process_step3_title: "Entrevistas",
+      process_step3_desc: "Conversa tecnica e cultural com o time.",
+      process_step4_title: "Proposta",
+      process_step4_desc: "Alinhamento final e onboarding.",
+      benefits_title: "Porque trabalhar aqui",
+      benefits_subtitle: "Um ambiente que valoriza autonomia, aprendizado e impacto.",
+      benefit1_title: "Projetos com impacto real",
+      benefit1_desc: "Times multidisciplinares com metas claras e autonomia.",
+      benefit2_title: "Desenvolvimento continuo",
+      benefit2_desc: "Planos de carreira e trilhas de aprendizado.",
+      benefit3_title: "Bem estar e equilibrio",
+      benefit3_desc: "Beneficios flexiveis e apoio ao dia a dia.",
+      faq_title: "FAQ rapido",
+      faq_q1: "Posso me candidatar a mais de uma vaga?",
+      faq_a1: "Sim. Recomendamos candidaturas alinhadas ao seu perfil.",
+      faq_q2: "Preciso ter experiencia previa?",
+      faq_a2: "Algumas vagas aceitam inicio de carreira e estagio.",
+      faq_q3: "Como acompanho meu status?",
+      faq_a3: "Voce recebe atualizacoes por email a cada etapa.",
+      cta_title: "Pronto para dar o proximo passo?",
+      cta_desc: "Crie seu perfil e receba alertas de novas vagas.",
+      cta_primary: "Criar meu perfil",
+      cta_secondary: "Assinar alertas",
+      footer_title: "Portal RH",
+      footer_desc: "Portal de candidatos com dados mockados para demo.",
+      footer_disclaimer: "O matching nao garante a vaga, apenas habilita a concorrer.",
+      footer_contact: "Contato:",
+      modal_details_eyebrow: "Detalhes da vaga",
+      modal_requirements_title: "Requisitos principais",
+      modal_responsibilities_title: "Responsabilidades (mock)",
+      modal_close: "Fechar",
+      modal_close_aria: "Fechar modal",
+      modal_apply: "Quero me candidatar",
+      modal_apply_eyebrow: "Candidatura rapida",
+      modal_apply_title: "Candidatura",
+      modal_name_label: "Nome completo",
+      modal_email_label: "Email",
+      modal_email_placeholder: "seu.email@exemplo.com",
+      modal_phone_label: "Telefone",
+      modal_phone_placeholder: "(11) 99999-9999",
+      modal_linkedin_label: "LinkedIn",
+      modal_linkedin_placeholder: "https://linkedin.com/in/...",
+      modal_message_label: "Mensagem ao recrutador",
+      modal_message_placeholder: "Conte um pouco sobre voce e seu interesse.",
+      modal_resume_label: "Curriculo (opcional)",
+      modal_resume_hint: "Aceitamos PDF ou DOC.",
+      modal_cancel: "Cancelar",
+      modal_submit: "Enviar candidatura",
+      modal_success: "Candidatura enviada para {job}. Em breve nosso time entra em contato.",
+      modal_submitted: "Candidatura enviada",
+      detail_no_requirements: "Sem requisitos informados",
+      label_area: "Area",
+      label_location: "Local",
+      label_mode: "Modalidade",
+      label_type: "Tipo",
+      label_level: "Nivel",
+      label_range: "Faixa",
+      label_stipend: "Bolsa",
+      label_posted: "Publicado",
+      job_apply_button: "Quero me candidatar",
+      job_details_button: "Ver detalhes",
+      select_placeholder: "Selecione...",
+      area_tecnologia: "Tecnologia",
+      area_engenharia: "Engenharia",
+      area_operacoes: "Operacoes",
+      area_qualidade: "Qualidade",
+      area_suprimentos: "Suprimentos",
+      area_design: "Design",
+      area_rh: "RH",
+      area_logistica: "Logistica",
+      option_any: "Qualquer",
+      level_estagio: "Estagio",
+      level_junior: "Junior",
+      level_pleno: "Pleno",
+      level_senior: "Senior",
+      level_gestao: "Gestao",
+      mode_presencial: "Presencial",
+      mode_hibrido: "Hibrido",
+      mode_remoto: "Remoto",
+      location_sao_paulo: "Sao Paulo, SP",
+      location_embu: "Embu das Artes, SP",
+      location_campinas: "Campinas, SP",
+      location_jundiai: "Jundiai, SP",
+      availability_immediate: "Imediata",
+      availability_15: "15 dias",
+      availability_30: "30 dias",
+      availability_60: "60 dias"
+    });
+
+    Object.assign(translations.en, {
+      theme_dark: "Dark mode",
+      theme_light: "Light mode",
+      nav_jobs: "Jobs",
+      nav_process: "How it works",
+      nav_benefits: "Why here",
+      nav_faq: "FAQ",
+      header_login: "Log in",
+      header_register: "Create account",
+      header_profile: "My profile",
+      user_role: "Logged candidate",
+      brand_tagline: "Have the Lio DNA.",
+      generic_candidate: "Candidate",
+      badge_default: "Job",
+      auth_help: "Help",
+      libras_button: "Accessible in Libras",
+      auth_login_title_line1: "Welcome.",
+      auth_login_title_line2: "Your next job opportunity may be here.",
+      auth_login_subtitle: "Log in or create your account. It is simple and fast.",
+      auth_register_title: "Create your account for free",
+      auth_register_subtitle: "Complete your registration.",
+      register_modal_eyebrow: "Quick signup",
+      auth_email_or_cpf_label: "Email or CPF",
+      auth_email_or_cpf_placeholder: "Your email or CPF",
+      auth_password_label: "Password",
+      auth_password_placeholder: "Enter your password",
+      auth_demo_note: "For the demo, any email and password work.",
+      auth_login_button: "Log in",
+      auth_link_create: "Create your account",
+      auth_link_recover: "Recover access",
+      register_email_label: "Email",
+      register_email_placeholder: "you@example.com",
+      register_password_label: "Password",
+      register_password_placeholder: "Create a password",
+      register_cpf_label: "CPF",
+      register_cpf_placeholder: "000.000.000-00",
+      register_terms_prefix: "I have read and accept the",
+      register_terms_terms: "Terms of Use",
+      register_terms_connector: "and the",
+      register_terms_privacy: "Privacy Policies",
+      register_create_button: "Create account",
+      register_back_button: "Back to login",
+      auth_secondary_title_login: "Don't have an account? Sign up",
+      auth_secondary_copy_login: "No account yet? Sign up.",
+      auth_secondary_button_login: "Create account",
+      auth_secondary_title_register: "Already have an account?",
+      auth_secondary_copy_register: "Access your account.",
+      auth_secondary_button_register: "Back to login",
+      auth_divider: "Or",
+      lang_label: "Profile language",
+      lang_pt: "Portuguese",
+      lang_en: "English",
+      lang_es: "Spanish"
+    });
+
+    Object.assign(translations.en, {
+      step_login: "Login/Sign up",
+      step_profile: "Profile completion",
+      step_jobs: "Jobs",
+      profile_title: "Profile completion",
+      profile_copy: "Answer the questions and upload your CV to calculate the match with open jobs.",
+      profile_area_label: "Area of interest",
+      profile_level_label: "Level",
+      profile_mode_label: "Preferred work mode",
+      profile_location_label: "Location",
+      profile_availability_label: "Availability",
+      profile_salary_label: "Salary expectation",
+      profile_salary_placeholder: "Ex.: R$ 6.000",
+      profile_cv_label: "Upload your CV",
+      profile_cv_hint: "Automated reading simulated for this mock.",
+      profile_cv_notes_label: "CV excerpt (optional)",
+      profile_cv_notes_placeholder: "Paste the main skills to improve the matching.",
+      profile_match_button: "Calculate match",
+      profile_how_title: "How we evaluate your match",
+      profile_how_copy: "We consider alignment with area, work mode, location and desired level. The CV is compared with key requirements from open jobs.",
+      profile_note: "The more relevant skills in your CV, the higher the chance of matching opportunities.",
+      match_badge_yes: "Profile matched",
+      match_badge_no: "Profile in progress",
+      match_title_yes: "Profile matched to {count} job{plural}",
+      match_title_no: "Profile not matched yet",
+      match_copy_yes: "Your answers and CV indicate a good match with open roles.",
+      match_copy_no: "Complete your profile and update the CV to improve the match.",
+      match_score_label: "Overall score: {score}%",
+      match_skills_title: "Skills found in the CV",
+      match_jobs_title: "Most compatible jobs",
+      match_no_skills: "No skills identified",
+      match_view_jobs: "See available jobs",
+      match_notice_cv: "Upload your CV to calculate the match.",
+      match_read_error: "Could not read the CV. Try another file.",
+      hero_eyebrow: "2026 - open jobs",
+      hero_title: "Find the right role for you and apply in minutes.",
+      hero_lead: "A straight-to-the-point portal for candidates: view open jobs, compare requirements and follow the process clearly.",
+      search_placeholder: "Search by role, area or keyword",
+      filter_area_label: "Area",
+      filter_location_label: "Location",
+      filter_mode_label: "Work mode",
+      search_button: "Search jobs",
+      quick_remote: "Remote",
+      quick_internship: "Internship",
+      quick_tech: "Technology",
+      quick_quality: "Quality",
+      quick_operations: "Operations",
+      stat_open: "jobs open today",
+      stat_remote: "remote positions",
+      stat_time: "average response time",
+      spotlight_badge: "Featured role",
+      spotlight_title: "Senior Process Engineer",
+      spotlight_summary: "Improve production flows and connect teams with direct impact.",
+      spotlight_apply: "Apply",
+      spotlight_details: "Details",
+      timeline_title: "How the process works",
+      timeline_step1: "Fast signup and a single profile",
+      timeline_step2: "Screening and response within 5 days",
+      timeline_step3: "Manager interview",
+      timeline_step4: "Offer and onboarding",
+      jobs_title: "Available jobs",
+      clear_filters: "Clear filters",
+      empty_state: "No jobs found with the current filters. Try adjusting area, location or work mode."
+    });
+
+    Object.assign(translations.en, {
+      process_title: "Process steps",
+      process_subtitle: "Transparency from start to finish so you know what to expect.",
+      process_step1_title: "Signup",
+      process_step1_desc: "Create your profile and attach your CV.",
+      process_step2_title: "Screening",
+      process_step2_desc: "Initial review and quick response by email.",
+      process_step3_title: "Interviews",
+      process_step3_desc: "Technical and cultural conversation with the team.",
+      process_step4_title: "Offer",
+      process_step4_desc: "Final alignment and onboarding.",
+      benefits_title: "Why work here",
+      benefits_subtitle: "An environment that values autonomy, learning and impact.",
+      benefit1_title: "Projects with real impact",
+      benefit1_desc: "Multidisciplinary teams with clear goals and autonomy.",
+      benefit2_title: "Continuous development",
+      benefit2_desc: "Career plans and learning tracks.",
+      benefit3_title: "Well-being and balance",
+      benefit3_desc: "Flexible benefits and daily support.",
+      faq_title: "Quick FAQ",
+      faq_q1: "Can I apply to more than one job?",
+      faq_a1: "Yes. We recommend applications aligned with your profile.",
+      faq_q2: "Do I need previous experience?",
+      faq_a2: "Some roles accept entry level and internships.",
+      faq_q3: "How do I track my status?",
+      faq_a3: "You receive email updates at each stage.",
+      cta_title: "Ready for the next step?",
+      cta_desc: "Create your profile and receive new job alerts.",
+      cta_primary: "Create my profile",
+      cta_secondary: "Subscribe to alerts",
+      footer_title: "Portal RH",
+      footer_desc: "Candidate portal with mock data for demo.",
+      footer_disclaimer: "Matching does not guarantee the job, it only allows you to compete.",
+      footer_contact: "Contact:",
+      modal_details_eyebrow: "Job details",
+      modal_requirements_title: "Main requirements",
+      modal_responsibilities_title: "Responsibilities (mock)",
+      modal_close: "Close",
+      modal_close_aria: "Close modal",
+      modal_apply: "Apply now",
+      modal_apply_eyebrow: "Quick application",
+      modal_apply_title: "Application",
+      modal_name_label: "Full name",
+      modal_email_label: "Email",
+      modal_email_placeholder: "your.email@example.com",
+      modal_phone_label: "Phone",
+      modal_phone_placeholder: "(11) 99999-9999",
+      modal_linkedin_label: "LinkedIn",
+      modal_linkedin_placeholder: "https://linkedin.com/in/...",
+      modal_message_label: "Message to recruiter",
+      modal_message_placeholder: "Tell us a bit about you and your interest.",
+      modal_resume_label: "Resume (optional)",
+      modal_resume_hint: "We accept PDF or DOC.",
+      modal_cancel: "Cancel",
+      modal_submit: "Submit application",
+      modal_success: "Application submitted for {job}. Our team will contact you soon.",
+      modal_submitted: "Application submitted",
+      detail_no_requirements: "No requirements listed",
+      label_area: "Area",
+      label_location: "Location",
+      label_mode: "Work mode",
+      label_type: "Type",
+      label_level: "Level",
+      label_range: "Range",
+      label_stipend: "Stipend",
+      label_posted: "Posted",
+      job_apply_button: "Apply",
+      job_details_button: "View details",
+      select_placeholder: "Select...",
+      area_tecnologia: "Technology",
+      area_engenharia: "Engineering",
+      area_operacoes: "Operations",
+      area_qualidade: "Quality",
+      area_suprimentos: "Supply",
+      area_design: "Design",
+      area_rh: "HR",
+      area_logistica: "Logistics",
+      option_any: "Any",
+      level_estagio: "Internship",
+      level_junior: "Junior",
+      level_pleno: "Mid-level",
+      level_senior: "Senior",
+      level_gestao: "Management",
+      mode_presencial: "On-site",
+      mode_hibrido: "Hybrid",
+      mode_remoto: "Remote",
+      location_sao_paulo: "Sao Paulo, SP",
+      location_embu: "Embu das Artes, SP",
+      location_campinas: "Campinas, SP",
+      location_jundiai: "Jundiai, SP",
+      availability_immediate: "Immediate",
+      availability_15: "15 days",
+      availability_30: "30 days",
+      availability_60: "60 days"
+    });
+
+    Object.assign(translations.es, {
+      theme_dark: "Modo oscuro",
+      theme_light: "Modo claro",
+      nav_jobs: "Vacantes",
+      nav_process: "Como funciona",
+      nav_benefits: "Por que aqui",
+      nav_faq: "FAQ",
+      header_login: "Entrar",
+      header_register: "Crear cuenta",
+      header_profile: "Mi perfil",
+      user_role: "Candidato conectado",
+      brand_tagline: "Ten el ADN Lio.",
+      generic_candidate: "Candidato",
+      badge_default: "Vacante",
+      auth_help: "Ayuda",
+      libras_button: "Accesible en Libras",
+      auth_login_title_line1: "Bienvenido.",
+      auth_login_title_line2: "Tu proxima oportunidad de trabajo puede estar aqui.",
+      auth_login_subtitle: "Inicia sesion o crea tu cuenta. Es simple y rapido.",
+      auth_register_title: "Crea tu cuenta gratis",
+      auth_register_subtitle: "Completa tu registro.",
+      register_modal_eyebrow: "Registro rapido",
+      auth_email_or_cpf_label: "E-mail o CPF",
+      auth_email_or_cpf_placeholder: "Tu e-mail o CPF",
+      auth_password_label: "Contrasena",
+      auth_password_placeholder: "Escribe tu contrasena",
+      auth_demo_note: "Para la demo, cualquier email y contrasena funcionan.",
+      auth_login_button: "Entrar",
+      auth_link_create: "Crea tu cuenta",
+      auth_link_recover: "Recuperar acceso",
+      register_email_label: "Email",
+      register_email_placeholder: "tu@ejemplo.com",
+      register_password_label: "Contrasena",
+      register_password_placeholder: "Crea una contrasena",
+      register_cpf_label: "CPF",
+      register_cpf_placeholder: "000.000.000-00",
+      register_terms_prefix: "Lei y acepto los",
+      register_terms_terms: "Terminos de Uso",
+      register_terms_connector: "y las",
+      register_terms_privacy: "Politicas de Privacidad",
+      register_create_button: "Crear cuenta",
+      register_back_button: "Volver al login",
+      auth_secondary_title_login: "No tienes una cuenta? Registrate",
+      auth_secondary_copy_login: "Aun no tienes cuenta? Registrate.",
+      auth_secondary_button_login: "Crear cuenta",
+      auth_secondary_title_register: "Ya tienes cuenta?",
+      auth_secondary_copy_register: "Accede a tu cuenta.",
+      auth_secondary_button_register: "Volver al login",
+      auth_divider: "O",
+      lang_label: "Idioma del perfil",
+      lang_pt: "Portugues",
+      lang_en: "Ingles",
+      lang_es: "Espanol"
+    });
+
+    Object.assign(translations.es, {
+      step_login: "Login/Registro",
+      step_profile: "Completar perfil",
+      step_jobs: "Vacantes",
+      profile_title: "Completar perfil",
+      profile_copy: "Responde las preguntas y sube tu CV para calcular la compatibilidad con las vacantes abiertas.",
+      profile_area_label: "Area de interes",
+      profile_level_label: "Nivel",
+      profile_mode_label: "Modalidad preferida",
+      profile_location_label: "Ubicacion",
+      profile_availability_label: "Disponibilidad",
+      profile_salary_label: "Pretension salarial",
+      profile_salary_placeholder: "Ej.: R$ 6.000",
+      profile_cv_label: "Sube tu CV",
+      profile_cv_hint: "Lectura automatica simulada para este mock.",
+      profile_cv_notes_label: "Extracto del CV (opcional)",
+      profile_cv_notes_placeholder: "Pega las principales skills para mejorar el matching.",
+      profile_match_button: "Calcular compatibilidad",
+      profile_how_title: "Como evaluamos tu compatibilidad",
+      profile_how_copy: "Consideramos el alineamiento con area, modalidad, ubicacion y nivel deseado. El CV se compara con requisitos clave de las vacantes abiertas.",
+      profile_note: "Cuantas mas skills relevantes en el CV, mayor la posibilidad de compatibilidad.",
+      match_badge_yes: "Perfil compatible",
+      match_badge_no: "Perfil en progreso",
+      match_title_yes: "Perfil compatible con {count} vacante{plural}",
+      match_title_no: "Perfil aun no compatible",
+      match_copy_yes: "Tus respuestas y CV indican buena compatibilidad con las vacantes abiertas.",
+      match_copy_no: "Completa tu perfil y actualiza el CV para mejorar la compatibilidad.",
+      match_score_label: "Score general: {score}%",
+      match_skills_title: "Skills identificadas en el CV",
+      match_jobs_title: "Vacantes mas compatibles",
+      match_no_skills: "Ninguna skill identificada",
+      match_view_jobs: "Ver vacantes disponibles",
+      match_notice_cv: "Sube tu CV para calcular la compatibilidad.",
+      match_read_error: "No fue posible leer el CV. Intenta otro archivo.",
+      hero_eyebrow: "2026 - vacantes abiertas",
+      hero_title: "Encuentra la vacante correcta y postulate en minutos.",
+      hero_lead: "Un portal directo para candidatos: ve vacantes disponibles, compara requisitos y sigue el proceso con claridad.",
+      search_placeholder: "Buscar por cargo, area o palabra clave",
+      filter_area_label: "Area",
+      filter_location_label: "Ubicacion",
+      filter_mode_label: "Modalidad",
+      search_button: "Buscar vacantes",
+      quick_remote: "Remoto",
+      quick_internship: "Pasantia",
+      quick_tech: "Tecnologia",
+      quick_quality: "Calidad",
+      quick_operations: "Operaciones",
+      stat_open: "vacantes abiertas hoy",
+      stat_remote: "posiciones remotas",
+      stat_time: "tiempo medio de respuesta",
+      spotlight_badge: "Vacante destacada",
+      spotlight_title: "Ingeniero de Procesos Senior",
+      spotlight_summary: "Mejora flujos de produccion y conecta areas con impacto directo.",
+      spotlight_apply: "Postular",
+      spotlight_details: "Detalles",
+      timeline_title: "Como funciona el proceso",
+      timeline_step1: "Registro rapido y perfil unico",
+      timeline_step2: "Filtro y retorno en hasta 5 dias",
+      timeline_step3: "Entrevista con el gestor",
+      timeline_step4: "Propuesta y onboarding",
+      jobs_title: "Vacantes disponibles",
+      clear_filters: "Limpiar filtros",
+      empty_state: "Ninguna vacante encontrada con los filtros actuales. Ajusta area, ubicacion o modalidad."
+    });
+
+    Object.assign(translations.es, {
+      process_title: "Etapas del proceso",
+      process_subtitle: "Transparencia de inicio a fin para que sepas que esperar.",
+      process_step1_title: "Registro",
+      process_step1_desc: "Crea tu perfil y adjunta tu CV.",
+      process_step2_title: "Filtro",
+      process_step2_desc: "Analisis inicial y respuesta rapida por email.",
+      process_step3_title: "Entrevistas",
+      process_step3_desc: "Conversacion tecnica y cultural con el equipo.",
+      process_step4_title: "Propuesta",
+      process_step4_desc: "Alineacion final y onboarding.",
+      benefits_title: "Por que trabajar aqui",
+      benefits_subtitle: "Un ambiente que valora autonomia, aprendizaje e impacto.",
+      benefit1_title: "Proyectos con impacto real",
+      benefit1_desc: "Equipos multidisciplinarios con metas claras y autonomia.",
+      benefit2_title: "Desarrollo continuo",
+      benefit2_desc: "Planes de carrera y rutas de aprendizaje.",
+      benefit3_title: "Bienestar y equilibrio",
+      benefit3_desc: "Beneficios flexibles y apoyo diario.",
+      faq_title: "FAQ rapido",
+      faq_q1: "Puedo postular a mas de una vacante?",
+      faq_a1: "Si. Recomendamos postulaciones alineadas a tu perfil.",
+      faq_q2: "Necesito experiencia previa?",
+      faq_a2: "Algunas vacantes aceptan inicio de carrera y pasantia.",
+      faq_q3: "Como acompanho mi estado?",
+      faq_a3: "Recibes actualizaciones por email en cada etapa.",
+      cta_title: "Listo para el proximo paso?",
+      cta_desc: "Crea tu perfil y recibe alertas de nuevas vacantes.",
+      cta_primary: "Crear mi perfil",
+      cta_secondary: "Suscribirme a alertas",
+      footer_title: "Portal RH",
+      footer_desc: "Portal de candidatos con datos mock para demo.",
+      footer_disclaimer: "El matching no garantiza la vacante, solo habilita a competir.",
+      footer_contact: "Contacto:",
+      modal_details_eyebrow: "Detalles de la vacante",
+      modal_requirements_title: "Requisitos principales",
+      modal_responsibilities_title: "Responsabilidades (mock)",
+      modal_close: "Cerrar",
+      modal_close_aria: "Cerrar modal",
+      modal_apply: "Quiero postular",
+      modal_apply_eyebrow: "Postulacion rapida",
+      modal_apply_title: "Postulacion",
+      modal_name_label: "Nombre completo",
+      modal_email_label: "Email",
+      modal_email_placeholder: "tu.email@ejemplo.com",
+      modal_phone_label: "Telefono",
+      modal_phone_placeholder: "(11) 99999-9999",
+      modal_linkedin_label: "LinkedIn",
+      modal_linkedin_placeholder: "https://linkedin.com/in/...",
+      modal_message_label: "Mensaje al reclutador",
+      modal_message_placeholder: "Cuenta un poco sobre ti y tu interes.",
+      modal_resume_label: "CV (opcional)",
+      modal_resume_hint: "Aceptamos PDF o DOC.",
+      modal_cancel: "Cancelar",
+      modal_submit: "Enviar postulacion",
+      modal_success: "Postulacion enviada para {job}. Nuestro equipo se pondra en contacto pronto.",
+      modal_submitted: "Postulacion enviada",
+      detail_no_requirements: "Sin requisitos informados",
+      label_area: "Area",
+      label_location: "Ubicacion",
+      label_mode: "Modalidad",
+      label_type: "Tipo",
+      label_level: "Nivel",
+      label_range: "Rango",
+      label_stipend: "Beca",
+      label_posted: "Publicado",
+      job_apply_button: "Postular",
+      job_details_button: "Ver detalles",
+      select_placeholder: "Selecciona...",
+      area_tecnologia: "Tecnologia",
+      area_engenharia: "Ingenieria",
+      area_operacoes: "Operaciones",
+      area_qualidade: "Calidad",
+      area_suprimentos: "Suministros",
+      area_design: "Diseno",
+      area_rh: "RRHH",
+      area_logistica: "Logistica",
+      option_any: "Cualquiera",
+      level_estagio: "Pasantia",
+      level_junior: "Junior",
+      level_pleno: "Pleno",
+      level_senior: "Senior",
+      level_gestao: "Gestion",
+      mode_presencial: "Presencial",
+      mode_hibrido: "Hibrido",
+      mode_remoto: "Remoto",
+      location_sao_paulo: "Sao Paulo, SP",
+      location_embu: "Embu das Artes, SP",
+      location_campinas: "Campinas, SP",
+      location_jundiai: "Jundiai, SP",
+      availability_immediate: "Inmediata",
+      availability_15: "15 dias",
+      availability_30: "30 dias",
+      availability_60: "60 dias"
+    });
+
+    Object.assign(valueTranslations.pt, {
+      Remoto: "Remoto",
+      Presencial: "Presencial",
+      Hibrido: "Hibrido",
+      Estagio: "Estagio",
+      Junior: "Junior",
+      Pleno: "Pleno",
+      Senior: "Senior",
+      Gestao: "Gestao",
+      Tecnologia: "Tecnologia",
+      Engenharia: "Engenharia",
+      Operacoes: "Operacoes",
+      Qualidade: "Qualidade",
+      Suprimentos: "Suprimentos",
+      Design: "Design",
+      RH: "RH",
+      Logistica: "Logistica",
+      Qualquer: "Qualquer",
+      "Sao Paulo, SP": "Sao Paulo, SP",
+      "Embu das Artes, SP": "Embu das Artes, SP",
+      "Campinas, SP": "Campinas, SP",
+      "Jundiai, SP": "Jundiai, SP",
+      CLT: "CLT",
+      PJ: "PJ",
+      "A combinar": "A combinar",
+      Recente: "Recente"
+    });
+
+    Object.assign(valueTranslations.en, {
+      Remoto: "Remote",
+      Presencial: "On-site",
+      Hibrido: "Hybrid",
+      Estagio: "Internship",
+      Junior: "Junior",
+      Pleno: "Mid-level",
+      Senior: "Senior",
+      Gestao: "Management",
+      Tecnologia: "Technology",
+      Engenharia: "Engineering",
+      Operacoes: "Operations",
+      Qualidade: "Quality",
+      Suprimentos: "Supply",
+      Design: "Design",
+      RH: "HR",
+      Logistica: "Logistics",
+      Qualquer: "Any",
+      "Sao Paulo, SP": "Sao Paulo, SP",
+      "Embu das Artes, SP": "Embu das Artes, SP",
+      "Campinas, SP": "Campinas, SP",
+      "Jundiai, SP": "Jundiai, SP",
+      CLT: "CLT",
+      PJ: "Contractor",
+      "A combinar": "To be agreed",
+      Recente: "Recent"
+    });
+
+    Object.assign(valueTranslations.es, {
+      Remoto: "Remoto",
+      Presencial: "Presencial",
+      Hibrido: "Hibrido",
+      Estagio: "Pasantia",
+      Junior: "Junior",
+      Pleno: "Pleno",
+      Senior: "Senior",
+      Gestao: "Gestion",
+      Tecnologia: "Tecnologia",
+      Engenharia: "Ingenieria",
+      Operacoes: "Operaciones",
+      Qualidade: "Calidad",
+      Suprimentos: "Suministros",
+      Design: "Diseno",
+      RH: "RRHH",
+      Logistica: "Logistica",
+      Qualquer: "Cualquiera",
+      "Sao Paulo, SP": "Sao Paulo, SP",
+      "Embu das Artes, SP": "Embu das Artes, SP",
+      "Campinas, SP": "Campinas, SP",
+      "Jundiai, SP": "Jundiai, SP",
+      CLT: "CLT",
+      PJ: "Autonomo",
+      "A combinar": "A convenir",
+      Recente: "Reciente"
+    });
+
+    Object.assign(postedTranslations.en, {
+      "ha 1 dia": "1 day ago",
+      "ha 2 dias": "2 days ago",
+      "ha 3 dias": "3 days ago",
+      "ha 4 dias": "4 days ago",
+      "ha 5 dias": "5 days ago",
+      "ha 6 dias": "6 days ago",
+      "ha 1 semana": "1 week ago"
+    });
+
+    Object.assign(postedTranslations.es, {
+      "ha 1 dia": "hace 1 dia",
+      "ha 2 dias": "hace 2 dias",
+      "ha 3 dias": "hace 3 dias",
+      "ha 4 dias": "hace 4 dias",
+      "ha 5 dias": "hace 5 dias",
+      "ha 6 dias": "hace 6 dias",
+      "ha 1 semana": "hace 1 semana"
+    });
+
+    Object.assign(tagTranslations.en, {
+      Eletrica: "Electrical",
+      Automacao: "Automation",
+      Laboratorio: "Laboratory",
+      Documentacao: "Documentation",
+      Negociacao: "Negotiation",
+      Gestao: "Management",
+      Roteirizacao: "Routing",
+      Treinamento: "Training"
+    });
+
+    Object.assign(tagTranslations.es, {
+      Eletrica: "Electrica",
+      Automacao: "Automatizacion",
+      Laboratorio: "Laboratorio",
+      Documentacao: "Documentacion",
+      Negociacao: "Negociacion",
+      Gestao: "Gestion",
+      Roteirizacao: "Ruteo",
+      Treinamento: "Formacion"
+    });
+
+    jobTranslations["analista-dados-pleno"] = {
+      badge: { pt: "Alta demanda", en: "High demand", es: "Alta demanda" },
+      title: { pt: "Analista de Dados Pleno", en: "Data Analyst (Mid-level)", es: "Analista de Datos Pleno" },
+      summary: {
+        pt: "Construa dashboards e modelos de dados para operacoes e vendas.",
+        en: "Build dashboards and data models for operations and sales.",
+        es: "Construye dashboards y modelos de datos para operaciones y ventas."
+      }
+    };
+
+    jobTranslations["tecnico-manutencao"] = {
+      badge: { pt: "Turno fixo", en: "Fixed shift", es: "Turno fijo" },
+      title: { pt: "Tecnico de Manutencao", en: "Maintenance Technician", es: "Tecnico de Mantenimiento" },
+      summary: {
+        pt: "Cuide de maquinas criticas e garanta continuidade operacional.",
+        en: "Take care of critical machines and ensure operational continuity.",
+        es: "Cuida de maquinas criticas y garantiza continuidad operativa."
+      }
+    };
+
+    jobTranslations["engenheiro-processos"] = {
+      badge: { pt: "Destaque", en: "Featured", es: "Destacada" },
+      title: { pt: "Engenheiro de Processos", en: "Process Engineer", es: "Ingeniero de Procesos" },
+      summary: {
+        pt: "Otimize fluxo, reduza perdas e lidere iniciativas lean.",
+        en: "Optimize flow, reduce waste and lead lean initiatives.",
+        es: "Optimiza flujo, reduce perdidas y lidera iniciativas lean."
+      }
+    };
+
+    jobTranslations["estagio-qualidade"] = {
+      badge: { pt: "Inicio rapido", en: "Quick start", es: "Inicio rapido" },
+      title: { pt: "Estagio em Qualidade", en: "Quality Internship", es: "Pasantia en Calidad" },
+      summary: {
+        pt: "Aprenda sobre testes, normas e melhoria continua.",
+        en: "Learn about tests, standards and continuous improvement.",
+        es: "Aprende sobre pruebas, normas y mejora continua."
+      }
+    };
+
+    jobTranslations["analista-compras-jr"] = {
+      badge: { pt: "Novo time", en: "New team", es: "Nuevo equipo" },
+      title: { pt: "Analista de Compras Jr", en: "Junior Purchasing Analyst", es: "Analista de Compras Jr" },
+      summary: {
+        pt: "Negociacao com fornecedores e apoio a planejamento.",
+        en: "Supplier negotiation and planning support.",
+        es: "Negociacion con proveedores y apoyo a planificacion."
+      }
+    };
+
+    jobTranslations["designer-produto"] = {
+      badge: { pt: "Portfolio", en: "Portfolio", es: "Portafolio" },
+      title: { pt: "Designer de Produto", en: "Product Designer", es: "Disenador de Producto" },
+      summary: {
+        pt: "Conecte pesquisa, interface e negocio em times digitais.",
+        en: "Connect research, interface and business in digital teams.",
+        es: "Conecta investigacion, interfaz y negocio en equipos digitales."
+      }
+    };
+
+    jobTranslations["coordenador-rh"] = {
+      badge: { pt: "Lideranca", en: "Leadership", es: "Liderazgo" },
+      title: { pt: "Coordenador de RH", en: "HR Coordinator", es: "Coordinador de RRHH" },
+      summary: {
+        pt: "Lidere desenvolvimento e cultura com foco em dados.",
+        en: "Lead development and culture with a data-driven focus.",
+        es: "Lidera desarrollo y cultura con foco en datos."
+      }
+    };
+
+    jobTranslations["especialista-logistica"] = {
+      badge: { pt: "Supply chain", en: "Supply chain", es: "Supply chain" },
+      title: { pt: "Especialista em Logistica", en: "Logistics Specialist", es: "Especialista en Logistica" },
+      summary: {
+        pt: "Planeje demanda, rota e controle custos de distribuicao.",
+        en: "Plan demand, routes and distribution costs control.",
+        es: "Planifica demanda, rutas y control de costos de distribucion."
+      }
+    };
+
+    function t(key){
+      return translations[currentLang]?.[key] || translations.pt[key] || key;
+    }
+
+    function translateValue(value){
+      if(value === undefined || value === null) return "";
+      return valueTranslations[currentLang]?.[value] || value;
+    }
+
+    function translatePosted(value){
+      if(!value) return "";
+      return postedTranslations[currentLang]?.[value] || value;
+    }
+
+    function translateTag(tag){
+      if(!tag) return "";
+      return tagTranslations[currentLang]?.[tag] || tag;
+    }
+
+    function formatResultsCount(count){
+      if(currentLang === "en"){
+        return `${count} job${count === 1 ? "" : "s"} found`;
+      }
+      if(currentLang === "es"){
+        return `${count} vacante${count === 1 ? "" : "s"} encontrada${count === 1 ? "" : "s"}`;
+      }
+      return `${count} vaga${count === 1 ? "" : "s"} encontrada${count === 1 ? "" : "s"}`;
+    }
+
+    function formatMatchTitle(count){
+      const plural = count === 1 ? "" : "s";
+      return t("match_title_yes").replace("{count}", count).replace("{plural}", plural);
+    }
+
+    function formatMatchScore(score){
+      return t("match_score_label").replace("{score}", score);
+    }
+
+    const langAttrMap = {
+      pt: "pt-BR",
+      en: "en",
+      es: "es"
+    };
+    let lastCvText = "";
+
+    function getJobTranslation(jobId, key){
+      const job = jobTranslations[jobId];
+      if(!job || !job[key]) return "";
+      return job[key][currentLang] || job[key].pt || "";
+    }
+
+    function updateJobCards(){
+      cards.forEach(card => {
+        const jobId = card.dataset.jobId || "";
+        const badgeText = getJobTranslation(jobId, "badge");
+        const titleText = getJobTranslation(jobId, "title");
+        const summaryText = getJobTranslation(jobId, "summary");
+        const badgeEl = card.querySelector(".job-badge");
+        const titleEl = card.querySelector("h3");
+        const summaryEl = card.querySelector(".job-summary");
+
+        if(badgeEl && badgeText) badgeEl.textContent = badgeText;
+        if(titleEl && titleText) titleEl.textContent = titleText;
+        if(summaryEl && summaryText) summaryEl.textContent = summaryText;
+
+        const metaLocation = card.querySelector('[data-meta="location"]');
+        const metaMode = card.querySelector('[data-meta="mode"]');
+        const metaType = card.querySelector('[data-meta="type"]');
+        const metaSalary = card.querySelector('[data-meta="salary"]');
+        const metaPosted = card.querySelector('[data-meta="posted"]');
+
+        if(metaLocation) metaLocation.textContent = translateValue(card.dataset.location);
+        if(metaMode) metaMode.textContent = translateValue(card.dataset.mode);
+        if(metaType) metaType.textContent = translateValue(card.dataset.type);
+        if(metaSalary) metaSalary.textContent = translateValue(card.dataset.salary);
+        if(metaPosted) metaPosted.textContent = translatePosted(card.dataset.posted);
+
+        const tags = (card.dataset.tags || "")
+          .split("|")
+          .map(tag => tag.trim())
+          .filter(Boolean);
+        const tagsContainer = card.querySelector(".job-tags");
+        if(tagsContainer){
+          tagsContainer.innerHTML = "";
+          tags.forEach(tag => {
+            const span = document.createElement("span");
+            span.textContent = translateTag(tag);
+            tagsContainer.appendChild(span);
+          });
+        }
+
+        const searchParts = [
+          titleText || titleEl?.textContent || "",
+          summaryText || summaryEl?.textContent || "",
+          translateValue(card.dataset.area),
+          translateValue(card.dataset.location),
+          translateValue(card.dataset.mode),
+          translateValue(card.dataset.type),
+          translateValue(card.dataset.level),
+          translateValue(card.dataset.salary),
+          translatePosted(card.dataset.posted),
+          tags.map(tag => translateTag(tag)).join(" ")
+        ];
+        card.dataset.search = normalizeText(searchParts.join(" "));
+      });
+    }
+
+    function updateSpotlightMeta(){
+      const spotlightCard = document.querySelector(".spotlight-card");
+      const spotlightJob = document.querySelector('.job-card[data-job-id="engenheiro-processos"]');
+      if(!spotlightCard || !spotlightJob) return;
+
+      const spotlightValues = {
+        location: translateValue(spotlightJob.dataset.location),
+        mode: translateValue(spotlightJob.dataset.mode),
+        type: translateValue(spotlightJob.dataset.type),
+        salary: translateValue(spotlightJob.dataset.salary)
+      };
+
+      spotlightCard.querySelectorAll("[data-spotlight-meta]").forEach(span => {
+        const key = span.dataset.spotlightMeta;
+        if(spotlightValues[key]) span.textContent = spotlightValues[key];
+      });
+    }
+
+    function updateApplySubtitle(card){
+      if(!card) return;
+      const data = extractCardData(card);
+      const subtitleParts = [
+        data.title,
+        translateValue(data.location),
+        translateValue(data.mode)
+      ].filter(Boolean);
+      applySubtitle.textContent = subtitleParts.join(" - ");
+      if(data.title) applyModal.dataset.jobTitle = data.title;
+    }
+
+    function applyTranslations(){
+      document.documentElement.lang = langAttrMap[currentLang] || "pt-BR";
+
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.dataset.i18n;
+        el.textContent = t(key);
+      });
+
+      document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+        const key = el.dataset.i18nPlaceholder;
+        el.placeholder = t(key);
+      });
+
+      document.querySelectorAll("[data-i18n-aria]").forEach(el => {
+        const key = el.dataset.i18nAria;
+        const label = t(key);
+        el.setAttribute("aria-label", label);
+        el.setAttribute("title", label);
+      });
+
+      const librasAccessButton = document.querySelector("[vw-access-button]");
+      if(librasAccessButton){
+        const librasLabel = t("libras_button");
+        librasAccessButton.setAttribute("data-label", librasLabel);
+      }
+      if(librasFallback){
+        librasFallback.textContent = t("libras_button");
+      }
+      ensureLibrasButton();
+
+      languageButtons.forEach(button => {
+        button.classList.toggle("is-active", button.dataset.lang === currentLang);
+      });
+
+      updateJobCards();
+      updateSpotlightMeta();
+      applyTheme(document.body.dataset.theme || "light");
+      applyFilters();
+
+      if(profileNotice && !profileNotice.hidden && profileNotice.dataset.noticeKey){
+        profileNotice.textContent = t(profileNotice.dataset.noticeKey);
+      }
+
+      if(applySuccess && !applySuccess.hidden){
+        const jobTitle = applyModal.dataset.jobTitle || t("modal_apply_title");
+        applySuccess.textContent = t("modal_success").replace("{job}", jobTitle);
+      }
+
+      if(applySubmit && applySubmit.disabled){
+        applySubmit.textContent = t("modal_submitted");
+      }
+
+      if(lastCvText && !matchResult.hidden){
+        renderMatch(calculateMatch(lastCvText));
+      }
+
+      if(detailsModal.classList.contains("is-open")){
+        const jobId = detailsModal.dataset.jobId;
+        const card = jobId ? document.querySelector(`.job-card[data-job-id="${jobId}"]`) : null;
+        if(card) openDetails(card);
+      }
+
+      if(applyModal.classList.contains("is-open")){
+        const jobId = applyModal.dataset.jobId;
+        const card = jobId ? document.querySelector(`.job-card[data-job-id="${jobId}"]`) : null;
+        if(card) updateApplySubtitle(card);
+      }
+    }
+
+    function applyLanguage(lang){
+      const nextLang = ["pt", "en", "es"].includes(lang) ? lang : "pt";
+      currentLang = nextLang;
+      localStorage.setItem("portal-lang", nextLang);
+      applyTranslations();
+    }
+
+    let currentUser = {
+      name: "Luiz Henrique",
+      email: ""
+    };
+
+    function applyTheme(theme){
+      const nextTheme = theme === "dark" ? "dark" : "light";
+      document.body.dataset.theme = nextTheme;
+      themeToggles.forEach(button => {
+        const isActive = button.dataset.themeSet === nextTheme;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+      localStorage.setItem("portal-theme", nextTheme);
+    }
+
+    let vlibrasInitialized = false;
+
+    function initLibrasWidget(){
+      if(vlibrasInitialized || !window.VLibras) return;
+      vlibrasInitialized = true;
+      new window.VLibras.Widget("https://vlibras.gov.br/app");
+    }
+
+    function isElementVisible(element){
+      if(!element) return false;
+      const style = window.getComputedStyle(element);
+      if(style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    }
+
+    function ensureLibrasButton(){
+      const accessButton = document.querySelector("[vw-access-button]");
+      if(accessButton && isElementVisible(accessButton)){
+        if(librasFallback) librasFallback.classList.remove("is-visible");
+        return;
+      }
+      if(librasFallback) librasFallback.classList.add("is-visible");
+    }
+
+    function triggerLibras(){
+      initLibrasWidget();
+      const accessButton = document.querySelector("[vw-access-button]");
+      if(accessButton){
+        accessButton.click();
+      }
+    }
+
+    function getNameFromEmail(email){
+      const base = (email || "").split("@")[0] || "";
+      if(!base) return t("generic_candidate");
+      return base.replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim() || t("generic_candidate");
+    }
+
+    function getInitials(name){
+      const parts = (name || "").split(" ").filter(Boolean);
+      if(!parts.length) return "LH";
+      const first = parts[0][0] || "";
+      const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+      return `${first}${last}`.toUpperCase();
+    }
+
+    function updateUserUI(){
+      if(userName) userName.textContent = currentUser.name || t("generic_candidate");
+      if(userAvatar) userAvatar.textContent = getInitials(currentUser.name || t("generic_candidate"));
+      if(applyName) applyName.value = currentUser.name || "";
+      if(applyEmail) applyEmail.value = currentUser.email || "";
+    }
+
+    function setAuthTab(tab){
+      authTabs.forEach(button => {
+        button.classList.toggle("is-active", button.dataset.authTab === tab);
+      });
+      authPanels.forEach(panel => {
+        panel.hidden = panel.dataset.authPanel !== tab;
+      });
+      authTitles.forEach(title => {
+        title.hidden = title.dataset.authTitle !== tab;
+      });
+      authCtas.forEach(card => {
+        card.hidden = card.dataset.authCta !== tab;
+      });
+      if(authDivider){
+        authDivider.hidden = tab !== "register";
+      }
+    }
+
+    function showAuth(){
+      document.body.classList.add("auth-view");
+      authSection.hidden = false;
+      profileSection.hidden = true;
+      portalContent.hidden = true;
+      if(authActions) authActions.hidden = false;
+      if(userActions) userActions.hidden = true;
+    }
+
+    function showProfile(){
+      document.body.classList.remove("auth-view");
+      authSection.hidden = true;
+      profileSection.hidden = false;
+      if(authActions) authActions.hidden = true;
+      if(userActions) userActions.hidden = false;
+      portalContent.hidden = true;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function showPortal(){
+      document.body.classList.remove("auth-view");
+      portalContent.hidden = false;
+      profileSection.hidden = true;
+      window.scrollTo({ top: portalContent.offsetTop, behavior: "smooth" });
+      applyFilters();
+    }
+
+    function matchesFilter(card, value, attr){
+      if(value === "all") return true;
+      return card.dataset[attr] === value;
+    }
+
+    function applyFilters(){
+      const query = normalizeText(searchInput.value);
+      const area = filterArea.value;
+      const location = filterLocation.value;
+      const mode = filterMode.value;
+
+      let visible = 0;
+      cards.forEach(card => {
+        const search = card.dataset.search || "";
+        const matchesQuery = !query || search.includes(query);
+        const matchesArea = matchesFilter(card, area, "area");
+        const matchesLocation = matchesFilter(card, location, "location");
+        const matchesMode = matchesFilter(card, mode, "mode");
+
+        const show = matchesQuery && matchesArea && matchesLocation && matchesMode;
+        card.hidden = !show;
+        if(show) visible += 1;
+      });
+
+      resultsCount.textContent = formatResultsCount(visible);
+      emptyState.hidden = visible !== 0;
+    }
+
+    function resetFilters(){
+      searchInput.value = "";
+      filterArea.value = "all";
+      filterLocation.value = "all";
+      filterMode.value = "all";
+      applyFilters();
+    }
+
+    const responsibilitiesByArea = {
+      pt: {
+        Tecnologia: [
+          "Construir dashboards e indicadores com times de negocio.",
+          "Modelar dados e manter rotinas de qualidade.",
+          "Traduzir necessidades em insights acionaveis."
+        ],
+        Engenharia: [
+          "Mapear processos e identificar gargalos operacionais.",
+          "Conduzir iniciativas lean e melhoria continua.",
+          "Acompanhar indicadores de produtividade e custo."
+        ],
+        Operacoes: [
+          "Garantir o funcionamento das linhas e equipamentos.",
+          "Executar manutencao preventiva e corretiva.",
+          "Registrar ocorrencias e propor melhorias."
+        ],
+        Qualidade: [
+          "Executar testes e registros conforme normas.",
+          "Apoiar auditorias internas e externas.",
+          "Monitorar indicadores de qualidade do produto."
+        ],
+        Suprimentos: [
+          "Negociar com fornecedores e acompanhar prazos.",
+          "Atualizar indicadores de custo e performance.",
+          "Apoiar a area de planejamento de compras."
+        ],
+        Design: [
+          "Conduzir discovery com usuarios e stakeholders.",
+          "Desenhar fluxos e interfaces centradas no usuario.",
+          "Prototipar e validar solucoes."
+        ],
+        RH: [
+          "Conduzir programas de desenvolvimento e cultura.",
+          "Gerenciar indicadores de pessoas e clima.",
+          "Apoiar liderancas e processos internos."
+        ],
+        Logistica: [
+          "Planejar roteiros e acompanhar entregas.",
+          "Monitorar KPIs de estoque e distribuicao.",
+          "Atuar em melhorias de supply chain."
+        ]
+      },
+      en: {
+        Tecnologia: [
+          "Build dashboards and KPIs with business teams.",
+          "Model data and maintain quality routines.",
+          "Translate needs into actionable insights."
+        ],
+        Engenharia: [
+          "Map processes and identify operational bottlenecks.",
+          "Lead lean and continuous improvement initiatives.",
+          "Track productivity and cost indicators."
+        ],
+        Operacoes: [
+          "Ensure the operation of lines and equipment.",
+          "Execute preventive and corrective maintenance.",
+          "Log incidents and propose improvements."
+        ],
+        Qualidade: [
+          "Run tests and records according to standards.",
+          "Support internal and external audits.",
+          "Monitor product quality indicators."
+        ],
+        Suprimentos: [
+          "Negotiate with suppliers and follow deadlines.",
+          "Update cost and performance indicators.",
+          "Support procurement planning."
+        ],
+        Design: [
+          "Run discovery with users and stakeholders.",
+          "Design user-centered flows and interfaces.",
+          "Prototype and validate solutions."
+        ],
+        RH: [
+          "Run development and culture programs.",
+          "Manage people and climate indicators.",
+          "Support leaders and internal processes."
+        ],
+        Logistica: [
+          "Plan routes and monitor deliveries.",
+          "Monitor inventory and distribution KPIs.",
+          "Drive supply chain improvements."
+        ]
+      },
+      es: {
+        Tecnologia: [
+          "Construir dashboards e indicadores con equipos de negocio.",
+          "Modelar datos y mantener rutinas de calidad.",
+          "Traducir necesidades en insights accionables."
+        ],
+        Engenharia: [
+          "Mapear procesos y identificar cuellos de botella operativos.",
+          "Conducir iniciativas lean y mejora continua.",
+          "Acompanhar indicadores de productividad y costo."
+        ],
+        Operacoes: [
+          "Garantizar el funcionamiento de lineas y equipos.",
+          "Ejecutar mantenimiento preventivo y correctivo.",
+          "Registrar ocurrencias y proponer mejoras."
+        ],
+        Qualidade: [
+          "Ejecutar pruebas y registros segun normas.",
+          "Apoyar auditorias internas y externas.",
+          "Monitorear indicadores de calidad del producto."
+        ],
+        Suprimentos: [
+          "Negociar con proveedores y acompanhar plazos.",
+          "Actualizar indicadores de costo y desempeno.",
+          "Apoyar el area de planificacion de compras."
+        ],
+        Design: [
+          "Conducir discovery con usuarios y stakeholders.",
+          "Disenar flujos e interfaces centradas en el usuario.",
+          "Prototipar y validar soluciones."
+        ],
+        RH: [
+          "Conducir programas de desarrollo y cultura.",
+          "Gestionar indicadores de personas y clima.",
+          "Apoyar liderazgos y procesos internos."
+        ],
+        Logistica: [
+          "Planificar rutas y acompanhar entregas.",
+          "Monitorear KPIs de stock y distribucion.",
+          "Actuar en mejoras de supply chain."
+        ]
+      }
+    };
+    const defaultResponsibilities = {
+      pt: [
+        "Atuar em parceria com o time e areas correlatas.",
+        "Acompanhar indicadores e propor melhorias.",
+        "Garantir entregas dentro de prazo e qualidade."
+      ],
+      en: [
+        "Work in partnership with the team and related areas.",
+        "Track indicators and propose improvements.",
+        "Deliver within deadline and quality."
+      ],
+      es: [
+        "Actuar en alianza con el equipo y areas relacionadas.",
+        "Acompanhar indicadores y proponer mejoras.",
+        "Garantizar entregas dentro de plazo y calidad."
+      ]
+    };
+
+    const skillsCatalog = (() => {
+      const skills = new Set();
+      cards.forEach(card => {
+        const tags = (card.dataset.tags || "")
+          .split("|")
+          .map(tag => tag.trim())
+          .filter(Boolean);
+        tags.forEach(tag => skills.add(tag));
+      });
+      return Array.from(skills);
+    })();
+
+    function extractSkillsFromText(text){
+      const normalizedText = normalizeText(text);
+      return skillsCatalog.filter(skill => normalizedText.includes(normalizeText(skill)));
+    }
+
+    function calculateMatch(cvText){
+      const combinedText = `${cvText} ${profileCvNotes.value || ""}`;
+      const skillsFound = extractSkillsFromText(combinedText);
+      const skillSet = new Set(skillsFound.map(normalizeText));
+      const preferences = {
+        area: profileArea.value,
+        mode: profileMode.value,
+        location: profileLocation.value,
+        level: profileLevel.value
+      };
+
+      const jobs = cards.map(card => {
+        const data = extractCardData(card);
+        const tagsNormalized = data.tags.map(normalizeText).filter(Boolean);
+        const matchedSkills = tagsNormalized.filter(tag => skillSet.has(tag));
+        const skillScore = tagsNormalized.length ? matchedSkills.length / tagsNormalized.length : 0;
+        const areaScore = preferences.area === "Qualquer" ? 1 : (preferences.area === data.area ? 1 : 0);
+        const modeScore = preferences.mode === "Qualquer" ? 1 : (preferences.mode === data.mode ? 1 : 0);
+        const locationScore = preferences.location === "Qualquer" ? 1 : (preferences.location === data.location ? 1 : 0);
+        const levelScore = preferences.level === "Qualquer" ? 1 : (preferences.level === data.level ? 1 : 0);
+        const score = Math.round(
+          (skillScore * 70) +
+          (areaScore * 10) +
+          (modeScore * 10) +
+          (locationScore * 5) +
+          (levelScore * 5)
+        );
+        return {
+          ...data,
+          score,
+          matchedSkills
+        };
+      });
+
+      jobs.sort((a, b) => b.score - a.score);
+      const bestScore = jobs[0]?.score || 0;
+      const eligibleJobs = jobs.filter(job => job.score >= 60);
+      const isEligible = bestScore >= 60 && skillsFound.length >= 2;
+
+      return {
+        skillsFound,
+        jobs,
+        eligibleJobs,
+        bestScore,
+        isEligible
+      };
+    }
+
+    function renderMatch(result){
+      const { skillsFound, jobs, eligibleJobs, bestScore, isEligible } = result;
+      matchResult.hidden = false;
+
+      matchBadge.textContent = isEligible ? t("match_badge_yes") : t("match_badge_no");
+      matchTitle.textContent = isEligible
+        ? formatMatchTitle(eligibleJobs.length)
+        : t("match_title_no");
+      matchCopy.textContent = isEligible
+        ? t("match_copy_yes")
+        : t("match_copy_no");
+
+      matchBar.style.width = `${Math.min(bestScore, 100)}%`;
+      matchScore.textContent = formatMatchScore(bestScore);
+
+      matchSkills.innerHTML = "";
+      if(skillsFound.length){
+        skillsFound.slice(0, 10).forEach(skill => {
+          const span = document.createElement("span");
+          span.textContent = translateTag(skill);
+          matchSkills.appendChild(span);
+        });
+      }else{
+        const span = document.createElement("span");
+        span.textContent = t("match_no_skills");
+        matchSkills.appendChild(span);
+      }
+
+      matchJobs.innerHTML = "";
+      jobs.slice(0, 3).forEach(job => {
+        const row = document.createElement("div");
+        row.className = "match-job";
+        row.innerHTML = `
+          <div>
+            <strong>${job.title}</strong>
+            <div class="auth-note">${translateValue(job.location)} - ${translateValue(job.mode)}</div>
+          </div>
+          <div>${job.score}%</div>
+        `;
+        matchJobs.appendChild(row);
+      });
+
+      enterPortalBtn.hidden = !isEligible;
+      portalContent.hidden = !isEligible;
+    }
+
+    function showProfileNotice(messageKey){
+      profileNotice.textContent = t(messageKey) || messageKey;
+      profileNotice.hidden = false;
+      profileNotice.dataset.noticeKey = messageKey;
+    }
+
+    function openModal(modal){
+      if(!modal) return;
+      modal.classList.add("is-open");
+      modal.setAttribute("aria-hidden", "false");
+      document.body.classList.add("modal-open");
+    }
+
+    function closeModal(modal){
+      if(!modal) return;
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden", "true");
+      if(!document.querySelector(".modal.is-open")){
+        document.body.classList.remove("modal-open");
+      }
+    }
+
+    function closeAllModals(){
+      document.querySelectorAll(".modal.is-open").forEach(modal => closeModal(modal));
+    }
+
+    function extractCardData(card){
+      const jobId = card.dataset.jobId || "";
+      const title = getJobTranslation(jobId, "title") || card.querySelector("h3")?.textContent.trim() || "";
+      const summary = getJobTranslation(jobId, "summary") || card.querySelector(".job-summary")?.textContent.trim() || "";
+      const badge = getJobTranslation(jobId, "badge") || card.querySelector(".job-badge")?.textContent.trim() || "Vaga";
+      const tags = (card.dataset.tags || "")
+        .split("|")
+        .map(tag => tag.trim())
+        .filter(Boolean);
+
+      return {
+        title,
+        summary,
+        badge,
+        area: card.dataset.area || "",
+        location: card.dataset.location || "",
+        mode: card.dataset.mode || "",
+        type: card.dataset.type || "",
+        level: card.dataset.level || "",
+        salary: card.dataset.salary || "A combinar",
+        salaryLabel: card.dataset.salaryLabel || "range",
+        posted: card.dataset.posted || "Recente",
+        tags
+      };
+    }
+
+    function openDetails(card){
+      if(!card) return;
+      const data = extractCardData(card);
+      const fallbackValue = translateValue("A combinar");
+      detailTitle.textContent = data.title;
+      detailSummary.textContent = data.summary;
+      detailBadge.textContent = data.badge || t("badge_default");
+      detailArea.textContent = translateValue(data.area) || fallbackValue;
+      detailLocation.textContent = translateValue(data.location) || fallbackValue;
+      detailMode.textContent = translateValue(data.mode) || fallbackValue;
+      detailType.textContent = translateValue(data.type) || fallbackValue;
+      detailLevel.textContent = translateValue(data.level) || fallbackValue;
+      detailSalaryLabel.textContent = data.salaryLabel === "stipend" ? t("label_stipend") : t("label_range");
+      detailSalary.textContent = translateValue(data.salary) || fallbackValue;
+      detailPosted.textContent = translatePosted(data.posted) || translateValue(data.posted) || translateValue("Recente");
+
+      detailTags.innerHTML = "";
+      if(data.tags.length){
+        data.tags.forEach(tag => {
+          const span = document.createElement("span");
+          span.textContent = translateTag(tag);
+          detailTags.appendChild(span);
+        });
+      }else{
+        const span = document.createElement("span");
+        span.textContent = t("detail_no_requirements");
+        detailTags.appendChild(span);
+      }
+
+      detailList.innerHTML = "";
+      const items =
+        responsibilitiesByArea[currentLang]?.[data.area] ||
+        responsibilitiesByArea.pt?.[data.area] ||
+        defaultResponsibilities[currentLang] ||
+        defaultResponsibilities.pt;
+      items.forEach(text => {
+        const li = document.createElement("li");
+        li.textContent = text;
+        detailList.appendChild(li);
+      });
+
+      detailsModal.dataset.jobId = card.dataset.jobId || "";
+      detailsModal.dataset.jobTitle = data.title || "";
+      openModal(detailsModal);
+    }
+
+    function openApply(card){
+      if(!card) return;
+      const data = extractCardData(card);
+      const subtitleParts = [
+        data.title,
+        translateValue(data.location),
+        translateValue(data.mode)
+      ].filter(Boolean);
+      applyTitle.textContent = t("modal_apply_title");
+      applySubtitle.textContent = subtitleParts.join(" - ");
+      applyModal.dataset.jobTitle = data.title || "";
+      applyModal.dataset.jobId = card.dataset.jobId || "";
+      applySuccess.hidden = true;
+      applySuccess.textContent = "";
+      applySubmit.disabled = false;
+      applySubmit.textContent = t("modal_submit");
+      applyForm.reset();
+      updateUserUI();
+      openModal(applyModal);
+    }
+
+    authTabs.forEach(button => {
+      button.addEventListener("click", () => {
+        setAuthTab(button.dataset.authTab);
+      });
+    });
+
+    document.querySelectorAll("[data-auth-view]").forEach(button => {
+      button.addEventListener("click", event => {
+        event.preventDefault();
+        showAuth();
+        setAuthTab(button.dataset.authView);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+
+    registerOpenButtons.forEach(button => {
+      button.addEventListener("click", event => {
+        event.preventDefault();
+        if(registerModalForm){
+          registerModalForm.reset();
+        }
+        openModal(registerModal);
+      });
+    });
+
+    if(registerModalForm){
+      registerModalForm.addEventListener("submit", event => {
+        event.preventDefault();
+        if(!registerModalForm.checkValidity()){
+          registerModalForm.reportValidity();
+          return;
+        }
+        const emailValue = registerModalEmail ? registerModalEmail.value.trim() : "";
+        currentUser = {
+          name: getNameFromEmail(emailValue),
+          email: emailValue
+        };
+        updateUserUI();
+        closeModal(registerModal);
+        showProfile();
+      });
+    }
+
+    loginForm.addEventListener("submit", event => {
+      event.preventDefault();
+      currentUser = {
+        name: "Luiz Henrique",
+        email: loginEmail.value.trim()
+      };
+      updateUserUI();
+      showProfile();
+    });
+
+    registerForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const emailValue = registerEmail.value.trim();
+      currentUser = {
+        name: getNameFromEmail(emailValue),
+        email: emailValue
+      };
+      updateUserUI();
+      showProfile();
+    });
+
+    if(profileShortcut){
+      profileShortcut.addEventListener("click", () => {
+        profileSection.hidden = false;
+        portalContent.hidden = true;
+        window.scrollTo({ top: profileSection.offsetTop, behavior: "smooth" });
+      });
+    }
+
+    matchButton.addEventListener("click", () => {
+      profileNotice.hidden = true;
+      if(!profileForm.checkValidity()){
+        profileForm.reportValidity();
+        return;
+      }
+      if(!profileCv.files.length){
+        showProfileNotice("match_notice_cv");
+        return;
+      }
+
+      const file = profileCv.files[0];
+      const reader = new FileReader();
+      reader.onerror = () => {
+        showProfileNotice("match_read_error");
+      };
+      reader.onload = () => {
+        const content = reader.result || "";
+        lastCvText = content.toString();
+        const result = calculateMatch(lastCvText);
+        renderMatch(result);
+        if(result.isEligible){
+          enterPortalBtn.hidden = false;
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    enterPortalBtn.addEventListener("click", () => {
+      showPortal();
+      const target = document.getElementById("vagas");
+      if(target) target.scrollIntoView({ behavior: "smooth" });
+    });
+
+    searchInput.addEventListener("input", applyFilters);
+    filterArea.addEventListener("change", applyFilters);
+    filterLocation.addEventListener("change", applyFilters);
+    filterMode.addEventListener("change", applyFilters);
+    searchButton.addEventListener("click", applyFilters);
+    clearFilters.addEventListener("click", resetFilters);
+
+    document.querySelectorAll("[data-quick-area]").forEach(button => {
+      button.addEventListener("click", () => {
+        filterArea.value = button.dataset.quickArea;
+        applyFilters();
+      });
+    });
+
+    document.querySelectorAll("[data-quick-mode]").forEach(button => {
+      button.addEventListener("click", () => {
+        filterMode.value = button.dataset.quickMode;
+        applyFilters();
+      });
+    });
+
+    document.querySelectorAll("[data-quick-type]").forEach(button => {
+      button.addEventListener("click", () => {
+        filterMode.value = "all";
+        filterArea.value = "all";
+        filterLocation.value = "all";
+        searchInput.value = button.dataset.quickType;
+        applyFilters();
+      });
+    });
+
+    document.querySelectorAll("[data-close-modal]").forEach(button => {
+      button.addEventListener("click", () => {
+        const modal = button.closest(".modal");
+        closeModal(modal);
+      });
+    });
+
+    document.addEventListener("click", event => {
+      const actionButton = event.target.closest("[data-action]");
+      if(!actionButton) return;
+
+      const action = actionButton.dataset.action;
+      let card = actionButton.closest(".job-card");
+
+      if(!card && actionButton.dataset.jobId){
+        card = document.querySelector(`.job-card[data-job-id="${actionButton.dataset.jobId}"]`);
+      }
+
+      if(!card) return;
+
+      if(action === "details") openDetails(card);
+      if(action === "apply") openApply(card);
+    });
+
+    detailApplyBtn.addEventListener("click", () => {
+      const jobId = detailsModal.dataset.jobId;
+      const card = jobId ? document.querySelector(`.job-card[data-job-id="${jobId}"]`) : null;
+      if(card) openApply(card);
+      closeModal(detailsModal);
+    });
+
+    applyForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const jobTitle = applyModal.dataset.jobTitle || t("modal_apply_title");
+      applySuccess.textContent = t("modal_success").replace("{job}", jobTitle);
+      applySuccess.hidden = false;
+      applySubmit.textContent = t("modal_submitted");
+      applySubmit.disabled = true;
+    });
+
+    document.addEventListener("keydown", event => {
+      if(event.key === "Escape") closeAllModals();
+    });
+
+    const storedTheme = localStorage.getItem("portal-theme");
+    applyTheme(storedTheme || "light");
+    themeToggles.forEach(button => {
+      button.addEventListener("click", () => {
+        applyTheme(button.dataset.themeSet);
+      });
+    });
+
+    languageButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        applyLanguage(button.dataset.lang);
+      });
+    });
+
+    const storedLang = localStorage.getItem("portal-lang");
+    applyLanguage(storedLang || "pt");
+    if(librasFallback){
+      librasFallback.addEventListener("click", () => {
+        triggerLibras();
+      });
+    }
+    setTimeout(ensureLibrasButton, 800);
+
+    showAuth();
+    setAuthTab("login");
+    updateUserUI();
+  </script>
+  <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+  <script>
+    window.addEventListener("load", () => {
+      if(window.initLibrasWidget){
+        window.initLibrasWidget();
+      }
+    });
+  </script>
+</body>
+</html>
+
+
+

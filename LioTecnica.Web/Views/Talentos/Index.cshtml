@@ -1,0 +1,529 @@
+@model PageSeedViewModel
+@{
+    ViewData["Title"] = "Portal RH • Talentos";
+    ViewData["SidebarSubtitle"] = "Talentos";
+}
+
+@await Html.PartialAsync("_Toast")
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Talentos")
+
+    <div class="searchbox position-relative d-none d-md-block">
+        <i class="bi bi-search"></i>
+        <input id="talentosSearch" class="form-control" placeholder="Buscar nome, email..." />
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-ghost" type="button" id="btnRefreshTalentos" title="Atualizar">
+            <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+        </button>
+        @await Html.PartialAsync("_TopbarUserActions", "RH")
+    </div>
+}
+
+<section class="content">
+    <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <h4>Talentos</h4>
+            <div class="subtitle">Base de talentos — pessoas vindas de email, portal ou candidatura. Cadastre manualmente ou importe PDF.</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-ghost" id="btnNovoTalento" title="Cadastrar novo talento manualmente">
+                <i class="bi bi-person-add me-1"></i>Novo talento
+            </button>
+            <button type="button" class="btn btn-ghost" id="btnImportarPdf" title="Importar currículo em PDF">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Importar PDF
+            </button>
+            <button type="button" class="btn btn-brand" id="btnCadastrarCandidatoTop" title="Cadastrar um talento como candidato em uma vaga">
+                <i class="bi bi-person-plus me-1"></i>Cadastrar candidato
+            </button>
+        </div>
+    </div>
+
+    <div class="card-soft p-3 mb-3">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+            <div>
+                <div class="fw-bold">Lista de talentos</div>
+                <div class="text-muted small">Filtre por origem ou busque por nome/email. Use o botão <i class="bi bi-person-plus"></i> na linha para cadastrar o talento como candidato em uma vaga.</div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+                <div style="min-width: 200px;">
+                    <label class="form-label small mb-1">Buscar</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);"><i class="bi bi-search"></i></span>
+                        <input class="form-control" id="fSearch" placeholder="nome, email..." style="border-color:var(--lt-border);" />
+                    </div>
+                </div>
+                <div style="min-width: 140px;">
+                    <label class="form-label small mb-1">Origem</label>
+                    <select class="form-select form-select-sm" id="fOrigem" style="border-color:var(--lt-border);">
+                        <option value="">Todas</option>
+                        <option value="Email">Email</option>
+                        <option value="Site">Site</option>
+                        <option value="Candidatura">Candidatura</option>
+                        <option value="Pasta">Pasta</option>
+                        <option value="Manual">Manual</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>CPF</th>
+                        <th>Email</th>
+                        <th>Fone</th>
+                        <th>Cidade / UF</th>
+                        <th>Origem</th>
+                        <th>Status CV</th>
+                        <th>Criado em</th>
+                        <th>Atualizado em</th>
+                        <th>Versão</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="talentosTbody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mt-2">
+            <div class="text-muted small" id="talentosHint">-</div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="pill"><i class="bi bi-people"></i><span id="talentosCount">0</span> exibidos</span>
+            </div>
+        </div>
+    </div>
+
+    <template id="tpl-talento-row">
+        <tr>
+            <td data-role="nome"></td>
+            <td data-role="cpf"></td>
+            <td data-role="email"></td>
+            <td data-role="fone"></td>
+            <td data-role="cidadeUf"></td>
+            <td data-role="origem"></td>
+            <td data-role="cvImportStatus"></td>
+            <td data-role="createdAt"></td>
+            <td data-role="updatedAt"></td>
+            <td data-role="versao"></td>
+            <td class="text-end">
+                <button type="button" class="btn btn-ghost btn-sm" data-act="cadastrar-candidato" title="Cadastrar como candidato"><i class="bi bi-person-plus"></i></button>
+                <button type="button" class="btn btn-ghost btn-sm" data-act="bloqueio" title="Bloqueio de pessoa"><i class="bi bi-person-x"></i></button>
+                <button type="button" class="btn btn-ghost btn-sm" data-act="detail" title="Ver detalhes"><i class="bi bi-eye"></i></button>
+                <button type="button" class="btn btn-ghost btn-sm" data-act="edit" title="Editar"><i class="bi bi-pencil"></i></button>
+                <button type="button" class="btn btn-ghost btn-sm text-danger" data-act="del" title="Eliminar"><i class="bi bi-trash3"></i></button>
+            </td>
+        </tr>
+    </template>
+
+    <template id="tpl-talento-empty">
+        <tr>
+            <td colspan="10" class="text-center text-muted py-4">Nenhum talento encontrado.</td>
+        </tr>
+    </template>
+</section>
+
+<!-- Modal: Selecionar talento (ao clicar em Cadastrar candidato no topo) -->
+<div class="modal fade" id="modalSelecionarTalento" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="border-radius: 16px; border: 1px solid var(--lt-border, #dee2e6);">
+            <div class="modal-header">
+                <h5 class="modal-title">Selecionar talento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-2">Escolha o talento que deseja cadastrar como candidato.</p>
+                <select class="form-select" id="selecionarTalentoDropdown">
+                    <option value="">-- Selecione --</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand" id="btnContinuarSelecaoTalento">
+                    <i class="bi bi-arrow-right me-1"></i>Continuar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Importar PDF -->
+<div class="modal fade" id="modalImportarPdf" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: 1px solid var(--lt-border, #dee2e6);">
+            <div class="modal-header">
+                <h5 class="modal-title">Importar currículo (PDF)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Envie um arquivo PDF do currículo. O arquivo será salvo no talento. Opcionalmente, use IA para extrair dados (nome, competências, experiências, etc.).</p>
+                <div class="mb-3">
+                    <label class="form-label">Arquivo PDF <span class="text-danger">*</span></label>
+                    <input type="file" class="form-control" id="importPdfArquivo" accept=".pdf" />
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="importPdfEnviarGpt" />
+                    <label class="form-check-label" for="importPdfEnviarGpt">Enviar ao GPT para extrair dados do currículo</label>
+                </div>
+                <div class="alert alert-info small mb-0" id="importPdfResult" style="display: none;"></div>
+                <div id="importPdfSimilarBox" class="alert alert-warning small mb-0 mt-2" style="display: none;">
+                    <p class="mb-2" id="importPdfSimilarText">Encontramos um cadastro similar. Deseja atualizar esse cadastro?</p>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnImportPdfSimAtualizar">Sim, atualizar</button>
+                        <button type="button" class="btn btn-sm btn-ghost" id="btnImportPdfNaoAtualizar">Não, manter o novo</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand" id="btnConfirmarImportarPdf">
+                    <i class="bi bi-upload me-1"></i>Importar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Novo talento -->
+<div class="modal fade" id="modalNovoTalento" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius: 16px; border: 1px solid var(--lt-border, #dee2e6);">
+            <div class="modal-header">
+                <h5 class="modal-title">Novo talento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Preencha os dados da pessoa. Competências, experiências, treinamentos e formação podem ser adicionados após salvar (editar talento).</p>
+                <div class="row g-2">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">Nome <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" id="novoTalentoNome" maxlength="160" placeholder="Nome completo" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control form-control-sm" id="novoTalentoEmail" maxlength="180" placeholder="email@exemplo.com" />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small">Fone</label>
+                        <input type="text" class="form-control form-control-sm" id="novoTalentoFone" maxlength="40" />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small">Cidade</label>
+                        <input type="text" class="form-control form-control-sm" id="novoTalentoCidade" maxlength="120" />
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label class="form-label small">UF</label>
+                        <input type="text" class="form-control form-control-sm" id="novoTalentoUf" maxlength="2" placeholder="SP" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">CPF</label>
+                        <input type="text" class="form-control form-control-sm" id="novoTalentoCpf" maxlength="14" placeholder="Somente números" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">Data de nascimento</label>
+                        <input type="date" class="form-control form-control-sm" id="novoTalentoDataNascimento" />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small">CEP</label>
+                        <input type="text" class="form-control form-control-sm" id="novoTalentoCep" maxlength="20" placeholder="00000-000" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">Logradouro</label>
+                        <input type="text" class="form-control form-control-sm" id="novoTalentoLogradouro" maxlength="200" />
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <label class="form-label small">Número</label>
+                        <input type="text" class="form-control form-control-sm" id="novoTalentoNumero" maxlength="40" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">Bairro</label>
+                        <input type="text" class="form-control form-control-sm" id="novoTalentoBairro" maxlength="120" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small">LinkedIn</label>
+                        <input type="url" class="form-control form-control-sm" id="novoTalentoLinkedin" maxlength="260" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small">Resumo profissional</label>
+                        <textarea class="form-control form-control-sm" id="novoTalentoResumo" rows="3" maxlength="2000"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small">Observações</label>
+                        <textarea class="form-control form-control-sm" id="novoTalentoObs" rows="2" maxlength="2000"></textarea>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small">Origem</label>
+                        <select class="form-select form-select-sm" id="novoTalentoOrigem">
+                            <option value="Manual">Manual</option>
+                            <option value="Email">Email</option>
+                            <option value="Site">Site</option>
+                            <option value="Candidatura">Candidatura</option>
+                            <option value="Pasta">Pasta</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="novoTalentoSimilarBox" class="alert alert-warning small mb-0 mt-3" style="display: none;">
+                    <p class="mb-2" id="novoTalentoSimilarText">Encontramos um cadastro similar. Abrir cadastro existente ou criar mesmo assim?</p>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnNovoTalentoAbrirExistente">Abrir cadastro existente</button>
+                        <button type="button" class="btn btn-sm btn-ghost" id="btnNovoTalentoCriarMesmo">Criar mesmo assim</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand" id="btnConfirmarNovoTalento">
+                    <i class="bi bi-check-lg me-1"></i>Salvar talento
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Cadastrar candidato a partir do talento -->
+<div class="modal fade" id="modalCadastrarCandidato" tabindex="-1" aria-labelledby="modalCadastrarCandidatoLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: 1px solid var(--lt-border, #dee2e6);">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCadastrarCandidatoLabel">Cadastrar candidato</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Vincule este talento a uma vaga como candidato. Os dados da pessoa serão usados no cadastro.</p>
+                <div class="mb-3">
+                    <label class="form-label">Vaga <span class="text-danger">*</span></label>
+                    <select class="form-select" id="cadastroCandidatoVaga" required>
+                        <option value="">Selecione a vaga</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Observações</label>
+                    <textarea class="form-control" id="cadastroCandidatoObs" rows="2" placeholder="Opcional"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand" id="btnConfirmarCadastroCandidato">
+                    <i class="bi bi-person-plus me-1"></i>Cadastrar candidato
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Detalhes do talento (abas) -->
+<div class="modal fade" id="modalDetalheTalento" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius: 16px; border: 1px solid var(--lt-border, #dee2e6);">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do talento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="detailPendingCvValidationBox" class="alert alert-warning small mb-3" style="display: none;" role="alert">
+                    <div class="fw-semibold mb-1">Cadastro similar encontrado</div>
+                    <p class="mb-2" id="detailPendingCvValidationText"></p>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-primary" id="btnDetailAprovarCvImport">Aprovar e atualizar cadastro similar</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnDetailRecusarCvImport">Recusar (manter este cadastro)</button>
+                    </div>
+                </div>
+                <ul class="nav nav-pills gap-2 mb-3" id="detailTalentoTabs" role="tablist" style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active rounded-pill" data-bs-toggle="pill" data-bs-target="#tabDetalheDados" type="button" role="tab"><i class="bi bi-person me-1"></i>Dados gerais</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabDetalheExp" type="button" role="tab"><i class="bi bi-briefcase me-1"></i>Experiência</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabDetalheTrein" type="button" role="tab"><i class="bi bi-book me-1"></i>Treinamentos</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabDetalheForm" type="button" role="tab"><i class="bi bi-mortarboard me-1"></i>Formação</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabDetalheHab" type="button" role="tab"><i class="bi bi-star me-1"></i>Habilidades</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabDetalheDocs" type="button" role="tab"><i class="bi bi-paperclip me-1"></i>Documentos</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="detailTalentoTabContent">
+                    <div class="tab-pane fade show active" id="tabDetalheDados" role="tabpanel">
+                        <div class="mb-2"><strong>Nome</strong></div>
+                        <div class="text-muted small mb-2" id="detailNome">-</div>
+                        <div class="mb-2"><strong>Email</strong></div>
+                        <div class="text-muted small mb-2" id="detailEmail">-</div>
+                        <div class="mb-2"><strong>CPF</strong></div>
+                        <div class="text-muted small mb-2" id="detailCpf">-</div>
+                        <div class="mb-2"><strong>Data de nascimento</strong></div>
+                        <div class="text-muted small mb-2" id="detailDataNascimento">-</div>
+                        <div class="mb-2"><strong>Fone</strong></div>
+                        <div class="text-muted small mb-2" id="detailFone">-</div>
+                        <div class="mb-2"><strong>Endereço</strong></div>
+                        <div class="text-muted small mb-2" id="detailEndereco">-</div>
+                        <div class="mb-2"><strong>Cidade / UF</strong></div>
+                        <div class="text-muted small mb-2" id="detailCidadeUf">-</div>
+                        <div class="mb-2"><strong>LinkedIn</strong></div>
+                        <div class="text-muted small mb-2" id="detailLinkedin">-</div>
+                        <div class="mb-2"><strong>Resumo profissional</strong></div>
+                        <div class="text-muted small mb-3 p-2 rounded" style="background: rgba(0,0,0,.04); white-space: pre-wrap;" id="detailResumo">-</div>
+                        <div class="mb-2"><strong>Observações</strong></div>
+                        <div class="text-muted small mb-3" id="detailObs">-</div>
+                        <button type="button" class="btn btn-ghost btn-sm" id="btnDetalheEditarDados"><i class="bi bi-pencil me-1"></i>Editar dados</button>
+                    </div>
+                    <div class="tab-pane fade" id="tabDetalheExp" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">Experiência profissional</span>
+                            <button type="button" class="btn btn-ghost btn-sm" id="btnDetalheAddExp"><i class="bi bi-plus me-1"></i>Adicionar</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Empresa</th><th>Cargo</th><th>Início</th><th>Fim</th><th>Nível</th><th>Nível hierárquico</th><th>Tipo contratação</th><th>Local</th><th></th></tr></thead>
+                                <tbody id="detailExpTbody"></tbody>
+                            </table>
+                        </div>
+                        <div id="detailExpEmpty" class="text-muted small py-2" style="display:none;">Nenhuma experiência.</div>
+                    </div>
+                    <div class="tab-pane fade" id="tabDetalheTrein" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">Treinamentos</span>
+                            <button type="button" class="btn btn-ghost btn-sm" id="btnDetalheAddTrein"><i class="bi bi-plus me-1"></i>Adicionar</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Nome</th><th>Instituição</th><th>Ano</th><th>Link</th><th></th></tr></thead>
+                                <tbody id="detailTreinTbody"></tbody>
+                            </table>
+                        </div>
+                        <div id="detailTreinEmpty" class="text-muted small py-2" style="display:none;">Nenhum treinamento.</div>
+                    </div>
+                    <div class="tab-pane fade" id="tabDetalheForm" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">Formação / Cursos</span>
+                            <button type="button" class="btn btn-ghost btn-sm" id="btnDetalheAddForm"><i class="bi bi-plus me-1"></i>Adicionar</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Curso</th><th>Instituição</th><th>Tipo</th><th>Status</th><th>Início</th><th>Fim</th><th></th></tr></thead>
+                                <tbody id="detailFormTbody"></tbody>
+                            </table>
+                        </div>
+                        <div id="detailFormEmpty" class="text-muted small py-2" style="display:none;">Nenhuma formação.</div>
+                    </div>
+                    <div class="tab-pane fade" id="tabDetalheHab" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">Habilidades</span>
+                            <button type="button" class="btn btn-ghost btn-sm" id="btnDetalheAddHab"><i class="bi bi-plus me-1"></i>Adicionar</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Tipo</th><th>Nome</th><th>Nível</th><th>Tempo de atuação</th><th>Evidência</th><th></th></tr></thead>
+                                <tbody id="detailHabTbody"></tbody>
+                            </table>
+                        </div>
+                        <div id="detailHabEmpty" class="text-muted small py-2" style="display:none;">Nenhuma habilidade.</div>
+                    </div>
+                    <div class="tab-pane fade" id="tabDetalheDocs" role="tabpanel">
+                        <div class="fw-bold mb-2">Documentos (PDF)</div>
+                        <ul class="list-group list-group-flush" id="detailDocsList"></ul>
+                        <div id="detailDocsEmpty" class="text-muted small py-2" style="display:none;">Nenhum documento.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sub-modal: Experiência -->
+<div class="modal fade" id="modalDetalheExp" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Experiência profissional</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="subExpIndex" value="-1" />
+                <div class="mb-2"><label class="form-label small">Empresa</label><input type="text" class="form-control form-control-sm" id="subExpEmpresa" maxlength="160" /></div>
+                <div class="mb-2"><label class="form-label small">Cargo</label><input type="text" class="form-control form-control-sm" id="subExpCargo" maxlength="160" /></div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><label class="form-label small">Início</label><input type="text" class="form-control form-control-sm" id="subExpInicio" maxlength="20" placeholder="MM/AAAA" /></div>
+                    <div class="col-6"><label class="form-label small">Fim</label><input type="text" class="form-control form-control-sm" id="subExpFim" maxlength="20" placeholder="MM/AAAA ou Atual" /></div>
+                </div>
+                <div class="mb-2"><label class="form-label small">Tipo contratação</label><input type="text" class="form-control form-control-sm" id="subExpTipoContratacao" maxlength="40" placeholder="CLT, PJ, Estágio..." /></div>
+                <div class="mb-2"><label class="form-label small">Local</label><input type="text" class="form-control form-control-sm" id="subExpLocal" maxlength="160" /></div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><label class="form-label small">Nível senioridade</label><input type="text" class="form-control form-control-sm" id="subExpNivelSenioridade" maxlength="40" placeholder="JR, Pleno, Senior..." /></div>
+                    <div class="col-6"><label class="form-label small">Nível hierárquico</label><input type="text" class="form-control form-control-sm" id="subExpNivelHierarquico" maxlength="80" placeholder="Analista, Gerente, Coordenador..." /></div>
+                </div>
+                <div class="mb-2"><label class="form-label small">Resumo das atividades</label><textarea class="form-control form-control-sm" id="subExpResumoAtividades" rows="2" maxlength="800"></textarea></div>
+                <div class="mb-2"><label class="form-label small">Atividades</label><textarea class="form-control form-control-sm" id="subExpAtividades" rows="3" maxlength="2400"></textarea></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-brand btn-sm" id="btnSubExpSave">Salvar</button></div>
+        </div>
+    </div>
+</div>
+<!-- Sub-modal: Treinamento -->
+<div class="modal fade" id="modalDetalheTrein" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Treinamento</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="subTreinIndex" value="-1" />
+                <div class="mb-2"><label class="form-label small">Nome</label><input type="text" class="form-control form-control-sm" id="subTreinNome" maxlength="160" /></div>
+                <div class="mb-2"><label class="form-label small">Instituição</label><input type="text" class="form-control form-control-sm" id="subTreinInstituicao" maxlength="160" /></div>
+                <div class="mb-2"><label class="form-label small">Ano</label><input type="text" class="form-control form-control-sm" id="subTreinAno" maxlength="10" /></div>
+                <div class="mb-2"><label class="form-label small">Link</label><input type="url" class="form-control form-control-sm" id="subTreinLink" maxlength="260" /></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-brand btn-sm" id="btnSubTreinSave">Salvar</button></div>
+        </div>
+    </div>
+</div>
+<!-- Sub-modal: Formação -->
+<div class="modal fade" id="modalDetalheForm" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Formação / Curso</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="subFormIndex" value="-1" />
+                <div class="mb-2"><label class="form-label small">Curso</label><input type="text" class="form-control form-control-sm" id="subFormCurso" maxlength="160" /></div>
+                <div class="mb-2"><label class="form-label small">Instituição</label><input type="text" class="form-control form-control-sm" id="subFormInstituicao" maxlength="160" /></div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><label class="form-label small">Tipo</label><input type="text" class="form-control form-control-sm" id="subFormTipo" maxlength="40" /></div>
+                    <div class="col-6"><label class="form-label small">Status</label><input type="text" class="form-control form-control-sm" id="subFormStatus" maxlength="40" /></div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><label class="form-label small">Início</label><input type="text" class="form-control form-control-sm" id="subFormInicio" maxlength="20" /></div>
+                    <div class="col-6"><label class="form-label small">Fim</label><input type="text" class="form-control form-control-sm" id="subFormFim" maxlength="20" /></div>
+                </div>
+                <div class="mb-2"><label class="form-label small">Observações</label><textarea class="form-control form-control-sm" id="subFormObservacoes" rows="2" maxlength="800"></textarea></div>
+                <div class="mb-2"><label class="form-label small">Link</label><input type="url" class="form-control form-control-sm" id="subFormLink" maxlength="260" /></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-brand btn-sm" id="btnSubFormSave">Salvar</button></div>
+        </div>
+    </div>
+</div>
+<!-- Sub-modal: Habilidade -->
+<div class="modal fade" id="modalDetalheHab" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Habilidade / Competência</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="subHabIndex" value="-1" />
+                <div class="mb-2"><label class="form-label small">Tipo</label><input type="text" class="form-control form-control-sm" id="subHabTipo" maxlength="40" placeholder="ex: Técnica" /></div>
+                <div class="mb-2"><label class="form-label small">Nome</label><input type="text" class="form-control form-control-sm" id="subHabNome" maxlength="120" /></div>
+                <div class="mb-2"><label class="form-label small">Nível</label><input type="text" class="form-control form-control-sm" id="subHabNivel" maxlength="40" placeholder="ex: Avançado" /></div>
+                <div class="mb-2"><label class="form-label small">Tempo de atuação</label><input type="text" class="form-control form-control-sm" id="subHabTempoAtuacao" maxlength="80" placeholder="ex.: 5 anos" /></div>
+                <div class="mb-2"><label class="form-label small">Evidência</label><input type="text" class="form-control form-control-sm" id="subHabEvidencia" maxlength="300" /></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-brand btn-sm" id="btnSubHabSave">Salvar</button></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+  <script>window.__vagasApiUrl = "@Url.Content("~/api/vagas")";</script>
+  <script src="~/js/views/talentos.js" asp-append-version="true"></script>
+}

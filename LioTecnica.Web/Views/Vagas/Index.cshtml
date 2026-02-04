@@ -1,0 +1,528 @@
+@model PageSeedViewModel
+@{
+	ViewData["Title"] = "Portal RH • Devcraft Studio • Vagas";
+	ViewData["SidebarSubtitle"] = "Vagas • Requisitos • Match";
+}
+
+@await Html.PartialAsync("_ModalVagaDetalhes")
+@await Html.PartialAsync("_ModalVaga")
+@await Html.PartialAsync("_ModalReq")
+
+<!-- ============ TOASTS ============ -->
+@await Html.PartialAsync("_Toast")
+
+@section Topbar {
+	@await Html.PartialAsync("_TopbarBrand", "Tela: Vagas (CRUD + requisitos com peso/obrigatório)")
+
+	<div class="searchbox position-relative d-none d-md-block">
+		<i class="bi bi-search"></i>
+		<input id="globalSearch" class="form-control" placeholder="Buscar por título, código, área..." />
+	</div>
+
+	<div class="d-flex align-items-center gap-2">
+		<button class="btn btn-ghost" type="button" id="btnExportJson" title="Exportar vagas (JSON)">
+			<i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
+		</button>
+
+		<button class="btn btn-ghost" type="button" id="btnImportJson" title="Importar vagas (JSON)">
+			<i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">Importar</span>
+		</button>
+
+		<button class="btn btn-brand" type="button" id="btnNewVaga">
+			<i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Nova vaga</span>
+		</button>
+
+		@await Html.PartialAsync("_TopbarUserActions", "RH")
+	</div>
+}
+
+<!-- CONTENT -->
+<section class="content">
+	<div class="page-title">
+		<div>
+			<h4>Vagas</h4>
+			<div class="subtitle">Crie vagas, defina requisitos com peso e marque itens obrigatórios para o matching.</div>
+		</div>
+	</div>
+
+	<!-- KPIs -->
+	@{
+		var kpis = new[]
+		{
+	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Total", ValueId = "kpiTotal", Value = "0", Hint = "vagas cadastradas", Icon = "bi-collection" },
+	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Abertas", ValueId = "kpiAbertas", Value = "0", Hint = "em andamento", Icon = "bi-briefcase" },
+	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Pausadas", ValueId = "kpiPausadas", Value = "0", Hint = "aguardando", Icon = "bi-pause-circle" },
+	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Fechadas", ValueId = "kpiFechadas", Value = "0", Hint = "encerradas", Icon = "bi-lock" }
+	};
+	}
+	@await Html.PartialAsync("_KpiCardRow", kpis)
+
+	<div class="row g-3 mt-1">
+		<!-- LISTA -->
+		<div class="col-12">
+			<div class="card-soft p-3">
+				<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+					<div>
+						<p class="mini-title mb-1">Lista</p>
+						<div class="fw-bold">Vagas cadastradas</div>
+						Use o botao Detalhes na lista para editar requisitos (pesos/obrigatorios), definir o match minimo e simular aderencia.
+					</div>
+				</div>
+
+				<!-- filtros -->
+				<div class="row g-2 mb-2">
+					<div class="col-12 col-md-6">
+						<div class="input-group">
+							<span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
+								<i class="bi bi-search"></i>
+							</span>
+							<input class="form-control" id="fSearch" placeholder="Buscar por título, código, área..." style="border-color:var(--lt-border);">
+						</div>
+					</div>
+					<div class="col-6 col-md-3">
+						<select class="form-select" id="fStatus" data-enum="vagaStatusFilter" style="border-color:var(--lt-border);"></select>
+					</div>
+					<div class="col-6 col-md-3">
+						<select class="form-select" id="fArea" data-enum="vagaAreaFilter" style="border-color:var(--lt-border);"></select>
+					</div>
+				</div>
+
+							<div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+<tr>
+						<th style="min-width: 240px;">Vaga</th>
+						<th style="min-width: 130px;">Area</th>
+						<th style="min-width: 150px;">Requisitos</th>
+						<th style="min-width: 120px;">Match min.</th>
+						<th style="min-width: 120px;">Status</th>
+						<th class="text-end" style="min-width: 230px;">Acoes</th>
+					</tr>
+    </thead>
+    <tbody id="tblVagas"></tbody>
+  </table>
+</div>
+			</div>
+		</div>
+
+	</div>
+
+	<div style="height: 14px;"></div>
+</section>
+
+<!-- Templates -->
+<template id="tpl-vaga-status-badge">
+	<span class="badge rounded-pill" data-role="status-badge">
+		<span data-role="text"></span>
+	</span>
+</template>
+
+<template id="tpl-vaga-empty-row">
+	<tr>
+		<td colspan="6" class="text-center text-muted py-4">Nenhuma vaga encontrada com os filtros atuais.</td>
+	</tr>
+</template>
+
+<template id="tpl-vaga-row">
+	<tr>
+		<td>
+			<div class="fw-bold" data-role="vaga-title"></div>
+			<div class="text-muted small">
+				<span class="mono" data-role="vaga-code"></span>
+				<span class="mx-2">&bull;</span>
+				<span data-role="vaga-modalidade"></span>
+				<span class="mx-2" data-role="vaga-location-sep">&bull;</span>
+				<span data-role="vaga-location"></span>
+			</div>
+		</td>
+		<td class="nowrap" data-role="vaga-area"></td>
+		<td class="nowrap">
+			<span class="req-chip" data-role="req-total"></span>
+			<span class="req-chip mandatory ms-1" data-role="req-obrig"></span>
+		</td>
+		<td class="nowrap">
+			<span class="badge-soft"><i class="bi bi-stars me-1"></i><span data-role="vaga-thr"></span></span>
+		</td>
+		<td class="nowrap" data-role="status-host"></td>
+		<td class="text-end nowrap">
+			<button class="btn btn-ghost btn-sm me-1" data-act="detail">
+				<i class="bi bi-layout-text-window me-1"></i>Detalhes
+			</button>
+			<button class="btn btn-ghost btn-sm me-1" data-act="edit">
+				<i class="bi bi-pencil me-1"></i>Editar
+			</button>
+			<button class="btn btn-ghost btn-sm me-1" data-act="dup" title="Duplicar">
+				<i class="bi bi-copy"></i>
+			</button>
+			<button class="btn btn-ghost btn-sm text-danger" data-act="del" title="Excluir">
+				<i class="bi bi-trash3"></i>
+			</button>
+		</td>
+	</tr>
+</template>
+
+<template id="tpl-vaga-detail-empty">
+	<div class="detail-empty">
+		<div class="d-flex align-items-start gap-2">
+			<i class="bi bi-info-circle mt-1"></i>
+			<div>
+				<div class="fw-bold">Selecione uma vaga</div>
+				<div class="small mt-1">
+					Use o botao Detalhes na lista para editar requisitos (pesos/obrigatorios), definir o match minimo e simular aderencia.
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+
+<template id="tpl-vaga-detail">
+	<div class="card-soft p-3">
+		<div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+			<div>
+				<p class="mini-title mb-1">Detalhes</p>
+				<div class="fw-bold" style="font-size: 1.05rem;" data-role="detail-title"></div>
+				<div class="text-muted small">
+					<span class="mono" data-role="detail-code"></span>
+					<span class="mx-2">&bull;</span>
+					<span data-role="detail-area"></span>
+					<span class="mx-2">&bull;</span>
+					<span data-role="detail-modalidade"></span>
+				</div>
+			</div>
+
+			<div class="text-end">
+				<div class="mb-1" data-role="detail-status-host"></div>
+				<div class="text-muted small">Atualizado: <span data-role="detail-updated"></span></div>
+			</div>
+		</div>
+
+		<div class="d-flex flex-wrap gap-2 mb-3">
+			<span class="req-chip"><i class="bi bi-list-check me-1"></i><span data-role="detail-req-total"></span></span>
+			<span class="req-chip mandatory"><i class="bi bi-exclamation-triangle me-1"></i><span data-role="detail-req-obrig"></span></span>
+			<span class="badge-soft"><i class="bi bi-stars me-1"></i><span data-role="detail-thr"></span></span>
+		</div>
+
+		<ul class="nav nav-pills gap-2 mb-3" id="detailTabs" role="tablist" style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
+			<li class="nav-item" role="presentation">
+				<button class="nav-link active rounded-pill" data-bs-toggle="pill" data-bs-target="#tabResumo" type="button" role="tab">
+					<i class="bi bi-card-text me-1"></i>Resumo
+				</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabReq" type="button" role="tab">
+					<i class="bi bi-list-check me-1"></i>Requisitos
+				</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabMatch" type="button" role="tab">
+					<i class="bi bi-sliders me-1"></i>Pesos &amp; Match
+				</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabCands" type="button" role="tab">
+					<i class="bi bi-people me-1"></i>Candidatos
+				</button>
+			</li>
+		</ul>
+
+		<div class="tab-content">
+			<!-- RESUMO -->
+			<div class="tab-pane fade show active" id="tabResumo" role="tabpanel">
+				<div class="mb-2">
+					<div class="fw-semibold">Descricao</div>
+					<div class="text-muted small" data-role="detail-descricao"></div>
+				</div>
+
+				<div class="row g-2">
+					<div class="col-12 col-md-6">
+						<div class="card-soft p-2" style="box-shadow:none;">
+							<div class="small text-muted">Local</div>
+							<div class="fw-semibold" data-role="detail-local"></div>
+						</div>
+					</div>
+					<div class="col-12 col-md-6">
+						<div class="card-soft p-2" style="box-shadow:none;">
+							<div class="small text-muted">Senioridade</div>
+							<div class="fw-semibold" data-role="detail-senioridade"></div>
+						</div>
+					</div>
+				</div>
+
+				<div class="d-flex flex-wrap gap-2 mt-3">
+					<button class="btn btn-ghost btn-sm" type="button" data-dact="editvaga">
+						<i class="bi bi-pencil me-1"></i>Editar vaga
+					</button>
+					<button class="btn btn-ghost btn-sm" type="button" data-dact="duplicate">
+						<i class="bi bi-copy me-1"></i>Duplicar
+					</button>
+					<button class="btn btn-ghost btn-sm text-danger" type="button" data-dact="delete">
+						<i class="bi bi-trash3 me-1"></i>Excluir
+					</button>
+				</div>
+			</div>
+
+			<!-- REQUISITOS -->
+			<div class="tab-pane fade" id="tabReq" role="tabpanel">
+				<div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+					<div>
+						<div class="fw-semibold">Requisitos</div>
+						<div class="text-muted small">Peso (0-10) + flag de obrigatorio.</div>
+					</div>
+					<button class="btn btn-brand btn-sm" type="button" data-dact="addreq">
+						<i class="bi bi-plus-lg me-1"></i>Novo requisito
+					</button>
+				</div>
+
+				<div class="input-group mb-2">
+					<span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
+						<i class="bi bi-search"></i>
+					</span>
+					<input class="form-control" id="reqSearch" placeholder="Filtrar requisitos..." style="border-color:var(--lt-border);">
+				</div>
+
+							<div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+<tr>
+						<th style="min-width: 110px;">Obrig.</th>
+						<th style="min-width: 150px;">Categoria</th>
+						<th style="min-width: 220px;">Termo</th>
+						<th style="min-width: 110px;">Peso</th>
+						<th style="min-width: 220px;">Sinonimos</th>
+						<th class="text-end" style="min-width: 120px;">Acoes</th>
+					</tr>
+    </thead>
+    <tbody id="tblReq"></tbody>
+  </table>
+</div>
+
+				<div class="small text-muted mt-2">
+					Regras: score = soma(pesos encontrados) / soma(pesos totais) * 100.
+					Itens <strong>obrigatorios</strong> podem aplicar penalidade se ausentes.
+				</div>
+			</div>
+
+			<!-- PESOS & MATCH -->
+			<div class="tab-pane fade" id="tabMatch" role="tabpanel">
+				<div class="fw-semibold mb-1">Match minimo</div>
+				<div class="d-flex align-items-center gap-2">
+					<input type="range" class="form-range" min="0" max="100" id="thresholdRange">
+					<span class="badge-soft" style="min-width:74px;text-align:center;" id="thresholdLabel"></span>
+				</div>
+				<div class="text-muted small mb-3">Use isso como corte para triagem automatica.</div>
+
+				<div class="fw-semibold mb-2">Pesos por categoria (soma ideal = 100)</div>
+
+				<div class="mb-2">
+					<div class="d-flex align-items-center justify-content-between">
+						<div class="text-muted small">Competencia</div>
+						<div class="mono small"><span id="w_competencia_val"></span>%</div>
+					</div>
+					<input type="range" class="form-range" min="0" max="100" id="w_competencia">
+				</div>
+
+				<div class="mb-2">
+					<div class="d-flex align-items-center justify-content-between">
+						<div class="text-muted small">Experiencia</div>
+						<div class="mono small"><span id="w_experiencia_val"></span>%</div>
+					</div>
+					<input type="range" class="form-range" min="0" max="100" id="w_experiencia">
+				</div>
+
+				<div class="mb-2">
+					<div class="d-flex align-items-center justify-content-between">
+						<div class="text-muted small">Formacao</div>
+						<div class="mono small"><span id="w_formacao_val"></span>%</div>
+					</div>
+					<input type="range" class="form-range" min="0" max="100" id="w_formacao">
+				</div>
+
+				<div class="mb-2">
+					<div class="d-flex align-items-center justify-content-between">
+						<div class="text-muted small">Localidade</div>
+						<div class="mono small"><span id="w_localidade_val"></span>%</div>
+					</div>
+					<input type="range" class="form-range" min="0" max="100" id="w_localidade">
+				</div>
+
+				<div class="d-flex align-items-center justify-content-between mt-3">
+					<span class="badge-soft">Soma atual: <span id="weightsSum"></span></span>
+					<button class="btn btn-brand btn-sm" type="button" data-dact="saveWeights">
+						<i class="bi bi-check2 me-1"></i>Salvar
+					</button>
+				</div>
+
+				<hr class="my-3">
+
+				<div class="fw-semibold mb-1">Simulador rapido</div>
+				<div class="text-muted small mb-2">Cole um texto (curriculo em texto) e veja o match estimado por palavras-chave.</div>
+				<textarea class="form-control mb-2" id="simText" rows="5" placeholder="Cole aqui o texto do CV (extraido do PDF/DOCX)..."></textarea>
+				<div class="d-flex gap-2">
+					<button class="btn btn-ghost btn-sm" type="button" data-dact="simulate">
+						<i class="bi bi-play-circle me-1"></i>Simular
+					</button>
+					<button class="btn btn-ghost btn-sm" type="button" data-dact="simClear">
+						<i class="bi bi-eraser me-1"></i>Limpar
+					</button>
+				</div>
+
+				<div class="mt-2" id="simResult"></div>
+			</div>
+
+			<!-- CANDIDATOS -->
+			<div class="tab-pane fade" id="tabCands" role="tabpanel">
+				<div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+					<div>
+						<div class="fw-semibold">Candidatos com matching</div>
+						<div class="text-muted small">Total: <span id="vagaCandsCount">0</span> (ordenado por score)</div>
+					</div>
+					<span class="badge-soft"><i class="bi bi-stars me-1"></i>Match</span>
+				</div>
+
+				<div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+<tr>
+							<th style="min-width: 220px;">Candidato</th>
+							<th style="min-width: 200px;">Email</th>
+							<th style="min-width: 120px;">Status</th>
+							<th style="min-width: 110px;">Match</th>
+							<th class="text-end" style="min-width: 120px;">Acoes</th>
+						</tr>
+    </thead>
+    <tbody id="tblVagaCands"></tbody>
+  </table>
+</div>
+			</div>
+		</div>
+	</div>
+</template>
+
+<template id="tpl-vaga-req-empty-row">
+	<tr>
+		<td colspan="6" class="text-center text-muted py-3">Nenhum requisito.</td>
+	</tr>
+</template>
+
+<template id="tpl-vaga-req-row">
+	<tr>
+		<td class="nowrap">
+			<div class="form-check form-switch m-0">
+				<input class="form-check-input" type="checkbox" data-ract="toggle" data-role="req-toggle">
+			</div>
+		</td>
+		<td data-role="req-categoria"></td>
+		<td>
+			<div class="fw-semibold" data-role="req-termo"></div>
+			<div class="text-muted small" data-role="req-obs"></div>
+		</td>
+		<td class="nowrap">
+			<span class="badge-soft" data-role="req-peso"></span>
+		</td>
+		<td data-role="req-sinonimos"></td>
+		<td class="text-end nowrap">
+			<button class="btn btn-ghost btn-sm me-1" data-ract="edit">
+				<i class="bi bi-pencil"></i>
+			</button>
+			<button class="btn btn-ghost btn-sm text-danger" data-ract="del">
+				<i class="bi bi-trash3"></i>
+			</button>
+		</td>
+	</tr>
+</template>
+
+<template id="tpl-vaga-cand-empty-row">
+	<tr>
+		<td colspan="5" class="text-center text-muted py-3">Nenhum candidato vinculado.</td>
+	</tr>
+</template>
+
+<template id="tpl-vaga-cand-row">
+	<tr>
+		<td>
+			<div class="fw-semibold" data-role="cand-nome"></div>
+			<div class="text-muted small" data-role="cand-fonte"></div>
+		</td>
+		<td data-role="cand-email"></td>
+		<td data-role="cand-status"></td>
+		<td>
+			<span class="badge-soft" data-role="cand-match"></span>
+		</td>
+		<td class="text-end">
+			<a class="btn btn-ghost btn-sm" data-role="cand-open">
+				<i class="bi bi-box-arrow-up-right me-1"></i>Abrir
+			</a>
+		</td>
+	</tr>
+</template>
+
+<template id="tpl-vaga-sim-alert-warning">
+	<div class="alert alert-warning" style="border-radius:14px;">Cole um texto para simular.</div>
+</template>
+
+<template id="tpl-vaga-sim-alert-info">
+	<div class="alert alert-info" style="border-radius:14px;">Cadastre requisitos antes de simular.</div>
+</template>
+
+<template id="tpl-vaga-sim-result">
+	<div class="card-soft p-3" style="box-shadow:none;">
+		<div class="d-flex align-items-center justify-content-between">
+			<div>
+				<div class="fw-bold">Resultado da simulação</div>
+				<div class="text-muted small">Score por palavras-chave</div>
+			</div>
+			<span class="badge rounded-pill" data-role="sim-badge">
+				<span data-role="sim-badge-text"></span> do match mínimo
+			</span>
+		</div>
+
+		<div class="mt-2">
+			<div class="d-flex align-items-center gap-2">
+				<div class="progress flex-grow-1"><div class="progress-bar" data-role="sim-progress"></div></div>
+				<div class="fw-bold" style="min-width:54px;text-align:right;" data-role="sim-score"></div>
+			</div>
+			<div class="text-muted small mt-1">
+				Match minimo da vaga: <strong data-role="sim-thr"></strong>
+				<span class="mx-1">&bull;</span> Encontrados: <strong data-role="sim-hits"></strong>
+				<span class="mx-1">&bull;</span> Obrigatorios faltando: <strong data-role="sim-miss"></strong>
+			</div>
+		</div>
+
+		<div class="alert alert-danger mt-3 mb-0 d-none" style="border-radius:14px;" data-role="sim-miss-block">
+			<div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Obrigatorios nao encontrados</div>
+			<div class="small" data-role="sim-miss-list"></div>
+		</div>
+
+		<div class="mt-3">
+			<div class="fw-semibold mb-1">Encontrados</div>
+			<div class="small text-muted" data-role="sim-hit-list"></div>
+		</div>
+	</div>
+</template>
+
+@section Footer {
+	@{
+		var footerItems = new[]
+		{
+			new { Icon = "bi-database", Text = "Postgres" },
+			new { Icon = "bi-briefcase", Text = "Vagas" },
+			new { Icon = "bi-stars", Text = "Match" }
+		  };
+	}
+	@await Html.PartialAsync("_Footer", footerItems)
+      }
+
+
+
+<!-- Bootstrap JS (CDN) -->
+@section Scripts {
+	<script>
+		window.__vagasApiUrl = "@Url.Content("~/api/vagas")";
+		window.__candidatosApiUrl = "@Url.Content("~/api/candidatos")";
+		window.__areasApiUrl = "@Url.Content("~/api/lookup/areas")";
+		window.__departmentsApiUrl = "@Url.Content("~/api/lookup/departments")";
+		window.__managersApiUrl = "@Url.Content("~/api/lookup/managers")";
+</script>
+	<script src="~/js/views/vagas.js" asp-append-version="true"></script>
+}
+

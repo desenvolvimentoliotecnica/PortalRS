@@ -1,0 +1,90 @@
+<div class="offcanvas offcanvas-end" tabindex="-1" id="filtersDrawer" aria-labelledby="filtersDrawerLabel">
+        <div class="offcanvas-header">
+            <h2 class="offcanvas-title fs-5" id="filtersDrawerLabel">Filtros</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+        </div>
+
+        <div class="offcanvas-body d-flex flex-column">
+            <form id="filtersForm" novalidate class="filters-form">
+                <div class="filters-scroll">
+                    
+
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label for="location" class="form-label">Local</label>
+                            <select id="location" name="location" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>S&atilde;o Paulo, SP</option>
+                                <option>Rio de Janeiro, RJ</option>
+                                <option>Belo Horizonte, MG</option>
+                                <option>Curitiba, PR</option>
+                                <option>Remoto (Brasil)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="mode" class="form-label">Formato</label>
+                            <select id="mode" name="mode" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>Remoto</option>
+                                <option>H&iacute;brido</option>
+                                <option>Presencial</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="type" class="form-label">Tipo</label>
+                            <select id="type" name="type" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>CLT</option>
+                                <option>PJ</option>
+                                <option>Est&aacute;gio</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="level" class="form-label">Senioridade</label>
+                            <select id="level" name="level" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>J&uacute;nior</option>
+                                <option>Pleno</option>
+                                <option>S&ecirc;nior</option>
+                                <option>Lideran&ccedil;a</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="area" class="form-label">&Aacute;rea</label>
+                            <select id="area" name="area" class="form-select">
+                                <option value="">Qualquer</option>
+                                <option>Engenharia</option>
+                                <option>Dados</option>
+                                <option>Produto</option>
+                                <option>Design</option>
+                                <option>Seguran&ccedil;a</option>
+                                <option>Opera&ccedil;&otilde;es</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="mb-3">
+                        <label for="minSalary" class="form-label">Sal&aacute;rio m&iacute;nimo (R$)</label>
+                        <input id="minSalary" name="minSalary" type="number" class="form-control"
+                               inputmode="numeric" min="0" step="500" placeholder="Ex.: 8000" />
+                        <div class="form-text">Filtra por vagas cuja faixa m&aacute;xima seja compat&iacute;vel</div>
+                    </div>
+
+                    <div class="mt-4 small text-secondary" aria-hidden="true">
+                        Use Tab para navegar e Enter para aplicar.
+                    </div>
+                </div>
+
+                <div class="filters-footer d-grid gap-2">
+                    <button id="applyBtn" class="btn btn-primary" type="submit">Aplicar</button>
+                    <button id="clearBtn" class="btn btn-outline-secondary" type="button">Limpar filtros</button>
+                </div>
+            </form>
+        </div>
+    </div>

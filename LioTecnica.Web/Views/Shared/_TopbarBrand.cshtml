@@ -1,0 +1,15 @@
+@model string
+
+<div class="d-flex align-items-center gap-2">
+  <button class="btn btn-ghost d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSidebar">
+    <i class="bi bi-list"></i>
+  </button>
+
+  <div class="d-none d-md-block">
+    <div class="fw-bold" style="color:var(--lt-primary); line-height:1.05;">Devcraft Studio • Portal RH</div>
+    @if (!string.IsNullOrWhiteSpace(Model))
+    {
+      <small class="text-muted">@Model</small>
+    }
+  </div>
+</div>

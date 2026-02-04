@@ -1,0 +1,27 @@
+@model object
+@functions {
+  private static string? GetProp(object? item, string name)
+  {
+    if (item is null) return null;
+    var prop = item.GetType().GetProperty(name);
+    return prop?.GetValue(item)?.ToString();
+  }
+}
+@{
+  var title = GetProp(Model, "Title") ?? "Portal RH";
+  var iconColor = GetProp(Model, "IconColor") ?? "var(--lt-brand)";
+  var containerClass = GetProp(Model, "ContainerClass") ?? "position-fixed bottom-0 end-0 p-3";
+  var containerStyle = GetProp(Model, "ContainerStyle") ?? "z-index: 1100;";
+}
+
+<div class="@containerClass" style="@containerStyle">
+  <div id="appToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <i class="bi bi-bell me-2" style="color:@iconColor"></i>
+      <strong class="me-auto" id="toastTitle">@title</strong>
+      <small class="text-muted" id="toastTime">agora</small>
+      <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast"></button>
+    </div>
+    <div class="toast-body" id="toastBody">-</div>
+  </div>
+</div>

@@ -1,0 +1,796 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using RhPortal.Api.Contracts.Vagas;
+using RhPortal.Api.Infrastructure.Data;
+using RHPortal.Api.Domain.Entities;
+using RHPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Tenancy;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.Extensions.Logging;
+using RhPortal.Api.Infrastructure.Localization;
+
+namespace RhPortal.Api.Application.Vagas;
+
+public interface IVagaService
+{
+    Task<IReadOnlyList<VagaListItemResponse>> ListAsync(VagaListQuery query, CancellationToken ct);
+    Task<VagaResponse?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<VagaResponse> CreateAsync(VagaCreateRequest request, CancellationToken ct);
+    Task<VagaResponse?> UpdateAsync(Guid id, VagaUpdateRequest request, CancellationToken ct);
+    Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+}
+
+public sealed class VagaService : IVagaService
+{
+    private readonly AppDbContext _db;
+    private readonly ITenantContext _tenantContext;
+    private readonly ILogger<VagaService> _logger;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
+
+    public VagaService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        ILogger<VagaService> logger,
+        IStringLocalizer<ServiceMessages> localizer)
+    {
+        _db = db;
+        _tenantContext = tenantContext;
+        _logger = logger;
+        _localizer = localizer;
+    }
+
+    public async Task<IReadOnlyList<VagaListItemResponse>> ListAsync(VagaListQuery query, CancellationToken ct)
+    {
+        IQueryable<Vaga> q = _db.Vagas.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            var term = query.Q.Trim();
+            var like = $"%{term}%";
+
+            q = q.Where(v =>
+                (v.Codigo != null && EF.Functions.Like(v.Codigo, like)) ||
+                EF.Functions.Like(v.Titulo, like) ||
+                (v.Cidade != null && EF.Functions.Like(v.Cidade, like)) ||
+                (v.Uf != null && EF.Functions.Like(v.Uf, like)) ||
+
+                (v.Area != null &&
+                    ((v.Area.Code != null && EF.Functions.Like(v.Area.Code, like)) ||
+                     (v.Area.Name != null && EF.Functions.Like(v.Area.Name, like)))) ||
+
+                (v.Department != null &&
+                    ((v.Department.Code != null && EF.Functions.Like(v.Department.Code, like)) ||
+                     (v.Department.Name != null && EF.Functions.Like(v.Department.Name, like))))
+            );
+        }
+
+        if (query.Status.HasValue)
+            q = q.Where(v => v.Status == query.Status.Value);
+
+        if (query.AreaId.HasValue && query.AreaId.Value != Guid.Empty)
+            q = q.Where(v => v.AreaId == query.AreaId.Value);
+
+        if (query.RecrutadorUserId.HasValue && query.RecrutadorUserId.Value != Guid.Empty)
+            q = q.Where(v => v.RecrutadorResponsavelUserId == query.RecrutadorUserId.Value);
+
+        if (query.DepartmentId.HasValue && query.DepartmentId.Value != Guid.Empty)
+            q = q.Where(v => v.DepartmentId == query.DepartmentId.Value);
+
+        var items = await q
+            .Select(v => new VagaListItemResponse(
+                v.Id,
+                v.Codigo,
+                v.Titulo,
+                v.Status,
+
+                v.AreaId,
+                v.Area != null ? v.Area.Code : null,
+                v.Area != null ? v.Area.Name : null,
+
+                v.DepartmentId,
+                v.Department != null ? v.Department.Code : null,
+                v.Department != null ? v.Department.Name : null,
+
+                v.Modalidade,
+                v.Senioridade,
+                v.QuantidadeVagas,
+                v.MatchMinimoPercentual,
+
+                v.Confidencial,
+                v.Urgente,
+                v.AceitaPcd,
+
+                v.DataInicio,
+                v.DataEncerramento,
+                v.DataAbertura,
+                v.SlaDiasMetaFechamento,
+
+                v.Cidade,
+                v.Uf,
+
+                v.Requisitos.Count(),
+                v.Requisitos.Count(r => r.Obrigatorio),
+
+                v.CreatedAtUtc,
+                v.UpdatedAtUtc
+            ))
+            .ToListAsync(ct);
+
+        return items
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .ThenByDescending(x => x.CreatedAtUtc)
+            .ToList();
+    }
+
+    public async Task<VagaResponse?> GetByIdAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.Vagas
+            .AsNoTracking()
+            .Include(x => x.Area)
+            .Include(x => x.Department)
+            .Include(x => x.Beneficios)
+            .Include(x => x.Requisitos)
+            .Include(x => x.Etapas)
+            .Include(x => x.PerguntasTriagem)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        return entity is null ? null : MapToResponse(entity);
+    }
+
+    public async Task<VagaResponse> CreateAsync(VagaCreateRequest request, CancellationToken ct)
+    {
+        await EnsureAreaAsync(request.AreaId, ct);
+        await EnsureDepartmentAsync(request.DepartmentId, ct);
+
+        var weights = NormalizeWeights(request.Weights, null);
+        var entity = new Vaga
+        {
+            Id = Guid.NewGuid(),
+            Codigo = TrimOrNull(request.Codigo),
+            Titulo = (request.Titulo ?? string.Empty).Trim(),
+            DepartmentId = request.DepartmentId,
+            AreaTime = request.AreaTime,
+            AreaId = request.AreaId,
+            Modalidade = request.Modalidade,
+            Status = request.Status,
+            Senioridade = request.Senioridade,
+            QuantidadeVagas = request.QuantidadeVagas < 1 ? 1 : request.QuantidadeVagas,
+            TipoContratacao = request.TipoContratacao,
+            MatchMinimoPercentual = ClampPercent(request.MatchMinimoPercentual),
+            PesoCompetencia = weights.Competencia,
+            PesoExperiencia = weights.Experiencia,
+            PesoFormacao = weights.Formacao,
+            PesoLocalidade = weights.Localidade,
+            DescricaoInterna = TrimOrNull(request.DescricaoInterna),
+            CodigoInterno = TrimOrNull(request.CodigoInterno),
+            CodigoCbo = TrimOrNull(request.CodigoCbo),
+            MotivoAbertura = request.MotivoAbertura,
+            OrcamentoAprovado = request.OrcamentoAprovado,
+            GestorRequisitante = TrimOrNull(request.GestorRequisitante),
+            RecrutadorResponsavel = TrimOrNull(request.RecrutadorResponsavel),
+            Prioridade = request.Prioridade,
+            ResumoPitch = TrimOrNull(request.ResumoPitch),
+            TagsResponsabilidadesRaw = TrimOrNull(request.TagsResponsabilidadesRaw),
+            TagsKeywordsRaw = TrimOrNull(request.TagsKeywordsRaw),
+            Confidencial = request.Confidencial,
+            AceitaPcd = request.AceitaPcd,
+            Urgente = request.Urgente,
+            GeneroPreferencia = request.GeneroPreferencia,
+            VagaAfirmativa = request.VagaAfirmativa,
+            LinguagemInclusiva = request.LinguagemInclusiva,
+            PublicoAfirmativo = TrimOrNull(request.PublicoAfirmativo),
+            ObservacoesPcd = TrimOrNull(request.ObservacoesPcd),
+            ProjetoNome = TrimOrNull(request.ProjetoNome),
+            ProjetoClienteAreaImpactada = TrimOrNull(request.ProjetoClienteAreaImpactada),
+            ProjetoPrazoPrevisto = TrimOrNull(request.ProjetoPrazoPrevisto),
+            ProjetoDescricao = TrimOrNull(request.ProjetoDescricao),
+            Regime = request.Regime,
+            CargaSemanalHoras = request.CargaSemanalHoras,
+            Escala = request.Escala,
+            HoraEntrada = request.HoraEntrada,
+            HoraSaida = request.HoraSaida,
+            Intervalo = request.Intervalo,
+            Cep = TrimOrNull(request.Cep),
+            Logradouro = TrimOrNull(request.Logradouro),
+            Numero = TrimOrNull(request.Numero),
+            Bairro = TrimOrNull(request.Bairro),
+            Cidade = TrimOrNull(request.Cidade),
+            Uf = TrimOrNull(request.Uf),
+            PoliticaTrabalho = TrimOrNull(request.PoliticaTrabalho),
+            ObservacoesDeslocamento = TrimOrNull(request.ObservacoesDeslocamento),
+            Moeda = request.Moeda,
+            SalarioMinimo = request.SalarioMinimo,
+            SalarioMaximo = request.SalarioMaximo,
+            Periodicidade = request.Periodicidade,
+            BonusTipo = request.BonusTipo,
+            BonusPercentual = request.BonusPercentual,
+            ObservacoesRemuneracao = TrimOrNull(request.ObservacoesRemuneracao),
+            Escolaridade = request.Escolaridade,
+            FormacaoArea = request.FormacaoArea,
+            ExperienciaMinimaAnos = request.ExperienciaMinimaAnos,
+            TagsStackRaw = TrimOrNull(request.TagsStackRaw),
+            TagsIdiomasRaw = TrimOrNull(request.TagsIdiomasRaw),
+            Diferenciais = TrimOrNull(request.Diferenciais),
+            ObservacoesProcesso = TrimOrNull(request.ObservacoesProcesso),
+            Visibilidade = request.Visibilidade,
+            DataInicio = request.DataInicio,
+            DataEncerramento = request.DataEncerramento,
+            CanalLinkedIn = request.CanalLinkedIn,
+            CanalSiteCarreiras = request.CanalSiteCarreiras,
+            CanalIndicacao = request.CanalIndicacao,
+            CanalPortaisEmprego = request.CanalPortaisEmprego,
+            DescricaoPublica = TrimOrNull(request.DescricaoPublica),
+            LgpdSolicitarConsentimentoExplicito = request.LgpdSolicitarConsentimentoExplicito,
+            LgpdCompartilharCurriculoInternamente = request.LgpdCompartilharCurriculoInternamente,
+            LgpdRetencaoAtiva = request.LgpdRetencaoAtiva,
+            LgpdRetencaoMeses = request.LgpdRetencaoMeses,
+            ExigeCnh = request.ExigeCnh,
+            DisponibilidadeParaViagens = request.DisponibilidadeParaViagens,
+            ChecagemAntecedentes = request.ChecagemAntecedentes,
+            SlaDiasMetaFechamento = request.SlaDiasMetaFechamento,
+            Beneficios = BuildBeneficios(request.Beneficios),
+            Requisitos = BuildRequisitos(request.Requisitos),
+            Etapas = BuildEtapas(request.Etapas),
+            PerguntasTriagem = BuildPerguntas(request.PerguntasTriagem)
+        };
+
+        if (request.Status == VagaStatus.Aberta)
+            entity.DataAbertura = DateTimeOffset.UtcNow;
+
+        _db.Vagas.Add(entity);
+        await _db.SaveChangesAsync(ct);
+
+        return (await GetByIdAsync(entity.Id, ct))!;
+    }
+
+    public async Task<VagaResponse?> UpdateAsync(Guid id, VagaUpdateRequest request, CancellationToken ct)
+    {
+        var entity = await _db.Vagas.IgnoreQueryFilters()
+            .Include(x => x.Beneficios)
+            .Include(x => x.Requisitos)
+            .Include(x => x.Etapas)
+            .Include(x => x.PerguntasTriagem)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (entity is null) return null;
+        EnsureTenantOwnership(entity);
+
+        await EnsureAreaAsync(request.AreaId, ct);
+        await EnsureDepartmentAsync(request.DepartmentId, ct);
+
+        ApplyUpdate(entity, request);
+        ReplaceChildren(entity, request);
+
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            LogConcurrency("first attempt", entity);
+            _db.ChangeTracker.Clear();
+            var refreshed = await _db.Vagas.IgnoreQueryFilters()
+                .Include(x => x.Beneficios)
+                .Include(x => x.Requisitos)
+                .Include(x => x.Etapas)
+                .Include(x => x.PerguntasTriagem)
+                .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+            if (refreshed is null) return null;
+            EnsureTenantOwnership(refreshed);
+
+            ApplyUpdate(refreshed, request);
+            ReplaceChildren(refreshed, request);
+            try
+            {
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                LogConcurrency("retry", refreshed);
+                throw;
+            }
+        }
+
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.Vagas.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return false;
+
+        _db.Vagas.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private static VagaResponse MapToResponse(Vaga v)
+    {
+        return new VagaResponse(
+            v.Id,
+            v.Codigo,
+            v.Titulo,
+            v.DepartmentId,
+            v.Department?.Code,
+            v.Department?.Name,
+            v.AreaTime,
+            v.AreaId,
+            v.Area?.Code,
+            v.Area?.Name,
+            v.Modalidade,
+            v.Status,
+            v.Senioridade,
+            v.QuantidadeVagas,
+            v.TipoContratacao,
+            v.MatchMinimoPercentual,
+            MapWeights(v),
+            v.DescricaoInterna,
+            v.CodigoInterno,
+            v.CodigoCbo,
+            v.MotivoAbertura,
+            v.OrcamentoAprovado,
+            v.GestorRequisitante,
+            v.RecrutadorResponsavel,
+            v.RecrutadorResponsavelUserId,
+            v.Prioridade,
+            v.ResumoPitch,
+            v.TagsResponsabilidadesRaw,
+            v.TagsKeywordsRaw,
+            v.Confidencial,
+            v.AceitaPcd,
+            v.Urgente,
+            v.GeneroPreferencia,
+            v.VagaAfirmativa,
+            v.LinguagemInclusiva,
+            v.PublicoAfirmativo,
+            v.ObservacoesPcd,
+            v.ProjetoNome,
+            v.ProjetoClienteAreaImpactada,
+            v.ProjetoPrazoPrevisto,
+            v.ProjetoDescricao,
+            v.Regime,
+            v.CargaSemanalHoras,
+            v.Escala,
+            v.HoraEntrada,
+            v.HoraSaida,
+            v.Intervalo,
+            v.Cep,
+            v.Logradouro,
+            v.Numero,
+            v.Bairro,
+            v.Cidade,
+            v.Uf,
+            v.PoliticaTrabalho,
+            v.ObservacoesDeslocamento,
+            v.Moeda,
+            v.SalarioMinimo,
+            v.SalarioMaximo,
+            v.Periodicidade,
+            v.BonusTipo,
+            v.BonusPercentual,
+            v.ObservacoesRemuneracao,
+            v.Escolaridade,
+            v.FormacaoArea,
+            v.ExperienciaMinimaAnos,
+            v.TagsStackRaw,
+            v.TagsIdiomasRaw,
+            v.Diferenciais,
+            v.ObservacoesProcesso,
+            v.Visibilidade,
+            v.DataInicio,
+            v.DataEncerramento,
+            v.DataAbertura,
+            v.SlaDiasMetaFechamento,
+            v.CanalLinkedIn,
+            v.CanalSiteCarreiras,
+            v.CanalIndicacao,
+            v.CanalPortaisEmprego,
+            v.DescricaoPublica,
+            v.LgpdSolicitarConsentimentoExplicito,
+            v.LgpdCompartilharCurriculoInternamente,
+            v.LgpdRetencaoAtiva,
+            v.LgpdRetencaoMeses,
+            v.ExigeCnh,
+            v.DisponibilidadeParaViagens,
+            v.ChecagemAntecedentes,
+            v.Beneficios.OrderBy(x => x.Ordem).Select(MapBeneficio).ToList(),
+            v.Requisitos.OrderBy(x => x.Ordem).Select(MapRequisito).ToList(),
+            v.Etapas.OrderBy(x => x.Ordem).Select(MapEtapa).ToList(),
+            v.PerguntasTriagem.OrderBy(x => x.Ordem).Select(MapPergunta).ToList(),
+            v.CreatedAtUtc,
+            v.UpdatedAtUtc
+        );
+    }
+
+    private static VagaBeneficioResponse MapBeneficio(VagaBeneficio b)
+        => new(
+            b.Id,
+            b.Ordem,
+            b.Tipo,
+            b.Valor,
+            b.Recorrencia,
+            b.Obrigatorio,
+            b.Observacoes,
+            b.CreatedAtUtc,
+            b.UpdatedAtUtc
+        );
+
+    private static VagaRequisitoResponse MapRequisito(VagaRequisito r)
+        => new(
+            r.Id,
+            r.Ordem,
+            r.Categoria,
+            r.Nome,
+            r.Peso,
+            r.Obrigatorio,
+            r.AnosMinimos,
+            r.Nivel,
+            r.Avaliacao,
+            SplitSinonimos(r.SinonimosRaw),
+            r.Observacoes,
+            r.CreatedAtUtc,
+            r.UpdatedAtUtc
+        );
+
+    private static VagaEtapaResponse MapEtapa(VagaEtapa e)
+        => new(
+            e.Id,
+            e.Ordem,
+            e.Nome,
+            e.Responsavel,
+            e.Modo,
+            e.SlaDias,
+            e.DescricaoInstrucoes,
+            e.CreatedAtUtc,
+            e.UpdatedAtUtc
+        );
+
+    private static VagaPerguntaResponse MapPergunta(VagaPergunta p)
+        => new(
+            p.Id,
+            p.Ordem,
+            p.Texto,
+            p.Tipo,
+            p.Peso,
+            p.Obrigatoria,
+            p.Knockout,
+            p.OpcoesRaw,
+            p.CreatedAtUtc,
+            p.UpdatedAtUtc
+        );
+
+    private static List<VagaBeneficio> BuildBeneficios(IReadOnlyList<VagaBeneficioRequest>? items)
+    {
+        if (items is null || items.Count == 0) return [];
+        var list = new List<VagaBeneficio>(items.Count);
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            list.Add(new VagaBeneficio
+            {
+                Id = Guid.NewGuid(),
+                Ordem = NormalizeOrder(item.Ordem, i),
+                Tipo = item.Tipo,
+                Valor = item.Valor,
+                Recorrencia = item.Recorrencia,
+                Obrigatorio = item.Obrigatorio,
+                Observacoes = TrimOrNull(item.Observacoes)
+            });
+        }
+        return list;
+    }
+
+    private static List<VagaRequisito> BuildRequisitos(IReadOnlyList<VagaRequisitoRequest>? items)
+    {
+        if (items is null || items.Count == 0) return [];
+        var list = new List<VagaRequisito>(items.Count);
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            list.Add(new VagaRequisito
+            {
+                Id = Guid.NewGuid(),
+                Ordem = NormalizeOrder(item.Ordem, i),
+                Nome = (item.Nome ?? string.Empty).Trim(),
+                Categoria = TrimOrNull(item.Categoria),
+                Peso = item.Peso,
+                Obrigatorio = item.Obrigatorio,
+                AnosMinimos = item.AnosMinimos,
+                Nivel = item.Nivel,
+                Avaliacao = item.Avaliacao,
+                SinonimosRaw = JoinSinonimos(item.Sinonimos),
+                Observacoes = TrimOrNull(item.Observacoes)
+            });
+        }
+        return list;
+    }
+
+    private static List<VagaEtapa> BuildEtapas(IReadOnlyList<VagaEtapaRequest>? items)
+    {
+        if (items is null || items.Count == 0) return [];
+        var list = new List<VagaEtapa>(items.Count);
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            list.Add(new VagaEtapa
+            {
+                Id = Guid.NewGuid(),
+                Ordem = NormalizeOrder(item.Ordem, i),
+                Nome = (item.Nome ?? string.Empty).Trim(),
+                Responsavel = item.Responsavel,
+                Modo = item.Modo,
+                SlaDias = item.SlaDias,
+                DescricaoInstrucoes = TrimOrNull(item.DescricaoInstrucoes)
+            });
+        }
+        return list;
+    }
+
+    private static List<VagaPergunta> BuildPerguntas(IReadOnlyList<VagaPerguntaRequest>? items)
+    {
+        if (items is null || items.Count == 0) return [];
+        var list = new List<VagaPergunta>(items.Count);
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            list.Add(new VagaPergunta
+            {
+                Id = Guid.NewGuid(),
+                Ordem = NormalizeOrder(item.Ordem, i),
+                Texto = (item.Texto ?? string.Empty).Trim(),
+                Tipo = item.Tipo,
+                Peso = item.Peso,
+                Obrigatoria = item.Obrigatoria,
+                Knockout = item.Knockout,
+                OpcoesRaw = TrimOrNull(item.OpcoesRaw)
+            });
+        }
+        return list;
+    }
+
+    private void ReplaceChildren(Vaga entity, VagaUpdateRequest request)
+    {
+        if (entity.Beneficios.Count > 0)
+            _db.VagaBeneficios.RemoveRange(entity.Beneficios);
+        if (entity.Requisitos.Count > 0)
+            _db.VagaRequisitos.RemoveRange(entity.Requisitos);
+        if (entity.Etapas.Count > 0)
+            _db.VagaEtapas.RemoveRange(entity.Etapas);
+        if (entity.PerguntasTriagem.Count > 0)
+            _db.VagaPerguntas.RemoveRange(entity.PerguntasTriagem);
+
+        entity.Beneficios = BuildBeneficios(request.Beneficios);
+        entity.Requisitos = BuildRequisitos(request.Requisitos);
+        entity.Etapas = BuildEtapas(request.Etapas);
+        entity.PerguntasTriagem = BuildPerguntas(request.PerguntasTriagem);
+
+        if (entity.Beneficios.Count > 0)
+            _db.VagaBeneficios.AddRange(entity.Beneficios);
+        if (entity.Requisitos.Count > 0)
+            _db.VagaRequisitos.AddRange(entity.Requisitos);
+        if (entity.Etapas.Count > 0)
+            _db.VagaEtapas.AddRange(entity.Etapas);
+        if (entity.PerguntasTriagem.Count > 0)
+            _db.VagaPerguntas.AddRange(entity.PerguntasTriagem);
+    }
+
+    private async Task EnsureAreaAsync(Guid areaId, CancellationToken ct)
+    {
+        var exists = await _db.Areas.AnyAsync(a => a.Id == areaId, ct);
+        if (!exists) throw new InvalidOperationException(_localizer["ServiceErrors.AreaInvalid"]);
+    }
+
+    private async Task EnsureDepartmentAsync(Guid departmentId, CancellationToken ct)
+    {
+        var exists = await _db.Departments.AnyAsync(d => d.Id == departmentId, ct);
+        if (!exists) throw new InvalidOperationException(_localizer["ServiceErrors.DepartmentInvalid"]);
+    }
+
+    private static int ClampPercent(int value)
+        => Math.Clamp(value, 0, 100);
+
+    private static VagaWeightsResponse MapWeights(Vaga v)
+    {
+        if (v.PesoCompetencia == 0 && v.PesoExperiencia == 0 && v.PesoFormacao == 0 && v.PesoLocalidade == 0)
+            return new VagaWeightsResponse(40, 30, 15, 15);
+
+        return new VagaWeightsResponse(v.PesoCompetencia, v.PesoExperiencia, v.PesoFormacao, v.PesoLocalidade);
+    }
+
+    private static (int Competencia, int Experiencia, int Formacao, int Localidade) NormalizeWeights(
+        VagaWeightsRequest? weights,
+        Vaga? fallback)
+    {
+        var competencia = weights?.Competencia ?? fallback?.PesoCompetencia ?? 40;
+        var experiencia = weights?.Experiencia ?? fallback?.PesoExperiencia ?? 30;
+        var formacao = weights?.Formacao ?? fallback?.PesoFormacao ?? 15;
+        var localidade = weights?.Localidade ?? fallback?.PesoLocalidade ?? 15;
+
+        return (
+            ClampPercent(competencia),
+            ClampPercent(experiencia),
+            ClampPercent(formacao),
+            ClampPercent(localidade)
+        );
+    }
+
+    private static int NormalizeOrder(int ordem, int fallback)
+        => ordem >= 0 ? ordem : fallback;
+
+    private static string? TrimOrNull(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private void ApplyUpdate(Vaga entity, VagaUpdateRequest request)
+    {
+        entity.Codigo = TrimOrNull(request.Codigo);
+        entity.Titulo = (request.Titulo ?? string.Empty).Trim();
+        entity.DepartmentId = request.DepartmentId;
+        entity.AreaTime = request.AreaTime;
+        entity.AreaId = request.AreaId;
+        entity.Modalidade = request.Modalidade;
+        entity.Status = request.Status;
+        if (request.Status == VagaStatus.Aberta && entity.DataAbertura == null)
+            entity.DataAbertura = DateTimeOffset.UtcNow;
+        entity.Senioridade = request.Senioridade;
+        entity.QuantidadeVagas = request.QuantidadeVagas < 1 ? 1 : request.QuantidadeVagas;
+        entity.TipoContratacao = request.TipoContratacao;
+        entity.MatchMinimoPercentual = ClampPercent(request.MatchMinimoPercentual);
+        var weights = NormalizeWeights(request.Weights, entity);
+        entity.PesoCompetencia = weights.Competencia;
+        entity.PesoExperiencia = weights.Experiencia;
+        entity.PesoFormacao = weights.Formacao;
+        entity.PesoLocalidade = weights.Localidade;
+        entity.DescricaoInterna = TrimOrNull(request.DescricaoInterna);
+        entity.CodigoInterno = TrimOrNull(request.CodigoInterno);
+        entity.CodigoCbo = TrimOrNull(request.CodigoCbo);
+        entity.MotivoAbertura = request.MotivoAbertura;
+        entity.OrcamentoAprovado = request.OrcamentoAprovado;
+        entity.GestorRequisitante = TrimOrNull(request.GestorRequisitante);
+        entity.RecrutadorResponsavel = TrimOrNull(request.RecrutadorResponsavel);
+        entity.Prioridade = request.Prioridade;
+        entity.ResumoPitch = TrimOrNull(request.ResumoPitch);
+        entity.TagsResponsabilidadesRaw = TrimOrNull(request.TagsResponsabilidadesRaw);
+        entity.TagsKeywordsRaw = TrimOrNull(request.TagsKeywordsRaw);
+        entity.Confidencial = request.Confidencial;
+        entity.AceitaPcd = request.AceitaPcd;
+        entity.Urgente = request.Urgente;
+        entity.GeneroPreferencia = request.GeneroPreferencia;
+        entity.VagaAfirmativa = request.VagaAfirmativa;
+        entity.LinguagemInclusiva = request.LinguagemInclusiva;
+        entity.PublicoAfirmativo = TrimOrNull(request.PublicoAfirmativo);
+        entity.ObservacoesPcd = TrimOrNull(request.ObservacoesPcd);
+        entity.ProjetoNome = TrimOrNull(request.ProjetoNome);
+        entity.ProjetoClienteAreaImpactada = TrimOrNull(request.ProjetoClienteAreaImpactada);
+        entity.ProjetoPrazoPrevisto = TrimOrNull(request.ProjetoPrazoPrevisto);
+        entity.ProjetoDescricao = TrimOrNull(request.ProjetoDescricao);
+        entity.Regime = request.Regime;
+        entity.CargaSemanalHoras = request.CargaSemanalHoras;
+        entity.Escala = request.Escala;
+        entity.HoraEntrada = request.HoraEntrada;
+        entity.HoraSaida = request.HoraSaida;
+        entity.Intervalo = request.Intervalo;
+        entity.Cep = TrimOrNull(request.Cep);
+        entity.Logradouro = TrimOrNull(request.Logradouro);
+        entity.Numero = TrimOrNull(request.Numero);
+        entity.Bairro = TrimOrNull(request.Bairro);
+        entity.Cidade = TrimOrNull(request.Cidade);
+        entity.Uf = TrimOrNull(request.Uf);
+        entity.PoliticaTrabalho = TrimOrNull(request.PoliticaTrabalho);
+        entity.ObservacoesDeslocamento = TrimOrNull(request.ObservacoesDeslocamento);
+        entity.Moeda = request.Moeda;
+        entity.SalarioMinimo = request.SalarioMinimo;
+        entity.SalarioMaximo = request.SalarioMaximo;
+        entity.Periodicidade = request.Periodicidade;
+        entity.BonusTipo = request.BonusTipo;
+        entity.BonusPercentual = request.BonusPercentual;
+        entity.ObservacoesRemuneracao = TrimOrNull(request.ObservacoesRemuneracao);
+        entity.Escolaridade = request.Escolaridade;
+        entity.FormacaoArea = request.FormacaoArea;
+        entity.ExperienciaMinimaAnos = request.ExperienciaMinimaAnos;
+        entity.TagsStackRaw = TrimOrNull(request.TagsStackRaw);
+        entity.TagsIdiomasRaw = TrimOrNull(request.TagsIdiomasRaw);
+        entity.Diferenciais = TrimOrNull(request.Diferenciais);
+        entity.ObservacoesProcesso = TrimOrNull(request.ObservacoesProcesso);
+        entity.Visibilidade = request.Visibilidade;
+        entity.DataInicio = request.DataInicio;
+        entity.DataEncerramento = request.DataEncerramento;
+        entity.CanalLinkedIn = request.CanalLinkedIn;
+        entity.CanalSiteCarreiras = request.CanalSiteCarreiras;
+        entity.CanalIndicacao = request.CanalIndicacao;
+        entity.CanalPortaisEmprego = request.CanalPortaisEmprego;
+        entity.DescricaoPublica = TrimOrNull(request.DescricaoPublica);
+        entity.LgpdSolicitarConsentimentoExplicito = request.LgpdSolicitarConsentimentoExplicito;
+        entity.LgpdCompartilharCurriculoInternamente = request.LgpdCompartilharCurriculoInternamente;
+        entity.LgpdRetencaoAtiva = request.LgpdRetencaoAtiva;
+        entity.LgpdRetencaoMeses = request.LgpdRetencaoMeses;
+        entity.ExigeCnh = request.ExigeCnh;
+        entity.DisponibilidadeParaViagens = request.DisponibilidadeParaViagens;
+        entity.ChecagemAntecedentes = request.ChecagemAntecedentes;
+        entity.SlaDiasMetaFechamento = request.SlaDiasMetaFechamento;
+    }
+
+    private void EnsureTenantOwnership(Vaga entity)
+    {
+        var tenantId = _tenantContext.TenantId;
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new InvalidOperationException(_localizer["ServiceErrors.TenantRequired"]);
+
+        if (!string.IsNullOrWhiteSpace(entity.TenantId) &&
+            !string.Equals(entity.TenantId, tenantId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(_localizer["ServiceErrors.TenantMismatchForVaga"]);
+
+        entity.TenantId = tenantId;
+
+        foreach (var item in entity.Beneficios)
+            item.TenantId = tenantId;
+        foreach (var item in entity.Requisitos)
+            item.TenantId = tenantId;
+        foreach (var item in entity.Etapas)
+            item.TenantId = tenantId;
+        foreach (var item in entity.PerguntasTriagem)
+            item.TenantId = tenantId;
+    }
+
+    private void LogConcurrency(string attempt, Vaga entity)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var entry = _db.Entry(entity);
+
+        _logger.LogError(
+            "Vaga update concurrency ({Attempt}). Tenant={TenantId}, VagaId={VagaId}, State={State}, RowVersion={HasConcurrencyToken}, Beneficios={Beneficios}, Requisitos={Requisitos}, Etapas={Etapas}, Perguntas={Perguntas}",
+            attempt,
+            tenantId,
+            entity.Id,
+            entry.State,
+            HasConcurrencyToken(entry),
+            entity.Beneficios.Count,
+            entity.Requisitos.Count,
+            entity.Etapas.Count,
+            entity.PerguntasTriagem.Count);
+
+        LogEntries();
+    }
+
+    private void LogEntries()
+    {
+        foreach (var entry in _db.ChangeTracker.Entries())
+        {
+            if (entry.State == EntityState.Unchanged) continue;
+            var key = entry.Metadata.FindPrimaryKey();
+            var keyValues = key?.Properties.Select(p => entry.Property(p.Name).CurrentValue)?.ToArray() ?? Array.Empty<object?>();
+
+            _logger.LogError(
+                "Entry {Entity} State={State} Keys={Keys} TenantId={TenantId} RowsAffectedExpected=1",
+                entry.Metadata.ClrType.Name,
+                entry.State,
+                string.Join(",", keyValues.Select(v => v ?? "null")),
+                entry.Property("TenantId")?.CurrentValue ?? "n/a");
+        }
+    }
+
+    private static bool HasConcurrencyToken(EntityEntry entry)
+        => entry.Metadata.GetProperties().Any(p => p.IsConcurrencyToken);
+
+    private static string? JoinSinonimos(IReadOnlyList<string>? sinonimos)
+    {
+        if (sinonimos is null || sinonimos.Count == 0) return null;
+        var cleaned = sinonimos
+            .Select(s => (s ?? string.Empty).Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return cleaned.Length == 0 ? null : string.Join(";", cleaned);
+    }
+
+    private static IReadOnlyList<string> SplitSinonimos(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return Array.Empty<string>();
+        var items = raw
+            .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return items.Length == 0 ? Array.Empty<string>() : items;
+    }
+}

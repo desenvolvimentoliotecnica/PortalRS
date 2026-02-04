@@ -1,0 +1,61 @@
+<div class="modal fade" id="modalArea" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title fw-bold" id="modalAreaTitle">Nova area</h5>
+          <div class="text-muted small">Cadastre dados principais da area.</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="areaId">
+
+        <div class="row g-2">
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted">Codigo *</label>
+            <input class="form-control" id="areaCodigo" placeholder="AREA-XXX">
+          </div>
+          <div class="col-12 col-md-8">
+            <label class="form-label small text-muted">Area *</label>
+            <input class="form-control" id="areaNome" placeholder="Ex.: Producao">
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted">Area pai</label>
+            <select class="form-select" id="areaParentId">
+              <option value="">Nenhuma (raiz)</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted">Dono (funcionário)</label>
+            <select class="form-select" id="areaOwnerFuncionarioId">
+              <option value="">Nenhum</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted">Status</label>
+            <select class="form-select" id="areaStatus">
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-8">
+            <label class="form-label small text-muted">Descricao</label>
+            <input class="form-control" id="areaDescricao" placeholder="Resumo do escopo da area">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-brand" type="button" id="btnSaveArea">
+          <i class="bi bi-check2 me-1"></i>Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

@@ -1,0 +1,194 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using RhPortal.Api.Contracts.Portal;
+using RhPortal.Api.Contracts.Notifications;
+using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Application.Talentos;
+using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Notifications;
+using RhPortal.Api.Infrastructure.Tenancy;
+
+namespace RhPortal.Api.Application.Portal;
+
+public interface IPortalCandidateAuthService
+{
+    Task<PortalCandidateAuthResponse?> LoginAsync(PortalCandidateLoginRequest request, CancellationToken ct);
+    Task<PortalCandidateAuthResponse> RegisterAsync(PortalCandidateRegisterRequest request, CancellationToken ct);
+}
+
+public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
+{
+    private readonly AppDbContext _db;
+    private readonly IPasswordHasher<Candidato> _passwordHasher;
+    private readonly IStringLocalizer<ServiceMessages> _localizer;
+    private readonly NotificationPublisher _notificationPublisher;
+    private readonly ITenantContext _tenantContext;
+    private readonly ITalentoService _talentoService;
+
+    public PortalCandidateAuthService(
+        AppDbContext db,
+        IPasswordHasher<Candidato> passwordHasher,
+        IStringLocalizer<ServiceMessages> localizer,
+        NotificationPublisher notificationPublisher,
+        ITenantContext tenantContext,
+        ITalentoService talentoService)
+    {
+        _db = db;
+        _passwordHasher = passwordHasher;
+        _localizer = localizer;
+        _notificationPublisher = notificationPublisher;
+        _tenantContext = tenantContext;
+        _talentoService = talentoService;
+    }
+
+    public async Task<PortalCandidateAuthResponse?> LoginAsync(PortalCandidateLoginRequest request, CancellationToken ct)
+    {
+        var email = NormalizeEmail(request.Email);
+        if (string.IsNullOrWhiteSpace(email)) return null;
+
+        var candidato = await _db.Candidatos
+            .FirstOrDefaultAsync(x => x.Email == email, ct);
+
+        if (candidato is null || string.IsNullOrWhiteSpace(candidato.PortalPasswordHash))
+            return null;
+
+        var result = _passwordHasher.VerifyHashedPassword(candidato, candidato.PortalPasswordHash, request.Password);
+        if (result == PasswordVerificationResult.Failed)
+            return null;
+
+        if (result == PasswordVerificationResult.SuccessRehashNeeded)
+        {
+            candidato.PortalPasswordHash = _passwordHasher.HashPassword(candidato, request.Password);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return new PortalCandidateAuthResponse(candidato.Id, candidato.Nome, candidato.Email);
+    }
+
+    public async Task<PortalCandidateAuthResponse> RegisterAsync(PortalCandidateRegisterRequest request, CancellationToken ct)
+    {
+        var email = NormalizeEmail(request.Email);
+        if (string.IsNullOrWhiteSpace(email))
+            throw new InvalidOperationException(_localizer["ServiceErrors.PortalEmailInvalid"]);
+
+        var candidato = await _db.Candidatos
+            .FirstOrDefaultAsync(x => x.Email == email, ct);
+
+        if (candidato is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(candidato.PortalPasswordHash))
+                throw new InvalidOperationException(_localizer["ServiceErrors.PortalAccessExists"]);
+
+            var (talento, _) = await _talentoService.GetOrCreateByEmailAsync(
+                email,
+                request.Nome,
+                NormalizeRequired(request.Fone),
+                NormalizeRequired(request.Cidade),
+                NormalizeUfRequired(request.Uf),
+                null,
+                null,
+                null,
+                OrigemTalento.Site,
+                ct);
+            candidato.TalentoId = talento.Id;
+
+            candidato.Nome = (request.Nome ?? string.Empty).Trim();
+            candidato.Email = email;
+            candidato.Fone = NormalizeRequired(request.Fone);
+            candidato.Cidade = NormalizeRequired(request.Cidade);
+            candidato.Uf = NormalizeUfRequired(request.Uf);
+            candidato.PortalPasswordHash = _passwordHasher.HashPassword(candidato, request.Password);
+
+            await _db.SaveChangesAsync(ct);
+            await NotifyPortalRegisterAsync(candidato, ct);
+            return new PortalCandidateAuthResponse(candidato.Id, candidato.Nome, candidato.Email);
+        }
+
+        var (talentoNew, _) = await _talentoService.GetOrCreateByEmailAsync(
+            email,
+            request.Nome,
+            NormalizeRequired(request.Fone),
+            NormalizeRequired(request.Cidade),
+            NormalizeUfRequired(request.Uf),
+            null,
+            null,
+            null,
+            OrigemTalento.Site,
+            ct);
+
+        var entity = new Candidato
+        {
+            Id = Guid.NewGuid(),
+            Nome = (request.Nome ?? string.Empty).Trim(),
+            Email = email,
+            Fone = NormalizeRequired(request.Fone),
+            Cidade = NormalizeRequired(request.Cidade),
+            Uf = NormalizeUfRequired(request.Uf),
+            Fonte = CandidateOrigin.Site,
+            Status = CandidateStatus.Novo,
+            VagaId = null,
+            TalentoId = talentoNew.Id,
+            PortalAccessKey = GeneratePortalAccessKey()
+        };
+
+        entity.PortalPasswordHash = _passwordHasher.HashPassword(entity, request.Password);
+
+        _db.Candidatos.Add(entity);
+        await _db.SaveChangesAsync(ct);
+        await NotifyPortalRegisterAsync(entity, ct);
+
+        return new PortalCandidateAuthResponse(entity.Id, entity.Nome, entity.Email);
+    }
+
+    private static string NormalizeEmail(string? email)
+        => (email ?? string.Empty).Trim().ToLowerInvariant();
+
+    private static string NormalizeUfRequired(string? uf)
+        => (uf ?? string.Empty).Trim().ToUpperInvariant();
+
+    private static string NormalizeRequired(string? value)
+        => (value ?? string.Empty).Trim();
+
+    private static string GeneratePortalAccessKey()
+    {
+        var raw = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        return raw.TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    }
+
+    private async Task NotifyPortalRegisterAsync(Candidato candidato, CancellationToken ct)
+    {
+        try
+        {
+            var tenantId = string.IsNullOrWhiteSpace(candidato.TenantId) ? _tenantContext.TenantId : candidato.TenantId;
+            var parts = new List<string>
+            {
+                $"Nome: {candidato.Nome}",
+                $"Email: {candidato.Email}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(candidato.Fone))
+                parts.Add($"Fone: {candidato.Fone}");
+            if (!string.IsNullOrWhiteSpace(candidato.Cidade) || !string.IsNullOrWhiteSpace(candidato.Uf))
+                parts.Add($"Cidade/UF: {candidato.Cidade} - {candidato.Uf}");
+
+            var message = string.Join(" | ", parts);
+            var request = new NotificationSendRequest(
+                NotificationScope.Tenant,
+                "Novo candidato cadastrado",
+                message,
+                "info",
+                $"/Candidatos?open={candidato.Id}",
+                tenantId,
+                null);
+
+            await _notificationPublisher.PublishToTenantsAsync(new[] { tenantId }, request, ct);
+        }
+        catch
+        {
+            // best-effort
+        }
+    }
+}

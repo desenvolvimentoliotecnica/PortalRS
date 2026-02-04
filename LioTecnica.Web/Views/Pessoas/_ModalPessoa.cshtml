@@ -1,0 +1,149 @@
+<div class="modal fade" id="modalPessoa" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title fw-bold" id="modalPessoaTitle">Editar pessoa</h5>
+          <div class="text-muted small">Dados básicos, endereço, documentos e contato.</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="pessId">
+
+        <ul class="nav nav-pills gap-2 mb-3" style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
+          <li class="nav-item">
+            <button class="nav-link active rounded-pill" data-bs-toggle="pill" data-bs-target="#pessTabDados" type="button">
+              <i class="bi bi-person-badge me-1"></i>Dados básicos
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#pessTabEndereco" type="button">
+              <i class="bi bi-geo-alt me-1"></i>Endereço
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#pessTabDocumentos" type="button">
+              <i class="bi bi-card-text me-1"></i>Documentos
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#pessTabHistorico" type="button">
+              <i class="bi bi-clock-history me-1"></i>Histórico
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="pessTabDados">
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">Nome *</label>
+                <input class="form-control" id="pessNome" placeholder="Ex.: Maria Silva" maxlength="160">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">E-mail *</label>
+                <input class="form-control" id="pessEmail" type="email" placeholder="email@exemplo.com" maxlength="180">
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted">Telefone</label>
+                <input class="form-control" id="pessFone" placeholder="(11) 99999-9999" maxlength="40">
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted">Cidade</label>
+                <input class="form-control" id="pessCidade" placeholder="Ex.: São Paulo" maxlength="120">
+              </div>
+              <div class="col-12 col-md-2">
+                <label class="form-label small text-muted">UF</label>
+                <input class="form-control" id="pessUF" placeholder="SP" maxlength="2">
+              </div>
+              <div class="col-12 col-md-2">
+                <label class="form-label small text-muted">Origem</label>
+                <select class="form-select" id="pessOrigem"></select>
+              </div>
+              <div class="col-12 col-md-12">
+                <label class="form-label small text-muted">LinkedIn</label>
+                <input class="form-control" id="pessLinkedinUrl" placeholder="https://linkedin.com/in/..." maxlength="260">
+              </div>
+              <div class="col-12">
+                <label class="form-label small text-muted">Resumo profissional</label>
+                <textarea class="form-control" id="pessResumoProfissional" rows="2" placeholder="Breve resumo" maxlength="2000"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label small text-muted">Observações</label>
+                <textarea class="form-control" id="pessObs" rows="2" placeholder="Observações internas" maxlength="2000"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="pessTabEndereco">
+            <div class="row g-2">
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted">CEP</label>
+                <input class="form-control" id="pessCep" placeholder="00000-000" maxlength="20">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">Logradouro</label>
+                <input class="form-control" id="pessLogradouro" placeholder="Rua, Av." maxlength="200">
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted">Número</label>
+                <input class="form-control" id="pessNumero" placeholder="123" maxlength="40">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">Bairro</label>
+                <input class="form-control" id="pessBairro" placeholder="Bairro" maxlength="120">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">Complemento</label>
+                <input class="form-control" id="pessComplemento" placeholder="Apto, sala" maxlength="120">
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="pessTabDocumentos">
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">CPF</label>
+                <input class="form-control" id="pessCpf" placeholder="000.000.000-00" maxlength="14">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">RG</label>
+                <input class="form-control" id="pessRg" placeholder="RG" maxlength="20">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">Telefone de contato</label>
+                <input class="form-control" id="pessFoneContato" placeholder="(11) 98888-8888" maxlength="40">
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="pessTabHistorico">
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">Criado em</label>
+                <input class="form-control" id="pessCreatedAt" readonly placeholder="—" style="background: var(--lt-bg-soft);">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small text-muted">Atualizado em</label>
+                <input class="form-control" id="pessUpdatedAt" readonly placeholder="—" style="background: var(--lt-bg-soft);">
+              </div>
+              <div class="col-12" id="pessHistoricoListWrap" style="display: none;">
+                <label class="form-label small text-muted">Alterações</label>
+                <div id="pessHistoricoList" class="small text-muted"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-brand" type="button" id="btnSavePessoa">
+          <i class="bi bi-check2 me-1"></i>Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

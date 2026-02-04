@@ -1,0 +1,33 @@
+@model IEnumerable<dynamic>
+<div class="row g-3">
+@foreach (var item in Model)
+{
+  var modalTargetProp = item.GetType().GetProperty("ModalTarget");
+  var modalTarget = modalTargetProp != null ? modalTargetProp.GetValue(item) as string : null;
+  var isClickable = !string.IsNullOrWhiteSpace(modalTarget);
+  <div class="@item.ColClass">
+    @if (isClickable)
+    {
+      <div class="card-soft kpi clickable" role="button" tabindex="0" data-bs-toggle="modal" data-bs-target="@modalTarget" data-modal-target="@modalTarget">
+        <div class="meta">
+          <div class="label">@item.Label</div>
+          <div class="value" id="@item.ValueId">@item.Value</div>
+          <div class="hint">@item.Hint</div>
+        </div>
+        <div class="icon"><i class="bi @item.Icon"></i></div>
+      </div>
+    }
+    else
+    {
+      <div class="card-soft kpi">
+        <div class="meta">
+          <div class="label">@item.Label</div>
+          <div class="value" id="@item.ValueId">@item.Value</div>
+          <div class="hint">@item.Hint</div>
+        </div>
+        <div class="icon"><i class="bi @item.Icon"></i></div>
+      </div>
+    }
+  </div>
+}
+</div>

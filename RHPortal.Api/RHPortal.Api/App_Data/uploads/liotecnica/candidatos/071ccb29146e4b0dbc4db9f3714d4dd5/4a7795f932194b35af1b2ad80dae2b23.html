@@ -1,0 +1,2161 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cadastro de Vaga • Wizard</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <!-- IMask (máscaras) -->
+  <script src="https://cdn.jsdelivr.net/npm/imask@7.6.1/dist/imask.min.js"></script>
+  <!-- SortableJS (arrastar etapas/itens) -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+  <style>
+    :root{
+      --brand: #0d6efd;
+      --soft: rgba(13,110,253,.08);
+      --ink: #0f172a;
+      --muted: #64748b;
+      --card: #ffffff;
+      --line: rgba(2,6,23,.10);
+    }
+    body{
+      background:
+        radial-gradient(1200px 600px at 10% 0%, var(--soft), transparent 60%),
+        radial-gradient(900px 500px at 90% 10%, rgba(25,135,84,.08), transparent 60%),
+        #f8fafc;
+      color: var(--ink);
+    }
+    .page-wrap{ max-width: 1100px; }
+    .card-soft{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(2,6,23,.06);
+    }
+    .mini{
+      font-size: .875rem;
+      color: var(--muted);
+    }
+    .stepper{
+      display:flex;
+      align-items:center;
+      gap:.75rem;
+      flex-wrap: wrap;
+    }
+    .step-chip{
+      display:flex;
+      align-items:center;
+      gap:.5rem;
+      padding:.5rem .75rem;
+      border:1px solid var(--line);
+      border-radius: 999px;
+      background:#fff;
+      cursor:pointer;
+      user-select:none;
+      transition: .15s ease;
+    }
+    .step-chip:hover{ transform: translateY(-1px); }
+    .step-chip.active{
+      border-color: rgba(13,110,253,.35);
+      box-shadow: 0 6px 18px rgba(13,110,253,.12);
+      background: linear-gradient(180deg, #fff, rgba(13,110,253,.04));
+    }
+    .step-dot{
+      width: 28px; height: 28px;
+      border-radius: 999px;
+      border:1px solid var(--line);
+      display:grid; place-items:center;
+      font-weight: 700;
+      font-size: .85rem;
+      background:#fff;
+      color: var(--muted);
+    }
+    .step-chip.active .step-dot{
+      background: var(--brand);
+      color:#fff;
+      border-color: rgba(13,110,253,.25);
+    }
+    .step-label{ font-weight: 600; font-size: .92rem; }
+    .step-sub{ font-size:.78rem; color: var(--muted); margin-top:-2px; }
+    .section-title{
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+    .hr-dash{
+      border-top: 1px dashed rgba(2,6,23,.18);
+      margin: 1rem 0;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:.4rem;
+      padding:.25rem .55rem;
+      border-radius: 999px;
+      background: rgba(13,110,253,.10);
+      border: 1px solid rgba(13,110,253,.18);
+      font-size:.85rem;
+      margin: .2rem .2rem 0 0;
+    }
+    .pill .x{ cursor:pointer; opacity:.8; }
+    .pill .x:hover{ opacity:1; }
+    .list-item{
+      border: 1px solid var(--line);
+      background:#fff;
+      border-radius: 14px;
+      padding: .75rem;
+    }
+    .drag-handle{
+      cursor: grab;
+      user-select:none;
+    }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:.8rem;
+      background:#0b1220;
+      color:#e2e8f0;
+      border-radius: 10px;
+      padding: .75rem;
+      white-space: pre-wrap;
+      border: 1px solid rgba(148,163,184,.18);
+    }
+    .sticky-actions{
+      position: sticky;
+      bottom: 0;
+      z-index: 5;
+      background: linear-gradient(180deg, rgba(248,250,252,0), rgba(248,250,252,.92) 18%, rgba(248,250,252,.98));
+      padding-top: .75rem;
+      margin-top: 1rem;
+    }
+    .required:after{
+      content:" *";
+      color:#dc3545;
+      font-weight: 700;
+    }
+    @media print{
+      .no-print{ display:none !important; }
+      body{ background:#fff; }
+      .card-soft{ box-shadow:none; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container py-4 page-wrap">
+    <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+      <div>
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-briefcase-fill fs-4 text-primary"></i>
+          <h1 class="h4 mb-0">Cadastro de Vaga (Wizard)</h1>
+        </div>
+        <div class="mini mt-1">Formulário completo com máscaras, dropdowns mocados, listas dinâmicas, validação por etapa e import/export JSON.</div>
+      </div>
+
+      <div class="no-print d-flex gap-2 flex-wrap">
+        <button id="btnSaveDraft" type="button" class="btn btn-outline-primary">
+          <i class="bi bi-cloud-check me-1"></i>Salvar rascunho
+        </button>
+        <button id="btnExport" type="button" class="btn btn-primary">
+          <i class="bi bi-braces-asterisk me-1"></i>Exportar JSON
+        </button>
+        <button id="btnImport" type="button" class="btn btn-outline-secondary">
+          <i class="bi bi-upload me-1"></i>Importar JSON
+        </button>
+        <button id="btnReset" type="button" class="btn btn-outline-danger">
+          <i class="bi bi-trash3 me-1"></i>Limpar
+        </button>
+      </div>
+    </div>
+
+    <div class="card card-soft p-3 p-md-4 mb-3 no-print">
+      <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+        <div class="stepper" id="stepper"></div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="mini">Progresso</span>
+          <div class="progress" style="width: 220px; height: 10px;">
+            <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <form id="vagaForm" class="card card-soft p-3 p-md-4" novalidate>
+      <!-- STEP 1 -->
+      <section class="step" data-step="0">
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-2">
+          <div>
+            <div class="section-title">1) Identificação e contexto da vaga</div>
+            <div class="mini">Defina título, área, senioridade, headcount, motivo e informações internas/externas.</div>
+          </div>
+          <div class="no-print small text-muted">
+            <i class="bi bi-info-circle me-1"></i>Campos com <span class="text-danger fw-semibold">*</span> são obrigatórios.
+          </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-md-7">
+            <label class="form-label required">Título da vaga</label>
+            <input class="form-control" placeholder="Ex.: Analista de RH (Recrutamento & Seleção)"
+                   data-bind="vaga.titulo" required maxlength="120" />
+            <div class="invalid-feedback">Informe o título da vaga.</div>
+          </div>
+
+          <div class="col-12 col-md-5">
+            <label class="form-label required">Status</label>
+            <select class="form-select" data-bind="vaga.status" required>
+              <option value="">Selecione…</option>
+              <option>Rascunho</option>
+              <option>Aberta</option>
+              <option>Em triagem</option>
+              <option>Em entrevistas</option>
+              <option>Em oferta</option>
+              <option>Congelada</option>
+              <option>Fechada</option>
+            </select>
+            <div class="invalid-feedback">Selecione o status.</div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label required">Departamento</label>
+            <select class="form-select" data-bind="vaga.departamento" required>
+              <option value="">Selecione…</option>
+              <option>RH</option>
+              <option>TI</option>
+              <option>Financeiro</option>
+              <option>Comercial</option>
+              <option>Marketing</option>
+              <option>Operações</option>
+              <option>Jurídico</option>
+              <option>Logística</option>
+              <option>Produto</option>
+            </select>
+            <div class="invalid-feedback">Selecione o departamento.</div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label required">Área / Time</label>
+            <select class="form-select" data-bind="vaga.areaTime" required>
+              <option value="">Selecione…</option>
+              <option>Talent Acquisition</option>
+              <option>People Analytics</option>
+              <option>Folha & Benefícios</option>
+              <option>Infraestrutura</option>
+              <option>Desenvolvimento</option>
+              <option>Suporte</option>
+              <option>Contas a Receber</option>
+              <option>Vendas Enterprise</option>
+              <option>Operação de Armazém</option>
+            </select>
+            <div class="invalid-feedback">Selecione a área/time.</div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label required">Senioridade</label>
+            <select class="form-select" data-bind="vaga.senioridade" required>
+              <option value="">Selecione…</option>
+              <option>Estágio</option>
+              <option>Júnior</option>
+              <option>Pleno</option>
+              <option>Sênior</option>
+              <option>Especialista</option>
+              <option>Coordenação</option>
+              <option>Gerência</option>
+              <option>Diretoria</option>
+            </select>
+            <div class="invalid-feedback">Selecione a senioridade.</div>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label required">Quantidade de vagas</label>
+            <input class="form-control" data-mask="int" data-bind="vaga.quantidade" required placeholder="1" />
+            <div class="invalid-feedback">Informe a quantidade.</div>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label required">Tipo de contratação</label>
+            <select class="form-select" data-bind="vaga.tipoContratacao" required>
+              <option value="">Selecione…</option>
+              <option>CLT</option>
+              <option>PJ</option>
+              <option>Estágio</option>
+              <option>Temporário</option>
+              <option>Aprendiz</option>
+              <option>Cooperado</option>
+              <option>Freelancer</option>
+            </select>
+            <div class="invalid-feedback">Selecione o tipo de contratação.</div>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">Código interno</label>
+            <input class="form-control" data-bind="vaga.codigoInterno" placeholder="EX.: VAG-2025-0012" maxlength="40" />
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">Código CBO (opcional)</label>
+            <input class="form-control" data-mask="cbo" data-bind="vaga.cbo" placeholder="0000-00" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label required">Gestor requisitante</label>
+            <input class="form-control" data-bind="vaga.gestorRequisitante" required placeholder="Nome do gestor" maxlength="120" />
+            <div class="invalid-feedback">Informe o gestor requisitante.</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label required">Recrutador responsável</label>
+            <input class="form-control" data-bind="vaga.recrutador" required placeholder="Nome do recrutador" maxlength="120" />
+            <div class="invalid-feedback">Informe o recrutador.</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Motivo da abertura</label>
+            <select class="form-select" data-bind="vaga.motivoAbertura">
+              <option value="">Selecione…</option>
+              <option>Reposição</option>
+              <option>Expansão</option>
+              <option>Projeto</option>
+              <option>Substituição</option>
+              <option>Backfill</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">Orçamento aprovado?</label>
+            <select class="form-select" data-bind="vaga.orcamentoAprovado">
+              <option value="">Selecione…</option>
+              <option>Sim</option>
+              <option>Não</option>
+              <option>Em aprovação</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">Prioridade</label>
+            <select class="form-select" data-bind="vaga.prioridade">
+              <option value="">Selecione…</option>
+              <option>Baixa</option>
+              <option>Média</option>
+              <option>Alta</option>
+              <option>Crítica</option>
+            </select>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label required">Resumo / Pitch da vaga</label>
+            <textarea class="form-control" rows="3" data-bind="vaga.resumo"
+                      required placeholder="Explique rapidamente o propósito da vaga e o que a torna atrativa."></textarea>
+            <div class="invalid-feedback">Inclua um resumo.</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Responsabilidades (tags)</label>
+            <div class="input-group">
+              <input class="form-control" id="tagsRespInput" placeholder="Digite e pressione Enter" />
+              <button class="btn btn-outline-secondary" type="button" id="tagsRespAdd">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+            <div class="mini mt-1">Ex.: conduzir entrevistas, alinhar com gestores, conduzir triagem…</div>
+            <div id="tagsRespBox" class="mt-2"></div>
+            <input type="hidden" data-bind="vaga.tagsResponsabilidades" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Palavras-chave (SEO / busca)</label>
+            <div class="input-group">
+              <input class="form-control" id="tagsKeyInput" placeholder="Digite e pressione Enter" />
+              <button class="btn btn-outline-secondary" type="button" id="tagsKeyAdd">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+            <div class="mini mt-1">Ex.: recrutamento, seleção, ATS, entrevistas por competência…</div>
+            <div id="tagsKeyBox" class="mt-2"></div>
+            <input type="hidden" data-bind="vaga.tagsKeywords" />
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Confidencial?</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="chkConfidencial" data-bind="vaga.confidencial">
+              <label class="form-check-label" for="chkConfidencial">Ocultar empresa/gestor em canais públicos</label>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Aceita PcD?</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="chkPcd" data-bind="vaga.aceitaPcd">
+              <label class="form-check-label" for="chkPcd">Sim (vaga inclusiva)</label>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Vaga urgente?</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="chkUrgente" data-bind="vaga.urgente">
+              <label class="form-check-label" for="chkUrgente">Sim (SLA curto)</label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2 -->
+      <section class="step d-none" data-step="1">
+        <div class="section-title">2) Local, modelo de trabalho e jornada</div>
+        <div class="mini mb-2">Endereço (quando aplicável), remoto/híbrido/presencial, carga horária e escala.</div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-md-4">
+            <label class="form-label required">Modelo de trabalho</label>
+            <select class="form-select" data-bind="jornada.modeloTrabalho" required>
+              <option value="">Selecione…</option>
+              <option>Presencial</option>
+              <option>Híbrido</option>
+              <option>Remoto</option>
+            </select>
+            <div class="invalid-feedback">Selecione o modelo de trabalho.</div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Regime</label>
+            <select class="form-select" data-bind="jornada.regime">
+              <option value="">Selecione…</option>
+              <option>Integral</option>
+              <option>Meio período</option>
+              <option>Banco de horas</option>
+              <option>Escala</option>
+              <option>Por projeto</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label required">Carga horária semanal</label>
+            <input class="form-control" data-mask="int" data-bind="jornada.cargaSemanal" required placeholder="40" />
+            <div class="invalid-feedback">Informe a carga semanal (ex.: 40).</div>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">Entrada</label>
+            <input class="form-control" data-mask="time" data-bind="jornada.horaEntrada" placeholder="08:00" />
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">Saída</label>
+            <input class="form-control" data-mask="time" data-bind="jornada.horaSaida" placeholder="17:00" />
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">Intervalo</label>
+            <input class="form-control" data-mask="time" data-bind="jornada.intervalo" placeholder="01:00" />
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">Escala</label>
+            <select class="form-select" data-bind="jornada.escala">
+              <option value="">Selecione…</option>
+              <option>5x2</option>
+              <option>6x1</option>
+              <option>12x36</option>
+              <option>4x3</option>
+              <option>Turnos</option>
+            </select>
+          </div>
+
+          <div class="col-12">
+            <div class="hr-dash"></div>
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">CEP</label>
+            <input class="form-control" data-mask="cep" data-bind="local.cep" placeholder="00000-000" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Logradouro</label>
+            <input class="form-control" data-bind="local.logradouro" placeholder="Rua / Av." maxlength="120" />
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label">Número</label>
+            <input class="form-control" data-bind="local.numero" placeholder="Nº" maxlength="20" />
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Bairro</label>
+            <input class="form-control" data-bind="local.bairro" maxlength="80" />
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Cidade</label>
+            <input class="form-control" data-bind="local.cidade" maxlength="80" />
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">UF</label>
+            <select class="form-select" data-bind="local.uf">
+              <option value="">Selecione…</option>
+              <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option>
+              <option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+              <option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option>
+              <option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+              <option>SP</option><option>SE</option><option>TO</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Ajuda de custo / deslocamento</label>
+            <textarea class="form-control" rows="2" data-bind="local.deslocamentoObs"
+                      placeholder="Ex.: vale-transporte opcional, estacionamento, ajuda de custo no híbrido…"></textarea>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Política remoto/híbrido (detalhes)</label>
+            <textarea class="form-control" rows="2" data-bind="local.politicaTrabalho"
+                      placeholder="Ex.: 2 dias presencial, 3 remoto; viagens 1x/mês…"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 3 -->
+      <section class="step d-none" data-step="2">
+        <div class="section-title">3) Remuneração, benefícios e pacote total</div>
+        <div class="mini mb-2">Faixa salarial, bônus, comissões, benefícios e observações.</div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-md-4">
+            <label class="form-label">Moeda</label>
+            <select class="form-select" data-bind="remuneracao.moeda">
+              <option>BRL</option>
+              <option>USD</option>
+              <option>EUR</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Salário mínimo</label>
+            <input class="form-control" data-mask="money" data-bind="remuneracao.salarioMin" placeholder="R$ 0,00" />
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Salário máximo</label>
+            <input class="form-control" data-mask="money" data-bind="remuneracao.salarioMax" placeholder="R$ 0,00" />
+            <div class="invalid-feedback" id="salaryRangeError">Salário máximo deve ser maior/igual ao mínimo.</div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Periodicidade</label>
+            <select class="form-select" data-bind="remuneracao.periodicidade">
+              <option>Mensal</option>
+              <option>Hora</option>
+              <option>Diária</option>
+              <option>Projeto</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Bônus</label>
+            <select class="form-select" data-bind="remuneracao.bonusTipo">
+              <option value="">Selecione…</option>
+              <option>PLR</option>
+              <option>Bônus anual</option>
+              <option>Comissão</option>
+              <option>Premiação</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Percentual comissão / bônus</label>
+            <input class="form-control" data-mask="percent" data-bind="remuneracao.percentual" placeholder="0,00%" />
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Observações de remuneração</label>
+            <textarea class="form-control" rows="2" data-bind="remuneracao.obs"
+                      placeholder="Ex.: faixa depende de senioridade, variável condicionado a metas, stock options…"></textarea>
+          </div>
+
+          <div class="col-12">
+            <div class="hr-dash"></div>
+          </div>
+
+          <div class="col-12 d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <div>
+              <div class="section-title" style="font-size:1rem;">Benefícios</div>
+              <div class="mini">Adicione benefícios com tipo, valor e detalhes. Reordene arrastando.</div>
+            </div>
+            <button type="button" class="btn btn-outline-primary" id="btnAddBenefit">
+              <i class="bi bi-plus-lg me-1"></i>Adicionar benefício
+            </button>
+          </div>
+
+          <div class="col-12">
+            <div id="benefitsList" class="d-grid gap-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 4 -->
+      <section class="step d-none" data-step="3">
+        <div class="section-title">4) Requisitos, competências e qualificações</div>
+        <div class="mini mb-2">Peso por requisito, obrigatório, senioridade mínima, idiomas, ferramentas e experiência.</div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-md-4">
+            <label class="form-label">Escolaridade</label>
+            <select class="form-select" data-bind="requisitos.escolaridade">
+              <option value="">Selecione…</option>
+              <option>Ensino médio</option>
+              <option>Técnico</option>
+              <option>Graduação</option>
+              <option>Pós-graduação</option>
+              <option>Mestrado</option>
+              <option>Doutorado</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Área de formação</label>
+            <select class="form-select" data-bind="requisitos.formacaoArea">
+              <option value="">Selecione…</option>
+              <option>Administração</option>
+              <option>Psicologia</option>
+              <option>Recursos Humanos</option>
+              <option>Engenharia</option>
+              <option>Sistemas de Informação</option>
+              <option>Contabilidade</option>
+              <option>Direito</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Experiência mínima (anos)</label>
+            <input class="form-control" data-mask="int" data-bind="requisitos.expMinAnos" placeholder="0" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Stack / Ferramentas (tags)</label>
+            <div class="input-group">
+              <input class="form-control" id="tagsStackInput" placeholder="Digite e pressione Enter" />
+              <button class="btn btn-outline-secondary" type="button" id="tagsStackAdd">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+            <div class="mini mt-1">Ex.: Excel, Power BI, ATS, LinkedIn Recruiter, SQL…</div>
+            <div id="tagsStackBox" class="mt-2"></div>
+            <input type="hidden" data-bind="requisitos.tagsStack" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Idiomas (tags)</label>
+            <div class="input-group">
+              <input class="form-control" id="tagsLangInput" placeholder="Ex.: Inglês (B2), Espanhol (A2)" />
+              <button class="btn btn-outline-secondary" type="button" id="tagsLangAdd">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+            <div class="mini mt-1">Inclua nível: A1–C2, básico/intermediário/avançado.</div>
+            <div id="tagsLangBox" class="mt-2"></div>
+            <input type="hidden" data-bind="requisitos.tagsIdiomas" />
+          </div>
+
+          <div class="col-12">
+            <div class="hr-dash"></div>
+          </div>
+
+          <div class="col-12 d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <div>
+              <div class="section-title" style="font-size:1rem;">Requisitos detalhados (lista com peso/obrigatório)</div>
+              <div class="mini">Adicione requisitos e defina peso (1–5), obrigatório e forma de avaliação.</div>
+            </div>
+            <button type="button" class="btn btn-outline-primary" id="btnAddReq">
+              <i class="bi bi-plus-lg me-1"></i>Adicionar requisito
+            </button>
+          </div>
+
+          <div class="col-12">
+            <div id="reqList" class="d-grid gap-2"></div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Diferenciais (texto)</label>
+            <textarea class="form-control" rows="3" data-bind="requisitos.diferenciais"
+              placeholder="Ex.: certificações, vivência em alto volume, experiência com hunting, etc."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 5 -->
+      <section class="step d-none" data-step="4">
+        <div class="section-title">5) Processo seletivo (etapas, SLAs, triagem)</div>
+        <div class="mini mb-2">Defina etapas, responsáveis, prazos e perguntas de triagem com knockout.</div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <div>
+              <div class="section-title" style="font-size:1rem;">Etapas do processo (arraste para ordenar)</div>
+              <div class="mini">Ex.: Triagem → Entrevista RH → Entrevista Gestor → Case → Oferta.</div>
+            </div>
+            <button type="button" class="btn btn-outline-primary" id="btnAddStage">
+              <i class="bi bi-plus-lg me-1"></i>Adicionar etapa
+            </button>
+          </div>
+
+          <div class="col-12">
+            <div id="stagesList" class="d-grid gap-2"></div>
+          </div>
+
+          <div class="col-12">
+            <div class="hr-dash"></div>
+          </div>
+
+          <div class="col-12 d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <div>
+              <div class="section-title" style="font-size:1rem;">Perguntas de triagem (knockout / peso)</div>
+              <div class="mini">Perguntas exibidas na candidatura. Marque “Knockout” para eliminar automaticamente.</div>
+            </div>
+            <button type="button" class="btn btn-outline-primary" id="btnAddQuestion">
+              <i class="bi bi-plus-lg me-1"></i>Adicionar pergunta
+            </button>
+          </div>
+
+          <div class="col-12">
+            <div id="questionsList" class="d-grid gap-2"></div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Observações internas do processo</label>
+            <textarea class="form-control" rows="2" data-bind="processo.obsInternas"
+              placeholder="Ex.: aprovações necessárias, critérios de corte, política de feedback…"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 6 -->
+      <section class="step d-none" data-step="5">
+        <div class="section-title">6) Publicação, canais, compliance e LGPD</div>
+        <div class="mini mb-2">Canais de divulgação, datas, consentimentos, diversidade, confidencialidade e políticas.</div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-md-4">
+            <label class="form-label required">Publicar em</label>
+            <select class="form-select" data-bind="publicacao.visibilidade" required>
+              <option value="">Selecione…</option>
+              <option>Interno</option>
+              <option>Externo</option>
+              <option>Interno + Externo</option>
+              <option>Somente indicação</option>
+            </select>
+            <div class="invalid-feedback">Selecione a visibilidade.</div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Data de início</label>
+            <input class="form-control" data-mask="date" data-bind="publicacao.dataInicio" placeholder="dd/mm/aaaa" />
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label">Data de encerramento</label>
+            <input class="form-control" data-mask="date" data-bind="publicacao.dataFim" placeholder="dd/mm/aaaa" />
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Canais</label>
+            <div class="row g-2">
+              <div class="col-12 col-md-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="chCanal1" data-bind="publicacao.canais.linkedin">
+                  <label class="form-check-label" for="chCanal1">LinkedIn</label>
+                </div>
+              </div>
+              <div class="col-12 col-md-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="chCanal2" data-bind="publicacao.canais.site">
+                  <label class="form-check-label" for="chCanal2">Site / Carreiras</label>
+                </div>
+              </div>
+              <div class="col-12 col-md-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="chCanal3" data-bind="publicacao.canais.indicacao">
+                  <label class="form-check-label" for="chCanal3">Indicação</label>
+                </div>
+              </div>
+              <div class="col-12 col-md-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="chCanal4" data-bind="publicacao.canais.portalEmprego">
+                  <label class="form-check-label" for="chCanal4">Portais de emprego</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label required">Descrição pública da vaga</label>
+            <textarea class="form-control" rows="6" data-bind="publicacao.descricaoPublica" required
+              placeholder="Inclua: sobre a empresa (se aplicável), responsabilidades, requisitos, benefícios e como se candidatar."></textarea>
+            <div class="invalid-feedback">A descrição pública é obrigatória.</div>
+          </div>
+
+          <div class="col-12">
+            <div class="hr-dash"></div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <div class="list-item">
+              <div class="fw-semibold mb-2"><i class="bi bi-shield-check me-1 text-success"></i>LGPD / Consentimentos</div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="lgpd1" data-bind="compliance.lgpd.consentimentoBase">
+                <label class="form-check-label" for="lgpd1">Solicitar consentimento explícito para tratamento de dados</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="lgpd2" data-bind="compliance.lgpd.compartilhamento">
+                <label class="form-check-label" for="lgpd2">Permitir compartilhamento interno do currículo</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="lgpd3" data-bind="compliance.lgpd.retenção">
+                <label class="form-check-label" for="lgpd3">Retenção do currículo no banco por X meses</label>
+              </div>
+
+              <div class="mt-2">
+                <label class="form-label mini mb-1">Prazo de retenção (meses)</label>
+                <input class="form-control" data-mask="int" data-bind="compliance.lgpd.retençãoMeses" placeholder="12" />
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <div class="list-item">
+              <div class="fw-semibold mb-2"><i class="bi bi-people me-1 text-primary"></i>Diversidade & Política</div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="dv1" data-bind="compliance.diversidade.linguagemInclusiva">
+                <label class="form-check-label" for="dv1">Revisar linguagem inclusiva na descrição</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="dv2" data-bind="compliance.diversidade.vagaAfirmativa">
+                <label class="form-check-label" for="dv2">Vaga afirmativa (definir público)</label>
+              </div>
+              <div class="mt-2">
+                <label class="form-label mini mb-1">Público afirmativo (opcional)</label>
+                <input class="form-control" data-bind="compliance.diversidade.publicoAfirmativo" placeholder="Ex.: PcD, Mulheres, Pessoas Negras, etc." maxlength="120" />
+              </div>
+
+              <div class="hr-dash"></div>
+
+              <div class="fw-semibold mb-2"><i class="bi bi-file-earmark-text me-1 text-secondary"></i>Documentos / Exigências</div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="doc1" data-bind="compliance.docs.cnh">
+                <label class="form-check-label" for="doc1">Exige CNH</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="doc2" data-bind="compliance.docs.disponibilidadeViagens">
+                <label class="form-check-label" for="doc2">Disponibilidade para viagens</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="doc3" data-bind="compliance.docs.antecedentes">
+                <label class="form-check-label" for="doc3">Checagem de antecedentes (conforme política)</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 7 -->
+      <section class="step d-none" data-step="6">
+        <div class="section-title">7) Revisão e saída (preview + JSON)</div>
+        <div class="mini mb-2">Revise os dados estruturados e finalize (simulação). Você pode imprimir ou exportar JSON.</div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-lg-6">
+            <div class="list-item">
+              <div class="fw-semibold mb-2"><i class="bi bi-card-text me-1"></i>Resumo da vaga</div>
+              <div id="reviewBox" class="mini"></div>
+              <div class="hr-dash"></div>
+              <div class="d-flex gap-2 flex-wrap no-print">
+                <button type="button" class="btn btn-primary" id="btnFinalize">
+                  <i class="bi bi-check2-circle me-1"></i>Finalizar
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                  <i class="bi bi-printer me-1"></i>Imprimir
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-6">
+            <div class="list-item">
+              <div class="fw-semibold mb-2"><i class="bi bi-braces-asterisk me-1"></i>JSON gerado</div>
+              <div id="jsonPreview" class="kbd">Clique em “Atualizar preview” para gerar…</div>
+              <div class="d-flex gap-2 mt-2 no-print">
+                <button type="button" class="btn btn-outline-primary" id="btnRefreshPreview">
+                  <i class="bi bi-arrow-repeat me-1"></i>Atualizar preview
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="btnCopyJson">
+                  <i class="bi bi-clipboard me-1"></i>Copiar JSON
+                </button>
+              </div>
+              <div class="mini mt-2">
+                Dica: o JSON inclui <b>listas</b> (benefícios, requisitos, etapas, perguntas) + campos básicos com caminhos (data-bind).
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACTIONS -->
+      <div class="sticky-actions no-print">
+        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+          <div class="mini">
+            <i class="bi bi-hdd me-1"></i>
+            <span id="draftInfo">Rascunho: não salvo ainda.</span>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-outline-secondary" id="btnBack">
+              <i class="bi bi-arrow-left me-1"></i>Voltar
+            </button>
+            <button type="button" class="btn btn-primary" id="btnNext">
+              Próximo <i class="bi bi-arrow-right ms-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <div class="mini mt-3 text-center text-muted no-print">
+      <i class="bi bi-lightning-charge"></i>
+      Tudo roda local no navegador (sem backend). Salva rascunho em <b>localStorage</b>.
+    </div>
+  </div>
+
+  <!-- MODAL: EXPORT -->
+  <div class="modal fade" id="modalExport" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-braces-asterisk me-2"></i>Exportar JSON</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mini mb-2">Copie o JSON abaixo para persistência/back-end. (Sem campos de UI.)</div>
+          <textarea id="exportText" class="form-control" rows="14" spellcheck="false"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+          <button type="button" class="btn btn-primary" id="btnCopyExport">
+            <i class="bi bi-clipboard me-1"></i>Copiar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: IMPORT -->
+  <div class="modal fade" id="modalImport" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Importar JSON</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mini mb-2">Cole um JSON exportado anteriormente. Isso irá preencher todos os campos e listas.</div>
+          <textarea id="importText" class="form-control" rows="14" spellcheck="false" placeholder='{"vaga":{...}}'></textarea>
+          <div class="alert alert-warning mt-3 mb-0">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Importar substitui o rascunho atual em tela (mas você pode salvar antes).
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btnApplyImport">
+            <i class="bi bi-check2 me-1"></i>Aplicar JSON
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    /***********************
+     * STATE + CONSTANTS
+     ***********************/
+    const STORAGE_KEY = "vaga_wizard_draft_v1";
+    const steps = [
+      { title: "Identificação", sub: "" },
+      { title: "Local & Jornada", sub: "" },
+      { title: "Remuneração", sub: "" },
+      { title: "Requisitos", sub: "" },
+      { title: "Processo", sub: "" },
+      { title: "Publicação", sub: "" },
+      { title: "Revisão", sub: "" },
+    ];
+
+    let currentStep = 0;
+
+    // listas dinâmicas (ficam fora do data-bind “flat”)
+    let benefits = [];
+    let requisitos = [];
+    let stages = [];
+    let questions = [];
+
+    // tags (arrays)
+    let tagsResp = [];
+    let tagsKey = [];
+    let tagsStack = [];
+    let tagsLang = [];
+
+    const form = document.getElementById("vagaForm");
+    const stepperEl = document.getElementById("stepper");
+    const progressBar = document.getElementById("progressBar");
+    const draftInfo = document.getElementById("draftInfo");
+
+    const modalExport = new bootstrap.Modal(document.getElementById("modalExport"));
+    const modalImport = new bootstrap.Modal(document.getElementById("modalImport"));
+
+    /***********************
+     * HELPERS (BIND PATH)
+     ***********************/
+    function setByPath(obj, path, value) {
+      if (!path) return;
+      const keys = path.split(".");
+      let cur = obj;
+      for (let i = 0; i < keys.length - 1; i++) {
+        const k = keys[i];
+        if (typeof cur[k] !== "object" || cur[k] === null) cur[k] = {};
+        cur = cur[k];
+      }
+      cur[keys[keys.length - 1]] = value;
+    }
+
+    function getByPath(obj, path) {
+      if (!path) return undefined;
+      const keys = path.split(".");
+      let cur = obj;
+      for (const k of keys) {
+        if (cur == null) return undefined;
+        cur = cur[k];
+      }
+      return cur;
+    }
+
+    function safeJsonParse(txt) {
+      try { return JSON.parse(txt); } catch { return null; }
+    }
+
+    function debounce(fn, ms=350){
+      let t;
+      return (...args)=>{
+        clearTimeout(t);
+        t = setTimeout(()=>fn(...args), ms);
+      }
+    }
+
+    function nowIso() {
+      return new Date().toISOString();
+    }
+
+    /***********************
+     * MASKS
+     ***********************/
+    function applyMasks() {
+      document.querySelectorAll("[data-mask]").forEach(el => {
+        const type = el.getAttribute("data-mask");
+
+        if (type === "cep") {
+          IMask(el, { mask: "00000-000" });
+        }
+        if (type === "cbo") {
+          IMask(el, { mask: "0000-00" });
+        }
+        if (type === "time") {
+          IMask(el, { mask: "00:00" });
+        }
+        if (type === "date") {
+          IMask(el, { mask: "00/00/0000" });
+        }
+        if (type === "int") {
+          IMask(el, { mask: Number, scale: 0, thousandsSeparator: "", signed: false });
+        }
+        if (type === "money") {
+          IMask(el, {
+            mask: "R$ num",
+            blocks: {
+              num: {
+                mask: Number,
+                scale: 2,
+                thousandsSeparator: ".",
+                radix: ",",
+                mapToRadix: ["."],
+                signed: false
+              }
+            }
+          });
+        }
+        if (type === "percent") {
+          IMask(el, {
+            mask: "num%",
+            blocks: {
+              num: {
+                mask: Number,
+                scale: 2,
+                thousandsSeparator: ".",
+                radix: ",",
+                mapToRadix: ["."],
+                signed: false
+              }
+            }
+          });
+        }
+      });
+    }
+
+    /***********************
+     * STEPPER UI
+     ***********************/
+    function renderStepper() {
+      stepperEl.innerHTML = "";
+      steps.forEach((s, idx) => {
+        const chip = document.createElement("div");
+        chip.className = "step-chip" + (idx === currentStep ? " active" : "");
+        chip.innerHTML = `
+          <div class="step-dot">${idx+1}</div>
+          <div>
+            <div class="step-label">${s.title}</div>
+            <div class="step-sub">${s.sub}</div>
+          </div>
+        `;
+        chip.addEventListener("click", () => goToStep(idx, true));
+        stepperEl.appendChild(chip);
+      });
+
+      const pct = Math.round(((currentStep) / (steps.length - 1)) * 100);
+      progressBar.style.width = pct + "%";
+    }
+
+    function showStep(idx) {
+      document.querySelectorAll(".step").forEach(sec => sec.classList.add("d-none"));
+      const active = document.querySelector(`.step[data-step="${idx}"]`);
+      if (active) active.classList.remove("d-none");
+
+      document.getElementById("btnBack").disabled = idx === 0;
+      document.getElementById("btnNext").innerHTML =
+        idx === steps.length - 1 ? `Concluir <i class="bi bi-check2 ms-1"></i>` : `Próximo <i class="bi bi-arrow-right ms-1"></i>`;
+
+      renderStepper();
+
+      if (idx === steps.length - 1) {
+        refreshReview();
+        refreshJsonPreview();
+      }
+    }
+
+    /***********************
+     * VALIDATION (PER STEP)
+     ***********************/
+    function validateCurrentStep() {
+      // valida apenas inputs visíveis no step atual
+      const stepSec = document.querySelector(`.step[data-step="${currentStep}"]`);
+      if (!stepSec) return true;
+
+      // regra extra: salário min/max
+      let salaryOk = true;
+      const minEl = document.querySelector('[data-bind="remuneracao.salarioMin"]');
+      const maxEl = document.querySelector('[data-bind="remuneracao.salarioMax"]');
+      const errEl = document.getElementById("salaryRangeError");
+
+      if (minEl && maxEl && errEl) {
+        const min = moneyToNumber(minEl.value);
+        const max = moneyToNumber(maxEl.value);
+        if (min != null && max != null && max < min) salaryOk = false;
+
+        maxEl.classList.toggle("is-invalid", !salaryOk);
+        if (salaryOk) errEl.style.display = "none";
+        else errEl.style.display = "block";
+      }
+
+      // valida HTML required
+      let ok = true;
+      const fields = stepSec.querySelectorAll("input, select, textarea");
+      fields.forEach(f => {
+        if (typeof f.checkValidity === "function") {
+          const isValid = f.checkValidity();
+          if (!isValid) ok = false;
+          f.classList.toggle("is-invalid", !isValid);
+          if (isValid) f.classList.remove("is-invalid");
+        }
+      });
+
+      return ok && salaryOk;
+    }
+
+    /***********************
+     * NAVIGATION
+     ***********************/
+    function goToStep(idx, allowSkip=false) {
+      idx = Math.max(0, Math.min(steps.length - 1, idx));
+      if (!allowSkip) {
+        const ok = validateCurrentStep();
+        if (!ok) return;
+      }
+      currentStep = idx;
+      showStep(currentStep);
+      saveDraftDebounced();
+    }
+
+    document.getElementById("btnBack").addEventListener("click", () => {
+      goToStep(currentStep - 1, true);
+    });
+
+    document.getElementById("btnNext").addEventListener("click", () => {
+      if (currentStep === steps.length - 1) {
+        // concluir
+        refreshJsonPreview();
+        alert("Concluído! Você pode exportar o JSON.");
+        return;
+      }
+      const ok = validateCurrentStep();
+      if (!ok) {
+        // foca primeiro inválido
+        const stepSec = document.querySelector(`.step[data-step="${currentStep}"]`);
+        const firstInvalid = stepSec.querySelector(".is-invalid");
+        if (firstInvalid) firstInvalid.focus();
+        return;
+      }
+      goToStep(currentStep + 1, true);
+    });
+
+    /***********************
+     * DATA COLLECTION (BIND)
+     ***********************/
+    function moneyToNumber(txt){
+      if (!txt) return null;
+      // "R$ 1.234,56" -> 1234.56
+      const cleaned = txt.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : null;
+    }
+    function percentToNumber(txt){
+      if (!txt) return null;
+      const cleaned = txt.replace("%","").trim().replace(/\./g,"").replace(",",".");
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function getBoundValue(el){
+      const tag = el.tagName.toLowerCase();
+      const type = (el.getAttribute("type") || "").toLowerCase();
+      const bind = el.getAttribute("data-bind");
+
+      if (type === "checkbox") return el.checked;
+
+      if (bind && bind.includes("salario")) return moneyToNumber(el.value) ?? el.value;
+      if (bind && bind.includes("percentual")) return percentToNumber(el.value) ?? el.value;
+
+      if (tag === "select") return el.value;
+      return el.value;
+    }
+
+    function setBoundValue(el, value){
+      const type = (el.getAttribute("type") || "").toLowerCase();
+      if (type === "checkbox") {
+        el.checked = Boolean(value);
+        return;
+      }
+      el.value = value ?? "";
+    }
+
+    function buildPayload(){
+      const data = {};
+
+      // binds
+      document.querySelectorAll("[data-bind]").forEach(el => {
+        const path = el.getAttribute("data-bind");
+        if (!path) return;
+
+        // hidden de tags (vamos atualizar antes)
+        if (el.type === "hidden") {
+          // mantém como string JSON
+          setByPath(data, path, el.value || "[]");
+          return;
+        }
+
+        setByPath(data, path, getBoundValue(el));
+      });
+
+      // normaliza tags (guardamos arrays reais no payload)
+      data.vaga = data.vaga || {};
+      data.requisitos = data.requisitos || {};
+
+      data.vaga.tagsResponsabilidades = [...tagsResp];
+      data.vaga.tagsKeywords = [...tagsKey];
+      data.requisitos.tagsStack = [...tagsStack];
+      data.requisitos.tagsIdiomas = [...tagsLang];
+
+      // listas dinâmicas
+      data.remuneracao = data.remuneracao || {};
+      data.remuneracao.beneficios = [...benefits];
+
+      data.requisitos = data.requisitos || {};
+      data.requisitos.itens = [...requisitos];
+
+      data.processo = data.processo || {};
+      data.processo.etapas = [...stages];
+      data.processo.perguntasTriagem = [...questions];
+
+      // meta
+      data._meta = {
+        version: 1,
+        updatedAt: nowIso(),
+        currentStep
+      };
+
+      return data;
+    }
+
+    function applyPayload(payload){
+      // aplica binds
+      document.querySelectorAll("[data-bind]").forEach(el => {
+        const path = el.getAttribute("data-bind");
+        const val = getByPath(payload, path);
+
+        // tags hidden ignorado: vamos setar via arrays (abaixo)
+        if (el.type === "hidden") return;
+
+        if (val !== undefined) setBoundValue(el, val);
+      });
+
+      // tags arrays
+      tagsResp = (payload?.vaga?.tagsResponsabilidades || []).slice();
+      tagsKey  = (payload?.vaga?.tagsKeywords || []).slice();
+      tagsStack= (payload?.requisitos?.tagsStack || []).slice();
+      tagsLang = (payload?.requisitos?.tagsIdiomas || []).slice();
+
+      renderAllTags();
+
+      // listas
+      benefits = (payload?.remuneracao?.beneficios || []).slice();
+      requisitos = (payload?.requisitos?.itens || []).slice();
+      stages = (payload?.processo?.etapas || []).slice();
+      questions = (payload?.processo?.perguntasTriagem || []).slice();
+
+      renderBenefits();
+      renderReqs();
+      renderStages();
+      renderQuestions();
+
+      currentStep = payload?._meta?.currentStep ?? 0;
+      showStep(currentStep);
+
+      // limpa estados inválidos antigos
+      document.querySelectorAll(".is-invalid").forEach(x=>x.classList.remove("is-invalid"));
+    }
+
+    /***********************
+     * LOCALSTORAGE DRAFT
+     ***********************/
+    function saveDraft(){
+      const payload = buildPayload();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      draftInfo.textContent = `Rascunho salvo em ${new Date().toLocaleString()}`;
+    }
+    const saveDraftDebounced = debounce(saveDraft, 450);
+
+    function loadDraft(){
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      const obj = safeJsonParse(raw);
+      if (!obj) return false;
+      applyPayload(obj);
+      draftInfo.textContent = `Rascunho carregado (salvo em ${new Date(obj?._meta?.updatedAt || Date.now()).toLocaleString()})`;
+      return true;
+    }
+
+    /***********************
+     * TAG INPUTS
+     ***********************/
+    function normalizeTag(t){ return (t||"").trim().replace(/\s+/g," "); }
+
+    function addTag(arr, t){
+      t = normalizeTag(t);
+      if (!t) return;
+      if (arr.some(x => x.toLowerCase() === t.toLowerCase())) return;
+      arr.push(t);
+      saveDraftDebounced();
+    }
+    function removeTag(arr, idx){
+      arr.splice(idx,1);
+      saveDraftDebounced();
+    }
+
+    function renderTags(arr, boxEl){
+      boxEl.innerHTML = "";
+      arr.forEach((t, idx) => {
+        const pill = document.createElement("span");
+        pill.className = "pill";
+        pill.innerHTML = `${escapeHtml(t)} <span class="x" title="Remover"><i class="bi bi-x"></i></span>`;
+        pill.querySelector(".x").addEventListener("click", ()=>{ removeTag(arr, idx); renderAllTags(); });
+        boxEl.appendChild(pill);
+      });
+    }
+
+    function renderAllTags(){
+      renderTags(tagsResp, document.getElementById("tagsRespBox"));
+      renderTags(tagsKey,  document.getElementById("tagsKeyBox"));
+      renderTags(tagsStack,document.getElementById("tagsStackBox"));
+      renderTags(tagsLang, document.getElementById("tagsLangBox"));
+
+      // atualiza hidden binds (para não perder no bind scan)
+      document.querySelector('[data-bind="vaga.tagsResponsabilidades"]').value = JSON.stringify(tagsResp);
+      document.querySelector('[data-bind="vaga.tagsKeywords"]').value = JSON.stringify(tagsKey);
+      document.querySelector('[data-bind="requisitos.tagsStack"]').value = JSON.stringify(tagsStack);
+      document.querySelector('[data-bind="requisitos.tagsIdiomas"]').value = JSON.stringify(tagsLang);
+    }
+
+    function bindTagInput(inputId, btnId, arr, boxId){
+      const input = document.getElementById(inputId);
+      const btn = document.getElementById(btnId);
+      const box = document.getElementById(boxId);
+
+      function commit(){
+        addTag(arr, input.value);
+        input.value = "";
+        renderAllTags();
+      }
+      input.addEventListener("keydown", (e)=>{
+        if (e.key === "Enter") { e.preventDefault(); commit(); }
+      });
+      btn.addEventListener("click", commit);
+
+      // init
+      renderTags(arr, box);
+    }
+
+    /***********************
+     * DYNAMIC LISTS
+     ***********************/
+    function escapeHtml(str){
+      return String(str ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    // BENEFITS
+    function newBenefit(){
+      return {
+        id: crypto.randomUUID(),
+        tipo: "Vale Alimentação",
+        valor: null,
+        recorrencia: "Mensal",
+        obrigatorio: true,
+        obs: ""
+      };
+    }
+
+    function renderBenefits(){
+      const list = document.getElementById("benefitsList");
+      list.innerHTML = "";
+
+      benefits.forEach((b, idx) => {
+        const el = document.createElement("div");
+        el.className = "list-item";
+        el.dataset.id = b.id;
+        el.innerHTML = `
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="drag-handle text-muted"><i class="bi bi-grip-vertical"></i></span>
+              <div>
+                <div class="fw-semibold">${escapeHtml(b.tipo || "Benefício")}</div>
+                <div class="mini">Arraste para reordenar • item ${idx+1}/${benefits.length}</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+
+          <div class="row g-2 mt-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label small">Tipo</label>
+              <select class="form-select form-select-sm">
+                ${["Vale Alimentação","Vale Refeição","Plano de Saúde","Plano Odonto","Seguro de Vida","Vale Transporte","Ajuda de custo","Gympass/Wellhub","Home office","PLR","Bônus","Day off","Bolsa de estudos"].map(x => `
+                  <option ${x===b.tipo?"selected":""}>${x}</option>
+                `).join("")}
+              </select>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label small">Valor (opcional)</label>
+              <input class="form-control form-control-sm" placeholder="R$ 0,00" value="${b.valor!=null?("R$ "+String(b.valor).replace(".",",")):""}" data-benefit-money />
+              <div class="mini">Pode ficar vazio se for “conforme política”.</div>
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label small">Recorrência</label>
+              <select class="form-select form-select-sm">
+                ${["Mensal","Anual","Por uso","Reembolso","Conforme política"].map(x => `
+                  <option ${x===b.recorrencia?"selected":""}>${x}</option>
+                `).join("")}
+              </select>
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label small">Obrigatório?</label>
+              <select class="form-select form-select-sm">
+                <option value="true" ${b.obrigatorio===true?"selected":""}>Sim</option>
+                <option value="false" ${b.obrigatorio===false?"selected":""}>Não</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label small">Observações</label>
+              <input class="form-control form-control-sm" placeholder="Detalhes (ex.: coparticipação, carência, faixa…)" value="${escapeHtml(b.obs||"")}" />
+            </div>
+          </div>
+        `;
+
+        // remove
+        el.querySelector("button").addEventListener("click", ()=>{
+          benefits.splice(idx,1);
+          renderBenefits();
+          saveDraftDebounced();
+        });
+
+        // bind changes
+        const selects = el.querySelectorAll("select");
+        const inputs = el.querySelectorAll("input");
+        selects[0].addEventListener("change", (e)=>{ b.tipo = e.target.value; renderBenefits(); saveDraftDebounced(); });
+        selects[1].addEventListener("change", (e)=>{ b.recorrencia = e.target.value; saveDraftDebounced(); });
+        selects[2].addEventListener("change", (e)=>{ b.obrigatorio = (e.target.value === "true"); saveDraftDebounced(); });
+        inputs[1].addEventListener("input", (e)=>{ b.obs = e.target.value; saveDraftDebounced(); });
+
+        // money mask on benefit value input
+        const moneyInput = el.querySelector("[data-benefit-money]");
+        const mask = IMask(moneyInput, {
+          mask: "R$ num",
+          blocks: {
+            num: {
+              mask: Number,
+              scale: 2,
+              thousandsSeparator: ".",
+              radix: ",",
+              mapToRadix: ["."],
+              signed: false
+            }
+          }
+        });
+        moneyInput.addEventListener("input", ()=>{
+          const n = moneyToNumber(moneyInput.value);
+          b.valor = n;
+          saveDraftDebounced();
+        });
+
+        list.appendChild(el);
+      });
+
+      if (!benefits.length) {
+        const empty = document.createElement("div");
+        empty.className = "mini text-muted";
+        empty.innerHTML = `<i class="bi bi-inbox me-1"></i>Nenhum benefício adicionado ainda.`;
+        list.appendChild(empty);
+      }
+
+      // sortable
+      Sortable.create(list, {
+        animation: 150,
+        handle: ".drag-handle",
+        onEnd: (evt)=>{
+          const [moved] = benefits.splice(evt.oldIndex, 1);
+          benefits.splice(evt.newIndex, 0, moved);
+          renderBenefits();
+          saveDraftDebounced();
+        }
+      });
+    }
+
+    document.getElementById("btnAddBenefit").addEventListener("click", ()=>{
+      benefits.push(newBenefit());
+      renderBenefits();
+      saveDraftDebounced();
+    });
+
+    // REQUIREMENTS
+    function newReq(){
+      return {
+        id: crypto.randomUUID(),
+        nome: "Experiência com entrevistas por competência",
+        peso: 3,
+        obrigatorio: true,
+        anos: 0,
+        nivel: "Intermediário",
+        avaliacao: "Entrevista",
+        obs: ""
+      };
+    }
+
+    function renderReqs(){
+      const list = document.getElementById("reqList");
+      list.innerHTML = "";
+
+      requisitos.forEach((r, idx)=>{
+        const el = document.createElement("div");
+        el.className = "list-item";
+        el.dataset.id = r.id;
+        el.innerHTML = `
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="drag-handle text-muted"><i class="bi bi-grip-vertical"></i></span>
+              <div>
+                <div class="fw-semibold">${escapeHtml(r.nome || "Requisito")}</div>
+                <div class="mini">Peso ${r.peso}/5 • ${r.obrigatorio ? "Obrigatório" : "Desejável"}</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash3"></i></button>
+          </div>
+
+          <div class="row g-2 mt-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label small">Requisito</label>
+              <input class="form-control form-control-sm" value="${escapeHtml(r.nome||"")}" placeholder="Ex.: Excel avançado, hunting, SQL, etc." />
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label small">Peso (1-5)</label>
+              <select class="form-select form-select-sm">
+                ${[1,2,3,4,5].map(n => `<option ${n===r.peso?"selected":""}>${n}</option>`).join("")}
+              </select>
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label small">Obrigatório</label>
+              <select class="form-select form-select-sm">
+                <option value="true" ${r.obrigatorio?"selected":""}>Sim</option>
+                <option value="false" ${!r.obrigatorio?"selected":""}>Não</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label small">Anos mín.</label>
+              <input class="form-control form-control-sm" value="${r.anos ?? 0}" data-req-int />
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small">Nível</label>
+              <select class="form-select form-select-sm">
+                ${["Básico","Intermediário","Avançado","Especialista"].map(x => `<option ${x===r.nivel?"selected":""}>${x}</option>`).join("")}
+              </select>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label small">Avaliação</label>
+              <select class="form-select form-select-sm">
+                ${["Entrevista","Case","Teste técnico","Dinâmica","Prova","Portfólio","Referências"].map(x => `<option ${x===r.avaliacao?"selected":""}>${x}</option>`).join("")}
+              </select>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label small">Obs.</label>
+              <input class="form-control form-control-sm" value="${escapeHtml(r.obs||"")}" placeholder="Ex.: precisa ter aplicado em alto volume…" />
+            </div>
+          </div>
+        `;
+
+        el.querySelector("button").addEventListener("click", ()=>{
+          requisitos.splice(idx,1);
+          renderReqs();
+          saveDraftDebounced();
+        });
+
+        const inpNome = el.querySelectorAll("input")[0];
+        const selPeso = el.querySelectorAll("select")[0];
+        const selObrig = el.querySelectorAll("select")[1];
+        const inpAnos = el.querySelector("[data-req-int]");
+        const selNivel = el.querySelectorAll("select")[2];
+        const selAva = el.querySelectorAll("select")[3];
+        const inpObs = el.querySelectorAll("input")[2];
+
+        IMask(inpAnos, { mask: Number, scale: 0, thousandsSeparator: "", signed: false });
+
+        inpNome.addEventListener("input", e=>{ r.nome = e.target.value; saveDraftDebounced(); });
+        selPeso.addEventListener("change", e=>{ r.peso = Number(e.target.value); renderReqs(); saveDraftDebounced(); });
+        selObrig.addEventListener("change", e=>{ r.obrigatorio = (e.target.value === "true"); renderReqs(); saveDraftDebounced(); });
+        inpAnos.addEventListener("input", e=>{ r.anos = Number(e.target.value || 0); saveDraftDebounced(); });
+        selNivel.addEventListener("change", e=>{ r.nivel = e.target.value; saveDraftDebounced(); });
+        selAva.addEventListener("change", e=>{ r.avaliacao = e.target.value; saveDraftDebounced(); });
+        inpObs.addEventListener("input", e=>{ r.obs = e.target.value; saveDraftDebounced(); });
+
+        list.appendChild(el);
+      });
+
+      if (!requisitos.length) {
+        const empty = document.createElement("div");
+        empty.className = "mini text-muted";
+        empty.innerHTML = `<i class="bi bi-inbox me-1"></i>Nenhum requisito detalhado adicionado ainda.`;
+        list.appendChild(empty);
+      }
+
+      Sortable.create(list, {
+        animation: 150,
+        handle: ".drag-handle",
+        onEnd: (evt)=>{
+          const [moved] = requisitos.splice(evt.oldIndex, 1);
+          requisitos.splice(evt.newIndex, 0, moved);
+          renderReqs();
+          saveDraftDebounced();
+        }
+      });
+    }
+
+    document.getElementById("btnAddReq").addEventListener("click", ()=>{
+      requisitos.push(newReq());
+      renderReqs();
+      saveDraftDebounced();
+    });
+
+    // STAGES
+    function newStage(){
+      return {
+        id: crypto.randomUUID(),
+        nome: "Entrevista RH",
+        responsavel: "Recrutador",
+        modo: "Online",
+        slaDias: 3,
+        descricao: ""
+      };
+    }
+
+    function renderStages(){
+      const list = document.getElementById("stagesList");
+      list.innerHTML = "";
+
+      stages.forEach((s, idx)=>{
+        const el = document.createElement("div");
+        el.className = "list-item";
+        el.dataset.id = s.id;
+        el.innerHTML = `
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="drag-handle text-muted"><i class="bi bi-grip-vertical"></i></span>
+              <div>
+                <div class="fw-semibold">${escapeHtml(s.nome||"Etapa")}</div>
+                <div class="mini">${escapeHtml(s.responsavel||"")} • SLA ${s.slaDias ?? 0} dia(s) • ${escapeHtml(s.modo||"")}</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash3"></i></button>
+          </div>
+
+          <div class="row g-2 mt-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label small">Nome da etapa</label>
+              <input class="form-control form-control-sm" value="${escapeHtml(s.nome||"")}" />
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label small">Responsável</label>
+              <select class="form-select form-select-sm">
+                ${["Recrutador","Gestor","Tech Lead","RH BP","Diretoria","Banca"].map(x => `<option ${x===s.responsavel?"selected":""}>${x}</option>`).join("")}
+              </select>
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label small">Modo</label>
+              <select class="form-select form-select-sm">
+                ${["Online","Presencial","Telefone","Assíncrono"].map(x => `<option ${x===s.modo?"selected":""}>${x}</option>`).join("")}
+              </select>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small">SLA (dias)</label>
+              <input class="form-control form-control-sm" value="${s.slaDias ?? 0}" data-stage-int />
+            </div>
+            <div class="col-12">
+              <label class="form-label small">Descrição / instruções</label>
+              <input class="form-control form-control-sm" value="${escapeHtml(s.descricao||"")}" placeholder="Ex.: entrevista por competências, 45min, registrar no ATS…" />
+            </div>
+          </div>
+        `;
+
+        el.querySelector("button").addEventListener("click", ()=>{
+          stages.splice(idx,1);
+          renderStages();
+          saveDraftDebounced();
+        });
+
+        const inputs = el.querySelectorAll("input");
+        const selects = el.querySelectorAll("select");
+        const sla = el.querySelector("[data-stage-int]");
+        IMask(sla, { mask: Number, scale: 0, thousandsSeparator: "", signed: false });
+
+        inputs[0].addEventListener("input", e=>{ s.nome = e.target.value; renderStages(); saveDraftDebounced(); });
+        selects[0].addEventListener("change", e=>{ s.responsavel = e.target.value; saveDraftDebounced(); renderStages(); });
+        selects[1].addEventListener("change", e=>{ s.modo = e.target.value; saveDraftDebounced(); renderStages(); });
+        sla.addEventListener("input", e=>{ s.slaDias = Number(e.target.value||0); saveDraftDebounced(); renderStages(); });
+        inputs[1].addEventListener("input", e=>{ s.descricao = e.target.value; saveDraftDebounced(); });
+
+        list.appendChild(el);
+      });
+
+      if (!stages.length) {
+        const empty = document.createElement("div");
+        empty.className = "mini text-muted";
+        empty.innerHTML = `<i class="bi bi-inbox me-1"></i>Nenhuma etapa adicionada ainda.`;
+        list.appendChild(empty);
+      }
+
+      Sortable.create(list, {
+        animation: 150,
+        handle: ".drag-handle",
+        onEnd: (evt)=>{
+          const [moved] = stages.splice(evt.oldIndex, 1);
+          stages.splice(evt.newIndex, 0, moved);
+          renderStages();
+          saveDraftDebounced();
+        }
+      });
+    }
+
+    document.getElementById("btnAddStage").addEventListener("click", ()=>{
+      stages.push(newStage());
+      renderStages();
+      saveDraftDebounced();
+    });
+
+    // QUESTIONS
+    function newQuestion(){
+      return {
+        id: crypto.randomUUID(),
+        pergunta: "Você tem disponibilidade para trabalhar presencial 2x por semana?",
+        tipo: "Sim/Não",
+        obrigatoria: true,
+        knockout: false,
+        peso: 2,
+        opcoes: ["Sim","Não"]
+      };
+    }
+
+    function renderQuestions(){
+      const list = document.getElementById("questionsList");
+      list.innerHTML = "";
+
+      questions.forEach((q, idx)=>{
+        const el = document.createElement("div");
+        el.className = "list-item";
+        el.dataset.id = q.id;
+
+        const showOptions = (q.tipo === "Múltipla escolha");
+        el.innerHTML = `
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="drag-handle text-muted"><i class="bi bi-grip-vertical"></i></span>
+              <div>
+                <div class="fw-semibold">${escapeHtml(q.pergunta||"Pergunta")}</div>
+                <div class="mini">
+                  ${escapeHtml(q.tipo)} • Peso ${q.peso}/5 • ${q.obrigatoria ? "Obrigatória" : "Opcional"}
+                  ${q.knockout ? " • Knockout" : ""}
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash3"></i></button>
+          </div>
+
+          <div class="row g-2 mt-2">
+            <div class="col-12">
+              <label class="form-label small">Pergunta</label>
+              <input class="form-control form-control-sm" value="${escapeHtml(q.pergunta||"")}" />
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small">Tipo</label>
+              <select class="form-select form-select-sm">
+                ${["Sim/Não","Texto","Número","Múltipla escolha"].map(x => `<option ${x===q.tipo?"selected":""}>${x}</option>`).join("")}
+              </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label small">Peso</label>
+              <select class="form-select form-select-sm">
+                ${[1,2,3,4,5].map(n => `<option ${n===q.peso?"selected":""}>${n}</option>`).join("")}
+              </select>
+            </div>
+
+            <div class="col-6 col-md-3">
+              <label class="form-label small">Obrigatória?</label>
+              <select class="form-select form-select-sm">
+                <option value="true" ${q.obrigatoria?"selected":""}>Sim</option>
+                <option value="false" ${!q.obrigatoria?"selected":""}>Não</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label small">Knockout?</label>
+              <select class="form-select form-select-sm">
+                <option value="false" ${!q.knockout?"selected":""}>Não</option>
+                <option value="true" ${q.knockout?"selected":""}>Sim</option>
+              </select>
+            </div>
+
+            <div class="col-12 ${showOptions ? "" : "d-none"}" data-q-options>
+              <label class="form-label small">Opções (separadas por “;”)</label>
+              <input class="form-control form-control-sm" value="${escapeHtml((q.opcoes||[]).join(";"))}" placeholder="Ex.: Sim;Não;Talvez" />
+            </div>
+          </div>
+        `;
+
+        el.querySelector("button").addEventListener("click", ()=>{
+          questions.splice(idx,1);
+          renderQuestions();
+          saveDraftDebounced();
+        });
+
+        const inpPerg = el.querySelectorAll("input")[0];
+        const selTipo = el.querySelectorAll("select")[0];
+        const selPeso = el.querySelectorAll("select")[1];
+        const selObrig = el.querySelectorAll("select")[2];
+        const selKo = el.querySelectorAll("select")[3];
+        const optWrap = el.querySelector("[data-q-options]");
+        const optInput = el.querySelectorAll("input")[1];
+
+        inpPerg.addEventListener("input", e=>{ q.pergunta = e.target.value; saveDraftDebounced(); });
+        selTipo.addEventListener("change", e=>{
+          q.tipo = e.target.value;
+          if (q.tipo === "Sim/Não") q.opcoes = ["Sim","Não"];
+          if (q.tipo !== "Múltipla escolha") q.opcoes = q.opcoes || [];
+          renderQuestions();
+          saveDraftDebounced();
+        });
+        selPeso.addEventListener("change", e=>{ q.peso = Number(e.target.value); renderQuestions(); saveDraftDebounced(); });
+        selObrig.addEventListener("change", e=>{ q.obrigatoria = (e.target.value==="true"); renderQuestions(); saveDraftDebounced(); });
+        selKo.addEventListener("change", e=>{ q.knockout = (e.target.value==="true"); renderQuestions(); saveDraftDebounced(); });
+
+        if (optWrap && optInput) {
+          optInput.addEventListener("input", e=>{
+            const arr = String(e.target.value||"").split(";").map(x=>normalizeTag(x)).filter(Boolean);
+            q.opcoes = arr;
+            saveDraftDebounced();
+          });
+        }
+
+        list.appendChild(el);
+      });
+
+      if (!questions.length) {
+        const empty = document.createElement("div");
+        empty.className = "mini text-muted";
+        empty.innerHTML = `<i class="bi bi-inbox me-1"></i>Nenhuma pergunta adicionada ainda.`;
+        list.appendChild(empty);
+      }
+
+      Sortable.create(list, {
+        animation: 150,
+        handle: ".drag-handle",
+        onEnd: (evt)=>{
+          const [moved] = questions.splice(evt.oldIndex, 1);
+          questions.splice(evt.newIndex, 0, moved);
+          renderQuestions();
+          saveDraftDebounced();
+        }
+      });
+    }
+
+    document.getElementById("btnAddQuestion").addEventListener("click", ()=>{
+      questions.push(newQuestion());
+      renderQuestions();
+      saveDraftDebounced();
+    });
+
+    /***********************
+     * REVIEW + JSON PREVIEW
+     ***********************/
+    function refreshReview(){
+      const data = buildPayload();
+      const box = document.getElementById("reviewBox");
+
+      const titulo = data?.vaga?.titulo || "(sem título)";
+      const status = data?.vaga?.status || "-";
+      const dept = data?.vaga?.departamento || "-";
+      const area = data?.vaga?.areaTime || "-";
+      const senior = data?.vaga?.senioridade || "-";
+      const qtd = data?.vaga?.quantidade || "-";
+      const modelo = data?.jornada?.modeloTrabalho || "-";
+      const carga = data?.jornada?.cargaSemanal || "-";
+      const tipo = data?.vaga?.tipoContratacao || "-";
+
+      box.innerHTML = `
+        <div><b>Título:</b> ${escapeHtml(titulo)}</div>
+        <div><b>Status:</b> ${escapeHtml(status)}</div>
+        <div><b>Depto/Time:</b> ${escapeHtml(dept)} / ${escapeHtml(area)}</div>
+        <div><b>Senioridade:</b> ${escapeHtml(senior)} • <b>Qtd:</b> ${escapeHtml(qtd)} • <b>Tipo:</b> ${escapeHtml(tipo)}</div>
+        <div><b>Modelo:</b> ${escapeHtml(modelo)} • <b>Carga:</b> ${escapeHtml(carga)}h/sem</div>
+        <div class="hr-dash"></div>
+        <div><b>Benefícios:</b> ${benefits.length}</div>
+        <div><b>Requisitos:</b> ${requisitos.length}</div>
+        <div><b>Etapas:</b> ${stages.length}</div>
+        <div><b>Perguntas:</b> ${questions.length}</div>
+      `;
+    }
+
+    function refreshJsonPreview(){
+      const data = buildPayload();
+      document.getElementById("jsonPreview").textContent = JSON.stringify(data, null, 2);
+      refreshReview();
+    }
+
+    /***********************
+     * EXPORT / IMPORT
+     ***********************/
+    document.getElementById("btnExport").addEventListener("click", ()=>{
+      const data = buildPayload();
+      document.getElementById("exportText").value = JSON.stringify(data, null, 2);
+      modalExport.show();
+    });
+
+    document.getElementById("btnCopyExport").addEventListener("click", async ()=>{
+      const txt = document.getElementById("exportText").value;
+      await navigator.clipboard.writeText(txt);
+      alert("JSON copiado!");
+    });
+
+    document.getElementById("btnImport").addEventListener("click", ()=>{
+      document.getElementById("importText").value = "";
+      modalImport.show();
+    });
+
+    document.getElementById("btnApplyImport").addEventListener("click", ()=>{
+      const txt = document.getElementById("importText").value;
+      const obj = safeJsonParse(txt);
+      if (!obj) { alert("JSON inválido."); return; }
+      applyPayload(obj);
+      saveDraft();
+      modalImport.hide();
+      alert("JSON aplicado!");
+    });
+
+    document.getElementById("btnRefreshPreview").addEventListener("click", refreshJsonPreview);
+
+    document.getElementById("btnCopyJson").addEventListener("click", async ()=>{
+      const txt = document.getElementById("jsonPreview").textContent;
+      await navigator.clipboard.writeText(txt);
+      alert("JSON copiado!");
+    });
+
+    document.getElementById("btnSaveDraft").addEventListener("click", ()=>{
+      saveDraft();
+      alert("Rascunho salvo em localStorage.");
+    });
+
+    document.getElementById("btnReset").addEventListener("click", ()=>{
+      if (!confirm("Deseja limpar tudo e remover o rascunho salvo?")) return;
+      localStorage.removeItem(STORAGE_KEY);
+
+      // reset binds
+      document.querySelectorAll("[data-bind]").forEach(el=>{
+        const type = (el.getAttribute("type")||"").toLowerCase();
+        if (type === "checkbox") el.checked = false;
+        else el.value = "";
+      });
+
+      // reset lists/tags
+      benefits = [];
+      requisitos = [];
+      stages = [];
+      questions = [];
+      tagsResp = [];
+      tagsKey = [];
+      tagsStack = [];
+      tagsLang = [];
+
+      renderAllTags();
+      renderBenefits();
+      renderReqs();
+      renderStages();
+      renderQuestions();
+
+      currentStep = 0;
+      showStep(currentStep);
+      draftInfo.textContent = "Rascunho: removido.";
+    });
+
+    /***********************
+     * FINALIZE
+     ***********************/
+    document.getElementById("btnFinalize").addEventListener("click", ()=>{
+      refreshJsonPreview();
+      alert("Finalizado! Agora você pode enviar o JSON para sua API.");
+    });
+
+    /***********************
+     * AUTO-SAVE ON INPUT
+     ***********************/
+    form.addEventListener("input", ()=>{
+      // atualiza hidden de tags sempre que algo muda
+      renderAllTags();
+      saveDraftDebounced();
+    });
+
+    /***********************
+     * INIT DEFAULTS
+     ***********************/
+    function seedDefaultsIfEmpty(){
+      // se não tem draft, coloca alguns exemplos
+      const hasDraft = localStorage.getItem(STORAGE_KEY);
+      if (hasDraft) return;
+
+      // valores iniciais razoáveis
+      setBoundValue(document.querySelector('[data-bind="vaga.status"]'), "Rascunho");
+      setBoundValue(document.querySelector('[data-bind="vaga.quantidade"]'), "1");
+      setBoundValue(document.querySelector('[data-bind="remuneracao.moeda"]'), "BRL");
+      setBoundValue(document.querySelector('[data-bind="remuneracao.periodicidade"]'), "Mensal");
+      setBoundValue(document.querySelector('[data-bind="jornada.cargaSemanal"]'), "40");
+
+      // listas base
+      benefits = [newBenefit()];
+      requisitos = [newReq()];
+      stages = [newStage(), { ...newStage(), id: crypto.randomUUID(), nome:"Entrevista Gestor", responsavel:"Gestor", modo:"Online", slaDias:5 }];
+      questions = [newQuestion()];
+
+      // tags exemplo
+      tagsResp = ["Triagem de currículos", "Entrevistas por competência", "Alinhamento com gestores"];
+      tagsKey  = ["recrutamento", "seleção", "ATS", "entrevistas"];
+      tagsStack= ["Excel", "LinkedIn Recruiter", "ATS"];
+      tagsLang = ["Inglês (B2)"];
+
+      renderAllTags();
+      renderBenefits();
+      renderReqs();
+      renderStages();
+      renderQuestions();
+    }
+
+    /***********************
+     * BOOT
+     ***********************/
+    (function init(){
+      applyMasks();
+      renderStepper();
+
+      // tags bindings
+      bindTagInput("tagsRespInput","tagsRespAdd",tagsResp,"tagsRespBox");
+      bindTagInput("tagsKeyInput","tagsKeyAdd",tagsKey,"tagsKeyBox");
+      bindTagInput("tagsStackInput","tagsStackAdd",tagsStack,"tagsStackBox");
+      bindTagInput("tagsLangInput","tagsLangAdd",tagsLang,"tagsLangBox");
+
+      seedDefaultsIfEmpty();
+
+      // tenta carregar draft
+      const loaded = loadDraft();
+      if (!loaded) {
+        showStep(0);
+        draftInfo.textContent = "Rascunho: ainda não salvo (auto-save ativo).";
+      }
+
+      // caso tenha seed e não tenha draft, render novamente
+      renderAllTags();
+      renderBenefits();
+      renderReqs();
+      renderStages();
+      renderQuestions();
+
+      showStep(currentStep);
+    })();
+  </script>
+</body>
+</html>

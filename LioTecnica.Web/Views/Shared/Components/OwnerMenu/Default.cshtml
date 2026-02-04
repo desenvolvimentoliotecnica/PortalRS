@@ -1,0 +1,19 @@
+@using LioTecnica.Web.ViewModels.Admin
+@{
+    var linkClass = ViewData["LinkClass"]?.ToString() ?? "nav-link";
+    var tenantId = User?.FindFirst("tenant")?.Value;
+    var currentPath = ViewContext.HttpContext.Request.Path.Value ?? string.Empty;
+    var normalizedCurrent = currentPath.TrimEnd('/').ToLowerInvariant();
+    var ownerItems = new List<MenuForCurrentUserViewModel>
+    {
+        new(Guid.Empty, "Tenants", "/Owner/Tenants", "bi-building", 0, null, "", false),
+        new(Guid.Empty, "IA", "/Owner/IA", "bi-cpu", 1, null, "", false)
+    };
+    var moduleUid = Guid.NewGuid().ToString("N")[..8];
+    ViewData["LinkClass"] = linkClass;
+    ViewData["TenantId"] = tenantId;
+    ViewData["ModuleUid"] = moduleUid;
+}
+<nav class="nav flex-column main-menu-by-module" aria-label="Navegação principal">
+    @await Html.PartialAsync("_MenuModule", (ModuleKey: "Owner", Label: "OWNER", Items: (IReadOnlyList<MenuForCurrentUserViewModel>)ownerItems, Expanded: normalizedCurrent.StartsWith("/owner", StringComparison.OrdinalIgnoreCase)))
+</nav>

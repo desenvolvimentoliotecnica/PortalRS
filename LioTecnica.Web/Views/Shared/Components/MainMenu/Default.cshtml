@@ -1,0 +1,69 @@
+@model IReadOnlyList<LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel>
+@using LioTecnica.Web.Helpers
+@{
+    var linkClass = ViewData["LinkClass"]?.ToString() ?? "nav-link";
+    var tenantId = User?.FindFirst("tenant")?.Value;
+    var currentPath = ViewContext.HttpContext.Request.Path.Value ?? string.Empty;
+    var normalizedCurrent = currentPath.TrimEnd('/').ToLowerInvariant();
+    // Route-based module mapping (plan: Recrutamento, Cadastros, Relatórios, Admin)
+    string GetModuleKey(string route)
+    {
+        if (string.IsNullOrWhiteSpace(route)) return "Recrutamento";
+        var r = route.TrimEnd('/').ToLowerInvariant();
+        if (r.StartsWith("/admin", StringComparison.Ordinal)) return "Admin";
+        if (r == "/relatorios") return "Relatorios";
+        if (r.StartsWith("/feedback", StringComparison.Ordinal) || r.StartsWith("/gestao", StringComparison.Ordinal)) return "Feedback";
+        if (r is "/dashboard" or "/agendas" or "/vagas" or "/candidatos" or "/triagem" or "/matching" or "/portalvagas" or "/entradaemailpasta")
+            return "Recrutamento";
+        if (r is "/departamentos" or "/areas" or "/categorias" or "/cargos" or "/unidades" or "/funcionarios" or "/pessoas")
+            return "Cadastros";
+        return "Recrutamento";
+    }
+
+    var recrutamento = Model.Where(x => GetModuleKey(x.Route) == "Recrutamento").ToList();
+    var cadastros = Model.Where(x => GetModuleKey(x.Route) == "Cadastros").ToList();
+    var relatorios = Model.Where(x => GetModuleKey(x.Route) == "Relatorios").ToList();
+    var feedback = Model.Where(x => GetModuleKey(x.Route) == "Feedback").ToList();
+    var admin = Model.Where(x => GetModuleKey(x.Route) == "Admin").ToList();
+
+    bool HasActive(IEnumerable<LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel> items)
+    {
+        return items.Any(m =>
+        {
+            var route = (m.Route ?? "").TrimEnd('/').ToLowerInvariant();
+            if (normalizedCurrent == route) return true;
+            if ((normalizedCurrent == "" || normalizedCurrent == "/") && (route == "/dashboard" || route == "" || route == "/")) return true;
+            return false;
+        });
+    }
+
+    bool FeedbackExpanded = HasActive(feedback);
+
+    var moduleUid = Guid.NewGuid().ToString("N")[..8];
+    ViewData["LinkClass"] = linkClass;
+    ViewData["TenantId"] = tenantId;
+    ViewData["ModuleUid"] = moduleUid;
+}
+
+<nav class="nav flex-column main-menu-by-module" aria-label="Navegação principal">
+    @if (recrutamento.Count > 0)
+    {
+        @await Html.PartialAsync("_MenuModule", (ModuleKey: "Recrutamento", Label: "Recrutamento", Items: (IReadOnlyList<LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel>)recrutamento, Expanded: HasActive(recrutamento)))
+    }
+    @if (cadastros.Count > 0)
+    {
+        @await Html.PartialAsync("_MenuModule", (ModuleKey: "Cadastros", Label: "Cadastros", Items: (IReadOnlyList<LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel>)cadastros, Expanded: HasActive(cadastros)))
+    }
+    @if (relatorios.Count > 0)
+    {
+        @await Html.PartialAsync("_MenuModule", (ModuleKey: "Relatorios", Label: "Relatórios", Items: (IReadOnlyList<LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel>)relatorios, Expanded: HasActive(relatorios)))
+    }
+    @if (feedback.Count > 0)
+    {
+        @await Html.PartialAsync("_MenuModuleFeedback", (ModuleKey: "Feedback", Label: "Feedback", Items: (IReadOnlyList<LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel>)feedback, Expanded: FeedbackExpanded))
+    }
+    @if (admin.Count > 0)
+    {
+        @await Html.PartialAsync("_MenuModule", (ModuleKey: "Admin", Label: "Administrador", Items: (IReadOnlyList<LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel>)admin, Expanded: HasActive(admin)))
+    }
+</nav>

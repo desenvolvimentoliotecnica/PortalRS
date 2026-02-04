@@ -1,0 +1,31 @@
+<div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasSidebar">
+	<div class="offcanvas-header border-bottom">
+		<div class="d-flex align-items-center gap-2">
+			<span id="logoMobile" class="logo-initials logo-initials--sm" aria-label="LT">LT</span>
+			<div class="lh-1">
+				<div class="fw-bold" style="color:var(--lt-primary)">Portal RH</div>
+				<small class="text-muted">@ViewHelpers.SidebarSubtitle(ViewData)</small>
+			</div>
+		</div>
+		<button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+	</div>
+	<div class="offcanvas-body p-0 sidebar-scroll">
+		<div class="p-2">
+			<div class="small text-uppercase text-muted px-2 mt-2">Navegação</div>
+			@{
+				var offcanvasTenantId = ViewContext.HttpContext.User?.FindFirst("tenant")?.Value ?? string.Empty;
+				var offcanvasInTenantContext = !string.IsNullOrEmpty(offcanvasTenantId) && !string.Equals(offcanvasTenantId, "owner", StringComparison.OrdinalIgnoreCase);
+				var offcanvasHasOwnerCookie = !string.IsNullOrWhiteSpace(ViewContext.HttpContext.Request.Cookies["OwnerAccessToken"]);
+				var offcanvasIsOwnerContext = ViewContext.HttpContext.User?.Identity?.IsAuthenticated == true && (ViewContext.HttpContext.User.IsInRole("Owner") || offcanvasHasOwnerCookie) && !offcanvasInTenantContext;
+			}
+			@if (offcanvasIsOwnerContext)
+			{
+				@await Component.InvokeAsync("OwnerMenu", new { linkClass = "nav-link rounded-3 px-3 py-2" })
+			}
+			else
+			{
+				@await Component.InvokeAsync("MainMenu", new { linkClass = "nav-link rounded-3 px-3 py-2" })
+			}
+		</div>
+	</div>
+</div>

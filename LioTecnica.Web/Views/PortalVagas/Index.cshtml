@@ -1,0 +1,112 @@
+@model LioTecnica.Web.ViewModels.Portal.PortalVagasIndexViewModel
+@{
+    Layout = "~/Views/PortalVagas/_Layout.cshtml";
+}
+
+@section Head {
+    <meta name="portal-api-base" content="@Model.ApiBaseUrl" />
+    <meta name="portal-tenant-id" content="@Model.TenantId" />
+    <meta name="portal-tenant-claim" content="@Model.TenantId" />
+    <meta name="portal-is-admin" content="@(Model.IsAdmin.ToString().ToLowerInvariant())" />
+}
+
+    @await Html.PartialAsync("Partials/_Header", Model)
+
+    <!-- Alertas (erro/sucesso) -->
+    <div class="container py-3">
+        <div id="appAlert" class="alert d-none" role="alert" aria-live="polite"></div>
+    </div>
+
+    <section class="main-header">
+        <div class="container">
+            <h1 class="display-6 fw-semibold mb-2">Transforme o Futuro da Alimentação</h1>
+            <p class="lead mb-0">Ambiente inovador, tecnologia de ponta e paixão por qualidade.</p>
+        </div>
+    </section>
+
+    <div class="container search-wrapper">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input id="q" name="q" type="search" placeholder="Buscar por cargo, empresa, tecnologia..." autocomplete="off" />
+            <button id="searchBtn" class="btn-search" type="button">Buscar</button>
+            <button id="searchClearBtn" class="btn-clear" type="button">Limpar</button>
+        </div>
+    </div>
+
+    <button class="btn btn-light border shadow-sm back-to-top px-3 py-2"
+            type="button"
+            id="backToTopBtn"
+            aria-label="Voltar ao topo">
+        <i class="fas fa-arrow-up me-2" aria-hidden="true"></i> Topo
+    </button>
+
+    <button class="btn btn-primary filters-fab px-3 py-2"
+            type="button"
+            data-bs-toggle="offcanvas" data-bs-target="#filtersDrawer"
+            aria-controls="filtersDrawer" aria-label="Abrir filtros">
+        <i class="fas fa-sliders-h me-2" aria-hidden="true"></i> Filtros
+    </button>
+
+    @await Html.PartialAsync("Partials/_FiltersDrawer")
+
+
+    @await Html.PartialAsync("Modals/_NewJobModal")
+
+
+    <div id="loadingOverlay" class="overlay" aria-hidden="true">
+        <div class="text-center">
+            <div class="spinner-border" role="status" aria-label="Carregando"></div>
+            <div class="mt-2 text-secondary">Atualizando resultados…</div>
+        </div>
+    </div>
+
+    <main class="container pb-5">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <div class="text-secondary">
+                <span id="resultsCount" class="fw-semibold">0</span> vagas encontradas
+            </div>
+
+            <div class="d-none d-md-inline-flex gap-2 align-items-center">
+                <button class="btn btn-sm btn-outline-primary"
+                        type="button"
+                        data-bs-toggle="offcanvas" data-bs-target="#filtersDrawer"
+                        aria-controls="filtersDrawer">
+                    Ajustar filtros
+                </button>
+
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        Ordenar
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><button class="dropdown-item" type="button" data-sort="recent">Mais recentes</button></li>
+                        <li><button class="dropdown-item" type="button" data-sort="salaryDesc">Faixa salarial (maior primeiro)</button></li>
+                        <li><button class="dropdown-item" type="button" data-sort="companyAsc">Empresa (A–Z)</button></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <section id="emptyState" class="empty-state d-none" aria-live="polite">
+            <h2 class="h5 fw-semibold mb-2">Nenhuma vaga encontrada</h2>
+            <p class="text-secondary mb-3">Tente remover alguns filtros ou refinar o texto de busca.</p>
+            <button class="btn btn-outline-secondary" type="button" id="emptyClearBtn">Limpar filtros</button>
+        </section>
+        <section id="jobsGrid" class="jobs-sections" aria-label="Lista de vagas">
+            <div class="jobs-loading" id="jobsLoading">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal de detalhes -->
+    @await Html.PartialAsync("Modals/_JobModal")
+
+    <!-- Modal de candidatura -->
+    @await Html.PartialAsync("Modals/_ApplyModal")
+
+    <!-- Modal de perfil do candidato -->
+    @await Html.PartialAsync("Modals/_ProfileModal")

@@ -1,0 +1,259 @@
+<div class="tab-pane fade" id="tabSkills" role="tabpanel" aria-labelledby="skills-tab">
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+              <div class="fw-bold" style="font-size:1.1rem;">Competências & Portfólio</div>
+              <div class="text-muted small">Organize skills, idiomas, certificados e links.</div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary profile-back-to-cards">
+                <i class="bi bi-arrow-left me-1"></i> Voltar &agrave;s se&ccedil;&otilde;es
+              </button>
+                <button class="btn btn-sm btn-outline-secondary fw-bold d-none" type="button" onclick="seedSkillsPortfolio()">
+                  <i class="fas fa-magic me-1"></i> Inserir exemplos
+                </button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" type="button" onclick="resetSkillsPortfolio()">
+                <i class="fas fa-eraser me-1"></i> Limpar
+              </button>
+            </div>
+          </div>
+
+          <!-- Resumo / Preferências rápidas -->
+          <div class="row g-3 mb-3">
+            <div class="col-12 col-lg-6">
+              <div class="border rounded p-3 h-100" style="border-radius:14px;">
+                <div class="fw-bold mb-2"><i class="fas fa-briefcase me-1"></i> Preferências</div>
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Modelo de trabalho</label>
+                    <select id="prefWorkModel" class="form-select form-select-sm" onchange="saveSkillsPreferences()">
+                      <option value="">Selecionar</option>
+                      <option value="Presencial">Presencial</option>
+                      <option value="Híbrido">Híbrido</option>
+                      <option value="Remoto">Remoto</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Disponibilidade</label>
+                    <select id="prefAvailability" class="form-select form-select-sm" onchange="saveSkillsPreferences()">
+                      <option value="">Selecionar</option>
+                      <option value="Imediata">Imediata</option>
+                      <option value="Até 15 dias">Até 15 dias</option>
+                      <option value="Até 30 dias">Até 30 dias</option>
+                      <option value="A combinar">A combinar</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Pretensão (R$)</label>
+                    <input id="prefSalary" class="form-control form-control-sm" placeholder="Ex.: 4500"
+                           inputmode="numeric" onchange="saveSkillsPreferences()">
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Turno</label>
+                    <select id="prefShift" class="form-select form-select-sm" onchange="saveSkillsPreferences()">
+                      <option value="">Selecionar</option>
+                      <option value="Diurno">Diurno</option>
+                      <option value="Noturno">Noturno</option>
+                      <option value="Escala">Escala</option>
+                      <option value="A combinar">A combinar</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Observação</label>
+                    <input id="prefNote" class="form-control form-control-sm" placeholder="Ex.: Disponível para viagens"
+                           onchange="saveSkillsPreferences()">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <div class="border rounded p-3 h-100" style="border-radius:14px;">
+                <div class="fw-bold mb-2"><i class="fas fa-link me-1"></i> Links de portfólio</div>
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">LinkedIn</label>
+                    <input id="linkLinkedIn" class="form-control form-control-sm" placeholder="https://linkedin.com/in/..."
+                           onchange="saveSkillsLinks()">
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">GitHub</label>
+                    <input id="linkGitHub" class="form-control form-control-sm" placeholder="https://github.com/..."
+                           onchange="saveSkillsLinks()">
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Portfólio</label>
+                    <input id="linkPortfolio" class="form-control form-control-sm" placeholder="https://..."
+                           onchange="saveSkillsLinks()">
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Drive / Certificados</label>
+                    <input id="linkDrive" class="form-control form-control-sm" placeholder="https://drive.google.com/..."
+                           onchange="saveSkillsLinks()">
+                  </div>
+
+                  <div class="col-12 mt-1 d-flex gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openSavedLink('LinkedIn')">
+                      <i class="fab fa-linkedin me-1"></i> Abrir LinkedIn
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openSavedLink('GitHub')">
+                      <i class="fab fa-github me-1"></i> Abrir GitHub
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openSavedLink('Portfolio')">
+                      <i class="fas fa-globe me-1"></i> Abrir Portfólio
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" type="button" onclick="openSavedLink('Drive')">
+                      <i class="fab fa-google-drive me-1"></i> Abrir Drive
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Skills -->
+          <div class="border rounded p-3 mb-3" style="border-radius:14px;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <div class="fw-bold">
+                <i class="fas fa-tools me-1"></i> Competências
+                <span class="text-muted small ms-2">(Hard/Soft/Idiomas)</span>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openSkillModal()">
+                  <i class="fas fa-plus me-1"></i> Adicionar
+                </button>
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-3" id="skillChips"></div>
+            <div class="text-muted small mt-2" id="skillEmpty" style="display:none;">
+              Nenhuma competência adicionada ainda.
+            </div>
+          </div>
+
+          <!-- Certificações / Cursos -->
+          <div class="border rounded p-3" style="border-radius:14px;">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <div class="fw-bold">
+                <i class="fas fa-certificate me-1"></i> Certificações & Cursos
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-primary fw-bold" type="button" onclick="openCertModal()">
+                  <i class="fas fa-plus me-1"></i> Adicionar
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-3" id="certList"></div>
+            <div class="text-muted small mt-2" id="certEmpty" style="display:none;">
+              Nenhum curso/certificação informado ainda.
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modal: Skill -->
+        <div class="modal fade" id="skillEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-tools me-1"></i> Competência</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="skillId">
+
+                <div class="mb-2">
+                  <label class="form-label small text-muted mb-1">Tipo</label>
+                  <select id="skillType" class="form-select form-select-sm">
+                    <option value="Hard">Hard skill</option>
+                    <option value="Soft">Soft skill</option>
+                    <option value="Idioma">Idioma</option>
+                  </select>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label small text-muted mb-1">Nome</label>
+                  <input id="skillName" class="form-control form-control-sm" placeholder="Ex.: Excel, Comunicação, Inglês">
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label small text-muted mb-1">Nível</label>
+                  <select id="skillLevel" class="form-select form-select-sm">
+                    <option value="Básico">Básico</option>
+                    <option value="Intermediário">Intermediário</option>
+                    <option value="Avançado">Avançado</option>
+                  </select>
+                </div>
+
+                <div class="mb-0">
+                  <label class="form-label small text-muted mb-1">Evidência (opcional)</label>
+                  <input id="skillEvidence" class="form-control form-control-sm" placeholder="Ex.: Projeto X, curso Y, experiência Z">
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveSkill()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Certificação/Curso -->
+        <div class="modal fade" id="certEditModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-certificate me-1"></i> Certificação / Curso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+
+              <div class="modal-body">
+                <input type="hidden" id="certId">
+
+                <div class="mb-2">
+                  <label class="form-label small text-muted mb-1">Nome</label>
+                  <input id="certName" class="form-control form-control-sm" placeholder="Ex.: NR-10, Excel Avançado, Scrum">
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Instituição</label>
+                    <input id="certOrg" class="form-control form-control-sm" placeholder="Ex.: SENAI">
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label small text-muted mb-1">Ano</label>
+                    <input id="certYear" class="form-control form-control-sm" placeholder="Ex.: 2025" inputmode="numeric">
+                  </div>
+                </div>
+
+                <div class="mt-2">
+                  <label class="form-label small text-muted mb-1">Link (opcional)</label>
+                  <input id="certLink" class="form-control form-control-sm" placeholder="https://...">
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button class="btn btn-outline-secondary fw-bold" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary fw-bold" type="button" onclick="saveCert()">
+                  <i class="fas fa-save me-1"></i> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        

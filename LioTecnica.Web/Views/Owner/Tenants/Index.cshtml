@@ -1,0 +1,131 @@
+@model IReadOnlyList<LioTecnica.Web.Infrastructure.ApiClients.TenantWithStatusDto>
+@{
+    ViewData["Title"] = "OWNER • Tenants";
+    ViewData["SidebarSubtitle"] = "Proprietário";
+}
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "OWNER • Tenants")
+    <div class="d-flex align-items-center gap-2">
+        @await Html.PartialAsync("_TopbarUserActions", "Owner")
+    </div>
+}
+
+<section class="content">
+    <div class="page-title d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+            <h4>Tenants</h4>
+            <div class="subtitle">Selecione um tenant para acessá-lo. Coluna Schema indica se o banco está em dia com as migrações.</div>
+        </div>
+        <a class="btn btn-primary" asp-action="CreateTenant" asp-controller="Owner">Criar tenant</a>
+    </div>
+
+    @if (TempData["OwnerError"] is string err)
+    {
+        <div class="alert alert-danger">@err</div>
+    }
+    @if (TempData["OwnerInfo"] is string info)
+    {
+        <div class="alert alert-info">@info</div>
+    }
+    @if (TempData["OwnerSuccess"] is string ok)
+    {
+        <div class="alert alert-success d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <span>@ok</span>
+            @if (TempData["CreatedTenantId"] is string createdId)
+            {
+                <form method="post" action="/Account/SwitchTenant" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="tenantId" value="@createdId" />
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>Acessar o tenant agora
+                    </button>
+                </form>
+            }
+        </div>
+    }
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>TenantId</th>
+                        <th>Nome</th>
+                        <th>Ativo</th>
+                        <th>Schema (Migrações)</th>
+                        <th>Criado em</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model ?? Array.Empty<LioTecnica.Web.Infrastructure.ApiClients.TenantWithStatusDto>())
+                    {
+                        <tr>
+                            <td><code>@t.TenantId</code></td>
+                            <td>
+                                <a asp-action="Details" asp-controller="Owner" asp-route-tenantId="@t.TenantId">@t.Name</a>
+                            </td>
+                            <td>@(t.IsActive ? "Sim" : "Não")</td>
+                            <td>
+                                @if (t.MigrationError != null)
+                                {
+                                    <span class="badge bg-danger" title="@t.MigrationError">Erro</span>
+                                }
+                                else if (t.IsUpToDate == true)
+                                {
+                                    <span class="badge bg-success">Ok</span>
+                                }
+                                else if (t.PendingCount > 0)
+                                {
+                                    <span class="badge bg-warning text-dark">Pendente (@t.PendingCount)</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">—</span>
+                                }
+                            </td>
+                            <td>@t.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                <a asp-action="Details" asp-controller="Owner" asp-route-tenantId="@t.TenantId" class="btn btn-sm btn-outline-secondary me-1">
+                                    <i class="bi bi-info-circle me-1"></i>Detalhes
+                                </a>
+                                <form method="post" action="/Account/SwitchTenant" class="d-inline me-1">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="tenantId" value="@t.TenantId" />
+                                    <button type="submit" class="btn btn-sm btn-success">
+                                        <i class="bi bi-box-arrow-in-right me-1"></i>Acessar o tenant
+                                    </button>
+                                </form>
+                                @if (t.IsUpToDate == false && t.PendingCount > 0 && t.MigrationError == null)
+                                {
+                                    <form asp-action="ApplyMigrations" asp-controller="Owner" asp-route-tenantId="@t.TenantId" method="post" class="d-inline me-1">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Aplicar migrações</button>
+                                    </form>
+                                }
+                                @if (t.IsActive)
+                                {
+                                    <form asp-action="DeleteTenant" asp-controller="Owner" asp-route-tenantId="@t.TenantId" method="post" class="d-inline" onsubmit="return confirm('Tem certeza? O tenant ficará inativo e os usuários não poderão acessá-lo.');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash me-1"></i>Eliminar
+                                        </button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model is null || Model.Count == 0)
+        {
+            <div class="card-body text-muted">Nenhum tenant cadastrado.</div>
+        }
+    </div>
+</section>
+
+@section Footer {
+    @await Html.PartialAsync("_Footer", Array.Empty<object>())
+}

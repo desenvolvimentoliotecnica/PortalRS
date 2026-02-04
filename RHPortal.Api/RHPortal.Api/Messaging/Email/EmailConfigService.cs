@@ -1,0 +1,161 @@
+using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Security;
+using RhPortal.Api.Infrastructure.Tenancy;
+
+namespace RhPortal.Api.Messaging.Email;
+
+public sealed class EmailConfigDto
+{
+    public string Provider { get; set; } = "smtp";
+    public string? SmtpHost { get; set; }
+    public int SmtpPort { get; set; } = 587;
+    public bool SmtpEnableSsl { get; set; } = true;
+    public string? SmtpUserName { get; set; }
+    public string? SmtpPassword { get; set; }
+    public string? SmtpFromName { get; set; }
+    public string? SmtpFromAddress { get; set; }
+    public string? ImapHost { get; set; }
+    public int ImapPort { get; set; } = 993;
+    public bool ImapEnableSsl { get; set; } = true;
+    public string? ImapUserName { get; set; }
+    public string? ImapPassword { get; set; }
+}
+
+public sealed class EmailConfigView
+{
+    public string Provider { get; set; } = "smtp";
+    public string? SmtpHost { get; set; }
+    public int SmtpPort { get; set; } = 587;
+    public bool SmtpEnableSsl { get; set; } = true;
+    public string? SmtpUserName { get; set; }
+    public bool SmtpHasPassword { get; set; }
+    public string? SmtpFromName { get; set; }
+    public string? SmtpFromAddress { get; set; }
+    public string? ImapHost { get; set; }
+    public int ImapPort { get; set; } = 993;
+    public bool ImapEnableSsl { get; set; } = true;
+    public string? ImapUserName { get; set; }
+    public bool ImapHasPassword { get; set; }
+}
+
+public interface IEmailConfigService
+{
+    Task<EmailConfigView?> GetAsync(CancellationToken ct);
+    Task<EmailConfigView> SaveAsync(EmailConfigDto dto, CancellationToken ct);
+    Task<EmailConfig?> GetEntityAsync(CancellationToken ct);
+    Task<EmailConfigDto?> GetDecryptedAsync(CancellationToken ct);
+}
+
+public sealed class EmailConfigService : IEmailConfigService
+{
+    private readonly AppDbContext _db;
+    private readonly ISecretProtector _protector;
+    private readonly ITenantContext _tenantContext;
+
+    public EmailConfigService(AppDbContext db, ISecretProtector protector, ITenantContext tenantContext)
+    {
+        _db = db;
+        _protector = protector;
+        _tenantContext = tenantContext;
+    }
+
+    public async Task<EmailConfigView?> GetAsync(CancellationToken ct)
+    {
+        var entity = await _db.EmailConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+        if (entity is null) return null;
+        return MapView(entity);
+    }
+
+    public async Task<EmailConfig?> GetEntityAsync(CancellationToken ct)
+    {
+        return await _db.EmailConfigs.FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<EmailConfigDto?> GetDecryptedAsync(CancellationToken ct)
+    {
+        var entity = await _db.EmailConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+        if (entity is null) return null;
+
+        return new EmailConfigDto
+        {
+            Provider = entity.Provider,
+            SmtpHost = entity.SmtpHost,
+            SmtpPort = entity.SmtpPort,
+            SmtpEnableSsl = entity.SmtpEnableSsl,
+            SmtpUserName = entity.SmtpUserName,
+            SmtpPassword = string.IsNullOrWhiteSpace(entity.SmtpPasswordEncrypted)
+                ? null
+                : _protector.Decrypt(entity.SmtpPasswordEncrypted),
+            SmtpFromName = entity.SmtpFromName,
+            SmtpFromAddress = entity.SmtpFromAddress,
+            ImapHost = entity.ImapHost,
+            ImapPort = entity.ImapPort,
+            ImapEnableSsl = entity.ImapEnableSsl,
+            ImapUserName = entity.ImapUserName,
+            ImapPassword = string.IsNullOrWhiteSpace(entity.ImapPasswordEncrypted)
+                ? null
+                : _protector.Decrypt(entity.ImapPasswordEncrypted)
+        };
+    }
+
+    public async Task<EmailConfigView> SaveAsync(EmailConfigDto dto, CancellationToken ct)
+    {
+        var entity = await _db.EmailConfigs.FirstOrDefaultAsync(ct);
+        var now = DateTimeOffset.UtcNow;
+        if (entity is null)
+        {
+            entity = new EmailConfig
+            {
+                Id = Guid.NewGuid(),
+                CreatedAtUtc = now
+            };
+            _db.EmailConfigs.Add(entity);
+        }
+
+        if (string.IsNullOrWhiteSpace(entity.TenantId))
+            entity.TenantId = _tenantContext.TenantId ?? string.Empty;
+
+        entity.Provider = string.IsNullOrWhiteSpace(dto.Provider) ? "smtp" : dto.Provider.Trim().ToLowerInvariant();
+        entity.SmtpHost = dto.SmtpHost?.Trim();
+        entity.SmtpPort = dto.SmtpPort;
+        entity.SmtpEnableSsl = dto.SmtpEnableSsl;
+        entity.SmtpUserName = dto.SmtpUserName?.Trim();
+        entity.SmtpFromName = dto.SmtpFromName?.Trim();
+        entity.SmtpFromAddress = dto.SmtpFromAddress?.Trim();
+        entity.ImapHost = dto.ImapHost?.Trim();
+        entity.ImapPort = dto.ImapPort;
+        entity.ImapEnableSsl = dto.ImapEnableSsl;
+        entity.ImapUserName = dto.ImapUserName?.Trim();
+        entity.UpdatedAtUtc = now;
+
+        if (!string.IsNullOrWhiteSpace(dto.SmtpPassword))
+            entity.SmtpPasswordEncrypted = _protector.Encrypt(dto.SmtpPassword);
+        if (!string.IsNullOrWhiteSpace(dto.ImapPassword))
+            entity.ImapPasswordEncrypted = _protector.Encrypt(dto.ImapPassword);
+
+        await _db.SaveChangesAsync(ct);
+        return MapView(entity);
+    }
+
+    private static EmailConfigView MapView(EmailConfig entity)
+    {
+        return new EmailConfigView
+        {
+            Provider = entity.Provider,
+            SmtpHost = entity.SmtpHost,
+            SmtpPort = entity.SmtpPort,
+            SmtpEnableSsl = entity.SmtpEnableSsl,
+            SmtpUserName = entity.SmtpUserName,
+            SmtpHasPassword = !string.IsNullOrWhiteSpace(entity.SmtpPasswordEncrypted),
+            SmtpFromName = entity.SmtpFromName,
+            SmtpFromAddress = entity.SmtpFromAddress,
+            ImapHost = entity.ImapHost,
+            ImapPort = entity.ImapPort,
+            ImapEnableSsl = entity.ImapEnableSsl,
+            ImapUserName = entity.ImapUserName,
+            ImapHasPassword = !string.IsNullOrWhiteSpace(entity.ImapPasswordEncrypted)
+        };
+    }
+}

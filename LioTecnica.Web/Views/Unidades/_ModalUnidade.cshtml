@@ -1,0 +1,43 @@
+<div class="modal fade" id="modalUnidade" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title fw-bold" id="modalUnidadeTitle">Nova unidade</h5>
+          <div class="text-muted small">Cadastre dados principais da unidade.</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="unId">
+
+        <div class="row g-2">
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted">Código *</label>
+            <input class="form-control" id="unCodigo" placeholder="Ex.: MATRIZ, FILIAL-SP">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted">Unidade *</label>
+            <input class="form-control" id="unNome" placeholder="Ex.: São Paulo - SP">
+          </div>
+          <div class="col-12 col-md-2" id="unStatusRow" style="display: none;">
+            <label class="form-label small text-muted">Status</label>
+            <select class="form-select" id="unStatus">
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-brand" type="button" id="btnSaveUnidade">
+          <i class="bi bi-check2 me-1"></i>Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

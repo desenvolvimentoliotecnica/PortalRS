@@ -1,0 +1,57 @@
+<div class="modal fade" id="jobModal" tabindex="-1" aria-labelledby="jobModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title h5 mb-0" id="jobModalLabel">Detalhes da vaga</h2>
+                        <div id="jobModalCompany" class="text-secondary small"></div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="p-3 bg-body-tertiary rounded-3 border">
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <span id="jobModalMode" class="badge text-bg-primary"></span>
+                                    <span id="jobModalType" class="badge text-bg-secondary"></span>
+                                    <span id="jobModalLevel" class="badge text-bg-dark"></span>
+                                    <span id="jobModalArea" class="badge text-bg-light border text-dark"></span>
+                                </div>
+                                <div class="mt-2 text-secondary">
+                                    <strong>Local:</strong> <span id="jobModalLocation"></span>
+                                    <span class="mx-2 text-secondary">•</span>
+                                    <strong>Faixa:</strong> <span id="jobModalSalary"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <h3 class="h6 fw-semibold">Tecnologias / Tags</h3>
+                            <div id="jobModalTags" class="d-flex flex-wrap gap-2"></div>
+                        </div>
+
+                        <div class="col-12">
+                            <h3 class="h6 fw-semibold">Resumo</h3>
+                            <p id="jobModalSummary" class="text-secondary mb-0"></p>
+                        </div>
+
+                        <div class="col-12">
+                            <h3 class="h6 fw-semibold">Principais responsabilidades</h3>
+                            <ul id="jobModalResp" class="mb-0 text-secondary"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a id="jobModalAnchor" class="btn btn-outline-secondary" href="#" role="button">
+                        Copiar link interno
+                    </a>
+
+                    <!-- NOVO: abrir modal de candidatura -->
+                    <button id="jobModalApplyBtn" type="button" class="btn btn-primary">
+                        Candidatar-se
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>

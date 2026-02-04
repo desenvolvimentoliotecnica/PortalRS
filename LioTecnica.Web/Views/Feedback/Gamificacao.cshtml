@@ -1,0 +1,33 @@
+@{
+	ViewData["Title"] = "Portal RH • Feedback • Gamificação";
+	ViewData["SidebarSubtitle"] = "Feedback";
+}
+
+@section Topbar {
+	@await Html.PartialAsync("_TopbarBrand", "Feedback • Gamificação")
+	<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar">Atualizar</button>
+	@await Html.PartialAsync("_TopbarUserActions", "RH")
+}
+
+<section class="content">
+	<div class="page-title">
+		<div>
+			<h4>Gamificação</h4>
+			<div class="subtitle">Ranking RENDERCOINZ e seu saldo.</div>
+		</div>
+	</div>
+	<div class="card-soft p-3 mb-3">
+		<h5 class="mb-2">Meu saldo</h5>
+		<div id="myBalance" class="display-6 text-primary">—</div>
+		<div id="myBalanceUpdated" class="small text-muted"></div>
+	</div>
+	<div class="card-soft p-3">
+		<h5 class="mb-3">Ranking RENDERCOINZ</h5>
+		<div id="leaderboardList"></div>
+		<div id="leaderboardEmpty" class="text-muted text-center py-4 d-none">Nenhum dado no ranking ainda.</div>
+	</div>
+</section>
+
+@section Scripts {
+	<script src="~/js/views/feedback-gamificacao.js" asp-append-version="true"></script>
+}

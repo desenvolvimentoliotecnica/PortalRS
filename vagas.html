@@ -1,0 +1,2160 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portal RH • Liotécnica — Vagas</title>
+
+  <!-- Bootstrap 5 (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <style>
+    :root{
+      /* Tons extraídos do logo (azuis) + neutros */
+      --lt-primary: #0C3A64;   /* azul profundo */
+      --lt-brand:   #105291;   /* azul principal */
+      --lt-soft:    #ADC8DC;   /* azul claro */
+      --lt-bg:      #F6F9FC;   /* fundo */
+      --lt-card:    #FFFFFF;
+      --lt-text:    #0D1B2A;
+      --lt-muted:   rgba(13,27,42,.65);
+      --lt-border:  rgba(16,82,144,.18);
+      --lt-shadow:  0 10px 30px rgba(11,58,100,.10);
+      --radius-xl:  18px;
+      --radius-lg:  14px;
+      --ui-scale:  .75;
+    }
+
+    html, body { height: 100%; }
+    body{
+      background: radial-gradient(1100px 480px at 15% 0%, rgba(173,200,220,.30), transparent 55%),
+                  radial-gradient(900px 520px at 85% 10%, rgba(16,82,144,.16), transparent 55%),
+                  var(--lt-bg);
+      color: var(--lt-text);
+      zoom: var(--ui-scale);
+    }
+
+    .app-shell{
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 290px 1fr;
+    }
+
+    /* Sidebar */
+    .sidebar{
+      background: linear-gradient(180deg, rgba(11,58,100,1) 0%, rgba(16,82,144,1) 100%);
+      color: rgba(255,255,255,.92);
+      border-right: 1px solid rgba(255,255,255,.12);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .sidebar-inner{
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:.75rem;
+      padding: 1rem 1rem .75rem 1rem;
+    }
+    .brand img{
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: #fff;
+      padding: 6px;
+      box-shadow: 0 10px 22px rgba(0,0,0,.18);
+      object-fit: contain;
+    }
+    .brand .title{ line-height: 1.05; }
+    .brand .title strong{
+      display:block;
+      font-size: 1.02rem;
+      letter-spacing: .2px;
+    }
+    .brand .title span{
+      display:block;
+      font-size: .78rem;
+      opacity: .85;
+    }
+
+    .sidebar .nav-section{
+      padding: .35rem 1rem;
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      opacity: .75;
+      margin-top: .35rem;
+    }
+    .sidebar .nav-link{
+      color: rgba(255,255,255,.88);
+      border-radius: 12px;
+      padding: .60rem .80rem;
+      display:flex;
+      align-items:center;
+      gap:.65rem;
+      margin: .10rem .75rem;
+      border: 1px solid transparent;
+    }
+    .sidebar .nav-link:hover{
+      background: rgba(255,255,255,.10);
+      border-color: rgba(255,255,255,.12);
+      color: #fff;
+    }
+    .sidebar .nav-link.active{
+      background: rgba(255,255,255,.16);
+      border-color: rgba(255,255,255,.22);
+      color: #fff;
+    }
+    .sidebar .nav-link i{ font-size: 1.05rem; opacity: .95; }
+
+    .sidebar-footer{
+      margin-top:auto;
+      padding: .9rem 1rem 1.1rem;
+      border-top: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.06);
+    }
+    .sidebar-footer .pill{
+      display:inline-flex;
+      gap:.4rem;
+      align-items:center;
+      padding: .35rem .55rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.18);
+      font-size: .78rem;
+    }
+
+    /* Main */
+    .main{
+      display:flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .topbar{
+      position: sticky;
+      top: 0;
+      z-index: 1020;
+      background: rgba(246,249,252,.78);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--lt-border);
+    }
+    .topbar-inner{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: .85rem 1rem;
+    }
+
+    .searchbox{
+      max-width: 620px;
+      width: 100%;
+    }
+    .searchbox .form-control{
+      border-radius: 999px;
+      padding-left: 2.35rem;
+      border-color: var(--lt-border);
+      box-shadow: none;
+    }
+    .searchbox .bi{
+      position:absolute;
+      left: .85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(11,58,100,.75);
+    }
+
+    .content{
+      padding: 1rem 1rem 0;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .page-title{
+      display:flex;
+      align-items:flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: .9rem;
+    }
+    .page-title h4{
+      margin:0;
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+    .page-title .subtitle{
+      color: var(--lt-muted);
+      font-size: .92rem;
+      margin-top: .15rem;
+    }
+
+    .card-soft{
+      background: var(--lt-card);
+      border: 1px solid var(--lt-border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--lt-shadow);
+    }
+
+    .btn-brand{
+      background: linear-gradient(90deg, var(--lt-brand), var(--lt-primary));
+      border: none;
+      color: #fff;
+      border-radius: 999px;
+      padding: .55rem .9rem;
+    }
+    .btn-brand:hover{ filter: brightness(1.02); color:#fff; }
+    .btn-ghost{
+      border-radius: 999px;
+      border: 1px solid var(--lt-border);
+      background: rgba(255,255,255,.65);
+    }
+
+    .badge-soft{
+      border: 1px solid rgba(16,82,144,.22);
+      background: rgba(173,200,220,.25);
+      color: var(--lt-primary);
+      font-weight: 700;
+      border-radius: 999px;
+      padding: .35rem .55rem;
+    }
+
+    .kpi{
+      padding: 1rem;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .kpi .meta{ display:flex; flex-direction: column; gap: .15rem; }
+    .kpi .meta .label{ font-size: .86rem; color: var(--lt-muted); }
+    .kpi .meta .value{ font-size: 1.55rem; font-weight: 900; letter-spacing: .2px; }
+    .kpi .meta .hint{ font-size: .80rem; color: rgba(13,27,42,.58); }
+    .kpi .icon{
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display:grid;
+      place-items:center;
+      border: 1px solid rgba(16,82,144,.22);
+      background: linear-gradient(180deg, rgba(173,200,220,.55), rgba(173,200,220,.18));
+      color: var(--lt-primary);
+      flex: 0 0 auto;
+    }
+    .kpi .icon i{ font-size: 1.2rem; }
+
+    .table thead th{
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: rgba(13,27,42,.60);
+      border-bottom-color: var(--lt-border) !important;
+      white-space: nowrap;
+    }
+    .table td{
+      vertical-align: middle;
+      border-top-color: rgba(16,82,144,.10);
+    }
+    .nowrap{ white-space: nowrap; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .mini-title{
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .10em;
+      color: rgba(13,27,42,.55);
+      margin: 0;
+    }
+
+    .footer{
+      padding: 1rem;
+      border-top: 1px solid var(--lt-border);
+      color: var(--lt-muted);
+      font-size: .90rem;
+      background: rgba(255,255,255,.35);
+    }
+
+    /* Details card */
+    .detail-empty{
+      border: 1px dashed rgba(16,82,144,.30);
+      border-radius: var(--radius-xl);
+      padding: 1.2rem;
+      background: rgba(255,255,255,.55);
+      color: rgba(13,27,42,.70);
+    }
+
+    .req-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:.4rem;
+      border: 1px solid rgba(16,82,144,.20);
+      background: rgba(173,200,220,.22);
+      color: var(--lt-primary);
+      border-radius: 999px;
+      padding: .25rem .55rem;
+      font-size: .82rem;
+      font-weight: 700;
+    }
+    .req-chip.mandatory{
+      border-color: rgba(220,53,69,.35);
+      background: rgba(220,53,69,.10);
+      color: rgba(153, 19, 34, .95);
+    }
+
+    .progress{
+      height: 10px;
+      background: rgba(16,82,144,.10);
+      border-radius: 999px;
+    }
+    .progress-bar{
+      background: linear-gradient(90deg, var(--lt-brand), var(--lt-primary));
+      border-radius: 999px;
+    }
+
+    /* Mobile */
+    @media (max-width: 991.98px){
+      .app-shell{ grid-template-columns: 1fr; }
+      .sidebar{ display:none; }
+      .content{ padding: .9rem .9rem 0; }
+      #detailCol { display:none; } /* detalhes vira offcanvas no mobile */
+    }
+
+    .offcanvas-custom{
+      border-left: 1px solid var(--lt-border);
+      box-shadow: -20px 0 40px rgba(11,58,100,.12);
+    }
+
+    /* Toggle switch style (subtle) */
+    .form-switch .form-check-input{
+      cursor: pointer;
+    }
+
+    /* Toast */
+    .toast{
+      border-radius: 14px;
+      border: 1px solid rgba(16,82,144,.18);
+      box-shadow: var(--lt-shadow);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ============ MOBILE SIDEBAR OFFCANVAS ============ -->
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasSidebar">
+    <div class="offcanvas-header border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <img id="logoMobile" alt="Liotécnica" style="width:34px;height:34px;border-radius:10px;background:#fff;padding:6px;object-fit:contain;">
+        <div class="lh-1">
+          <div class="fw-bold" style="color:var(--lt-primary)">Portal RH</div>
+          <small class="text-muted">Vagas • Requisitos • Matching</small>
+        </div>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body p-0">
+      <div class="p-2">
+        <div class="small text-uppercase text-muted px-2 mt-2">Navegação</div>
+        <div class="nav flex-column">
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+          <a class="nav-link rounded-3 px-3 py-2 fw-semibold" href="#"><i class="bi bi-briefcase me-2"></i>Vagas</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-people me-2"></i>Candidatos</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-funnel me-2"></i>Triagem</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-stars me-2"></i>Matching</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-inbox me-2"></i>Entrada (Email/Pasta)</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-gear me-2"></i>Configurações</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ OFFCANVAS DETAILS (MOBILE) ============ -->
+  <div class="offcanvas offcanvas-end offcanvas-custom" tabindex="-1" id="offcanvasDetails">
+    <div class="offcanvas-header border-bottom">
+      <div>
+        <div class="fw-bold">Detalhes da vaga</div>
+        <div class="text-muted small">Editar requisitos, pesos e regras</div>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body" id="mobileDetailBody">
+      <!-- preenchido por JS (clone do detail) -->
+    </div>
+  </div>
+
+  <!-- ============ MODAL: NOVA/EDITAR VAGA ============ -->
+  <div class="modal fade" id="modalVaga" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title fw-bold" id="modalVagaTitle">Nova vaga</h5>
+            <div class="text-muted small">Dados principais da vaga. Requisitos e pesos ficam nos detalhes.</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="vagaId">
+
+          <div class="row g-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Código</label>
+              <input class="form-control" id="vagaCodigo" placeholder="Ex.: MKT-JR-001">
+            </div>
+            <div class="col-12 col-md-8">
+              <label class="form-label small text-muted">Título *</label>
+              <input class="form-control" id="vagaTitulo" placeholder="Ex.: Analista de Marketing Jr">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Área *</label>
+              <select class="form-select" id="vagaArea">
+                <option value="">Selecione...</option>
+                <option>Marketing</option>
+                <option>Qualidade</option>
+                <option>Produção</option>
+                <option>RH</option>
+                <option>TI</option>
+                <option>Compras</option>
+                <option>Logística</option>
+                <option>Financeiro</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Modalidade</label>
+              <select class="form-select" id="vagaModalidade">
+                <option>Presencial</option>
+                <option>Híbrido</option>
+                <option>Remoto</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Status *</label>
+              <select class="form-select" id="vagaStatus">
+                <option value="">Selecione...</option>
+                <option value="aberta">Aberta</option>
+                <option value="pausada">Pausada</option>
+                <option value="fechada">Fechada</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Cidade</label>
+              <input class="form-control" id="vagaCidade" placeholder="Ex.: Embu das Artes">
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label small text-muted">UF</label>
+              <input class="form-control" id="vagaUF" placeholder="SP" maxlength="2">
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label small text-muted">Senioridade</label>
+              <select class="form-select" id="vagaSenioridade">
+                <option>Júnior</option>
+                <option>Pleno</option>
+                <option>Sênior</option>
+                <option>Especialista</option>
+                <option>Gestão</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label small text-muted">Match mínimo</label>
+              <div class="input-group">
+                <input type="number" class="form-control" id="vagaThreshold" min="0" max="100" value="70">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label small text-muted">Descrição</label>
+              <textarea class="form-control" id="vagaDescricao" rows="4" placeholder="Resumo da vaga, responsabilidades, etc."></textarea>
+            </div>
+
+            <div class="col-12">
+              <div class="alert alert-primary mb-0" style="border-radius: 14px; border-color: rgba(16,82,144,.25); background: rgba(173,200,220,.22); color: var(--lt-primary);">
+                <div class="d-flex align-items-start gap-2">
+                  <i class="bi bi-lightbulb mt-1"></i>
+                  <div>
+                    <div class="fw-semibold">Dica (MVP)</div>
+                    <div class="small">
+                      Salve a vaga e, em seguida, use <strong>Detalhes</strong> para cadastrar <strong>Requisitos</strong> com <strong>peso</strong> e marcar itens <strong>obrigatórios</strong>.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div><!-- row -->
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+            <i class="bi bi-x-lg me-1"></i>Cancelar
+          </button>
+          <button class="btn btn-brand" type="button" id="btnSaveVaga">
+            <i class="bi bi-check2 me-1"></i>Salvar vaga
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: NOVO/EDITAR REQUISITO ============ -->
+  <div class="modal fade" id="modalReq" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title fw-bold" id="modalReqTitle">Novo requisito</h5>
+            <div class="text-muted small">Defina palavra-chave, peso e se é obrigatório.</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="reqId">
+          <div class="row g-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Categoria</label>
+              <select class="form-select" id="reqCategoria">
+                <option>Competência</option>
+                <option>Experiência</option>
+                <option>Formação</option>
+                <option>Ferramenta/Tecnologia</option>
+                <option>Idioma</option>
+                <option>Certificação</option>
+                <option>Localidade</option>
+                <option>Outros</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Peso (0–10)</label>
+              <input type="number" class="form-control" id="reqPeso" min="0" max="10" value="7">
+              <div class="form-text">Sugestão: use 8–10 para itens críticos, 4–7 para desejáveis.</div>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Obrigatório</label>
+              <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" role="switch" id="reqObrigatorio">
+                <label class="form-check-label" for="reqObrigatorio">Sim</label>
+              </div>
+              <div class="form-text">Se faltar, pode derrubar fortemente o score no match.</div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label small text-muted">Palavra-chave / termo *</label>
+              <input class="form-control" id="reqTermo" placeholder="Ex.: Power BI">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label small text-muted">Sinônimos (separados por vírgula)</label>
+              <input class="form-control" id="reqSinonimos" placeholder="Ex.: pbi, powerbi, business intelligence">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label small text-muted">Observação (opcional)</label>
+              <textarea class="form-control" id="reqObs" rows="3" placeholder="Ex.: precisa ter aplicado em campanhas de performance."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+            <i class="bi bi-x-lg me-1"></i>Cancelar
+          </button>
+          <button class="btn btn-brand" type="button" id="btnSaveReq">
+            <i class="bi bi-check2 me-1"></i>Salvar requisito
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TOASTS ============ -->
+  <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+    <div id="appToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="toast-header">
+        <i class="bi bi-bell me-2" style="color: var(--lt-brand)"></i>
+        <strong class="me-auto">Portal RH</strong>
+        <small class="text-muted" id="toastWhen">agora</small>
+        <button type="button" class="btn-close ms-2 mb-1" data-bs-dismiss="toast"></button>
+      </div>
+      <div class="toast-body" id="toastMsg">—</div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <!-- ============ DESKTOP SIDEBAR ============ -->
+    <aside class="sidebar d-none d-lg-block">
+      <div class="sidebar-inner">
+        <div class="brand">
+          <img id="logoDesktop" alt="Liotécnica">
+          <div class="title">
+            <strong>Portal RH</strong>
+            <span>Vagas • Requisitos • Match</span>
+          </div>
+        </div>
+
+        <div class="nav-section">Operação</div>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#"><i class="bi bi-speedometer2"></i>Dashboard</a>
+          <a class="nav-link active" href="#"><i class="bi bi-briefcase"></i>Vagas</a>
+          <a class="nav-link" href="#"><i class="bi bi-people"></i>Candidatos</a>
+          <a class="nav-link" href="#"><i class="bi bi-funnel"></i>Triagem</a>
+          <a class="nav-link" href="#"><i class="bi bi-stars"></i>Matching</a>
+        </nav>
+
+        <div class="nav-section mt-2">Integrações</div>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#"><i class="bi bi-inbox"></i>Entrada (Email/Pasta)</a>
+          <a class="nav-link" href="#"><i class="bi bi-diagram-3"></i>RM Labore</a>
+        </nav>
+
+        <div class="nav-section mt-2">Gestão</div>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#"><i class="bi bi-graph-up"></i>Relatórios</a>
+          <a class="nav-link" href="#"><i class="bi bi-person-gear"></i>Usuários & Perfis</a>
+          <a class="nav-link" href="#"><i class="bi bi-gear"></i>Configurações</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="small" style="opacity:.92;">
+              <div class="fw-semibold">Ambiente</div>
+              <div class="opacity-75">DEV • Postgres</div>
+            </div>
+            <span class="pill"><i class="bi bi-shield-check"></i>LGPD</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============ MAIN ============ -->
+    <main class="main">
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-ghost d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSidebar">
+              <i class="bi bi-list"></i>
+            </button>
+
+            <div class="d-none d-md-block">
+              <div class="fw-bold" style="color:var(--lt-primary); line-height:1.05;">Liotécnica • Portal RH</div>
+              <small class="text-muted">Tela: Vagas (CRUD + requisitos com peso/obrigatório)</small>
+            </div>
+          </div>
+
+          <div class="searchbox position-relative d-none d-md-block">
+            <i class="bi bi-search"></i>
+            <input id="globalSearch" class="form-control" placeholder="Buscar por título, código, área..." />
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-ghost" type="button" id="btnExportJson" title="Exportar vagas (JSON)">
+              <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
+            </button>
+
+            <button class="btn btn-ghost" type="button" id="btnImportJson" title="Importar vagas (JSON)">
+              <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">Importar</span>
+            </button>
+
+            <button class="btn btn-brand" type="button" id="btnNewVaga">
+              <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Nova vaga</span>
+            </button>
+
+            <div class="dropdown">
+              <button class="btn btn-ghost dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-person-circle me-1"></i><span class="d-none d-sm-inline">RH</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-person-gear me-2"></i>Meu perfil</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-bell me-2"></i>Notificações</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-box-arrow-right me-2"></i>Sair</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT -->
+      <section class="content">
+        <div class="page-title">
+          <div>
+            <h4>Vagas</h4>
+            <div class="subtitle">Crie vagas, defina requisitos com peso e marque itens obrigatórios para o matching.</div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">—</span></span>
+            <span class="badge-soft"><i class="bi bi-lightning-charge me-1"></i>MVP localStorage</span>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="row g-3">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft kpi">
+              <div class="meta">
+                <div class="label">Total</div>
+                <div class="value" id="kpiTotal">0</div>
+                <div class="hint">vagas cadastradas</div>
+              </div>
+              <div class="icon"><i class="bi bi-collection"></i></div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft kpi">
+              <div class="meta">
+                <div class="label">Abertas</div>
+                <div class="value" id="kpiAbertas">0</div>
+                <div class="hint">em andamento</div>
+              </div>
+              <div class="icon"><i class="bi bi-briefcase"></i></div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft kpi">
+              <div class="meta">
+                <div class="label">Pausadas</div>
+                <div class="value" id="kpiPausadas">0</div>
+                <div class="hint">aguardando</div>
+              </div>
+              <div class="icon"><i class="bi bi-pause-circle"></i></div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft kpi">
+              <div class="meta">
+                <div class="label">Fechadas</div>
+                <div class="value" id="kpiFechadas">0</div>
+                <div class="hint">encerradas</div>
+              </div>
+              <div class="icon"><i class="bi bi-lock"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+          <!-- LISTA -->
+          <div class="col-12 col-lg-7">
+            <div class="card-soft p-3">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <div>
+                  <p class="mini-title mb-1">Lista</p>
+                  <div class="fw-bold">Vagas cadastradas</div>
+                  <div class="text-muted small">Clique em uma vaga para ver detalhes e editar requisitos.</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-ghost btn-sm" id="btnSeedReset" type="button" title="Restaurar dados de exemplo">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset demo
+                  </button>
+                </div>
+              </div>
+
+              <!-- filtros -->
+              <div class="row g-2 mb-2">
+                <div class="col-12 col-md-6">
+                  <div class="input-group">
+                    <span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
+                      <i class="bi bi-search"></i>
+                    </span>
+                    <input class="form-control" id="fSearch" placeholder="Buscar por título, código, área..." style="border-color:var(--lt-border);">
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <select class="form-select" id="fStatus" style="border-color:var(--lt-border);">
+                    <option value="all">Status: todos</option>
+                    <option value="aberta">Aberta</option>
+                    <option value="pausada">Pausada</option>
+                    <option value="fechada">Fechada</option>
+                  </select>
+                </div>
+                <div class="col-6 col-md-3">
+                  <select class="form-select" id="fArea" style="border-color:var(--lt-border);">
+                    <option value="all">Área: todas</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 240px;">Vaga</th>
+                      <th style="min-width: 120px;">Status</th>
+                      <th style="min-width: 130px;">Área</th>
+                      <th style="min-width: 150px;">Requisitos</th>
+                      <th style="min-width: 120px;">Match mín.</th>
+                      <th class="text-end" style="min-width: 170px;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tblVagas"></tbody>
+                </table>
+              </div>
+
+              <div class="mt-2 small text-muted">
+                MVP: dados ficam salvos no <span class="mono">localStorage</span>. Depois, isso vira API + Postgres.
+              </div>
+            </div>
+          </div>
+
+          <!-- DETALHES (DESKTOP) -->
+          <div class="col-12 col-lg-5" id="detailCol">
+            <div id="detailHost">
+              <!-- preenchido por JS -->
+            </div>
+          </div>
+        </div>
+
+        <div style="height: 14px;"></div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer class="footer">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>© <span id="year"></span> Liotécnica • Portal RH (MVP)</div>
+          <div class="d-flex align-items-center gap-3">
+            <span><i class="bi bi-database me-1"></i>Postgres</span>
+            <span><i class="bi bi-briefcase me-1"></i>Vagas</span>
+            <span><i class="bi bi-stars me-1"></i>Match</span>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Bootstrap JS (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ========= Logo (embutido em Data URI - auto contido)
+    // Observação: o arquivo fornecido veio como WebP (mesmo com nome .png).
+    const LOGO_DATA_URI = "data:image/webp;base64,UklGRngUAABXRUJQVlA4IGwUAAAQYwCdASpbAVsBPlEokUajoqGhIpNoyHAK7AQYJjYQmG9Dtu/6p6QZ4lQd6lPde+Jk3i3kG2EoP+QW0c0h8Oe3jW2C5zE0o9jzZ1x2fX9cZlX0d7rW8r0vQ9p3d2nJ1bqzQfQZxVwTt7mJvU8j1GqF4oJc8Qb+gq+oQyHcQyYc2b9u2fYf0Rj9x9hRZp2Y2xK0yVQ8Hj4p6w8B1K2cKk2mY9m2r8kz3a4m7xG4xg9m5VjzP3E4RjQH8fYkC4mB8g0vR3c5h1D0yE8Qzv7t7gQj0Z9yKk3cWZgVnq3l1kq6rE8oWc4z6oZk8k0b1o9m8p2m+QJ3nJm6GgA=";
+
+    // ========= Helpers
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+    function uid(){
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      return "id-" + Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
+    }
+
+    function fmtStatus(s){
+      const map = { aberta:"Aberta", pausada:"Pausada", fechada:"Fechada" };
+      return map[s] || s;
+    }
+
+    function badgeStatus(s){
+      const map = {
+        aberta:  "success",
+        pausada: "warning",
+        fechada: "secondary"
+      };
+      const bs = map[s] || "primary";
+      return `<span class="badge text-bg-${bs} rounded-pill">${fmtStatus(s)}</span>`;
+    }
+
+    function escapeHtml(str){
+      return (str ?? "").toString()
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function toast(msg){
+      $("#toastMsg").textContent = msg;
+      $("#toastWhen").textContent = "agora";
+      bootstrap.Toast.getOrCreateInstance($("#appToast"), { delay: 2400 }).show();
+    }
+
+    // ========= Storage
+    const STORE_KEY = "lt_rh_vagas_v1";
+
+    const state = {
+      vagas: [],
+      selectedId: null,
+      filters: { q:"", status:"all", area:"all" }
+    };
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORE_KEY);
+        if(!raw) return false;
+        const data = JSON.parse(raw);
+        if(!data || !Array.isArray(data.vagas)) return false;
+        state.vagas = data.vagas;
+        state.selectedId = data.selectedId ?? null;
+        return true;
+      }catch{
+        return false;
+      }
+    }
+
+    function saveState(){
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        vagas: state.vagas,
+        selectedId: state.selectedId
+      }));
+    }
+
+    function seedIfEmpty(){
+      if(state.vagas.length) return;
+
+      const v1 = {
+        id: uid(),
+        codigo: "MKT-JR-001",
+        titulo: "Analista de Marketing Jr",
+        area: "Marketing",
+        modalidade: "Híbrido",
+        status: "aberta",
+        cidade: "Embu das Artes",
+        uf: "SP",
+        senioridade: "Júnior",
+        threshold: 70,
+        descricao: "Apoiar campanhas, CRM e análises. Perfil analítico e mão na massa.",
+        createdAt: new Date(Date.now() - 1000*60*60*24*4).toISOString(),
+        updatedAt: new Date(Date.now() - 1000*60*60*6).toISOString(),
+        weights: { competencia: 40, experiencia: 30, formacao: 15, localidade: 15 },
+        requisitos: [
+          { id: uid(), categoria:"Ferramenta/Tecnologia", termo:"Power BI", peso: 9, obrigatorio: true, sinonimos:["pbi","powerbi"], obs:"Dashboards e KPIs" },
+          { id: uid(), categoria:"Competência", termo:"Google Analytics", peso: 7, obrigatorio: false, sinonimos:["ga4","analytics"], obs:"" },
+          { id: uid(), categoria:"Experiência", termo:"Campanhas de performance", peso: 8, obrigatorio: true, sinonimos:["mídia paga","ads"], obs:"Meta/Google Ads" },
+          { id: uid(), categoria:"Competência", termo:"Excel", peso: 6, obrigatorio: false, sinonimos:["planilhas"], obs:"" }
+        ]
+      };
+
+      const v2 = {
+        id: uid(),
+        codigo: "QLD-PL-003",
+        titulo: "Supervisor de Qualidade",
+        area: "Qualidade",
+        modalidade: "Presencial",
+        status: "pausada",
+        cidade: "Embu das Artes",
+        uf: "SP",
+        senioridade: "Gestão",
+        threshold: 75,
+        descricao: "Gestão da qualidade, auditorias e controle de processos.",
+        createdAt: new Date(Date.now() - 1000*60*60*24*12).toISOString(),
+        updatedAt: new Date(Date.now() - 1000*60*60*24*2).toISOString(),
+        weights: { competencia: 35, experiencia: 40, formacao: 20, localidade: 5 },
+        requisitos: [
+          { id: uid(), categoria:"Certificação", termo:"BPF", peso: 8, obrigatorio: true, sinonimos:["boas práticas de fabricação"], obs:"" },
+          { id: uid(), categoria:"Experiência", termo:"Auditoria interna", peso: 8, obrigatorio: true, sinonimos:["auditorias"], obs:"" },
+          { id: uid(), categoria:"Formação", termo:"Engenharia de Alimentos", peso: 7, obrigatorio: false, sinonimos:["alimentos"], obs:"" }
+        ]
+      };
+
+      const v3 = {
+        id: uid(),
+        codigo: "TI-PL-010",
+        titulo: "Analista de Dados (BI)",
+        area: "TI",
+        modalidade: "Remoto",
+        status: "aberta",
+        cidade: "",
+        uf: "",
+        senioridade: "Pleno",
+        threshold: 80,
+        descricao: "Modelagem e criação de dashboards. Integrações e rotinas de dados.",
+        createdAt: new Date(Date.now() - 1000*60*60*24*2).toISOString(),
+        updatedAt: new Date(Date.now() - 1000*60*60*24*1).toISOString(),
+        weights: { competencia: 45, experiencia: 35, formacao: 10, localidade: 10 },
+        requisitos: [
+          { id: uid(), categoria:"Ferramenta/Tecnologia", termo:"SQL", peso: 10, obrigatorio: true, sinonimos:["postgres","t-sql"], obs:"" },
+          { id: uid(), categoria:"Ferramenta/Tecnologia", termo:"ETL", peso: 7, obrigatorio: false, sinonimos:["pipelines"], obs:"" },
+          { id: uid(), categoria:"Competência", termo:"Modelagem dimensional", peso: 8, obrigatorio: true, sinonimos:["star schema"], obs:"" }
+        ]
+      };
+
+      state.vagas = [v1, v2, v3];
+      state.selectedId = v1.id;
+      saveState();
+    }
+
+    // ========= Rendering
+    function updateKpis(){
+      const total = state.vagas.length;
+      const abertas = state.vagas.filter(v => v.status === "aberta").length;
+      const pausadas = state.vagas.filter(v => v.status === "pausada").length;
+      const fechadas = state.vagas.filter(v => v.status === "fechada").length;
+
+      $("#kpiTotal").textContent = total;
+      $("#kpiAbertas").textContent = abertas;
+      $("#kpiPausadas").textContent = pausadas;
+      $("#kpiFechadas").textContent = fechadas;
+    }
+
+    function distinctAreas(){
+      const set = new Set(state.vagas.map(v => v.area).filter(Boolean));
+      return Array.from(set).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+    }
+
+    function renderAreaFilter(){
+      const areas = distinctAreas();
+      const sel = $("#fArea");
+      const cur = sel.value || "all";
+      sel.innerHTML = `<option value="all">Área: todas</option>` + areas.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("");
+      sel.value = areas.includes(cur) ? cur : "all";
+    }
+
+    function getFilteredVagas(){
+      const q = (state.filters.q || "").trim().toLowerCase();
+      const st = state.filters.status;
+      const ar = state.filters.area;
+
+      return state.vagas.filter(v => {
+        if(st !== "all" && v.status !== st) return false;
+        if(ar !== "all" && (v.area || "") !== ar) return false;
+
+        if(!q) return true;
+
+        const blob = [
+          v.codigo, v.titulo, v.area, v.modalidade, v.cidade, v.uf, v.senioridade
+        ].join(" ").toLowerCase();
+
+        return blob.includes(q);
+      });
+    }
+
+    function renderList(){
+      const tbody = $("#tblVagas");
+      tbody.innerHTML = "";
+
+      const rows = getFilteredVagas();
+      if(!rows.length){
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">Nenhuma vaga encontrada com os filtros atuais.</td></tr>`;
+        return;
+      }
+
+      rows.forEach(v => {
+        const reqTotal = (v.requisitos || []).length;
+        const reqObrig = (v.requisitos || []).filter(r => !!r.obrigatorio).length;
+        const isSel = v.id === state.selectedId;
+
+        const tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+        tr.className = isSel ? "table-active" : "";
+        tr.innerHTML = `
+          <td>
+            <div class="fw-bold">${escapeHtml(v.titulo || "—")}</div>
+            <div class="text-muted small">
+              <span class="mono">${escapeHtml(v.codigo || "—")}</span>
+              <span class="mx-2">•</span>
+              <span>${escapeHtml(v.modalidade || "—")}</span>
+              ${v.cidade || v.uf ? `<span class="mx-2">•</span><span>${escapeHtml([v.cidade, v.uf].filter(Boolean).join(" - "))}</span>` : ""}
+            </div>
+          </td>
+          <td class="nowrap">${badgeStatus(v.status)}</td>
+          <td class="nowrap">${escapeHtml(v.area || "—")}</td>
+          <td class="nowrap">
+            <span class="req-chip">${reqTotal} total</span>
+            <span class="req-chip mandatory ms-1">${reqObrig} obrig.</span>
+          </td>
+          <td class="nowrap">
+            <span class="badge-soft"><i class="bi bi-stars me-1"></i>${clamp(parseInt(v.threshold ?? 0,10)||0,0,100)}%</span>
+          </td>
+          <td class="text-end nowrap">
+            <button class="btn btn-ghost btn-sm me-1" data-act="edit" data-id="${v.id}">
+              <i class="bi bi-pencil me-1"></i>Editar
+            </button>
+            <button class="btn btn-ghost btn-sm me-1" data-act="dup" data-id="${v.id}" title="Duplicar">
+              <i class="bi bi-copy"></i>
+            </button>
+            <button class="btn btn-ghost btn-sm text-danger" data-act="del" data-id="${v.id}" title="Excluir">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </td>
+        `;
+
+        tr.addEventListener("click", (ev) => {
+          const btn = ev.target.closest("button[data-act]");
+          if(btn){
+            ev.preventDefault();
+            ev.stopPropagation();
+            const act = btn.dataset.act;
+            const id = btn.dataset.id;
+            if(act === "edit") openVagaModal("edit", id);
+            if(act === "dup") duplicateVaga(id);
+            if(act === "del") deleteVaga(id);
+            return;
+          }
+          selectVaga(v.id);
+        });
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function findVaga(id){
+      return state.vagas.find(v => v.id === id) || null;
+    }
+
+    function selectVaga(id){
+      state.selectedId = id;
+      saveState();
+      renderList();
+      renderDetail();
+      // mobile: abre detalhes
+      if(window.matchMedia("(max-width: 991.98px)").matches){
+        openMobileDetails();
+      }
+    }
+
+    // ========= Detail UI (desktop) + clone for mobile
+    function buildDetailHtml(v){
+      if(!v){
+        return `
+          <div class="detail-empty">
+            <div class="d-flex align-items-start gap-2">
+              <i class="bi bi-info-circle mt-1"></i>
+              <div>
+                <div class="fw-bold">Selecione uma vaga</div>
+                <div class="small mt-1">
+                  Clique em uma vaga na lista para editar requisitos (pesos/obrigatórios), definir o match mínimo e simular aderência.
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      const reqTotal = (v.requisitos || []).length;
+      const reqObrig = (v.requisitos || []).filter(r => !!r.obrigatorio).length;
+
+      const updated = v.updatedAt ? new Date(v.updatedAt) : null;
+      const updatedTxt = updated ? updated.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—";
+
+      const weights = v.weights || { competencia:40, experiencia:30, formacao:15, localidade:15 };
+      const sumW = (weights.competencia||0) + (weights.experiencia||0) + (weights.formacao||0) + (weights.localidade||0);
+
+      return `
+        <div class="card-soft p-3">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+            <div>
+              <p class="mini-title mb-1">Detalhes</p>
+              <div class="fw-bold" style="font-size: 1.05rem;">${escapeHtml(v.titulo || "—")}</div>
+              <div class="text-muted small">
+                <span class="mono">${escapeHtml(v.codigo || "—")}</span>
+                <span class="mx-2">•</span>
+                <span>${escapeHtml(v.area || "—")}</span>
+                <span class="mx-2">•</span>
+                <span>${escapeHtml(v.modalidade || "—")}</span>
+              </div>
+            </div>
+
+            <div class="text-end">
+              <div class="mb-1">${badgeStatus(v.status)}</div>
+              <div class="text-muted small">Atualizado: ${escapeHtml(updatedTxt)}</div>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <span class="req-chip"><i class="bi bi-list-check me-1"></i>${reqTotal} requisitos</span>
+            <span class="req-chip mandatory"><i class="bi bi-exclamation-triangle me-1"></i>${reqObrig} obrigatórios</span>
+            <span class="badge-soft"><i class="bi bi-stars me-1"></i>Match mín.: ${clamp(parseInt(v.threshold ?? 0,10)||0,0,100)}%</span>
+          </div>
+
+          <ul class="nav nav-pills gap-2 mb-3" id="detailTabs" role="tablist" style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active rounded-pill" data-bs-toggle="pill" data-bs-target="#tabResumo" type="button" role="tab">
+                <i class="bi bi-card-text me-1"></i>Resumo
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabReq" type="button" role="tab">
+                <i class="bi bi-list-check me-1"></i>Requisitos
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabMatch" type="button" role="tab">
+                <i class="bi bi-sliders me-1"></i>Pesos & Match
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content">
+            <!-- RESUMO -->
+            <div class="tab-pane fade show active" id="tabResumo" role="tabpanel">
+              <div class="mb-2">
+                <div class="fw-semibold">Descrição</div>
+                <div class="text-muted small">${escapeHtml(v.descricao || "—")}</div>
+              </div>
+
+              <div class="row g-2">
+                <div class="col-12 col-md-6">
+                  <div class="card-soft p-2" style="box-shadow:none;">
+                    <div class="small text-muted">Local</div>
+                    <div class="fw-semibold">${escapeHtml([v.cidade, v.uf].filter(Boolean).join(" - ") || "—")}</div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <div class="card-soft p-2" style="box-shadow:none;">
+                    <div class="small text-muted">Senioridade</div>
+                    <div class="fw-semibold">${escapeHtml(v.senioridade || "—")}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex flex-wrap gap-2 mt-3">
+                <button class="btn btn-ghost btn-sm" type="button" data-dact="editvaga">
+                  <i class="bi bi-pencil me-1"></i>Editar vaga
+                </button>
+                <button class="btn btn-ghost btn-sm" type="button" data-dact="duplicate">
+                  <i class="bi bi-copy me-1"></i>Duplicar
+                </button>
+                <button class="btn btn-ghost btn-sm text-danger" type="button" data-dact="delete">
+                  <i class="bi bi-trash3 me-1"></i>Excluir
+                </button>
+              </div>
+            </div>
+
+            <!-- REQUISITOS -->
+            <div class="tab-pane fade" id="tabReq" role="tabpanel">
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <div>
+                  <div class="fw-semibold">Requisitos</div>
+                  <div class="text-muted small">Peso (0–10) + flag de obrigatório.</div>
+                </div>
+                <button class="btn btn-brand btn-sm" type="button" data-dact="addreq">
+                  <i class="bi bi-plus-lg me-1"></i>Novo requisito
+                </button>
+              </div>
+
+              <div class="input-group mb-2">
+                <span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input class="form-control" id="reqSearch" placeholder="Filtrar requisitos..." style="border-color:var(--lt-border);">
+              </div>
+
+              <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 110px;">Obrig.</th>
+                      <th style="min-width: 150px;">Categoria</th>
+                      <th style="min-width: 220px;">Termo</th>
+                      <th style="min-width: 110px;">Peso</th>
+                      <th style="min-width: 220px;">Sinônimos</th>
+                      <th class="text-end" style="min-width: 120px;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tblReq"></tbody>
+                </table>
+              </div>
+
+              <div class="small text-muted mt-2">
+                Regras (MVP): score = soma(pesos encontrados) / soma(pesos totais) * 100.
+                Itens <strong>obrigatórios</strong> podem aplicar penalidade se ausentes.
+              </div>
+            </div>
+
+            <!-- PESOS & MATCH -->
+            <div class="tab-pane fade" id="tabMatch" role="tabpanel">
+              <div class="fw-semibold mb-1">Match mínimo</div>
+              <div class="d-flex align-items-center gap-2">
+                <input type="range" class="form-range" min="0" max="100" value="${clamp(parseInt(v.threshold ?? 0,10)||0,0,100)}" id="thresholdRange">
+                <span class="badge-soft" style="min-width:74px;text-align:center;" id="thresholdLabel">${clamp(parseInt(v.threshold ?? 0,10)||0,0,100)}%</span>
+              </div>
+              <div class="text-muted small mb-3">Use isso como “corte” para triagem automática.</div>
+
+              <div class="fw-semibold mb-2">Pesos por categoria (soma ideal = 100)</div>
+
+              ${weightRow("Competência", "competencia", weights.competencia ?? 0)}
+              ${weightRow("Experiência", "experiencia", weights.experiencia ?? 0)}
+              ${weightRow("Formação", "formacao", weights.formacao ?? 0)}
+              ${weightRow("Localidade", "localidade", weights.localidade ?? 0)}
+
+              <div class="d-flex align-items-center justify-content-between mt-3">
+                <span class="badge-soft">Soma atual: <span id="weightsSum">${sumW}</span></span>
+                <button class="btn btn-brand btn-sm" type="button" data-dact="saveWeights">
+                  <i class="bi bi-check2 me-1"></i>Salvar
+                </button>
+              </div>
+
+              <hr class="my-3">
+
+              <div class="fw-semibold mb-1">Simulador rápido (MVP)</div>
+              <div class="text-muted small mb-2">Cole um texto (currículo em texto) e veja o match estimado por palavras-chave.</div>
+              <textarea class="form-control mb-2" id="simText" rows="5" placeholder="Cole aqui o texto do CV (extraído do PDF/DOCX)..."></textarea>
+              <div class="d-flex gap-2">
+                <button class="btn btn-ghost btn-sm" type="button" data-dact="simulate">
+                  <i class="bi bi-play-circle me-1"></i>Simular
+                </button>
+                <button class="btn btn-ghost btn-sm" type="button" data-dact="simClear">
+                  <i class="bi bi-eraser me-1"></i>Limpar
+                </button>
+              </div>
+
+              <div class="mt-2" id="simResult"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function weightRow(label, key, value){
+      value = clamp(parseInt(value,10)||0, 0, 100);
+      const id = "w_" + key;
+      return `
+        <div class="mb-2">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="text-muted small">${escapeHtml(label)}</div>
+            <div class="mono small"><span id="${id}_val">${value}</span>%</div>
+          </div>
+          <input type="range" class="form-range" min="0" max="100" value="${value}" id="${id}">
+        </div>
+      `;
+    }
+
+    function renderDetail(){
+      const v = findVaga(state.selectedId);
+      $("#detailHost").innerHTML = buildDetailHtml(v);
+
+      // bind detail actions + render req table + bind sliders
+      bindDetailActions(v);
+      renderReqTable(v);
+
+      // update mobile clone if open later
+      syncMobileDetail();
+    }
+
+    function bindDetailActions(v){
+      if(!v) return;
+
+      // detail buttons
+      $$("#detailHost [data-dact]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const act = btn.dataset.dact;
+          if(act === "editvaga") openVagaModal("edit", v.id);
+          if(act === "duplicate") duplicateVaga(v.id);
+          if(act === "delete") deleteVaga(v.id);
+          if(act === "addreq") openReqModal("new", v.id);
+          if(act === "saveWeights") saveWeightsFromDetail(v.id);
+          if(act === "simulate") simulateMatch(v.id);
+          if(act === "simClear") clearSimulation();
+        });
+      });
+
+      // threshold
+      const r = $("#detailHost #thresholdRange");
+      const lbl = $("#detailHost #thresholdLabel");
+      if(r && lbl){
+        r.addEventListener("input", () => {
+          lbl.textContent = clamp(parseInt(r.value,10)||0,0,100) + "%";
+        });
+      }
+
+      // weights
+      ["competencia","experiencia","formacao","localidade"].forEach(k => {
+        const slider = $("#detailHost #w_" + k);
+        const val = $("#detailHost #w_" + k + "_val");
+        if(slider && val){
+          slider.addEventListener("input", () => {
+            val.textContent = slider.value;
+            updateWeightsSumInDetail();
+          });
+        }
+      });
+
+      // req search
+      const reqSearch = $("#detailHost #reqSearch");
+      if(reqSearch){
+        reqSearch.addEventListener("input", () => renderReqTable(v));
+      }
+    }
+
+    function updateWeightsSumInDetail(){
+      const keys = ["competencia","experiencia","formacao","localidade"];
+      let sum = 0;
+      keys.forEach(k => {
+        const slider = $("#detailHost #w_" + k);
+        sum += (slider ? parseInt(slider.value,10) : 0) || 0;
+      });
+      const sumEl = $("#detailHost #weightsSum");
+      if(sumEl) sumEl.textContent = sum;
+    }
+
+    function renderReqTable(v){
+      const tbody = $("#detailHost #tblReq");
+      if(!tbody) return;
+
+      tbody.innerHTML = "";
+      const reqs = (v?.requisitos || []);
+
+      const q = ($("#detailHost #reqSearch")?.value || "").trim().toLowerCase();
+      const filtered = !q ? reqs : reqs.filter(r => {
+        const blob = [r.categoria, r.termo, (r.sinonimos||[]).join(" "), r.obs].join(" ").toLowerCase();
+        return blob.includes(q);
+      });
+
+      if(!filtered.length){
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Nenhum requisito.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(r => {
+        const syn = (r.sinonimos || []).join(", ");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="nowrap">
+            <div class="form-check form-switch m-0">
+              <input class="form-check-input" type="checkbox" ${r.obrigatorio ? "checked" : ""} data-ract="toggle" data-rid="${r.id}">
+            </div>
+          </td>
+          <td>${escapeHtml(r.categoria || "—")}</td>
+          <td>
+            <div class="fw-semibold">${escapeHtml(r.termo || "—")}</div>
+            ${r.obs ? `<div class="text-muted small">${escapeHtml(r.obs)}</div>` : `<div class="text-muted small">—</div>`}
+          </td>
+          <td class="nowrap">
+            <span class="badge-soft">${clamp(parseInt(r.peso ?? 0,10)||0,0,10)}</span>
+          </td>
+          <td>${escapeHtml(syn || "—")}</td>
+          <td class="text-end nowrap">
+            <button class="btn btn-ghost btn-sm me-1" data-ract="edit" data-rid="${r.id}">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-ghost btn-sm text-danger" data-ract="del" data-rid="${r.id}">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </td>
+        `;
+
+        tr.querySelectorAll("[data-ract]").forEach(el => {
+          el.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const act = el.dataset.ract;
+            const rid = el.dataset.rid;
+            if(act === "toggle") toggleReqMandatory(v.id, rid);
+            if(act === "edit") openReqModal("edit", v.id, rid);
+            if(act === "del") deleteReq(v.id, rid);
+          });
+        });
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function syncMobileDetail(){
+      // No mobile, clonamos o HTML dos detalhes para o offcanvas (para manter 1 arquivo só)
+      const host = $("#detailHost");
+      const target = $("#mobileDetailBody");
+      if(!host || !target) return;
+      target.innerHTML = host.innerHTML;
+
+      // Re-bind actions within mobile offcanvas
+      const v = findVaga(state.selectedId);
+      if(!v) return;
+
+      // bind actions
+      $$("#mobileDetailBody [data-dact]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const act = btn.dataset.dact;
+          if(act === "editvaga") openVagaModal("edit", v.id);
+          if(act === "duplicate") duplicateVaga(v.id);
+          if(act === "delete") deleteVaga(v.id);
+          if(act === "addreq") openReqModal("new", v.id);
+          if(act === "saveWeights") saveWeightsFromDetail(v.id, true);
+          if(act === "simulate") simulateMatch(v.id, true);
+          if(act === "simClear") clearSimulation(true);
+        });
+      });
+
+      // threshold + weights
+      const r = $("#mobileDetailBody #thresholdRange");
+      const lbl = $("#mobileDetailBody #thresholdLabel");
+      if(r && lbl){
+        r.addEventListener("input", () => {
+          lbl.textContent = clamp(parseInt(r.value,10)||0,0,100) + "%";
+        });
+      }
+
+      ["competencia","experiencia","formacao","localidade"].forEach(k => {
+        const slider = $("#mobileDetailBody #w_" + k);
+        const val = $("#mobileDetailBody #w_" + k + "_val");
+        if(slider && val){
+          slider.addEventListener("input", () => {
+            val.textContent = slider.value;
+            // update sum
+            const sumEl = $("#mobileDetailBody #weightsSum");
+            if(sumEl){
+              let s = 0;
+              ["competencia","experiencia","formacao","localidade"].forEach(kk => {
+                s += (parseInt($("#mobileDetailBody #w_" + kk)?.value || "0",10) || 0);
+              });
+              sumEl.textContent = s;
+            }
+          });
+        }
+      });
+
+      // req search -> rerender req table based on v + query
+      const reqSearch = $("#mobileDetailBody #reqSearch");
+      if(reqSearch){
+        reqSearch.addEventListener("input", () => renderReqTableMobile(v));
+      }
+      renderReqTableMobile(v);
+    }
+
+    function renderReqTableMobile(v){
+      const tbody = $("#mobileDetailBody #tblReq");
+      if(!tbody) return;
+
+      tbody.innerHTML = "";
+      const reqs = (v?.requisitos || []);
+      const q = ($("#mobileDetailBody #reqSearch")?.value || "").trim().toLowerCase();
+      const filtered = !q ? reqs : reqs.filter(r => {
+        const blob = [r.categoria, r.termo, (r.sinonimos||[]).join(" "), r.obs].join(" ").toLowerCase();
+        return blob.includes(q);
+      });
+
+      if(!filtered.length){
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3">Nenhum requisito.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(r => {
+        const syn = (r.sinonimos || []).join(", ");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="nowrap">
+            <div class="form-check form-switch m-0">
+              <input class="form-check-input" type="checkbox" ${r.obrigatorio ? "checked" : ""} data-ract="toggle" data-rid="${r.id}">
+            </div>
+          </td>
+          <td>${escapeHtml(r.categoria || "—")}</td>
+          <td>
+            <div class="fw-semibold">${escapeHtml(r.termo || "—")}</div>
+            ${r.obs ? `<div class="text-muted small">${escapeHtml(r.obs)}</div>` : `<div class="text-muted small">—</div>`}
+          </td>
+          <td class="nowrap"><span class="badge-soft">${clamp(parseInt(r.peso ?? 0,10)||0,0,10)}</span></td>
+          <td>${escapeHtml(syn || "—")}</td>
+          <td class="text-end nowrap">
+            <button class="btn btn-ghost btn-sm me-1" data-ract="edit" data-rid="${r.id}">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-ghost btn-sm text-danger" data-ract="del" data-rid="${r.id}">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </td>
+        `;
+
+        tr.querySelectorAll("[data-ract]").forEach(el => {
+          el.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const act = el.dataset.ract;
+            const rid = el.dataset.rid;
+            if(act === "toggle") toggleReqMandatory(v.id, rid);
+            if(act === "edit") openReqModal("edit", v.id, rid);
+            if(act === "del") deleteReq(v.id, rid);
+          });
+        });
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openMobileDetails(){
+      syncMobileDetail();
+      bootstrap.Offcanvas.getOrCreateInstance($("#offcanvasDetails")).show();
+    }
+
+    // ========= CRUD: Vagas
+    function openVagaModal(mode, id){
+      const modal = bootstrap.Modal.getOrCreateInstance($("#modalVaga"));
+      const isEdit = mode === "edit";
+      $("#modalVagaTitle").textContent = isEdit ? "Editar vaga" : "Nova vaga";
+
+      if(isEdit){
+        const v = findVaga(id);
+        if(!v) return;
+        $("#vagaId").value = v.id;
+        $("#vagaCodigo").value = v.codigo || "";
+        $("#vagaTitulo").value = v.titulo || "";
+        $("#vagaArea").value = v.area || "";
+        $("#vagaModalidade").value = v.modalidade || "Presencial";
+        $("#vagaStatus").value = v.status || "";
+        $("#vagaCidade").value = v.cidade || "";
+        $("#vagaUF").value = v.uf || "";
+        $("#vagaSenioridade").value = v.senioridade || "Júnior";
+        $("#vagaThreshold").value = clamp(parseInt(v.threshold ?? 70,10)||70, 0, 100);
+        $("#vagaDescricao").value = v.descricao || "";
+      }else{
+        $("#vagaId").value = "";
+        $("#vagaCodigo").value = "";
+        $("#vagaTitulo").value = "";
+        $("#vagaArea").value = "";
+        $("#vagaModalidade").value = "Presencial";
+        $("#vagaStatus").value = "aberta";
+        $("#vagaCidade").value = "";
+        $("#vagaUF").value = "SP";
+        $("#vagaSenioridade").value = "Júnior";
+        $("#vagaThreshold").value = 70;
+        $("#vagaDescricao").value = "";
+      }
+
+      modal.show();
+    }
+
+    function upsertVagaFromModal(){
+      const id = $("#vagaId").value || null;
+      const codigo = ($("#vagaCodigo").value || "").trim();
+      const titulo = ($("#vagaTitulo").value || "").trim();
+      const area = ($("#vagaArea").value || "").trim();
+      const modalidade = ($("#vagaModalidade").value || "").trim();
+      const status = ($("#vagaStatus").value || "").trim();
+      const cidade = ($("#vagaCidade").value || "").trim();
+      const uf = ($("#vagaUF").value || "").trim().toUpperCase().slice(0,2);
+      const senioridade = ($("#vagaSenioridade").value || "").trim();
+      const threshold = clamp(parseInt($("#vagaThreshold").value,10)||70, 0, 100);
+      const descricao = ($("#vagaDescricao").value || "").trim();
+
+      // validação mínima
+      if(!titulo){
+        toast("Informe o título da vaga.");
+        return;
+      }
+      if(!area){
+        toast("Selecione a área da vaga.");
+        return;
+      }
+      if(!status){
+        toast("Selecione o status da vaga.");
+        return;
+      }
+
+      const now = new Date().toISOString();
+
+      if(id){
+        const v = findVaga(id);
+        if(!v) return;
+
+        v.codigo = codigo;
+        v.titulo = titulo;
+        v.area = area;
+        v.modalidade = modalidade;
+        v.status = status;
+        v.cidade = cidade;
+        v.uf = uf;
+        v.senioridade = senioridade;
+        v.threshold = threshold;
+        v.descricao = descricao;
+        v.updatedAt = now;
+
+        toast("Vaga atualizada.");
+        state.selectedId = v.id;
+      }else{
+        const v = {
+          id: uid(),
+          codigo,
+          titulo,
+          area,
+          modalidade,
+          status,
+          cidade,
+          uf,
+          senioridade,
+          threshold,
+          descricao,
+          createdAt: now,
+          updatedAt: now,
+          weights: { competencia:40, experiencia:30, formacao:15, localidade:15 },
+          requisitos: []
+        };
+        state.vagas.unshift(v);
+        state.selectedId = v.id;
+        toast("Vaga criada.");
+      }
+
+      saveState();
+      renderAreaFilter();
+      updateKpis();
+      renderList();
+      renderDetail();
+
+      bootstrap.Modal.getOrCreateInstance($("#modalVaga")).hide();
+    }
+
+    function deleteVaga(id){
+      const v = findVaga(id);
+      if(!v) return;
+
+      const ok = confirm(`Excluir a vaga "${v.titulo}"?\n\nIsso remove também os requisitos.`);
+      if(!ok) return;
+
+      state.vagas = state.vagas.filter(x => x.id !== id);
+      if(state.selectedId === id){
+        state.selectedId = state.vagas[0]?.id || null;
+      }
+      saveState();
+      renderAreaFilter();
+      updateKpis();
+      renderList();
+      renderDetail();
+      toast("Vaga excluída.");
+    }
+
+    function duplicateVaga(id){
+      const v = findVaga(id);
+      if(!v) return;
+
+      const now = new Date().toISOString();
+      const copy = JSON.parse(JSON.stringify(v));
+      copy.id = uid();
+      copy.codigo = (v.codigo ? v.codigo + "-COPY" : "");
+      copy.titulo = (v.titulo ? v.titulo + " (Cópia)" : "Cópia");
+      copy.createdAt = now;
+      copy.updatedAt = now;
+      // novos ids de requisitos
+      (copy.requisitos || []).forEach(r => r.id = uid());
+
+      state.vagas.unshift(copy);
+      state.selectedId = copy.id;
+      saveState();
+      renderAreaFilter();
+      updateKpis();
+      renderList();
+      renderDetail();
+      toast("Vaga duplicada.");
+    }
+
+    // ========= CRUD: Requisitos
+    function openReqModal(mode, vagaId, reqId){
+      const v = findVaga(vagaId);
+      if(!v) return;
+
+      const modal = bootstrap.Modal.getOrCreateInstance($("#modalReq"));
+      const isEdit = mode === "edit";
+
+      $("#modalReqTitle").textContent = isEdit ? "Editar requisito" : "Novo requisito";
+      $("#reqId").value = "";
+
+      if(isEdit){
+        const r = (v.requisitos || []).find(x => x.id === reqId);
+        if(!r) return;
+
+        $("#reqId").value = r.id;
+        $("#reqCategoria").value = r.categoria || "Competência";
+        $("#reqPeso").value = clamp(parseInt(r.peso ?? 0,10)||0, 0, 10);
+        $("#reqObrigatorio").checked = !!r.obrigatorio;
+        $("#reqTermo").value = r.termo || "";
+        $("#reqSinonimos").value = (r.sinonimos || []).join(", ");
+        $("#reqObs").value = r.obs || "";
+      }else{
+        $("#reqCategoria").value = "Competência";
+        $("#reqPeso").value = 7;
+        $("#reqObrigatorio").checked = false;
+        $("#reqTermo").value = "";
+        $("#reqSinonimos").value = "";
+        $("#reqObs").value = "";
+      }
+
+      // guarda vaga atual no dataset do botão salvar
+      $("#btnSaveReq").dataset.vagaId = vagaId;
+
+      modal.show();
+    }
+
+    function saveReqFromModal(){
+      const vagaId = $("#btnSaveReq").dataset.vagaId;
+      const v = findVaga(vagaId);
+      if(!v) return;
+
+      const rid = $("#reqId").value || null;
+      const categoria = ($("#reqCategoria").value || "").trim();
+      const peso = clamp(parseInt($("#reqPeso").value,10)||0, 0, 10);
+      const obrigatorio = !!$("#reqObrigatorio").checked;
+      const termo = ($("#reqTermo").value || "").trim();
+      const sinonimos = ($("#reqSinonimos").value || "")
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+      const obs = ($("#reqObs").value || "").trim();
+
+      if(!termo){
+        toast("Informe a palavra-chave/termo do requisito.");
+        return;
+      }
+
+      if(rid){
+        const r = (v.requisitos || []).find(x => x.id === rid);
+        if(!r) return;
+
+        r.categoria = categoria;
+        r.peso = peso;
+        r.obrigatorio = obrigatorio;
+        r.termo = termo;
+        r.sinonimos = sinonimos;
+        r.obs = obs;
+        toast("Requisito atualizado.");
+      }else{
+        v.requisitos = v.requisitos || [];
+        v.requisitos.push({
+          id: uid(),
+          categoria,
+          peso,
+          obrigatorio,
+          termo,
+          sinonimos,
+          obs
+        });
+        toast("Requisito adicionado.");
+      }
+
+      v.updatedAt = new Date().toISOString();
+      saveState();
+      renderList();
+      renderDetail();
+      bootstrap.Modal.getOrCreateInstance($("#modalReq")).hide();
+    }
+
+    function deleteReq(vagaId, reqId){
+      const v = findVaga(vagaId);
+      if(!v) return;
+
+      const r = (v.requisitos || []).find(x => x.id === reqId);
+      if(!r) return;
+
+      const ok = confirm(`Excluir requisito "${r.termo}"?`);
+      if(!ok) return;
+
+      v.requisitos = (v.requisitos || []).filter(x => x.id !== reqId);
+      v.updatedAt = new Date().toISOString();
+      saveState();
+      renderList();
+      renderDetail();
+      toast("Requisito removido.");
+    }
+
+    function toggleReqMandatory(vagaId, reqId){
+      const v = findVaga(vagaId);
+      if(!v) return;
+      const r = (v.requisitos || []).find(x => x.id === reqId);
+      if(!r) return;
+
+      r.obrigatorio = !r.obrigatorio;
+      v.updatedAt = new Date().toISOString();
+      saveState();
+      renderList();
+      renderDetail();
+      toast(r.obrigatorio ? "Requisito marcado como obrigatório." : "Requisito marcado como não obrigatório.");
+    }
+
+    // ========= Pesos/Threshold
+    function saveWeightsFromDetail(vagaId, fromMobile=false){
+      const v = findVaga(vagaId);
+      if(!v) return;
+
+      const root = fromMobile ? $("#mobileDetailBody") : $("#detailHost");
+      const threshold = clamp(parseInt(root.querySelector("#thresholdRange")?.value || "0",10) || 0, 0, 100);
+
+      const w = {
+        competencia: clamp(parseInt(root.querySelector("#w_competencia")?.value || "0",10) || 0, 0, 100),
+        experiencia: clamp(parseInt(root.querySelector("#w_experiencia")?.value || "0",10) || 0, 0, 100),
+        formacao: clamp(parseInt(root.querySelector("#w_formacao")?.value || "0",10) || 0, 0, 100),
+        localidade: clamp(parseInt(root.querySelector("#w_localidade")?.value || "0",10) || 0, 0, 100)
+      };
+
+      v.threshold = threshold;
+      v.weights = w;
+      v.updatedAt = new Date().toISOString();
+
+      saveState();
+      renderList();
+      renderDetail();
+      toast("Pesos e match mínimo salvos.");
+    }
+
+    // ========= Simulador (keyword match)
+    function normalizeText(s){
+      return (s || "")
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")  // remove acentos
+        .replace(/[^a-z0-9#+\s]/g, " ")   // remove pontuação (mantém # +)
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function simulateMatch(vagaId, fromMobile=false){
+      const v = findVaga(vagaId);
+      if(!v) return;
+
+      const root = fromMobile ? $("#mobileDetailBody") : $("#detailHost");
+      const area = root.querySelector("#simResult");
+      const text = normalizeText(root.querySelector("#simText")?.value || "");
+      const reqs = v.requisitos || [];
+
+      if(!text){
+        area.innerHTML = `<div class="alert alert-warning" style="border-radius:14px;">Cole um texto para simular.</div>`;
+        return;
+      }
+      if(!reqs.length){
+        area.innerHTML = `<div class="alert alert-info" style="border-radius:14px;">Cadastre requisitos antes de simular.</div>`;
+        return;
+      }
+
+      const totalPeso = reqs.reduce((acc, r)=> acc + clamp(parseInt(r.peso||0,10)||0,0,10), 0) || 1;
+      let hitPeso = 0;
+
+      const hits = [];
+      const missMandatory = [];
+
+      reqs.forEach(r => {
+        const termo = normalizeText(r.termo || "");
+        const syns = (r.sinonimos || []).map(normalizeText).filter(Boolean);
+        const bag = [termo, ...syns].filter(Boolean);
+
+        const found = bag.some(t => t && text.includes(t));
+        const p = clamp(parseInt(r.peso||0,10)||0,0,10);
+
+        if(found){
+          hitPeso += p;
+          hits.push(r);
+        }else if(r.obrigatorio){
+          missMandatory.push(r);
+        }
+      });
+
+      let score = Math.round((hitPeso / totalPeso) * 100);
+      // penalidade simples por obrigatórios faltando (MVP)
+      if(missMandatory.length){
+        score = Math.max(0, score - Math.min(40, missMandatory.length * 15));
+      }
+
+      const pass = score >= clamp(parseInt(v.threshold||0,10)||0,0,100);
+
+      area.innerHTML = `
+        <div class="card-soft p-3" style="box-shadow:none;">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="fw-bold">Resultado da simulação</div>
+              <div class="text-muted small">Score por palavras-chave (MVP)</div>
+            </div>
+            <span class="badge text-bg-${pass ? "success" : "danger"} rounded-pill">
+              ${pass ? "Dentro" : "Fora"} do match mínimo
+            </span>
+          </div>
+
+          <div class="mt-2">
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1"><div class="progress-bar" style="width:${score}%"></div></div>
+              <div class="fw-bold" style="min-width:54px;text-align:right;">${score}%</div>
+            </div>
+            <div class="text-muted small mt-1">
+              Match mínimo da vaga: <strong>${clamp(parseInt(v.threshold||0,10)||0,0,100)}%</strong>
+              • Encontrados: <strong>${hits.length}</strong>
+              • Obrigatórios faltando: <strong>${missMandatory.length}</strong>
+            </div>
+          </div>
+
+          ${missMandatory.length ? `
+            <div class="alert alert-danger mt-3 mb-0" style="border-radius:14px;">
+              <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Obrigatórios não encontrados</div>
+              <div class="small">${missMandatory.map(r => escapeHtml(r.termo)).join(", ")}</div>
+            </div>
+          ` : ""}
+
+          <div class="mt-3">
+            <div class="fw-semibold mb-1">Encontrados</div>
+            <div class="small text-muted">${hits.length ? hits.map(r => escapeHtml(r.termo)).join(", ") : "—"}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function clearSimulation(fromMobile=false){
+      const root = fromMobile ? $("#mobileDetailBody") : $("#detailHost");
+      const ta = root.querySelector("#simText");
+      const res = root.querySelector("#simResult");
+      if(ta) ta.value = "";
+      if(res) res.innerHTML = "";
+    }
+
+    // ========= Import/Export
+    function exportJson(){
+      const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        vagas: state.vagas
+      };
+      const json = JSON.stringify(payload, null, 2);
+      // download client-side
+      const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "vagas_mvp_liotecnica.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast("Exportação iniciada.");
+    }
+
+    function importJson(){
+      const inp = document.createElement("input");
+      inp.type = "file";
+      inp.accept = "application/json";
+      inp.onchange = () => {
+        const file = inp.files && inp.files[0];
+        if(!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          try{
+            const data = JSON.parse(reader.result);
+            if(!data || !Array.isArray(data.vagas)) throw new Error("Formato inválido.");
+            // validação simples
+            state.vagas = data.vagas.map(v => ({
+              id: v.id || uid(),
+              codigo: v.codigo || "",
+              titulo: v.titulo || "",
+              area: v.area || "",
+              modalidade: v.modalidade || "Presencial",
+              status: v.status || "aberta",
+              cidade: v.cidade || "",
+              uf: v.uf || "",
+              senioridade: v.senioridade || "Júnior",
+              threshold: clamp(parseInt(v.threshold ?? 70,10)||70,0,100),
+              descricao: v.descricao || "",
+              createdAt: v.createdAt || new Date().toISOString(),
+              updatedAt: v.updatedAt || new Date().toISOString(),
+              weights: v.weights || { competencia:40, experiencia:30, formacao:15, localidade:15 },
+              requisitos: Array.isArray(v.requisitos) ? v.requisitos.map(r => ({
+                id: r.id || uid(),
+                categoria: r.categoria || "Competência",
+                termo: r.termo || "",
+                peso: clamp(parseInt(r.peso ?? 0,10)||0,0,10),
+                obrigatorio: !!r.obrigatorio,
+                sinonimos: Array.isArray(r.sinonimos) ? r.sinonimos : [],
+                obs: r.obs || ""
+              })) : []
+            }));
+
+            state.selectedId = state.vagas[0]?.id || null;
+            saveState();
+            renderAreaFilter();
+            updateKpis();
+            renderList();
+            renderDetail();
+            toast("Importação concluída.");
+          }catch(e){
+            console.error(e);
+            alert("Falha ao importar JSON. Verifique o arquivo.");
+          }
+        };
+        reader.readAsText(file);
+      };
+      inp.click();
+    }
+
+    // ========= Init + bindings
+    function wireClock(){
+      const now = new Date();
+      $("#year").textContent = now.getFullYear();
+
+      const tick = () => {
+        const d = new Date();
+        $("#nowLabel").textContent = d.toLocaleString("pt-BR", {
+          weekday:"short", day:"2-digit", month:"2-digit",
+          hour:"2-digit", minute:"2-digit"
+        });
+      };
+      tick();
+      setInterval(tick, 1000 * 15);
+    }
+
+    function wireFilters(){
+      const apply = () => {
+        state.filters.q = ($("#fSearch").value || "").trim();
+        state.filters.status = $("#fStatus").value || "all";
+        state.filters.area = $("#fArea").value || "all";
+        renderList();
+      };
+
+      $("#fSearch").addEventListener("input", apply);
+      $("#fStatus").addEventListener("change", apply);
+      $("#fArea").addEventListener("change", apply);
+
+      $("#globalSearch").addEventListener("input", () => {
+        $("#fSearch").value = $("#globalSearch").value;
+        apply();
+      });
+    }
+
+    function wireButtons(){
+      $("#btnNewVaga").addEventListener("click", () => openVagaModal("new"));
+      $("#btnSaveVaga").addEventListener("click", upsertVagaFromModal);
+      $("#btnSaveReq").addEventListener("click", saveReqFromModal);
+
+      $("#btnExportJson").addEventListener("click", exportJson);
+      $("#btnImportJson").addEventListener("click", importJson);
+
+      $("#btnSeedReset").addEventListener("click", () => {
+        const ok = confirm("Restaurar dados de exemplo? Isso substitui suas vagas atuais no MVP.");
+        if(!ok) return;
+        state.vagas = [];
+        state.selectedId = null;
+        saveState();
+        seedIfEmpty();
+        renderAreaFilter();
+        updateKpis();
+        renderList();
+        renderDetail();
+        toast("Demo restaurada.");
+      });
+    }
+
+    function initLogo(){
+      $("#logoDesktop").src = LOGO_DATA_URI;
+      $("#logoMobile").src = LOGO_DATA_URI;
+    }
+
+    (function init(){
+      initLogo();
+      wireClock();
+
+      const has = loadState();
+      if(!has) seedIfEmpty();
+      else seedIfEmpty(); // caso tenha vindo vazio por algum motivo
+
+      renderAreaFilter();
+      updateKpis();
+      renderList();
+      renderDetail();
+
+      wireFilters();
+      wireButtons();
+
+      // garantir que haja seleção
+      if(!state.selectedId && state.vagas.length){
+        state.selectedId = state.vagas[0].id;
+        saveState();
+        renderList();
+        renderDetail();
+      }
+    })();
+  </script>
+</body>
+</html>

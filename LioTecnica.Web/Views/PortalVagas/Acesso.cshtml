@@ -1,0 +1,205 @@
+@model LioTecnica.Web.ViewModels.Portal.PortalAccessViewModel
+@{ Layout = null; }
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portal de Vagas - Acesso</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Open+Sans:wght@400;600;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/portal-candidatos-access.css" asp-append-version="true" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="auth-view">
+    <main class="auth-screen" aria-labelledby="authTitle">
+        <header class="auth-header">
+            <div class="auth-container auth-header-inner">
+                <div class="auth-brand"></div>
+                <button class="auth-help" type="button" data-bs-toggle="modal" data-bs-target="#helpModal" data-i18n="help_link">Precisa de ajuda?</button>
+            </div>
+        </header>
+
+        <section class="auth-body">
+            <div class="auth-container auth-content">
+                <div class="auth-card auth-card-main auth-section">
+                    <div class="auth-title">
+                        <img class="auth-logo-img" src="~/images/logo-liotecnica.png" alt="Liotecnica" />
+                        <h1 id="authTitle" data-i18n="login_title">Acesse sua conta</h1>
+                        <h2 data-i18n="login_subtitle">Fa&ccedil;a o seu login ou crie a sua conta. &Eacute; simples e r&aacute;pido.</h2>
+                    </div>
+
+                    <form id="candidateLoginForm" class="auth-form" novalidate>
+                        <div class="field">
+                            <label for="loginEmail" data-i18n="label_email">E-mail</label>
+                            <input id="loginEmail" name="email" type="email" autocomplete="email" required />
+                        </div>
+                        <div class="field">
+                            <label for="loginPassword" data-i18n="label_password">Senha</label>
+                            <input id="loginPassword" name="password" type="password" minlength="8" autocomplete="current-password" required />
+                        </div>
+                        <input id="tenantId" type="hidden" value="@Model.TenantId" />
+                        <input id="returnUrl" type="hidden" value="@Model.ReturnUrl" />
+                        <button id="loginSubmit" class="btn auth-submit auth-primary" type="submit" data-i18n="login_button">
+                            Entrar no portal
+                        </button>
+                    </form>
+
+                    <div class="auth-links">
+                        <span class="auth-note" data-i18n="register_hint">Ainda nao possui acesso?</span>
+                        <button id="openRegister" class="auth-secondary-btn" type="button" data-i18n="register_button">Criar acesso</button>
+                        <span id="tenantNotice" class="auth-note" data-tenant-warning hidden>
+                            Tenant nao informado. Use o link enviado pelo RH.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="auth-language-footer">
+        <div class="auth-container language-switcher">
+            <span class="language-label" data-i18n="language_label">Idioma do perfil</span>
+            <div class="language-flags">
+                <button class="lang-btn" type="button" title="Portugu&ecirc;s" data-lang="pt-BR">
+                    <img class="flag" src="~/images/flags/flag-br.svg" alt="Portugu&ecirc;s" asp-append-version="true" />
+                </button>
+                <button class="lang-btn" type="button" title="English" data-lang="en-US">
+                    <img class="flag" src="~/images/flags/flag-us.svg" alt="English" asp-append-version="true" />
+                </button>
+                <button class="lang-btn" type="button" title="Espa&ntilde;ol" data-lang="es-ES">
+                    <img class="flag" src="~/images/flags/flag-es.svg" alt="Espa&ntilde;ol" asp-append-version="true" />
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <div class="modal fade auth-modal" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="modal-title h6 mb-1" id="helpModalLabel" data-i18n="help_title">Como funciona o processo</h2>
+                        <div class="text-muted small" data-i18n="help_subtitle">Etapas para acompanhar sua candidatura.</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="auth-help-timeline">
+                        <div class="auth-help-step">
+                            <span class="auth-help-dot"></span>
+                            <span data-i18n="help_step1">Cadastro r&aacute;pido e perfil &uacute;nico.</span>
+                        </div>
+                        <div class="auth-help-step">
+                            <span class="auth-help-dot"></span>
+                            <span data-i18n="help_step2">Triagem e retorno em at&eacute; 5 dias.</span>
+                        </div>
+                        <div class="auth-help-step">
+                            <span class="auth-help-dot"></span>
+                            <span data-i18n="help_step3">Entrevista com gestor.</span>
+                        </div>
+                        <div class="auth-help-step">
+                            <span class="auth-help-dot"></span>
+                            <span data-i18n="help_step4">Proposta e onboarding.</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn auth-submit auth-primary auth-submit-inline" type="button" data-bs-dismiss="modal" data-i18n="close_button">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade auth-modal auth-modal-wide" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content">
+                <form id="registerForm" class="needs-validation" novalidate>
+                    <div class="modal-header">
+                        <div>
+                            <h2 class="modal-title h6 mb-1" id="registerModalLabel" data-i18n="register_title">Criar acesso</h2>
+                            <div class="text-muted small" data-i18n="register_subtitle">Preencha os dados basicos para entrar no portal.</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label" for="registerName" data-i18n="label_full_name">Nome completo</label>
+                                <input id="registerName" class="form-control" type="text" autocomplete="name" required />
+                                <div class="invalid-feedback" data-i18n="error_full_name">Informe seu nome completo.</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label" for="registerEmail" data-i18n="label_email">E-mail</label>
+                                <input id="registerEmail" class="form-control" type="email" autocomplete="email" required />
+                                <div class="invalid-feedback" data-i18n="error_email">Informe um e-mail valido.</div>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="registerPhone" data-i18n="label_phone">Telefone</label>
+                                <input id="registerPhone" class="form-control" type="tel" autocomplete="tel" required />
+                                <div class="invalid-feedback" data-i18n="error_phone">Informe um telefone com DDD e 9 digitos.</div>
+                            </div>
+
+                            <div class="col-12 col-md-3">
+                                <label class="form-label" for="registerUf" data-i18n="label_uf">UF</label>
+                                <select id="registerUf" class="form-select" required>
+                                    <option value="" selected data-i18n="select_option">Selecione</option>
+                                </select>
+                                <div class="invalid-feedback" data-i18n="error_uf">Selecione a UF.</div>
+                            </div>
+
+                            <div class="col-12 col-md-5">
+                                <label class="form-label" for="registerCity" data-i18n="label_city">Cidade</label>
+                                <select id="registerCity" class="form-select" required disabled>
+                                    <option value="" selected data-i18n="select_city_first">Selecione a UF primeiro</option>
+                                </select>
+                                <div class="invalid-feedback" data-i18n="error_city">Selecione a cidade.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="registerPassword" data-i18n="label_password">Senha</label>
+                                <input id="registerPassword" class="form-control" type="password" minlength="8"
+                                       autocomplete="new-password"
+                                       required />
+                                <div class="form-text" data-i18n="password_hint">Minimo 8 caracteres, 1 maiuscula, 1 numero e 1 especial.</div>
+                                <div class="invalid-feedback" data-i18n="error_password">Senha fora do criterio.</div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="registerPasswordConfirm" data-i18n="label_password_confirm">Confirmar senha</label>
+                                <input id="registerPasswordConfirm" class="form-control" type="password" minlength="8"
+                                       autocomplete="new-password"
+                                       required />
+                                <div class="invalid-feedback" data-i18n="error_password_confirm">As senhas nao conferem.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="btn btn-light" type="button" data-bs-dismiss="modal" data-i18n="cancel_button">Cancelar</button>
+                        <button id="registerSubmit" class="btn btn-primary" type="submit" data-i18n="register_button">Criar acesso</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div vw class="enabled">
+        <div vw-access-button class="active"></div>
+        <div vw-plugin-wrapper>
+            <div class="vw-plugin-top-wrapper"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/views/portal-vagas-access.js" asp-append-version="true"></script>
+    <script src="https://vlibras.gov.br/app/vlibras-plugin.js" defer onload="window.initVLIBRAS && window.initVLIBRAS()"></script>
+</body>
+</html>

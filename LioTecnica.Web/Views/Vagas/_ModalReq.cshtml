@@ -1,0 +1,66 @@
+<div class="modal fade" id="modalReq" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title fw-bold" id="modalReqTitle">Novo requisito</h5>
+            <div class="text-muted small">Defina palavra-chave, peso e se é obrigatório.</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="reqId">
+          <div class="row g-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Categoria</label>
+              <select class="form-select" id="reqCategoria">
+                <option value="">Selecionar categoria</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Peso (0 a 10)</label>
+              <input type="number" class="form-control" id="reqPeso" min="0" max="10" value="7">
+              <div class="form-text">Sugestão: use 8 a 10 para itens crí­ticos, 4 a 7 para desejáveis.</div>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Obrigatório</label>
+              <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" role="switch" id="reqObrigatorio">
+                <label class="form-check-label" for="reqObrigatorio">Sim</label>
+              </div>
+              <div class="form-text">Se faltar, pode derrubar fortemente o score no match.</div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label small text-muted">Palavra-chave / termo *</label>
+              <input class="form-control" id="reqTermo" placeholder="Ex.: Power BI">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label small text-muted">Sinônimos (separados por ví­rgula)</label>
+              <input class="form-control" id="reqSinonimos" placeholder="Ex.: pbi, powerbi, business intelligence">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label small text-muted">Observação (opcional)</label>
+              <textarea class="form-control" id="reqObs" rows="3" placeholder="Ex.: precisa ter aplicado em campanhas de performance."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+            <i class="bi bi-x-lg me-1"></i>Cancelar
+          </button>
+          <button class="btn btn-brand" type="button" id="btnSaveReq">
+            <i class="bi bi-check2 me-1"></i>Salvar requisito
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+

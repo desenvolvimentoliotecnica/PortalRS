@@ -1,0 +1,217 @@
+@model LioTecnica.Web.ViewModels.Admin.RolesPageViewModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Portal RH - Roles";
+    ViewData["SidebarSubtitle"] = "Roles";
+    var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+}
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Roles")
+
+    <div class="searchbox position-relative d-none d-md-block">
+        <i class="bi bi-search"></i>
+        <input id="globalSearchRoles" class="form-control" placeholder="Buscar perfil..." />
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-brand" href="/Admin/Roles/New">
+            <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo perfil</span>
+        </a>
+        @await Html.PartialAsync("_TopbarUserActions", "Admin")
+    </div>
+}
+
+<section class="content">
+    <div class="page-title">
+        <div>
+            <h4>Roles</h4>
+            <div class="subtitle">Perfis e permissoes de acesso.</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">-</span></span>
+            <span class="badge-soft"><i class="bi bi-hdd me-1"></i>API</span>
+        </div>
+    </div>
+
+    @{
+        var kpis = new[]
+        {
+            new { ColClass = "col-6 col-lg-3", Title = "Perfis", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiRolesTotal", Value = "0", PillIcon = "bi-shield-lock", PillText = "total", Hint = "Perfis cadastrados." },
+            new { ColClass = "col-6 col-lg-3", Title = "Ativos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiRolesActive", Value = "0", PillIcon = "bi-check2-circle", PillText = "ok", Hint = "Perfis ativos." },
+            new { ColClass = "col-6 col-lg-3", Title = "Inativos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiRolesInactive", Value = "0", PillIcon = "bi-slash-circle", PillText = "off", Hint = "Perfis inativos." },
+            new { ColClass = "col-6 col-lg-3", Title = "Administracao", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiRolesAdmin", Value = "0", PillIcon = "bi-shield-check", PillText = "roles", Hint = "Perfis com gestao." }
+        };
+    }
+    @await Html.PartialAsync("_KpiMiniRow", kpis)
+
+    <div class="card-soft p-3 mb-3">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
+            <div>
+                <div class="fw-bold">Lista de perfis</div>
+                <div class="text-muted small">Use Editar para abrir a tela de cadastro com todas as opções.</div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 justify-content-end">
+                <div style="min-width:240px;">
+                    <label class="form-label small mb-1">Buscar</label>
+                    <div class="input-group">
+                        <span class="input-group-text" style="background:rgba(255,255,255,.65)"><i class="bi bi-search"></i></span>
+                        <input class="form-control" id="rSearch" placeholder="nome, descricao...">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label small mb-1">Status</label>
+                    <select class="form-select" id="rStatus">
+                        <option value="all">Todos</option>
+                        <option value="active">Ativo</option>
+                        <option value="inactive">Inativo</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-3 divider">
+
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Perfil</th>
+                    <th>Descricao</th>
+                    <th>Visao</th>
+                    <th>Escopo vagas</th>
+                    <th>Modo</th>
+                    <th>Menus</th>
+                    <th>Status</th>
+                    <th class="text-end">Acoes</th>
+                </tr>
+            </thead>
+            <tbody id="rolesTbody"></tbody>
+        </table>
+
+        <div class="d-flex align-items-center justify-content-between mt-2">
+            <div class="text-muted small" id="rolesHint">-</div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="pill"><i class="bi bi-table"></i><span id="rolesCount">0</span> exibidos</span>
+            </div>
+        </div>
+    </div>
+
+    <template id="tpl-role-row">
+        <tr>
+            <td>
+                <div class="fw-semibold" data-role="role-name"></div>
+                <div class="text-muted small mono" data-role="role-id"></div>
+            </td>
+            <td data-role="role-desc"></td>
+            <td><span data-role="role-visibility"></span></td>
+            <td><span data-role="role-vagas"></span></td>
+            <td><span data-role="role-access"></span></td>
+            <td><span data-role="role-menus-count"></span></td>
+            <td><span data-role="role-status"></span></td>
+            <td class="text-end">
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="detail" title="Ver detalhes"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="edit" title="Editar"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-ghost btn-sm text-danger" type="button" data-act="del" title="Excluir"><i class="bi bi-trash3"></i></button>
+            </td>
+        </tr>
+    </template>
+
+    <template id="tpl-role-empty">
+        <tr>
+            <td colspan="8" class="text-center text-muted py-3">Nenhum perfil encontrado.</td>
+        </tr>
+    </template>
+
+    <div style="height:14px;"></div>
+</section>
+
+<div class="modal fade" id="modalAdminRoleDetails" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold">Detalhes do perfil</h5>
+                    <div class="text-muted small">Resumo, escopos e acesso a menus.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-12 col-md-8">
+                        <div class="fw-bold" data-role="detail-name"></div>
+                        <div class="text-muted small mono" data-role="detail-id"></div>
+                    </div>
+                    <div class="col-12 col-md-4 text-md-end">
+                        <span data-role="detail-status"></span>
+                    </div>
+                    <div class="col-12">
+                        <div class="small text-muted">Descricao</div>
+                        <div class="fw-semibold" data-role="detail-desc"></div>
+                    </div>
+                </div>
+                <div class="border-top pt-3 mb-3">
+                    <div class="small fw-semibold text-muted mb-2">Escopos de acesso</div>
+                    <div class="row g-2">
+                        <div class="col-12 col-md-4">
+                            <div class="small text-muted">Visao na estrutura</div>
+                            <div class="fw-semibold" data-role="detail-visibility"></div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="small text-muted">Escopo de vagas</div>
+                            <div class="fw-semibold" data-role="detail-vagas"></div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="small text-muted">Modo de acesso</div>
+                            <div class="fw-semibold" data-role="detail-access"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="border-top pt-3 mb-3">
+                    <div class="small fw-semibold text-muted mb-2">Acesso a menus (permissoes)</div>
+                    <div id="detail-menus-container" class="bg-light rounded p-2" style="max-height: 220px; overflow-y: auto;">
+                        <div data-role="detail-menus-loading" class="text-muted small">Carregando...</div>
+                        <ul id="detail-menus-list" class="list-unstyled mb-0 small"></ul>
+                    </div>
+                </div>
+                <div class="border-top pt-3 row g-2">
+                    <div class="col-12 col-md-6">
+                        <div class="small text-muted">Criado em</div>
+                        <div class="fw-semibold" data-role="detail-created"></div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="small text-muted">Atualizado em</div>
+                        <div class="fw-semibold" data-role="detail-updated"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i>Fechar
+                </button>
+                <a class="btn btn-brand" href="#" data-role="detail-edit-link">
+                    <i class="bi bi-pencil me-1"></i>Editar perfil
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Footer {
+    @{
+        var footerItems = new[]
+        {
+            new { Icon = "bi-shield-lock", Text = "Roles", Id = "", Class = "" },
+            new { Icon = "bi-shield-check", Text = "LGPD", Id = "", Class = "" },
+            new { Icon = "", Text = "build: api", Id = "buildId", Class = "mono muted" }
+        };
+    }
+    @await Html.PartialAsync("_Footer", footerItems)
+}
+
+@section Scripts {
+    <script>
+        window.__adminRolesData = @Html.Raw(JsonSerializer.Serialize(Model.Roles, jsonOptions));
+    </script>
+    <script src="~/js/views/admin-roles.js" asp-append-version="true"></script>
+}
+

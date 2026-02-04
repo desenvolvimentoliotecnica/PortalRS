@@ -1,0 +1,230 @@
+@model LioTecnica.Web.ViewModels.Admin.UsersPageViewModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Portal RH - Users";
+    ViewData["SidebarSubtitle"] = "Users";
+    var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+}
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Users")
+
+    <div class="searchbox position-relative d-none d-md-block">
+        <i class="bi bi-search"></i>
+        <input id="globalSearchUsers" class="form-control" placeholder="Buscar usuario..." />
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-brand" href="/Admin/Users/New">
+            <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo usuario</span>
+        </a>
+        @await Html.PartialAsync("_TopbarUserActions", "Admin")
+    </div>
+}
+
+<section class="content">
+    <div class="page-title">
+        <div>
+            <h4>Users</h4>
+            <div class="subtitle">Gerencie usuarios, perfis e acessos.</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">-</span></span>
+            <span class="badge-soft"><i class="bi bi-hdd me-1"></i>API</span>
+        </div>
+    </div>
+
+    @{
+        var kpis = new[]
+        {
+            new { ColClass = "col-6 col-lg-3", Title = "Usuarios", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiUsersTotal", Value = "0", PillIcon = "bi-people", PillText = "total", Hint = "Usuarios cadastrados." },
+            new { ColClass = "col-6 col-lg-3", Title = "Ativos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiUsersActive", Value = "0", PillIcon = "bi-check2-circle", PillText = "ok", Hint = "Usuarios ativos." },
+            new { ColClass = "col-6 col-lg-3", Title = "Inativos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiUsersInactive", Value = "0", PillIcon = "bi-slash-circle", PillText = "off", Hint = "Usuarios inativos." },
+            new { ColClass = "col-6 col-lg-3", Title = "Perfis", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiUsersRoles", Value = "0", PillIcon = "bi-shield-lock", PillText = "rbac", Hint = "Perfis cadastrados." }
+        };
+    }
+    @await Html.PartialAsync("_KpiMiniRow", kpis)
+
+    <div class="card-soft p-3 mb-3">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
+            <div>
+                <div class="fw-bold">Lista de usuarios</div>
+                <div class="text-muted small">Use Editar para abrir a tela de cadastro com todos os dados.</div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 justify-content-end">
+                <div style="min-width:240px;">
+                    <label class="form-label small mb-1">Buscar</label>
+                    <div class="input-group">
+                        <span class="input-group-text" style="background:rgba(255,255,255,.65)"><i class="bi bi-search"></i></span>
+                        <input class="form-control" id="uSearch" placeholder="nome, email, perfil...">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label small mb-1">Status</label>
+                    <select class="form-select" id="uStatus">
+                        <option value="all">Todos</option>
+                        <option value="active">Ativo</option>
+                        <option value="inactive">Inativo</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label small mb-1">Perfil</label>
+                    <select class="form-select" id="uRole"></select>
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-3 divider">
+
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Email</th>
+                    <th>Perfis</th>
+                    <th>Status</th>
+                    <th class="text-end">Acoes</th>
+                </tr>
+            </thead>
+            <tbody id="usersTbody"></tbody>
+        </table>
+
+        <div class="d-flex align-items-center justify-content-between mt-2">
+            <div class="text-muted small" id="usersHint">-</div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="pill"><i class="bi bi-table"></i><span id="usersCount">0</span> exibidos</span>
+            </div>
+        </div>
+    </div>
+
+    <template id="tpl-user-row">
+        <tr>
+            <td>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="avatar" data-role="user-avatar"></div>
+                    <div class="lh-1">
+                        <div class="fw-semibold" data-role="user-name"></div>
+                        <small class="text-muted" data-role="user-id"></small>
+                    </div>
+                </div>
+            </td>
+            <td class="mono" data-role="user-email"></td>
+            <td data-role="user-roles"></td>
+            <td><span data-role="user-status"></span></td>
+            <td class="text-end">
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="detail" title="Detalhes"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="edit" title="Editar"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="chpwd" title="Alterar senha"><i class="bi bi-key"></i></button>
+                <button class="btn btn-ghost btn-sm text-danger" type="button" data-act="del" title="Excluir"><i class="bi bi-trash3"></i></button>
+            </td>
+        </tr>
+    </template>
+
+    <template id="tpl-user-empty">
+        <tr>
+            <td colspan="5" class="text-center text-muted py-3">Nenhum usuario encontrado.</td>
+        </tr>
+    </template>
+
+    <div style="height:14px;"></div>
+</section>
+
+<div class="modal fade" id="modalAdminUserPassword" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold">Alterar senha</h5>
+                    <div class="text-muted small" id="modalPasswordUserName">—</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="chpwdUserId">
+                <div class="mb-3">
+                    <label class="form-label" for="chpwdNewPassword">Nova senha *</label>
+                    <input class="form-control" id="chpwdNewPassword" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres" />
+                </div>
+                <div class="mb-0">
+                    <label class="form-label" for="chpwdConfirmPassword">Confirmar nova senha *</label>
+                    <input class="form-control" id="chpwdConfirmPassword" type="password" autocomplete="new-password" placeholder="Repita a senha" />
+                </div>
+                <div class="text-danger small mt-1" id="chpwdError" role="alert"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-brand" id="btnChpwdSave">
+                    <i class="bi bi-check2 me-1"></i>Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAdminUserDetails" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold">Detalhes do usuario</h5>
+                    <div class="text-muted small">Resumo de perfis e status.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2">
+                    <div class="col-12 col-md-8">
+                        <div class="fw-bold" data-role="detail-name"></div>
+                        <div class="text-muted small" data-role="detail-email"></div>
+                    </div>
+                    <div class="col-12 col-md-4 text-md-end">
+                        <span data-role="detail-status"></span>
+                    </div>
+                    <div class="col-12">
+                        <div class="small text-muted">Perfis</div>
+                        <div class="fw-semibold" data-role="detail-roles"></div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="small text-muted">Criado em</div>
+                        <div class="fw-semibold" data-role="detail-created"></div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="small text-muted">Atualizado em</div>
+                        <div class="fw-semibold" data-role="detail-updated"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i>Fechar
+                </button>
+                <a class="btn btn-brand" href="#" id="detailUserEditLink">
+                    <i class="bi bi-pencil me-1"></i>Editar na tela de cadastro
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Footer {
+    @{
+        var footerItems = new[]
+        {
+            new { Icon = "bi-people", Text = "Users", Id = "", Class = "" },
+            new { Icon = "bi-shield-check", Text = "LGPD", Id = "", Class = "" },
+            new { Icon = "", Text = "build: api", Id = "buildId", Class = "mono muted" }
+        };
+    }
+    @await Html.PartialAsync("_Footer", footerItems)
+}
+
+@section Scripts {
+    <script>
+        window.__adminUsersData = @Html.Raw(JsonSerializer.Serialize(Model.Users, jsonOptions));
+        window.__adminRolesData = @Html.Raw(JsonSerializer.Serialize(Model.Roles, jsonOptions));
+    </script>
+    <script src="~/js/views/admin-users.js" asp-append-version="true"></script>
+}
+

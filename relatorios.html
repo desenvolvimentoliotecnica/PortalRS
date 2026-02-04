@@ -1,0 +1,1160 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portal RH • Liotécnica — Relatórios</title>
+
+  <!-- Bootstrap 5 (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <style>
+    :root{
+      --lt-primary:#0C3A64;
+      --lt-brand:#105291;
+      --lt-soft:#ADC8DC;
+      --lt-bg:#F6F9FC;
+      --lt-card:#FFFFFF;
+      --lt-text:#0D1B2A;
+      --lt-muted:rgba(13,27,42,.65);
+      --lt-border:rgba(16,82,144,.18);
+      --lt-shadow:0 10px 30px rgba(11,58,100,.10);
+      --radius-xl:18px;
+      --radius-lg:14px;
+      --ui-scale:.75;
+    }
+    html,body{height:100%;}
+    body{
+      background:
+        radial-gradient(1100px 480px at 15% 0%, rgba(173,200,220,.30), transparent 55%),
+        radial-gradient(900px 520px at 85% 10%, rgba(16,82,144,.16), transparent 55%),
+        var(--lt-bg);
+      color:var(--lt-text);
+      zoom:var(--ui-scale);
+    }
+    .app-shell{min-height:100vh;display:grid;grid-template-columns:290px 1fr;}
+    .sidebar{
+      background:linear-gradient(180deg, rgba(11,58,100,1) 0%, rgba(16,82,144,1) 100%);
+      color:rgba(255,255,255,.92);
+      border-right:1px solid rgba(255,255,255,.12);
+      position:sticky;top:0;height:100vh;overflow:hidden;
+    }
+    .sidebar-inner{height:100%;display:flex;flex-direction:column;}
+    .brand{display:flex;align-items:center;gap:.75rem;padding:1rem 1rem .75rem;}
+    .brand img{width:38px;height:38px;border-radius:10px;background:#fff;padding:6px;box-shadow:0 10px 22px rgba(0,0,0,.18);object-fit:contain;}
+    .brand .title{line-height:1.05;}
+    .brand .title strong{display:block;font-size:1.02rem;letter-spacing:.2px;}
+    .brand .title span{display:block;font-size:.78rem;opacity:.85;}
+    .sidebar .nav-section{padding:.35rem 1rem;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;opacity:.75;margin-top:.35rem;}
+    .sidebar .nav-link{
+      color:rgba(255,255,255,.88);
+      border-radius:12px;
+      padding:.60rem .80rem;
+      display:flex;align-items:center;gap:.65rem;
+      margin:.10rem .75rem;
+      border:1px solid transparent;
+    }
+    .sidebar .nav-link:hover{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.12);color:#fff;}
+    .sidebar .nav-link.active{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.22);color:#fff;}
+    .sidebar-footer{margin-top:auto;padding:.9rem 1rem 1.1rem;border-top:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.06);}
+    .sidebar-footer .pill{display:inline-flex;gap:.4rem;align-items:center;padding:.35rem .55rem;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);font-size:.78rem;}
+
+    .main{display:flex;flex-direction:column;min-width:0;}
+    .topbar{
+      position:sticky;top:0;z-index:1020;
+      background:rgba(246,249,252,.78);
+      backdrop-filter:blur(10px);
+      border-bottom:1px solid var(--lt-border);
+    }
+    .topbar-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1rem;}
+    .card-soft{
+      background:var(--lt-card);
+      border:1px solid var(--lt-border);
+      border-radius:var(--radius-xl);
+      box-shadow:var(--lt-shadow);
+    }
+    .btn-brand{
+      background:linear-gradient(90deg,var(--lt-brand),var(--lt-primary));
+      border:none;color:#fff;border-radius:999px;padding:.55rem .9rem;
+    }
+    .btn-brand:hover{filter:brightness(1.02);color:#fff;}
+    .btn-ghost{border-radius:999px;border:1px solid var(--lt-border);background:rgba(255,255,255,.65);}
+    .badge-soft{
+      border:1px solid rgba(16,82,144,.22);
+      background:rgba(173,200,220,.25);
+      color:var(--lt-primary);
+      font-weight:700;
+      border-radius:999px;
+      padding:.35rem .55rem;
+      white-space:nowrap;
+    }
+    .content{padding:1rem 1rem 0;flex:1 1 auto;min-width:0;}
+    .page-title{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:.9rem;}
+    .page-title h4{margin:0;font-weight:800;letter-spacing:.2px;}
+    .page-title .subtitle{color:var(--lt-muted);font-size:.92rem;margin-top:.15rem;}
+    .mini-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.10em;color:rgba(13,27,42,.55);margin:0;}
+    .footer{padding:1rem;border-top:1px solid var(--lt-border);color:var(--lt-muted);font-size:.90rem;background:rgba(255,255,255,.35);}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;}
+    .muted{color:var(--lt-muted);}
+    .nowrap{white-space:nowrap;}
+
+    /* Relatórios */
+    .grid2{display:grid;grid-template-columns: 360px 1fr;gap:1rem;min-width:0;}
+    .tile{
+      border:1px solid rgba(16,82,144,.16);
+      background:rgba(255,255,255,.85);
+      border-radius:18px;
+      padding:.8rem .85rem;
+      cursor:pointer;
+      transition:transform .08s ease, border-color .12s ease;
+    }
+    .tile:hover{transform:translateY(-1px);border-color:rgba(16,82,144,.28);}
+    .tile.active{background:#fff;border-color:rgba(16,82,144,.42);box-shadow:0 10px 26px rgba(11,58,100,.10);}
+    .iconbox{
+      width:42px;height:42px;border-radius:14px;
+      display:grid;place-items:center;
+      background:rgba(173,200,220,.28);
+      border:1px solid rgba(16,82,144,.18);
+      color:var(--lt-primary);
+      flex:0 0 auto;
+    }
+    .pill{
+      display:inline-flex;align-items:center;gap:.4rem;
+      padding:.30rem .55rem;border-radius:999px;
+      border:1px solid rgba(16,82,144,.18);
+      background:rgba(255,255,255,.65);
+      font-size:.82rem;color:rgba(13,27,42,.78);
+      white-space:nowrap;
+    }
+    .form-control,.form-select{border-color:var(--lt-border);}
+    .divider{border-color: rgba(16,82,144,.14);}
+    .chart-wrap{
+      height:260px;
+      border-radius:18px;
+      border:1px solid rgba(16,82,144,.16);
+      background:rgba(255,255,255,.70);
+      padding:.75rem;
+    }
+    .table thead th{
+      font-size:.78rem;text-transform:uppercase;letter-spacing:.10em;color:rgba(13,27,42,.55);
+      background:rgba(173,200,220,.22);
+      border-bottom:1px solid rgba(16,82,144,.18);
+      white-space:nowrap;
+    }
+    .table td{vertical-align:middle;}
+    .tag{
+      border-radius:999px;padding:.28rem .55rem;font-weight:700;
+      border:1px solid rgba(16,82,144,.18);
+      background:rgba(173,200,220,.20);
+      color:var(--lt-primary);
+      display:inline-flex;align-items:center;gap:.35rem;white-space:nowrap;
+      font-size:.82rem;
+    }
+    .tag.ok{border-color:rgba(25,135,84,.25);background:rgba(25,135,84,.10);color:rgba(25,135,84,.95);}
+    .tag.warn{border-color:rgba(255,193,7,.40);background:rgba(255,193,7,.16);color:rgba(120,88,0,.95);}
+    .tag.bad{border-color:rgba(220,53,69,.30);background:rgba(220,53,69,.12);color:rgba(153,19,34,.95);}
+
+    @media (max-width: 991.98px){
+      .app-shell{grid-template-columns:1fr;}
+      .sidebar{display:none;}
+      .grid2{grid-template-columns:1fr;}
+      .content{padding:.9rem .9rem 0;}
+    }
+  </style>
+</head>
+
+<body>
+  <!-- MOBILE SIDEBAR OFFCANVAS -->
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasSidebar">
+    <div class="offcanvas-header border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <img id="logoMobile" alt="Liotécnica" style="width:34px;height:34px;border-radius:10px;background:#fff;padding:6px;object-fit:contain;">
+        <div class="lh-1">
+          <div class="fw-bold" style="color:var(--lt-primary)">Portal RH</div>
+          <small class="text-muted">Relatórios</small>
+        </div>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body p-0">
+      <div class="p-2">
+        <div class="small text-uppercase text-muted px-2 mt-2">Navegação</div>
+        <div class="nav flex-column">
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-briefcase me-2"></i>Vagas</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-people me-2"></i>Candidatos</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-funnel me-2"></i>Triagem</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-stars me-2"></i>Matching</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-inbox me-2"></i>Entrada (Email/Pasta)</a>
+          <a class="nav-link rounded-3 px-3 py-2 fw-semibold" href="#"><i class="bi bi-graph-up me-2"></i>Relatórios</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#"><i class="bi bi-gear me-2"></i>Configurações</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <!-- DESKTOP SIDEBAR -->
+    <aside class="sidebar d-none d-lg-block">
+      <div class="sidebar-inner">
+        <div class="brand">
+          <img id="logoDesktop" alt="Liotécnica">
+          <div class="title">
+            <strong>Portal RH</strong>
+            <span>Relatórios</span>
+          </div>
+        </div>
+
+        <div class="nav-section">Operação</div>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#"><i class="bi bi-speedometer2"></i>Dashboard</a>
+          <a class="nav-link" href="#"><i class="bi bi-briefcase"></i>Vagas</a>
+          <a class="nav-link" href="#"><i class="bi bi-people"></i>Candidatos</a>
+          <a class="nav-link" href="#"><i class="bi bi-funnel"></i>Triagem</a>
+          <a class="nav-link" href="#"><i class="bi bi-stars"></i>Matching</a>
+          <a class="nav-link" href="#"><i class="bi bi-inbox"></i>Entrada (Email/Pasta)</a>
+        </nav>
+
+        <div class="nav-section mt-2">Gestão</div>
+        <nav class="nav flex-column">
+          <a class="nav-link active" href="#"><i class="bi bi-graph-up"></i>Relatórios</a>
+          <a class="nav-link" href="#"><i class="bi bi-person-gear"></i>Usuários & Perfis</a>
+          <a class="nav-link" href="#"><i class="bi bi-gear"></i>Configurações</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="small" style="opacity:.92;">
+              <div class="fw-semibold">Ambiente</div>
+              <div class="opacity-75">DEV • Postgres</div>
+            </div>
+            <span class="pill"><i class="bi bi-shield-check"></i>LGPD</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-ghost d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSidebar">
+              <i class="bi bi-list"></i>
+            </button>
+            <div class="d-none d-md-block">
+              <div class="fw-bold" style="color:var(--lt-primary); line-height:1.05;">Liotécnica • Portal RH</div>
+              <small class="text-muted">Tela: Relatórios</small>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-ghost" type="button" id="btnSeedReset" title="Restaurar demo">
+              <i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Reset demo</span>
+            </button>
+
+            <button class="btn btn-ghost" type="button" id="btnExport" title="Exportar relatório atual (CSV)">
+              <i class="bi bi-filetype-csv"></i><span class="d-none d-sm-inline ms-1">Exportar CSV</span>
+            </button>
+
+            <button class="btn btn-brand" type="button" id="btnRun">
+              <i class="bi bi-play-circle"></i><span class="d-none d-sm-inline ms-1">Gerar</span>
+            </button>
+
+            <div class="dropdown">
+              <button class="btn btn-ghost dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-person-circle me-1"></i><span class="d-none d-sm-inline">RH</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-person-gear me-2"></i>Meu perfil</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-bell me-2"></i>Notificações</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-box-arrow-right me-2"></i>Sair</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT -->
+      <section class="content">
+        <div class="page-title">
+          <div>
+            <h4>Relatórios</h4>
+            <div class="subtitle">Gere relatórios operacionais e gerenciais (mocado). No sistema real: filtros → query Postgres → exportação.</div>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+            <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">—</span></span>
+            <span class="badge-soft"><i class="bi bi-hdd me-1"></i>localStorage</span>
+          </div>
+        </div>
+
+        <!-- KPI row -->
+        <div class="row g-2 mb-3">
+          <div class="col-6 col-lg-3">
+            <div class="card-soft p-3">
+              <div class="mini-title mb-1">Vagas</div>
+              <div class="d-flex align-items-end justify-content-between">
+                <div class="fw-bold" style="font-size:1.6rem;color:var(--lt-primary);" id="kpiVagas">0</div>
+                <span class="pill"><i class="bi bi-briefcase"></i>ativas</span>
+              </div>
+              <div class="text-muted small mt-1">Total no cadastro (demo).</div>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="card-soft p-3">
+              <div class="mini-title mb-1">Candidatos</div>
+              <div class="d-flex align-items-end justify-content-between">
+                <div class="fw-bold" style="font-size:1.6rem;color:var(--lt-primary);" id="kpiCands">0</div>
+                <span class="pill"><i class="bi bi-people"></i>base</span>
+              </div>
+              <div class="text-muted small mt-1">Recebidos/triados (demo).</div>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="card-soft p-3">
+              <div class="mini-title mb-1">Entrada</div>
+              <div class="d-flex align-items-end justify-content-between">
+                <div class="fw-bold" style="font-size:1.6rem;color:var(--lt-primary);" id="kpiInbox">0</div>
+                <span class="pill"><i class="bi bi-inbox"></i>itens</span>
+              </div>
+              <div class="text-muted small mt-1">Fila (novo/processando).</div>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div class="card-soft p-3">
+              <div class="mini-title mb-1">Conversão</div>
+              <div class="d-flex align-items-end justify-content-between">
+                <div class="fw-bold" style="font-size:1.6rem;color:var(--lt-primary);" id="kpiConv">0%</div>
+                <span class="pill"><i class="bi bi-arrow-right-circle"></i>triagem</span>
+              </div>
+              <div class="text-muted small mt-1">Processado → candidato.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <!-- LEFT: catálogo de relatórios + filtros -->
+          <div>
+            <div class="card-soft p-3 mb-3">
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <div>
+                  <div class="fw-bold">Catálogo de relatórios</div>
+                  <div class="text-muted small">Selecione um relatório e configure filtros.</div>
+                </div>
+                <span class="pill"><i class="bi bi-lightning-charge"></i>mocado</span>
+              </div>
+
+              <hr class="my-3 divider">
+
+              <div class="d-grid gap-2" id="reportList"></div>
+            </div>
+
+            <div class="card-soft p-3">
+              <div class="fw-bold">Filtros</div>
+              <div class="text-muted small">Os filtros alteram a tabela/“gráfico” do relatório selecionado.</div>
+
+              <div class="row g-2 mt-2">
+                <div class="col-12">
+                  <label class="form-label small">Período</label>
+                  <select class="form-select" id="fPeriod">
+                    <option value="7d">Últimos 7 dias</option>
+                    <option value="30d" selected>Últimos 30 dias</option>
+                    <option value="90d">Últimos 90 dias</option>
+                    <option value="ytd">Ano atual (YTD)</option>
+                  </select>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label small">Vaga</label>
+                  <select class="form-select" id="fVaga">
+                    <option value="all" selected>Todas</option>
+                  </select>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label small">Origem</label>
+                  <select class="form-select" id="fOrigem">
+                    <option value="all" selected>Todas</option>
+                    <option value="email">Email</option>
+                    <option value="pasta">Pasta</option>
+                    <option value="upload">Upload</option>
+                  </select>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label small">Status</label>
+                  <select class="form-select" id="fStatus">
+                    <option value="all" selected>Todos</option>
+                    <option value="novo">Novo</option>
+                    <option value="processando">Processando</option>
+                    <option value="processado">Processado</option>
+                    <option value="falha">Falha</option>
+                    <option value="descartado">Descartado</option>
+                  </select>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label small">Buscar</label>
+                  <div class="input-group">
+                    <span class="input-group-text" style="background:rgba(255,255,255,.65)"><i class="bi bi-search"></i></span>
+                    <input class="form-control" id="fSearch" placeholder="Nome, email, assunto, arquivo...">
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex flex-wrap gap-2 mt-3">
+                <button class="btn btn-brand btn-sm" id="btnApply"><i class="bi bi-filter-circle me-1"></i>Aplicar</button>
+                <button class="btn btn-ghost btn-sm" id="btnClear"><i class="bi bi-x-circle me-1"></i>Limpar</button>
+              </div>
+
+              <div class="text-muted small mt-3">
+                <i class="bi bi-info-circle me-1"></i>
+                No produto real: filtros viram parâmetros de query e agregações no Postgres.
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: relatório selecionado -->
+          <div>
+            <div class="card-soft p-3 mb-3">
+              <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+                <div>
+                  <div class="fw-bold" id="reportTitle">—</div>
+                  <div class="text-muted small" id="reportDesc">Selecione um relatório no catálogo.</div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 justify-content-end">
+                  <span class="tag" id="tagScope"><i class="bi bi-sliders"></i>escopo</span>
+                  <span class="tag ok" id="tagFresh"><i class="bi bi-clock-history"></i>atual</span>
+                </div>
+              </div>
+
+              <hr class="my-3 divider">
+
+              <div class="chart-wrap mb-3">
+                <!-- gráfico simples em canvas (mocado) -->
+                <canvas id="chart" style="width:100%; height:100%;"></canvas>
+              </div>
+
+              <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                <div class="mini-title">Resultados</div>
+                <div class="d-flex gap-2 flex-wrap">
+                  <span class="pill"><i class="bi bi-table"></i><span id="rowCount">0</span> linhas</span>
+                  <span class="pill"><i class="bi bi-filetype-csv"></i>exportável</span>
+                </div>
+              </div>
+
+              <div class="table-responsive mt-2">
+                <table class="table table-sm align-middle mb-0" id="resultTable">
+                  <thead>
+                    <tr id="theadRow"></tr>
+                  </thead>
+                  <tbody id="tbodyRows"></tbody>
+                </table>
+              </div>
+
+              <div class="text-muted small mt-3" id="resultHint"></div>
+            </div>
+
+            <div class="card-soft p-3">
+              <div class="fw-bold">Agendamento (MVP+)</div>
+              <div class="text-muted small">Exemplo visual de como seria agendar envio automático por e-mail (não funcional).</div>
+
+              <div class="row g-2 mt-2">
+                <div class="col-12 col-md-6">
+                  <label class="form-label small">Destinatários</label>
+                  <input class="form-control" placeholder="ex.: rh@empresa.com; gestor@empresa.com">
+                </div>
+                <div class="col-6 col-md-3">
+                  <label class="form-label small">Frequência</label>
+                  <select class="form-select">
+                    <option>Diário</option>
+                    <option selected>Semanal</option>
+                    <option>Mensal</option>
+                  </select>
+                </div>
+                <div class="col-6 col-md-3">
+                  <label class="form-label small">Dia/Hora</label>
+                  <input class="form-control" placeholder="Seg 09:00">
+                </div>
+              </div>
+
+              <div class="d-flex flex-wrap gap-2 mt-3">
+                <button class="btn btn-ghost btn-sm"><i class="bi bi-calendar2-check me-1"></i>Salvar agendamento</button>
+                <button class="btn btn-ghost btn-sm"><i class="bi bi-send me-1"></i>Enviar agora (teste)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:14px;"></div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer class="footer">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>© <span id="year"></span> Liotécnica • Portal RH (MVP)</div>
+          <div class="d-flex align-items-center gap-3">
+            <span><i class="bi bi-graph-up me-1"></i>Relatórios</span>
+            <span><i class="bi bi-shield-check me-1"></i>LGPD</span>
+            <span class="mono muted" id="buildId">build: demo</span>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Bootstrap JS (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ========= Logo (Data URI placeholder)
+    const LOGO_DATA_URI = "data:image/webp;base64,UklGRngUAABXRUJQVlA4IGwUAAAQYwCdASpbAVsBPlEokUajoqGhIpNoyHAK7AQYJjYQmG9Dtu/6p6QZ4lQd6lPde+Jk3i3kG2EoP+QW0c0h8Oe3jW2C5zE0o9jzZ1x2fX9cZlX0d7rW8r0vQ9p3d2nJ1bqzQfQZxVwTt7mJvU8j1GqF4oJc8Qb+gq+oQyHcQyYc2b9u2fYf0Rj9x9hRZp2Y2xK0yVQ8Hj4p6w8B1K2cKk2mY9m2r8kz3a4m7xG4xg9m5VjzP3E4RjQH8fYkC4mB8g0vR3c5h1D0yE8Qzv7t7gQj0Z9yKk3cWZgVnq3l1kq6rE8oWc4z6oZk8k0b1o9m8p2m+QJ3nJm6GgA=";
+
+    // ========= Helpers
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+    const clamp = (n,min,max) => Math.max(min, Math.min(max,n));
+    function uid(){ return (crypto && crypto.randomUUID) ? crypto.randomUUID() : ("id-"+Math.random().toString(16).slice(2)+"-"+Date.now().toString(16)); }
+    function escapeHtml(str){
+      return (str ?? "").toString()
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"quot;")
+        .replaceAll("'","&#039;");
+    }
+    function fmtDate(iso){
+      if(!iso) return "—";
+      const d = new Date(iso);
+      return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+    }
+
+    // ========= Storage keys (compatível com telas anteriores)
+    const VAGAS_KEY = "lt_rh_vagas_v1";
+    const CANDS_KEY = "lt_rh_candidatos_v1";
+    const INBOX_KEY = "lt_rh_inbox_v1";
+
+    // ========= State
+    const state = {
+      reportId: "r1",
+      filters: { period:"30d", vaga:"all", origem:"all", status:"all", q:"" },
+      vagas: [],
+      candidatos: [],
+      inbox: []
+    };
+
+    // ========= Load/save
+    function loadJson(key, fallback){
+      try{
+        const raw = localStorage.getItem(key);
+        if(!raw) return fallback;
+        return JSON.parse(raw);
+      }catch{ return fallback; }
+    }
+
+    // ========= Seed (mínimo para não quebrar a tela)
+    function seedIfEmpty(){
+      const vagasRaw = loadJson(VAGAS_KEY, null);
+      if(!vagasRaw || !Array.isArray(vagasRaw.vagas) || !vagasRaw.vagas.length){
+        const vaga = {
+          id: uid(),
+          codigo: "VAG-001",
+          titulo: "Analista de Dados",
+          descricao: "Análise de indicadores, dashboards e apoio ao RH/gestão.",
+          threshold: 65,
+          requisitos: [
+            { id: uid(), termo: "excel", peso: 5, obrigatorio: true, sinonimos: ["planilhas","vlookup","tabela dinamica"] },
+            { id: uid(), termo: "power bi", peso: 4, obrigatorio: false, sinonimos: ["pbi","powerbi"] },
+            { id: uid(), termo: "sql", peso: 4, obrigatorio: false, sinonimos: ["postgres","query"] }
+          ],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem(VAGAS_KEY, JSON.stringify({ vagas: [vaga] }));
+      }
+
+      const candRaw = loadJson(CANDS_KEY, null);
+      if(!candRaw || !Array.isArray(candRaw.candidatos)){
+        localStorage.setItem(CANDS_KEY, JSON.stringify({ candidatos: [], selectedId: null }));
+      }
+
+      const inboxRaw = loadJson(INBOX_KEY, null);
+      if(!inboxRaw || !Array.isArray(inboxRaw.inbox)){
+        localStorage.setItem(INBOX_KEY, JSON.stringify({ inbox: [], selectedId: null, savedAt: new Date().toISOString() }));
+      }
+    }
+
+    function loadAll(){
+      state.vagas = (loadJson(VAGAS_KEY, { vagas: [] }).vagas || []);
+      state.candidatos = (loadJson(CANDS_KEY, { candidatos: [] }).candidatos || []);
+      state.inbox = (loadJson(INBOX_KEY, { inbox: [] }).inbox || []);
+    }
+
+    function findVaga(id){ return state.vagas.find(v => v.id === id) || null; }
+
+    // ========= Relatórios (catálogo)
+    const REPORTS = [
+      {
+        id:"r1",
+        icon:"bar-chart",
+        title:"Entrada por Origem",
+        desc:"Quantidade de itens recebidos por Email/Pasta/Upload no período.",
+        scope:"entrada"
+      },
+      {
+        id:"r2",
+        icon:"exclamation-triangle",
+        title:"Falhas de Processamento",
+        desc:"Principais causas de falha (PDF protegido, parser, arquivo vazio).",
+        scope:"entrada"
+      },
+      {
+        id:"r3",
+        icon:"people",
+        title:"Pipeline RH (Status do Candidato)",
+        desc:"Distribuição por status: triagem, matching, aprovado, reprovado.",
+        scope:"candidatos"
+      },
+      {
+        id:"r4",
+        icon:"briefcase",
+        title:"Funil por Vaga",
+        desc:"Candidatos por vaga: recebidos → triados → match ≥ threshold.",
+        scope:"vagas"
+      },
+      {
+        id:"r5",
+        icon:"stars",
+        title:"Ranking de Matching",
+        desc:"Top candidatos por percentual de match (demo).",
+        scope:"matching"
+      }
+    ];
+
+    // ========= Filters / period
+    function periodStart(period){
+      const now = new Date();
+      const d = new Date(now);
+      if(period === "7d") d.setDate(now.getDate()-7);
+      else if(period === "30d") d.setDate(now.getDate()-30);
+      else if(period === "90d") d.setDate(now.getDate()-90);
+      else if(period === "ytd"){ d.setMonth(0,1); d.setHours(0,0,0,0); }
+      return d;
+    }
+
+    function inPeriod(iso){
+      if(!iso) return false;
+      const d = new Date(iso);
+      return d >= periodStart(state.filters.period);
+    }
+
+    function applyCommonFiltersToInbox(list){
+      const q = (state.filters.q||"").trim().toLowerCase();
+      const origem = state.filters.origem;
+      const status = state.filters.status;
+      const vaga = state.filters.vaga;
+
+      return list.filter(x=>{
+        if(!inPeriod(x.recebidoEm)) return false;
+        if(origem !== "all" && x.origem !== origem) return false;
+        if(status !== "all" && x.status !== status) return false;
+        if(vaga !== "all" && x.vagaId !== vaga) return false;
+
+        if(!q) return true;
+        const v = findVaga(x.vagaId);
+        const blob = [
+          x.remetente, x.assunto, x.destinatario,
+          v?.titulo, v?.codigo,
+          ...(x.anexos||[]).map(a => a.nome)
+        ].join(" ").toLowerCase();
+        return blob.includes(q);
+      });
+    }
+
+    // ========= Render catálogo de relatórios
+    function renderReportCatalog(){
+      $("#reportList").innerHTML = REPORTS.map(r => `
+        <div class="tile ${r.id===state.reportId ? "active":""}" data-id="${r.id}">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <div class="iconbox"><i class="bi bi-${r.icon}"></i></div>
+              <div>
+                <div class="fw-bold">${escapeHtml(r.title)}</div>
+                <div class="text-muted small">${escapeHtml(r.desc)}</div>
+              </div>
+            </div>
+            <span class="pill"><i class="bi bi-tag"></i>${escapeHtml(r.scope)}</span>
+          </div>
+        </div>
+      `).join("");
+
+      $$(".tile").forEach(el => {
+        el.addEventListener("click", () => {
+          state.reportId = el.dataset.id;
+          renderReportCatalog();
+          renderReport();
+        });
+      });
+    }
+
+    // ========= Render filtros (vagas)
+    function renderVagaOptions(){
+      const sel = $("#fVaga");
+      const current = sel.value || "all";
+      const opts = state.vagas
+        .slice()
+        .sort((a,b)=> (a.titulo||"").localeCompare(b.titulo||""))
+        .map(v => `<option value="${v.id}">${escapeHtml(v.titulo)} (${escapeHtml(v.codigo||"—")})</option>`)
+        .join("");
+      sel.innerHTML = `<option value="all">Todas</option>${opts}`;
+      sel.value = state.filters.vaga || current || "all";
+    }
+
+    // ========= KPI
+    function renderKPIs(){
+      const vagas = state.vagas.length;
+      const cands = state.candidatos.length;
+      const inbox = state.inbox.filter(x => ["novo","processando"].includes(x.status)).length;
+
+      // conversão simples (processado → candidato) (demo)
+      const processed = state.inbox.filter(x => x.status === "processado" && inPeriod(x.recebidoEm)).length;
+      const conv = processed ? Math.round((cands / processed) * 100) : 0;
+
+      $("#kpiVagas").textContent = vagas;
+      $("#kpiCands").textContent = cands;
+      $("#kpiInbox").textContent = inbox;
+      $("#kpiConv").textContent = clamp(conv,0,100) + "%";
+    }
+
+    // ========= Chart (canvas simples sem libs)
+    function drawBarChart(labels, values){
+      const canvas = $("#chart");
+      const ctx = canvas.getContext("2d");
+
+      // Ajusta para dpi
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      ctx.scale(dpr, dpr);
+
+      const W = rect.width, H = rect.height;
+      ctx.clearRect(0,0,W,H);
+
+      // eixos
+      const padL = 46, padR = 16, padT = 16, padB = 42;
+      const chartW = W - padL - padR;
+      const chartH = H - padT - padB;
+
+      // fundo
+      ctx.fillStyle = "rgba(255,255,255,0.0)";
+      ctx.fillRect(0,0,W,H);
+
+      const maxV = Math.max(1, ...values);
+      const n = labels.length;
+      const gap = 10;
+      const barW = n ? (chartW - gap*(n-1)) / n : chartW;
+
+      // grid horizontal (4 linhas)
+      ctx.strokeStyle = "rgba(16,82,144,.14)";
+      ctx.lineWidth = 1;
+      for(let i=0;i<=4;i++){
+        const y = padT + (chartH*(i/4));
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL+chartW, y);
+        ctx.stroke();
+      }
+
+      // barras
+      for(let i=0;i<n;i++){
+        const v = values[i];
+        const h = (v / maxV) * chartH;
+        const x = padL + i*(barW+gap);
+        const y = padT + (chartH - h);
+
+        // barra (gradiente simples)
+        const grd = ctx.createLinearGradient(x, y, x+barW, y);
+        grd.addColorStop(0, "rgba(16,82,144,.95)");
+        grd.addColorStop(1, "rgba(12,58,100,.95)");
+        ctx.fillStyle = grd;
+        roundRect(ctx, x, y, barW, h, 10, true, false);
+
+        // valor
+        ctx.fillStyle = "rgba(13,27,42,.78)";
+        ctx.font = "12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial";
+        const val = String(v);
+        ctx.fillText(val, x + (barW/2) - (ctx.measureText(val).width/2), y - 6);
+
+        // label
+        ctx.fillStyle = "rgba(13,27,42,.70)";
+        ctx.font = "12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial";
+        const lab = labels[i];
+        const lw = ctx.measureText(lab).width;
+        ctx.fillText(lab, x + (barW/2) - (lw/2), padT + chartH + 26);
+      }
+
+      // eixo Y labels (0 e max)
+      ctx.fillStyle = "rgba(13,27,42,.60)";
+      ctx.font = "12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial";
+      ctx.fillText("0", 18, padT + chartH + 4);
+      const m = String(maxV);
+      ctx.fillText(m, 18, padT + 12);
+
+      // eixo
+      ctx.strokeStyle = "rgba(16,82,144,.22)";
+      ctx.beginPath();
+      ctx.moveTo(padL, padT);
+      ctx.lineTo(padL, padT+chartH);
+      ctx.lineTo(padL+chartW, padT+chartH);
+      ctx.stroke();
+    }
+
+    function roundRect(ctx, x, y, w, h, r, fill, stroke){
+      r = Math.min(r, w/2, h/2);
+      ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.arcTo(x+w, y, x+w, y+h, r);
+      ctx.arcTo(x+w, y+h, x, y+h, r);
+      ctx.arcTo(x, y+h, x, y, r);
+      ctx.arcTo(x, y, x+w, y, r);
+      ctx.closePath();
+      if(fill) ctx.fill();
+      if(stroke) ctx.stroke();
+    }
+
+    // ========= Result table render
+    function setTable(headers, rows){
+      $("#theadRow").innerHTML = headers.map(h => `<th>${escapeHtml(h)}</th>`).join("");
+      $("#tbodyRows").innerHTML = rows.map(r => `
+        <tr>
+          ${r.map(c => `<td>${c}</td>`).join("")}
+        </tr>
+      `).join("");
+      $("#rowCount").textContent = rows.length;
+      $("#resultHint").textContent = rows.length ? "" : "Nenhum resultado com os filtros atuais.";
+    }
+
+    function tag(html, cls="tag"){ return `<span class="${cls}">${html}</span>`; }
+
+    // ========= Report builders (mocados, baseados nos dados salvos)
+    function buildReportData(){
+      const r = REPORTS.find(x => x.id === state.reportId);
+      if(!r) return { labels:[], values:[], headers:[], rows:[], title:"—", desc:"" };
+
+      if(r.id === "r1"){ // Entrada por origem
+        const list = applyCommonFiltersToInbox(state.inbox);
+        const count = { email:0, pasta:0, upload:0 };
+        list.forEach(x => { count[x.origem] = (count[x.origem]||0) + 1; });
+
+        const labels = ["Email","Pasta","Upload"];
+        const values = [count.email||0, count.pasta||0, count.upload||0];
+
+        const headers = ["Recebido em", "Origem", "Remetente", "Assunto", "Vaga", "Status"];
+        const rows = list
+          .slice()
+          .sort((a,b)=> new Date(b.recebidoEm||0)-new Date(a.recebidoEm||0))
+          .slice(0, 30)
+          .map(x => {
+            const v = findVaga(x.vagaId);
+            return [
+              escapeHtml(fmtDate(x.recebidoEm)),
+              escapeHtml(x.origem),
+              `<span class="mono">${escapeHtml(x.remetente||"—")}</span>`,
+              escapeHtml(x.assunto||"—"),
+              escapeHtml(v ? `${v.titulo} (${v.codigo||"—"})` : "—"),
+              x.status === "processado" ? tag(`<i class="bi bi-check2-circle"></i>Processado`,"tag ok") :
+              x.status === "processando" ? tag(`<i class="bi bi-arrow-repeat"></i>Processando`,"tag warn") :
+              x.status === "falha" ? tag(`<i class="bi bi-exclamation-triangle"></i>Falha`,"tag bad") :
+              tag(`<i class="bi bi-dot"></i>${escapeHtml(x.status||"—")}`,"tag")
+            ];
+          });
+
+        return { labels, values, headers, rows, title:r.title, desc:r.desc, scope:r.scope };
+      }
+
+      if(r.id === "r2"){ // Falhas
+        const list = applyCommonFiltersToInbox(state.inbox).filter(x => x.status === "falha");
+        const buckets = {};
+        list.forEach(x => {
+          const e = (x.processamento && x.processamento.ultimoErro) ? x.processamento.ultimoErro : "Outros";
+          const key = e.length > 22 ? (e.slice(0,22)+"…") : e;
+          buckets[key] = (buckets[key]||0)+1;
+        });
+
+        const pairs = Object.entries(buckets).sort((a,b)=> b[1]-a[1]).slice(0, 6);
+        const labels = pairs.map(p => p[0]);
+        const values = pairs.map(p => p[1]);
+
+        const headers = ["Recebido em", "Origem", "Assunto", "Vaga", "Erro"];
+        const rows = list
+          .slice()
+          .sort((a,b)=> new Date(b.recebidoEm||0)-new Date(a.recebidoEm||0))
+          .slice(0, 30)
+          .map(x => {
+            const v = findVaga(x.vagaId);
+            return [
+              escapeHtml(fmtDate(x.recebidoEm)),
+              escapeHtml(x.origem),
+              escapeHtml(x.assunto||"—"),
+              escapeHtml(v ? `${v.titulo} (${v.codigo||"—"})` : "—"),
+              `<span class="text-danger">${escapeHtml(x.processamento?.ultimoErro || "—")}</span>`
+            ];
+          });
+
+        return { labels, values, headers, rows, title:r.title, desc:r.desc, scope:r.scope };
+      }
+
+      if(r.id === "r3"){ // Pipeline candidatos
+        const list = state.candidatos.slice();
+        const count = {};
+        list.forEach(c => { const s = c.status || "—"; count[s] = (count[s]||0)+1; });
+
+        const pairs = Object.entries(count).sort((a,b)=> b[1]-a[1]).slice(0, 7);
+        const labels = pairs.map(p => p[0]);
+        const values = pairs.map(p => p[1]);
+
+        const headers = ["Criado em", "Nome", "Email", "Status", "Vaga"];
+        const rows = list
+          .slice()
+          .sort((a,b)=> new Date(b.createdAt||0)-new Date(a.createdAt||0))
+          .slice(0, 30)
+          .map(c => {
+            const v = findVaga(c.vagaId);
+            const st = (c.status||"").toLowerCase();
+            const badge =
+              st.includes("aprov") ? tag(`<i class="bi bi-check2-circle"></i>${escapeHtml(c.status)}`,"tag ok") :
+              st.includes("reprov") ? tag(`<i class="bi bi-x-circle"></i>${escapeHtml(c.status)}`,"tag bad") :
+              st.includes("match") ? tag(`<i class="bi bi-stars"></i>${escapeHtml(c.status)}`,"tag warn") :
+              tag(`<i class="bi bi-dot"></i>${escapeHtml(c.status||"—")}`,"tag");
+
+            return [
+              escapeHtml(fmtDate(c.createdAt)),
+              escapeHtml(c.nome || "—"),
+              c.email ? `<span class="mono">${escapeHtml(c.email)}</span>` : "—",
+              badge,
+              escapeHtml(v ? `${v.titulo} (${v.codigo||"—"})` : "—")
+            ];
+          });
+
+        return { labels, values, headers, rows, title:r.title, desc:r.desc, scope:r.scope };
+      }
+
+      if(r.id === "r4"){ // Funil por vaga (mocado)
+        const byVaga = {};
+        const inbox = applyCommonFiltersToInbox(state.inbox);
+        inbox.forEach(x => {
+          const vid = x.vagaId || "none";
+          byVaga[vid] = byVaga[vid] || { recebidos:0, processados:0, falhas:0 };
+          byVaga[vid].recebidos++;
+          if(x.status === "processado") byVaga[vid].processados++;
+          if(x.status === "falha") byVaga[vid].falhas++;
+        });
+
+        // labels: top 5 vagas
+        const pairs = Object.entries(byVaga).map(([k,v]) => [k, v.recebidos]).sort((a,b)=> b[1]-a[1]).slice(0, 5);
+        const labels = pairs.map(([vid]) => {
+          const v = findVaga(vid);
+          return v ? (v.codigo || "Vaga") : "Sem vaga";
+        });
+        const values = pairs.map(([vid]) => byVaga[vid].recebidos);
+
+        const headers = ["Vaga", "Recebidos", "Processados", "Falhas", "Taxa OK"];
+        const rows = pairs.map(([vid]) => {
+          const v = findVaga(vid);
+          const obj = byVaga[vid];
+          const ok = obj.processados;
+          const rate = obj.recebidos ? Math.round((ok/obj.recebidos)*100) : 0;
+          return [
+            escapeHtml(v ? `${v.titulo} (${v.codigo||"—"})` : "Sem vaga"),
+            `<span class="fw-semibold">${obj.recebidos}</span>`,
+            `<span class="fw-semibold" style="color:rgba(25,135,84,.95)">${obj.processados}</span>`,
+            `<span class="fw-semibold text-danger">${obj.falhas}</span>`,
+            rate >= 70 ? tag(`<i class="bi bi-check2-circle"></i>${rate}%`,"tag ok") :
+            rate >= 40 ? tag(`<i class="bi bi-exclamation-circle"></i>${rate}%`,"tag warn") :
+                         tag(`<i class="bi bi-x-circle"></i>${rate}%`,"tag bad")
+          ];
+        });
+
+        return { labels, values, headers, rows, title:r.title, desc:r.desc, scope:r.scope };
+      }
+
+      if(r.id === "r5"){ // Ranking matching (demo)
+        const list = state.candidatos
+          .map(c => {
+            // se não tiver match, gera um número determinístico “demo”
+            const seed = (c.id||"").split("").reduce((a,ch)=> a+ch.charCodeAt(0), 0);
+            const score = c.lastMatch?.percent ?? (40 + (seed % 61)); // 40..100
+            return { ...c, _score: clamp(score,0,100) };
+          })
+          .sort((a,b)=> b._score - a._score)
+          .slice(0, 12);
+
+        const labels = list.slice(0, 6).map(c => (c.nome||"—").split(" ")[0].slice(0,10));
+        const values = list.slice(0, 6).map(c => c._score);
+
+        const headers = ["Candidato", "Email", "Vaga", "Match", "Atualizado"];
+        const rows = list.map(c => {
+          const v = findVaga(c.vagaId);
+          const s = c._score;
+          const badge =
+            s >= 80 ? tag(`<i class="bi bi-stars"></i>${s}%`,"tag ok") :
+            s >= 60 ? tag(`<i class="bi bi-stars"></i>${s}%`,"tag warn") :
+                      tag(`<i class="bi bi-stars"></i>${s}%`,"tag bad");
+          return [
+            escapeHtml(c.nome || "—"),
+            c.email ? `<span class="mono">${escapeHtml(c.email)}</span>` : "—",
+            escapeHtml(v ? `${v.titulo} (${v.codigo||"—"})` : "—"),
+            badge,
+            escapeHtml(fmtDate(c.updatedAt || c.createdAt))
+          ];
+        });
+
+        return { labels, values, headers, rows, title:r.title, desc:r.desc, scope:r.scope };
+      }
+
+      return { labels:[], values:[], headers:[], rows:[], title:r.title, desc:r.desc, scope:r.scope };
+    }
+
+    // ========= Render report
+    function renderReport(){
+      const r = REPORTS.find(x => x.id === state.reportId);
+      $("#reportTitle").textContent = r ? r.title : "—";
+      $("#reportDesc").textContent = r ? r.desc : "Selecione um relatório no catálogo.";
+
+      const data = buildReportData();
+
+      $("#tagScope").innerHTML = `<i class="bi bi-sliders"></i>${escapeHtml(data.scope||"escopo")}`;
+      $("#tagFresh").innerHTML = `<i class="bi bi-clock-history"></i>atual`;
+
+      drawBarChart(data.labels || [], data.values || []);
+      setTable(data.headers || [], data.rows || []);
+
+      // hint
+      const p = state.filters.period;
+      const pl = p==="7d"?"7 dias":p==="30d"?"30 dias":p==="90d"?"90 dias":"YTD";
+      $("#resultHint").textContent = `Período: ${pl} • Vaga: ${state.filters.vaga==="all"?"todas":"filtrada"} • Origem/Status: conforme filtros.`;
+    }
+
+    // ========= CSV export do relatório atual
+    function exportCurrentCsv(){
+      const data = buildReportData();
+      const headers = data.headers || [];
+      const rows = data.rows || [];
+
+      // remove HTML dos cells para CSV básico
+      const strip = (html) => String(html)
+        .replace(/<br\s*\/?>/gi, " ")
+        .replace(/<\/?[^>]+>/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const csv = [
+        headers.map(h => `"${String(h).replaceAll('"','""')}"`).join(";"),
+        ...rows.map(r => r.map(c => `"${strip(c).replaceAll('"','""')}"`).join(";"))
+      ].join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `relatorio_${state.reportId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // ========= UI wiring
+    function initLogo(){
+      $("#logoDesktop").src = LOGO_DATA_URI;
+      $("#logoMobile").src = LOGO_DATA_URI;
+    }
+    function wireClock(){
+      const now = new Date();
+      $("#year").textContent = now.getFullYear();
+      $("#buildId").textContent = "build: demo-" + String(now.getFullYear()).slice(2) + "-" + String(now.getMonth()+1).padStart(2,"0");
+
+      const tick = () => {
+        const d = new Date();
+        $("#nowLabel").textContent = d.toLocaleString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+      };
+      tick();
+      setInterval(tick, 1000*15);
+    }
+
+    function wireFilters(){
+      $("#fPeriod").value = state.filters.period;
+      $("#fOrigem").value = state.filters.origem;
+      $("#fStatus").value = state.filters.status;
+      $("#fSearch").value = state.filters.q;
+
+      $("#btnApply").addEventListener("click", () => {
+        state.filters.period = $("#fPeriod").value;
+        state.filters.vaga = $("#fVaga").value;
+        state.filters.origem = $("#fOrigem").value;
+        state.filters.status = $("#fStatus").value;
+        state.filters.q = ($("#fSearch").value||"").trim();
+        renderKPIs();
+        renderReport();
+      });
+
+      $("#btnClear").addEventListener("click", () => {
+        state.filters = { period:"30d", vaga:"all", origem:"all", status:"all", q:"" };
+        $("#fPeriod").value = state.filters.period;
+        $("#fVaga").value = state.filters.vaga;
+        $("#fOrigem").value = state.filters.origem;
+        $("#fStatus").value = state.filters.status;
+        $("#fSearch").value = state.filters.q;
+        renderKPIs();
+        renderReport();
+      });
+    }
+
+    function wireTopButtons(){
+      $("#btnRun").addEventListener("click", () => {
+        renderKPIs();
+        renderReport();
+      });
+
+      $("#btnExport").addEventListener("click", exportCurrentCsv);
+
+      $("#btnSeedReset").addEventListener("click", () => {
+        const ok = confirm("Restaurar demo? Isso recria seeds mínimas (Vagas/Candidatos/Inbox).");
+        if(!ok) return;
+        localStorage.removeItem(VAGAS_KEY);
+        localStorage.removeItem(CANDS_KEY);
+        localStorage.removeItem(INBOX_KEY);
+        seedIfEmpty();
+        loadAll();
+        renderVagaOptions();
+        renderKPIs();
+        renderReportCatalog();
+        renderReport();
+      });
+    }
+
+    // ========= Init
+    (function init(){
+      initLogo();
+      wireClock();
+
+      seedIfEmpty();
+      loadAll();
+
+      renderVagaOptions();
+      renderKPIs();
+      renderReportCatalog();
+      wireFilters();
+      wireTopButtons();
+
+      renderReport();
+      window.addEventListener("resize", () => renderReport());
+    })();
+  </script>
+</body>
+</html>

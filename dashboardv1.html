@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portal RH • Liotécnica</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      /* Paleta baseada no logo */
+      --lt-primary: #0B3A64;   /* azul profundo */
+      --lt-brand:   #105290;   /* azul principal */
+      --lt-soft:    #ADC8DC;   /* azul claro */
+      --lt-bg:      #F6F9FC;   /* fundo */
+      --lt-card:    #FFFFFF;
+      --lt-text:    #0D1B2A;
+      --lt-muted:   rgba(13,27,42,.65);
+      --lt-border:  rgba(16,82,144,.18);
+      --lt-shadow:  0 10px 30px rgba(11,58,100,.10);
+      --radius-xl:  18px;
+      --radius-lg:  14px;
+      --ui-scale:  .75;
+    }
+
+    html, body { height: 100%; }
+    body{
+      background: radial-gradient(1100px 480px at 15% 0%, rgba(173,200,220,.30), transparent 55%),
+                  radial-gradient(900px 520px at 85% 10%, rgba(16,82,144,.16), transparent 55%),
+                  var(--lt-bg);
+      color: var(--lt-text);
+      zoom: var(--ui-scale);
+    }
+
+    .app-shell{
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 290px 1fr;
+    }
+
+    /* Sidebar */
+    .sidebar{
+      background: linear-gradient(180deg, rgba(11,58,100,1) 0%, rgba(16,82,144,1) 100%);
+      color: rgba(255,255,255,.92);
+      border-right: 1px solid rgba(255,255,255,.12);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .sidebar-inner{
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:.75rem;
+      padding: 1rem 1rem .75rem 1rem;
+    }
+    .brand img{
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: #fff;
+      padding: 6px;
+      box-shadow: 0 10px 22px rgba(0,0,0,.18);
+    }
+    .brand .title{
+      line-height: 1.05;
+    }
+    .brand .title strong{
+      display:block;
+      font-size: 1.02rem;
+      letter-spacing: .2px;
+    }
+    .brand .title span{
+      display:block;
+      font-size: .78rem;
+      opacity: .85;
+    }
+
+    .sidebar .nav-section{
+      padding: .35rem 1rem;
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      opacity: .75;
+      margin-top: .35rem;
+    }
+
+    .sidebar .nav-link{
+      color: rgba(255,255,255,.88);
+      border-radius: 12px;
+      padding: .60rem .80rem;
+      display:flex;
+      align-items:center;
+      gap:.65rem;
+      margin: .10rem .75rem;
+      border: 1px solid transparent;
+    }
+    .sidebar .nav-link:hover{
+      background: rgba(255,255,255,.10);
+      border-color: rgba(255,255,255,.12);
+      color: #fff;
+    }
+    .sidebar .nav-link.active{
+      background: rgba(255,255,255,.16);
+      border-color: rgba(255,255,255,.22);
+      color: #fff;
+    }
+    .sidebar .nav-link i{ font-size: 1.05rem; opacity: .95; }
+
+    .sidebar-footer{
+      margin-top:auto;
+      padding: .9rem 1rem 1.1rem;
+      border-top: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.06);
+    }
+    .sidebar-footer .mini{
+      font-size: .82rem;
+      opacity: .92;
+    }
+    .sidebar-footer .pill{
+      display:inline-flex;
+      gap:.4rem;
+      align-items:center;
+      padding: .35rem .55rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.18);
+      font-size: .78rem;
+    }
+
+    /* Main */
+    .main{
+      display:flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .topbar{
+      position: sticky;
+      top: 0;
+      z-index: 1020;
+      background: rgba(246,249,252,.78);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--lt-border);
+    }
+
+    .topbar-inner{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: .85rem 1rem;
+    }
+
+    .searchbox{
+      max-width: 560px;
+      width: 100%;
+    }
+    .searchbox .form-control{
+      border-radius: 999px;
+      padding-left: 2.35rem;
+      border-color: var(--lt-border);
+      box-shadow: none;
+    }
+    .searchbox .bi{
+      position:absolute;
+      left: .85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(11,58,100,.75);
+    }
+
+    .content{
+      padding: 1rem 1rem 0;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .page-title{
+      display:flex;
+      align-items:flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: .9rem;
+    }
+    .page-title h4{
+      margin:0;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+    .page-title .subtitle{
+      color: var(--lt-muted);
+      font-size: .92rem;
+      margin-top: .15rem;
+    }
+
+    .card-soft{
+      background: var(--lt-card);
+      border: 1px solid var(--lt-border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--lt-shadow);
+    }
+
+    .kpi{
+      padding: 1rem;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .kpi .meta{
+      display:flex;
+      flex-direction: column;
+      gap: .15rem;
+    }
+    .kpi .meta .label{
+      font-size: .86rem;
+      color: var(--lt-muted);
+    }
+    .kpi .meta .value{
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+    .kpi .meta .hint{
+      font-size: .80rem;
+      color: rgba(13,27,42,.58);
+    }
+    .kpi .icon{
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display:grid;
+      place-items:center;
+      border: 1px solid rgba(16,82,144,.22);
+      background: linear-gradient(180deg, rgba(173,200,220,.55), rgba(173,200,220,.18));
+      color: var(--lt-primary);
+      flex: 0 0 auto;
+    }
+    .kpi .icon i{ font-size: 1.2rem; }
+
+    .table thead th{
+      font-size: .80rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: rgba(13,27,42,.60);
+      border-bottom-color: var(--lt-border) !important;
+    }
+    .table td{
+      vertical-align: middle;
+      border-top-color: rgba(16,82,144,.10);
+    }
+
+    .badge-soft{
+      border: 1px solid rgba(16,82,144,.22);
+      background: rgba(173,200,220,.25);
+      color: var(--lt-primary);
+      font-weight: 600;
+      border-radius: 999px;
+      padding: .35rem .55rem;
+    }
+
+    .progress{
+      height: 10px;
+      background: rgba(16,82,144,.10);
+      border-radius: 999px;
+    }
+    .progress-bar{
+      background: linear-gradient(90deg, var(--lt-brand), var(--lt-primary));
+      border-radius: 999px;
+    }
+
+    .footer{
+      padding: 1rem;
+      border-top: 1px solid var(--lt-border);
+      color: var(--lt-muted);
+      font-size: .90rem;
+      background: rgba(255,255,255,.35);
+    }
+
+    /* Mobile */
+    @media (max-width: 991.98px){
+      .app-shell{ grid-template-columns: 1fr; }
+      .sidebar{ display:none; }
+      .content{ padding: .9rem .9rem 0; }
+    }
+
+    /* Offcanvas custom */
+    .offcanvas-custom{
+      border-left: 1px solid var(--lt-border);
+      box-shadow: -20px 0 40px rgba(11,58,100,.12);
+    }
+    .btn-brand{
+      background: linear-gradient(90deg, var(--lt-brand), var(--lt-primary));
+      border: none;
+      color: #fff;
+      border-radius: 999px;
+      padding: .55rem .9rem;
+    }
+    .btn-brand:hover{ filter: brightness(1.02); color:#fff; }
+    .btn-ghost{
+      border-radius: 999px;
+      border: 1px solid var(--lt-border);
+      background: rgba(255,255,255,.65);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- MOBILE TOP: Sidebar Offcanvas -->
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasSidebar">
+    <div class="offcanvas-header border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <img alt="Liotécnica" src="https://ugc.production.linktr.ee/cR5FRLAQhMjM5iY6KkQV_N7guc4j7zk8o2yfc?io=true&size=avatar-v3_0" style="width:34px;height:34px;border-radius:10px;background:#fff;padding:6px;">
+        <div class="lh-1">
+          <div class="fw-bold" style="color:var(--lt-primary)">Portal RH</div>
+          <small class="text-muted">Recrutamento & Match</small>
+        </div>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body p-0">
+      <div class="p-2">
+        <div class="small text-uppercase text-muted px-2 mt-2">Navegação</div>
+        <div class="nav flex-column">
+          <a class="nav-link rounded-3 px-3 py-2" href="#" data-menu="dashboard"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#" data-menu="vagas"><i class="bi bi-briefcase me-2"></i>Vagas</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#" data-menu="candidatos"><i class="bi bi-people me-2"></i>Candidatos</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#" data-menu="triagem"><i class="bi bi-funnel me-2"></i>Triagem</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#" data-menu="matching"><i class="bi bi-stars me-2"></i>Matching</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#" data-menu="entrada"><i class="bi bi-inbox me-2"></i>Entrada (Email/Pasta)</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#" data-menu="relatorios"><i class="bi bi-graph-up me-2"></i>Relatórios</a>
+          <a class="nav-link rounded-3 px-3 py-2" href="#" data-menu="config"><i class="bi bi-gear me-2"></i>Configurações</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <!-- DESKTOP SIDEBAR -->
+    <aside class="sidebar d-none d-lg-block">
+      <div class="sidebar-inner">
+        <div class="brand">
+          <img alt="Liotécnica" src="https://ugc.production.linktr.ee/cR5FRLAQhMjM5iY6KkQV_N7guc4j7zk8o2yfc?io=true&size=avatar-v3_0">
+          <div class="title">
+            <strong>Portal RH</strong>
+            <span>Recrutamento & Match</span>
+          </div>
+        </div>
+
+        <div class="nav-section">Operação</div>
+        <nav class="nav flex-column">
+          <a class="nav-link active" href="#" data-menu="dashboard"><i class="bi bi-speedometer2"></i>Dashboard</a>
+          <a class="nav-link" href="#" data-menu="vagas"><i class="bi bi-briefcase"></i>Vagas</a>
+          <a class="nav-link" href="#" data-menu="candidatos"><i class="bi bi-people"></i>Candidatos</a>
+          <a class="nav-link" href="#" data-menu="triagem"><i class="bi bi-funnel"></i>Triagem</a>
+          <a class="nav-link" href="#" data-menu="matching"><i class="bi bi-stars"></i>Matching</a>
+        </nav>
+
+        <div class="nav-section mt-2">Integrações</div>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#" data-menu="entrada"><i class="bi bi-inbox"></i>Entrada (Email/Pasta)</a>
+          <a class="nav-link" href="#" data-menu="rm"><i class="bi bi-diagram-3"></i>RM Labore</a>
+        </nav>
+
+        <div class="nav-section mt-2">Gestão</div>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#" data-menu="relatorios"><i class="bi bi-graph-up"></i>Relatórios</a>
+          <a class="nav-link" href="#" data-menu="usuarios"><i class="bi bi-person-gear"></i>Usuários & Perfis</a>
+          <a class="nav-link" href="#" data-menu="config"><i class="bi bi-gear"></i>Configurações</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="mini">
+              <div class="fw-semibold">Ambiente</div>
+              <div class="opacity-75">DEV • Postgres</div>
+            </div>
+            <span class="pill"><i class="bi bi-shield-check"></i>LGPD</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-ghost d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSidebar">
+              <i class="bi bi-list"></i>
+            </button>
+
+            <div class="d-none d-md-block">
+              <div class="fw-bold" style="color:var(--lt-primary); line-height:1.05;">Liotécnica • Portal RH</div>
+              <small class="text-muted">Vagas, Currículos e Matching automático</small>
+            </div>
+          </div>
+
+          <div class="searchbox position-relative d-none d-md-block">
+            <i class="bi bi-search"></i>
+            <input id="globalSearch" class="form-control" placeholder="Buscar vaga, candidato, palavra-chave..." />
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-ghost" type="button" data-bs-toggle="offcanvas" data-bs-target="#drawerFilters">
+              <i class="bi bi-sliders"></i>
+              <span class="d-none d-sm-inline ms-1">Filtros</span>
+            </button>
+
+            <button class="btn btn-brand" type="button" data-bs-toggle="offcanvas" data-bs-target="#drawerQuick">
+              <i class="bi bi-plus-lg"></i>
+              <span class="d-none d-sm-inline ms-1">Ações</span>
+            </button>
+
+            <div class="dropdown">
+              <button class="btn btn-ghost dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-person-circle me-1"></i><span class="d-none d-sm-inline">RH</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-person-gear me-2"></i>Meu perfil</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-bell me-2"></i>Notificações</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-box-arrow-right me-2"></i>Sair</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT -->
+      <section class="content">
+        <div class="page-title">
+          <div>
+            <h4 id="pageH4">Dashboard</h4>
+            <div class="subtitle" id="pageSub">Visão geral do dia: vagas, recebimentos e triagem.</div>
+          </div>
+
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">—</span></span>
+            <span class="badge-soft"><i class="bi bi-lightning-charge me-1"></i>Match automático</span>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="row g-3">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft kpi">
+              <div class="meta">
+                <div class="label">Vagas abertas</div>
+                <div class="value" id="kpiVagas">12</div>
+                <div class="hint">+2 na última semana</div>
+              </div>
+              <div class="icon"><i class="bi bi-briefcase"></i></div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft kpi">
+              <div class="meta">
+                <div class="label">CVs recebidos hoje</div>
+                <div class="value" id="kpiCvsHoje">37</div>
+                <div class="hint">Entrada email/pasta</div>
+              </div>
+              <div class="icon"><i class="bi bi-inbox"></i></div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft kpi">
+              <div class="meta">
+                <div class="label">Pendentes de match</div>
+                <div class="value" id="kpiPendentes">9</div>
+                <div class="hint">Fila de processamento</div>
+              </div>
+              <div class="icon"><i class="bi bi-hourglass-split"></i></div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card-soft kpi">
+              <div class="meta">
+                <div class="label">Aprovados (7 dias)</div>
+                <div class="value" id="kpiAprovados">18</div>
+                <div class="hint">+6 vs semana anterior</div>
+              </div>
+              <div class="icon"><i class="bi bi-patch-check"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHART + FUNIL -->
+        <div class="row g-3 mt-1">
+          <div class="col-12 col-xl-7">
+            <div class="card-soft p-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div>
+                  <div class="fw-bold">Recebimento de currículos</div>
+                  <div class="text-muted small">Últimos 14 dias (mock)</div>
+                </div>
+                <span class="badge-soft"><i class="bi bi-graph-up me-1"></i>tendência</span>
+              </div>
+              <canvas id="chartRecebidos" height="110"></canvas>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-5">
+            <div class="card-soft p-3 h-100">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div>
+                  <div class="fw-bold">Funil de triagem</div>
+                  <div class="text-muted small">Visão consolidada (mock)</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#drawerFilters">
+                  <i class="bi bi-funnel"></i>
+                </button>
+              </div>
+
+              <div class="d-flex flex-column gap-3 mt-2">
+                <div>
+                  <div class="d-flex justify-content-between small">
+                    <span class="text-muted">Recebidos</span><span class="fw-semibold">220</span>
+                  </div>
+                  <div class="progress"><div class="progress-bar" style="width: 100%"></div></div>
+                </div>
+
+                <div>
+                  <div class="d-flex justify-content-between small">
+                    <span class="text-muted">Triagem</span><span class="fw-semibold">140</span>
+                  </div>
+                  <div class="progress"><div class="progress-bar" style="width: 64%"></div></div>
+                </div>
+
+                <div>
+                  <div class="d-flex justify-content-between small">
+                    <span class="text-muted">Entrevista</span><span class="fw-semibold">58</span>
+                  </div>
+                  <div class="progress"><div class="progress-bar" style="width: 26%"></div></div>
+                </div>
+
+                <div>
+                  <div class="d-flex justify-content-between small">
+                    <span class="text-muted">Aprovados</span><span class="fw-semibold">18</span>
+                  </div>
+                  <div class="progress"><div class="progress-bar" style="width: 8%"></div></div>
+                </div>
+              </div>
+
+              <div class="mt-3 small text-muted">
+                Dica: use “Filtros” para segmentar por vaga, área e período.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABELA: MELHORES MATCHES -->
+        <div class="card-soft p-3 mt-3">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+            <div>
+              <div class="fw-bold">Top matches por vaga</div>
+              <div class="text-muted small">Candidatos com maior aderência (mock)</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-ghost btn-sm" type="button"><i class="bi bi-download me-1"></i>Exportar</button>
+              <button class="btn btn-brand btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#drawerQuick">
+                <i class="bi bi-plus-lg me-1"></i>Nova vaga
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th style="min-width: 220px;">Vaga</th>
+                  <th style="min-width: 200px;">Candidato</th>
+                  <th style="min-width: 170px;">Origem</th>
+                  <th style="min-width: 240px;">Match</th>
+                  <th style="min-width: 170px;">Etapa</th>
+                  <th class="text-end" style="min-width: 150px;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tblBody">
+                <!-- preenchido por JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="height: 14px;"></div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer class="footer">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>© <span id="year"></span> Liotécnica • Portal RH (MVP)</div>
+          <div class="d-flex align-items-center gap-3">
+            <span><i class="bi bi-database me-1"></i>Postgres</span>
+            <span><i class="bi bi-file-earmark-text me-1"></i>PDF/DOCX</span>
+            <span><i class="bi bi-shield-lock me-1"></i>Segurança & LGPD</span>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- RIGHT DRAWER: FILTERS -->
+  <div class="offcanvas offcanvas-end offcanvas-custom" tabindex="-1" id="drawerFilters">
+    <div class="offcanvas-header border-bottom">
+      <div>
+        <div class="fw-bold">Filtros e Visões</div>
+        <div class="text-muted small">Ajuste o dashboard para a operação do RH</div>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="card-soft p-3 mb-3">
+        <div class="fw-semibold mb-2"><i class="bi bi-briefcase me-2"></i>Vaga</div>
+        <select class="form-select" id="fVaga">
+          <option value="all" selected>Todas</option>
+          <option>Analista de Marketing Jr</option>
+          <option>Engenheiro de Processos</option>
+          <option>Supervisor de Qualidade</option>
+          <option>Assistente de RH</option>
+        </select>
+      </div>
+
+      <div class="card-soft p-3 mb-3">
+        <div class="fw-semibold mb-2"><i class="bi bi-calendar3 me-2"></i>Período</div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label small text-muted">De</label>
+            <input type="date" class="form-control" id="fDe">
+          </div>
+          <div class="col-6">
+            <label class="form-label small text-muted">Até</label>
+            <input type="date" class="form-control" id="fAte">
+          </div>
+        </div>
+      </div>
+
+      <div class="card-soft p-3 mb-3">
+        <div class="fw-semibold mb-2"><i class="bi bi-stars me-2"></i>Match mínimo</div>
+        <input type="range" class="form-range" min="0" max="100" value="70" id="fMatchMin">
+        <div class="d-flex justify-content-between small text-muted">
+          <span>0%</span><span>50%</span><span>100%</span>
+        </div>
+        <div class="mt-2 badge-soft">Atual: <span id="matchMinLabel">70%</span></div>
+      </div>
+
+      <div class="d-grid gap-2">
+        <button class="btn btn-brand" type="button" id="btnApplyFilters">
+          <i class="bi bi-check2-circle me-1"></i>Aplicar
+        </button>
+        <button class="btn btn-ghost" type="button" id="btnResetFilters">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Limpar
+        </button>
+      </div>
+
+      <hr class="my-4">
+
+      <div class="small text-muted">
+        MVP: filtros aplicam em dados mock. Na implementação real, isso vira query no backend + paginação.
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT DRAWER: QUICK ACTIONS -->
+  <div class="offcanvas offcanvas-end offcanvas-custom" tabindex="-1" id="drawerQuick">
+    <div class="offcanvas-header border-bottom">
+      <div>
+        <div class="fw-bold">Ações rápidas</div>
+        <div class="text-muted small">Atalhos para operação do RH</div>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+
+    <div class="offcanvas-body">
+      <div class="card-soft p-3 mb-3">
+        <div class="fw-semibold mb-2"><i class="bi bi-plus-circle me-2"></i>Criar vaga (mock)</div>
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label small text-muted">Título</label>
+            <input class="form-control" placeholder="Ex.: Analista de Marketing Jr">
+          </div>
+          <div class="col-6">
+            <label class="form-label small text-muted">Área</label>
+            <select class="form-select">
+              <option>Marketing</option>
+              <option>Qualidade</option>
+              <option>Produção</option>
+              <option>RH</option>
+              <option>TI</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small text-muted">Status</label>
+            <select class="form-select">
+              <option>Aberta</option>
+              <option>Pausada</option>
+              <option>Fechada</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label small text-muted">Palavras-chave (separadas por vírgula)</label>
+            <input class="form-control" placeholder="Ex.: power bi, seo, redes sociais, crm">
+          </div>
+        </div>
+        <div class="d-grid mt-3">
+          <button class="btn btn-brand" type="button" id="btnMockCreateVaga">
+            <i class="bi bi-check2 me-1"></i>Salvar (mock)
+          </button>
+        </div>
+      </div>
+
+      <div class="card-soft p-3 mb-3">
+        <div class="fw-semibold mb-2"><i class="bi bi-inbox me-2"></i>Entrada de currículos</div>
+        <div class="d-flex flex-column gap-2">
+          <button class="btn btn-ghost" type="button"><i class="bi bi-envelope me-2"></i>Conectar caixa de e-mail</button>
+          <button class="btn btn-ghost" type="button"><i class="bi bi-folder2-open me-2"></i>Configurar pasta monitorada</button>
+          <button class="btn btn-ghost" type="button"><i class="bi bi-play-circle me-2"></i>Rodar processamento agora</button>
+        </div>
+      </div>
+
+      <div class="card-soft p-3">
+        <div class="fw-semibold mb-2"><i class="bi bi-stars me-2"></i>Motor de match</div>
+        <div class="small text-muted mb-2">
+          Ajustes (MVP): pesos, obrigatórios e sinônimos por vaga.
+        </div>
+        <button class="btn btn-brand w-100" type="button">
+          <i class="bi bi-sliders me-1"></i>Abrir configurações
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ========= Helpers
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+    // ========= Top matches (mock)
+    const mockRows = [
+      { vaga: "Analista de Marketing Jr", cand: "Camila R.", origem: "Email", match: 92, etapa: "Triagem" },
+      { vaga: "Engenheiro de Processos", cand: "Rafael S.", origem: "Pasta", match: 88, etapa: "Em análise" },
+      { vaga: "Supervisor de Qualidade", cand: "Patrícia M.", origem: "Email", match: 84, etapa: "Entrevista" },
+      { vaga: "Assistente de RH", cand: "Daniel A.", origem: "Pasta", match: 81, etapa: "Triagem" },
+      { vaga: "Engenheiro de Processos", cand: "Bruno T.", origem: "Email", match: 78, etapa: "Recebido" }
+    ];
+
+    function badgeEtapa(etapa){
+      const map = {
+        "Recebido": "secondary",
+        "Triagem": "primary",
+        "Em análise": "info",
+        "Entrevista": "warning",
+        "Aprovado": "success",
+        "Reprovado": "danger"
+      };
+      const bs = map[etapa] ?? "primary";
+      return `<span class="badge text-bg-${bs} rounded-pill">${etapa}</span>`;
+    }
+
+    function renderTable(minMatch=0){
+      const body = $("#tblBody");
+      body.innerHTML = "";
+
+      mockRows
+        .filter(x => x.match >= minMatch)
+        .forEach(x => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>
+              <div class="fw-semibold">${x.vaga}</div>
+              <div class="text-muted small">Requisitos: palavras-chave + pesos</div>
+            </td>
+            <td>
+              <div class="fw-semibold">${x.cand}</div>
+              <div class="text-muted small">CV: PDF • 2 páginas</div>
+            </td>
+            <td>
+              <span class="badge-soft"><i class="bi ${x.origem === "Email" ? "bi-envelope" : "bi-folder2"} me-1"></i>${x.origem}</span>
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="progress flex-grow-1"><div class="progress-bar" style="width:${x.match}%"></div></div>
+                <div class="fw-bold" style="min-width:44px;text-align:right;">${x.match}%</div>
+              </div>
+              <div class="text-muted small mt-1">Encontrou: 9 termos • Faltou: 1 obrigatório</div>
+            </td>
+            <td>${badgeEtapa(x.etapa)}</td>
+            <td class="text-end">
+              <button class="btn btn-ghost btn-sm" type="button"><i class="bi bi-eye me-1"></i>Ver</button>
+              <button class="btn btn-brand btn-sm" type="button"><i class="bi bi-check2 me-1"></i>Triar</button>
+            </td>
+          `;
+          body.appendChild(tr);
+        });
+
+      if(!body.children.length){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="6" class="text-center text-muted py-4">Nenhum registro atende o filtro atual.</td>`;
+        body.appendChild(tr);
+      }
+    }
+
+    // ========= Chart
+    function buildChart(){
+      const ctx = $("#chartRecebidos");
+      const labels = Array.from({length: 14}, (_,i)=> {
+        const d = new Date(); d.setDate(d.getDate() - (13-i));
+        return d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" });
+      });
+
+      const data = [8,12,10,14,18,20,16,22,25,19,21,28,24,30];
+
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "CVs recebidos",
+            data,
+            tension: 0.35,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true }
+          },
+          scales: {
+            x: { grid: { display: false } },
+            y: { grid: { color: "rgba(16,82,144,.10)" }, ticks: { precision: 0 } }
+          }
+        }
+      });
+    }
+
+    // ========= Menu behavior (mock navigation)
+    const menuMeta = {
+      dashboard: { title: "Dashboard", sub: "Visão geral do dia: vagas, recebimentos e triagem." },
+      vagas: { title: "Vagas", sub: "Criação, requisitos, pesos e controle total do funil." },
+      candidatos: { title: "Candidatos", sub: "Base de currículos e histórico por candidato." },
+      triagem: { title: "Triagem", sub: "Aprovar/reprovar e mover etapas com auditoria." },
+      matching: { title: "Matching", sub: "Ajustes de palavras-chave, pesos e critérios obrigatórios." },
+      entrada: { title: "Entrada (Email/Pasta)", sub: "Monitoramento de anexos e ingestão automática." },
+      rm: { title: "RM Labore", sub: "Integração (fase 2): sincronizar vagas e requisitos." },
+      relatorios: { title: "Relatórios", sub: "KPIs, produtividade do RH e exportações." },
+      usuarios: { title: "Usuários & Perfis", sub: "Perfis (Admin/RH/Gestor) e permissões." },
+      config: { title: "Configurações", sub: "Parâmetros do sistema, retention LGPD e integrações." }
+    };
+
+    function setActiveMenu(key){
+      const meta = menuMeta[key] ?? menuMeta.dashboard;
+      $("#pageH4").textContent = meta.title;
+      $("#pageSub").textContent = meta.sub;
+
+      $$(".sidebar .nav-link").forEach(a => a.classList.toggle("active", a.dataset.menu === key));
+      // mobile list
+      $$("#offcanvasSidebar [data-menu]").forEach(a => {
+        a.classList.toggle("fw-semibold", a.dataset.menu === key);
+      });
+
+      localStorage.setItem("rh_active_menu", key);
+    }
+
+    function wireMenus(){
+      const handler = (ev) => {
+        const a = ev.target.closest("[data-menu]");
+        if(!a) return;
+        ev.preventDefault();
+        setActiveMenu(a.dataset.menu);
+
+        // auto-close mobile sidebar
+        const off = bootstrap.Offcanvas.getInstance($("#offcanvasSidebar"));
+        if(off) off.hide();
+      };
+
+      document.addEventListener("click", handler);
+    }
+
+    // ========= Filters drawer
+    function wireFilters(){
+      const range = $("#fMatchMin");
+      const label = $("#matchMinLabel");
+      label.textContent = range.value + "%";
+
+      range.addEventListener("input", () => {
+        label.textContent = range.value + "%";
+      });
+
+      $("#btnApplyFilters").addEventListener("click", () => {
+        const min = parseInt(range.value, 10) || 0;
+        renderTable(min);
+        bootstrap.Offcanvas.getOrCreateInstance($("#drawerFilters")).hide();
+      });
+
+      $("#btnResetFilters").addEventListener("click", () => {
+        range.value = 70;
+        label.textContent = "70%";
+        $("#fVaga").value = "all";
+        $("#fDe").value = "";
+        $("#fAte").value = "";
+        renderTable(0);
+      });
+    }
+
+    // ========= Quick actions
+    function wireQuickActions(){
+      $("#btnMockCreateVaga").addEventListener("click", () => {
+        // mock feedback
+        alert("Vaga salva (mock). No backend: POST /vagas + requisitos.");
+      });
+    }
+
+    // ========= Clock
+    function wireClock(){
+      const now = new Date();
+      $("#year").textContent = now.getFullYear();
+
+      const tick = () => {
+        const d = new Date();
+        $("#nowLabel").textContent = d.toLocaleString("pt-BR", {
+          weekday:"short", day:"2-digit", month:"2-digit",
+          hour:"2-digit", minute:"2-digit"
+        });
+      };
+      tick();
+      setInterval(tick, 1000 * 15);
+    }
+
+    // ========= Init
+    (function init(){
+      wireMenus();
+      wireFilters();
+      wireQuickActions();
+      wireClock();
+
+      renderTable(0);
+      buildChart();
+
+      const saved = localStorage.getItem("rh_active_menu") || "dashboard";
+      setActiveMenu(saved);
+    })();
+  </script>
+</body>
+</html>

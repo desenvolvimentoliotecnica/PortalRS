@@ -1,0 +1,331 @@
+@{
+    ViewData["Title"] = "Portal RH • Devcraft Studio • Matching";
+    ViewData["SidebarSubtitle"] = "Matching";
+}
+
+
+
+<!-- MOBILE SIDEBAR OFFCANVAS -->
+  
+
+  <!-- TOAST -->
+  @await Html.PartialAsync("_Toast")
+
+      @section Topbar {
+@await Html.PartialAsync("_TopbarBrand", "Tela: Matching (pontuação por requisitos)")
+
+                    <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-brand" type="button" id="btnRecalcAll">
+              <i class="bi bi-lightning-charge"></i><span class="d-none d-sm-inline ms-1">Recalcular tudo</span>
+            </button>
+
+            @await Html.PartialAsync("_TopbarUserActions", "RH")
+          </div>
+}
+
+      <!-- CONTENT -->
+      <section class="content">
+        <div class="page-title">
+          <div>
+            <h4>Matching</h4>
+            <div class="subtitle">Pontuação automática por palavras-chave + pesos + requisitos obrigatórios.</div>
+          </div>
+        </div>
+
+        <!-- Filters + Summary -->
+        <div class="card-soft p-3 mb-3">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <p class="mini-title mb-1">Filtros</p>
+              <div class="fw-bold">Selecione uma vaga e compare candidatos</div>
+              <div class="text-muted small">Ajuste mí­nimo (threshold) na vaga para definir dentro ou abaixo.</div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2">
+              <div class="input-group" style="min-width: 290px;">
+                <span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input class="form-control" id="fSearch" placeholder="Nome, email, skills..." style="border-color:var(--lt-border);">
+              </div>
+
+              <select class="form-select" id="fVaga" style="min-width: 240px; border-color:var(--lt-border);"></select>
+
+              <select class="form-select" id="fStatus" data-enum="candidatoStatusFilter" style="min-width: 240px; border-color:var(--lt-border);"></select>
+
+              <select class="form-select" id="fSort" data-enum="matchingSort" data-selected="score_desc" style="min-width: 240px; border-color:var(--lt-border);"></select>
+            </div>
+          </div>
+
+          <hr class="my-3" style="border-color: rgba(16,82,144,.14);">
+
+          @{
+  var kpis = new[]
+  {
+    new { ColClass = "col-6 col-lg-3", ValueId = "kpiTotal", Value = "0", Label = "Candidatos filtrados", Icon = "bi-people" },
+    new { ColClass = "col-6 col-lg-3", ValueId = "kpiInside", Value = "0", Label = "Dentro do mí­nimo", Icon = "bi-check2-circle" },
+    new { ColClass = "col-6 col-lg-3", ValueId = "kpiMandatoryFail", Value = "0", Label = "Falha obrigatória", Icon = "bi-exclamation-triangle" },
+    new { ColClass = "col-6 col-lg-3", ValueId = "kpiAvg", Value = "0%", Label = "Média de match", Icon = "bi-stars" }
+  };
+}
+@await Html.PartialAsync("_KpiSimpleRow", kpis)
+        </div>
+
+        <!-- Split -->
+        <div class="split" style="grid-template-columns: 1fr;">
+          <!-- Left: Candidates -->
+          <div class="list-panel">
+            <div class="card-soft p-3">
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <div>
+                  <div class="fw-bold">Candidatos</div>
+                  <div class="text-muted small">Clique para ver detalhes do matching.</div>
+                </div>
+                <span class="pill"><i class="bi bi-stars"></i><span id="listCount">0</span></span>
+              </div>
+
+            <lt-list class="matching-grid" id="candList"></lt-list>
+            </div>
+          </div>
+
+          <!-- Right: Details -->
+          <div class="detail-panel d-none" id="detailHost">
+            <div class="empty">
+              <div class="d-flex align-items-start gap-2">
+                <i class="bi bi-info-circle mt-1"></i>
+                <div>
+                  <div class="fw-bold">Selecione um candidato</div>
+                  <div class="small mt-1">A tela exibirá¡ score, requisitos encontrados/faltando e explicação do cálculo.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:14px;"></div>
+      </section>
+
+      <!-- Templates -->
+      <template id="tpl-matching-tag">
+        <span class="status-tag">
+          <i class="bi" data-role="icon"></i>
+          <span data-role="text"></span>
+        </span>
+      </template>
+
+      <template id="tpl-matching-empty">
+        <div class="text-muted small">Nenhum candidato com os filtros atuais.</div>
+      </template>
+
+      <template id="tpl-matching-item">
+        <div class="item">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <div class="avatar" data-role="item-initials"></div>
+              <div>
+                <div class="fw-bold" data-role="item-name"></div>
+                <div class="text-muted small" data-role="item-email"></div>
+              </div>
+            </div>
+            <div class="text-end">
+              <div class="pill mono" data-role="item-vaga-code"></div>
+              <div class="text-muted small mt-1" data-role="item-vaga-title"></div>
+            </div>
+          </div>
+
+          <div class="mt-2">
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1">
+                <div class="progress-bar" data-role="item-progress"></div>
+              </div>
+              <div class="fw-bold" style="min-width:52px;text-align:right;" data-role="item-score"></div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2" data-role="item-tags"></div>
+          </div>
+        </div>
+      </template>
+
+      <template id="tpl-matching-detail-empty">
+        <div class="empty">
+          <div class="d-flex align-items-start gap-2">
+            <i class="bi bi-info-circle mt-1"></i>
+            <div>
+              <div class="fw-bold">Selecione um candidato</div>
+              <div class="small mt-1">A tela exibira score, requisitos e explicacao do calculo.</div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template id="tpl-matching-detail-novaga">
+        <div class="empty">
+          <div class="fw-bold">Sem vaga vinculada</div>
+          <div class="small mt-1">Vincule a vaga ao candidato para calcular o matching.</div>
+        </div>
+      </template>
+
+      <template id="tpl-matching-detail">
+        <div class="card-soft p-3">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <div class="avatar" style="width:52px;height:52px;border-radius:16px;" data-role="detail-initials"></div>
+              <div>
+                <div class="fw-bold" style="font-size:1.05rem;" data-role="detail-name"></div>
+                <div class="text-muted small" data-role="detail-email"></div>
+                <div class="text-muted small"><i class="bi bi-clock-history me-1"></i>Atualizado: <span data-role="detail-updated"></span></div>
+              </div>
+            </div>
+
+            <div class="text-end">
+              <div data-role="detail-match-tag"></div>
+              <div class="text-muted small mt-1">Minimo: <span class="mono fw-semibold" data-role="detail-thr"></span></div>
+              <div class="text-muted small">
+                <i class="bi me-1" data-role="detail-cache-icon"></i><span data-role="detail-cache-text"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <span class="pill"><i class="bi bi-briefcase"></i><span data-role="detail-vaga-title"></span></span>
+            <span class="pill mono"><span data-role="detail-vaga-code"></span></span>
+            <span class="pill"><i class="bi bi-collection me-1"></i>Requisitos: <strong class="ms-1" data-role="detail-req-count"></strong></span>
+            <span class="pill"><i class="bi bi-check2-circle me-1"></i>Encontrados: <strong class="ms-1" data-role="detail-hit-count"></strong></span>
+            <span class="pill"><i class="bi bi-exclamation-triangle me-1"></i>Obrig. faltando: <strong class="ms-1" data-role="detail-miss-count"></strong></span>
+          </div>
+
+          <div class="mb-2">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <div class="fw-bold">Score</div>
+                <div class="text-muted small">baseado em pesos e palavras-chave</div>
+              </div>
+              <div class="fw-bold" style="font-size:1.35rem;color:var(--lt-primary);" data-role="detail-score"></div>
+            </div>
+            <div class="progress mt-2">
+              <div class="progress-bar" data-role="detail-score-bar"></div>
+            </div>
+          </div>
+
+          <div class="row g-2 mt-3">
+            <div class="col-12 col-lg-6">
+              <div class="fw-bold mb-2">Requisitos (detalhado)</div>
+              <lt-list class="d-grid gap-2" id="reqList"></lt-list>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <div class="fw-bold mb-2">Explicacao do calculo</div>
+              <div class="card-soft p-3" style="box-shadow:none;">
+                <div class="d-flex align-items-start gap-2">
+                  <i class="bi bi-info-circle mt-1"></i>
+                  <div class="text-muted small">
+                    <div><span class="mono">score = (peso_encontrado / peso_total) * 100</span></div>
+                    <div class="mt-1">Penalidade: <span class="mono">-15 pontos</span> por obrigatorio faltando (max. <span class="mono">-40</span>).</div>
+                    <div class="mt-1">Critério: <span class="mono">score &gt;= threshold</span> =&gt; "Dentro".</div>
+                  </div>
+                </div>
+
+                <hr class="my-3" style="border-color: rgba(16,82,144,.14);">
+
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="text-muted small">Peso encontrado</div>
+                  <div class="fw-bold mono"><span data-role="detail-hitPeso"></span>/<span data-role="detail-totalPeso"></span></div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between mt-1">
+                  <div class="text-muted small">Penalidade (obrigatorios)</div>
+                  <div class="fw-bold mono" data-role="detail-penalty"></div>
+                </div>
+
+                <div class="alert alert-primary mt-3 mb-0" style="border-radius:14px; border-color: rgba(16,82,144,.25); background: rgba(173,200,220,.22); color: var(--lt-primary);">
+                  <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-lightning-charge mt-1"></i>
+                    <div>
+                      <div class="fw-semibold">Acao rapida</div>
+                      <div class="small">Recalcule o match apos atualizar o texto do CV ou requisitos da vaga.</div>
+                      <div class="d-flex flex-wrap gap-2 mt-2">
+                        <button class="btn btn-brand btn-sm" type="button" id="btnRecalcOne">
+                          <i class="bi bi-arrow-repeat me-1"></i>Recalcular este candidato
+                        </button>
+                        <button class="btn btn-ghost btn-sm" type="button" id="btnClearCacheOne">
+                          <i class="bi bi-eraser me-1"></i>Limpar cache deste
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-3">
+                  <div class="fw-bold">Trecho do CV (texto)</div>
+                  <div class="text-muted small">No MVP, o texto vem do parser (PDF/Word) e e usado para matching.</div>
+                  <textarea class="form-control mt-2" rows="8" id="cvTextArea" style="border-color:var(--lt-border);"></textarea>
+                  <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button class="btn btn-ghost btn-sm" type="button" id="btnSaveCvText">
+                      <i class="bi bi-save me-1"></i>Salvar texto do CV
+                    </button>
+                    <button class="btn btn-ghost btn-sm" type="button" id="btnClearCacheVaga">
+                      <i class="bi bi-trash3 me-1"></i>Limpar cache da vaga
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </template>
+
+      <template id="tpl-matching-req-row">
+        <div class="req-row">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div>
+              <div class="fw-semibold"><i class="bi me-1" data-role="req-icon"></i><span data-role="req-term"></span></div>
+              <div class="text-muted small">
+                Peso: <span class="mono" data-role="req-weight"></span>
+                <span class="mx-1">&bull;</span>
+                <span data-role="req-obrig"></span>
+              </div>
+              <div class="text-muted small mt-1" data-role="req-syn-wrap">Sinonimos: <span data-role="req-syn"></span></div>
+            </div>
+            <div data-role="req-tag-host"></div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Modal: detalhes do candidato -->
+      <div class="modal fade" id="modalMatchingDetail" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header">
+              <div class="fw-bold">Detalhes do candidato</div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" id="detailModalBody"></div>
+          </div>
+        </div>
+      </div>
+
+            @section Footer {
+        @{
+          var footerItems = new[]
+          {
+            new { Icon = "bi-stars", Text = "Matching" },
+            new { Icon = "bi-funnel", Text = "Triagem" },
+            new { Icon = "bi-shield-check", Text = "LGPD" }
+          };
+        }
+        @await Html.PartialAsync("_Footer", footerItems)
+      }
+
+    
+
+  <!-- Bootstrap JS (CDN) -->
+
+@section Scripts {
+  <script src="~/js/views/matching.js" asp-append-version="true"></script>
+}
+
+
+
+
+
+

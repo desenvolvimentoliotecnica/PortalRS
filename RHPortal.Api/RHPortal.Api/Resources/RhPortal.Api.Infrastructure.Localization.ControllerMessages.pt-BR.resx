@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ControllerErrors.InvalidCredentialsTitle" xml:space="preserve">
+    <value>Credenciais invalidas.</value>
+  </data>
+  <data name="ControllerErrors.InvalidCredentialsDetail" xml:space="preserve">
+    <value>Email ou senha nao sao validos.</value>
+  </data>
+  <data name="ControllerErrors.InvalidEntraLoginTitle" xml:space="preserve">
+    <value>Login Entra ID invalido.</value>
+  </data>
+  <data name="ControllerErrors.InvalidEntraLoginDetail" xml:space="preserve">
+    <value>Token Entra ID invalido ou usuario nao habilitado.</value>
+  </data>
+  <data name="ControllerErrors.UnableToCreateUserTitle" xml:space="preserve">
+    <value>Nao foi possivel criar o usuario.</value>
+  </data>
+  <data name="ControllerErrors.InvalidTokenTitle" xml:space="preserve">
+    <value>Token invalido.</value>
+  </data>
+  <data name="ControllerErrors.InvalidTokenDetail" xml:space="preserve">
+    <value>Identificador do usuario ausente.</value>
+  </data>
+  <data name="ControllerErrors.UnableToCreateEventTitle" xml:space="preserve">
+    <value>Nao foi possivel criar o evento.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateEventTitle" xml:space="preserve">
+    <value>Nao foi possivel atualizar o evento.</value>
+  </data>
+  <data name="ControllerErrors.UnableToCreateMenuTitle" xml:space="preserve">
+    <value>Nao foi possivel criar o menu.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateMenuTitle" xml:space="preserve">
+    <value>Nao foi possivel atualizar o menu.</value>
+  </data>
+  <data name="ControllerErrors.UnableToCreateRoleTitle" xml:space="preserve">
+    <value>Nao foi possivel criar a role.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateRoleTitle" xml:space="preserve">
+    <value>Nao foi possivel atualizar a role.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateRoleMenusTitle" xml:space="preserve">
+    <value>Nao foi possivel atualizar os menus da role.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateUserTitle" xml:space="preserve">
+    <value>Nao foi possivel atualizar o usuario.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateUserStatusTitle" xml:space="preserve">
+    <value>Nao foi possivel atualizar o status do usuario.</value>
+  </data>
+  <data name="ControllerErrors.UnableToUpdateUserRolesTitle" xml:space="preserve">
+    <value>Nao foi possivel atualizar as roles do usuario.</value>
+  </data>
+  <data name="ControllerErrors.UnableToDeleteUserTitle" xml:space="preserve">
+    <value>Nao foi possivel excluir o usuario.</value>
+  </data>
+  <data name="ControllerErrors.AreaCodeExists" xml:space="preserve">
+    <value>Area com codigo '{0}' ja existe.</value>
+  </data>
+  <data name="ControllerErrors.AreaHasDependencies" xml:space="preserve">
+    <value>Area possui vinculacoes e nao pode ser excluida.</value>
+  </data>
+  <data name="ControllerErrors.AreaHasChildren" xml:space="preserve">
+    <value>Area possui subareas e nao pode ser excluida. Remova ou reatribua as subareas primeiro.</value>
+  </data>
+  <data name="ControllerErrors.AreaParentNotFound" xml:space="preserve">
+    <value>Area pai informada nao existe.</value>
+  </data>
+  <data name="ControllerErrors.AreaOwnerManagerNotFound" xml:space="preserve">
+    <value>Gestor (dono) informado nao existe.</value>
+  </data>
+  <data name="ControllerErrors.AreaOwnerFuncionarioNotFound" xml:space="preserve">
+    <value>Funcionario (dono) informado nao existe.</value>
+  </data>
+  <data name="ControllerErrors.AreaCycleSelf" xml:space="preserve">
+    <value>Area nao pode ser sua propria area pai.</value>
+  </data>
+  <data name="ControllerErrors.AreaCycleDescendant" xml:space="preserve">
+    <value>Area pai nao pode ser uma subarea desta area (ciclo na hierarquia).</value>
+  </data>
+  <data name="ControllerErrors.RequisitoCategoriaCodeExists" xml:space="preserve">
+    <value>Categoria com codigo '{0}' ja existe.</value>
+  </data>
+  <data name="ControllerErrors.RequisitoCategoriaHasDependencies" xml:space="preserve">
+    <value>Categoria possui requisitos vinculados e nao pode ser excluida.</value>
+  </data>
+  <data name="ControllerErrors.CandidatoDocumentoFileInvalid" xml:space="preserve">
+    <value>Arquivo invalido.</value>
+  </data>
+  <data name="ControllerErrors.CandidatoDocumentoTypeRequired" xml:space="preserve">
+    <value>Tipo do documento e obrigatorio.</value>
+  </data>
+  <data name="ControllerErrors.CandidatoDocumentoTypeInvalid" xml:space="preserve">
+    <value>Tipo do documento invalido.</value>
+  </data>
+  <data name="ControllerErrors.InboxOrigemInvalid" xml:space="preserve">
+    <value>Origem invalida.</value>
+  </data>
+  <data name="ControllerErrors.InboxStatusInvalid" xml:space="preserve">
+    <value>Status invalido.</value>
+  </data>
+  <data name="ControllerErrors.InboxFileRequired" xml:space="preserve">
+    <value>Arquivo obrigatorio.</value>
+  </data>
+  <data name="ControllerErrors.TenantNotFound" xml:space="preserve">
+    <value>Tenant nao encontrado.</value>
+  </data>
+  <data name="ControllerErrors.CandidatoNotFound" xml:space="preserve">
+    <value>Candidato nao encontrado.</value>
+  </data>
+  <data name="ControllerErrors.PortalInvalidCredentials" xml:space="preserve">
+    <value>Credenciais invalidas ou acesso nao configurado.</value>
+  </data>
+  <data name="ControllerErrors.VagaInvalid" xml:space="preserve">
+    <value>Vaga invalida.</value>
+  </data>
+  <data name="ControllerErrors.EmailTemplateNameExists" xml:space="preserve">
+    <value>Ja existe um template com esse nome.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogEntradaPorOrigemTitle" xml:space="preserve">
+    <value>Entrada por Origem</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogEntradaPorOrigemDescription" xml:space="preserve">
+    <value>Quantidade de itens recebidos por origem no periodo.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFalhasProcessamentoTitle" xml:space="preserve">
+    <value>Falhas de Processamento</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFalhasProcessamentoDescription" xml:space="preserve">
+    <value>Principais causas de falha (quando houver).</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPipelineStatusTitle" xml:space="preserve">
+    <value>Pipeline RH (Status do Candidato)</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPipelineStatusDescription" xml:space="preserve">
+    <value>Distribuicao por status do candidato.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFunilVagaTitle" xml:space="preserve">
+    <value>Funil por Vaga</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFunilVagaDescription" xml:space="preserve">
+    <value>Candidatos por vaga e status.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogRankingMatchingTitle" xml:space="preserve">
+    <value>Ranking de Matching</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogRankingMatchingDescription" xml:space="preserve">
+    <value>Top candidatos por percentual de match.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogSlaVagaTitle" xml:space="preserve">
+    <value>SLA por vaga</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogSlaVagaDescription" xml:space="preserve">
+    <value>Medições de SLA por recrutador e por área.</value>
+  </data>
+  <data name="ControllerLabels.RecebidoEm" xml:space="preserve">
+    <value>Recebido em</value>
+  </data>
+  <data name="ControllerLabels.Origem" xml:space="preserve">
+    <value>Origem</value>
+  </data>
+  <data name="ControllerLabels.Remetente" xml:space="preserve">
+    <value>Remetente</value>
+  </data>
+  <data name="ControllerLabels.Assunto" xml:space="preserve">
+    <value>Assunto</value>
+  </data>
+  <data name="ControllerLabels.Vaga" xml:space="preserve">
+    <value>Vaga</value>
+  </data>
+  <data name="ControllerLabels.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="ControllerLabels.Erro" xml:space="preserve">
+    <value>Erro</value>
+  </data>
+  <data name="ControllerLabels.CriadoEm" xml:space="preserve">
+    <value>Criado em</value>
+  </data>
+  <data name="ControllerLabels.Nome" xml:space="preserve">
+    <value>Nome</value>
+  </data>
+  <data name="ControllerLabels.Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="ControllerLabels.Candidato" xml:space="preserve">
+    <value>Candidato</value>
+  </data>
+  <data name="ControllerLabels.Match" xml:space="preserve">
+    <value>Match</value>
+  </data>
+  <data name="ControllerLabels.Atualizado" xml:space="preserve">
+    <value>Atualizado</value>
+  </data>
+  <data name="ControllerLabels.Recebidos" xml:space="preserve">
+    <value>Recebidos</value>
+  </data>
+  <data name="ControllerLabels.Triagem" xml:space="preserve">
+    <value>Triagem</value>
+  </data>
+  <data name="ControllerLabels.Aprovados" xml:space="preserve">
+    <value>Aprovados</value>
+  </data>
+  <data name="ControllerLabels.Reprovados" xml:space="preserve">
+    <value>Reprovados</value>
+  </data>
+  <data name="ControllerLabels.TaxaOk" xml:space="preserve">
+    <value>Taxa OK</value>
+  </data>
+  <data name="ControllerLabels.Outro" xml:space="preserve">
+    <value>Outro</value>
+  </data>
+  <data name="ControllerLabels.Outros" xml:space="preserve">
+    <value>Outros</value>
+  </data>
+  <data name="ControllerLabels.Pasta" xml:space="preserve">
+    <value>Pasta</value>
+  </data>
+  <data name="ControllerLabels.Upload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="ControllerLabels.LinkedIn" xml:space="preserve">
+    <value>LinkedIn</value>
+  </data>
+  <data name="ControllerLabels.Indicacao" xml:space="preserve">
+    <value>Indicacao</value>
+  </data>
+  <data name="ControllerLabels.Site" xml:space="preserve">
+    <value>Site</value>
+  </data>
+  <data name="ControllerLabels.StatusNovo" xml:space="preserve">
+    <value>Novo</value>
+  </data>
+  <data name="ControllerLabels.StatusTriagem" xml:space="preserve">
+    <value>Triagem</value>
+  </data>
+  <data name="ControllerLabels.StatusPendente" xml:space="preserve">
+    <value>Pendente</value>
+  </data>
+  <data name="ControllerLabels.StatusAprovado" xml:space="preserve">
+    <value>Aprovado</value>
+  </data>
+  <data name="ControllerLabels.StatusReprovado" xml:space="preserve">
+    <value>Reprovado</value>
+  </data>
+  <data name="ControllerLabels.StatusProcessando" xml:space="preserve">
+    <value>Processando</value>
+  </data>
+  <data name="ControllerLabels.StatusProcessado" xml:space="preserve">
+    <value>Processado</value>
+  </data>
+  <data name="ControllerLabels.StatusFalha" xml:space="preserve">
+    <value>Falha</value>
+  </data>
+  <data name="ControllerLabels.StatusDescartado" xml:space="preserve">
+    <value>Descartado</value>
+  </data>
+  <data name="ControllerLabels.CvEnviadoPeloPortal" xml:space="preserve">
+    <value>CV enviado pelo portal</value>
+  </data>
+  <data name="Lookup.SelectPlaceholder" xml:space="preserve">
+    <value>Selecione...</value>
+  </data>
+  <data name="Lookup.StatusFilterAll" xml:space="preserve">
+    <value>Status: todos</value>
+  </data>
+  <data name="Lookup.AreaFilterAll" xml:space="preserve">
+    <value>Area: todas</value>
+  </data>
+  <data name="Lookup.VagaFilterAll" xml:space="preserve">
+    <value>Vaga: todas</value>
+  </data>
+  <data name="Lookup.AllFeminine" xml:space="preserve">
+    <value>Todas</value>
+  </data>
+  <data name="Lookup.AllMasculine" xml:space="preserve">
+    <value>Todos</value>
+  </data>
+  <data name="Lookup.OrigemFilterAll" xml:space="preserve">
+    <value>Origem: todas</value>
+  </data>
+  <data name="Lookup.RequirementCategoryCompetencia" xml:space="preserve">
+    <value>Competencia</value>
+  </data>
+  <data name="Lookup.RequirementCategoryExperiencia" xml:space="preserve">
+    <value>Experiencia</value>
+  </data>
+  <data name="Lookup.RequirementCategoryFormacao" xml:space="preserve">
+    <value>Formacao</value>
+  </data>
+  <data name="Lookup.RequirementCategoryFerramentaTecnologia" xml:space="preserve">
+    <value>Ferramenta/Tecnologia</value>
+  </data>
+  <data name="Lookup.RequirementCategoryIdioma" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="Lookup.RequirementCategoryCertificacao" xml:space="preserve">
+    <value>Certificacao</value>
+  </data>
+  <data name="Lookup.RequirementCategoryLocalidade" xml:space="preserve">
+    <value>Localidade</value>
+  </data>
+  <data name="Lookup.SortMatchDesc" xml:space="preserve">
+    <value>Ordenar: Match (maior -&gt; menor)</value>
+  </data>
+  <data name="Lookup.SortMatchAsc" xml:space="preserve">
+    <value>Ordenar: Match (menor -&gt; maior)</value>
+  </data>
+  <data name="Lookup.SortUpdatedDesc" xml:space="preserve">
+    <value>Ordenar: Atualizacao (recente)</value>
+  </data>
+  <data name="Lookup.SortUpdatedAsc" xml:space="preserve">
+    <value>Ordenar: Atualizacao (antiga)</value>
+  </data>
+  <data name="Lookup.SortNameAsc" xml:space="preserve">
+    <value>Ordenar: Nome (A-Z)</value>
+  </data>
+  <data name="Lookup.ReportPeriod7d" xml:space="preserve">
+    <value>Ultimos 7 dias</value>
+  </data>
+  <data name="Lookup.ReportPeriod30d" xml:space="preserve">
+    <value>Ultimos 30 dias</value>
+  </data>
+  <data name="Lookup.ReportPeriod90d" xml:space="preserve">
+    <value>Ultimos 90 dias</value>
+  </data>
+  <data name="Lookup.ReportPeriodYtd" xml:space="preserve">
+    <value>Ano atual (YTD)</value>
+  </data>
+  <data name="Lookup.ReportFrequencyDaily" xml:space="preserve">
+    <value>Diario</value>
+  </data>
+  <data name="Lookup.ReportFrequencyWeekly" xml:space="preserve">
+    <value>Semanal</value>
+  </data>
+  <data name="Lookup.ReportFrequencyMonthly" xml:space="preserve">
+    <value>Mensal</value>
+  </data>
+  <data name="Lookup.UserStatusActive" xml:space="preserve">
+    <value>Ativo</value>
+  </data>
+  <data name="Lookup.UserStatusInvited" xml:space="preserve">
+    <value>Convidado</value>
+  </data>
+  <data name="Lookup.UserStatusDisabled" xml:space="preserve">
+    <value>Desativado</value>
+  </data>
+  <data name="Lookup.MfaDisabled" xml:space="preserve">
+    <value>Desabilitado</value>
+  </data>
+  <data name="Lookup.MfaEnabled" xml:space="preserve">
+    <value>Habilitado</value>
+  </data>
+  <data name="Lookup.TriagemActionApprove" xml:space="preserve">
+    <value>Aprovar</value>
+  </data>
+  <data name="Lookup.TriagemActionPending" xml:space="preserve">
+    <value>Marcar como Pendente</value>
+  </data>
+  <data name="Lookup.TriagemActionReject" xml:space="preserve">
+    <value>Reprovar</value>
+  </data>
+  <data name="Lookup.TriagemActionKeep" xml:space="preserve">
+    <value>Manter em Triagem</value>
+  </data>
+  <data name="Lookup.OptionalLabel" xml:space="preserve">
+    <value>(opcional)</value>
+  </data>
+  <data name="Lookup.TriagemReasonMissingMandatory" xml:space="preserve">
+    <value>Faltou requisito obrigatorio</value>
+  </data>
+  <data name="Lookup.TriagemReasonBelowThreshold" xml:space="preserve">
+    <value>Match abaixo do minimo</value>
+  </data>
+  <data name="Lookup.TriagemReasonProfileFit" xml:space="preserve">
+    <value>Perfil aderente</value>
+  </data>
+  <data name="Lookup.TriagemReasonNeedsValidation" xml:space="preserve">
+    <value>Necessita validacao tecnica</value>
+  </data>
+  <data name="Lookup.TriagemReasonLowExperience" xml:space="preserve">
+    <value>Experiencia insuficiente</value>
+  </data>
+  <data name="Lookup.TriagemReasonLocationAvailability" xml:space="preserve">
+    <value>Localizacao/Disponibilidade</value>
+  </data>
+</root>

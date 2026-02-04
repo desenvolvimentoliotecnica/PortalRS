@@ -1,0 +1,336 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ====== Layout / Titles ====== -->
+  <data name="Page_Title" xml:space="preserve">
+    <value>HR Portal • Devcraft Studio — Agenda</value>
+  </data>
+  <data name="Sidebar_Subtitle" xml:space="preserve">
+    <value>Agenda • Interviews • Events</value>
+  </data>
+
+  <!-- ====== Topbar ====== -->
+  <data name="Topbar_Brand" xml:space="preserve">
+    <value>Screen: Agenda (day/week)</value>
+  </data>
+  <data name="GlobalSearch_Placeholder" xml:space="preserve">
+    <value>Search events by title, candidate, job...</value>
+  </data>
+
+  <data name="Btn_Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="Btn_Export_Title" xml:space="preserve">
+    <value>Export agenda (JSON)</value>
+  </data>
+
+  <data name="Btn_Import" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="Btn_Import_Title" xml:space="preserve">
+    <value>Import agenda (JSON)</value>
+  </data>
+
+  <data name="Btn_NewEvent" xml:space="preserve">
+    <value>New event</value>
+  </data>
+
+  <!-- ====== Toast ====== -->
+  <data name="Toast_Default" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+
+  <!-- ====== Page header ====== -->
+  <data name="H4_Agenda" xml:space="preserve">
+    <value>Agenda</value>
+  </data>
+  <data name="Page_Subtitle" xml:space="preserve">
+    <value>Select a time slot to create • Drag to move • Resize from the edge • Click to view details.</value>
+  </data>
+
+  <!-- ====== KPIs ====== -->
+  <data name="Kpi_Today" xml:space="preserve">
+    <value>Today</value>
+  </data>
+  <data name="Kpi_Today_Hint" xml:space="preserve">
+    <value>events</value>
+  </data>
+
+  <data name="Kpi_Week" xml:space="preserve">
+    <value>Week</value>
+  </data>
+  <data name="Kpi_Week_Hint" xml:space="preserve">
+    <value>events</value>
+  </data>
+
+  <data name="Kpi_Pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="Kpi_Pending_Hint" xml:space="preserve">
+    <value>awaiting confirmation</value>
+  </data>
+
+  <data name="Kpi_Interviews" xml:space="preserve">
+    <value>Interviews</value>
+  </data>
+  <data name="Kpi_Interviews_Hint" xml:space="preserve">
+    <value>this week</value>
+  </data>
+
+  <!-- ====== Calendar controls ====== -->
+  <data name="Btn_Prev" xml:space="preserve">
+    <value>Previous</value>
+  </data>
+  <data name="Btn_Today" xml:space="preserve">
+    <value>Today</value>
+  </data>
+  <data name="Btn_Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+
+  <data name="Aria_ViewMode" xml:space="preserve">
+    <value>View mode</value>
+  </data>
+  <data name="Btn_View_Day" xml:space="preserve">
+    <value>Day</value>
+  </data>
+  <data name="Btn_View_Week" xml:space="preserve">
+    <value>Week</value>
+  </data>
+
+  <data name="Hint_Tip" xml:space="preserve">
+    <value>Tip: select a range to create quickly. Click an event to open details/edit.</value>
+  </data>
+
+  <!-- ====== Sidebar (list) ====== -->
+  <data name="Side_Upcoming_MiniTitle" xml:space="preserve">
+    <value>Upcoming</value>
+  </data>
+  <data name="Side_Focus_Title" xml:space="preserve">
+    <value>Events in focus</value>
+  </data>
+  <data name="Side_Focus_Subtitle" xml:space="preserve">
+    <value>List respects filters + current date range.</value>
+  </data>
+
+  <data name="Side_Empty" xml:space="preserve">
+    <value>No events found.</value>
+  </data>
+
+  <!-- ====== (Optional) Side filters card ====== -->
+  <data name="SideFilters_Title" xml:space="preserve">
+    <value>Filters</value>
+  </data>
+  <data name="SideFilters_Subtitle" xml:space="preserve">
+    <value>Refine agenda</value>
+  </data>
+
+  <data name="Lbl_Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Ph_Search" xml:space="preserve">
+    <value>title, candidate, job...</value>
+  </data>
+
+  <data name="Lbl_Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+
+  <data name="Lbl_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Status_All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Status_Confirmed" xml:space="preserve">
+    <value>Confirmed</value>
+  </data>
+  <data name="Status_Pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="Status_Canceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+
+  <data name="Btn_Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Btn_Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+
+  <!-- ====== Modal Create/Edit ====== -->
+  <data name="Modal_Event_New_MiniTitle" xml:space="preserve">
+    <value>New event</value>
+  </data>
+  <data name="Modal_Event_Edit_MiniTitle" xml:space="preserve">
+    <value>Edit event</value>
+  </data>
+  <data name="Modal_Event_New_Title" xml:space="preserve">
+    <value>Schedule</value>
+  </data>
+  <data name="Modal_Event_Edit_Title" xml:space="preserve">
+    <value>Update</value>
+  </data>
+
+  <data name="Lbl_Title" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="Ph_Title" xml:space="preserve">
+    <value>e.g., Interview • Maria Souza</value>
+  </data>
+
+  <data name="Lbl_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Lbl_End" xml:space="preserve">
+    <value>End</value>
+  </data>
+
+  <data name="Lbl_Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Ph_Location" xml:space="preserve">
+    <value>Google Meet / On-site / Room 2...</value>
+  </data>
+
+  <data name="Lbl_Owner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="Ph_Owner" xml:space="preserve">
+    <value>Ana (HR)</value>
+  </data>
+
+  <data name="Lbl_Candidate" xml:space="preserve">
+    <value>Candidate</value>
+  </data>
+  <data name="Lbl_Job" xml:space="preserve">
+    <value>Job</value>
+  </data>
+
+  <data name="Lbl_Notes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="Ph_Notes" xml:space="preserve">
+    <value>Outline, links, feedback...</value>
+  </data>
+
+  <data name="Btn_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Btn_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+
+  <!-- ====== Modal View ====== -->
+  <data name="Modal_View_MiniTitle" xml:space="preserve">
+    <value>Event details</value>
+  </data>
+
+  <data name="View_Candidate" xml:space="preserve">
+    <value>Candidate</value>
+  </data>
+  <data name="View_Job" xml:space="preserve">
+    <value>Job</value>
+  </data>
+  <data name="View_Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="View_Owner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="View_Notes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+
+  <data name="Btn_Duplicate" xml:space="preserve">
+    <value>Duplicate (+7d)</value>
+  </data>
+  <data name="Btn_Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Btn_Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Btn_Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+
+  <!-- ====== Footer ====== -->
+  <data name="Footer_Candidates" xml:space="preserve">
+    <value>Candidates</value>
+  </data>
+  <data name="Footer_CV" xml:space="preserve">
+    <value>CV</value>
+  </data>
+  <data name="Footer_Match" xml:space="preserve">
+    <value>Match</value>
+  </data>
+  
+  <!-- Sidebar / List -->
+  <data name="Side_Next" xml:space="preserve">
+    <value>Upcoming</value>
+  </data>
+  <data name="Side_FocusTitle" xml:space="preserve">
+    <value>Focused events</value>
+  </data>
+
+  <!-- View buttons -->
+  <data name="Btn_Day" xml:space="preserve">
+    <value>Day</value>
+  </data>
+  <data name="Btn_Week" xml:space="preserve">
+    <value>Week</value>
+  </data>
+
+  <!-- Calendar tip -->
+  <data name="Tip_CreateFast" xml:space="preserve">
+    <value>Tip: select a time range on the grid to quickly create an event. Click an event to view details/edit.</value>
+  </data>
+  <data name="Kpi_Events" xml:space="preserve">
+  <value>events</value>
+</data>
+<data name="Kpi_WaitingConfirmation" xml:space="preserve">
+  <value>waiting for confirmation</value>
+</data>
+<data name="Kpi_InWeek" xml:space="preserve">
+  <value>this week</value>
+</data>
+<data name="Side_Subtitle" xml:space="preserve">
+  <value>List respects filters + displayed date.</value>
+</data>
+<data name="Btn_Duplicate7d" xml:space="preserve">
+  <value>Duplicate (+7d)</value>
+</data>
+<data name="Card_Candidate" xml:space="preserve">
+  <value>Candidate</value>
+</data>
+<data name="Card_Job" xml:space="preserve">
+  <value>Job</value>
+</data>
+<data name="Card_Location" xml:space="preserve">
+  <value>Location</value>
+</data>
+<data name="Card_Owner" xml:space="preserve">
+  <value>Owner</value>
+</data>
+<data name="Card_Notes" xml:space="preserve">
+  <value>Notes</value>
+</data>
+
+</root>

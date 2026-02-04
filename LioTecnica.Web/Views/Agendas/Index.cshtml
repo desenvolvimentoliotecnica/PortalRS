@@ -1,0 +1,617 @@
+@model PageSeedViewModel
+@using Microsoft.AspNetCore.Mvc.Localization
+@inject IViewLocalizer T
+
+@{
+    ViewData["Title"] = T["Page_Title"].Value;                 // "Portal RH • Devcraft Studio — Agenda"
+    ViewData["SidebarSubtitle"] = T["Sidebar_Subtitle"].Value; // "Agenda • Entrevistas • Eventos"
+}
+
+<style>
+
+    :root {
+        --fc-time-label-width: 50px;
+    }
+
+    #calendarHost {
+        min-height: 640px;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden; /* evita scrollbar horizontal na página */
+    }
+
+    #calendar {
+        min-height: 640px;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* Containers seguros em 100% */
+    #calendarHost .fc {
+        width: 100%;
+        max-width: 100%;
+        font-size: .92rem;
+    }
+
+    #calendarHost .fc-view-harness {
+        width: 100%;
+    }
+
+    /* mantém header e body sincronizados quando aparece scrollbar vertical */
+    #calendarHost .fc-scroller {
+        scrollbar-gutter: stable;
+    }
+
+    /* se existir regra global do site tipo table{border-collapse:collapse}, isso quebra o sync */
+    #calendarHost .fc table {
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        /* NÃO use padding aqui (isso quebra o layout interno do FullCalendar) */
+    }
+
+    /* ? estica o “scrollgrid” e as tabelas que definem as colunas */
+    #calendarHost .fc .fc-scrollgrid,
+    #calendarHost .fc .fc-scrollgrid table,
+    #calendarHost .fc .fc-col-header table,
+    #calendarHost .fc .fc-timegrid-cols table,
+    #calendarHost .fc .fc-timegrid-slots table {
+        width: 100% !important;
+        table-layout: fixed;
+    }
+
+    #calendarHost .fc .fc-scrollgrid-section-liquid > td {
+        width: 100% !important;
+    }
+
+    /* ? a largura real vem do COLGROUP (1ª coluna) */
+    #calendarHost .fc .fc-timegrid-slots table colgroup col:first-child,
+    #calendarHost .fc .fc-timegrid-cols table colgroup col:first-child,
+    #calendarHost .fc .fc-col-header table colgroup col:first-child,
+    #calendarHost .fc .fc-scrollgrid table colgroup col:first-child {
+        width: var(--fc-time-label-width) !important;
+    }
+
+    /* reforço (visual) nas células */
+    #calendarHost .fc th.fc-timegrid-slot-label,
+    #calendarHost .fc td.fc-timegrid-slot-label,
+    #calendarHost .fc th.fc-timegrid-axis,
+    #calendarHost .fc td.fc-timegrid-axis {
+        width: var(--fc-time-label-width) !important;
+        max-width: var(--fc-time-label-width) !important;
+        white-space: nowrap;
+    }
+
+    #calendarHost .fc .fc-timegrid-slot-label-cushion {
+        white-space: nowrap;
+        padding: 0 .5rem;
+    }
+
+    /* =========================================================
+           Bordas e grid
+           ========================================================= */
+    #calendarHost .fc .fc-scrollgrid,
+    #calendarHost .fc .fc-timegrid,
+    #calendarHost .fc .fc-timegrid-body,
+    #calendarHost .fc .fc-timegrid-slots table {
+        border-color: rgba(16,82,144,.14);
+    }
+
+    #calendarHost .fc .fc-scrollgrid {
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(16,82,144,.14);
+    }
+
+    #calendarHost .fc-theme-standard td,
+    #calendarHost .fc-theme-standard th {
+        border-color: rgba(16,82,144,.14);
+    }
+
+    #calendarHost .fc .fc-col-header-cell-cushion {
+        color: var(--lt-text);
+        text-decoration: none;
+        font-weight: 700;
+    }
+
+    #calendarHost .fc .fc-timegrid-slot-label {
+        color: var(--lt-muted);
+        font-size: .82rem;
+    }
+
+    #calendarHost .fc .fc-day-today {
+        background: rgba(0,110,99,.05) !important;
+    }
+
+    #calendarHost .fc .fc-timegrid-now-indicator-line {
+        border-color: var(--lt-accent);
+    }
+
+    #calendarHost .fc .fc-timegrid-now-indicator-arrow {
+        border-color: var(--lt-accent);
+    }
+
+    /* === body 100% largura === */
+    #calendarHost .fc .fc-scroller-harness,
+    #calendarHost .fc .fc-scroller-harness-liquid,
+    #calendarHost .fc .fc-scroller-harness-liquid > .fc-scroller,
+    #calendarHost .fc .fc-timegrid-body,
+    #calendarHost .fc .fc-timegrid-cols,
+    #calendarHost .fc .fc-timegrid-cols table,
+    #calendarHost .fc .fc-timegrid-slots table {
+        width: 100% !important;
+    }
+
+    #calendarHost .fc .fc-timegrid-body,
+    #calendarHost .fc .fc-timegrid-cols {
+        min-width: 0 !important;
+    }
+
+    #calendarHost .fc .fc-timegrid-cols {
+        flex: 1 1 auto !important;
+    }
+
+    #calendarHost {
+        border-radius: 14px;
+        border: 1px solid rgba(16,82,144,.14);
+        background: rgba(255,255,255,.55);
+        padding: 6px;
+        overflow: hidden; /* corta eventos no raio */
+        box-sizing: border-box;
+    }
+
+        #calendarHost .fc .fc-scrollgrid {
+            border: 0 !important; /* a borda agora é do #calendarHost */
+            border-radius: 0 !important;
+            overflow: visible !important;
+        }
+
+        /* mantém as bordas internas do grid */
+        #calendarHost .fc-theme-standard td,
+        #calendarHost .fc-theme-standard th {
+            border-color: rgba(16,82,144,.14);
+        }
+
+        /* opcional: garante que nada pinte por trás do wrapper */
+        #calendarHost .fc {
+            background: transparent;
+        }
+
+    /* Lista lateral */
+    .side-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+    }
+
+    .evt-item {
+        display: flex;
+        gap: .65rem;
+        align-items: flex-start;
+        padding: .55rem .6rem;
+        border-radius: 14px;
+        border: 1px solid rgba(16,82,144,.14);
+        background: rgba(255,255,255,.55);
+        cursor: pointer;
+    }
+
+        .evt-item:hover {
+            background: rgba(255,255,255,.9);
+        }
+
+    .evt-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        margin-top: .3rem;
+        border: 2px solid rgba(0,0,0,.08);
+        flex: 0 0 auto;
+    }
+
+    .evt-title {
+        font-weight: 800;
+        color: var(--lt-text);
+        line-height: 1.15;
+    }
+
+    .evt-meta {
+        color: var(--lt-muted);
+        font-size: .82rem;
+    }
+
+    .evt-badges {
+        display: flex;
+        gap: .35rem;
+        flex-wrap: wrap;
+        margin-top: .25rem;
+    }
+
+        .evt-badges .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            padding: .18rem .45rem;
+            border-radius: 999px;
+            border: 1px solid rgba(16,82,144,.14);
+            background: rgba(16,82,144,.07);
+            color: var(--lt-text);
+            font-size: .75rem;
+            white-space: nowrap;
+        }
+</style>
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", T["Topbar_Brand"].Value)
+
+    <div class="searchbox position-relative d-none d-md-block">
+        <i class="bi bi-search"></i>
+        <input id="globalSearch" class="form-control" placeholder="@T["GlobalSearch_Placeholder"]" />
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-ghost" type="button" id="btnExportJson" title="@T["Btn_ExportJson_Title"]">
+            <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">@T["Btn_Export"]</span>
+        </button>
+
+        <button class="btn btn-ghost" type="button" id="btnImportJson" title="@T["Btn_ImportJson_Title"]">
+            <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">@T["Btn_Import"]</span>
+        </button>
+
+        <button class="btn btn-brand" type="button" id="btnNewEvent">
+            <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">@T["Btn_NewEvent"]</span>
+        </button>
+
+        @await Html.PartialAsync("_TopbarUserActions", "RH")
+    </div>
+}
+
+<!-- ============ TOASTS ============ -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1085;">
+    <div id="appToast" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMsg">—</div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="@T["Close"]"></button>
+        </div>
+    </div>
+</div>
+
+<!-- IMPORT (hidden) -->
+<input type="file" id="importFile" class="d-none" accept="application/json" />
+
+<!-- CONTENT -->
+<section class="content">
+    <div class="page-title">
+        <div>
+            <h4>@T["H4_Agenda"]</h4>
+            <div class="subtitle">@T["Page_Subtitle"]</div>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    @{
+        var kpis = new[]
+        {
+        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_Today"].Value,       ValueId = "kpiToday",      Value = "0", Hint = T["Kpi_Events"].Value,              Icon = "bi-sun" },
+        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_Week"].Value,        ValueId = "kpiWeek",       Value = "0", Hint = T["Kpi_Events"].Value,              Icon = "bi-calendar-week" },
+        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_Pending"].Value,     ValueId = "kpiPending",    Value = "0", Hint = T["Kpi_WaitingConfirmation"].Value,  Icon = "bi-hourglass-split" },
+        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_Interviews"].Value,  ValueId = "kpiInterviews", Value = "0", Hint = T["Kpi_InWeek"].Value,              Icon = "bi-camera-video" }
+        };
+    }
+    @await Html.PartialAsync("_KpiCardRow", kpis)
+
+    <div class="row g-3 mt-1">
+        <!-- CALENDAR -->
+        <div class="col-12 col-xl-9">
+            <div class="card-soft p-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-ghost btn-sm" type="button" id="calPrev" title="@T["Cal_Prev_Title"]"><i class="bi bi-chevron-left"></i></button>
+                        <button class="btn btn-ghost btn-sm" type="button" id="calToday" title="@T["Cal_Today_Title"]"><i class="bi bi-bullseye me-1"></i>@T["Btn_Today"]</button>
+                        <button class="btn btn-ghost btn-sm" type="button" id="calNext" title="@T["Cal_Next_Title"]"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+
+                    <div class="fw-bold" id="calTitle" style="font-size:1.05rem;">—</div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="btn-group" role="group" aria-label="@T["Aria_ViewMode"]">
+                            <button class="btn btn-ghost btn-sm" type="button" data-view="timeGridDay" id="btnViewDay">
+                                <i class="bi bi-view-stacked me-1"></i>@T["Btn_Day"]
+                            </button>
+                            <button class="btn btn-ghost btn-sm" type="button" data-view="timeGridWeek" id="btnViewWeek">
+                                <i class="bi bi-calendar-week me-1"></i>@T["Btn_Week"]
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="calendarHost">
+                    <div id="calendar"></div>
+                </div>
+
+                <div class="text-muted small mt-2">
+                    <i class="bi bi-info-circle me-1"></i>
+                    @T["Tip_CreateFast"]
+                </div>
+            </div>
+        </div>
+
+        <!-- SIDEBAR -->
+        <div class="col-12 col-xl-3">
+            <div class="card-soft p-3 mb-3">
+                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    <div>
+                        <p class="mini-title mb-1">@T["Side_Next"]</p>
+                        <div class="fw-bold">@T["Side_FocusTitle"]</div>
+                        <div class="text-muted small">@T["Side_Subtitle"]</div>
+                    </div>
+                    <span class="badge-soft"><i class="bi bi-filter"></i><span id="sideCount">0</span></span>
+                </div>
+
+                <lt-list tag="ul" class="side-list" id="sideList"></lt-list>
+
+                <div class="text-center text-muted small py-3 d-none" id="sideEmpty">
+                    @T["Side_Empty"]
+                </div>
+            </div>
+
+            <div class="card-soft p-3 d-none">
+                <div class="mb-2">
+                    <p class="mini-title mb-1">@T["Filters_TitleMini"]</p>
+                    <div class="fw-bold">@T["Filters_Title"]</div>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small">@T["Filters_Search_Label"]</label>
+                    <input class="form-control" id="fSearch" placeholder="@T["Filters_Search_Placeholder"]" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);" />
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small">@T["Filters_Type_Label"]</label>
+                    <select class="form-select" id="fType" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);"></select>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small">@T["Filters_Status_Label"]</label>
+                    <select class="form-select" id="fStatus" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
+                        <option value="all">@T["Status_All"]</option>
+                        <option value="confirmado">@T["Status_Confirmed"]</option>
+                        <option value="pendente">@T["Status_Pending"]</option>
+                        <option value="cancelado">@T["Status_Canceled"]</option>
+                    </select>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button class="btn btn-ghost btn-sm" type="button" id="btnClearFilters">
+                        <i class="bi bi-eraser me-1"></i>@T["Btn_Clear"]
+                    </button>
+                    <button class="btn btn-brand btn-sm" type="button" id="btnApplyFilters">
+                        <i class="bi bi-check2 me-1"></i>@T["Btn_Apply"]
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="height:14px;"></div>
+</section>
+
+<!-- ============ MODAL: CREATE / EDIT EVENT ============ -->
+<div class="modal fade" id="modalEvent" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content card-soft">
+            <div class="modal-header" style="border-bottom:1px solid var(--lt-border);">
+                <div>
+                    <div class="mini-title mb-1" id="eventModalMode">@T["Modal_NewEvent_MiniTitle"]</div>
+                    <div class="fw-bold" style="font-size:1.05rem;" id="eventModalTitle">@T["Modal_Schedule_Title"]</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="@T["Close"]"></button>
+            </div>
+
+            <div class="modal-body">
+                <input type="hidden" id="evId" />
+
+                <div class="row g-2">
+                    <div class="col-12 col-md-8">
+                        <label class="form-label small">@T["Lbl_Title"]</label>
+                        <input class="form-control" id="evTitle" placeholder="@T["Ph_Title"]" style="border-color:var(--lt-border);" />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small">@T["Lbl_Type"]</label>
+                        <select class="form-select" id="evType" style="border-color:var(--lt-border);"></select>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">@T["Lbl_Start"]</label>
+                        <input type="datetime-local" class="form-control" id="evStart" style="border-color:var(--lt-border);" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">@T["Lbl_End"]</label>
+                        <input type="datetime-local" class="form-control" id="evEnd" style="border-color:var(--lt-border);" />
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">@T["Lbl_Location"]</label>
+                        <input class="form-control" id="evLocation" placeholder="@T["Ph_Location"]" style="border-color:var(--lt-border);" />
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small">@T["Lbl_Status"]</label>
+                        <select class="form-select" id="evStatus" style="border-color:var(--lt-border);">
+                            <option value="confirmado">@T["Status_Confirmed"]</option>
+                            <option value="pendente">@T["Status_Pending"]</option>
+                            <option value="cancelado">@T["Status_Canceled"]</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small">@T["Lbl_Owner"]</label>
+                        <input class="form-control" id="evOwner" placeholder="@T["Ph_Owner"]" style="border-color:var(--lt-border);" />
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">@T["Lbl_Candidate"]</label>
+                        <select class="form-select" id="evCandidate" style="border-color:var(--lt-border);"></select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small">@T["Lbl_Job"]</label>
+                        <select class="form-select" id="evVaga" style="border-color:var(--lt-border);"></select>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label small">@T["Lbl_Notes"]</label>
+                        <textarea class="form-control" id="evNotes" rows="3" placeholder="@T["Ph_Notes"]" style="border-color:var(--lt-border);"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="border-top:1px solid var(--lt-border);">
+                <button class="btn btn-ghost" type="button" data-bs-dismiss="modal"><i class="bi bi-x-lg me-1"></i>@T["Btn_Cancel"]</button>
+                <button class="btn btn-brand" type="button" id="btnSaveEvent"><i class="bi bi-check2 me-1"></i>@T["Btn_Save"]</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ MODAL: VIEW EVENT ============ -->
+<div class="modal fade" id="modalView" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content card-soft">
+            <div class="modal-header" style="border-bottom:1px solid var(--lt-border);">
+                <div class="w-100">
+                    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                        <div>
+                            <div class="mini-title mb-1">@T["Modal_View_MiniTitle"]</div>
+                            <div class="fw-bold" style="font-size:1.08rem;" id="viewTitle">—</div>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <span class="badge-soft" id="viewType">—</span>
+                            <span class="badge-soft" id="viewStatus">—</span>
+                        </div>
+                    </div>
+                    <div class="text-muted small mt-1" id="viewWhen">—</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="@T["Close"]"></button>
+            </div>
+
+            <div class="modal-body">
+                <input type="hidden" id="viewId" />
+
+                <div class="row g-2">
+                    <div class="col-12 col-md-6">
+                        <div class="card-soft p-2" style="box-shadow:none;">
+                            <div class="small text-muted">@T["Card_Candidate"]</div>
+                            <div class="fw-semibold" id="viewCandidate">—</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="card-soft p-2" style="box-shadow:none;">
+                            <div class="small text-muted">@T["Card_Job"]</div>
+                            <div class="fw-semibold" id="viewVaga">—</div>
+                            <div class="text-muted small mono" id="viewVagaCode">—</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="card-soft p-2" style="box-shadow:none;">
+                            <div class="small text-muted">@T["Card_Location"]</div>
+                            <div class="fw-semibold" id="viewLocation">—</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="card-soft p-2" style="box-shadow:none;">
+                            <div class="small text-muted">@T["Card_Owner"]</div>
+                            <div class="fw-semibold" id="viewOwner">—</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="card-soft p-2" style="box-shadow:none;">
+                            <div class="small text-muted">@T["Card_Notes"]</div>
+                            <div class="text-muted" id="viewNotes" style="white-space:pre-wrap;">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="border-top:1px solid var(--lt-border);">
+                <button class="btn btn-ghost" type="button" id="btnDuplicate"><i class="bi bi-files me-1"></i>@T["Btn_Duplicate7d"]</button>
+                <button class="btn btn-ghost" type="button" id="btnEdit"><i class="bi bi-pencil me-1"></i>@T["Btn_Edit"]</button>
+                <button class="btn btn-ghost text-danger" type="button" id="btnDelete"><i class="bi bi-trash3 me-1"></i>@T["Btn_Delete"]</button>
+                <button class="btn btn-brand" type="button" data-bs-dismiss="modal"><i class="bi bi-check2 me-1"></i>@T["Btn_Ok"]</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Footer {
+    @{
+        var footerItems = new[]
+        {
+            new { Icon = "bi-people",             Text = T["Footer_Candidates"].Value },
+            new { Icon = "bi-file-earmark-text",  Text = T["Footer_CV"].Value },
+            new { Icon = "bi-stars",              Text = T["Footer_Match"].Value }
+        };
+    }
+    @await Html.PartialAsync("_Footer", footerItems)
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@fullcalendar/timegrid@6.1.11/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@fullcalendar/bootstrap5@6.1.11/index.global.min.js"></script>
+
+    <script>
+        // Strings para o JS (agendas.js) — use: const t = k => (window.__i18n?.[k] ?? k);
+        window.__i18n = {
+            toastCloseAria: "@T["Close"]",
+            toastMsgDefault: "—",
+
+            // Topbar
+            topbarBrand: "@T["Topbar_Brand"]",
+            globalSearchPlaceholder: "@T["GlobalSearch_Placeholder"]",
+            btnExport: "@T["Btn_Export"]",
+            btnImport: "@T["Btn_Import"]",
+            btnNewEvent: "@T["Btn_NewEvent"]",
+
+            // Page
+            h4Agenda: "@T["H4_Agenda"]",
+            pageSubtitle: "@T["Page_Subtitle"]",
+            tipCreateFast: "@T["Tip_CreateFast"]",
+
+            // Calendar controls
+            btnToday: "@T["Btn_Today"]",
+            btnDay: "@T["Btn_Day"]",
+            btnWeek: "@T["Btn_Week"]",
+
+            // Sidebar
+            sideEmpty: "@T["Side_Empty"]",
+
+            // Modal labels
+            lblTitle: "@T["Lbl_Title"]",
+            lblType: "@T["Lbl_Type"]",
+            lblStart: "@T["Lbl_Start"]",
+            lblEnd: "@T["Lbl_End"]",
+            lblLocation: "@T["Lbl_Location"]",
+            lblStatus: "@T["Lbl_Status"]",
+            lblOwner: "@T["Lbl_Owner"]",
+            lblCandidate: "@T["Lbl_Candidate"]",
+            lblJob: "@T["Lbl_Job"]",
+            lblNotes: "@T["Lbl_Notes"]",
+
+            // Buttons
+            btnCancel: "@T["Btn_Cancel"]",
+            btnSave: "@T["Btn_Save"]",
+            btnOk: "@T["Btn_Ok"]",
+            btnEdit: "@T["Btn_Edit"]",
+            btnDelete: "@T["Btn_Delete"]",
+            btnDuplicate7d: "@T["Btn_Duplicate7d"]",
+
+            // Status text
+            statusAll: "@T["Status_All"]",
+            statusConfirmed: "@T["Status_Confirmed"]",
+            statusPending: "@T["Status_Pending"]",
+            statusCanceled: "@T["Status_Canceled"]"
+        };
+    </script>
+
+    <script src="~/js/views/agendas.js" asp-append-version="true"></script>
+}
+

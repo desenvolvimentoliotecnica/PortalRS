@@ -1,0 +1,84 @@
+@{
+    ViewData["Title"] = "Configuracao de Idioma";
+    ViewData["SidebarSubtitle"] = "Admin";
+}
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Configuracao de Idioma")
+
+    <div class="d-flex align-items-center gap-2">
+        @await Html.PartialAsync("_TopbarUserActions", "Admin")
+    </div>
+}
+
+<section class="content">
+    <div class="container-fluid pb-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div>
+                <h1 class="h4 mb-1">Idioma do sistema</h1>
+                <div class="text-muted">Defina o idioma padrao das mensagens do backend.</div>
+            </div>
+            <div class="d-flex gap-2">
+                <button id="btnSaveConfig" class="btn btn-brand">
+                    <i class="bi bi-save me-1"></i>Salvar
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-12 col-lg-6">
+                <div class="card-soft p-3 h-100">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label">Idioma</label>
+                            <select id="cultureSelect" class="form-select">
+                                <option value="pt-BR">Portugues (Brasil)</option>
+                                <option value="en-US">English (US)</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Idioma da interface</label>
+                            <select id="uiCultureSelect" class="form-select">
+                                <option value="pt-BR">Portugues (Brasil)</option>
+                                <option value="en-US">English (US)</option>
+                            </select>
+                            <div class="form-text text-muted">Se nao preencher, usa o mesmo idioma principal.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+                <div class="card-soft p-3 h-100">
+                    <p class="mini-title mb-1">Observacoes</p>
+                    <ul class="text-muted small mb-0">
+                        <li>O idioma selecionado afeta mensagens e excecoes da API.</li>
+                        <li>Para telas do portal, traducoes serao habilitadas em etapas futuras.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    @if (ViewData["OwnerConfigApiBase"] != null)
+    {
+        <script>window.__ownerConfigApiBase = "@ViewData["OwnerConfigApiBase"]";</script>
+    }
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="~/js/views/admin-localization-config.js" asp-append-version="true"></script>
+}
+
+@section Footer {
+    @{
+        var footerItems = new[]
+        {
+            new { Icon = "bi-translate", Text = "Idioma", Id = "", Class = "" },
+            new { Icon = "bi-gear", Text = "Config", Id = "", Class = "" },
+            new { Icon = "", Text = "build: web", Id = "buildId", Class = "mono muted" }
+        };
+    }
+    @await Html.PartialAsync("_Footer", footerItems)
+}
+
