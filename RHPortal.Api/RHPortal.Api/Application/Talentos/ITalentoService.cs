@@ -11,6 +11,8 @@ public interface ITalentoService
     Task<CreateTalentoResult> CreateAsync(TalentoCreateRequest request, CancellationToken ct);
     Task<TalentoResponse?> UpdateAsync(Guid id, TalentoUpdateRequest request, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    /// <summary>Remove todos os talentos do tenant atual. Retorna o número removido.</summary>
+    Task<int> DeleteAllForTenantAsync(CancellationToken ct);
     /// <summary>Gets or creates Talento for the given email (creates Pessoa + Talento if needed).</summary>
     Task<(Talento Talento, bool Created)> GetOrCreateByEmailAsync(string email, string? nome, string? fone, string? cidade, string? uf, string? linkedinUrl, string? resumoProfissional, string? obs, OrigemTalento origem, CancellationToken ct);
     /// <summary>Importa PDF de currículo: salva em TalentoDocumento, opcionalmente extrai dados via GPT. Se talentoId for null, cria Pessoa + Talento mínimos.</summary>
@@ -25,6 +27,8 @@ public interface ITalentoService
     Task RecusarCvImportJobAsync(Guid jobId, CancellationToken ct);
     /// <summary>Retorna o arquivo de um documento do talento para download.</summary>
     Task<TalentoDocumentoFileResult?> GetDocumentoFileAsync(Guid talentoId, Guid documentoId, CancellationToken ct);
+    /// <summary>Upload de currículo (PDF) no talento existente: salva documento, extrai texto e dados sugeridos pela LLM para revisar na tela e aplicar.</summary>
+    Task<TalentoCurriculoExtrairResponse?> UploadCurriculoEExtrairAsync(Guid talentoId, Stream pdfStream, string fileName, bool enviarParaGpt, CancellationToken ct);
 }
 
 public sealed record TalentoDocumentoFileResult(string FilePath, string? ContentType, string FileName);

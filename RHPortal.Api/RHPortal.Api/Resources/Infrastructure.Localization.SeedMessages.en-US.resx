@@ -187,10 +187,13 @@
     <value>Areas</value>
   </data>
   <data name="Seed.Menu.Categorias" xml:space="preserve">
-    <value>Categories</value>
+    <value>Function</value>
   </data>
   <data name="Seed.Menu.Cargos" xml:space="preserve">
-    <value>Job Positions</value>
+    <value>Cargo</value>
+  </data>
+  <data name="Seed.Menu.Funcoes" xml:space="preserve">
+    <value>Function</value>
   </data>
   <data name="Seed.Menu.Unidades" xml:space="preserve">
     <value>Units</value>
@@ -233,6 +236,9 @@
   </data>
   <data name="Seed.Menu.ConfigEntraId" xml:space="preserve">
     <value>Entra ID Settings</value>
+  </data>
+  <data name="Seed.Menu.ApiKeys" xml:space="preserve">
+    <value>API Keys</value>
   </data>
   <data name="Seed.Menu.Idioma" xml:space="preserve">
     <value>Language</value>

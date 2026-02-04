@@ -201,8 +201,49 @@ public sealed class TalentoService : ITalentoService
             var similar = await _pessoaService.FindSimilarAsync(request.Email, request.Fone, request.Nome, request.Cep, request.Logradouro, request.Numero, ct);
             if (similar.HasValue)
             {
-                var summary = new SimilarPessoaSummary(similar.Value.Talento?.Id ?? Guid.Empty, similar.Value.Pessoa.Nome, similar.Value.Pessoa.Email, similar.Value.Pessoa.Fone);
-                return new CreateTalentoResult(null, true, similar.Value.Talento?.Id, summary);
+                // Se já existe Talento para a Pessoa similar, retorna 409 para o cliente decidir.
+                if (similar.Value.Talento != null)
+                {
+                    // #region agent log
+                    try
+                    {
+                        var fc = request.Formacao?.Count ?? 0;
+                        var ec = request.Experiencias?.Count ?? 0;
+                        var line = System.Text.Json.JsonSerializer.Serialize(new { hypothesisId = "H2", location = "TalentoService.CreateAsync", message = "409 returning existing talent without applying profile", data = new { email = request.Email, existingTalentoId = similar.Value.Talento.Id, formacaoCount = fc, experienciasCount = ec }, timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), sessionId = "debug-session" }) + "\n";
+                        await System.IO.File.AppendAllTextAsync("/Users/victoralves/Projects/Voltage.RenderRH/.cursor/debug.log", line, ct);
+                    }
+                    catch { /* ignore */ }
+                    // #endregion
+                    var summary = new SimilarPessoaSummary(similar.Value.Talento.Id, similar.Value.Pessoa.Nome, similar.Value.Pessoa.Email, similar.Value.Pessoa.Fone);
+                    return new CreateTalentoResult(null, true, similar.Value.Talento.Id, summary);
+                }
+                // Pessoa similar existe mas não tem Talento: cria o Talento e retorna 201 (integração RM/portal pode ver o talento na lista).
+                var similarPessoa = similar.Value.Pessoa;
+                var similarPessoaUpdate = BuildPessoaUpdateRequestFromCreateRequest(request, similarPessoa);
+                await _pessoaService.UpdateAsync(similarPessoa.Id, similarPessoaUpdate, ct);
+                var similarEntity = new Talento
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId,
+                    PessoaId = similarPessoa.Id,
+                    Origem = request.Origem,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    UpdatedAtUtc = DateTimeOffset.UtcNow,
+                    Versao = 1
+                };
+                _db.Talentos.Add(similarEntity);
+                await _db.SaveChangesAsync(ct);
+                await _db.Entry(similarEntity).Reference(x => x.Pessoa).LoadAsync(ct);
+                similarEntity.Pessoa = similarPessoa;
+                ApplyCompetencias(similarEntity, request.Competencias);
+                ApplyExperiencias(similarEntity, request.Experiencias);
+                ApplyTreinamentos(similarEntity, request.Treinamentos);
+                ApplyFormacao(similarEntity, request.Formacao);
+                ApplyDocumentos(similarEntity, request.Documentos);
+                similarEntity.CvProfileJson = BuildCvProfileJson(similarEntity);
+                await _db.SaveChangesAsync(ct);
+                var similarCreated = (await GetByIdAsync(similarEntity.Id, ct))!;
+                return new CreateTalentoResult(similarCreated, false, null, null);
             }
         }
 
@@ -238,12 +279,39 @@ public sealed class TalentoService : ITalentoService
         ApplyExperiencias(entity, request.Experiencias);
         ApplyTreinamentos(entity, request.Treinamentos);
         ApplyFormacao(entity, request.Formacao);
+        ApplyDocumentos(entity, request.Documentos);
         await _db.SaveChangesAsync(ct);
         entity.CvProfileJson = BuildCvProfileJson(entity);
         await _db.SaveChangesAsync(ct);
 
         var created = (await GetByIdAsync(entity.Id, ct))!;
         return new CreateTalentoResult(created, false, null, null);
+    }
+
+    private void ApplyDocumentos(Talento entity, IReadOnlyList<TalentoDocumentoMetaItem>? documentos)
+    {
+        if (documentos == null || documentos.Count == 0) return;
+        foreach (var item in documentos)
+        {
+            var nome = TrimMax(item.NomeArquivo, 200);
+            if (string.IsNullOrWhiteSpace(nome)) continue;
+            var doc = new TalentoDocumento
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId,
+                TalentoId = entity.Id,
+                NomeArquivo = nome,
+                Descricao = TrimMax(item.Descricao, 240),
+                StorageFileName = null,
+                ContentType = null,
+                TamanhoBytes = null,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            };
+            _db.TalentoDocumentos.Add(doc);
+            if (entity.Documentos is null) entity.Documentos = new List<TalentoDocumento>();
+            entity.Documentos.Add(doc);
+        }
     }
 
     private static PessoaUpdateRequest BuildPessoaUpdateRequestFromCreateRequest(TalentoCreateRequest request, Pessoa pessoa)
@@ -271,26 +339,59 @@ public sealed class TalentoService : ITalentoService
 
     public async Task<TalentoResponse?> UpdateAsync(Guid id, TalentoUpdateRequest request, CancellationToken ct)
     {
-        // #region agent log
-        try
-        {
-            const string logPath = "/Users/victoralves/Projects/Voltage.RenderRH/.cursor/debug.log";
-            var firstExp = request.Experiencias?.Count > 0 ? request.Experiencias![0] : null;
-            var logLine = System.Text.Json.JsonSerializer.Serialize(new { location = "TalentoService.UpdateAsync", message = "request received", data = new { id, expCount = request.Experiencias?.Count ?? -1, firstExpTipoContratacao = firstExp?.TipoContratacao, firstExpEmpresa = firstExp?.Empresa }, timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), sessionId = "debug-session", hypothesisId = "API" }) + "\n";
-            await System.IO.File.AppendAllTextAsync(logPath, logLine, ct);
-        }
-        catch { /* ignore */ }
-        // #endregion
         var entity = await _db.Talentos
+            .AsNoTracking()
             .Include(x => x.Pessoa)
-            .Include(x => x.Competencias)
-            .Include(x => x.Experiencias)
-            .Include(x => x.Treinamentos)
-            .Include(x => x.Formacao)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null || entity.Pessoa is null) return null;
 
-        entity.Pessoa.Nome = (request.Nome ?? string.Empty).Trim();
+        var pessoaId = entity.Pessoa.Id;
+        var now = DateTimeOffset.UtcNow;
+        var cvJson = BuildCvProfileJsonFromUpdateRequest(request);
+
+        // Deletar filhos direto no banco (evita change tracker e concurrency).
+        await _db.TalentoCompetencias.Where(c => c.TalentoId == id).ExecuteDeleteAsync(ct);
+        await _db.TalentoExperiencias.Where(e => e.TalentoId == id).ExecuteDeleteAsync(ct);
+        await _db.TalentoTreinamentos.Where(t => t.TalentoId == id).ExecuteDeleteAsync(ct);
+        await _db.TalentoFormacoes.Where(f => f.TalentoId == id).ExecuteDeleteAsync(ct);
+
+        // Atualizar Talento e Pessoa por Id (sem usar change tracker).
+        await _db.Talentos.IgnoreQueryFilters()
+            .Where(t => t.Id == id && t.TenantId == _tenantContext.TenantId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.Versao, t => t.Versao + 1)
+                .SetProperty(t => t.UpdatedAtUtc, now)
+                .SetProperty(t => t.CvProfileJson, cvJson), ct);
+
+        await _db.Pessoas.IgnoreQueryFilters()
+            .Where(p => p.Id == pessoaId && p.TenantId == _tenantContext.TenantId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.Nome, (request.Nome ?? string.Empty).Trim())
+                .SetProperty(p => p.Email, (request.Email ?? string.Empty).Trim().ToLowerInvariant())
+                .SetProperty(p => p.Fone, TrimToMax(request.Fone, 40))
+                .SetProperty(p => p.Cidade, TrimToMax(request.Cidade, 120))
+                .SetProperty(p => p.Uf, TrimToMax(request.Uf, 2))
+                .SetProperty(p => p.LinkedinUrl, TrimToMax(request.LinkedinUrl, 260))
+                .SetProperty(p => p.ResumoProfissional, TrimToMax(request.ResumoProfissional, 2000))
+                .SetProperty(p => p.Obs, TrimToMax(request.Obs, 2000))
+                .SetProperty(p => p.Cpf, TrimToMax(request.Cpf, 14))
+                .SetProperty(p => p.DataNascimento, request.DataNascimento)
+                .SetProperty(p => p.Cep, TrimToMax(request.Cep, 20))
+                .SetProperty(p => p.Logradouro, TrimToMax(request.Logradouro, 200))
+                .SetProperty(p => p.Numero, TrimToMax(request.Numero, 40))
+                .SetProperty(p => p.Bairro, TrimToMax(request.Bairro, 120))
+                .SetProperty(p => p.UpdatedAtUtc, now), ct);
+
+        // Inserir novos filhos (sem carregar Talento/Pessoa no tracker).
+        AddUpdateRequestChildrenToContext(id, request);
+
+        await _db.SaveChangesAsync(ct);
+        return (await GetByIdAsync(id, ct))!;
+    }
+
+    private void ApplyUpdateRequestToEntity(Talento entity, TalentoUpdateRequest request)
+    {
+        entity.Pessoa!.Nome = (request.Nome ?? string.Empty).Trim();
         entity.Pessoa.Email = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
         entity.Pessoa.Fone = TrimToMax(request.Fone, 40);
         entity.Pessoa.Cidade = TrimToMax(request.Cidade, 120);
@@ -324,45 +425,6 @@ public sealed class TalentoService : ITalentoService
         ApplyTreinamentos(entity, request.Treinamentos);
         ApplyFormacao(entity, request.Formacao);
         entity.CvProfileJson = BuildCvProfileJson(entity);
-
-        // #region agent log
-        try
-        {
-            const string logPath = "/Users/victoralves/Projects/Voltage.RenderRH/.cursor/debug.log";
-            var afterApply = System.Text.Json.JsonSerializer.Serialize(new { location = "TalentoService.UpdateAsync.afterApply", data = new { expCount = entity.Experiencias?.Count ?? -1, treinCount = entity.Treinamentos?.Count ?? -1 }, timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }) + "\n";
-            await System.IO.File.AppendAllTextAsync(logPath, afterApply, ct);
-        }
-        catch { /* ignore */ }
-        // #endregion
-        try
-        {
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            // #region agent log
-            try
-            {
-                const string logPath = "/Users/victoralves/Projects/Voltage.RenderRH/.cursor/debug.log";
-                var errLine = System.Text.Json.JsonSerializer.Serialize(new { location = "TalentoService.UpdateAsync.SaveChangesException", message = ex.Message, inner = ex.InnerException?.Message, full = ex.ToString(), timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }) + "\n";
-                await System.IO.File.AppendAllTextAsync(logPath, errLine, CancellationToken.None);
-            }
-            catch { /* ignore */ }
-            // #endregion
-            throw;
-        }
-
-        var result = (await GetByIdAsync(id, ct))!;
-        // #region agent log
-        try
-        {
-            const string logPath = "/Users/victoralves/Projects/Voltage.RenderRH/.cursor/debug.log";
-            var responseLog = System.Text.Json.JsonSerializer.Serialize(new { location = "TalentoService.UpdateAsync.response", data = new { responseExpCount = result.Experiencias?.Count ?? -1, responseTreinCount = result.Treinamentos?.Count ?? -1 }, timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }) + "\n";
-            await System.IO.File.AppendAllTextAsync(logPath, responseLog, ct);
-        }
-        catch { /* ignore */ }
-        // #endregion
-        return result;
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
@@ -372,6 +434,18 @@ public sealed class TalentoService : ITalentoService
         _db.Talentos.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;
+    }
+
+    public async Task<int> DeleteAllForTenantAsync(CancellationToken ct)
+    {
+        var ids = await _db.Talentos.AsNoTracking().Select(x => x.Id).ToListAsync(ct);
+        var count = 0;
+        foreach (var id in ids)
+        {
+            if (await DeleteAsync(id, ct))
+                count++;
+        }
+        return count;
     }
 
     public async Task<TalentoImportPdfResponse> ImportPdfAsync(Guid? talentoId, Stream pdfStream, string fileName, bool enviarParaGpt, CancellationToken ct)
@@ -722,6 +796,58 @@ public sealed class TalentoService : ITalentoService
         var talentoResponse = MapToResponse(entity);
         var importJobSummary = new TalentoCvImportJobSummary(job.Id, job.Status);
         return new TalentoStartImportPdfResponse(talentoResponse, docSummary, importJobSummary);
+    }
+
+    public async Task<TalentoCurriculoExtrairResponse?> UploadCurriculoEExtrairAsync(Guid talentoId, Stream pdfStream, string fileName, bool enviarParaGpt, CancellationToken ct)
+    {
+        var entity = await _db.Talentos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == talentoId && x.TenantId == _tenantContext.TenantId, ct);
+        if (entity is null)
+            return null;
+
+        var folder = GetTalentoFolder(entity.Id);
+        Directory.CreateDirectory(folder);
+        var docId = Guid.NewGuid();
+        var storageFileName = BuildStorageFileName(docId, fileName);
+        var filePath = Path.Combine(folder, storageFileName);
+
+        await using (var fs = File.Create(filePath))
+            await pdfStream.CopyToAsync(fs, ct);
+        var tamanhoBytes = new FileInfo(filePath).Length;
+        var contentType = GetContentType(Path.GetExtension(fileName));
+
+        var doc = new TalentoDocumento
+        {
+            Id = docId,
+            TenantId = _tenantContext.TenantId,
+            TalentoId = entity.Id,
+            NomeArquivo = NormalizeFileName(fileName),
+            ContentType = contentType,
+            Descricao = "Currículo enviado pela tela",
+            StorageFileName = storageFileName,
+            TamanhoBytes = tamanhoBytes,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+        _db.TalentoDocumentos.Add(doc);
+        await _db.SaveChangesAsync(ct);
+
+        string? cvText = null;
+        TalentoImportPdfSuggestedData? suggestedData = null;
+        try
+        {
+            cvText = await ResumeTextExtractor.ExtractAsync(filePath, ct);
+            if (enviarParaGpt && !string.IsNullOrWhiteSpace(cvText))
+                suggestedData = await _cvGptExtractor.ExtractSuggestedDataAsync(cvText, ct);
+        }
+        catch
+        {
+            cvText ??= string.Empty;
+        }
+
+        var docSummary = new TalentoDocumentoSummary(doc.Id, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes, doc.CreatedAtUtc);
+        return new TalentoCurriculoExtrairResponse(docSummary, cvText, suggestedData);
     }
 
     private static PessoaUpdateRequest BuildPessoaUpdateRequestFromSuggestedData(TalentoImportPdfSuggestedData suggestedData, Pessoa pessoa)
@@ -1400,6 +1526,113 @@ public sealed class TalentoService : ITalentoService
             formacao = form
         };
         return JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = false });
+    }
+
+    private static string BuildCvProfileJsonFromUpdateRequest(TalentoUpdateRequest request)
+    {
+        var comp = (request.Competencias ?? new List<TalentoCompetenciaItem>()).Select(c => new { c.Tipo, c.Nome, c.Nivel, c.Evidencia, c.TempoAtuacao }).ToList();
+        var exp = (request.Experiencias ?? new List<TalentoExperienciaItem>()).Select(e => new { e.Empresa, e.Cargo, e.Inicio, e.Fim, e.TipoContratacao, e.Local, e.Atividades, e.ResumoAtividades, e.NivelSenioridade, e.NivelHierarquico }).ToList();
+        var trein = (request.Treinamentos ?? new List<TalentoTreinamentoItem>()).Select(tr => new { tr.Nome, tr.Instituicao, tr.Ano, tr.Link }).ToList();
+        var form = (request.Formacao ?? new List<TalentoFormacaoItem>()).Select(f => new { f.Curso, f.Instituicao, f.Tipo, f.Status, f.Inicio, f.Fim, f.Observacoes, f.Link }).ToList();
+        var profile = new { resumoProfissional = request.ResumoProfissional, competencias = comp, experiencias = exp, treinamentos = trein, formacao = form };
+        return JsonSerializer.Serialize(profile, new JsonSerializerOptions { WriteIndented = false });
+    }
+
+    private void AddUpdateRequestChildrenToContext(Guid talentoId, TalentoUpdateRequest request)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var now = DateTimeOffset.UtcNow;
+        if (request.Competencias?.Count > 0)
+        {
+            var list = new List<TalentoCompetencia>();
+            foreach (var item in request.Competencias)
+            {
+                list.Add(new TalentoCompetencia
+                {
+                    Id = item.Id ?? Guid.NewGuid(),
+                    TenantId = tenantId,
+                    TalentoId = talentoId,
+                    Tipo = (TrimToMax(item.Tipo, 40) ?? string.Empty).Length > 40 ? (item.Tipo ?? "").Trim().Substring(0, 40) : (item.Tipo ?? "").Trim(),
+                    Nome = (TrimToMax(item.Nome, 120) ?? string.Empty).Length > 120 ? (item.Nome ?? "").Trim().Substring(0, 120) : (item.Nome ?? "").Trim(),
+                    Nivel = (TrimToMax(item.Nivel, 40) ?? string.Empty).Length > 40 ? (item.Nivel ?? "").Trim().Substring(0, 40) : (item.Nivel ?? "").Trim(),
+                    Evidencia = TrimToMax(item.Evidencia, 300),
+                    TempoAtuacao = TrimToMax(item.TempoAtuacao, 80),
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now
+                });
+            }
+            _db.TalentoCompetencias.AddRange(list);
+        }
+        if (request.Experiencias?.Count > 0)
+        {
+            var list = new List<TalentoExperiencia>();
+            foreach (var item in request.Experiencias)
+            {
+                list.Add(new TalentoExperiencia
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    TalentoId = talentoId,
+                    Empresa = (TrimToMax(item.Empresa, 160) ?? string.Empty).Length > 160 ? (item.Empresa ?? "").Trim().Substring(0, 160) : (item.Empresa ?? "").Trim(),
+                    Cargo = (TrimToMax(item.Cargo, 160) ?? string.Empty).Length > 160 ? (item.Cargo ?? "").Trim().Substring(0, 160) : (item.Cargo ?? "").Trim(),
+                    Inicio = TrimToMax(item.Inicio, 20),
+                    Fim = TrimToMax(item.Fim, 20),
+                    TipoContratacao = TrimToMax(item.TipoContratacao, 40),
+                    Local = TrimToMax(item.Local, 160),
+                    Atividades = TrimToMax(item.Atividades, 2400),
+                    ResumoAtividades = TrimToMax(item.ResumoAtividades, 800),
+                    NivelSenioridade = TrimToMax(item.NivelSenioridade, 40),
+                    NivelHierarquico = TrimToMax(item.NivelHierarquico, 80),
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now
+                });
+            }
+            _db.TalentoExperiencias.AddRange(list);
+        }
+        if (request.Treinamentos?.Count > 0)
+        {
+            var list = new List<TalentoTreinamento>();
+            foreach (var item in request.Treinamentos)
+            {
+                list.Add(new TalentoTreinamento
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    TalentoId = talentoId,
+                    Nome = (TrimToMax(item.Nome, 160) ?? string.Empty).Length > 160 ? (item.Nome ?? "").Trim().Substring(0, 160) : (item.Nome ?? "").Trim(),
+                    Instituicao = TrimToMax(item.Instituicao, 160),
+                    Ano = TrimToMax(item.Ano, 10),
+                    Link = TrimToMax(item.Link, 260),
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now
+                });
+            }
+            _db.TalentoTreinamentos.AddRange(list);
+        }
+        if (request.Formacao?.Count > 0)
+        {
+            var list = new List<TalentoFormacao>();
+            foreach (var item in request.Formacao)
+            {
+                list.Add(new TalentoFormacao
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    TalentoId = talentoId,
+                    Curso = (TrimToMax(item.Curso, 160) ?? string.Empty).Length > 160 ? (item.Curso ?? "").Trim().Substring(0, 160) : (item.Curso ?? "").Trim(),
+                    Instituicao = TrimToMax(item.Instituicao, 160),
+                    Tipo = TrimToMax(item.Tipo, 40),
+                    Status = TrimToMax(item.Status, 40),
+                    Inicio = TrimToMax(item.Inicio, 20),
+                    Fim = TrimToMax(item.Fim, 20),
+                    Observacoes = TrimToMax(item.Observacoes, 800),
+                    Link = TrimToMax(item.Link, 260),
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now
+                });
+            }
+            _db.TalentoFormacoes.AddRange(list);
+        }
     }
 
     private string GetTalentoFolder(Guid talentoId) =>

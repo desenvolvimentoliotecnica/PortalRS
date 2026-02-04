@@ -44,7 +44,7 @@ public sealed class MenuAdministrationService
             ["gestao.resumo"] = "Seed.Menu.GestaoResumo",
             ["departments.view"] = "Seed.Menu.Departamentos",
             ["areas.view"] = "Seed.Menu.Areas",
-            ["categories.view"] = "Seed.Menu.Categorias",
+            ["categories.view"] = "Seed.Menu.Funcoes",
             ["jobpositions.view"] = "Seed.Menu.Cargos",
             ["units.view"] = "Seed.Menu.Unidades",
             ["funcionarios.view"] = "Seed.Menu.Funcionarios",

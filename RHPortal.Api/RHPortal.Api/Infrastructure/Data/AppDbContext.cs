@@ -87,6 +87,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<OneOnOneMeeting> OneOnOneMeetings => Set<OneOnOneMeeting>();
     public DbSet<RenderCoinBalance> RenderCoinBalances => Set<RenderCoinBalance>();
     public DbSet<RenderCoinTransaction> RenderCoinTransactions => Set<RenderCoinTransaction>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
 
 
@@ -549,6 +550,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.JobPosition)
                 .WithMany()
                 .HasForeignKey(x => x.JobPositionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.RequisitoCategoria)
+                .WithMany()
+                .HasForeignKey(x => x.RequisitoCategoriaId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             b.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
@@ -1126,6 +1132,22 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.IsEnabled).IsRequired();
 
             b.HasIndex(x => new { x.TenantId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<ApiKey>(b =>
+        {
+            b.ToTable("ApiKeys");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.KeyHash).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(500);
+            b.Property(x => x.IsActive).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.KeyHash }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Name });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1943,6 +1965,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) entraConfig.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) entraConfig.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is ApiKey apiKey)
+            {
+                if (entry.State == EntityState.Added) apiKey.CreatedAtUtc = now;
             }
 
             if (entry.Entity is AgendaEventType agendaType)

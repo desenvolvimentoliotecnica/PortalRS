@@ -242,6 +242,7 @@
         fonte,
         status,
         vagaId: api.vagaId,
+        talentoId: api.talentoId || null,
         obs: api.obs || "",
         cvText: api.cvText || "",
         applicationRecruiterUserId: api.applicationRecruiterUserId || null,
@@ -1263,6 +1264,7 @@
           if(act === "recalc") recalcMatch(c.id);
           if(act === "saveMeta") saveMeta(c.id, false);
           if(act === "uploadDoc") uploadDocumento(c.id);
+          if(act === "uploadCvExtrair") uploadCvEExtrair(c.id);
           if(act === "openVaga") toast("Placeholder: aqui abriria a tela de Vagas filtrada na vaga.");
         });
       });
@@ -1321,6 +1323,152 @@
         arquivoSelector: "#docArquivo",
         listSelector: "#docList"
       });
+    }
+
+    let _suggestedDataPayload = null;
+
+    async function uploadCvEExtrair(candId){
+      const root = $("#detailHost");
+      const fileInput = root?.querySelector("#cvPdfArquivo");
+      const file = fileInput?.files?.[0];
+      if(!file){
+        toast("Selecione um arquivo PDF.");
+        return;
+      }
+      const ext = (file.name || "").toLowerCase().slice(-4);
+      if(ext !== ".pdf"){
+        toast("Apenas arquivos PDF são aceitos.");
+        return;
+      }
+      const enviarParaGpt = root?.querySelector("#cvEnviarParaGpt")?.checked !== false;
+      const form = new FormData();
+      form.append("arquivo", file);
+      form.append("enviarParaGpt", enviarParaGpt ? "true" : "false");
+      try{
+        const resp = await apiFetchJson(`${CANDIDATOS_API_URL}/${candId}/documentos/curriculo-extrair`, {
+          method: "POST",
+          body: form
+        });
+        if(!resp){
+          toast("Currículo enviado.");
+        } else {
+          const c = findCand(candId);
+          if(c && resp.documento){
+            if(!Array.isArray(c.documentos)) c.documentos = [];
+            c.documentos.unshift(resp.documento);
+            renderDocumentList(root, c, "#docList");
+          }
+          if(resp.suggestedData){
+            _suggestedDataPayload = resp.suggestedData;
+            $("#suggestedCandidatoId").value = candId;
+            $("#suggestedTalentoId").value = c?.talentoId || "";
+            const el = document.getElementById("suggestedCvText");
+            if(el) el.value = resp.cvText || "";
+            const s = resp.suggestedData;
+            $("#suggestedNome").value = s.nome || "";
+            $("#suggestedEmail").value = s.email || "";
+            $("#suggestedFone").value = s.fone || "";
+            $("#suggestedCidade").value = s.cidade || "";
+            $("#suggestedUf").value = (s.uf || "").toUpperCase().slice(0,2);
+            $("#suggestedResumo").value = s.resumoProfissional || "";
+            const btnTalento = $("#btnApplyCandidatoETalento");
+            if(btnTalento){
+              if(c?.talentoId) btnTalento.classList.remove("d-none"); else btnTalento.classList.add("d-none");
+            }
+            bootstrap.Modal.getOrCreateInstance($("#modalCvSuggested")).show();
+          } else {
+            toast("Currículo enviado." + (enviarParaGpt ? " Nenhum dado extraído pela IA." : ""));
+          }
+        }
+        if(fileInput) fileInput.value = "";
+      }catch(err){
+        console.error(err);
+        toast("Falha ao enviar currículo.");
+      }
+    }
+
+    function buildTalentoUpdateFromSuggested(s){
+      if(!s) return null;
+      return {
+        nome: s.nome || "",
+        email: s.email || "",
+        fone: s.fone || null,
+        cidade: s.cidade || null,
+        uf: (s.uf || "").toUpperCase().slice(0,2) || null,
+        linkedinUrl: s.linkedinUrl || null,
+        resumoProfissional: s.resumoProfissional || null,
+        obs: null,
+        cpf: s.cpf || null,
+        dataNascimento: s.dataNascimento || null,
+        cep: s.cep || null,
+        logradouro: s.logradouro || null,
+        numero: s.numero || null,
+        bairro: s.bairro || null,
+        origem: "Manual",
+        competencias: Array.isArray(s.competencias) ? s.competencias : null,
+        experiencias: Array.isArray(s.experiencias) ? s.experiencias : null,
+        treinamentos: Array.isArray(s.treinamentos) ? s.treinamentos : null,
+        formacao: Array.isArray(s.formacao) ? s.formacao : null
+      };
+    }
+
+    async function applySuggestedToCandidato(alsoTalento){
+      const candId = $("#suggestedCandidatoId").value;
+      const talentoId = $("#suggestedTalentoId").value;
+      if(!candId){ toast("Candidato não definido."); return; }
+      const nome = ($("#suggestedNome").value || "").trim();
+      const email = ($("#suggestedEmail").value || "").trim();
+      if(!nome || !email){ toast("Preencha nome e email."); return; }
+      const cvTextEl = document.getElementById("suggestedCvText");
+      const cvText = (cvTextEl?.value || "").trim() || null;
+      const c = findCand(candId);
+      const payload = {
+        nome,
+        email,
+        fone: ($("#suggestedFone").value || "").trim() || null,
+        cidade: ($("#suggestedCidade").value || "").trim() || null,
+        uf: ($("#suggestedUf").value || "").trim().toUpperCase().slice(0,2) || null,
+        fonte: c?.fonte || "email",
+        status: c?.status || "novo",
+        vagaId: c?.vagaId || "",
+        obs: c?.obs || null,
+        cvText,
+        lastMatch: c?.lastMatch || null,
+        documentos: null,
+        applicationRecruiterUserId: c?.applicationRecruiterUserId || null,
+        applicationRecruiterUserName: c?.applicationRecruiterUserName || null,
+        talentoId: c?.talentoId || null
+      };
+      try{
+        await apiFetchJson(`${CANDIDATOS_API_URL}/${candId}`, { method: "PUT", body: JSON.stringify(payload) });
+        if(alsoTalento && talentoId){
+          const s = _suggestedDataPayload;
+          const talentoPayload = buildTalentoUpdateFromSuggested({
+            ...s,
+            nome: ($("#suggestedNome").value || "").trim(),
+            email: ($("#suggestedEmail").value || "").trim(),
+            fone: ($("#suggestedFone").value || "").trim() || null,
+            cidade: ($("#suggestedCidade").value || "").trim() || null,
+            uf: ($("#suggestedUf").value || "").trim().toUpperCase().slice(0,2) || null,
+            resumoProfissional: ($("#suggestedResumo").value || "").trim() || null
+          });
+          if(talentoPayload){
+            const baseUrl = (window.__apiBaseUrl || "").replace(/\/$/, "");
+            await apiFetchJson(`${baseUrl}/Talentos/_api/${talentoId}`, { method: "PUT", body: JSON.stringify(talentoPayload) });
+          }
+        }
+        bootstrap.Modal.getOrCreateInstance($("#modalCvSuggested")).hide();
+        toast(alsoTalento && talentoId ? "Dados aplicados no candidato e no talento." : "Dados aplicados no candidato.");
+        ensureCandidateDetails(candId).then(() => requestRenderDetail());
+      }catch(err){
+        console.error(err);
+        toast("Falha ao aplicar dados.");
+      }
+    }
+
+    function wireCvSuggestedModal(){
+      $("#btnApplyCandidato")?.addEventListener("click", () => applySuggestedToCandidato(false));
+      $("#btnApplyCandidatoETalento")?.addEventListener("click", () => applySuggestedToCandidato(true));
     }
 
     function downloadDocumento(url){
@@ -1782,6 +1930,7 @@
       $("#btnNewCand").addEventListener("click", () => openCandModal("new"));
       $("#btnSaveCand").addEventListener("click", upsertCandFromModal);
       $("#btnExportJson").addEventListener("click", exportJson);
+      wireCvSuggestedModal();
       const docBtn = $("#btnCandDocUpload");
       if(docBtn){
         docBtn.addEventListener("click", async () => {

@@ -31,6 +31,10 @@ public sealed class Funcionario : ITenantEntity
     public Guid? JobPositionId { get; set; }
     public JobPosition? JobPosition { get; set; }
 
+    /// <summary>Função do funcionário (PFUNCAO no RM → RequisitoCategorias no portal).</summary>
+    public Guid? RequisitoCategoriaId { get; set; }
+    public RequisitoCategoria? RequisitoCategoria { get; set; }
+
     public string? Notes { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }

@@ -134,6 +134,43 @@ public sealed class TalentosController : ControllerBase
     }
 
     /// <summary>
+    /// Upload de currículo (PDF) no talento existente: salva documento, extrai texto e dados sugeridos pela LLM para revisar na tela e aplicar.
+    /// </summary>
+    [HttpPost("{id:guid}/documentos/curriculo-extrair")]
+    [RequestSizeLimit(52_428_800)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(TalentoCurriculoExtrairResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TalentoCurriculoExtrairResponse>> UploadCurriculoEExtrair(
+        [FromRoute] Guid id,
+        [FromForm] IFormFile? arquivo,
+        [FromServices] ITalentoService service,
+        CancellationToken ct,
+        [FromForm] bool enviarParaGpt = true)
+    {
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = "Arquivo PDF é obrigatório." });
+
+        var fileName = arquivo.FileName ?? "curriculo.pdf";
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        if (ext != ".pdf")
+            return BadRequest(new { message = "Apenas arquivos PDF são aceitos." });
+
+        try
+        {
+            await using var stream = arquivo.OpenReadStream();
+            var result = await service.UploadCurriculoEExtrairAsync(id, stream, fileName, enviarParaGpt, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Aprova a aplicação dos dados do CV no cadastro similar (job em PendenteValidacao).
     /// </summary>
     [HttpPost("import-jobs/{id:guid}/aprovar")]

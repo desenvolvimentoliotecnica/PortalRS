@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using RhPortal.Api.Application.Candidatos;
+using RhPortal.Api.Application.Talentos;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Data.Seeders;
 using RhPortal.Api.Infrastructure.Ops;
@@ -194,4 +197,35 @@ public sealed class OpsController : ControllerBase
             return StatusCode(500, new { error = "Falha ao atualizar senha.", detail = ex.Message, stack = env.IsDevelopment() ? ex.StackTrace : null });
         }
     }
+
+    /// <summary>
+    /// Remove todos os candidatos e depois todos os talentos do tenant atual (uso pela integração RM ou admin).
+    /// Ordem: primeiro candidatos (por vaga), depois talentos.
+    /// Em Development permite chamada sem autenticação; fora de Development exige Admin, Owner ou ApiKey.
+    /// </summary>
+    [HttpDelete("clean-candidatos-talentos")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<CleanCandidatosTalentosResponse>> CleanCandidatosTalentos(
+        [FromServices] ICandidatoService candidatoService,
+        [FromServices] ITalentoService talentoService,
+        [FromServices] IHostEnvironment env,
+        CancellationToken ct)
+    {
+        if (!env.IsDevelopment())
+        {
+            if (User?.Identity?.IsAuthenticated != true)
+                return Unauthorized();
+            if (!User.IsInRole("Admin") && !User.IsInRole("Owner") && !User.IsInRole("ApiKey"))
+                return Forbid();
+        }
+
+        var candidatosRemovidos = await candidatoService.DeleteAllForTenantAsync(ct);
+        var talentosRemovidos = await talentoService.DeleteAllForTenantAsync(ct);
+        return Ok(new CleanCandidatosTalentosResponse(candidatosRemovidos, talentosRemovidos));
+    }
 }
+
+public sealed record CleanCandidatosTalentosResponse(int CandidatosRemovidos, int TalentosRemovidos);

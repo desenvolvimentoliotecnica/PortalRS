@@ -6,7 +6,7 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
 {
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
-        if (context.User.IsInRole("Owner"))
+        if (context.User.IsInRole("Owner") || context.User.IsInRole("ApiKey"))
         {
             context.Succeed(requirement);
             return Task.CompletedTask;

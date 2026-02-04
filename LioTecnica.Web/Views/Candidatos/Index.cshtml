@@ -291,6 +291,28 @@
 			</div>
 
 			<div class="tab-pane fade" id="tabDocs">
+				<div class="fw-semibold mb-1">Curriculo (PDF) e extração com IA</div>
+				<div class="text-muted small mb-2">
+					Envie um PDF de currículo para anexar ao candidato e extrair dados com IA. Revise os dados sugeridos e aplique no candidato (e no talento, se houver).
+				</div>
+				<div class="row g-2 align-items-end mb-3">
+					<div class="col-12 col-md-5">
+						<label class="form-label small">PDF do currículo</label>
+						<input class="form-control form-control-sm" id="cvPdfArquivo" type="file" accept=".pdf" />
+					</div>
+					<div class="col-12 col-md-4 d-flex align-items-end gap-2">
+						<div class="form-check form-check-inline mb-0">
+							<input class="form-check-input" type="checkbox" id="cvEnviarParaGpt" checked />
+							<label class="form-check-label small" for="cvEnviarParaGpt">Extrair dados com IA (LLM)</label>
+						</div>
+					</div>
+					<div class="col-12 col-md-3">
+						<button class="btn btn-brand btn-sm w-100" type="button" data-dact="uploadCvExtrair">
+							<i class="bi bi-file-earmark-pdf me-1"></i>Enviar e extrair
+						</button>
+					</div>
+				</div>
+
 				<div class="fw-semibold mb-1">Documentos e curriculo</div>
 				<div class="text-muted small mb-2">
 					Anexe curriculos, certificados e outros documentos do candidato.

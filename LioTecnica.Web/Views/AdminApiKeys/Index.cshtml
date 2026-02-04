@@ -1,0 +1,101 @@
+@{
+    ViewData["Title"] = "Chaves de API";
+    ViewData["SidebarSubtitle"] = "Admin";
+}
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Chaves de API")
+
+    <div class="d-flex align-items-center gap-2">
+        @await Html.PartialAsync("_TopbarUserActions", "Admin")
+    </div>
+}
+
+<section class="content">
+    <div class="container-fluid pb-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div>
+                <h1 class="h4 mb-1">Chaves de API</h1>
+                <div class="text-muted">Cadastre chaves para acesso programático à API. Use o header <code>X-Api-Key</code> e <code>X-Tenant-Id</code>.</div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#modalCreateKey">
+                    <i class="bi bi-plus-lg me-1"></i>Nova chave
+                </button>
+            </div>
+        </div>
+
+        <div class="card-soft p-3">
+            <div id="keysListContainer">
+                <div class="text-center text-muted py-4" id="keysLoading">Carregando...</div>
+                <div id="keysList" class="d-none"></div>
+                <div class="text-center text-muted py-4 d-none" id="keysEmpty">Nenhuma chave cadastrada.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Modal Nova chave -->
+<div class="modal fade" id="modalCreateKey" tabindex="-1" aria-labelledby="modalCreateKeyLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCreateKeyLabel">Nova chave de API</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label" for="newKeyName">Nome <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="newKeyName" placeholder="Ex: Integração RM" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="newKeyDescription">Descrição (opcional)</label>
+                    <input type="text" class="form-control" id="newKeyDescription" placeholder="Uso ou sistema que usará esta chave" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand" id="btnCreateKey">Criar chave</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Exibir chave (apenas uma vez) -->
+<div class="modal fade" id="modalShowKey" tabindex="-1" aria-labelledby="modalShowKeyLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalShowKeyLabel">Chave criada</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-warning mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Copie e guarde esta chave em um lugar seguro. Ela não será exibida novamente.</p>
+                <div class="input-group">
+                    <input type="text" class="form-control font-monospace" id="createdKeyValue" readonly />
+                    <button type="button" class="btn btn-outline-secondary" id="btnCopyKey" title="Copiar"><i class="bi bi-clipboard"></i></button>
+                </div>
+                <p class="form-text mt-2 mb-0">Use no header: <code>X-Api-Key: &lt;sua-chave&gt;</code> e <code>X-Tenant-Id: &lt;seu-tenant&gt;</code></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-brand" data-bs-dismiss="modal">Entendi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="~/js/views/admin-api-keys.js" asp-append-version="true"></script>
+}
+
+@section Footer {
+    @{
+        var footerItems = new[]
+        {
+            new { Icon = "bi-key-fill", Text = "API Keys", Id = "", Class = "" },
+            new { Icon = "", Text = "build: web", Id = "buildId", Class = "mono muted" }
+        };
+    }
+    @await Html.PartialAsync("_Footer", footerItems)
+}

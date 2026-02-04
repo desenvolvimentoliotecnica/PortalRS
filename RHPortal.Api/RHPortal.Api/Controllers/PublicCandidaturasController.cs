@@ -128,6 +128,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                     existing.Vaga?.Titulo,
                     existing.Vaga?.AreaId,
                     existing.Vaga?.RecrutadorResponsavelUserId,
+                    existing.TalentoId,
                     existing.Obs,
                     existing.CvText,
                     null,

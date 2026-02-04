@@ -1,11 +1,19 @@
-const CATEGORIAS_API_BASE = "/Categorias/_api";
+const CATEGORIAS_API_BASE = (function () {
+  var p = (window.location.pathname || "").toLowerCase();
+  if (p.startsWith("/cadastro/funcoes")) return "/Cadastro/Funcoes/_api";
+  if (p.startsWith("/funcoes")) return "/Funcoes/_api";
+  return "/Categorias/_api";
+})();
 const VAGAS_API_URL = window.__vagasApiUrl || "/api/vagas";
 const EMPTY_TEXT = "-";
+const PAGE_SIZE = 20;
 
 const state = {
   categorias: [],
   vagas: [],
-  filters: { q: "", status: "all" }
+  filters: { q: "", status: "all" },
+  page: 1,
+  pageSize: PAGE_SIZE
 };
 
 function apiFetchJson(url, opts) {
@@ -192,22 +200,75 @@ function getFiltered() {
   });
 }
 
+function renderPagination() {
+  const wrap = $("#paginationWrap");
+  if (!wrap) return;
+  const rows = getFiltered();
+  const totalFiltered = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / state.pageSize));
+  wrap.replaceChildren();
+  if (totalFiltered === 0 || totalPages <= 1) return;
+
+  const prev = document.createElement("button");
+  prev.type = "button";
+  prev.className = "btn btn-ghost btn-sm";
+  prev.innerHTML = "<i class=\"bi bi-chevron-left\"></i>";
+  prev.disabled = state.page <= 1;
+  prev.addEventListener("click", () => {
+    state.page = Math.max(1, state.page - 1);
+    renderTable();
+    renderPagination();
+  });
+  wrap.appendChild(prev);
+
+  const span = document.createElement("span");
+  span.className = "small text-muted ms-1 me-1";
+  span.textContent = `${state.page} / ${totalPages}`;
+  wrap.appendChild(span);
+
+  const next = document.createElement("button");
+  next.type = "button";
+  next.className = "btn btn-ghost btn-sm";
+  next.innerHTML = "<i class=\"bi bi-chevron-right\"></i>";
+  next.disabled = state.page >= totalPages;
+  next.addEventListener("click", () => {
+    state.page = Math.min(totalPages, state.page + 1);
+    renderTable();
+    renderPagination();
+  });
+  wrap.appendChild(next);
+}
+
 function renderTable() {
   const tbody = $("#catTbody");
   if (!tbody) return;
   tbody.replaceChildren();
 
   const rows = getFiltered();
-  $("#catCount").textContent = rows.length;
-  $("#catHint").textContent = rows.length ? `${rows.length} categorias encontradas.` : "Nenhuma categoria encontrada.";
+  const totalFiltered = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / state.pageSize));
+  state.page = Math.max(1, Math.min(state.page, totalPages));
+  const from = totalFiltered === 0 ? 0 : (state.page - 1) * state.pageSize + 1;
+  const to = Math.min(state.page * state.pageSize, totalFiltered);
+  const rowsPage = rows.slice(from - 1, to);
 
-  if (!rows.length) {
+  const countEl = $("#catCount");
+  if (countEl) countEl.textContent = totalFiltered;
+  const hintEl = $("#catHint");
+  if (hintEl) {
+    if (totalFiltered === 0) hintEl.textContent = "Nenhuma função encontrada.";
+    else if (totalPages <= 1) hintEl.textContent = `${totalFiltered} funções encontradas.`;
+    else hintEl.textContent = `${from} a ${to} de ${totalFiltered} funções.`;
+  }
+
+  if (!rowsPage.length) {
     const empty = cloneTemplate("tpl-cat-empty-row");
     if (empty) tbody.appendChild(empty);
+    renderPagination();
     return;
   }
 
-  rows.forEach(c => {
+  rowsPage.forEach(c => {
     const tr = cloneTemplate("tpl-cat-row");
     if (!tr) return;
     setText(tr, "cat-name", c.nome || EMPTY_TEXT);
@@ -233,6 +294,8 @@ function renderTable() {
 
     tbody.appendChild(tr);
   });
+
+  renderPagination();
 }
 
 function findCategoria(id) {
@@ -429,6 +492,7 @@ function wireFilters() {
   const apply = () => {
     state.filters.q = ($("#cSearch").value || "").trim();
     state.filters.status = $("#cStatus").value || "all";
+    state.page = 1;
     renderTable();
   };
 

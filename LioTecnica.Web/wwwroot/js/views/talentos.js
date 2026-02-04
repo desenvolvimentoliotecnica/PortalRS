@@ -2,6 +2,8 @@ const TALENTOS_API_BASE = "/Talentos/_api";
 const VAGAS_API_URL = window.__vagasApiUrl || "/api/vagas";
 const CANDIDATOS_API_URL = "/api/candidatos";
 
+let _talSuggestedDataPayload = null;
+
 const state = {
   items: [],
   totalCount: 0,
@@ -908,6 +910,136 @@ function saveDetailAndRefresh(dataSource) {
   });
 }
 
+function buildTalentoUpdateFromSuggested(s) {
+  if (!s) return null;
+  return {
+    nome: (s.nome || "").trim(),
+    email: (s.email || "").trim(),
+    fone: s.fone || null,
+    cidade: s.cidade || null,
+    uf: (s.uf || "").trim().toUpperCase().slice(0, 2) || null,
+    linkedinUrl: s.linkedinUrl || null,
+    resumoProfissional: s.resumoProfissional || null,
+    obs: null,
+    cpf: s.cpf || null,
+    dataNascimento: s.dataNascimento || null,
+    cep: s.cep || null,
+    logradouro: s.logradouro || null,
+    numero: s.numero || null,
+    bairro: s.bairro || null,
+    origem: "Manual",
+    competencias: Array.isArray(s.competencias) ? s.competencias : null,
+    experiencias: Array.isArray(s.experiencias) ? s.experiencias : null,
+    treinamentos: Array.isArray(s.treinamentos) ? s.treinamentos : null,
+    formacao: Array.isArray(s.formacao) ? s.formacao : null
+  };
+}
+
+async function uploadCvEExtrairTalento() {
+  const talentoId = state.detailTalentoData?.id;
+  if (!talentoId) {
+    toast("Nenhum talento em detalhe.");
+    return;
+  }
+  const fileInput = document.getElementById("talCvPdfArquivo");
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    toast("Selecione um arquivo PDF.");
+    return;
+  }
+  const ext = (file.name || "").toLowerCase().slice(-4);
+  if (ext !== ".pdf") {
+    toast("Apenas arquivos PDF são aceitos.");
+    return;
+  }
+  const enviarParaGpt = document.getElementById("talCvEnviarParaGpt")?.checked !== false;
+  const form = new FormData();
+  form.append("arquivo", file);
+  form.append("enviarParaGpt", enviarParaGpt ? "true" : "false");
+  try {
+    const resp = await apiFetchJson(`${TALENTOS_API_BASE}/${talentoId}/documentos/curriculo-extrair`, {
+      method: "POST",
+      body: form
+    });
+    if (!resp) {
+      toast("Currículo enviado.");
+    } else {
+      const d = state.detailTalentoData;
+      if (d && resp.documento) {
+        if (!Array.isArray(d.documentos)) d.documentos = [];
+        d.documentos.unshift(resp.documento);
+        renderDetailTabs(d);
+      }
+      if (resp.suggestedData) {
+        _talSuggestedDataPayload = resp.suggestedData;
+        document.getElementById("talSuggestedTalentoId").value = talentoId;
+        const cvEl = document.getElementById("talSuggestedCvText");
+        if (cvEl) cvEl.value = resp.cvText || "";
+        const s = resp.suggestedData;
+        document.getElementById("talSuggestedNome").value = s.nome || "";
+        document.getElementById("talSuggestedEmail").value = s.email || "";
+        document.getElementById("talSuggestedFone").value = s.fone || "";
+        document.getElementById("talSuggestedCidade").value = s.cidade || "";
+        document.getElementById("talSuggestedUf").value = (s.uf || "").toUpperCase().slice(0, 2) || "";
+        document.getElementById("talSuggestedResumo").value = s.resumoProfissional || "";
+        const modalEl = document.getElementById("modalTalCvSuggested");
+        if (window.bootstrap && modalEl) {
+          const modal = new bootstrap.Modal(modalEl);
+          modal.show();
+        }
+      } else {
+        toast("Currículo enviado." + (enviarParaGpt ? " Nenhum dado extraído pela IA." : ""));
+      }
+    }
+    if (fileInput) fileInput.value = "";
+  } catch (err) {
+    console.error(err);
+    toast("Falha ao enviar currículo.");
+  }
+}
+
+async function applySuggestedToTalento() {
+  const talentoId = (document.getElementById("talSuggestedTalentoId")?.value || "").trim();
+  if (!talentoId) {
+    toast("Talento não definido.");
+    return;
+  }
+  const nome = (document.getElementById("talSuggestedNome")?.value || "").trim();
+  const email = (document.getElementById("talSuggestedEmail")?.value || "").trim();
+  if (!nome || !email) {
+    toast("Preencha nome e email.");
+    return;
+  }
+  const s = _talSuggestedDataPayload;
+  const payload = buildTalentoUpdateFromSuggested({
+    ...s,
+    nome,
+    email,
+    fone: (document.getElementById("talSuggestedFone")?.value || "").trim() || null,
+    cidade: (document.getElementById("talSuggestedCidade")?.value || "").trim() || null,
+    uf: (document.getElementById("talSuggestedUf")?.value || "").trim().toUpperCase().slice(0, 2) || null,
+    resumoProfissional: (document.getElementById("talSuggestedResumo")?.value || "").trim() || null
+  });
+  if (!payload) {
+    toast("Dados inválidos.");
+    return;
+  }
+  try {
+    await apiFetchJson(`${TALENTOS_API_BASE}/${talentoId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const modalEl = document.getElementById("modalTalCvSuggested");
+    if (window.bootstrap && modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+    toast("Dados aplicados no talento.");
+    openModalDetalheTalento(talentoId);
+  } catch (err) {
+    console.error(err);
+    toast("Falha ao aplicar dados.");
+  }
+}
+
 function bindDetailModal() {
   const btnEditarDados = document.getElementById("btnDetalheEditarDados");
   if (btnEditarDados) btnEditarDados.addEventListener("click", () => {
@@ -970,6 +1102,11 @@ function bindDetailModal() {
       btnRecusar.disabled = false;
     }
   });
+
+  const btnTalUploadCv = document.getElementById("btnTalUploadCvExtrair");
+  if (btnTalUploadCv) btnTalUploadCv.addEventListener("click", uploadCvEExtrairTalento);
+  const btnTalApply = document.getElementById("btnTalApplySuggested");
+  if (btnTalApply) btnTalApply.addEventListener("click", applySuggestedToTalento);
 
   document.getElementById("btnDetalheAddExp")?.addEventListener("click", () => { document.getElementById("subExpIndex").value = "-1"; openSubModalExp(-1); });
   document.getElementById("btnDetalheAddTrein")?.addEventListener("click", () => { document.getElementById("subTreinIndex").value = "-1"; openSubModalTrein(-1); });

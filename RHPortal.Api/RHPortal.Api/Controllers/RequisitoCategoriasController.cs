@@ -8,7 +8,7 @@ using RhPortal.Api.Infrastructure.Localization;
 namespace RhPortal.Api.Controllers;
 
 /// <summary>
-/// Cadastro de categorias de requisitos.
+/// Cadastro de funções (cargo/função do RM, sincronizado via PFUNCAO).
 /// </summary>
 [ApiController]
 [Route("api/requisito-categorias")]
@@ -22,7 +22,7 @@ public sealed class RequisitoCategoriasController : ControllerBase
     }
 
     /// <summary>
-    /// Lista categorias de requisito.
+    /// Lista funções (cargo/função).
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(List<RequisitoCategoriaResponse>), StatusCodes.Status200OK)]
@@ -38,7 +38,7 @@ public sealed class RequisitoCategoriasController : ControllerBase
     }
 
     /// <summary>
-    /// Consulta uma categoria pelo ID.
+    /// Consulta uma função pelo ID.
     /// </summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(RequisitoCategoriaResponse), StatusCodes.Status200OK)]
@@ -58,7 +58,7 @@ public sealed class RequisitoCategoriasController : ControllerBase
     }
 
     /// <summary>
-    /// Cria uma nova categoria de requisito.
+    /// Cria uma nova função.
     /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(RequisitoCategoriaResponse), StatusCodes.Status201Created)]
@@ -88,7 +88,7 @@ public sealed class RequisitoCategoriasController : ControllerBase
     }
 
     /// <summary>
-    /// Atualiza uma categoria de requisito.
+    /// Atualiza uma função.
     /// </summary>
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(RequisitoCategoriaResponse), StatusCodes.Status200OK)]
@@ -118,7 +118,7 @@ public sealed class RequisitoCategoriasController : ControllerBase
     }
 
     /// <summary>
-    /// Remove uma categoria de requisito (se não houver dependências).
+    /// Remove uma função (se não houver dependências).
     /// </summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

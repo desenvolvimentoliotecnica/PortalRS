@@ -1074,6 +1074,50 @@ namespace RHPortal.Api.Migrations
                     b.ToTable("AgendaEventTypes", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.ApiKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("KeyHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("LastUsedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "KeyHash")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "Name");
+
+                    b.ToTable("ApiKeys", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.ApplicationRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3043,6 +3087,9 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<Guid?>("RequisitoCategoriaId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -3067,6 +3114,8 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("JobPositionId");
 
                     b.HasIndex("PessoaId");
+
+                    b.HasIndex("RequisitoCategoriaId");
 
                     b.HasIndex("UnitId");
 
@@ -5151,6 +5200,11 @@ namespace RHPortal.Api.Migrations
                         .HasForeignKey("PessoaId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("RhPortal.Api.Domain.Entities.RequisitoCategoria", "RequisitoCategoria")
+                        .WithMany()
+                        .HasForeignKey("RequisitoCategoriaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("RhPortal.Api.Domain.Entities.Unit", "Unit")
                         .WithMany()
                         .HasForeignKey("UnitId")
@@ -5166,6 +5220,8 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("JobPosition");
 
                     b.Navigation("Pessoa");
+
+                    b.Navigation("RequisitoCategoria");
 
                     b.Navigation("Unit");
 

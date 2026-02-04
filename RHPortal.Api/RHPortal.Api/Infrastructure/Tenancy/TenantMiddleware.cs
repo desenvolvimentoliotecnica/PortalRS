@@ -42,12 +42,7 @@ public sealed class TenantMiddleware : IMiddleware
             return;
         }
 
-        if (context.Request.Path.StartsWithSegments("/api/ops", StringComparison.OrdinalIgnoreCase))
-        {
-            await next(context);
-            return;
-        }
-
+        // /api/ops também precisa de X-Tenant-Id para endpoints como clean-candidatos-talentos (eliminar no tenant correto, ex.: liotecnica).
         // SignalR/WebSocket clients cannot reliably send custom headers.
         // For hub connections we allow the tenant id to come from the query string.
         string rawTenantId;

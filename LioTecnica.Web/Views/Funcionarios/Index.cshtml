@@ -98,12 +98,23 @@
       </table>
     </div>
 
-    <div class="d-flex align-items-center justify-content-between mt-2">
+    <div class="d-flex align-items-center justify-content-between mt-2 flex-wrap gap-2">
       <div class="text-muted small" id="funcionarioHint">-</div>
-      <div class="d-flex align-items-center gap-2">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <label class="d-flex align-items-center gap-1 small mb-0">
+          <span class="text-muted">Exibir</span>
+          <select class="form-select form-select-sm" id="funcionarioPageSize" style="width:auto;">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <span class="text-muted">por página</span>
+        </label>
         <span class="pill"><i class="bi bi-table"></i><span id="funcionarioCount">0</span> exibidos</span>
       </div>
     </div>
+    <div class="d-flex align-items-center justify-content-center justify-content-md-end mt-2" id="funcionarioPagination"></div>
   </div>
 
   <template id="tpl-funcionario-row">

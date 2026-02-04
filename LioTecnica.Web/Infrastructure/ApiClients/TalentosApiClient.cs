@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -73,6 +74,21 @@ public sealed class TalentosApiClient
 
         var req = BuildRequest(HttpMethod.Post, "api/talentos/import-pdf", tenantId, form);
         return await SendAsync(req, ct);
+    }
+
+    /// <summary>Upload de currículo (PDF) no talento existente + extração de texto e dados sugeridos pela LLM para revisar na tela.</summary>
+    public Task<ApiRawResponse> UploadCurriculoEExtrairRawAsync(string tenantId, Guid talentoId, IFormFile arquivo, bool enviarParaGpt = true, CancellationToken ct = default)
+    {
+        var content = new MultipartFormDataContent();
+        var fileContent = new StreamContent(arquivo.OpenReadStream());
+        if (!string.IsNullOrWhiteSpace(arquivo.ContentType))
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(arquivo.ContentType);
+        fileContent.Headers.ContentLength = arquivo.Length;
+        content.Add(fileContent, "arquivo", arquivo.FileName ?? "curriculo.pdf");
+        content.Add(new StringContent(enviarParaGpt ? "true" : "false"), "enviarParaGpt");
+
+        var req = BuildRequest(HttpMethod.Post, $"api/talentos/{talentoId}/documentos/curriculo-extrair", tenantId, content);
+        return SendAsync(req, ct);
     }
 
     public Task<ApiRawResponse> AprovarImportJobRawAsync(string tenantId, Guid jobId, CancellationToken ct)

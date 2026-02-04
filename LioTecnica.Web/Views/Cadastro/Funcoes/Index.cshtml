@@ -1,0 +1,155 @@
+@model PageSeedViewModel
+@{
+    ViewData["Title"] = "Portal RH - Cadastro - Função";
+    ViewData["SidebarSubtitle"] = "Função";
+}
+
+@await Html.PartialAsync("~/Views/Categorias/_ModalCategoria.cshtml")
+@await Html.PartialAsync("~/Views/Categorias/_ModalCategoriaRequisitos.cshtml")
+@await Html.PartialAsync("_Toast")
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Cadastro » Função")
+
+    <div class="searchbox position-relative d-none d-md-block">
+      <i class="bi bi-search"></i>
+      <input id="globalSearchCategoria" class="form-control" placeholder="Buscar função..." />
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-ghost" type="button" id="btnExportCategoria" title="Exportar funções (CSV)">
+        <i class="bi bi-filetype-csv"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
+      </button>
+      <button class="btn btn-ghost" type="button" id="btnSeedReset" title="Recarregar dados">
+        <i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+      </button>
+      <button class="btn btn-brand" type="button" id="btnNewCategoria">
+        <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Nova função</span>
+      </button>
+      @await Html.PartialAsync("_TopbarUserActions", "RH")
+    </div>
+}
+
+<section class="content">
+  <div class="page-title">
+    <div>
+      <h4>Função</h4>
+      <div class="subtitle">Cadastro de Função (PFUNCAO do RM). Nome igual ao RM. Sincronizado com o portal.</div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">-</span></span>
+      <span class="badge-soft"><i class="bi bi-hdd me-1"></i>API</span>
+    </div>
+  </div>
+
+  @{
+    var kpis = new[]
+    {
+      new { ColClass = "col-6 col-lg-3", Title = "Funções", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCatTotal", Value = "0", PillIcon = "bi-tags", PillText = "total", Hint = "Funções cadastradas." },
+      new { ColClass = "col-6 col-lg-3", Title = "Ativas", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCatActive", Value = "0", PillIcon = "bi-check2-circle", PillText = "ativo", Hint = "Funções em uso." },
+      new { ColClass = "col-6 col-lg-3", Title = "Requisitos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCatReqTotal", Value = "0", PillIcon = "bi-list-check", PillText = "itens", Hint = "Total de requisitos cadastrados." },
+      new { ColClass = "col-6 col-lg-3", Title = "Vagas com requisitos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCatVagasTotal", Value = "0", PillIcon = "bi-briefcase", PillText = "vagas", Hint = "Vagas com requisitos." }
+    };
+  }
+  @await Html.PartialAsync("_KpiMiniRow", kpis)
+
+  <div class="card-soft p-3 mb-3">
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
+      <div>
+        <div class="fw-bold">Lista de funções</div>
+        <div class="text-muted small">Clique em uma função para ver vagas relacionadas.</div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <div style="min-width:240px;">
+          <label class="form-label small mb-1">Buscar</label>
+          <div class="input-group">
+            <span class="input-group-text" style="background:rgba(255,255,255,.65)"><i class="bi bi-search"></i></span>
+            <input class="form-control" id="cSearch" placeholder="nome, codigo...">
+          </div>
+        </div>
+        <div>
+          <label class="form-label small mb-1">Status</label>
+          <select class="form-select" id="cStatus">
+            <option value="all">Todos</option>
+            <option value="ativo">Ativo</option>
+            <option value="inativo">Inativo</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-3 divider">
+
+        <div class="table-responsive">
+  <table class="table table-sm align-middle mb-0">
+    <thead>
+<tr>
+          <th>Função</th>
+          <th>Status</th>
+          <th>Requisitos</th>
+          <th>Descricao</th>
+          <th class="text-end">Acoes</th>
+        </tr>
+    </thead>
+    <tbody id="catTbody"></tbody>
+  </table>
+</div>
+
+    <div class="d-flex align-items-center justify-content-between mt-2">
+      <div class="text-muted small" id="catHint">-</div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="pill"><i class="bi bi-table"></i><span id="catCount">0</span> exibidas</span>
+        <nav id="paginationWrap" class="d-flex align-items-center gap-1"></nav>
+      </div>
+    </div>
+  </div>
+
+  <template id="tpl-cat-row">
+    <tr>
+      <td>
+        <div class="fw-semibold" data-role="cat-name"></div>
+        <div class="text-muted small" data-role="cat-code"></div>
+      </td>
+      <td><span data-role="cat-status-host"></span></td>
+      <td class="mono" data-role="cat-reqs"></td>
+      <td data-role="cat-desc"></td>
+      <td class="text-end">
+        <button class="btn btn-ghost btn-sm me-1" type="button" data-act="detail">
+          <i class="bi bi-eye"></i>
+        </button>
+        <button class="btn btn-ghost btn-sm me-1" type="button" data-act="edit">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-ghost btn-sm text-danger" type="button" data-act="del">
+          <i class="bi bi-trash3"></i>
+        </button>
+      </td>
+    </tr>
+  </template>
+
+  <template id="tpl-cat-empty-row">
+    <tr>
+      <td colspan="5" class="text-center text-muted py-3">Nenhuma função encontrada.</td>
+    </tr>
+  </template>
+
+  <div style="height:14px;"></div>
+</section>
+
+@section Footer {
+  @{
+    var footerItems = new[]
+    {
+      new { Icon = "bi-tags", Text = "Função", Id = "", Class = "" },
+      new { Icon = "bi-shield-check", Text = "LGPD", Id = "", Class = "" },
+      new { Icon = "", Text = "build: demo", Id = "buildId", Class = "mono muted" }
+    };
+  }
+  @await Html.PartialAsync("_Footer", footerItems)
+}
+
+@section Scripts {
+  <script>
+  </script>
+  <script src="~/js/views/categorias.js" asp-append-version="true"></script>
+}

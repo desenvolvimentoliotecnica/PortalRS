@@ -4,11 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Candidates;
+using RhPortal.Api.Contracts.Talentos;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.Talentos;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Inbox;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
@@ -22,8 +25,12 @@ public interface ICandidatoService
     Task<CandidateResponse> CreateAsync(CandidateCreateRequest request, CancellationToken ct);
     Task<CandidateResponse?> UpdateAsync(Guid id, CandidateUpdateRequest request, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    /// <summary>Remove todos os candidatos do tenant atual (inclui documentos em disco). Retorna o número removido.</summary>
+    Task<int> DeleteAllForTenantAsync(CancellationToken ct);
     Task<IReadOnlyList<CandidateStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct);
     Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct);
+    /// <summary>Upload de currículo (PDF), extração de texto e opcionalmente dados sugeridos pela LLM para o usuário revisar na tela.</summary>
+    Task<CandidatoCurriculoExtrairResponse?> UploadCurriculoEExtrairAsync(Guid candidatoId, IFormFile arquivo, bool enviarParaGpt, CancellationToken ct);
     Task<CandidatoDocumentoFileResult?> GetDocumentoFileAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
 }
@@ -39,6 +46,7 @@ public sealed class CandidatoService : ICandidatoService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly NotificationPublisher _notificationPublisher;
     private readonly IMatchingService _matchingService;
+    private readonly ICvGptExtractor _cvGptExtractor;
 
     public CandidatoService(
         AppDbContext db,
@@ -47,7 +55,8 @@ public sealed class CandidatoService : ICandidatoService
         IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<ServiceMessages> localizer,
         NotificationPublisher notificationPublisher,
-        IMatchingService matchingService)
+        IMatchingService matchingService,
+        ICvGptExtractor cvGptExtractor)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -56,6 +65,7 @@ public sealed class CandidatoService : ICandidatoService
         _localizer = localizer;
         _notificationPublisher = notificationPublisher;
         _matchingService = matchingService;
+        _cvGptExtractor = cvGptExtractor;
     }
 
     public async Task<CandidatePagedResponse> ListAsync(CandidateListQuery query, CancellationToken ct)
@@ -296,6 +306,18 @@ public sealed class CandidatoService : ICandidatoService
         return true;
     }
 
+    public async Task<int> DeleteAllForTenantAsync(CancellationToken ct)
+    {
+        var ids = await _db.Candidatos.AsNoTracking().Select(x => x.Id).ToListAsync(ct);
+        var count = 0;
+        foreach (var id in ids)
+        {
+            if (await DeleteAsync(id, ct))
+                count++;
+        }
+        return count;
+    }
+
     public async Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct)
     {
         if (arquivo is null || arquivo.Length == 0)
@@ -344,6 +366,72 @@ public sealed class CandidatoService : ICandidatoService
         }
 
         return MapDocumento(candidatoId, doc);
+    }
+
+    public async Task<CandidatoCurriculoExtrairResponse?> UploadCurriculoEExtrairAsync(Guid candidatoId, IFormFile arquivo, bool enviarParaGpt, CancellationToken ct)
+    {
+        if (arquivo is null || arquivo.Length == 0)
+            throw new InvalidOperationException(_localizer["ServiceErrors.CandidatoFileInvalid"]);
+
+        var ext = Path.GetExtension(arquivo.FileName)?.ToLowerInvariant() ?? string.Empty;
+        if (ext != ".pdf")
+            throw new InvalidOperationException("Apenas arquivos PDF são aceitos para extração de currículo.");
+
+        var exists = await _db.Candidatos.AsNoTracking().AnyAsync(x => x.Id == candidatoId, ct);
+        if (!exists) return null;
+
+        var originalName = NormalizeFileName(arquivo.FileName);
+        var documentId = Guid.NewGuid();
+        var storageFileName = BuildStorageFileName(documentId, originalName);
+        var folder = GetCandidateFolder(candidatoId);
+        Directory.CreateDirectory(folder);
+        var filePath = Path.Combine(folder, storageFileName);
+
+        await using (var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            await arquivo.CopyToAsync(stream, ct);
+        }
+
+        var doc = new CandidatoDocumento
+        {
+            Id = documentId,
+            CandidatoId = candidatoId,
+            Tipo = CandidateDocumentType.Curriculo,
+            NomeArquivo = originalName,
+            ContentType = TrimOrNull(arquivo.ContentType),
+            Descricao = "Currículo enviado pela tela",
+            TamanhoBytes = arquivo.Length,
+            StorageFileName = storageFileName,
+            Url = null
+        };
+
+        try
+        {
+            _db.CandidatoDocumentos.Add(doc);
+            await _db.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            TryDeleteFile(filePath);
+            throw;
+        }
+
+        string? cvText = null;
+        TalentoImportPdfSuggestedData? suggestedData = null;
+
+        try
+        {
+            cvText = await ResumeTextExtractor.ExtractAsync(filePath, ct);
+            if (enviarParaGpt && !string.IsNullOrWhiteSpace(cvText))
+                suggestedData = await _cvGptExtractor.ExtractSuggestedDataAsync(cvText, ct);
+        }
+        catch
+        {
+            cvText ??= string.Empty;
+        }
+
+        var documentoResponse = MapDocumento(candidatoId, doc);
+        return new CandidatoCurriculoExtrairResponse(documentoResponse, cvText, suggestedData);
     }
 
     public async Task<CandidatoDocumentoFileResult?> GetDocumentoFileAsync(Guid candidatoId, Guid documentoId, CancellationToken ct)
@@ -411,6 +499,7 @@ public sealed class CandidatoService : ICandidatoService
             c.Vaga != null ? c.Vaga.Titulo : null,
             c.Vaga?.AreaId,
             c.Vaga?.RecrutadorResponsavelUserId,
+            c.TalentoId,
             c.Obs,
             c.CvText,
             MapMatch(c),

@@ -200,6 +200,41 @@ public sealed class CandidatosController : ControllerBase
     }
 
     /// <summary>
+    /// Upload de currículo (PDF), extração de texto e dados sugeridos pela LLM para revisar na tela e aplicar no candidato/talento.
+    /// </summary>
+    [HttpPost("{id:guid}/documentos/curriculo-extrair")]
+    [RequestSizeLimit(52_428_800)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(CandidatoCurriculoExtrairResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CandidatoCurriculoExtrairResponse>> UploadCurriculoEExtrair(
+        [FromRoute] Guid id,
+        [FromForm] IFormFile? arquivo,
+        [FromServices] ICandidatoService service,
+        CancellationToken ct,
+        [FromForm] bool enviarParaGpt = true)
+    {
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = "Arquivo PDF é obrigatório." });
+
+        var ext = Path.GetExtension(arquivo.FileName)?.ToLowerInvariant() ?? string.Empty;
+        if (ext != ".pdf")
+            return BadRequest(new { message = "Apenas arquivos PDF são aceitos." });
+
+        try
+        {
+            var result = await service.UploadCurriculoEExtrairAsync(id, arquivo, enviarParaGpt, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Faz download de um documento do candidato.
     /// </summary>
     [HttpGet("{id:guid}/documentos/{documentoId:guid}/download")]

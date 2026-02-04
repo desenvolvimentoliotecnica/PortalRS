@@ -13,14 +13,18 @@
         if (r.StartsWith("/admin", StringComparison.Ordinal)) return "Admin";
         if (r == "/relatorios") return "Relatorios";
         if (r.StartsWith("/feedback", StringComparison.Ordinal) || r.StartsWith("/gestao", StringComparison.Ordinal)) return "Feedback";
-        if (r is "/dashboard" or "/agendas" or "/vagas" or "/candidatos" or "/triagem" or "/matching" or "/portalvagas" or "/entradaemailpasta")
+        if (r is "/dashboard" or "/agendas" or "/vagas" or "/candidatos" or "/talentos" or "/triagem" or "/matching" or "/portalvagas" or "/entradaemailpasta")
             return "Recrutamento";
-        if (r is "/departamentos" or "/areas" or "/categorias" or "/cargos" or "/unidades" or "/funcionarios" or "/pessoas")
+        if (r is "/departamentos" or "/areas" or "/categorias" or "/cargos" or "/unidades" or "/funcionarios" or "/pessoas"
+            or "/cadastro/funcoes" or "/cadastro/cargos")
             return "Cadastros";
         return "Recrutamento";
     }
 
-    var recrutamento = Model.Where(x => GetModuleKey(x.Route) == "Recrutamento").ToList();
+    var portalVagasRoute = "/portalvagas";
+    bool IsPortalVagas(LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel m)
+        => string.Equals((m.Route ?? "").TrimEnd('/').ToLowerInvariant(), portalVagasRoute, StringComparison.Ordinal);
+    var recrutamento = Model.Where(x => GetModuleKey(x.Route) == "Recrutamento" && !IsPortalVagas(x)).ToList();
     var cadastros = Model.Where(x => GetModuleKey(x.Route) == "Cadastros").ToList();
     var relatorios = Model.Where(x => GetModuleKey(x.Route) == "Relatorios").ToList();
     var feedback = Model.Where(x => GetModuleKey(x.Route) == "Feedback").ToList();

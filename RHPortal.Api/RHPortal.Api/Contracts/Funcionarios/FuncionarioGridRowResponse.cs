@@ -14,5 +14,7 @@ public sealed record FuncionarioGridRowResponse(
     Guid? AreaId,
     string? AreaName,
     Guid? JobPositionId,
-    string? JobPositionName
+    string? JobPositionName,
+    Guid? RequisitoCategoriaId,
+    string? RequisitoCategoriaName
 );

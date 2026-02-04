@@ -17,6 +17,7 @@ public class CategoriasController : Controller
     }
 
     [HttpGet("/Categorias")]
+    [HttpGet("/Funcoes")]
     public IActionResult Index()
     {
         var model = new PageSeedViewModel
@@ -27,6 +28,7 @@ public class CategoriasController : Controller
     }
 
     [HttpGet("/Categorias/_api")]
+    [HttpGet("/Funcoes/_api")]
     public async Task<IActionResult> List(CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId;
@@ -36,6 +38,7 @@ public class CategoriasController : Controller
     }
 
     [HttpGet("/Categorias/_api/{id:guid}")]
+    [HttpGet("/Funcoes/_api/{id:guid}")]
     public async Task<IActionResult> GetById([FromRoute] Guid id, CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId;
@@ -44,6 +47,7 @@ public class CategoriasController : Controller
     }
 
     [HttpPost("/Categorias/_api")]
+    [HttpPost("/Funcoes/_api")]
     public async Task<IActionResult> Create([FromBody] RequisitoCategoriaCreateRequest request, CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId;
@@ -52,6 +56,7 @@ public class CategoriasController : Controller
     }
 
     [HttpPut("/Categorias/_api/{id:guid}")]
+    [HttpPut("/Funcoes/_api/{id:guid}")]
     public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] RequisitoCategoriaUpdateRequest request, CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId;
@@ -60,6 +65,7 @@ public class CategoriasController : Controller
     }
 
     [HttpDelete("/Categorias/_api/{id:guid}")]
+    [HttpDelete("/Funcoes/_api/{id:guid}")]
     public async Task<IActionResult> Delete([FromRoute] Guid id, CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId;
