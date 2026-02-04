@@ -1,4 +1,4 @@
-﻿using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Domain.Entities;
 
@@ -20,7 +20,6 @@ public sealed class Department : ITenantEntity
     public string? ManagerEmail { get; set; }
 
     public string? Phone { get; set; }
-    public string? CostCenter { get; set; }
     public string? BranchOrLocation { get; set; }
 
     public string? Description { get; set; }

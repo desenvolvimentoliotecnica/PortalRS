@@ -103,3 +103,21 @@ public sealed record AuditSummaryResponse(
     IReadOnlyList<AuditSummaryItem> TopUsers,
     IReadOnlyList<AuditStatusItem> Statuses
 );
+
+/// <summary>Item de alteração de entidade para listagem por entidade.</summary>
+public sealed record EntityChangeListItem(
+    Guid Id,
+    DateTimeOffset OccurredAt,
+    string State,
+    string EntityName,
+    string? UserName,
+    string? ChangedColumns
+);
+
+/// <summary>Resposta paginada de alterações de uma entidade.</summary>
+public sealed record EntityChangesResponse(
+    IReadOnlyList<EntityChangeListItem> Items,
+    int TotalCount,
+    int Page,
+    int PageSize
+);

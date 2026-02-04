@@ -6,5 +6,6 @@ public sealed record VagaListQuery(
     string? Q,
     VagaStatus? Status,
     Guid? AreaId,
-    Guid? DepartmentId
+    Guid? DepartmentId,
+    Guid? RecrutadorUserId
 );

@@ -44,4 +44,14 @@ public sealed class AuditLogsApiClient
             return null;
         return await response.Content.ReadFromJsonAsync<AuditSummaryResponse>(JsonOptions, ct);
     }
+
+    public async Task<EntityChangesResponse?> GetEntityChangesAsync(string entityName, Guid entityId, int page = 1, int pageSize = 20, CancellationToken ct = default)
+    {
+        var qs = $"entityName={Uri.EscapeDataString(entityName)}&entityId={entityId}&page={page}&pageSize={pageSize}";
+        var url = $"api/audit/entity-changes?{qs}";
+        using var response = await _http.GetAsync(url, ct);
+        if (!response.IsSuccessStatusCode)
+            return null;
+        return await response.Content.ReadFromJsonAsync<EntityChangesResponse>(JsonOptions, ct);
+    }
 }

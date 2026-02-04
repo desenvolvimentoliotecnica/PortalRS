@@ -5,6 +5,7 @@ using RhPortal.Api.Contracts.Roles;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Application.Roles;
 
@@ -30,7 +31,10 @@ public sealed class RoleAdministrationService
                 x.Id,
                 x.Name ?? string.Empty,
                 x.Description ?? string.Empty,
-                x.IsActive))
+                x.IsActive,
+                x.VisibilityScope,
+                x.VagasDataScope,
+                x.AccessMode))
             .ToListAsync(ct);
     }
 
@@ -44,6 +48,9 @@ public sealed class RoleAdministrationService
                 x.Name ?? string.Empty,
                 x.Description ?? string.Empty,
                 x.IsActive,
+                x.VisibilityScope,
+                x.VagasDataScope,
+                x.AccessMode,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .FirstOrDefaultAsync(ct);
@@ -64,7 +71,10 @@ public sealed class RoleAdministrationService
             Id = Guid.NewGuid(),
             Name = name,
             Description = request.Description?.Trim() ?? string.Empty,
-            IsActive = request.IsActive
+            IsActive = request.IsActive,
+            VisibilityScope = request.VisibilityScope,
+            VagasDataScope = request.VagasDataScope,
+            AccessMode = request.AccessMode
         };
 
         var result = await _roleManager.CreateAsync(role);
@@ -92,6 +102,9 @@ public sealed class RoleAdministrationService
 
         role.Description = request.Description?.Trim() ?? string.Empty;
         role.IsActive = request.IsActive;
+        role.VisibilityScope = request.VisibilityScope;
+        role.VagasDataScope = request.VagasDataScope;
+        role.AccessMode = request.AccessMode;
 
         var result = await _roleManager.UpdateAsync(role);
         if (!result.Succeeded)

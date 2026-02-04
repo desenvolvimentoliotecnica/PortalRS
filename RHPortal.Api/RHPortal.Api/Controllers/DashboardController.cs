@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Npgsql;
 using RhPortal.Api.Contracts.Dashboard;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Configuration;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 
@@ -21,14 +24,32 @@ public sealed class DashboardController : ControllerBase
     [ProducesResponseType(typeof(DashboardKpisResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<DashboardKpisResponse>> GetKpis(
         [FromServices] AppDbContext db,
+        [FromServices] IOptions<SlaVagaOptions> slaOptions,
         CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var todayStart = new DateTimeOffset(now.Date, TimeSpan.Zero);
         var weekStart = now.AddDays(-7);
+        var opts = slaOptions.Value;
 
         var openVagas = await db.Vagas.AsNoTracking()
             .CountAsync(v => v.Status == VagaStatus.Aberta, ct);
+
+        int vagasForaSla;
+        try
+        {
+            var vagasAbertasComSla = await db.Vagas.AsNoTracking()
+                .Where(v => v.Status == VagaStatus.Aberta && v.DataAbertura != null)
+                .Select(v => new { v.DataAbertura, v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade })
+                .ToListAsync(ct);
+            vagasForaSla = vagasAbertasComSla.Count(v =>
+                (now - v.DataAbertura!.Value).TotalDays > SlaVagaMetaResolver.GetDiasMeta(v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, opts));
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42703")
+        {
+            // Coluna DataAbertura (ou outra de SLA) ainda não existe no banco do tenant; aplicar migrações pendentes.
+            vagasForaSla = 0;
+        }
 
         var cvsHoje = await db.Candidatos.AsNoTracking()
             .CountAsync(c => c.CreatedAtUtc >= todayStart, ct);
@@ -43,7 +64,8 @@ public sealed class DashboardController : ControllerBase
             openVagas,
             cvsHoje,
             pendentes,
-            aprovados
+            aprovados,
+            vagasForaSla
         ));
     }
 

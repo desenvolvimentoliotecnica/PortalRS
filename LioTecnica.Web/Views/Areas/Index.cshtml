@@ -17,6 +17,9 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-ghost" type="button" id="btnOrgChart" title="Estrutura organizacional">
+        <i class="bi bi-diagram-3"></i><span class="d-none d-sm-inline ms-1">Estrutura organizacional</span>
+      </button>
       <button class="btn btn-ghost" type="button" id="btnExportArea" title="Exportar areas (CSV)">
         <i class="bi bi-filetype-csv"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
       </button>
@@ -85,6 +88,8 @@
     <thead>
 <tr>
           <th>Area</th>
+          <th>Area pai</th>
+          <th>Dono</th>
           <th>Status</th>
           <th>Vagas</th>
           <th>Descricao</th>
@@ -106,9 +111,16 @@
   <template id="tpl-area-row">
     <tr>
       <td>
-        <div class="fw-semibold" data-role="area-name"></div>
-        <div class="text-muted small" data-role="area-code"></div>
+        <div class="d-flex align-items-center">
+          <button type="button" class="btn btn-ghost btn-sm p-0 me-1 area-tree-toggle" data-role="area-toggle" aria-label="Expandir/colapsar" style="width:1.5rem;visibility:hidden;" title="Expandir/colapsar"></button>
+          <div class="area-tree-label">
+            <div class="fw-semibold" data-role="area-name"></div>
+            <div class="text-muted small" data-role="area-code"></div>
+          </div>
+        </div>
       </td>
+      <td data-role="area-parent"></td>
+      <td data-role="area-owner"></td>
       <td><span data-role="area-status-host"></span></td>
       <td class="mono" data-role="area-vagas"></td>
       <td data-role="area-desc"></td>
@@ -128,12 +140,50 @@
 
   <template id="tpl-area-empty-row">
     <tr>
-      <td colspan="5" class="text-center text-muted py-3">Nenhuma area encontrada.</td>
+      <td colspan="7" class="text-center text-muted py-3">Nenhuma area encontrada.</td>
     </tr>
   </template>
 
   <div style="height:14px;"></div>
 </section>
+
+<div class="modal fade" id="modalOrgChart" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title fw-bold">Estrutura organizacional</h5>
+          <div class="text-muted small">Visualize a hierarquia por area ou por donos das areas.</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="nav nav-tabs mb-3" id="orgChartTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-org-area" data-bs-toggle="tab" data-bs-target="#panel-org-area" type="button" role="tab">Por area</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-org-donos" data-bs-toggle="tab" data-bs-target="#panel-org-donos" type="button" role="tab">Por donos</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-org-flow" data-bs-toggle="tab" data-bs-target="#panel-org-flow" type="button" role="tab">Fluxo</button>
+          </li>
+        </ul>
+        <div class="tab-content" id="orgChartTabContent">
+          <div class="tab-pane fade show active" id="panel-org-area" role="tabpanel">
+            <div id="orgChartContainerArea" class="org-chart-container bg-light rounded p-3" style="min-height: 400px;"></div>
+          </div>
+          <div class="tab-pane fade" id="panel-org-donos" role="tabpanel">
+            <div id="orgChartContainerDonos" class="org-chart-container bg-light rounded p-3" style="min-height: 400px;"></div>
+          </div>
+          <div class="tab-pane fade" id="panel-org-flow" role="tabpanel">
+            <div id="orgChartContainerFlow" class="org-chart-container bg-light rounded p-3" style="min-height: 400px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 @section Footer {
   @{
@@ -149,7 +199,10 @@
 
 @section Scripts {
   <script>
+    window.__managersApiUrl = "@Url.Content("~/api/lookup/managers")";
+    window.__funcionariosApiUrl = "@Url.Content("~/api/lookup/funcionarios")";
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <script src="~/js/views/areas.js" asp-append-version="true"></script>
 }
 

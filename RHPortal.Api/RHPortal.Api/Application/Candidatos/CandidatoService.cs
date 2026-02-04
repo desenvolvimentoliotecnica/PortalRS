@@ -7,6 +7,7 @@ using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Contracts.Notifications;
+using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Notifications;
@@ -16,7 +17,7 @@ namespace RhPortal.Api.Application.Candidatos;
 
 public interface ICandidatoService
 {
-    Task<IReadOnlyList<CandidateListItemResponse>> ListAsync(CandidateListQuery query, CancellationToken ct);
+    Task<CandidatePagedResponse> ListAsync(CandidateListQuery query, CancellationToken ct);
     Task<CandidateResponse?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<CandidateResponse> CreateAsync(CandidateCreateRequest request, CancellationToken ct);
     Task<CandidateResponse?> UpdateAsync(Guid id, CandidateUpdateRequest request, CancellationToken ct);
@@ -37,6 +38,7 @@ public sealed class CandidatoService : ICandidatoService
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly NotificationPublisher _notificationPublisher;
+    private readonly IMatchingService _matchingService;
 
     public CandidatoService(
         AppDbContext db,
@@ -44,7 +46,8 @@ public sealed class CandidatoService : ICandidatoService
         IHostEnvironment hostEnvironment,
         IHttpContextAccessor httpContextAccessor,
         IStringLocalizer<ServiceMessages> localizer,
-        NotificationPublisher notificationPublisher)
+        NotificationPublisher notificationPublisher,
+        IMatchingService matchingService)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -52,9 +55,10 @@ public sealed class CandidatoService : ICandidatoService
         _httpContextAccessor = httpContextAccessor;
         _localizer = localizer;
         _notificationPublisher = notificationPublisher;
+        _matchingService = matchingService;
     }
 
-    public async Task<IReadOnlyList<CandidateListItemResponse>> ListAsync(CandidateListQuery query, CancellationToken ct)
+    public async Task<CandidatePagedResponse> ListAsync(CandidateListQuery query, CancellationToken ct)
     {
         IQueryable<Candidato> q = _db.Candidatos
             .AsNoTracking()
@@ -78,16 +82,37 @@ public sealed class CandidatoService : ICandidatoService
             );
         }
 
-        if (query.Status.HasValue)
+        if (query.Statuses is { Count: > 0 })
+            q = q.Where(c => query.Statuses.Contains(c.Status));
+        else if (query.Status.HasValue)
             q = q.Where(c => c.Status == query.Status.Value);
 
         if (query.Fonte.HasValue)
             q = q.Where(c => c.Fonte == query.Fonte.Value);
 
-        if (query.VagaId.HasValue && query.VagaId.Value != Guid.Empty)
+        if (query.VagaIds is { Count: > 0 })
+            q = q.Where(c => c.VagaId.HasValue && query.VagaIds.Contains(c.VagaId.Value));
+        else if (query.VagaId.HasValue && query.VagaId.Value != Guid.Empty)
             q = q.Where(c => c.VagaId == query.VagaId.Value);
 
-        var items = await q
+        if (query.AreaId.HasValue && query.AreaId.Value != Guid.Empty)
+            q = q.Where(c => c.Vaga != null && c.Vaga.AreaId == query.AreaId.Value);
+
+        if (query.RecrutadorUserId.HasValue && query.RecrutadorUserId.Value != Guid.Empty)
+            q = q.Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == query.RecrutadorUserId.Value);
+
+        var ordered = q
+            .OrderByDescending(c => c.UpdatedAtUtc)
+            .ThenByDescending(c => c.CreatedAtUtc);
+
+        var totalCount = await ordered.CountAsync(ct);
+
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 100);
+
+        var items = await ordered
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(c => new CandidateListItemResponse(
                 c.Id,
                 c.Nome,
@@ -103,15 +128,14 @@ public sealed class CandidatoService : ICandidatoService
                 c.Obs,
                 c.CvText,
                 MapMatch(c),
+                c.ApplicationRecruiterUserId,
+                c.ApplicationRecruiterUserName,
                 c.CreatedAtUtc,
                 c.UpdatedAtUtc
             ))
             .ToListAsync(ct);
 
-        return items
-            .OrderByDescending(x => x.UpdatedAtUtc)
-            .ThenByDescending(x => x.CreatedAtUtc)
-            .ToList();
+        return new CandidatePagedResponse(items, totalCount, page, pageSize);
     }
 
     public async Task<CandidateResponse?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -125,6 +149,10 @@ public sealed class CandidatoService : ICandidatoService
         return entity is null ? null : MapToResponse(entity);
     }
 
+    /// <summary>
+    /// Cria um novo candidato. Todo candidato novo entra em Triagem; em seguida passa por avaliação e atualização (dados/status) para análise e demanda.
+    /// O status na criação é sempre Triagem (request.Status é ignorado).
+    /// </summary>
     public async Task<CandidateResponse> CreateAsync(CandidateCreateRequest request, CancellationToken ct)
     {
         await EnsureVagaAsync(request.VagaId, ct);
@@ -138,11 +166,14 @@ public sealed class CandidatoService : ICandidatoService
             Cidade = TrimToMax(request.Cidade, 120),
             Uf = NormalizeUf(request.Uf),
             Fonte = request.Fonte,
-            Status = request.Status,
+            Status = CandidateStatus.Triagem,
             VagaId = request.VagaId,
+            TalentoId = request.TalentoId,
             Obs = TrimToMax(request.Obs, 2000),
             CvText = TrimOrNull(request.CvText),
-            PortalAccessKey = GeneratePortalAccessKey()
+            PortalAccessKey = GeneratePortalAccessKey(),
+            ApplicationRecruiterUserId = TrimToMax(request.ApplicationRecruiterUserId, 120),
+            ApplicationRecruiterUserName = TrimToMax(request.ApplicationRecruiterUserName, 200)
         };
 
         entity.Documentos = BuildDocumentos(request.Documentos, entity.Id);
@@ -151,6 +182,9 @@ public sealed class CandidatoService : ICandidatoService
 
         _db.Candidatos.Add(entity);
         await _db.SaveChangesAsync(ct);
+
+        if (request.VagaId != Guid.Empty)
+            await _matchingService.CalculateAndStoreAsync(entity.Id, request.VagaId, ct);
 
         await NotifyNewCandidateAsync(entity, ct);
 
@@ -179,6 +213,9 @@ public sealed class CandidatoService : ICandidatoService
         entity.VagaId = request.VagaId;
         entity.Obs = TrimToMax(request.Obs, 2000);
         entity.CvText = TrimOrNull(request.CvText);
+        entity.ApplicationRecruiterUserId = TrimToMax(request.ApplicationRecruiterUserId, 120);
+        entity.ApplicationRecruiterUserName = TrimToMax(request.ApplicationRecruiterUserName, 200);
+        entity.TalentoId = request.TalentoId;
 
         ApplyLastMatch(entity, request.LastMatch);
 
@@ -210,6 +247,10 @@ public sealed class CandidatoService : ICandidatoService
         }
 
         await _db.SaveChangesAsync(ct);
+
+        if (entity.VagaId.HasValue && entity.VagaId.Value != Guid.Empty)
+            await _matchingService.CalculateAndStoreAsync(id, entity.VagaId.Value, ct);
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -368,10 +409,14 @@ public sealed class CandidatoService : ICandidatoService
             c.VagaId,
             c.Vaga != null ? c.Vaga.Codigo : null,
             c.Vaga != null ? c.Vaga.Titulo : null,
+            c.Vaga?.AreaId,
+            c.Vaga?.RecrutadorResponsavelUserId,
             c.Obs,
             c.CvText,
             MapMatch(c),
             c.Documentos.OrderByDescending(x => x.CreatedAtUtc).Select(doc => MapDocumento(c.Id, doc)).ToList(),
+            c.ApplicationRecruiterUserId,
+            c.ApplicationRecruiterUserName,
             c.CreatedAtUtc,
             c.UpdatedAtUtc
         );

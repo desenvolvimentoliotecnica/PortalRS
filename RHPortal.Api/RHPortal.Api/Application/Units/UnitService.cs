@@ -5,6 +5,7 @@ using RhPortal.Api.Contracts.Units;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.Units;
 
@@ -22,11 +23,13 @@ public sealed class UnitService : IUnitService
 {
     private readonly AppDbContext _db;
     private readonly IStringLocalizer<ServiceMessages> _localizer;
+    private readonly ITenantContext _tenantContext;
 
-    public UnitService(AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
+    public UnitService(AppDbContext db, IStringLocalizer<ServiceMessages> localizer, ITenantContext tenantContext)
     {
         _db = db;
         _localizer = localizer;
+        _tenantContext = tenantContext;
     }
 
     public async Task<PagedResult<UnitGridRowResponse>> ListGridAsync(UnitListQuery query, CancellationToken ct)
@@ -168,7 +171,8 @@ public sealed class UnitService : IUnitService
     public async Task<UnitResponse> CreateAsync(UnitCreateRequest request, CancellationToken ct)
     {
         var normalizedCode = NormalizeCode(request.Code);
-        ValidateCode(normalizedCode);
+        if (string.IsNullOrWhiteSpace(normalizedCode))
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodeTooShort"]);
 
         if (request.Headcount < 0)
             throw new InvalidOperationException(_localizer["ServiceErrors.UnitHeadcountNegative"]);
@@ -213,7 +217,8 @@ public sealed class UnitService : IUnitService
         if (entity is null) return null;
 
         var normalizedCode = NormalizeCode(request.Code);
-        ValidateCode(normalizedCode);
+        if (string.IsNullOrWhiteSpace(normalizedCode))
+            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodeTooShort"]);
 
         if (request.Headcount < 0)
             throw new InvalidOperationException(_localizer["ServiceErrors.UnitHeadcountNegative"]);
@@ -258,16 +263,6 @@ public sealed class UnitService : IUnitService
 
     private static string NormalizeCode(string code)
         => (code ?? string.Empty).Trim().ToUpperInvariant();
-
-    private void ValidateCode(string code)
-    {
-        // padrão mínimo: "UNI-" + pelo menos 2 caracteres
-        if (!code.StartsWith("UNI-"))
-            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodePrefix"]);
-
-        if (code.Length < 6)
-            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodeTooShort"]);
-    }
 
     private string? NormalizeUf(string? uf)
     {

@@ -11,15 +11,13 @@ public sealed class PortalTenantContext
         _httpContextAccessor = httpContextAccessor;
     }
 
+    /// <summary>Tenant from the "tenant" claim. Empty when missing so callers can return 400 instead of 500.</summary>
     public string TenantId
     {
         get
         {
             var tenantId = _httpContextAccessor.HttpContext?.User?.FindFirst("tenant")?.Value;
-            if (string.IsNullOrWhiteSpace(tenantId))
-                throw new InvalidOperationException("Tenant identifier is required.");
-
-            return tenantId;
+            return string.IsNullOrWhiteSpace(tenantId) ? string.Empty : tenantId;
         }
     }
 }

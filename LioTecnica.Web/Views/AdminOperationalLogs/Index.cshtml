@@ -217,6 +217,10 @@
 </div>
 
 @section Scripts {
+    @if (ViewData["OwnerConfigApiBase"] != null)
+    {
+        <script>window.__ownerConfigApiBase = "@ViewData["OwnerConfigApiBase"]";</script>
+    }
     <script src="~/js/views/admin-operational-logs.js" asp-append-version="true"></script>
 }
 

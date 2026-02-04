@@ -40,21 +40,21 @@
         <hr class="my-3 divider">
 
         <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-          <div class="fw-semibold">Gestores da unidade</div>
-          <span class="pill"><i class="bi bi-person-badge"></i><span id="unGestoresCount">0</span> gestores</span>
+          <div class="fw-semibold">Funcionários da unidade</div>
+          <span class="pill"><i class="bi bi-person-badge"></i><span id="unFuncionariosCount">0</span> funcionários</span>
         </div>
         <div class="table-responsive mb-3">
           <table class="table align-middle mb-0">
             <thead>
               <tr>
-                <th style="min-width: 220px;">Gestor</th>
+                <th style="min-width: 220px;">Funcionário</th>
                 <th style="min-width: 180px;">Cargo</th>
                 <th style="min-width: 160px;">Area</th>
                 <th style="min-width: 140px;">Status</th>
                 <th class="text-end" style="min-width: 120px;">Headcount</th>
               </tr>
             </thead>
-            <tbody id="unGestoresTbody"></tbody>
+            <tbody id="unFuncionariosTbody"></tbody>
           </table>
         </div>
 
@@ -83,22 +83,22 @@
   </div>
 </div>
 
-<template id="tpl-un-gestor-row">
+<template id="tpl-un-funcionario-row">
   <tr>
     <td>
-      <div class="fw-semibold" data-role="gestor-name"></div>
-      <div class="text-muted small" data-role="gestor-email"></div>
+      <div class="fw-semibold" data-role="funcionario-name"></div>
+      <div class="text-muted small" data-role="funcionario-email"></div>
     </td>
-    <td data-role="gestor-cargo"></td>
-    <td data-role="gestor-area"></td>
-    <td><span data-role="gestor-status-host"></span></td>
-    <td class="text-end mono" data-role="gestor-headcount"></td>
+    <td data-role="funcionario-cargo"></td>
+    <td data-role="funcionario-area"></td>
+    <td><span data-role="funcionario-status-host"></span></td>
+    <td class="text-end mono" data-role="funcionario-headcount"></td>
   </tr>
 </template>
 
-<template id="tpl-un-gestor-empty-row">
+<template id="tpl-un-funcionario-empty-row">
   <tr>
-    <td colspan="5" class="text-center text-muted py-3">Nenhum gestor vinculado.</td>
+    <td colspan="5" class="text-center text-muted py-3">Nenhum funcionário vinculado.</td>
   </tr>
 </template>
 

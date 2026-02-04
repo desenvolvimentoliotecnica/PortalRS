@@ -68,6 +68,13 @@ public class UsuariosPerfisController : Controller
         return updated is null ? NotFound() : Ok(updated);
     }
 
+    [HttpPut("/UsuariosPerfis/_api/users/{id:guid}/password")]
+    public async Task<IActionResult> SetUserPassword([FromRoute] Guid id, [FromBody] UsersApiClient.UserPasswordUpdateRequest request, CancellationToken ct)
+    {
+        var updated = await _usersApi.SetPasswordAsync(id, request.NewPassword, ct);
+        return updated is null ? NotFound() : Ok(updated);
+    }
+
     [HttpGet("/UsuariosPerfis/_api/roles")]
     public async Task<IActionResult> ListRoles(CancellationToken ct)
     {

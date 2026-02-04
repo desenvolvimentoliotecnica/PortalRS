@@ -59,9 +59,14 @@
               </div>
 
               <div class="col-12 col-md-7">
-                <label class="form-label small text-muted">Vaga *</label>
-                <select class="form-select" id="candVaga"></select>
-                <div class="form-text">Vagas sao carregadas da API.</div>
+                <label class="form-label small text-muted">Vaga</label>
+                <div class="position-relative vaga-autocomplete-modal" style="max-width: 100%;">
+                  <input type="text" class="form-control" id="candVagaSearch" placeholder="Buscar vaga..." autocomplete="off" style="padding-right: 2.25rem;">
+                  <i class="bi bi-chevron-down position-absolute top-50 end-0 translate-middle-y me-2 text-muted" style="pointer-events: none;"></i>
+                  <div id="candVagaDropdown" class="dropdown-menu w-100 shadow-sm position-absolute start-0" style="top: 100%; margin-top: 2px; max-height: 220px; overflow-y: auto; z-index: 1060;"></div>
+                  <input type="hidden" id="candVaga" value="">
+                </div>
+                <div class="form-text">Vagas sao carregadas da API. Se nao houver vagas, sera exibido &quot;Nenhuma Vaga&quot;.</div>
               </div>
 
               <div class="col-12 col-md-5">

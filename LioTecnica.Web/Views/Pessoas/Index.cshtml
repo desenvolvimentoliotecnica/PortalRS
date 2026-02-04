@@ -1,0 +1,160 @@
+@model PageSeedViewModel
+@{
+    ViewData["Title"] = "Portal RH • Pessoa";
+    ViewData["SidebarSubtitle"] = "Pessoa";
+}
+
+@await Html.PartialAsync("_Toast")
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "Tela: Pessoa")
+
+    <div class="searchbox position-relative d-none d-md-block">
+        <i class="bi bi-search"></i>
+        <input id="pessoasSearch" class="form-control" placeholder="Buscar nome, email..." />
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-ghost" type="button" id="btnRefreshPessoas" title="Atualizar">
+            <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+        </button>
+        @await Html.PartialAsync("_TopbarUserActions", "RH")
+    </div>
+}
+
+@await Html.PartialAsync("_ModalPessoa")
+
+<section class="content">
+    <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <h4>Pessoa</h4>
+            <div class="subtitle">Todas as pessoas cadastradas. Bloqueie ou desbloqueie pela ação na linha. Use "Bloquear pessoa" para adicionar alguém que ainda não está na lista.</div>
+        </div>
+        <button type="button" class="btn btn-brand" id="btnBloquearPessoaManual" title="Bloquear pessoa (nome e e-mail)">
+            <i class="bi bi-person-x me-1"></i>Bloquear pessoa
+        </button>
+    </div>
+
+    <div class="card-soft p-3 mb-3">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+            <div>
+                <div class="fw-bold">Lista de pessoas</div>
+                <div class="text-muted small">Busque por nome ou e-mail. Use Bloquear para incluir na blacklist ou Desbloquear para remover.</div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+                <div style="min-width: 200px;">
+                    <label class="form-label small mb-1">Buscar</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);"><i class="bi bi-search"></i></span>
+                        <input class="form-control" id="fSearch" placeholder="nome, email..." style="border-color:var(--lt-border);" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th>Fone</th>
+                        <th>Cidade / UF</th>
+                        <th>Bloqueado</th>
+                        <th>Criado em</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="pessoasTbody"></tbody>
+            </table>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mt-2">
+            <div class="text-muted small" id="pessoasHint">-</div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="pill"><i class="bi bi-people"></i><span id="pessoasCount">0</span> exibidos</span>
+                <nav id="paginationWrap" class="d-flex align-items-center gap-1"></nav>
+            </div>
+        </div>
+    </div>
+
+    <template id="tpl-pessoa-row">
+        <tr>
+            <td data-role="nome"></td>
+            <td data-role="email"></td>
+            <td data-role="fone"></td>
+            <td data-role="cidadeUf"></td>
+            <td data-role="bloqueado-host"></td>
+            <td data-role="createdAt"></td>
+            <td class="text-end" data-role="acoes-host"></td>
+        </tr>
+    </template>
+
+    <template id="tpl-pessoa-empty">
+        <tr>
+            <td colspan="7" class="text-center text-muted py-4">Nenhuma pessoa encontrada.</td>
+        </tr>
+    </template>
+</section>
+
+<!-- Modal: Motivo do bloqueio (ao clicar em Bloquear na linha) -->
+<div class="modal fade" id="modalMotivoBloqueio" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: 1px solid var(--lt-border, #dee2e6);">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalMotivoBloqueioTitle">Bloquear pessoa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Informe o motivo do bloqueio (opcional).</p>
+                <div class="mb-3">
+                    <label class="form-label">Motivo</label>
+                    <textarea class="form-control" id="modalMotivoBloqueioMotivo" rows="3" placeholder="Ex.: Não compareceu à entrevista" maxlength="500"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand" id="btnConfirmarMotivoBloqueio">
+                    <i class="bi bi-person-x me-1"></i>Bloquear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Bloquear pessoa (manual: nome, email, motivo) -->
+<div class="modal fade" id="modalBloquearPessoa" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; border: 1px solid var(--lt-border, #dee2e6);">
+            <div class="modal-header">
+                <h5 class="modal-title">Bloquear pessoa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Informe nome e e-mail da pessoa a ser bloqueada. Opcionalmente informe o motivo.</p>
+                <div class="mb-3">
+                    <label class="form-label">Nome <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="modalBloqueioNome" placeholder="Nome completo" maxlength="160" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">E-mail <span class="text-danger">*</span></label>
+                    <input type="email" class="form-control" id="modalBloqueioEmail" placeholder="email@exemplo.com" maxlength="180" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Motivo</label>
+                    <textarea class="form-control" id="modalBloqueioMotivo" rows="2" placeholder="Opcional" maxlength="500"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-brand" id="btnConfirmarBloquearPessoa">
+                    <i class="bi bi-person-x me-1"></i>Bloquear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/views/pessoas.js" asp-append-version="true"></script>
+}

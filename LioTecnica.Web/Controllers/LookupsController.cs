@@ -1,5 +1,6 @@
 using LioTecnica.Web.Infrastructure.ApiClients;
 using LioTecnica.Web.Infrastructure.Security;
+using RhPortal.Web.Infrastructure.ApiClients;
 using LioTecnica.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,23 +13,26 @@ public sealed class LookupController : ControllerBase
     private readonly AreasApiClient _areas;
     private readonly DepartmentsApiClient _departments;
     private readonly VagasApiClient _vagas;
-    private readonly IGestoresLookupService _gestores;
+    private readonly FuncionariosApiClient _funcionarios;
     private readonly JobPositionsApiClient _jobPositions;
+    private readonly UsersApiClient _users;
     private readonly PortalTenantContext _tenantContext;
 
     public LookupController(
         AreasApiClient areas,
         DepartmentsApiClient departments,
         VagasApiClient vagas,
-        IGestoresLookupService gestores,
+        FuncionariosApiClient funcionarios,
         JobPositionsApiClient jobPositions,
+        UsersApiClient users,
         PortalTenantContext tenantContext)
     {
         _areas = areas;
         _departments = departments;
         _vagas = vagas;
-        _gestores = gestores;
+        _funcionarios = funcionarios;
         _jobPositions = jobPositions;
+        _users = users;
         _tenantContext = tenantContext;
     }
 
@@ -78,20 +82,29 @@ public sealed class LookupController : ControllerBase
         return Ok(items);
     }
 
-    // GET /api/lookup/managers?onlyActive=true&page=1&pageSize=50&q=ana
-    [HttpGet("managers")]
-    public async Task<ActionResult<LookupResponse<GestorLookupItem>>> Managers(
+    // GET /api/lookup/funcionarios?onlyActive=true&page=1&pageSize=50&q=ana
+    [HttpGet("funcionarios")]
+    public async Task<IActionResult> Funcionarios(
         [FromQuery] string? q = null,
         [FromQuery] bool onlyActive = true,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
     {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 5, 200);
-
-        var resp = await _gestores.LookupAsync(q, onlyActive, page, pageSize, ct);
-        return Ok(resp);
+        var tenantId = _tenantContext.TenantId ?? "";
+        var resp = await _funcionarios.GetLookupAsync(tenantId, q, onlyActive, page, pageSize, ct);
+        return Ok(new { items = resp.Items ?? new(), total = resp.Total, hasMore = resp.HasMore });
     }
 
+    /// <summary>
+    /// Lista usuários que possuem o perfil Gestor (cadastro de usuários) — para seleção no cadastro de gestores.
+    /// </summary>
+    [HttpGet("users-gestores")]
+    public async Task<IActionResult> UsersGestores(CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId ?? "";
+        var list = await _users.GetUsersGestoresAsync(tenantId, ct);
+        var result = list.Select(u => new { id = u.Id, name = u.Name, email = u.Email }).ToList();
+        return Ok(result);
+    }
 }

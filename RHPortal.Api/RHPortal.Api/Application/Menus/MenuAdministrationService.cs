@@ -5,6 +5,7 @@ using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Menus;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Data.Seeders;
 using RhPortal.Api.Infrastructure.Localization;
 
 namespace RhPortal.Api.Application.Menus;
@@ -28,13 +29,26 @@ public sealed class MenuAdministrationService
             ["portalvagas.view"] = "Seed.Menu.PortalVagas",
             ["entrada.view"] = "Seed.Menu.Entrada",
             ["relatorios.view"] = "Seed.Menu.Relatorios",
+            ["feedback.celebracao.view"] = "Seed.Menu.Celebracao",
+            ["feedback.desenvolvimento"] = "Seed.Menu.Desenvolvimento",
+            ["feedback.send"] = "Seed.Menu.EnviarFeedback",
+            ["feedback.view"] = "Seed.Menu.Feedbacks",
+            ["feedback.list"] = "Seed.Menu.Feedbacks",
+            ["feedback.myplans.view"] = "Seed.Menu.MeusPlanos",
+            ["feedback.oneonone.view"] = "Seed.Menu.Reunioes1a1",
+            ["feedback.gamificacao.view"] = "Seed.Menu.Gamificacao",
+            ["feedback.gestao.view"] = "Seed.Menu.Gestao",
+            ["gestao.dashboard"] = "Seed.Menu.GestaoDashboard",
+            ["gestao.planos"] = "Seed.Menu.GestaoPlanos",
+            ["gestao.humor"] = "Seed.Menu.GestaoHumor",
+            ["gestao.resumo"] = "Seed.Menu.GestaoResumo",
             ["departments.view"] = "Seed.Menu.Departamentos",
-            ["costcenters.view"] = "Seed.Menu.CentrosCustos",
             ["areas.view"] = "Seed.Menu.Areas",
             ["categories.view"] = "Seed.Menu.Categorias",
             ["jobpositions.view"] = "Seed.Menu.Cargos",
             ["units.view"] = "Seed.Menu.Unidades",
-            ["managers.view"] = "Seed.Menu.Gestores",
+            ["funcionarios.view"] = "Seed.Menu.Funcionarios",
+            ["bloqueio-pessoa.view"] = "Seed.Menu.BloqueioPessoa",
             ["users.read"] = "Seed.Menu.Usuarios",
             ["roles.manage"] = "Seed.Menu.Perfis",
             ["menus.manage"] = "Seed.Menu.Menus",
@@ -47,6 +61,23 @@ public sealed class MenuAdministrationService
             ["entra-config.manage"] = "Seed.Menu.ConfigEntraId",
             ["localization-config.manage"] = "Seed.Menu.Idioma"
         };
+
+    /// <summary>Permission keys for tenant-config-only items; excluded from main menu (sidebar).</summary>
+    private static readonly HashSet<string> ConfigOnlyPermissionKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "access.manage",
+        "menus.manage",
+        "audit.view",
+        "logs.view",
+        "email-templates.manage",
+        "emails.manage",
+        "email-config.manage",
+        "entra-config.manage",
+        "localization-config.manage"
+    };
+
+    private static IReadOnlyList<MenuForCurrentUserResponse> ExcludeConfigOnlyMenus(IReadOnlyList<MenuForCurrentUserResponse> menus) =>
+        menus.Where(m => !ConfigOnlyPermissionKeys.Contains(m.PermissionKey)).ToList();
 
     public MenuAdministrationService(
         AppDbContext db,
@@ -175,6 +206,59 @@ public sealed class MenuAdministrationService
         return true;
     }
 
+    /// <summary>
+    /// Returns all active menus (no role filter). Used when the current user is Owner.
+    /// </summary>
+    public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListAllActiveForCurrentUserAsync(CancellationToken ct)
+    {
+        var menus = await _db.Menus
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .ToListAsync(ct);
+        var mapped = await MapMenusForCurrentUserAsync(menus, ct);
+        return ExcludeConfigOnlyMenus(mapped);
+    }
+
+    private const int OwnerFullMenuMinimumCount = 5;
+
+    /// <summary>
+    /// Returns full menu list for Owner. Uses tenant DB when it has enough menus; otherwise returns a fixed template so Owner always sees everything.
+    /// </summary>
+    public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListFullMenuForOwnerAsync(CancellationToken ct)
+    {
+        var fromDb = await ListAllActiveForCurrentUserAsync(ct);
+        if (fromDb.Count >= OwnerFullMenuMinimumCount)
+            return fromDb;
+        return ExcludeConfigOnlyMenus(BuildFullMenuTemplate());
+    }
+
+    private static IReadOnlyList<MenuForCurrentUserResponse> BuildFullMenuTemplate()
+    {
+        var culture = CultureInfo.CurrentUICulture;
+        string L(string key) => SeedResourceManager.GetString(key, culture) ?? key;
+
+        var descriptors = MenuSeeder.GetDefaultMenuDescriptors();
+        var idByPermissionKey = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        foreach (var d in descriptors)
+            idByPermissionKey[d.PermissionKey] = Guid.NewGuid();
+
+        var list = new List<MenuForCurrentUserResponse>(descriptors.Count);
+        foreach (var d in descriptors)
+        {
+            var parentId = d.ParentPermissionKey != null && idByPermissionKey.TryGetValue(d.ParentPermissionKey, out var pid) ? pid : (Guid?)null;
+            list.Add(new MenuForCurrentUserResponse(
+                idByPermissionKey[d.PermissionKey],
+                L(d.DisplayNameKey),
+                d.Route,
+                d.Icon,
+                d.Order,
+                parentId,
+                d.PermissionKey,
+                d.OpenInNewTab));
+        }
+        return list.OrderBy(x => x.Order).ThenBy(x => x.DisplayName).ToList();
+    }
+
     public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForUserAsync(
         Guid userId,
         IReadOnlyCollection<string>? permissionKeys,
@@ -201,7 +285,9 @@ public sealed class MenuAdministrationService
             return await ListForPermissionsAsync(permissionKeys, ct);
         }
 
-        return await MapMenusForCurrentUserAsync(menus, ct);
+        menus = await IncludeAncestorMenusAsync(menus, ct);
+        var mapped = await MapMenusForCurrentUserAsync(menus, ct);
+        return ExcludeConfigOnlyMenus(mapped);
     }
 
     public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForPermissionsAsync(
@@ -215,7 +301,29 @@ public sealed class MenuAdministrationService
             .Where(x => permissionKeys.Contains(x.PermissionKey) && x.IsActive)
             .ToListAsync(ct);
 
-        return await MapMenusForCurrentUserAsync(menus, ct);
+        menus = await IncludeAncestorMenusAsync(menus, ct);
+        var mapped = await MapMenusForCurrentUserAsync(menus, ct);
+        return ExcludeConfigOnlyMenus(mapped);
+    }
+
+    private async Task<List<Menu>> IncludeAncestorMenusAsync(List<Menu> menus, CancellationToken ct)
+    {
+        var idSet = menus.Select(x => x.Id).ToHashSet();
+        var parentIds = menus.Where(x => x.ParentId.HasValue).Select(x => x.ParentId!.Value).Distinct().Where(id => !idSet.Contains(id)).ToList();
+        while (parentIds.Count > 0)
+        {
+            var parents = await _db.Menus.Where(x => parentIds.Contains(x.Id) && x.IsActive).ToListAsync(ct);
+            foreach (var p in parents)
+            {
+                if (!idSet.Contains(p.Id))
+                {
+                    idSet.Add(p.Id);
+                    menus.Add(p);
+                }
+            }
+            parentIds = parents.Where(x => x.ParentId.HasValue).Select(x => x.ParentId!.Value).Distinct().Where(id => !idSet.Contains(id)).ToList();
+        }
+        return menus;
     }
 
     private async Task<IReadOnlyList<MenuForCurrentUserResponse>> MapMenusForCurrentUserAsync(

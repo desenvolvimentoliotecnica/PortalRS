@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
+using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.Talentos;
+using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Contracts.Portal;
@@ -24,10 +27,14 @@ namespace RhPortal.Api.Controllers;
 public sealed class PublicCandidaturasController : ControllerBase
 {
     private readonly IStringLocalizer<ControllerMessages> _localizer;
+    private readonly IMatchingService _matchingService;
 
-    public PublicCandidaturasController(IStringLocalizer<ControllerMessages> localizer)
+    public PublicCandidaturasController(
+        IStringLocalizer<ControllerMessages> localizer,
+        IMatchingService matchingService)
     {
         _localizer = localizer;
+        _matchingService = matchingService;
     }
 
     /// <summary>
@@ -48,6 +55,7 @@ public sealed class PublicCandidaturasController : ControllerBase
     public async Task<ActionResult<CandidateResponse>> Create(
         [FromForm] PortalCandidaturaRequest request,
         [FromServices] ICandidatoService service,
+        [FromServices] ITalentoService talentoService,
         [FromServices] AppDbContext db,
         [FromServices] NotificationPublisher notificationPublisher,
         [FromServices] ITenantContext tenantContext,
@@ -79,8 +87,20 @@ public sealed class PublicCandidaturasController : ControllerBase
         {
             if (existing is not null)
             {
-                // 2) Se existe: atualiza a vaga + (opcional) dados básicos
-                //    Aqui você decide a regra: sobrescreve VagaId, ou mantém histórico (ver nota no final).
+                // 2) Se existe: atualiza a vaga + (opcional) dados básicos; garante Talento
+                var (talentoExisting, _) = await talentoService.GetOrCreateByEmailAsync(
+                    email,
+                    string.IsNullOrWhiteSpace(request.Nome) ? existing.Nome : request.Nome,
+                    string.IsNullOrWhiteSpace(request.Fone) ? existing.Fone : request.Fone,
+                    cidade ?? existing.Cidade,
+                    uf ?? existing.Uf,
+                    null,
+                    null,
+                    obs ?? existing.Obs,
+                    OrigemTalento.Candidatura,
+                    ct);
+                existing.TalentoId = talentoExisting.Id;
+
                 existing.VagaId = request.VagaId;
                 existing.Nome = string.IsNullOrWhiteSpace(request.Nome) ? existing.Nome : request.Nome;
                 existing.Fone = string.IsNullOrWhiteSpace(request.Fone) ? existing.Fone : request.Fone;
@@ -89,29 +109,34 @@ public sealed class PublicCandidaturasController : ControllerBase
                 existing.Obs = obs ?? existing.Obs;
 
                 await db.SaveChangesAsync(ct);
+                await _matchingService.CalculateAndStoreAsync(existing.Id, request.VagaId, ct);
                 shouldNotify = true;
                 notifyCandidateId = existing.Id;
                 notifyTenantId = existing.TenantId;
 
                 result = new CandidateResponse(
-    existing.Id,
-    existing.Nome,
-    existing.Email,
-    existing.Fone,
-    existing.Cidade,
-    existing.Uf,
-    existing.Fonte,
-    existing.Status,
-    existing.VagaId,
-    existing?.Vaga?.Codigo,
-    existing?.Vaga?.Titulo,
-    existing?.Obs,
-    existing?.CvText,
-    LastMatch: null, // ou mapear
-    Documentos: Array.Empty<CandidateDocumentoResponse>(), // ou mapear
-    existing.CreatedAtUtc,
-    existing.UpdatedAtUtc
-);
+                    existing.Id,
+                    existing.Nome,
+                    existing.Email,
+                    existing.Fone,
+                    existing.Cidade,
+                    existing.Uf,
+                    existing.Fonte,
+                    existing.Status,
+                    existing.VagaId,
+                    existing.Vaga?.Codigo,
+                    existing.Vaga?.Titulo,
+                    existing.Vaga?.AreaId,
+                    existing.Vaga?.RecrutadorResponsavelUserId,
+                    existing.Obs,
+                    existing.CvText,
+                    null,
+                    Array.Empty<CandidateDocumentoResponse>(),
+                    null,
+                    null,
+                    existing.CreatedAtUtc,
+                    existing.UpdatedAtUtc
+                );
 
 
                 // Anexo (se quiser anexar ao candidato existente também)
@@ -127,7 +152,19 @@ public sealed class PublicCandidaturasController : ControllerBase
             }
             else
             {
-                // 3) Se não existe: cria
+                // 3) Se não existe: cria Pessoa + Talento, depois Candidato com TalentoId
+                var (talentoNew, _) = await talentoService.GetOrCreateByEmailAsync(
+                    email,
+                    request.Nome,
+                    request.Fone,
+                    cidade,
+                    uf,
+                    null,
+                    null,
+                    obs,
+                    OrigemTalento.Candidatura,
+                    ct);
+
                 var create = new CandidateCreateRequest(
                     request.Nome,
                     email,
@@ -140,7 +177,10 @@ public sealed class PublicCandidaturasController : ControllerBase
                     obs,
                     null,
                     null,
-                    null
+                    null,
+                    null,
+                    null,
+                    talentoNew.Id
                 );
 
                 result = await service.CreateAsync(create, ct);

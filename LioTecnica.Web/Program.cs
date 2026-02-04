@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using LioTecnica.Web.Controllers;
 using LioTecnica.Web.Infrastructure.ApiClients;
 using LioTecnica.Web.Infrastructure.Logging;
 using LioTecnica.Web.Infrastructure.Security;
@@ -31,6 +32,7 @@ builder.Services.AddLocalization(o => o.ResourcesPath = "Resources");
 builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AuthorizeFilter());
+    options.Filters.Add<LioTecnica.Web.Infrastructure.Filters.ApiConnectionExceptionFilter>();
 })
 .AddViewLocalization()
 .AddDataAnnotationsLocalization()
@@ -38,7 +40,14 @@ builder.Services.AddControllersWithViews(options =>
 {
     options.ViewLocationFormats.Add("/Views/Shared/Components/{1}/{0}.cshtml");
     options.ViewLocationFormats.Add("/Views/Shared/Components/MainMenu/{0}.cshtml");
-});
+})
+.AddControllersAsServices();
+
+// Replace default IControllerActivatorProvider so OwnerController/UnidadesController are resolved from DI when building the cache (avoids ActivatorUtilities.TryFindMatchingConstructor).
+var activatorDescriptor = builder.Services.FirstOrDefault(d => d.ServiceType == typeof(Microsoft.AspNetCore.Mvc.Controllers.IControllerActivatorProvider));
+if (activatorDescriptor is not null)
+    builder.Services.Remove(activatorDescriptor);
+builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.Controllers.IControllerActivatorProvider, LioTecnica.Web.Infrastructure.Controllers.ServiceBasedControllerActivatorProvider>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -114,7 +123,7 @@ if (entraEnabled && !string.IsNullOrWhiteSpace(entraClientId))
                     return;
                 }
 
-                context.Principal = AuthClaimsFactory.CreatePrincipal(response);
+                context.Principal = AuthClaimsFactory.CreatePrincipal(response, tenantId);
             },
             OnRemoteFailure = context =>
             {
@@ -142,17 +151,12 @@ builder.Services.AddScoped<PortalTenantContext>();
 builder.Services.AddTransient<ApiAuthenticationHandler>();
 builder.Services.AddSingleton<IEntraIdLocalConfigStore, EntraIdLocalConfigStore>();
 
-builder.Services.AddHttpClient<IGestoresLookupService, GestoresLookupService>(client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
-}).AddHttpMessageHandler<ApiAuthenticationHandler>();
-
 builder.Services.AddHttpClient<UnitsApiClient>(c =>
 {
     c.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
-builder.Services.AddHttpClient<ManagersApiClient>(c =>
+builder.Services.AddHttpClient<FuncionariosApiClient>(c =>
 {
     c.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
@@ -177,17 +181,27 @@ builder.Services.AddHttpClient<RequisitoCategoriasApiClient>(c =>
     c.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
-builder.Services.AddHttpClient<CostCentersApiClient>(c =>
-{
-    c.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
-}).AddHttpMessageHandler<ApiAuthenticationHandler>();
-
 builder.Services.AddHttpClient<VagasApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
 builder.Services.AddHttpClient<CandidatosApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
+builder.Services.AddHttpClient<TalentosApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
+builder.Services.AddHttpClient<BloqueioPessoaApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
+builder.Services.AddHttpClient<PessoasApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
@@ -237,6 +251,11 @@ builder.Services.AddHttpClient<OwnerTenantsApiClient>(http =>
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
+builder.Services.AddHttpClient<OwnerAiApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
+
 builder.Services.AddHttpClient<OwnerTenantUsersApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
@@ -267,6 +286,10 @@ builder.Services.AddHttpClient<RolesApiClient>(http =>
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
 }).AddHttpMessageHandler<ApiAuthenticationHandler>();
 
+builder.Services.AddHttpClient<FeedbackApiClient>(http =>
+{
+    http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
+}).AddHttpMessageHandler<ApiAuthenticationHandler>();
 builder.Services.AddHttpClient<MenusApiClient>(http =>
 {
     http.BaseAddress = new Uri(builder.Configuration["Endpoints:RhApi"]!);
@@ -324,6 +347,28 @@ builder.Services.AddHttpClient<OpsApiClient>(http =>
 })
 .AddHttpMessageHandler<ApiAuthenticationHandler>();
 
+// UnidadesController: registro explícito para evitar "Multiple constructors" no ActivatorUtilities
+builder.Services.AddTransient<UnidadesController>(sp => new UnidadesController(
+    sp.GetRequiredService<UnitsApiClient>(),
+    sp.GetRequiredService<FuncionariosApiClient>(),
+    sp.GetRequiredService<OwnerTenantsApiClient>(),
+    sp.GetRequiredService<PortalTenantContext>()));
+
+// OwnerController: registro explícito para evitar "Multiple constructors" no ActivatorUtilities
+builder.Services.AddTransient<OwnerController>(sp => new OwnerController(
+    sp.GetRequiredService<OwnerTenantsApiClient>(),
+    sp.GetRequiredService<OwnerTenantUsersApiClient>(),
+    sp.GetRequiredService<RolesApiClient>(),
+    sp.GetRequiredService<MenusApiClient>(),
+    sp.GetRequiredService<AuditLogsApiClient>(),
+    sp.GetRequiredService<OperationalLogsApiClient>(),
+    sp.GetRequiredService<EmailTemplatesApiClient>(),
+    sp.GetRequiredService<EmailMessagesApiClient>(),
+    sp.GetRequiredService<EmailConfigApiClient>(),
+    sp.GetRequiredService<EntraIdConfigApiClient>(),
+    sp.GetRequiredService<LocalizationConfigApiClient>(),
+    sp.GetRequiredService<OwnerAiApiClient>()));
+
 var app = builder.Build();
 
 // =========================
@@ -352,6 +397,7 @@ var localizationOptions = new RequestLocalizationOptions
 };
 app.UseRequestLocalization(localizationOptions);
 
+app.UseMiddleware<LioTecnica.Web.Infrastructure.Middleware.DebugExceptionLoggingMiddleware>();
 app.UseExceptionHandler("/Home/Error");
 if (!app.Environment.IsDevelopment())
 {

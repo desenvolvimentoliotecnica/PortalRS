@@ -57,7 +57,7 @@
     <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
       <div>
         <div class="fw-bold">Lista de unidades</div>
-        <div class="text-muted small">Clique em uma unidade para ver gestores e vagas.</div>
+        <div class="text-muted small">Clique em uma unidade para ver funcionários e vagas.</div>
       </div>
       <div class="d-flex flex-wrap gap-2 justify-content-end">
         <div style="min-width:240px;">
@@ -80,21 +80,21 @@
 
     <hr class="my-3 divider">
 
-        <div class="table-responsive">
-  <table class="table table-sm align-middle mb-0">
-    <thead>
-<tr>
-          <th>Unidade</th>
-          <th>Status</th>
-          <th>Headcount</th>
-          <th>Contato</th>
-          <th>Tipo</th>
-          <th class="text-end">Acoes</th>
-        </tr>
-    </thead>
-    <tbody id="unTbody"></tbody>
-  </table>
-</div>
+    <div class="table-responsive rounded overflow-hidden">
+      <table class="table table-sm table-hover table-striped align-middle mb-0 unidades-table">
+        <thead class="table-dark">
+          <tr>
+            <th scope="col">Unidade</th>
+            <th scope="col">Status</th>
+            <th scope="col">Headcount</th>
+            <th scope="col">Contato</th>
+            <th scope="col">Tipo</th>
+            <th scope="col" class="text-end">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="unTbody"></tbody>
+      </table>
+    </div>
 
     <div class="d-flex align-items-center justify-content-between mt-2">
       <div class="text-muted small" id="unHint">-</div>
@@ -107,26 +107,27 @@
   <template id="tpl-un-row">
     <tr>
       <td>
-        <div class="fw-semibold" data-role="un-name"></div>
-        <div class="text-muted small" data-role="un-code"></div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="rounded-circle d-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary" style="width:2.25rem;height:2.25rem;font-size:.85rem;" data-role="un-initials">—</span>
+          <div>
+            <div class="fw-semibold" data-role="un-name"></div>
+            <div class="text-muted small mono" data-role="un-code"></div>
+          </div>
+        </div>
       </td>
       <td><span data-role="un-status-host"></span></td>
-      <td class="mono" data-role="un-headcount"></td>
+      <td class="mono fw-medium" data-role="un-headcount"></td>
       <td>
-        <div class="small text-muted" data-role="un-email"></div>
-        <div class="small" data-role="un-phone"></div>
+        <div class="small" data-role="un-email"></div>
+        <div class="small text-muted" data-role="un-phone"></div>
       </td>
-      <td data-role="un-type"></td>
+      <td><span class="badge bg-light text-dark border" data-role="un-type">—</span></td>
       <td class="text-end">
-        <button class="btn btn-ghost btn-sm me-1" type="button" data-act="detail">
-          <i class="bi bi-eye"></i>
-        </button>
-        <button class="btn btn-ghost btn-sm me-1" type="button" data-act="edit">
-          <i class="bi bi-pencil"></i>
-        </button>
-        <button class="btn btn-ghost btn-sm text-danger" type="button" data-act="del">
-          <i class="bi bi-trash3"></i>
-        </button>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-secondary" type="button" data-act="detail" title="Detalhes"><i class="bi bi-eye"></i></button>
+          <button class="btn btn-outline-secondary" type="button" data-act="edit" title="Editar"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-outline-danger" type="button" data-act="del" title="Excluir"><i class="bi bi-trash3"></i></button>
+        </div>
       </td>
     </tr>
   </template>

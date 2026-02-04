@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using LioTecnica.Web.Infrastructure.Serialization;
 
 namespace LioTecnica.Web.ViewModels.Admin;
 
@@ -7,8 +9,15 @@ public sealed record UserListItemViewModel(
     string FullName,
     string Email,
     bool IsActive,
-    IReadOnlyList<string> Roles
+    IReadOnlyList<string> Roles,
+    FuncionarioInfoViewModel? Funcionario = null
 );
+
+public sealed record UnitInfoViewModel(Guid Id, string Code, string Name);
+
+public sealed record ManagerInfoViewModel(Guid Id, string Name, string? Email);
+
+public sealed record FuncionarioInfoViewModel(Guid Id, string Name, string? Email);
 
 public sealed record UserResponseViewModel(
     Guid Id,
@@ -16,6 +25,8 @@ public sealed record UserResponseViewModel(
     string Email,
     bool IsActive,
     IReadOnlyList<RoleInfoViewModel> Roles,
+    IReadOnlyList<UnitInfoViewModel> Units,
+    FuncionarioInfoViewModel? Funcionario,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
@@ -24,7 +35,10 @@ public sealed record RoleListItemViewModel(
     Guid Id,
     string Name,
     string Description,
-    bool IsActive
+    bool IsActive,
+    [property: JsonConverter(typeof(EnumNameOrNumberToIntConverter))] int VisibilityScope,
+    [property: JsonConverter(typeof(EnumNameOrNumberToIntConverter))] int VagasDataScope,
+    [property: JsonConverter(typeof(EnumNameOrNumberToIntConverter))] int AccessMode
 );
 
 public sealed record RoleResponseViewModel(
@@ -32,6 +46,9 @@ public sealed record RoleResponseViewModel(
     string Name,
     string Description,
     bool IsActive,
+    [property: JsonConverter(typeof(EnumNameOrNumberToIntConverter))] int VisibilityScope,
+    [property: JsonConverter(typeof(EnumNameOrNumberToIntConverter))] int VagasDataScope,
+    [property: JsonConverter(typeof(EnumNameOrNumberToIntConverter))] int AccessMode,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
@@ -93,6 +110,8 @@ public sealed class UserEditViewModel
 {
     public UserFormModel User { get; init; } = new();
     public IReadOnlyList<RoleListItemViewModel> Roles { get; init; } = Array.Empty<RoleListItemViewModel>();
+    public IReadOnlyList<UnitInfoViewModel> Units { get; init; } = Array.Empty<UnitInfoViewModel>();
+    public IReadOnlyList<FuncionarioInfoViewModel> Funcionarios { get; init; } = Array.Empty<FuncionarioInfoViewModel>();
     public bool IsNew { get; init; }
 }
 
@@ -124,12 +143,17 @@ public sealed class UserFormModel
     [Required, MaxLength(200)]
     public string FullName { get; set; } = string.Empty;
 
-    [MinLength(8), MaxLength(120)]
+    /// <summary>Obrigatório na criação. Na edição, opcional (preencher apenas para alterar). Mínimo 8 caracteres.</summary>
+    [MaxLength(120)]
     public string? Password { get; set; }
 
     public bool IsActive { get; set; } = true;
 
     public List<Guid> RoleIds { get; set; } = new();
+
+    public Guid? FuncionarioId { get; set; }
+
+    public List<Guid> UnitIds { get; set; } = new();
 }
 
 public sealed class RoleFormModel
@@ -143,6 +167,15 @@ public sealed class RoleFormModel
     public string Description { get; set; } = string.Empty;
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>0 = FullStructure, 1 = RestrictedByAreaOrRecruiter</summary>
+    public int VisibilityScope { get; set; }
+
+    /// <summary>0 = All, 1 = ByArea, 2 = ByRecrutador</summary>
+    public int VagasDataScope { get; set; }
+
+    /// <summary>0 = Full, 1 = ReadOnly</summary>
+    public int AccessMode { get; set; }
 }
 
 public sealed class MenuFormModel

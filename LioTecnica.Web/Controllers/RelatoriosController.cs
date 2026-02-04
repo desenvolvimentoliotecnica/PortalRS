@@ -115,6 +115,20 @@ public class RelatoriosController : Controller
         return ToContentResult(resp);
     }
 
+    [HttpGet("/Relatorios/_api/sla-vaga")]
+    public async Task<IActionResult> GetSlaVaga(
+        [FromQuery] string? period,
+        [FromQuery] Guid? areaId,
+        [FromQuery] string? recrutador,
+        [FromQuery] string? status,
+        CancellationToken ct)
+    {
+        var query = BuildSlaVagaQuery(period, areaId, recrutador, status);
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _reportsApi.GetSlaVagaRawAsync(tenantId, query, ct);
+        return ToContentResult(resp);
+    }
+
     private static string BuildQuery(string? period, Guid? vagaId, string? origem, string? status, string? q)
     {
         var parts = new List<string>();
@@ -123,6 +137,16 @@ public class RelatoriosController : Controller
         if (!string.IsNullOrWhiteSpace(origem)) parts.Add($"origem={Uri.EscapeDataString(origem)}");
         if (!string.IsNullOrWhiteSpace(status)) parts.Add($"status={Uri.EscapeDataString(status)}");
         if (!string.IsNullOrWhiteSpace(q)) parts.Add($"q={Uri.EscapeDataString(q)}");
+        return parts.Count == 0 ? string.Empty : "?" + string.Join("&", parts);
+    }
+
+    private static string BuildSlaVagaQuery(string? period, Guid? areaId, string? recrutador, string? status)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(period)) parts.Add($"period={Uri.EscapeDataString(period)}");
+        if (areaId.HasValue && areaId.Value != Guid.Empty) parts.Add($"areaId={areaId.Value}");
+        if (!string.IsNullOrWhiteSpace(recrutador)) parts.Add($"recrutador={Uri.EscapeDataString(recrutador)}");
+        if (!string.IsNullOrWhiteSpace(status)) parts.Add($"status={Uri.EscapeDataString(status)}");
         return parts.Count == 0 ? string.Empty : "?" + string.Join("&", parts);
     }
 

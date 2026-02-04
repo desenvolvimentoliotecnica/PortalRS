@@ -1,4 +1,4 @@
-﻿using RHPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.Vagas;
 
@@ -27,6 +27,8 @@ public sealed record VagaListItemResponse(
 
     DateOnly? DataInicio,
     DateOnly? DataEncerramento,
+    DateTimeOffset? DataAbertura,
+    int? SlaDiasMetaFechamento,
 
     string? Cidade,
     string? Uf,

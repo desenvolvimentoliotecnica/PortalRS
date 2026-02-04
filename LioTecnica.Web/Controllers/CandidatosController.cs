@@ -29,11 +29,14 @@ public class CandidatosController : Controller
     [HttpGet("/api/candidatos")]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? q,
-        [FromQuery] Guid? vagaId,
-        CancellationToken ct)
+        [FromQuery] string[]? statuses,
+        [FromQuery] Guid[]? vagaIds,
+        CancellationToken ct,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
     {
         var tenantId = _tenantContext.TenantId;
-        var resp = await _candidatosApi.GetCandidatosRawAsync(tenantId, q, vagaId, ct);
+        var resp = await _candidatosApi.GetCandidatosRawAsync(tenantId, q, statuses, vagaIds, page, pageSize, ct);
         return ToContentResult(resp);
     }
 

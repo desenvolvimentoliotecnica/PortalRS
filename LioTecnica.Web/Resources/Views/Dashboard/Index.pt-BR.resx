@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -70,6 +70,13 @@
   </data>
   <data name="Kpi_Approved7d_Hint" xml:space="preserve">
     <value>+6 vs semana anterior</value>
+  </data>
+
+  <data name="Kpi_VagasForaSla" xml:space="preserve">
+    <value>Vagas fora do SLA</value>
+  </data>
+  <data name="Kpi_VagasForaSla_Hint" xml:space="preserve">
+    <value>acima da meta de fechamento</value>
   </data>
 
   <!-- Chart card -->

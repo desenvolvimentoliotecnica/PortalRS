@@ -1,5 +1,5 @@
 (() => {
-  const apiBase = "/Admin/EntraIdConfig/_api";
+  const apiBase = (window.__ownerConfigApiBase || "/Admin/EntraIdConfig") + "/_api";
   const entraEnabled = document.getElementById("entraEnabled");
   const entraTenantId = document.getElementById("entraTenantId");
   const entraClientId = document.getElementById("entraClientId");

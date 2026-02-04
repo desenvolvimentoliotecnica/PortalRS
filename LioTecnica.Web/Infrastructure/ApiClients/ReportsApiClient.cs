@@ -27,6 +27,9 @@ public sealed class ReportsApiClient
     public Task<ApiRawResponse> GetRankingMatchingRawAsync(string tenantId, string query, CancellationToken ct)
         => SendAsync(BuildRequest(HttpMethod.Get, $"api/reports/ranking-matching{query}", tenantId), ct);
 
+    public Task<ApiRawResponse> GetSlaVagaRawAsync(string tenantId, string query, CancellationToken ct)
+        => SendAsync(BuildRequest(HttpMethod.Get, $"api/reports/sla-vaga{query}", tenantId), ct);
+
     private static HttpRequestMessage BuildRequest(HttpMethod method, string url, string tenantId)
     {
         var req = new HttpRequestMessage(method, url);

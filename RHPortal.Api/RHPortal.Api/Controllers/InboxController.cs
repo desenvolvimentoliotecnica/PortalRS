@@ -9,9 +9,11 @@ using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
+using RhPortal.Api.Application.Talentos;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Inbox;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
@@ -306,6 +308,83 @@ public sealed class InboxController : ControllerBase
         await hub.Clients.Group(InboxHub.GetTenantGroup(entity.TenantId))
             .SendAsync("inbox.deleted", new InboxRealtimeMessage("deleted", entity.Id, MapStatus(entity.Status), entity.RecebidoEm, entity.Assunto, entity.Remetente), ct);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Adiciona o remetente do item da inbox à base de talentos (cria Pessoa + Talento e opcionalmente Candidato na vaga BANCO-TALENTOS).
+    /// </summary>
+    [HttpPost("{id:guid}/add-to-talentos")]
+    [ProducesResponseType(typeof(RhPortal.Api.Contracts.Talentos.TalentoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RhPortal.Api.Contracts.Talentos.TalentoResponse>> AddToTalentos(
+        [FromRoute] Guid id,
+        [FromServices] AppDbContext db,
+        [FromServices] ITalentoService talentoService,
+        [FromServices] ITenantContext tenantContext,
+        CancellationToken ct)
+    {
+        var entity = await db.InboxItems.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return NotFound();
+
+        var email = entity.Remetente?.Trim();
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains("@", StringComparison.Ordinal))
+            return BadRequest(new { message = _localizer["ControllerErrors.InboxRemetenteRequired"] ?? "Remetente (e-mail) é obrigatório para adicionar à base de talentos." });
+
+        var origemTalento = entity.Origem switch
+        {
+            InboxOrigem.Pasta => RhPortal.Api.Domain.Enums.OrigemTalento.Pasta,
+            InboxOrigem.Upload => RhPortal.Api.Domain.Enums.OrigemTalento.Pasta,
+            _ => RhPortal.Api.Domain.Enums.OrigemTalento.Email
+        };
+
+        var nome = email.Contains("@", StringComparison.Ordinal) ? email.Substring(0, email.IndexOf('@')).Replace(".", " ").Trim() : email;
+        if (string.IsNullOrWhiteSpace(nome)) nome = email;
+
+        var (talento, _) = await talentoService.GetOrCreateByEmailAsync(
+            email,
+            nome,
+            null,
+            null,
+            null,
+            null,
+            entity.PreviewText,
+            null,
+            origemTalento,
+            ct);
+
+        var vagaId = await GetOrCreateInboxVagaIdAsync(db, ct);
+        if (vagaId != Guid.Empty && talento.Pessoa is not null)
+        {
+            var alreadyHas = await db.Candidatos.AnyAsync(c => c.TalentoId == talento.Id && c.VagaId == vagaId, ct);
+            if (!alreadyHas)
+            {
+                var candidatoFonte = entity.Origem == InboxOrigem.Pasta || entity.Origem == InboxOrigem.Upload ? CandidateOrigin.Pasta : CandidateOrigin.Email;
+                var candidato = new Candidato
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantContext.TenantId,
+                    Nome = talento.Pessoa.Nome,
+                    Email = talento.Pessoa.Email,
+                    Fone = talento.Pessoa.Fone,
+                    Cidade = talento.Pessoa.Cidade,
+                    Uf = talento.Pessoa.Uf,
+                    Fonte = candidatoFonte,
+                    Status = CandidateStatus.Triagem,
+                    VagaId = vagaId,
+                    TalentoId = talento.Id,
+                    Obs = _infraLocalizer["InfrastructureInbox.OrigemPastaObs", entity.Assunto ?? "inbox"].Value,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    UpdatedAtUtc = DateTimeOffset.UtcNow
+                };
+                db.Candidatos.Add(candidato);
+                entity.CandidatoId = candidato.Id;
+                await db.SaveChangesAsync(ct);
+            }
+        }
+
+        var response = await talentoService.GetByIdAsync(talento.Id, ct);
+        return response is null ? NotFound() : Ok(response);
     }
 
     private static bool TryParseEnum<TEnum>(string? value, out TEnum result) where TEnum : struct

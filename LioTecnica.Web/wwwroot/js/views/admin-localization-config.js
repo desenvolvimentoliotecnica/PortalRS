@@ -1,5 +1,5 @@
 (() => {
-  const apiBase = "/Admin/LocalizationConfig/_api";
+  const apiBase = (window.__ownerConfigApiBase || "/Admin/LocalizationConfig") + "/_api";
   const cultureSelect = document.getElementById("cultureSelect");
   const uiCultureSelect = document.getElementById("uiCultureSelect");
   const btnSave = document.getElementById("btnSaveConfig");

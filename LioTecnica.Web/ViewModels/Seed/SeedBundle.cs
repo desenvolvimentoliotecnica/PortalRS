@@ -25,8 +25,6 @@ public sealed record SeedBundle
 
     public IReadOnlyList<AreaSeed> Areas { get; init; } = Array.Empty<AreaSeed>();
 
-    public IReadOnlyList<CentrosCustosSeed> CentrosCustos { get; init; } = Array.Empty<CentrosCustosSeed>();
-
     public IReadOnlyList<RequisitoCategoriaSeed> RequisitoCategorias { get; init; } = Array.Empty<RequisitoCategoriaSeed>();
 
     public IReadOnlyList<UnidadeSeed> Unidades { get; init; } = Array.Empty<UnidadeSeed>();

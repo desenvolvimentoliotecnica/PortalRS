@@ -68,7 +68,7 @@ public static class VagaSeeder
             .AsNoTracking()
             .ToDictionaryAsync(x => x.Code, x => x, StringComparer.OrdinalIgnoreCase, ct);
 
-        var managers = await db.Managers.AsNoTracking().ToListAsync(ct);
+        var funcionarios = await db.Funcionarios.AsNoTracking().ToListAsync(ct);
         var jobPositions = await db.JobPositions.AsNoTracking().ToListAsync(ct);
 
         var areas = await db.Areas.AsNoTracking()
@@ -84,8 +84,8 @@ public static class VagaSeeder
         if (unitsByCode.Count == 0)
             throw new InvalidOperationException(localizer["SeedErrors.NoUnits"]);
 
-        if (managers.Count == 0)
-            throw new InvalidOperationException(localizer["SeedErrors.NoManagers"]);
+        if (funcionarios.Count == 0)
+            throw new InvalidOperationException(localizer["SeedErrors.NoFuncionarios"]);
 
         if (jobPositions.Count == 0)
             throw new InvalidOperationException(localizer["SeedErrors.NoJobPositions"]);
@@ -115,8 +115,9 @@ public static class VagaSeeder
         var descriptions = NormalizeTemplateMap(patterns.Descriptions);
         var requirements = NormalizeRequirements(LoadRequirements(requirementsFile, localizer).Requirements);
 
-        var managersByArea = managers
-            .GroupBy(m => m.AreaId)
+        var funcionariosByArea = funcionarios
+            .Where(f => f.AreaId.HasValue)
+            .GroupBy(f => f.AreaId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var cargosByArea = jobPositions
@@ -168,13 +169,11 @@ public static class VagaSeeder
             var unit = units[faker.Random.Int(0, units.Count - 1)];
             var depEntity = ResolveDepartment(departmentsByCode, departments, areaCode, faker);
 
-            var managerId =
-                (managersByArea.TryGetValue(areaEntity.Id, out var mgrs) && mgrs.Count > 0)
-                    ? mgrs[faker.Random.Int(0, mgrs.Count - 1)].Id
-                    : managers[faker.Random.Int(0, managers.Count - 1)].Id;
-
-            if (managerId == Guid.Empty)
-                throw new InvalidOperationException(localizer["SeedErrors.NoValidManager"]);
+            if (!funcionariosByArea.TryGetValue(areaEntity.Id, out var funcs) || funcs.Count == 0)
+            {
+                if (funcionarios.Count == 0)
+                    throw new InvalidOperationException(localizer["SeedErrors.NoValidFuncionario"]);
+            }
 
             var cargoId =
                 (cargosByArea.TryGetValue(areaEntity.Id, out var cargos) && cargos.Count > 0)

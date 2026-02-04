@@ -6,28 +6,34 @@ namespace RhPortal.Api.Infrastructure.Data.Seeders;
 public static class TenantSeeder
 {
     public static async Task EnsureAsync(
-        AppDbContext db,
+        MasterDbContext masterDb,
         string tenantId,
         string tenantName,
+        Guid? createdByOwnerId,
         CancellationToken ct)
     {
-        var existing = await db.Tenants.FirstOrDefaultAsync(x => x.TenantId == tenantId, ct);
+        var existing = await masterDb.Tenants.FirstOrDefaultAsync(x => x.TenantId == tenantId, ct);
+        var now = DateTimeOffset.UtcNow;
         if (existing is null)
         {
-            db.Tenants.Add(new Tenant
+            masterDb.Tenants.Add(new Tenant
             {
                 TenantId = tenantId,
                 Name = tenantName,
-                IsActive = true
+                IsActive = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now,
+                CreatedByOwnerId = createdByOwnerId
             });
-            await db.SaveChangesAsync(ct);
+            await masterDb.SaveChangesAsync(ct);
             return;
         }
 
         if (!string.Equals(existing.Name, tenantName, StringComparison.OrdinalIgnoreCase))
         {
             existing.Name = tenantName;
-            await db.SaveChangesAsync(ct);
+            existing.UpdatedAtUtc = now;
+            await masterDb.SaveChangesAsync(ct);
         }
     }
 }

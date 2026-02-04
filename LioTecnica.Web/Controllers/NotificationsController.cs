@@ -1,3 +1,4 @@
+using System.Net;
 using LioTecnica.Web.Infrastructure.ApiClients;
 using LioTecnica.Web.Infrastructure.Security;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +29,19 @@ public class NotificationsController : Controller
     {
         var tenantId = _tenantContext.TenantId;
         var query = $"?take={take}";
-        var resp = await _notificationsApi.GetNotificationsRawAsync(tenantId, query, ct);
+        ApiRawResponse resp;
+        try
+        {
+            resp = await _notificationsApi.GetNotificationsRawAsync(tenantId, query, ct);
+        }
+        catch (HttpRequestException)
+        {
+            return Content("[]", "application/json");
+        }
+        catch (TaskCanceledException)
+        {
+            return Content("[]", "application/json");
+        }
         return ToContentResult(resp);
     }
 
@@ -46,32 +59,52 @@ public class NotificationsController : Controller
         };
 
         var json = System.Text.Json.JsonSerializer.Serialize(payload);
-        var resp = await _notificationsApi.SendNotificationRawAsync(tenantId, json, ct);
-        return ToContentResult(resp);
+        try
+        {
+            var resp = await _notificationsApi.SendNotificationRawAsync(tenantId, json, ct);
+            return ToContentResult(resp);
+        }
+        catch (HttpRequestException) { return StatusCode(503); }
+        catch (TaskCanceledException) { return StatusCode(503); }
     }
 
     [HttpPost("/Notifications/_api/seen/{id:guid}")]
     public async Task<IActionResult> MarkSeen(Guid id, CancellationToken ct = default)
     {
         var tenantId = _tenantContext.TenantId;
-        var resp = await _notificationsApi.MarkSeenAsync(tenantId, id, ct);
-        return ToContentResult(resp);
+        try
+        {
+            var resp = await _notificationsApi.MarkSeenAsync(tenantId, id, ct);
+            return ToContentResult(resp);
+        }
+        catch (HttpRequestException) { return StatusCode(503); }
+        catch (TaskCanceledException) { return StatusCode(503); }
     }
 
     [HttpPost("/Notifications/_api/read/{id:guid}")]
     public async Task<IActionResult> MarkRead(Guid id, CancellationToken ct = default)
     {
         var tenantId = _tenantContext.TenantId;
-        var resp = await _notificationsApi.MarkReadAsync(tenantId, id, ct);
-        return ToContentResult(resp);
+        try
+        {
+            var resp = await _notificationsApi.MarkReadAsync(tenantId, id, ct);
+            return ToContentResult(resp);
+        }
+        catch (HttpRequestException) { return StatusCode(503); }
+        catch (TaskCanceledException) { return StatusCode(503); }
     }
 
     [HttpGet("/Notifications/_api/receipts/{id:guid}")]
     public async Task<IActionResult> Receipts(Guid id, CancellationToken ct = default)
     {
         var tenantId = _tenantContext.TenantId;
-        var resp = await _notificationsApi.GetReceiptsRawAsync(tenantId, id, ct);
-        return ToContentResult(resp);
+        try
+        {
+            var resp = await _notificationsApi.GetReceiptsRawAsync(tenantId, id, ct);
+            return ToContentResult(resp);
+        }
+        catch (HttpRequestException) { return StatusCode(503); }
+        catch (TaskCanceledException) { return StatusCode(503); }
     }
 
     private static IActionResult ToContentResult(ApiRawResponse resp)

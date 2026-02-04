@@ -1,11 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using RhPortal.Api.Contracts.Reports;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Tenancy;
+using RHPortal.Api.Domain.Entities;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Controllers;
 
@@ -14,11 +19,27 @@ namespace RhPortal.Api.Controllers;
 public sealed class ReportsController : ControllerBase
 {
     private readonly IStringLocalizer<ControllerMessages> _localizer;
+    private readonly ICurrentUserContext _userContext;
 
-    public ReportsController(IStringLocalizer<ControllerMessages> localizer)
+    public ReportsController(IStringLocalizer<ControllerMessages> localizer, ICurrentUserContext userContext)
     {
         _localizer = localizer;
+        _userContext = userContext;
     }
+
+    private Guid? EffectiveAreaId =>
+        _userContext.IsAdmin || _userContext.IsInRole("Owner")
+            ? null
+            : _userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue
+                ? _userContext.AreaId
+                : null;
+
+    private Guid? EffectiveRecrutadorUserId =>
+        _userContext.IsAdmin || _userContext.IsInRole("Owner")
+            ? null
+            : _userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue
+                ? _userContext.UserId
+                : null;
 
     [HttpGet("catalog")]
     public ActionResult<IReadOnlyList<ReportCatalogItemResponse>> GetCatalog()
@@ -54,7 +75,13 @@ public sealed class ReportsController : ControllerBase
                 "stars",
                 _localizer["ControllerLabels.ReportCatalogRankingMatchingTitle"].Value,
                 _localizer["ControllerLabels.ReportCatalogRankingMatchingDescription"].Value,
-                "matching")
+                "matching"),
+            new(
+                "r6",
+                "alarm",
+                _localizer["ControllerLabels.ReportCatalogSlaVagaTitle"].Value,
+                _localizer["ControllerLabels.ReportCatalogSlaVagaDescription"].Value,
+                "vagas")
         };
 
         return Ok(items);
@@ -65,7 +92,12 @@ public sealed class ReportsController : ControllerBase
         [FromServices] AppDbContext db,
         CancellationToken ct)
     {
-        var items = await db.Vagas.AsNoTracking()
+        var q = db.Vagas.AsNoTracking();
+        if (EffectiveAreaId is { } areaId)
+            q = q.Where(v => v.AreaId == areaId);
+        if (EffectiveRecrutadorUserId is { } recrutadorUserId)
+            q = q.Where(v => v.RecrutadorResponsavelUserId == recrutadorUserId);
+        var items = await q
             .OrderBy(v => v.Titulo)
             .Select(v => new ReportVagaLookupResponse(v.Id, v.Codigo, v.Titulo))
             .ToListAsync(ct);
@@ -83,7 +115,7 @@ public sealed class ReportsController : ControllerBase
         [FromQuery] string? q,
         CancellationToken ct)
     {
-        var query = BuildInboxQuery(db, period, vagaId, origem, status, q);
+        var query = BuildInboxQuery(db, period, vagaId, origem, status, q, EffectiveAreaId, EffectiveRecrutadorUserId);
 
         var list = await query
             .OrderByDescending(c => c.RecebidoEm)
@@ -149,7 +181,7 @@ public sealed class ReportsController : ControllerBase
         [FromQuery] string? q,
         CancellationToken ct)
     {
-        var query = BuildInboxQuery(db, period, vagaId, origem, status, q)
+        var query = BuildInboxQuery(db, period, vagaId, origem, status, q, EffectiveAreaId, EffectiveRecrutadorUserId)
             .Where(x => x.Status == InboxStatus.Falha);
 
         var list = await query
@@ -207,7 +239,7 @@ public sealed class ReportsController : ControllerBase
         [FromQuery] string? q,
         CancellationToken ct)
     {
-        var query = BuildCandidateQuery(db, period, vagaId, origem, status, q);
+        var query = BuildCandidateQuery(db, period, vagaId, origem, status, q, EffectiveAreaId, EffectiveRecrutadorUserId);
 
         var list = await query
             .OrderByDescending(c => c.CreatedAtUtc)
@@ -261,7 +293,7 @@ public sealed class ReportsController : ControllerBase
         [FromQuery] string? q,
         CancellationToken ct)
     {
-        var query = BuildCandidateQuery(db, period, vagaId, origem, status, q);
+        var query = BuildCandidateQuery(db, period, vagaId, origem, status, q, EffectiveAreaId, EffectiveRecrutadorUserId);
 
         var grouped = await query
             .GroupBy(c => new { c.VagaId, Titulo = c.Vaga != null ? c.Vaga.Titulo : null, Codigo = c.Vaga != null ? c.Vaga.Codigo : null })
@@ -326,7 +358,7 @@ public sealed class ReportsController : ControllerBase
         CancellationToken ct)
     {
         var safeTake = Math.Clamp(take <= 0 ? 12 : take, 1, 50);
-        var query = BuildCandidateQuery(db, period, vagaId, origem, status, q)
+        var query = BuildCandidateQuery(db, period, vagaId, origem, status, q, EffectiveAreaId, EffectiveRecrutadorUserId)
             .Where(c => c.LastMatchScore != null);
 
         var list = await query
@@ -376,13 +408,98 @@ public sealed class ReportsController : ControllerBase
         return Ok(new ReportDataResponse(labels, values, headers, rows));
     }
 
+    [HttpGet("sla-vaga")]
+    [ProducesResponseType(typeof(SlaVagaReportResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SlaVagaReportResponse>> GetSlaVaga(
+        [FromServices] AppDbContext db,
+        [FromServices] IOptions<SlaVagaOptions> slaOptions,
+        [FromQuery] string? period,
+        [FromQuery] Guid? areaId,
+        [FromQuery] string? recrutador,
+        [FromQuery] string? status,
+        CancellationToken ct)
+    {
+        var opts = slaOptions.Value;
+        var start = PeriodStart(period);
+        var now = DateTimeOffset.UtcNow;
+        var effectiveAreaId = EffectiveAreaId ?? areaId;
+
+        var query = db.Vagas.AsNoTracking()
+            .Include(v => v.Area)
+            .Where(v => v.DataAbertura != null && v.DataAbertura >= start);
+
+        if (effectiveAreaId.HasValue && effectiveAreaId.Value != Guid.Empty)
+            query = query.Where(v => v.AreaId == effectiveAreaId.Value);
+
+        if (EffectiveRecrutadorUserId is { } recrutadorUserId)
+            query = query.Where(v => v.RecrutadorResponsavelUserId == recrutadorUserId);
+
+        if (!string.IsNullOrWhiteSpace(recrutador))
+        {
+            var r = recrutador.Trim().ToLower();
+            query = query.Where(v => v.RecrutadorResponsavel != null && v.RecrutadorResponsavel.ToLower().Contains(r));
+        }
+
+        if (TryParseEnum<VagaStatus>(status, out var vagaStatus))
+            query = query.Where(v => v.Status == vagaStatus);
+
+        var vagas = await query.ToListAsync(ct);
+
+        int Meta(Vaga v) => SlaVagaMetaResolver.GetDiasMeta(v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, opts);
+
+        var withSla = vagas.Select(v =>
+        {
+            var meta = Meta(v);
+            var dias = (now - v.DataAbertura!.Value).TotalDays;
+            bool encerrada = v.Status == VagaStatus.Encerrada;
+            var diasAteFechar = encerrada ? (v.UpdatedAtUtc - v.DataAbertura.Value).TotalDays : (double?)null;
+            var dentro = encerrada ? (diasAteFechar!.Value <= meta ? 1 : 0) : (dias <= meta ? 1 : 0);
+            var fora = encerrada ? (diasAteFechar!.Value > meta ? 1 : 0) : (dias > meta ? 1 : 0);
+            var rec = string.IsNullOrWhiteSpace(v.RecrutadorResponsavel) ? "(sem recrutador)" : v.RecrutadorResponsavel!;
+            var areaNome = v.Area?.Name ?? v.AreaId.ToString();
+            return new { v, meta, diasAteFechar, dentro, fora, rec, areaNome };
+        }).ToList();
+
+        var porRecrutador = withSla
+            .GroupBy(x => x.rec)
+            .Select(g =>
+            {
+                var total = g.Count();
+                var dentro = g.Sum(x => x.dentro);
+                var fora = g.Sum(x => x.fora);
+                var medias = g.Where(x => x.diasAteFechar.HasValue).Select(x => x.diasAteFechar!.Value).ToList();
+                var media = medias.Count > 0 ? medias.Average() : (double?)null;
+                return new SlaVagaReportRowResponse(g.Key, total, dentro, fora, media);
+            })
+            .OrderByDescending(x => x.Total)
+            .ToList();
+
+        var porArea = withSla
+            .GroupBy(x => x.areaNome)
+            .Select(g =>
+            {
+                var total = g.Count();
+                var dentro = g.Sum(x => x.dentro);
+                var fora = g.Sum(x => x.fora);
+                var medias = g.Where(x => x.diasAteFechar.HasValue).Select(x => x.diasAteFechar!.Value).ToList();
+                var media = medias.Count > 0 ? medias.Average() : (double?)null;
+                return new SlaVagaReportRowResponse(g.Key, total, dentro, fora, media);
+            })
+            .OrderByDescending(x => x.Total)
+            .ToList();
+
+        return Ok(new SlaVagaReportResponse(porRecrutador, porArea, opts.DiasMetaFechamento));
+    }
+
     private static IQueryable<RhPortal.Api.Domain.Entities.Candidato> BuildCandidateQuery(
         AppDbContext db,
         string? period,
         Guid? vagaId,
         string? origem,
         string? status,
-        string? q)
+        string? q,
+        Guid? areaId,
+        Guid? recrutadorUserId)
     {
         var start = PeriodStart(period);
         var query = db.Candidatos.AsNoTracking()
@@ -391,6 +508,12 @@ public sealed class ReportsController : ControllerBase
 
         if (vagaId.HasValue)
             query = query.Where(c => c.VagaId == vagaId.Value);
+
+        if (areaId.HasValue && areaId.Value != Guid.Empty)
+            query = query.Where(c => c.Vaga != null && c.Vaga.AreaId == areaId.Value);
+
+        if (recrutadorUserId.HasValue && recrutadorUserId.Value != Guid.Empty)
+            query = query.Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == recrutadorUserId.Value);
 
         if (TryParseEnum<CandidateOrigin>(origem, out var fonte))
             query = query.Where(c => c.Fonte == fonte);
@@ -417,7 +540,9 @@ public sealed class ReportsController : ControllerBase
         Guid? vagaId,
         string? origem,
         string? status,
-        string? q)
+        string? q,
+        Guid? areaId,
+        Guid? recrutadorUserId)
     {
         var start = PeriodStart(period);
         var query = db.InboxItems.AsNoTracking()
@@ -426,6 +551,12 @@ public sealed class ReportsController : ControllerBase
 
         if (vagaId.HasValue)
             query = query.Where(x => x.VagaId == vagaId.Value);
+
+        if (areaId.HasValue && areaId.Value != Guid.Empty)
+            query = query.Where(x => x.Vaga != null && x.Vaga.AreaId == areaId.Value);
+
+        if (recrutadorUserId.HasValue && recrutadorUserId.Value != Guid.Empty)
+            query = query.Where(x => x.Vaga != null && x.Vaga.RecrutadorResponsavelUserId == recrutadorUserId.Value);
 
         if (TryParseEnum<InboxOrigem>(origem, out var parsedOrigem))
             query = query.Where(x => x.Origem == parsedOrigem);

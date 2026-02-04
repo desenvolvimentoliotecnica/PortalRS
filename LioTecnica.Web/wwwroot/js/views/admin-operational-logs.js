@@ -1,5 +1,5 @@
 (() => {
-  const apiBase = "/Admin/OperationalLogs/_api";
+  const apiBase = (window.__ownerConfigApiBase || "/Admin/OperationalLogs") + "/_api";
   const ui = (id) => document.getElementById(id);
 
   const state = {

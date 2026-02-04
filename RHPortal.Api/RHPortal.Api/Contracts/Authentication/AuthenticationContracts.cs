@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.Authentication;
 
@@ -19,7 +20,12 @@ public sealed record LoginResponse(
     string FullName,
     string TenantId,
     IReadOnlyList<string> Roles,
-    IReadOnlyList<string> Permissions
+    IReadOnlyList<string> Permissions,
+    Guid? FuncionarioId,
+    Guid? AreaId,
+    ProfileVisibilityScope VisibilityScope,
+    VagasDataScope VagasDataScope,
+    bool IsReadOnly
 );
 
 public sealed record CurrentUserResponse(
@@ -28,5 +34,20 @@ public sealed record CurrentUserResponse(
     string FullName,
     string TenantId,
     IReadOnlyList<string> Roles,
-    IReadOnlyList<string> Permissions
+    IReadOnlyList<string> Permissions,
+    Guid? FuncionarioId,
+    Guid? AreaId,
+    ProfileVisibilityScope VisibilityScope,
+    VagasDataScope VagasDataScope,
+    bool IsReadOnly
 );
+
+public sealed record AllowedTenantItem(string TenantId, string Name);
+
+public sealed record AllowedTenantsResponse(IReadOnlyList<AllowedTenantItem> Tenants);
+
+public sealed record SwitchTenantRequest(
+    [Required, MinLength(1), MaxLength(64)] string TenantId
+);
+
+public sealed record SwitchTenantResponse(string AccessToken, string TenantId);

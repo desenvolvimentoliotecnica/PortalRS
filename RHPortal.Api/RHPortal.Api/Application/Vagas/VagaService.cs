@@ -3,6 +3,7 @@ using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Infrastructure.Data;
 using RHPortal.Api.Domain.Entities;
+using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
@@ -69,6 +70,9 @@ public sealed class VagaService : IVagaService
         if (query.AreaId.HasValue && query.AreaId.Value != Guid.Empty)
             q = q.Where(v => v.AreaId == query.AreaId.Value);
 
+        if (query.RecrutadorUserId.HasValue && query.RecrutadorUserId.Value != Guid.Empty)
+            q = q.Where(v => v.RecrutadorResponsavelUserId == query.RecrutadorUserId.Value);
+
         if (query.DepartmentId.HasValue && query.DepartmentId.Value != Guid.Empty)
             q = q.Where(v => v.DepartmentId == query.DepartmentId.Value);
 
@@ -98,6 +102,8 @@ public sealed class VagaService : IVagaService
 
                 v.DataInicio,
                 v.DataEncerramento,
+                v.DataAbertura,
+                v.SlaDiasMetaFechamento,
 
                 v.Cidade,
                 v.Uf,
@@ -221,11 +227,15 @@ public sealed class VagaService : IVagaService
             ExigeCnh = request.ExigeCnh,
             DisponibilidadeParaViagens = request.DisponibilidadeParaViagens,
             ChecagemAntecedentes = request.ChecagemAntecedentes,
+            SlaDiasMetaFechamento = request.SlaDiasMetaFechamento,
             Beneficios = BuildBeneficios(request.Beneficios),
             Requisitos = BuildRequisitos(request.Requisitos),
             Etapas = BuildEtapas(request.Etapas),
             PerguntasTriagem = BuildPerguntas(request.PerguntasTriagem)
         };
+
+        if (request.Status == VagaStatus.Aberta)
+            entity.DataAbertura = DateTimeOffset.UtcNow;
 
         _db.Vagas.Add(entity);
         await _db.SaveChangesAsync(ct);
@@ -322,6 +332,7 @@ public sealed class VagaService : IVagaService
             v.OrcamentoAprovado,
             v.GestorRequisitante,
             v.RecrutadorResponsavel,
+            v.RecrutadorResponsavelUserId,
             v.Prioridade,
             v.ResumoPitch,
             v.TagsResponsabilidadesRaw,
@@ -369,6 +380,8 @@ public sealed class VagaService : IVagaService
             v.Visibilidade,
             v.DataInicio,
             v.DataEncerramento,
+            v.DataAbertura,
+            v.SlaDiasMetaFechamento,
             v.CanalLinkedIn,
             v.CanalSiteCarreiras,
             v.CanalIndicacao,
@@ -617,6 +630,8 @@ public sealed class VagaService : IVagaService
         entity.AreaId = request.AreaId;
         entity.Modalidade = request.Modalidade;
         entity.Status = request.Status;
+        if (request.Status == VagaStatus.Aberta && entity.DataAbertura == null)
+            entity.DataAbertura = DateTimeOffset.UtcNow;
         entity.Senioridade = request.Senioridade;
         entity.QuantidadeVagas = request.QuantidadeVagas < 1 ? 1 : request.QuantidadeVagas;
         entity.TipoContratacao = request.TipoContratacao;
@@ -692,6 +707,7 @@ public sealed class VagaService : IVagaService
         entity.ExigeCnh = request.ExigeCnh;
         entity.DisponibilidadeParaViagens = request.DisponibilidadeParaViagens;
         entity.ChecagemAntecedentes = request.ChecagemAntecedentes;
+        entity.SlaDiasMetaFechamento = request.SlaDiasMetaFechamento;
     }
 
     private void EnsureTenantOwnership(Vaga entity)

@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Data.Seeders;
 using RhPortal.Api.Infrastructure.Ops;
 using Microsoft.AspNetCore.SignalR;
 
@@ -145,6 +146,52 @@ public sealed class OpsController : ControllerBase
                 Environment: env.EnvironmentName,
                 Message: ex.Message
             ));
+        }
+    }
+
+    /// <summary>
+    /// Redefine a senha do owner no banco para o valor atual de Seed:OwnerPassword (útil quando a senha no appsettings foi alterada).
+    /// </summary>
+    /// <remarks>Só funciona em Development. Exige header X-OPS-RESET-KEY se Ops:ResetKey estiver configurado.</remarks>
+    [HttpPost("reset-owner-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResetOwnerPassword(
+        [FromServices] MasterDbContext masterDb,
+        [FromServices] IConfiguration config,
+        [FromServices] IHostEnvironment env,
+        CancellationToken ct)
+    {
+        if (!env.IsDevelopment())
+            return Forbid();
+
+        var expectedKey = config.GetValue<string>("Ops:ResetKey");
+        if (!string.IsNullOrWhiteSpace(expectedKey))
+        {
+            var providedKey = Request.Headers["X-OPS-RESET-KEY"].ToString();
+            if (!string.Equals(providedKey, expectedKey, StringComparison.Ordinal))
+                return Unauthorized(new { error = "Invalid reset key." });
+        }
+
+        var email = config.GetValue<string>("Seed:OwnerEmail");
+        var password = config.GetValue<string>("Seed:OwnerPassword") ?? config.GetValue<string>("Seed:AdminPassword");
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            return BadRequest(new { error = "Configure Seed:OwnerEmail e Seed:OwnerPassword no appsettings." });
+
+        try
+        {
+            var updated = await OwnerSeeder.UpdatePasswordAsync(masterDb, email, password, ct);
+            if (!updated)
+                return NotFound(new { error = $"Owner com email '{email}' não encontrado no banco master." });
+
+            return Ok(new { message = "Senha do owner atualizada. Use o email e a senha do appsettings para entrar." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Falha ao atualizar senha.", detail = ex.Message, stack = env.IsDevelopment() ? ex.StackTrace : null });
         }
     }
 }

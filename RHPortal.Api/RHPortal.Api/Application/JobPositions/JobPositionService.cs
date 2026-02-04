@@ -57,7 +57,7 @@ public sealed class JobPositionService : IJobPositionService
 
         var totalItems = await q.CountAsync(ct);
 
-        // Projeção com contagem real de gestores (respeita TenantFilter automaticamente)
+        // Projeção com contagem real de funcionários (respeita TenantFilter automaticamente)
         var projected = q.Select(x => new
         {
             x.Id,
@@ -67,7 +67,7 @@ public sealed class JobPositionService : IJobPositionService
             AreaName = x.Area != null ? x.Area.Name : string.Empty,
             x.Seniority,
             x.Status,
-            ManagersCount = _db.Managers.Count(m => m.JobPositionId == x.Id)
+            FuncionariosCount = _db.Funcionarios.Count(m => m.JobPositionId != null && m.JobPositionId == x.Id)
         });
 
         // Ordenação (whitelist)
@@ -96,9 +96,9 @@ public sealed class JobPositionService : IJobPositionService
                 ? projected.OrderBy(x => x.Status).ThenBy(x => x.Name)
                 : projected.OrderByDescending(x => x.Status).ThenByDescending(x => x.Name),
 
-            "managers" => asc
-                ? projected.OrderBy(x => x.ManagersCount).ThenBy(x => x.Name)
-                : projected.OrderByDescending(x => x.ManagersCount).ThenByDescending(x => x.Name),
+            "funcionarios" => asc
+                ? projected.OrderBy(x => x.FuncionariosCount).ThenBy(x => x.Name)
+                : projected.OrderByDescending(x => x.FuncionariosCount).ThenByDescending(x => x.Name),
 
             _ => asc
                 ? projected.OrderBy(x => x.Name).ThenBy(x => x.Code)
@@ -115,7 +115,7 @@ public sealed class JobPositionService : IJobPositionService
                 x.AreaName,
                 x.AreaId,
                 x.Seniority,
-                x.ManagersCount,
+                x.FuncionariosCount,
                 x.Status
             ))
             .ToListAsync(ct);

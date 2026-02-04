@@ -19,11 +19,13 @@ namespace RhPortal.Api.Controllers;
 public sealed class PublicVagasController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly MasterDbContext _masterDb;
     private readonly ITenantContext _tenantContext;
 
-    public PublicVagasController(AppDbContext db, ITenantContext tenantContext)
+    public PublicVagasController(AppDbContext db, MasterDbContext masterDb, ITenantContext tenantContext)
     {
         _db = db;
+        _masterDb = masterDb;
         _tenantContext = tenantContext;
     }
 
@@ -60,7 +62,7 @@ public sealed class PublicVagasController : ControllerBase
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var tenantId = _tenantContext.TenantId;
 
-        var tenantName = await _db.Tenants
+        var tenantName = await _masterDb.Tenants
             .AsNoTracking()
             .Where(t => t.TenantId == tenantId)
             .Select(t => t.Name)

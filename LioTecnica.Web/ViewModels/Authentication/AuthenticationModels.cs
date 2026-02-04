@@ -24,7 +24,10 @@ public sealed record LoginResponse(
     string FullName,
     string TenantId,
     IReadOnlyList<string> Roles,
-    IReadOnlyList<string> Permissions
+    IReadOnlyList<string> Permissions,
+    int VisibilityScope,
+    int VagasDataScope,
+    bool IsReadOnly
 );
 
 public sealed record CurrentUserResponse(
@@ -33,5 +36,17 @@ public sealed record CurrentUserResponse(
     string FullName,
     string TenantId,
     IReadOnlyList<string> Roles,
-    IReadOnlyList<string> Permissions
+    IReadOnlyList<string> Permissions,
+    int VisibilityScope,
+    int VagasDataScope,
+    bool IsReadOnly
+);
+
+public sealed record OwnerLoginResponse(
+    string AccessToken,
+    int AccessTokenExpirationMinutes,
+    Guid OwnerId,
+    string Email,
+    string TenantId,
+    IReadOnlyList<string> Roles
 );

@@ -6,6 +6,8 @@ using RhPortal.Api.Application.Candidatos.Handlers;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Tenancy;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Controllers;
 
@@ -17,28 +19,45 @@ namespace RhPortal.Api.Controllers;
 public sealed class CandidatosController : ControllerBase
 {
     private readonly IStringLocalizer<ControllerMessages> _localizer;
+    private readonly ICurrentUserContext _userContext;
 
-    public CandidatosController(IStringLocalizer<ControllerMessages> localizer)
+    public CandidatosController(IStringLocalizer<ControllerMessages> localizer, ICurrentUserContext userContext)
     {
         _localizer = localizer;
+        _userContext = userContext;
     }
 
     /// <summary>
-    /// Lista candidatos com filtros (busca, status, vaga e origem).
+    /// Lista candidatos com filtros (busca, status(es), vaga(s)) e paginação.
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<CandidateListItemResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<CandidateListItemResponse>>> List(
+    [ProducesResponseType(typeof(CandidatePagedResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CandidatePagedResponse>> List(
         [FromQuery] string? q,
         [FromQuery] CandidateStatus? status,
+        [FromQuery] CandidateStatus[]? statuses,
         [FromQuery] Guid? vagaId,
+        [FromQuery] Guid[]? vagaIds,
         [FromQuery] CandidateOrigin? fonte,
         [FromServices] IListCandidatosHandler handler,
-        CancellationToken ct)
+        CancellationToken ct,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
     {
-        var query = new CandidateListQuery(q, status, vagaId, fonte);
-        var items = await handler.HandleAsync(query, ct);
-        return Ok(items);
+        Guid? areaId = null;
+        Guid? recrutadorUserId = null;
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
+        {
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue)
+                areaId = _userContext.AreaId;
+            else if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue)
+                recrutadorUserId = _userContext.UserId;
+        }
+        var statusList = statuses is { Length: > 0 } ? statuses.ToList() : null;
+        var vagaIdList = vagaIds is { Length: > 0 } ? vagaIds.ToList() : null;
+        var query = new CandidateListQuery(q, status, statusList, vagaId, vagaIdList, fonte, areaId, recrutadorUserId, page, pageSize);
+        var result = await handler.HandleAsync(query, ct);
+        return Ok(result);
     }
 
     /// <summary>
@@ -53,7 +72,16 @@ public sealed class CandidatosController : ControllerBase
         CancellationToken ct)
     {
         var item = await handler.HandleAsync(id, ct);
-        return item is null ? NotFound() : Ok(item);
+        if (item is null)
+            return NotFound();
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
+        {
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue && item.VagaAreaId.HasValue && item.VagaAreaId != _userContext.AreaId)
+                return NotFound();
+            if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue && item.VagaRecrutadorResponsavelUserId != _userContext.UserId)
+                return NotFound();
+        }
+        return Ok(item);
     }
 
     /// <summary>
@@ -61,12 +89,15 @@ public sealed class CandidatosController : ControllerBase
     /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(CandidateResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CandidateResponse>> Create(
         [FromBody] CandidateCreateRequest request,
         [FromServices] ICreateCandidatoHandler handler,
         CancellationToken ct)
     {
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
+            return Forbid();
         try
         {
             var created = await handler.HandleAsync(request, ct);
@@ -83,6 +114,7 @@ public sealed class CandidatosController : ControllerBase
     /// </summary>
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(CandidateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CandidateResponse>> Update(
@@ -91,6 +123,8 @@ public sealed class CandidatosController : ControllerBase
         [FromServices] IUpdateCandidatoHandler handler,
         CancellationToken ct)
     {
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
+            return Forbid();
         try
         {
             var updated = await handler.HandleAsync(id, request, ct);
@@ -107,12 +141,15 @@ public sealed class CandidatosController : ControllerBase
     /// </summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] IDeleteCandidatoHandler handler,
         CancellationToken ct)
     {
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
+            return Forbid();
         var deleted = await handler.HandleAsync(id, ct);
         return deleted ? NoContent() : NotFound();
     }

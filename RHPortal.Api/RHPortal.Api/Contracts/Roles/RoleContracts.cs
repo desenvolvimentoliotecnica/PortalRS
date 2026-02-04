@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.Roles;
 
@@ -6,7 +7,10 @@ public sealed record RoleListItemResponse(
     Guid Id,
     string Name,
     string Description,
-    bool IsActive
+    bool IsActive,
+    ProfileVisibilityScope VisibilityScope,
+    VagasDataScope VagasDataScope,
+    ProfileAccessMode AccessMode
 );
 
 public sealed record RoleResponse(
@@ -14,6 +18,9 @@ public sealed record RoleResponse(
     string Name,
     string Description,
     bool IsActive,
+    ProfileVisibilityScope VisibilityScope,
+    VagasDataScope VagasDataScope,
+    ProfileAccessMode AccessMode,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
@@ -21,13 +28,19 @@ public sealed record RoleResponse(
 public sealed record RoleCreateRequest(
     [Required, MaxLength(160)] string Name,
     [MaxLength(400)] string Description,
-    bool IsActive
+    bool IsActive,
+    ProfileVisibilityScope VisibilityScope,
+    VagasDataScope VagasDataScope,
+    ProfileAccessMode AccessMode
 );
 
 public sealed record RoleUpdateRequest(
     [Required, MaxLength(160)] string Name,
     [MaxLength(400)] string Description,
-    bool IsActive
+    bool IsActive,
+    ProfileVisibilityScope VisibilityScope,
+    VagasDataScope VagasDataScope,
+    ProfileAccessMode AccessMode
 );
 
 public sealed record RoleMenuAssignmentRequest(

@@ -41,6 +41,9 @@ public sealed class Candidato : ITenantEntity
     public Guid? VagaId { get; set; }
     public RHPortal.Api.Domain.Entities.Vaga? Vaga { get; set; }
 
+    public Guid? TalentoId { get; set; }
+    public Talento? Talento { get; set; }
+
     [StringLength(2000)]
     public string? Obs { get; set; }
 
@@ -56,6 +59,11 @@ public sealed class Candidato : ITenantEntity
     public bool? LastMatchPass { get; set; }
     public DateTimeOffset? LastMatchAtUtc { get; set; }
     public Guid? LastMatchVagaId { get; set; }
+
+    [StringLength(120)]
+    public string? ApplicationRecruiterUserId { get; set; }
+    [StringLength(200)]
+    public string? ApplicationRecruiterUserName { get; set; }
 
     public List<CandidatoDocumento> Documentos { get; set; } = new();
     public List<CandidatoReferencia> Referencias { get; set; } = new();

@@ -159,8 +159,11 @@
                     <input type="hidden" asp-for="ReturnUrl" />
                     <div class="mb-3">
                         <label class="form-label" asp-for="TenantId">Tenant</label>
-                        <input class="form-control" asp-for="TenantId" autocomplete="organization" value="liotecnica" />
+                        <input class="form-control" asp-for="TenantId" id="tenantIdInput" autocomplete="organization" value="liotecnica" placeholder="liotecnica ou owner" />
                         <span class="text-danger small" asp-validation-for="TenantId"></span>
+                        <div class="form-text">
+                            Use <button type="button" class="btn btn-link p-0 align-baseline text-primary" id="ownerLoginBtn">Entrar como Owner</button> para acessar a área do proprietário.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" asp-for="Email">Email</label>
@@ -222,6 +225,14 @@
                     submitBtn.classList.add("btn-loading");
                     submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Aguarde...`;
                     if (entraBtn) entraBtn.disabled = true;
+                });
+            }
+            const tenantInput = document.getElementById("tenantIdInput") || document.querySelector('[name="TenantId"]');
+            const ownerLoginBtn = document.getElementById("ownerLoginBtn");
+            if (ownerLoginBtn && tenantInput) {
+                ownerLoginBtn.addEventListener("click", () => {
+                    tenantInput.value = "owner";
+                    tenantInput.focus();
                 });
             }
             if (entraBtn) {

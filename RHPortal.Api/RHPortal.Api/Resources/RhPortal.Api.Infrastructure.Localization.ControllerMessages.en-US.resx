@@ -72,11 +72,23 @@
   <data name="ControllerErrors.AreaHasDependencies" xml:space="preserve">
     <value>Area has dependencies and cannot be deleted.</value>
   </data>
-  <data name="ControllerErrors.CostCenterCodeExists" xml:space="preserve">
-    <value>Cost center with code '{0}' already exists.</value>
+  <data name="ControllerErrors.AreaHasChildren" xml:space="preserve">
+    <value>Area has child areas and cannot be deleted. Remove or reassign child areas first.</value>
   </data>
-  <data name="ControllerErrors.CostCenterHasDepartments" xml:space="preserve">
-    <value>Cost center has linked departments and cannot be deleted.</value>
+  <data name="ControllerErrors.AreaParentNotFound" xml:space="preserve">
+    <value>Parent area not found.</value>
+  </data>
+  <data name="ControllerErrors.AreaOwnerManagerNotFound" xml:space="preserve">
+    <value>Owner manager not found.</value>
+  </data>
+  <data name="ControllerErrors.AreaOwnerFuncionarioNotFound" xml:space="preserve">
+    <value>Owner funcionario not found.</value>
+  </data>
+  <data name="ControllerErrors.AreaCycleSelf" xml:space="preserve">
+    <value>Area cannot be its own parent.</value>
+  </data>
+  <data name="ControllerErrors.AreaCycleDescendant" xml:space="preserve">
+    <value>Parent area cannot be a descendant of this area (hierarchy cycle).</value>
   </data>
   <data name="ControllerErrors.RequisitoCategoriaCodeExists" xml:space="preserve">
     <value>Category with code '{0}' already exists.</value>
@@ -146,6 +158,12 @@
   </data>
   <data name="ControllerLabels.ReportCatalogRankingMatchingDescription" xml:space="preserve">
     <value>Top candidates by match percentage.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogSlaVagaTitle" xml:space="preserve">
+    <value>Job SLA</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogSlaVagaDescription" xml:space="preserve">
+    <value>SLA metrics by recruiter and area.</value>
   </data>
   <data name="ControllerLabels.RecebidoEm" xml:space="preserve">
     <value>Received At</value>

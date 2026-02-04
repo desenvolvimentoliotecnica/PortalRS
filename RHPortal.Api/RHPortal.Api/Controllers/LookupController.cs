@@ -1,8 +1,9 @@
-﻿using LioTecnica.Api.Contracts.Lookups;
+using LioTecnica.Api.Contracts.Lookups;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Common;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
@@ -142,11 +143,44 @@ public sealed class LookupController : ControllerBase
     }
 
     /// <summary>
-    /// Busca gestores com paginação (para seleção e filtros).
+    /// Lista usuários que possuem o perfil (role) Gestor — para seleção no cadastro de gestores.
     /// </summary>
-    [HttpGet("managers")]
-    [ProducesResponseType(typeof(LookupResponse<ManagerLookupItem>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<LookupResponse<ManagerLookupItem>>> Gestores(
+    [HttpGet("users-gestores")]
+    [ProducesResponseType(typeof(IReadOnlyList<UserGestorLookupItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<UserGestorLookupItem>>> UsersGestores(CancellationToken ct)
+    {
+        var roleGestor = await _db.Roles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Name == "Gestor", ct);
+        if (roleGestor == null)
+            return Ok(new List<UserGestorLookupItem>());
+
+        var userIds = await _db.Set<ApplicationUserRole>()
+            .AsNoTracking()
+            .Where(ur => ur.RoleId == roleGestor.Id)
+            .Select(ur => ur.UserId)
+            .ToListAsync(ct);
+
+        if (userIds.Count == 0)
+            return Ok(new List<UserGestorLookupItem>());
+
+        var items = await _db.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id) && u.IsActive)
+            .OrderBy(u => u.FullName)
+            .ThenBy(u => u.Email)
+            .Select(u => new UserGestorLookupItem(u.Id, u.FullName ?? "", u.Email ?? ""))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Busca funcionários com paginação (para seleção e filtros).
+    /// </summary>
+    [HttpGet("funcionarios")]
+    [ProducesResponseType(typeof(LookupResponse<FuncionarioLookupItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<LookupResponse<FuncionarioLookupItem>>> Funcionarios(
         [FromQuery] string? q,
         [FromQuery] bool onlyActive = true,
         [FromQuery] int page = 1,
@@ -156,7 +190,7 @@ public sealed class LookupController : ControllerBase
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 5, 200);
 
-        var query = _db.Managers
+        var query = _db.Funcionarios
             .AsNoTracking()
             .Include(x => x.JobPosition)
             .Include(x => x.Area)
@@ -165,7 +199,7 @@ public sealed class LookupController : ControllerBase
 
         if (onlyActive)
         {
-            query = query.Where(x => x.Status == ManagerStatus.Active);
+            query = query.Where(x => x.Status == FuncionarioStatus.Active);
         }
 
         if (!string.IsNullOrWhiteSpace(q))
@@ -189,7 +223,7 @@ public sealed class LookupController : ControllerBase
             .OrderBy(x => x.Name)
             .Skip(skip)
             .Take(pageSize)
-            .Select(x => new ManagerLookupItem
+            .Select(x => new FuncionarioLookupItem
             {
                 Id = x.Id,
                 Nome = x.Name,
@@ -213,7 +247,7 @@ public sealed class LookupController : ControllerBase
         var count = items.Count;
         var hasMore = (skip + count) < total;
 
-        return Ok(new LookupResponse<ManagerLookupItem>
+        return Ok(new LookupResponse<FuncionarioLookupItem>
         {
             Items = items,
             Total = total,

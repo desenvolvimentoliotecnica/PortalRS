@@ -135,6 +135,30 @@ public sealed class UsersController : ControllerBase
     }
 
     [RequirePermission("users.write")]
+    [HttpPut("{id:guid}/password")]
+    public async Task<ActionResult<UserResponse>> SetPassword(
+        [FromRoute] Guid id,
+        [FromBody] UserPasswordUpdateRequest request,
+        [FromServices] UserAdministrationService service,
+        CancellationToken ct)
+    {
+        try
+        {
+            var updated = await service.SetPasswordAsync(id, request.NewPassword, ct);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Title = _localizer["ControllerErrors.UnableToUpdateUserTitle"],
+                Detail = ex.Message,
+                Status = StatusCodes.Status409Conflict
+            });
+        }
+    }
+
+    [RequirePermission("users.write")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,

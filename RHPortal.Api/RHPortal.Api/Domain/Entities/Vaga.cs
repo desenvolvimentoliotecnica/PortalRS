@@ -1,4 +1,4 @@
-﻿using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 
@@ -59,6 +59,9 @@ namespace RHPortal.Api.Domain.Entities
         public string? GestorRequisitante { get; set; }      // vagaGestor
         [StringLength(120)]
         public string? RecrutadorResponsavel { get; set; }   // vagaRecrutador
+        /// <summary>Opcional: vínculo ao usuário recrutador (futuro).</summary>
+        public Guid? RecrutadorResponsavelUserId { get; set; }
+        public ApplicationUser? RecrutadorResponsavelUser { get; set; }
 
         public VagaPrioridade? Prioridade { get; set; }      // vagaPrioridade
         public string? ResumoPitch { get; set; }             // vagaResumo
@@ -155,11 +158,15 @@ namespace RHPortal.Api.Domain.Entities
         public string? ObservacoesProcesso { get; set; }    // vagaObsProcesso
 
         // --------------------
-        // Publicação
+        // Publicação e SLA
         // --------------------
         public VagaPublicacaoVisibilidade? Visibilidade { get; set; } // vagaVisibilidade
         public DateOnly? DataInicio { get; set; }           // vagaDataInicio
         public DateOnly? DataEncerramento { get; set; }     // vagaDataFim
+        /// <summary>Data/hora em que a vaga passou a status Aberta (início da contagem do SLA).</summary>
+        public DateTimeOffset? DataAbertura { get; set; }
+        /// <summary>Meta em dias para fechar a vaga (se null, usa config global SlaVaga:DiasMetaFechamento).</summary>
+        public int? SlaDiasMetaFechamento { get; set; }
 
         public bool CanalLinkedIn { get; set; }             // vagaCanalLinkedin
         public bool CanalSiteCarreiras { get; set; }        // vagaCanalSite

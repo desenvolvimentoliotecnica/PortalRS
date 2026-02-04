@@ -44,14 +44,15 @@
 		</div>
 	</div>
 
-	<!-- KPIs -->
+	<!-- KPIs (5 cards na mesma linha em telas xl) -->
 	@{
 		var kpis = new[]
 		{
-	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Total", ValueId = "kpiTotal", Value = "0", Hint = "candidatos", Icon = "bi-people" },
-	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Em triagem", ValueId = "kpiTriagem", Value = "0", Hint = "aguardando análise", Icon = "bi-funnel" },
-	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Aprovados", ValueId = "kpiAprov", Value = "0", Hint = "em avanço", Icon = "bi-check2-circle" },
-	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Reprovados", ValueId = "kpiReprov", Value = "0", Hint = "fora do perfil", Icon = "bi-x-circle" }
+	new { ColClass = "col-6 col-md-4 col-lg col-xl", Label = "Total", ValueId = "kpiTotal", Value = "0", Hint = "candidatos", Icon = "bi-people" },
+	new { ColClass = "col-6 col-md-4 col-lg col-xl", Label = "Pendente", ValueId = "kpiPendente", Value = "0", Hint = "aguardando", Icon = "bi-clock" },
+	new { ColClass = "col-6 col-md-4 col-lg col-xl", Label = "Em triagem", ValueId = "kpiTriagem", Value = "0", Hint = "aguardando análise", Icon = "bi-funnel" },
+	new { ColClass = "col-6 col-md-4 col-lg col-xl", Label = "Aprovados", ValueId = "kpiAprov", Value = "0", Hint = "em avanço", Icon = "bi-check2-circle" },
+	new { ColClass = "col-6 col-md-4 col-lg col-xl", Label = "Reprovados", ValueId = "kpiReprov", Value = "0", Hint = "fora do perfil", Icon = "bi-x-circle" }
 	};
 	}
 	@await Html.PartialAsync("_KpiCardRow", kpis)
@@ -60,33 +61,38 @@
 		<!-- LISTA -->
 		<div class="col-12">
 			<div class="card-soft p-3">
-				<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-					<div>
-						<p class="mini-title mb-1">Lista</p>
-						<div class="fw-bold">Candidatos cadastrados</div>
-						<div class="text-muted small">Use o botao Detalhes para ver e editar o candidato.</div>
-					</div>
-				</div>
-
-				<!-- filtros -->
-				<div class="row g-2 mb-2">
-					<div class="col-12 col-md-6">
-						<div class="input-group">
-							<span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
-								<i class="bi bi-search"></i>
-							</span>
-							<input class="form-control" id="fSearch" placeholder="Buscar por nome, email, vaga..." style="border-color:var(--lt-border);">
+				<div class="d-flex flex-wrap align-items-end gap-2 mb-3">
+						<div>
+							<div class="small text-muted mb-1">Busca</div>
+							<div class="input-group" style="min-width: 200px;">
+								<span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
+									<i class="bi bi-search"></i>
+								</span>
+								<input class="form-control" id="fSearch" placeholder="Nome, email, vaga..." style="border-color:var(--lt-border);">
+							</div>
 						</div>
-					</div>
-					<div class="col-6 col-md-3">
-						<select class="form-select" id="fStatus" data-enum="candidatoStatusFilter" style="border-color:var(--lt-border);"></select>
-					</div>
-					<div class="col-6 col-md-3">
-						<select class="form-select" id="fVaga" style="border-color:var(--lt-border);"></select>
-					</div>
+						<div>
+							<div class="small text-muted mb-1">Status</div>
+							<div class="position-relative status-dropdown-wrap" style="min-width: 160px;">
+								<button type="button" class="form-select form-select-sm text-start d-flex align-items-center justify-content-between gap-2 w-100" id="fStatusTrigger" style="border-color:var(--lt-border); background: #fff;">
+									<span id="fStatusLabel" class="text-truncate">Todos</span>
+									<i class="bi bi-chevron-down text-muted small flex-shrink-0"></i>
+								</button>
+								<div id="fStatusDropdown" class="dropdown-menu shadow-sm p-2 position-absolute start-0" style="top: 100%; margin-top: 2px; min-width: 180px; z-index: 1050; display: none;"></div>
+							</div>
+						</div>
+						<div>
+							<div class="small text-muted mb-1">Vaga</div>
+							<div class="position-relative vaga-autocomplete-wrap" style="min-width: 200px; max-width: 280px;">
+								<input type="text" class="form-control" id="fVagaSearch" placeholder="Buscar vaga..." autocomplete="off" style="border-color:var(--lt-border); padding-right: 2.25rem;">
+								<i class="bi bi-chevron-down position-absolute top-50 end-0 translate-middle-y me-2 text-muted" style="pointer-events: none;"></i>
+								<div id="fVagaDropdown" class="dropdown-menu w-100 shadow-sm position-absolute start-0" style="top: 100%; margin-top: 2px; max-height: 220px; overflow-y: auto; z-index: 1050;"></div>
+								<input type="hidden" id="fVaga" value="">
+							</div>
+						</div>
 				</div>
 
-				<div class="table-responsive">
+				<div class="table-responsive mt-2">
 					<table class="table align-middle mb-0">
 						<thead>
 							<tr>
@@ -100,6 +106,8 @@
 						<tbody id="tblCands"></tbody>
 					</table>
 				</div>
+				<!-- paginação -->
+				<div id="paginationWrap" class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 pt-3 border-top" style="border-color: var(--lt-border) !important;"></div>
 			</div>
 		</div>
 
@@ -151,6 +159,9 @@
 			<button class="btn btn-ghost btn-sm me-1" data-act="edit">
 				<i class="bi bi-pencil me-1"></i>Editar
 			</button>
+			<button class="btn btn-ghost btn-sm me-1" data-act="bloqueio" title="Bloqueio de pessoa">
+				<i class="bi bi-person-x me-1"></i>Bloqueio de pessoa
+			</button>
 			<button class="btn btn-ghost btn-sm me-1" data-act="recalc" title="Recalcular match">
 				<i class="bi bi-arrow-repeat"></i>
 			</button>
@@ -200,11 +211,12 @@
 			</div>
 		</div>
 
-		<div class="d-flex flex-wrap gap-2 mb-3">
+		<div class="d-flex flex-wrap gap-2 mb-2">
 			<span class="pill"><i class="bi bi-briefcase"></i><span data-role="detail-vaga-title"></span></span>
 			<span class="pill mono" data-role="detail-vaga-code-wrap"><span data-role="detail-vaga-code"></span></span>
 			<span class="pill" data-role="detail-vaga-thr-wrap"><i class="bi bi-stars"></i>Match min.: <strong class="ms-1" data-role="detail-vaga-thr"></strong></span>
 		</div>
+		<div class="text-muted small mb-3"><i class="bi bi-person-badge me-1"></i>Recrutador responsável: <span data-role="detail-recruiter">—</span></div>
 
 		<ul class="nav nav-pills gap-2 mb-3" style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
 			<li class="nav-item">

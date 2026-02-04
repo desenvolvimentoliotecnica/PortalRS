@@ -30,8 +30,9 @@
                     @if (Model.IsNew)
                     {
                         <div class="col-md-6">
-                            <label class="form-label" for="Password">Password</label>
-                            <input class="form-control" id="Password" name="Password" type="password" />
+                            <label class="form-label" for="Password">Senha *</label>
+                            <input class="form-control" id="Password" name="Password" type="password" autocomplete="new-password" />
+                            <span class="text-muted small">Mínimo 8 caracteres.</span>
                             <span class="text-danger small">@Html.ValidationMessage("Password")</span>
                         </div>
                     }
@@ -56,6 +57,52 @@
                                 </div>
                             }
                         </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="FuncionarioId">Funcionário (opcional)</label>
+                        <select class="form-select" id="FuncionarioId" name="FuncionarioId">
+                            <option value="">— Nenhum —</option>
+                            @foreach (var f in Model.Funcionarios.OrderBy(x => x.Name))
+                            {
+                                <option value="@f.Id" selected="@(Model.User.FuncionarioId == f.Id)">@f.Name — @(f.Email ?? "")</option>
+                            }
+                        </select>
+                        <span class="text-muted small">Vincule o usuário a um funcionário existente. Ao criar usuário, um funcionário é criado automaticamente se não escolher.</span>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Unidades de acesso</label>
+                        <p class="text-muted small mb-2">Unidades (filiais/escritórios) às quais o usuário tem acesso. Marque as que deseja liberar.</p>
+                        @if (Model.Units.Count == 0)
+                        {
+                            <div class="text-muted small">Nenhuma unidade cadastrada.</div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive rounded overflow-hidden border">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th scope="col">Unidade</th>
+                                            <th scope="col">Código</th>
+                                            <th scope="col" class="text-center" style="width:100px;">Acesso</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var unit in Model.Units.OrderBy(x => x.Name))
+                                        {
+                                            var isChecked = Model.User.UnitIds != null && Model.User.UnitIds.Contains(unit.Id);
+                                            <tr>
+                                                <td class="fw-medium">@unit.Name</td>
+                                                <td class="mono text-muted">@(unit.Code ?? "—")</td>
+                                                <td class="text-center">
+                                                    <input class="form-check-input" type="checkbox" name="UnitIds" value="@unit.Id" @(isChecked ? "checked" : "") title="Liberar acesso a esta unidade" />
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
                     </div>
                 </div>
                 <div class="mt-4">

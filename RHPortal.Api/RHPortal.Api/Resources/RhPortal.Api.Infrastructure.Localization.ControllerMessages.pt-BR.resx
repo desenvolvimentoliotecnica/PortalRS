@@ -72,11 +72,23 @@
   <data name="ControllerErrors.AreaHasDependencies" xml:space="preserve">
     <value>Area possui vinculacoes e nao pode ser excluida.</value>
   </data>
-  <data name="ControllerErrors.CostCenterCodeExists" xml:space="preserve">
-    <value>Centro de custo com codigo '{0}' ja existe.</value>
+  <data name="ControllerErrors.AreaHasChildren" xml:space="preserve">
+    <value>Area possui subareas e nao pode ser excluida. Remova ou reatribua as subareas primeiro.</value>
   </data>
-  <data name="ControllerErrors.CostCenterHasDepartments" xml:space="preserve">
-    <value>Centro de custo possui departamentos vinculados e nao pode ser excluido.</value>
+  <data name="ControllerErrors.AreaParentNotFound" xml:space="preserve">
+    <value>Area pai informada nao existe.</value>
+  </data>
+  <data name="ControllerErrors.AreaOwnerManagerNotFound" xml:space="preserve">
+    <value>Gestor (dono) informado nao existe.</value>
+  </data>
+  <data name="ControllerErrors.AreaOwnerFuncionarioNotFound" xml:space="preserve">
+    <value>Funcionario (dono) informado nao existe.</value>
+  </data>
+  <data name="ControllerErrors.AreaCycleSelf" xml:space="preserve">
+    <value>Area nao pode ser sua propria area pai.</value>
+  </data>
+  <data name="ControllerErrors.AreaCycleDescendant" xml:space="preserve">
+    <value>Area pai nao pode ser uma subarea desta area (ciclo na hierarquia).</value>
   </data>
   <data name="ControllerErrors.RequisitoCategoriaCodeExists" xml:space="preserve">
     <value>Categoria com codigo '{0}' ja existe.</value>
@@ -146,6 +158,12 @@
   </data>
   <data name="ControllerLabels.ReportCatalogRankingMatchingDescription" xml:space="preserve">
     <value>Top candidatos por percentual de match.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogSlaVagaTitle" xml:space="preserve">
+    <value>SLA por vaga</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogSlaVagaDescription" xml:space="preserve">
+    <value>Medições de SLA por recrutador e por área.</value>
   </data>
   <data name="ControllerLabels.RecebidoEm" xml:space="preserve">
     <value>Recebido em</value>

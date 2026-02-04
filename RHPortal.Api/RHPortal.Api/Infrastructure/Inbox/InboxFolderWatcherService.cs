@@ -27,18 +27,27 @@ public sealed class InboxFolderWatcherService : BackgroundService
         StartWatcher();
         EnqueueExistingFiles();
 
-        await foreach (var filePath in _queue.Reader.ReadAllAsync(stoppingToken))
+        try
         {
-            if (!TryGetTenantId(filePath, out var tenantId))
-                continue;
+            await foreach (var filePath in _queue.Reader.ReadAllAsync(stoppingToken))
+            {
+                if (!TryGetTenantId(filePath, out var tenantId))
+                    continue;
 
-            if (!await WaitForFileReadyAsync(filePath, stoppingToken))
-                continue;
+                if (!await WaitForFileReadyAsync(filePath, stoppingToken))
+                    continue;
 
-            using var scope = _scopeFactory.CreateScope();
-            var processor = scope.ServiceProvider.GetRequiredService<InboxFileProcessor>();
-            var options = scope.ServiceProvider.GetRequiredService<IOptions<InboxFolderOptions>>().Value;
-            await processor.ProcessAsync(tenantId, filePath, options, InboxOrigem.Pasta, stoppingToken);
+                using var scope = _scopeFactory.CreateScope();
+                var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                tenantContext.SetTenantId(tenantId);
+                var processor = scope.ServiceProvider.GetRequiredService<InboxFileProcessor>();
+                var options = scope.ServiceProvider.GetRequiredService<IOptions<InboxFolderOptions>>().Value;
+                await processor.ProcessAsync(tenantId, filePath, options, InboxOrigem.Pasta, stoppingToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Graceful shutdown: host is stopping, exit without throwing
         }
     }
 

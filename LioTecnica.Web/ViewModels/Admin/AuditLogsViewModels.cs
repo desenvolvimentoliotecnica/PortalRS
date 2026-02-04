@@ -137,3 +137,19 @@ public sealed record AuditSummaryResponse(
     IReadOnlyList<AuditSummaryItem> TopUsers,
     IReadOnlyList<AuditStatusItem> Statuses
 );
+
+public sealed record EntityChangeListItem(
+    Guid Id,
+    DateTimeOffset OccurredAt,
+    string State,
+    string EntityName,
+    string? UserName,
+    string? ChangedColumns
+);
+
+public sealed record EntityChangesResponse(
+    IReadOnlyList<EntityChangeListItem> Items,
+    int TotalCount,
+    int Page,
+    int PageSize
+);

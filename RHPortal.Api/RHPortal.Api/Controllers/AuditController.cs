@@ -254,4 +254,50 @@ public sealed class AuditController : ControllerBase
 
         return Ok(new AuditSummaryResponse(topRoutes, topUsers, statuses));
     }
+
+    /// <summary>
+    /// Lista alterações de auditoria para uma entidade (por nome e ID).
+    /// </summary>
+    [RequirePermission("audit.view")]
+    [HttpGet("entity-changes")]
+    [ProducesResponseType(typeof(EntityChangesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<EntityChangesResponse>> GetEntityChanges(
+        [FromServices] AppDbContext db,
+        [FromQuery] string? entityName = null,
+        [FromQuery] Guid? entityId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(entityName) || !entityId.HasValue)
+            return BadRequest("entityName and entityId are required.");
+
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var idStr = entityId.Value.ToString();
+
+        var query = from c in db.AuditEntityChanges.AsNoTracking()
+                    join t in db.AuditTransactions.AsNoTracking() on c.AuditTransactionId equals t.Id
+                    where c.EntityName == entityName.Trim() && c.PrimaryKeyJson != null && c.PrimaryKeyJson.Contains(idStr)
+                    select new { c, t.UserName };
+
+        var totalCount = await query.CountAsync(ct);
+        var items = await query
+            .OrderByDescending(x => x.c.OccurredAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new EntityChangeListItem(
+                x.c.Id,
+                x.c.OccurredAt,
+                x.c.State,
+                x.c.EntityName,
+                x.UserName,
+                x.c.ChangedColumns
+            ))
+            .ToListAsync(ct);
+
+        return Ok(new EntityChangesResponse(items, totalCount, page, pageSize));
+    }
 }

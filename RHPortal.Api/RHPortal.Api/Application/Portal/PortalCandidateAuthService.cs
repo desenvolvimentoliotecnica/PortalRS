@@ -5,6 +5,7 @@ using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Application.Talentos;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Notifications;
@@ -25,19 +26,22 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly NotificationPublisher _notificationPublisher;
     private readonly ITenantContext _tenantContext;
+    private readonly ITalentoService _talentoService;
 
     public PortalCandidateAuthService(
         AppDbContext db,
         IPasswordHasher<Candidato> passwordHasher,
         IStringLocalizer<ServiceMessages> localizer,
         NotificationPublisher notificationPublisher,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        ITalentoService talentoService)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _localizer = localizer;
         _notificationPublisher = notificationPublisher;
         _tenantContext = tenantContext;
+        _talentoService = talentoService;
     }
 
     public async Task<PortalCandidateAuthResponse?> LoginAsync(PortalCandidateLoginRequest request, CancellationToken ct)
@@ -78,6 +82,19 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
             if (!string.IsNullOrWhiteSpace(candidato.PortalPasswordHash))
                 throw new InvalidOperationException(_localizer["ServiceErrors.PortalAccessExists"]);
 
+            var (talento, _) = await _talentoService.GetOrCreateByEmailAsync(
+                email,
+                request.Nome,
+                NormalizeRequired(request.Fone),
+                NormalizeRequired(request.Cidade),
+                NormalizeUfRequired(request.Uf),
+                null,
+                null,
+                null,
+                OrigemTalento.Site,
+                ct);
+            candidato.TalentoId = talento.Id;
+
             candidato.Nome = (request.Nome ?? string.Empty).Trim();
             candidato.Email = email;
             candidato.Fone = NormalizeRequired(request.Fone);
@@ -90,6 +107,18 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
             return new PortalCandidateAuthResponse(candidato.Id, candidato.Nome, candidato.Email);
         }
 
+        var (talentoNew, _) = await _talentoService.GetOrCreateByEmailAsync(
+            email,
+            request.Nome,
+            NormalizeRequired(request.Fone),
+            NormalizeRequired(request.Cidade),
+            NormalizeUfRequired(request.Uf),
+            null,
+            null,
+            null,
+            OrigemTalento.Site,
+            ct);
+
         var entity = new Candidato
         {
             Id = Guid.NewGuid(),
@@ -101,6 +130,7 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
             Fonte = CandidateOrigin.Site,
             Status = CandidateStatus.Novo,
             VagaId = null,
+            TalentoId = talentoNew.Id,
             PortalAccessKey = GeneratePortalAccessKey()
         };
 

@@ -10,6 +10,7 @@ using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Application.Authentication;
 
@@ -44,7 +45,9 @@ public sealed class AuthenticationService
         var email = request.Email.Trim();
         if (string.IsNullOrWhiteSpace(email)) return null;
 
-        var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Email == email, ct);
+        var user = await _db.Users
+            .Include(u => u.Funcionario)
+            .FirstOrDefaultAsync(x => x.Email == email, ct);
         if (user is null || !user.IsActive) return null;
 
         var validPassword = await _userManager.CheckPasswordAsync(user, request.Password);
@@ -62,7 +65,9 @@ public sealed class AuthenticationService
             .Distinct()
             .ToListAsync(ct);
 
-        var token = CreateJwtToken(user, roleNames, permissions);
+        var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
+        var token = CreateJwtToken(user, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
+        var areaId = user.Funcionario?.AreaId;
 
         return new LoginResponse(
             AccessToken: token,
@@ -72,13 +77,20 @@ public sealed class AuthenticationService
             FullName: user.FullName,
             TenantId: _tenantContext.TenantId,
             Roles: roleNames.ToList(),
-            Permissions: permissions
+            Permissions: permissions,
+            FuncionarioId: user.FuncionarioId,
+            AreaId: areaId,
+            VisibilityScope: visibilityScope,
+            VagasDataScope: vagasDataScope,
+            IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
         );
     }
 
     public async Task<CurrentUserResponse?> GetCurrentUserAsync(Guid userId, CancellationToken ct)
     {
-        var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Id == userId, ct);
+        var user = await _db.Users
+            .Include(u => u.Funcionario)
+            .FirstOrDefaultAsync(x => x.Id == userId, ct);
         if (user is null) return null;
 
         var roleNames = await _userManager.GetRolesAsync(user);
@@ -93,14 +105,46 @@ public sealed class AuthenticationService
             .Distinct()
             .ToListAsync(ct);
 
+        var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
+        var areaId = user.Funcionario?.AreaId;
+
         return new CurrentUserResponse(
             UserId: user.Id,
             Email: user.Email ?? string.Empty,
             FullName: user.FullName,
             TenantId: _tenantContext.TenantId,
             Roles: roleNames.ToList(),
-            Permissions: permissions
+            Permissions: permissions,
+            FuncionarioId: user.FuncionarioId,
+            AreaId: areaId,
+            VisibilityScope: visibilityScope,
+            VagasDataScope: vagasDataScope,
+            IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
         );
+    }
+
+    /// <summary>
+    /// Creates a new JWT for the current user with the given tenant (for switch-tenant).
+    /// User must exist in the current tenant DB; only the tenant claim is changed.
+    /// </summary>
+    public async Task<string?> CreateTokenWithTenantAsync(Guid userId, string tenantId, CancellationToken ct)
+    {
+        var user = await _db.Users.Include(u => u.Funcionario).FirstOrDefaultAsync(x => x.Id == userId, ct);
+        if (user is null || !user.IsActive) return null;
+
+        var roleNames = await _userManager.GetRolesAsync(user);
+        var roleIds = await _db.UserRoles
+            .Where(x => x.UserId == user.Id)
+            .Select(x => x.RoleId)
+            .ToListAsync(ct);
+        var permissions = await _db.RoleMenus
+            .Where(x => roleIds.Contains(x.RoleId))
+            .Select(x => x.PermissionKey)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
+        return CreateJwtToken(user, roleNames, permissions, tenantId, visibilityScope, vagasDataScope, accessMode);
     }
 
     public async Task<LoginResponse?> LoginWithEntraAsync(EntraLoginRequest request, CancellationToken ct)
@@ -120,6 +164,12 @@ public sealed class AuthenticationService
         if (user is null)
             return null;
 
+        var userWithFuncionario = await _db.Users
+            .Include(u => u.Funcionario)
+            .FirstOrDefaultAsync(x => x.Id == user.Id, ct);
+        if (userWithFuncionario is null)
+            return null;
+
         var roleNames = await _userManager.GetRolesAsync(user);
         var roleIds = await _db.UserRoles
             .Where(x => x.UserId == user.Id)
@@ -132,7 +182,9 @@ public sealed class AuthenticationService
             .Distinct()
             .ToListAsync(ct);
 
-        var token = CreateJwtToken(user, roleNames, permissions);
+        var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
+        var token = CreateJwtToken(userWithFuncionario, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
+        var areaId = userWithFuncionario.Funcionario?.AreaId;
 
         return new LoginResponse(
             AccessToken: token,
@@ -142,7 +194,12 @@ public sealed class AuthenticationService
             FullName: user.FullName,
             TenantId: _tenantContext.TenantId,
             Roles: roleNames.ToList(),
-            Permissions: permissions
+            Permissions: permissions,
+            FuncionarioId: userWithFuncionario.FuncionarioId,
+            AreaId: areaId,
+            VisibilityScope: visibilityScope,
+            VagasDataScope: vagasDataScope,
+            IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
         );
     }
 
@@ -266,15 +323,74 @@ public sealed class AuthenticationService
         return fallbackEmail;
     }
 
-    private string CreateJwtToken(ApplicationUser user, IEnumerable<string> roleNames, IEnumerable<string> permissions)
+    /// <summary>
+    /// Aggregates profile scope from user's roles: most permissive wins.
+    /// </summary>
+    private async Task<(ProfileVisibilityScope VisibilityScope, VagasDataScope VagasDataScope, ProfileAccessMode AccessMode)> GetEffectiveProfileScopeAsync(
+        List<Guid> roleIds,
+        CancellationToken ct)
+    {
+        if (roleIds.Count == 0)
+            return (ProfileVisibilityScope.FullStructure, VagasDataScope.All, ProfileAccessMode.Full);
+
+        var roles = await _db.Roles
+            .AsNoTracking()
+            .Where(x => roleIds.Contains(x.Id))
+            .Select(x => new { x.VisibilityScope, x.VagasDataScope, x.AccessMode })
+            .ToListAsync(ct);
+
+        var visibilityScope = roles.Any(r => r.VisibilityScope == ProfileVisibilityScope.FullStructure)
+            ? ProfileVisibilityScope.FullStructure
+            : ProfileVisibilityScope.RestrictedByAreaOrRecruiter;
+
+        var vagasDataScope = roles.Any(r => r.VagasDataScope == VagasDataScope.All)
+            ? VagasDataScope.All
+            : roles.Any(r => r.VagasDataScope == VagasDataScope.ByArea)
+                ? VagasDataScope.ByArea
+                : VagasDataScope.ByRecrutador;
+
+        var accessMode = roles.Any(r => r.AccessMode == ProfileAccessMode.Full)
+            ? ProfileAccessMode.Full
+            : ProfileAccessMode.ReadOnly;
+
+        return (visibilityScope, vagasDataScope, accessMode);
+    }
+
+    private string CreateJwtToken(
+        ApplicationUser user,
+        IEnumerable<string> roleNames,
+        IEnumerable<string> permissions,
+        ProfileVisibilityScope visibilityScope,
+        VagasDataScope vagasDataScope,
+        ProfileAccessMode accessMode)
+    {
+        return CreateJwtToken(user, roleNames, permissions, _tenantContext.TenantId, visibilityScope, vagasDataScope, accessMode);
+    }
+
+    private string CreateJwtToken(
+        ApplicationUser user,
+        IEnumerable<string> roleNames,
+        IEnumerable<string> permissions,
+        string tenantId,
+        ProfileVisibilityScope visibilityScope,
+        VagasDataScope vagasDataScope,
+        ProfileAccessMode accessMode)
     {
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email, user.Email ?? string.Empty),
             new(ClaimTypes.Name, user.FullName),
-            new("tenant", _tenantContext.TenantId)
+            new("tenant", tenantId),
+            new(PermissionConstants.ClaimVisibilityScope, ((short)visibilityScope).ToString()),
+            new(PermissionConstants.ClaimVagasDataScope, ((short)vagasDataScope).ToString()),
+            new(PermissionConstants.ClaimAccessMode, ((short)accessMode).ToString())
         };
+
+        if (user.FuncionarioId.HasValue)
+            claims.Add(new Claim("funcionario_id", user.FuncionarioId.Value.ToString()));
+        if (user.Funcionario?.AreaId is { } areaId)
+            claims.Add(new Claim("area_id", areaId.ToString()));
 
         foreach (var role in roleNames)
             claims.Add(new Claim(ClaimTypes.Role, role));

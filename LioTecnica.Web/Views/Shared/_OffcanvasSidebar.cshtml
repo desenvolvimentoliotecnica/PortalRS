@@ -12,7 +12,20 @@
 	<div class="offcanvas-body p-0 sidebar-scroll">
 		<div class="p-2">
 			<div class="small text-uppercase text-muted px-2 mt-2">Navegação</div>
-			@await Component.InvokeAsync("MainMenu", new { linkClass = "nav-link rounded-3 px-3 py-2" })
+			@{
+				var offcanvasTenantId = ViewContext.HttpContext.User?.FindFirst("tenant")?.Value ?? string.Empty;
+				var offcanvasInTenantContext = !string.IsNullOrEmpty(offcanvasTenantId) && !string.Equals(offcanvasTenantId, "owner", StringComparison.OrdinalIgnoreCase);
+				var offcanvasHasOwnerCookie = !string.IsNullOrWhiteSpace(ViewContext.HttpContext.Request.Cookies["OwnerAccessToken"]);
+				var offcanvasIsOwnerContext = ViewContext.HttpContext.User?.Identity?.IsAuthenticated == true && (ViewContext.HttpContext.User.IsInRole("Owner") || offcanvasHasOwnerCookie) && !offcanvasInTenantContext;
+			}
+			@if (offcanvasIsOwnerContext)
+			{
+				@await Component.InvokeAsync("OwnerMenu", new { linkClass = "nav-link rounded-3 px-3 py-2" })
+			}
+			else
+			{
+				@await Component.InvokeAsync("MainMenu", new { linkClass = "nav-link rounded-3 px-3 py-2" })
+			}
 		</div>
 	</div>
 </div>

@@ -21,6 +21,9 @@ public sealed class InboxApiClient
     public Task<ApiRawResponse> DeleteRawAsync(string tenantId, Guid id, CancellationToken ct)
         => SendAsync(BuildRequest(HttpMethod.Delete, $"api/inbox/{id}", tenantId), ct);
 
+    public Task<ApiRawResponse> AddToTalentosRawAsync(string tenantId, Guid inboxItemId, CancellationToken ct)
+        => SendAsync(BuildRequest(HttpMethod.Post, $"api/inbox/{inboxItemId}/add-to-talentos", tenantId), ct);
+
     public async Task<ApiRawResponse> UploadAsync(string tenantId, Stream fileStream, string fileName, string contentType, CancellationToken ct)
     {
         using var content = new MultipartFormDataContent();

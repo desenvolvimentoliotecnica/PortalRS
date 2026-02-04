@@ -395,6 +395,9 @@
           <button class="btn btn-ghost btn-sm" id="btnReprocess">
             <i class="bi bi-arrow-repeat me-1"></i>Reprocessar
           </button>
+          <button class="btn btn-ghost btn-sm" id="btnAddToTalentos" title="Adicionar remetente à base de talentos">
+            <i class="bi bi-person-plus-fill me-1"></i>Adicionar à base de talentos
+          </button>
           <button class="btn btn-ghost btn-sm" id="btnCreateCandidate">
             <i class="bi bi-person-plus me-1"></i>Criar candidato
           </button>
@@ -515,6 +518,21 @@
       $("#btnReprocess").addEventListener("click", () => { void runProcess(x, true); });
 
       $("#btnCreateCandidate").addEventListener("click", () => { void createCandidateFromInbox(x); });
+
+      $("#btnAddToTalentos").addEventListener("click", async () => {
+        try {
+          const url = `/EntradaEmailPasta/_api/inbox/${x.id}/add-to-talentos`;
+          const res = await fetch(url, { method: "POST", headers: { "Accept": "application/json" } });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            toast(err?.message || `Falha ao adicionar (${res.status}).`);
+            return;
+          }
+          toast("Adicionado à base de talentos.");
+        } catch (e) {
+          toast(e?.message || "Erro ao adicionar à base de talentos.");
+        }
+      });
 
       $("#btnDiscard").addEventListener("click", async () => {
         if(!confirm("Descartar este item?")) return;

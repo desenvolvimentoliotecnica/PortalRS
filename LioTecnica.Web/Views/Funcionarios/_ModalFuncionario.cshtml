@@ -1,0 +1,73 @@
+<div class="modal fade" id="modalFuncionario" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title fw-bold" id="modalFuncionarioTitle">Novo funcionário</h5>
+          <div class="text-muted small">Cadastre dados principais e área vinculada.</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="funcionarioId">
+
+        <div class="row g-2">
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted">Nome *</label>
+            <input class="form-control" id="funcionarioNome" placeholder="Nome completo">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted">Email *</label>
+            <input class="form-control" id="funcionarioEmail" type="email" placeholder="email@exemplo.com">
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted">Cargo</label>
+            <select class="form-select" id="funcionarioCargo">
+              <option value="">Selecionar cargo</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted">Área</label>
+            <select class="form-select" id="funcionarioArea"></select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted">Status</label>
+            <select class="form-select" id="funcionarioStatus">
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted">Headcount</label>
+            <input class="form-control" id="funcionarioHeadcount" type="number" min="0" value="0">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted">Telefone</label>
+            <input class="form-control" id="funcionarioTelefone" placeholder="(11) 90000-0000">
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted">Unidade</label>
+            <select class="form-select" id="funcionarioUnidade">
+              <option value="">Selecionar unidade</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted">Observação</label>
+            <input class="form-control" id="funcionarioObs" placeholder="Resumo da responsabilidade">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+          <i class="bi bi-x-lg me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-brand" type="button" id="btnSaveFuncionario">
+          <i class="bi bi-check2 me-1"></i>Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -90,6 +90,14 @@ public class EntradaEmailPastaController : Controller
         return ToContentResult(resp);
     }
 
+    [HttpPost("/EntradaEmailPasta/_api/inbox/{id:guid}/add-to-talentos")]
+    public async Task<IActionResult> AddInboxItemToTalentos(Guid id, CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _inboxApi.AddToTalentosRawAsync(tenantId, id, ct);
+        return ToContentResult(resp);
+    }
+
     [HttpGet("/EntradaEmailPasta/_api/vagas")]
     public async Task<IActionResult> GetVagas(CancellationToken ct)
     {

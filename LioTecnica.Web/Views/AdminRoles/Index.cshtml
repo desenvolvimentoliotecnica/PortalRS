@@ -49,7 +49,7 @@
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
             <div>
                 <div class="fw-bold">Lista de perfis</div>
-                <div class="text-muted small">Clique em um perfil para editar.</div>
+                <div class="text-muted small">Use Editar para abrir a tela de cadastro com todas as opções.</div>
             </div>
             <div class="d-flex flex-wrap gap-2 justify-content-end">
                 <div style="min-width:240px;">
@@ -77,6 +77,10 @@
                 <tr>
                     <th>Perfil</th>
                     <th>Descricao</th>
+                    <th>Visao</th>
+                    <th>Escopo vagas</th>
+                    <th>Modo</th>
+                    <th>Menus</th>
                     <th>Status</th>
                     <th class="text-end">Acoes</th>
                 </tr>
@@ -99,66 +103,27 @@
                 <div class="text-muted small mono" data-role="role-id"></div>
             </td>
             <td data-role="role-desc"></td>
+            <td><span data-role="role-visibility"></span></td>
+            <td><span data-role="role-vagas"></span></td>
+            <td><span data-role="role-access"></span></td>
+            <td><span data-role="role-menus-count"></span></td>
             <td><span data-role="role-status"></span></td>
             <td class="text-end">
-                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="detail"><i class="bi bi-eye"></i></button>
-                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="edit"><i class="bi bi-pencil"></i></button>
-                <button class="btn btn-ghost btn-sm text-danger" type="button" data-act="del"><i class="bi bi-trash3"></i></button>
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="detail" title="Ver detalhes"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="edit" title="Editar"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-ghost btn-sm text-danger" type="button" data-act="del" title="Excluir"><i class="bi bi-trash3"></i></button>
             </td>
         </tr>
     </template>
 
     <template id="tpl-role-empty">
         <tr>
-            <td colspan="4" class="text-center text-muted py-3">Nenhum perfil encontrado.</td>
+            <td colspan="8" class="text-center text-muted py-3">Nenhum perfil encontrado.</td>
         </tr>
     </template>
 
     <div style="height:14px;"></div>
 </section>
-
-<div class="modal fade" id="modalAdminRole" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
-            <div class="modal-header">
-                <div>
-                    <h5 class="modal-title fw-bold" id="modalAdminRoleTitle">Editar perfil</h5>
-                    <div class="text-muted small">Atualize nome e descricao do perfil.</div>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="adminRoleId">
-
-                <div class="row g-2">
-                    <div class="col-12 col-md-6">
-                        <label class="form-label small text-muted">Nome *</label>
-                        <input class="form-control" id="adminRoleName" placeholder="ex.: Recrutador">
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <label class="form-label small text-muted">Status</label>
-                        <select class="form-select" id="adminRoleStatus">
-                            <option value="active">Ativo</option>
-                            <option value="inactive">Inativo</option>
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small text-muted">Descricao</label>
-                        <input class="form-control" id="adminRoleDesc" placeholder="Resumo das permissoes">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
-                    <i class="bi bi-x-lg me-1"></i>Cancelar
-                </button>
-                <button class="btn btn-brand" type="button" id="btnAdminRoleSave">
-                    <i class="bi bi-check2 me-1"></i>Salvar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div class="modal fade" id="modalAdminRoleDetails" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -166,12 +131,12 @@
             <div class="modal-header">
                 <div>
                     <h5 class="modal-title fw-bold">Detalhes do perfil</h5>
-                    <div class="text-muted small">Resumo e status do perfil.</div>
+                    <div class="text-muted small">Resumo, escopos e acesso a menus.</div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-2">
+                <div class="row g-2 mb-3">
                     <div class="col-12 col-md-8">
                         <div class="fw-bold" data-role="detail-name"></div>
                         <div class="text-muted small mono" data-role="detail-id"></div>
@@ -183,6 +148,32 @@
                         <div class="small text-muted">Descricao</div>
                         <div class="fw-semibold" data-role="detail-desc"></div>
                     </div>
+                </div>
+                <div class="border-top pt-3 mb-3">
+                    <div class="small fw-semibold text-muted mb-2">Escopos de acesso</div>
+                    <div class="row g-2">
+                        <div class="col-12 col-md-4">
+                            <div class="small text-muted">Visao na estrutura</div>
+                            <div class="fw-semibold" data-role="detail-visibility"></div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="small text-muted">Escopo de vagas</div>
+                            <div class="fw-semibold" data-role="detail-vagas"></div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <div class="small text-muted">Modo de acesso</div>
+                            <div class="fw-semibold" data-role="detail-access"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="border-top pt-3 mb-3">
+                    <div class="small fw-semibold text-muted mb-2">Acesso a menus (permissoes)</div>
+                    <div id="detail-menus-container" class="bg-light rounded p-2" style="max-height: 220px; overflow-y: auto;">
+                        <div data-role="detail-menus-loading" class="text-muted small">Carregando...</div>
+                        <ul id="detail-menus-list" class="list-unstyled mb-0 small"></ul>
+                    </div>
+                </div>
+                <div class="border-top pt-3 row g-2">
                     <div class="col-12 col-md-6">
                         <div class="small text-muted">Criado em</div>
                         <div class="fw-semibold" data-role="detail-created"></div>
@@ -197,6 +188,9 @@
                 <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
                     <i class="bi bi-x-lg me-1"></i>Fechar
                 </button>
+                <a class="btn btn-brand" href="#" data-role="detail-edit-link">
+                    <i class="bi bi-pencil me-1"></i>Editar perfil
+                </a>
             </div>
         </div>
     </div>

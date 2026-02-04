@@ -39,17 +39,20 @@
         </div>
     </div>
 
-    <!-- KPIs -->
+    <!-- KPIs (todos na mesma linha) -->
     @{
         var kpis = new[]
         {
-        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_OpenJobs"].Value,        ValueId = "kpiVagas",     Value = "0",  Hint = T["Kpi_OpenJobs_Hint"].Value, Icon = "bi-briefcase",       ModalTarget = "#modalVagasAbertas" },
-        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_CVsToday"].Value,       ValueId = "kpiCvsHoje",   Value = "37", Hint = T["Kpi_CVsToday_Hint"].Value,  Icon = "bi-inbox",           ModalTarget = "" },
-        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_PendingMatch"].Value,   ValueId = "kpiPendentes", Value = "9",  Hint = T["Kpi_PendingMatch_Hint"].Value,Icon = "bi-hourglass-split", ModalTarget = "" },
-        new { ColClass = "col-12 col-md-6 col-xl-3", Label = T["Kpi_Approved7d"].Value,     ValueId = "kpiAprovados", Value = "18", Hint = T["Kpi_Approved7d_Hint"].Value,  Icon = "bi-patch-check",     ModalTarget = "" }
+        new { ColClass = "col-12 col-md", Label = T["Kpi_OpenJobs"].Value,        ValueId = "kpiVagas",     Value = "0",  Hint = T["Kpi_OpenJobs_Hint"].Value, Icon = "bi-briefcase",       ModalTarget = "#modalVagasAbertas" },
+        new { ColClass = "col-12 col-md", Label = T["Kpi_CVsToday"].Value,       ValueId = "kpiCvsHoje",   Value = "0",  Hint = T["Kpi_CVsToday_Hint"].Value,  Icon = "bi-inbox",           ModalTarget = "" },
+        new { ColClass = "col-12 col-md", Label = T["Kpi_PendingMatch"].Value,   ValueId = "kpiPendentes", Value = "0",  Hint = T["Kpi_PendingMatch_Hint"].Value,Icon = "bi-hourglass-split", ModalTarget = "" },
+        new { ColClass = "col-12 col-md", Label = T["Kpi_Approved7d"].Value,     ValueId = "kpiAprovados", Value = "0",  Hint = T["Kpi_Approved7d_Hint"].Value,  Icon = "bi-patch-check",     ModalTarget = "" },
+        new { ColClass = "col-12 col-md", Label = T["Kpi_VagasForaSla"].Value,   ValueId = "kpiVagasForaSla", Value = "0", Hint = T["Kpi_VagasForaSla_Hint"].Value, Icon = "bi-alarm",           ModalTarget = "" }
         };
     }
-    @await Html.PartialAsync("_KpiCardRow", kpis)
+    <div class="dashboard-kpi-row">
+        @await Html.PartialAsync("_KpiCardRow", kpis)
+    </div>
 
     <!-- CHART + FUNIL -->
     <div class="row g-3 mt-1">

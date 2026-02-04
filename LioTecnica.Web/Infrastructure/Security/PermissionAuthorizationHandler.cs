@@ -12,6 +12,12 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
             return Task.CompletedTask;
         }
 
+        if (context.User.IsInRole("Owner"))
+        {
+            context.Succeed(requirement);
+            return Task.CompletedTask;
+        }
+
         if (context.User.HasClaim(PermissionConstants.ClaimType, requirement.Permission))
         {
             context.Succeed(requirement);

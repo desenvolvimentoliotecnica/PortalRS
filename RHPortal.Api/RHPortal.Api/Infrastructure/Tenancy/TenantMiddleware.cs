@@ -14,22 +14,35 @@ public sealed class TenantMiddleware : IMiddleware
     private static readonly Regex TenantPattern = new("^[a-z0-9][a-z0-9\\-]{1,62}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private readonly ITenantContext _tenantContext;
-    private readonly AppDbContext _db;
+    private readonly MasterDbContext _masterDb;
     private readonly IStringLocalizer<InfrastructureMessages> _localizer;
 
     public TenantMiddleware(
         ITenantContext tenantContext,
-        AppDbContext db,
+        MasterDbContext masterDb,
         IStringLocalizer<InfrastructureMessages> localizer)
     {
         _tenantContext = tenantContext;
-        _db = db;
+        _masterDb = masterDb;
         _localizer = localizer;
     }
 
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
         if (context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase))
+        {
+            await next(context);
+            return;
+        }
+
+        if (context.Request.Path.StartsWithSegments("/api/owner", StringComparison.OrdinalIgnoreCase))
+        {
+            _tenantContext.SetTenantId("owner");
+            await next(context);
+            return;
+        }
+
+        if (context.Request.Path.StartsWithSegments("/api/ops", StringComparison.OrdinalIgnoreCase))
         {
             await next(context);
             return;
@@ -76,7 +89,14 @@ public sealed class TenantMiddleware : IMiddleware
             return;
         }
 
-        var tenantExists = await _db.Tenants
+        if (tenantIdentifier == "owner")
+        {
+            _tenantContext.SetTenantId(tenantIdentifier);
+            await next(context);
+            return;
+        }
+
+        var tenantExists = await _masterDb.Tenants
             .AsNoTracking()
             .AnyAsync(t => t.TenantId == tenantIdentifier && t.IsActive);
 

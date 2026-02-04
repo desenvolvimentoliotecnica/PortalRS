@@ -1,4 +1,4 @@
-﻿using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.JobPositions;
 
@@ -9,6 +9,6 @@ public sealed record JobPositionGridRowResponse(
     string AreaName,
     Guid AreaId,
     SeniorityLevel Seniority,
-    int ManagersCount,
+    int FuncionariosCount,
     CargoStatus Status
 );

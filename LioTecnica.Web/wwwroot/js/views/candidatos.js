@@ -30,7 +30,8 @@
       vagas: [],
       candidatos: [],
       selectedId: null,
-      filters: { q:"", status:"all", vagaId:"all" },
+      filters: { q: "", statuses: [], vagaIds: [] },
+      pagination: { page: 1, pageSize: 20, totalCount: 0 },
       pendingDocs: [],
       pendingDocsCandidateId: null,
       matchRenderToken: 0
@@ -243,6 +244,8 @@
         vagaId: api.vagaId,
         obs: api.obs || "",
         cvText: api.cvText || "",
+        applicationRecruiterUserId: api.applicationRecruiterUserId || null,
+        applicationRecruiterUserName: api.applicationRecruiterUserName || null,
         createdAt: api.createdAtUtc || api.createdAt,
         updatedAt: api.updatedAtUtc || api.updatedAt,
         lastMatch: mapLastMatchFromApi(api.lastMatch),
@@ -269,6 +272,8 @@
           atUtc: c.lastMatch.at ?? null,
           vagaId: c.lastMatch.vagaId ?? null
         } : null,
+        applicationRecruiterUserId: (c.applicationRecruiterUserId || "").trim() || null,
+        applicationRecruiterUserName: (c.applicationRecruiterUserName || "").trim() || null,
         documentos: documentos ? documentos.map(d => ({
           tipo: d.tipo,
           nomeArquivo: d.nomeArquivo,
@@ -316,10 +321,21 @@
     }
 
     async function syncCandidatosFromApi(){
-      const list = await apiFetchJson(CANDIDATOS_API_URL, { method: "GET" });
-      state.candidatos = Array.isArray(list)
-        ? list.map(mapCandidateFromApi).filter(Boolean)
+      const qs = new URLSearchParams();
+      if ((state.filters.q || "").trim()) qs.set("q", state.filters.q.trim());
+      state.filters.statuses.forEach(s => qs.append("statuses", s));
+      state.filters.vagaIds.forEach(id => qs.append("vagaIds", id));
+      qs.set("page", String(state.pagination.page));
+      qs.set("pageSize", String(state.pagination.pageSize));
+      const url = CANDIDATOS_API_URL + (qs.toString() ? "?" + qs.toString() : "");
+      const data = await apiFetchJson(url, { method: "GET" });
+      const items = data?.items ?? data;
+      state.candidatos = Array.isArray(items)
+        ? items.map(mapCandidateFromApi).filter(Boolean)
         : [];
+      state.pagination.totalCount = data?.totalCount ?? state.candidatos.length;
+      state.pagination.page = data?.page ?? state.pagination.page;
+      state.pagination.pageSize = data?.pageSize ?? state.pagination.pageSize;
       state.selectedId = state.candidatos[0]?.id || null;
     }
 
@@ -425,18 +441,21 @@
 
     // ========= KPIs
     function updateKpis(){
-      const total = state.candidatos.length;
+      const total = state.pagination.totalCount;
+      const pendente = state.candidatos.filter(c => (c.status || "").toLowerCase() === "pendente").length;
       const triagem = state.candidatos.filter(c => (c.status || "").toLowerCase() === "triagem").length;
       const aprov = state.candidatos.filter(c => (c.status || "").toLowerCase() === "aprovado").length;
       const repro = state.candidatos.filter(c => (c.status || "").toLowerCase() === "reprovado").length;
 
       $("#kpiTotal").textContent = total;
+      const kpiPend = $("#kpiPendente");
+      if(kpiPend) kpiPend.textContent = pendente;
       $("#kpiTriagem").textContent = triagem;
       $("#kpiAprov").textContent = aprov;
       $("#kpiReprov").textContent = repro;
     }
 
-    // ========= Filters
+    // ========= Filters (dropdown Status + dropdown Vaga com autocomplete)
     function distinctVagas(){
       return state.vagas
         .map(v => {
@@ -447,49 +466,321 @@
         .sort((a,b)=>a.label.localeCompare(b.label, "pt-BR"));
     }
 
-    function renderVagaFilters(){
-      const sel = $("#fVaga");
-      const cur = sel.value || VAGA_ALL;
-      sel.replaceChildren();
-      getEnumOptions("vagaFilter").forEach(opt => {
-        sel.appendChild(buildOption(opt.code, opt.text, opt.code === cur));
+    function getStatusDropdownLabel(){
+      const statuses = collectFilterStatuses();
+      if(!statuses.length) return "Todos";
+      const opts = getEnumOptions("candidatoStatus");
+      const labels = statuses.map(code => {
+        const opt = opts.find(o => (o.code || "").toString().toLowerCase() === (code || "").toString().toLowerCase());
+        return opt ? (opt.text || code) : code;
       });
-      distinctVagas().forEach(v => {
-        sel.appendChild(buildOption(v.id, v.label, v.id === cur));
-      });
-      sel.value = (cur === VAGA_ALL || state.vagas.some(v => v.id === cur)) ? cur : VAGA_ALL;
+      return labels.join(", ");
+    }
 
-      const sel2 = $("#candVaga");
-      sel2.replaceChildren();
-      getEnumOptions("selectPlaceholder").forEach(opt => {
-        sel2.appendChild(buildOption(opt.code, opt.text, opt.code === SELECT_PLACEHOLDER));
+    function renderStatusDropdown(){
+      const dropdown = $("#fStatusDropdown");
+      const labelEl = $("#fStatusLabel");
+      if(!dropdown || !labelEl) return;
+
+      dropdown.replaceChildren();
+      const opts = getEnumOptions("candidatoStatus").filter(o => (o.code || "").toString().trim());
+      const selected = new Set(state.filters.statuses);
+
+      opts.forEach(opt => {
+        const code = (opt.code || "").toString();
+        const label = document.createElement("label");
+        label.className = "dropdown-item d-flex align-items-center gap-2 py-2 mb-0 cursor-pointer";
+        label.style.cursor = "pointer";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.className = "form-check-input flex-shrink-0";
+        input.value = code;
+        input.checked = selected.has(code);
+        input.dataset.filterStatus = "1";
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(opt.text || opt.code || ""));
+        dropdown.appendChild(label);
       });
-      distinctVagas().forEach(v => {
-        sel2.appendChild(buildOption(v.id, v.label, v.id === (sel2.value || "")));
+
+      labelEl.textContent = getStatusDropdownLabel();
+      dropdown.style.display = "none";
+    }
+
+    function wireStatusDropdown(){
+      const wrap = document.querySelector(".status-dropdown-wrap");
+      const trigger = $("#fStatusTrigger");
+      const dropdown = $("#fStatusDropdown");
+      if(!wrap || !trigger || !dropdown) return;
+
+      const toggleDropdown = () => {
+        const isShown = dropdown.classList.contains("show");
+        dropdown.classList.toggle("show", !isShown);
+        dropdown.style.display = isShown ? "none" : "block";
+      };
+
+      const hideDropdown = () => {
+        dropdown.classList.remove("show");
+        dropdown.style.display = "none";
+      };
+
+      const onCheckboxChange = () => {
+        state.filters.statuses = collectFilterStatuses();
+        $("#fStatusLabel").textContent = getStatusDropdownLabel();
+        state.pagination.page = 1;
+        const apply = () => {
+          syncCandidatosFromApi().then(() => {
+            updateKpis();
+            renderList();
+            renderPagination();
+            requestRenderDetail();
+          }).catch(err => {
+            console.error(err);
+            toast("Falha ao aplicar filtros.");
+          });
+        };
+        apply();
+      };
+
+      trigger.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleDropdown();
+      });
+
+      dropdown.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if(e.target.type === "checkbox" || e.target.closest("label")){
+          setTimeout(onCheckboxChange, 0);
+        }
+      });
+
+      document.addEventListener("click", (e) => {
+        if(!wrap.contains(e.target)) hideDropdown();
       });
     }
 
-    function getFilteredCands(){
-      const q = (state.filters.q || "").trim().toLowerCase();
-      const st = state.filters.status;
-      const vid = state.filters.vagaId;
+    function renderVagaFilterDropdown(){
+      const dropdown = $("#fVagaDropdown");
+      const searchEl = $("#fVagaSearch");
+      const hiddenEl = $("#fVaga");
+      if(!dropdown || !searchEl || !hiddenEl) return;
 
-      return state.candidatos.filter(c => {
-        const statusKey = (c.status || "").toLowerCase();
-        if(st !== "all" && statusKey !== st) return false;
-        if(vid !== "all" && c.vagaId !== vid) return false;
+      dropdown.replaceChildren();
+      const vagas = distinctVagas();
+      const selectedId = (state.filters.vagaIds && state.filters.vagaIds[0]) || "";
 
-        if(!q) return true;
+      if(!vagas.length){
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "dropdown-item";
+        item.dataset.value = "";
+        item.textContent = "Nenhuma Vaga";
+        dropdown.appendChild(item);
+        searchEl.placeholder = "Nenhuma vaga";
+        searchEl.value = "";
+        hiddenEl.value = "";
+        return;
+      }
 
-        const v = findVaga(c.vagaId);
-        const blob = [
-          c.nome, c.email, c.fone,
-          v?.titulo, v?.codigo,
-          c.cidade, c.uf, c.fonte, c.status
-        ].join(" ").toLowerCase();
+      const allItem = document.createElement("button");
+      allItem.type = "button";
+      allItem.className = "dropdown-item";
+      allItem.dataset.value = "";
+      allItem.dataset.label = "Todas";
+      allItem.textContent = "Todas";
+      dropdown.appendChild(allItem);
 
-        return blob.includes(q);
+      vagas.forEach(v => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "dropdown-item text-truncate";
+        item.dataset.value = v.id;
+        item.dataset.label = v.label;
+        item.textContent = v.label;
+        dropdown.appendChild(item);
       });
+
+      const selectedLabel = selectedId ? (vagas.find(v => v.id === selectedId)?.label || "Todas") : "Todas";
+      searchEl.placeholder = "Buscar vaga...";
+      searchEl.value = selectedLabel;
+      hiddenEl.value = selectedId;
+    }
+
+    function wireVagaFilterAutocomplete(){
+      const wrap = document.querySelector(".vaga-autocomplete-wrap");
+      const searchEl = $("#fVagaSearch");
+      const dropdown = $("#fVagaDropdown");
+      const hiddenEl = $("#fVaga");
+      if(!wrap || !searchEl || !dropdown || !hiddenEl) return;
+
+      const showDropdown = () => {
+        dropdown.classList.add("show");
+        const items = dropdown.querySelectorAll(".dropdown-item");
+        const q = (searchEl.value || "").trim().toLowerCase();
+        items.forEach(btn => {
+          const label = (btn.dataset.label || btn.textContent || "").toLowerCase();
+          const match = !q || label.includes(q);
+          btn.classList.toggle("d-none", !match);
+        });
+      };
+
+      const hideDropdown = () => {
+        dropdown.classList.remove("show");
+      };
+
+      const selectValue = (value, label) => {
+        hiddenEl.value = value || "";
+        searchEl.value = label || (value ? "" : "Todas");
+        if(!state.vagas.length) searchEl.value = "Nenhuma Vaga";
+        hideDropdown();
+        const ev = new Event("change", { bubbles: true });
+        hiddenEl.dispatchEvent(ev);
+      };
+
+      searchEl.addEventListener("focus", showDropdown);
+      searchEl.addEventListener("click", (e) => { e.stopPropagation(); showDropdown(); });
+      searchEl.addEventListener("input", () => {
+        showDropdown();
+      });
+      searchEl.addEventListener("keydown", (e) => {
+        if(e.key === "Escape"){ hideDropdown(); searchEl.blur(); }
+      });
+
+      dropdown.addEventListener("click", (e) => {
+        const btn = e.target.closest(".dropdown-item");
+        if(!btn) return;
+        e.preventDefault();
+        selectValue(btn.dataset.value || "", btn.dataset.label || btn.textContent || "");
+      });
+
+      document.addEventListener("click", (e) => {
+        if(!wrap.contains(e.target)) hideDropdown();
+      });
+    }
+
+    function fillModalVagaAutocomplete(selectedId){
+      const dropdown = $("#candVagaDropdown");
+      const searchEl = $("#candVagaSearch");
+      const hiddenEl = $("#candVaga");
+      if(!dropdown || !searchEl || !hiddenEl) return;
+
+      dropdown.replaceChildren();
+      const vagas = distinctVagas();
+
+      if(!vagas.length){
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "dropdown-item";
+        item.dataset.value = "";
+        item.dataset.label = "Nenhuma Vaga";
+        item.textContent = "Nenhuma Vaga";
+        dropdown.appendChild(item);
+        searchEl.placeholder = "Nenhuma Vaga";
+        searchEl.value = "";
+        hiddenEl.value = "";
+        return;
+      }
+
+      const phOpts = getEnumOptions("selectPlaceholder");
+      const hasPlaceholder = phOpts.length && (SELECT_PLACEHOLDER || "").toString();
+      if(hasPlaceholder){
+        const opt = phOpts.find(o => (o.code || "").toString() === (SELECT_PLACEHOLDER || ""));
+        if(opt){
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "dropdown-item";
+          item.dataset.value = "";
+          item.dataset.label = opt.text || "";
+          item.textContent = opt.text || "";
+          dropdown.appendChild(item);
+        }
+      }
+
+      vagas.forEach(v => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "dropdown-item text-truncate";
+        item.dataset.value = v.id;
+        item.dataset.label = v.label;
+        item.textContent = v.label;
+        dropdown.appendChild(item);
+      });
+
+      const selectedLabel = selectedId ? (vagas.find(v => v.id === selectedId)?.label || "") : (hasPlaceholder ? (phOpts.find(o => (o.code || "").toString() === (SELECT_PLACEHOLDER || ""))?.text || "") : "");
+      searchEl.placeholder = "Buscar vaga...";
+      searchEl.value = selectedLabel || (vagas.length ? "" : "Nenhuma Vaga");
+      hiddenEl.value = selectedId || "";
+    }
+
+    function wireModalVagaAutocomplete(){
+      const wrap = document.querySelector(".vaga-autocomplete-modal");
+      const searchEl = $("#candVagaSearch");
+      const dropdown = $("#candVagaDropdown");
+      const hiddenEl = $("#candVaga");
+      if(!wrap || !searchEl || !dropdown || !hiddenEl) return;
+
+      const showDropdown = () => {
+        dropdown.classList.add("show");
+        const items = dropdown.querySelectorAll(".dropdown-item");
+        const q = (searchEl.value || "").trim().toLowerCase();
+        items.forEach(btn => {
+          const label = (btn.dataset.label || btn.textContent || "").toLowerCase();
+          const match = !q || label.includes(q);
+          btn.classList.toggle("d-none", !match);
+        });
+      };
+
+      const hideDropdown = () => dropdown.classList.remove("show");
+
+      const selectValue = (value, label) => {
+        hiddenEl.value = value || "";
+        searchEl.value = (label || "").trim();
+        if(!state.vagas.length) searchEl.value = "Nenhuma Vaga";
+        hideDropdown();
+      };
+
+      searchEl.addEventListener("focus", showDropdown);
+      searchEl.addEventListener("click", (e) => { e.stopPropagation(); showDropdown(); });
+      searchEl.addEventListener("input", showDropdown);
+      searchEl.addEventListener("keydown", (e) => { if(e.key === "Escape"){ hideDropdown(); searchEl.blur(); } });
+
+      dropdown.addEventListener("click", (e) => {
+        const btn = e.target.closest(".dropdown-item");
+        if(!btn) return;
+        e.preventDefault();
+        selectValue(btn.dataset.value || "", btn.dataset.label || btn.textContent || "");
+      });
+
+      document.addEventListener("click", (e) => {
+        if(!wrap.contains(e.target)) hideDropdown();
+      });
+    }
+
+    function renderVagaFilters(){
+      renderStatusDropdown();
+      renderVagaFilterDropdown();
+      wireVagaFilterAutocomplete();
+
+      fillModalVagaAutocomplete($("#candVaga")?.value || "");
+      wireModalVagaAutocomplete();
+    }
+
+    function collectFilterStatuses(){
+      const dropdown = $("#fStatusDropdown");
+      if(!dropdown) return [];
+      return Array.from(dropdown.querySelectorAll('input[data-filter-status="1"]:checked'))
+        .map(inp => inp.value)
+        .filter(Boolean);
+    }
+
+    function collectFilterVagaIds(){
+      const hidden = $("#fVaga");
+      if(!hidden || !hidden.value) return [];
+      return [hidden.value];
+    }
+
+    function getFilteredCands(){
+      return state.candidatos;
     }
 
     // ========= Rendering list
@@ -562,6 +853,7 @@
             const id = btn.dataset.id;
             if(act === "detail") openDetailModal(id);
             if(act === "edit") openCandModal("edit", id);
+            if(act === "bloqueio") sendToBloqueio(id);
             if(act === "recalc") recalcMatch(id);
             if(act === "del") deleteCand(id);
             return;
@@ -886,6 +1178,8 @@
       toggleRole(root, "detail-vaga-code-wrap", !!v);
       toggleRole(root, "detail-vaga-thr-wrap", !!v);
 
+      setText(root, "detail-recruiter", (c.applicationRecruiterUserName || "").trim() || EMPTY_TEXT);
+
       setTextLines(root, "detail-obs", c.obs);
 
       const statusSel = root.querySelector("#detailStatus");
@@ -1096,7 +1390,7 @@
         $("#candUF").value = (c.uf || "").toUpperCase().slice(0,2);
         $("#candFonte").value = c.fonte || DEFAULT_CAND_FONTE;
         $("#candStatus").value = c.status || DEFAULT_CAND_STATUS;
-        $("#candVaga").value = c.vagaId || "";
+        fillModalVagaAutocomplete(c.vagaId || "");
         $("#candObs").value = c.obs || "";
 
         await ensureCandidateDetails(c.id);
@@ -1118,7 +1412,7 @@
         $("#candUF").value = "SP";
         $("#candFonte").value = DEFAULT_CAND_FONTE;
         $("#candStatus").value = DEFAULT_CAND_STATUS;
-        $("#candVaga").value = state.vagas[0]?.id || "";
+        fillModalVagaAutocomplete(state.vagas.length ? (state.vagas[0]?.id || "") : "");
         $("#candObs").value = "";
 
         if(docDisabled) docDisabled.classList.remove("d-none");
@@ -1150,7 +1444,7 @@
 
       if(!nome){ toast("Informe o nome do candidato."); return; }
       if(!email){ toast("Informe o email do candidato."); return; }
-      if(!vagaId){ toast("Selecione uma vaga."); return; }
+      if(state.vagas.length > 0 && !vagaId){ toast("Selecione uma vaga."); return; }
 
       const current = id ? findCand(id) : null;
       const candidate = {
@@ -1182,7 +1476,8 @@
           state.selectedId = mapped.id;
           toast("Candidato atualizado.");
         }else{
-          state.candidatos.unshift(mapped);
+          state.pagination.page = 1;
+          await syncCandidatosFromApi();
           state.selectedId = mapped.id;
           toast("Candidato criado.");
         }
@@ -1190,6 +1485,7 @@
         updateKpis();
         renderVagaFilters();
         renderList();
+        renderPagination();
         requestRenderDetail();
 
         if(!id && state.pendingDocs.length){
@@ -1225,6 +1521,22 @@
       }
     }
 
+    const BLOQUEIO_PESSOA_API = "/api/bloqueio-pessoa";
+
+    async function sendToBloqueio(id){
+      const c = findCand(id);
+      if(!c) return;
+      const ok = confirm(`Enviar "${c.nome}" para Bloqueio de pessoa (blacklist)?`);
+      if(!ok) return;
+      try{
+        await apiFetchJson(`${BLOQUEIO_PESSOA_API}/from-candidato/${id}`, { method: "POST" });
+        toast("Pessoa enviada para Bloqueio de pessoa.");
+      }catch(err){
+        console.error(err);
+        toast(err?.message || "Falha ao enviar para Bloqueio de pessoa.");
+      }
+    }
+
     async function deleteCand(id){
       const c = findCand(id);
       if(!c) return;
@@ -1234,12 +1546,11 @@
 
       try{
         await apiFetchJson(`${CANDIDATOS_API_URL}/${id}`, { method: "DELETE" });
-        state.candidatos = state.candidatos.filter(x => x.id !== id);
-        if(state.selectedId === id){
-          state.selectedId = state.candidatos[0]?.id || null;
-        }
+        await syncCandidatosFromApi();
+        state.selectedId = state.candidatos[0]?.id || null;
         updateKpis();
         renderList();
+        renderPagination();
         requestRenderDetail();
         toast("Candidato excluido.");
       }catch(err){
@@ -1282,7 +1593,7 @@
       const st = root.querySelector("#detailStatus")?.value || c.status;
       const vid = root.querySelector("#detailVaga")?.value || c.vagaId;
 
-      if(!vid){
+      if(state.vagas.length > 0 && !vid){
         toast("Selecione uma vaga.");
         return;
       }
@@ -1363,21 +1674,107 @@
       setInterval(tick, 1000 * 15);
     }
 
+    function renderPagination(){
+      const wrap = $("#paginationWrap");
+      if(!wrap) return;
+      wrap.replaceChildren();
+
+      const total = state.pagination.totalCount;
+      const page = state.pagination.page;
+      const pageSize = state.pagination.pageSize;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+      const to = Math.min(page * pageSize, total);
+
+      const info = document.createElement("div");
+      info.className = "small text-muted";
+      info.textContent = total === 0 ? "Nenhum candidato" : `Mostrando ${from} a ${to} de ${total}`;
+      wrap.appendChild(info);
+
+      const nav = document.createElement("nav");
+      nav.className = "d-flex align-items-center gap-1";
+      const prevBtn = document.createElement("button");
+      prevBtn.type = "button";
+      prevBtn.className = "btn btn-ghost btn-sm";
+      prevBtn.innerHTML = "<i class=\"bi bi-chevron-left\"></i>";
+      prevBtn.disabled = page <= 1;
+      prevBtn.title = "Página anterior";
+      prevBtn.addEventListener("click", () => goToPage(page - 1));
+      nav.appendChild(prevBtn);
+
+      const pageLabel = document.createElement("span");
+      pageLabel.className = "small px-2";
+      pageLabel.textContent = `Página ${page} de ${totalPages}`;
+      nav.appendChild(pageLabel);
+
+      const nextBtn = document.createElement("button");
+      nextBtn.type = "button";
+      nextBtn.className = "btn btn-ghost btn-sm";
+      nextBtn.innerHTML = "<i class=\"bi bi-chevron-right\"></i>";
+      nextBtn.disabled = page >= totalPages;
+      nextBtn.title = "Próxima página";
+      nextBtn.addEventListener("click", () => goToPage(page + 1));
+      nav.appendChild(nextBtn);
+
+      wrap.appendChild(nav);
+    }
+
+    async function goToPage(p){
+      if(p < 1) return;
+      const totalPages = Math.max(1, Math.ceil(state.pagination.totalCount / state.pagination.pageSize));
+      if(p > totalPages) return;
+      state.pagination.page = p;
+      await syncCandidatosFromApi();
+      updateKpis();
+      renderList();
+      renderPagination();
+      requestRenderDetail();
+    }
+
     function wireFilters(){
-      const apply = () => {
+      const apply = async () => {
         state.filters.q = ($("#fSearch").value || "").trim();
-        state.filters.status = $("#fStatus").value || "all";
-        state.filters.vagaId = $("#fVaga").value || "all";
-        renderList();
+        state.filters.statuses = collectFilterStatuses();
+        state.filters.vagaIds = collectFilterVagaIds();
+        state.pagination.page = 1;
+        try {
+          await syncCandidatosFromApi();
+          updateKpis();
+          renderList();
+          renderPagination();
+          requestRenderDetail();
+        } catch (err) {
+          console.error(err);
+          toast("Falha ao aplicar filtros.");
+        }
       };
 
-      $("#fSearch").addEventListener("input", apply);
-      $("#fStatus").addEventListener("change", apply);
-      $("#fVaga").addEventListener("change", apply);
+      $("#fSearch").addEventListener("input", () => {
+        const t = ($("#fSearch").value || "").trim();
+        state.filters.q = t;
+        state.pagination.page = 1;
+        debounceApply(apply);
+      });
+      $("#fSearch").addEventListener("change", () => { state.filters.q = ($("#fSearch").value || "").trim(); apply(); });
+
+      let debounceTimer = null;
+      function debounceApply(fn){
+        if(debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { debounceTimer = null; fn(); }, 400);
+      }
+
+      const fVagaEl = $("#fVaga");
+      if(fVagaEl) fVagaEl.addEventListener("change", () => {
+        state.filters.vagaIds = collectFilterVagaIds();
+        state.pagination.page = 1;
+        apply();
+      });
 
       $("#globalSearch").addEventListener("input", () => {
         $("#fSearch").value = $("#globalSearch").value;
-        apply();
+        state.filters.q = ($("#fSearch").value || "").trim();
+        state.pagination.page = 1;
+        debounceApply(apply);
       });
     }
 
@@ -1462,11 +1859,13 @@
           renderVagaFilters();
           updateKpis();
           renderList();
+          renderPagination();
           requestRenderDetail();
         }else{
           renderVagaFilters();
           updateKpis();
           renderList();
+          renderPagination();
           document.getElementById("globalLoading")?.classList.remove("active");
         }
 

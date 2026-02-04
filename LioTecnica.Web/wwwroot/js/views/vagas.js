@@ -1,9 +1,10 @@
-﻿// ========= Logo (embutido em Data URI - auto contido)
+// ========= Logo (embutido em Data URI - auto contido)
     // Observação: o arquivo fornecido veio como WebP (mesmo com nome .png).
 const VAGAS_API_URL = window.__vagasApiUrl || "/api/vagas";
 const CANDIDATOS_API_URL = window.__candidatosApiUrl || "/api/candidatos";
 const AREAS_API_URL = window.__areasApiUrl || "/api/lookup/areas";
 const DEPARTMENTS_API_URL = window.__departmentsApiUrl || "/api/lookup/departments";
+const MANAGERS_API_URL = window.__managersApiUrl || "/api/lookup/managers";
 const NORMALIZE_ENUM = (value) => (value ?? "").toString().trim().toLowerCase();
 
     const LOGO_DATA_URI = "data:image/webp;base64,UklGRngUAABXRUJQVlA4IGwUAAAQYwCdASpbAVsBPlEokUajoqGhIpNoyHAK7AQYJjYQmG9Dtu/6p6QZ4lQd6lPde+Jk3i3kG2EoP+QW0c0h8Oe3jW2C5zE0o9jzZ1x2fX9cZlX0d7rW8r0vQ9p3d2nJ1bqzQfQZxVwTt7mJvU8j1GqF4oJc8Qb+gq+oQyHcQyYc2b9u2fYf0Rj9x9hRZp2Y2xK0yVQ8Hj4p6w8B1K2cKk2mY9m2r8kz3a4m7xG4xg9m5VjzP3E4RjQH8fYkC4mB8g0vR3c5h1D0yE8Qzv7t7gQj0Z9yKk3cWZgVnq3l1kq6rE8oWc4z6oZk8k0b1o9m8p2m+QJ3nJm6GgA=";
@@ -117,6 +118,161 @@ function enumFirstCode(key, fallback){
     function getChecked(id){
       const el = $("#"+id);
       return !!(el && el.checked);
+    }
+
+    function createManagersAutocomplete(inputEl, onSelect){
+      if(!inputEl) return;
+      let debounceTimer = null;
+      let dropdown = null;
+      let currentItems = [];
+
+      function getDropdown(){
+        if(!dropdown){
+          dropdown = document.createElement("div");
+          dropdown.className = "dropdown-menu show position-absolute";
+          dropdown.style.minWidth = "200px";
+          dropdown.style.maxHeight = "280px";
+          dropdown.style.overflowY = "auto";
+          dropdown.style.zIndex = "1056";
+          dropdown.setAttribute("data-autocomplete-dropdown", "1");
+          document.body.appendChild(dropdown);
+        }
+        return dropdown;
+      }
+
+      function hideDropdown(){
+        if(dropdown){
+          dropdown.classList.remove("show");
+          dropdown.replaceChildren();
+        }
+      }
+
+      function showItems(items){
+        const dd = getDropdown();
+        dd.replaceChildren();
+        if(!items || items.length === 0){
+          const empty = document.createElement("div");
+          empty.className = "dropdown-item text-muted small";
+          empty.textContent = "Nenhum resultado";
+          dd.appendChild(empty);
+        }else{
+          items.forEach((item, idx) => {
+            const nome = item.nome ?? item.Nome ?? "";
+            const email = item.email ?? item.Email ?? "";
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "dropdown-item text-start";
+            btn.innerHTML = email ? `${nome} <small class="text-muted d-block">${email}</small>` : nome;
+            btn.addEventListener("click", () => {
+              inputEl.value = nome;
+              if(typeof onSelect === "function") onSelect(item);
+              hideDropdown();
+            });
+            dd.appendChild(btn);
+          });
+        }
+        const rect = inputEl.getBoundingClientRect();
+        dd.style.left = rect.left + "px";
+        dd.style.top = (rect.bottom + 2) + "px";
+        dd.style.width = Math.max(rect.width, 280) + "px";
+        dd.classList.add("show");
+      }
+
+      async function fetchAndShow(term){
+        const q = (term || "").trim();
+        if(q.length < 2){
+          showItems([]);
+          return;
+        }
+        try{
+          const url = `${MANAGERS_API_URL}?q=${encodeURIComponent(q)}&pageSize=20&onlyActive=true`;
+          const res = await fetch(url, { headers: { "Accept": "application/json" } });
+          if(!res.ok) return showItems([]);
+          const data = await res.json();
+          const items = data.items ?? data.Items ?? [];
+          currentItems = items;
+          showItems(items);
+        }catch{
+          showItems([]);
+        }
+      }
+
+      inputEl.addEventListener("input", () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => fetchAndShow(inputEl.value), 220);
+      });
+      inputEl.addEventListener("focus", () => {
+        const v = (inputEl.value || "").trim();
+        if(v.length >= 2) fetchAndShow(v);
+      });
+      inputEl.addEventListener("blur", () => {
+        setTimeout(hideDropdown, 180);
+      });
+    }
+
+    function createListAutocomplete(inputEl, getItems, getLabel, onSelect){
+      if(!inputEl) return;
+      let dropdown = null;
+
+      function getDropdown(){
+        if(!dropdown){
+          dropdown = document.createElement("div");
+          dropdown.className = "dropdown-menu show position-absolute";
+          dropdown.style.minWidth = "200px";
+          dropdown.style.maxHeight = "280px";
+          dropdown.style.overflowY = "auto";
+          dropdown.style.zIndex = "1056";
+          dropdown.setAttribute("data-autocomplete-dropdown", "1");
+          document.body.appendChild(dropdown);
+        }
+        return dropdown;
+      }
+
+      function hideDropdown(){
+        if(dropdown){
+          dropdown.classList.remove("show");
+          dropdown.replaceChildren();
+        }
+      }
+
+      function showItems(){
+        const items = typeof getItems === "function" ? getItems() : [];
+        const dd = getDropdown();
+        dd.replaceChildren();
+        const term = (inputEl.value || "").trim().toLowerCase();
+        const filtered = term ? items.filter(it => {
+          const label = (typeof getLabel === "function" ? getLabel(it) : it).toString().toLowerCase();
+          return label.includes(term);
+        }) : items.slice(0, 30);
+        if(filtered.length === 0){
+          const empty = document.createElement("div");
+          empty.className = "dropdown-item text-muted small";
+          empty.textContent = "Nenhum resultado";
+          dd.appendChild(empty);
+        }else{
+          filtered.forEach(item => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "dropdown-item text-start";
+            btn.textContent = typeof getLabel === "function" ? getLabel(item) : item;
+            btn.addEventListener("click", () => {
+              inputEl.value = typeof getLabel === "function" ? getLabel(item) : item;
+              if(typeof onSelect === "function") onSelect(item);
+              hideDropdown();
+            });
+            dd.appendChild(btn);
+          });
+        }
+        const rect = inputEl.getBoundingClientRect();
+        dd.style.left = rect.left + "px";
+        dd.style.top = (rect.bottom + 2) + "px";
+        dd.style.width = Math.max(rect.width, 280) + "px";
+        dd.classList.add("show");
+      }
+
+      inputEl.addEventListener("input", () => showItems());
+      inputEl.addEventListener("focus", () => showItems());
+      inputEl.addEventListener("blur", () => setTimeout(hideDropdown, 180));
     }
 
     function splitTags(text){
@@ -325,6 +481,18 @@ function parseDateOnly(ymd) {
     const [y, m, d] = String(ymd).split("-").map(n => parseInt(n, 10));
     if (!y || !m || !d) return null;
     return new Date(y, m - 1, d); // local midnight
+}
+
+function formatDateTimeForInput(isoOrDate) {
+    if (!isoOrDate) return "";
+    const d = typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
+    if (isNaN(d.getTime())) return "";
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    const h = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return day + "/" + month + "/" + year + " " + h + ":" + min;
 }
 
 function mapApiVagaToState(v) {
@@ -789,7 +957,7 @@ function fmtStatus(s){
       // bind detail actions + render req table + bind sliders
       bindDetailActions(v);
       renderReqTable(v);
-      void fetchCandidatesByVaga(v.id).then(list => {
+      void fetchMatchingCandidatesByVaga(v.id).then(list => {
         renderVagaCandidates("#detailHost", list, {
           bodySelector: "#tblVagaCands",
           countSelector: "#vagaCandsCount"
@@ -912,13 +1080,38 @@ function fmtStatus(s){
       if(!vagaId) return [];
       try{
         const res = await fetch(`${CANDIDATOS_API_URL}?vagaId=${encodeURIComponent(vagaId)}`, {
-          headers: { "Accept": "application/json" }
+          headers: { "Accept": "application/json" },
+          credentials: "same-origin"
         });
         if(!res.ok) throw new Error(`Falha ao buscar candidatos: ${res.status}`);
         const data = await res.json();
         return Array.isArray(data) ? data : [];
       }catch(e){
         console.error("Falha ao carregar candidatos da vaga:", e);
+        return [];
+      }
+    }
+
+    async function fetchMatchingCandidatesByVaga(vagaId){
+      if(!vagaId) return [];
+      try{
+        const res = await fetch(`${VAGAS_API_URL}/${encodeURIComponent(vagaId)}/matching-candidates?take=30`, {
+          headers: { "Accept": "application/json" },
+          credentials: "same-origin"
+        });
+        if(!res.ok) throw new Error(`Falha ao buscar candidatos com matching: ${res.status}`);
+        const data = await res.json();
+        if(!Array.isArray(data)) return [];
+        return data.map(c => ({
+          id: c.candidatoId,
+          nome: c.nome ?? "",
+          email: c.email ?? "",
+          fonte: "",
+          status: c.pass ? "Dentro" : "Abaixo",
+          lastMatch: { score: c.score }
+        }));
+      }catch(e){
+        console.error("Falha ao carregar candidatos com matching:", e);
         return [];
       }
     }
@@ -1120,7 +1313,10 @@ function fmtStatus(s){
       const titleEl = row.querySelector('[data-role="stage-title"]');
 
       if(nameEl) nameEl.value = item.nome || "";
-      if(ownerEl) fillSelectFromEnum(ownerEl, "vagaEtapaResponsavel", item.responsavel || DEFAULT_ETAPA_RESP);
+      if(ownerEl){
+        ownerEl.value = item.responsavel || "";
+        createManagersAutocomplete(ownerEl);
+      }
       if(modeEl) fillSelectFromEnum(modeEl, "vagaEtapaModo", item.modo || DEFAULT_ETAPA_MODO);
       if(slaEl) slaEl.value = item.slaDias || "";
       if(descEl) descEl.value = item.descricao || "";
@@ -1232,7 +1428,7 @@ function fmtStatus(s){
       const isEdit = mode === "edit";
       $("#modalVagaTitle").textContent = isEdit ? "Editar vaga" : "Nova vaga";
       applyVagaEnumOptions();
-      const tabBtn = document.querySelector('#vagaModalTabs [data-bs-target="#tabVagaForm"]');
+      const tabBtn = document.querySelector('#vagaModalTabs [data-bs-target="#tabVagaDados"]');
       if(tabBtn){
         bootstrap.Tab.getOrCreateInstance(tabBtn).show();
       }
@@ -1327,6 +1523,8 @@ function fmtStatus(s){
         setValue("vagaVisibilidade", publicacao.visibilidade || DEFAULT_PUBLICACAO);
         setValue("vagaDataInicio", publicacao.dataInicio || "");
         setValue("vagaDataFim", publicacao.dataFim || "");
+        setValue("vagaDataAbertura", publicacao.dataAbertura ? formatDateTimeForInput(publicacao.dataAbertura) : "");
+        setValue("vagaSlaDiasMeta", publicacao.slaDiasMetaFechamento != null && publicacao.slaDiasMetaFechamento !== "" ? String(publicacao.slaDiasMetaFechamento) : "");
         setChecked("vagaCanalLinkedin", publicacao.canais?.linkedin);
         setChecked("vagaCanalSite", publicacao.canais?.site);
         setChecked("vagaCanalIndicacao", publicacao.canais?.indicacao);
@@ -1355,6 +1553,8 @@ function fmtStatus(s){
         $("#vagaId").value = "";
         $("#vagaCodigo").value = "";
         $("#vagaTitulo").value = "";
+        const copiarEl = $("#vagaCopiarDe");
+        if(copiarEl) copiarEl.value = "";
         fillVagaDepartmentSelect("");
         fillVagaAreaSelect("");
         $("#vagaArea").value = "";
@@ -1427,6 +1627,8 @@ function fmtStatus(s){
         setValue("vagaVisibilidade", DEFAULT_PUBLICACAO);
         setValue("vagaDataInicio", "");
         setValue("vagaDataFim", "");
+        setValue("vagaDataAbertura", "");
+        setValue("vagaSlaDiasMeta", "");
         setChecked("vagaCanalLinkedin", false);
         setChecked("vagaCanalSite", false);
         setChecked("vagaCanalIndicacao", false);
@@ -1590,6 +1792,7 @@ function fmtStatus(s){
         visibilidade: emptyToNull(getValue("vagaVisibilidade")),
         dataInicio: parseDateInput(getValue("vagaDataInicio")),
         dataEncerramento: parseDateInput(getValue("vagaDataFim")),
+        slaDiasMetaFechamento: parseIntOrNull(getValue("vagaSlaDiasMeta")),
         canalLinkedIn: getChecked("vagaCanalLinkedin"),
         canalSiteCarreiras: getChecked("vagaCanalSite"),
         canalIndicacao: getChecked("vagaCanalIndicacao"),
@@ -1703,6 +1906,7 @@ function fmtStatus(s){
         visibilidade: emptyToNull(publicacao.visibilidade),
         dataInicio: parseDateInput(publicacao.dataInicio),
         dataEncerramento: parseDateInput(publicacao.dataFim),
+        slaDiasMetaFechamento: parseIntOrNull(publicacao.slaDiasMetaFechamento) ?? parseIntOrNull(getValue("vagaSlaDiasMeta")),
         canalLinkedIn: !!publicacao.canais?.linkedin,
         canalSiteCarreiras: !!publicacao.canais?.site,
         canalIndicacao: !!publicacao.canais?.indicacao,
@@ -2435,6 +2639,25 @@ function simulateMatch(vagaId, fromMobile=false){
 
       $("#btnExportJson").addEventListener("click", exportJson);
       $("#btnImportJson").addEventListener("click", importJson);
+
+      createManagersAutocomplete($("#vagaGestor"));
+      createManagersAutocomplete($("#vagaRecrutador"));
+
+      createListAutocomplete(
+        $("#vagaCopiarDe"),
+        () => state.vagas || [],
+        v => (v.codigo || "") + " - " + (v.titulo || ""),
+        async (v) => {
+          await openVagaModal("edit", v.id);
+          $("#vagaId").value = "";
+          $("#vagaCodigo").value = "";
+          $("#vagaCodigoInterno").value = "";
+          const titleEl = document.getElementById("modalVagaTitle");
+          if(titleEl) titleEl.textContent = "Nova vaga";
+        }
+      );
+      const btnClearCopiar = $("#btnClearCopiarDe");
+      if(btnClearCopiar) btnClearCopiar.addEventListener("click", () => { $("#vagaCopiarDe").value = ""; });
     }
 
     function initLogo(){

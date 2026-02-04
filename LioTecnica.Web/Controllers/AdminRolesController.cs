@@ -39,7 +39,10 @@ public sealed class AdminRolesController : Controller
         var request = new RolesApiClient.RoleCreateRequest(
             model.Name.Trim(),
             model.Description?.Trim() ?? string.Empty,
-            model.IsActive
+            model.IsActive,
+            model.VisibilityScope,
+            model.VagasDataScope,
+            model.AccessMode
         );
 
         var created = await _rolesApi.CreateAsync(request, ct);
@@ -64,7 +67,10 @@ public sealed class AdminRolesController : Controller
             Id = role.Id,
             Name = role.Name,
             Description = role.Description,
-            IsActive = role.IsActive
+            IsActive = role.IsActive,
+            VisibilityScope = role.VisibilityScope,
+            VagasDataScope = role.VagasDataScope,
+            AccessMode = role.AccessMode
         };
 
         return View(model);
@@ -80,7 +86,10 @@ public sealed class AdminRolesController : Controller
         var request = new RolesApiClient.RoleUpdateRequest(
             model.Name.Trim(),
             model.Description?.Trim() ?? string.Empty,
-            model.IsActive
+            model.IsActive,
+            model.VisibilityScope,
+            model.VagasDataScope,
+            model.AccessMode
         );
 
         var updated = await _rolesApi.UpdateAsync(id, request, ct);

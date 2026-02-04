@@ -81,6 +81,27 @@
   <data name="ServiceErrors.ManagerJobInvalid" xml:space="preserve">
     <value>Cargo invalido.</value>
   </data>
+  <data name="ServiceErrors.FuncionarioEmailExists" xml:space="preserve">
+    <value>Ja existe um funcionario com o email '{0}'.</value>
+  </data>
+  <data name="ServiceErrors.FuncionarioEmailExistsOther" xml:space="preserve">
+    <value>Ja existe outro funcionario com o email '{0}'.</value>
+  </data>
+  <data name="ServiceErrors.FuncionarioUnitInvalid" xml:space="preserve">
+    <value>Unidade invalida.</value>
+  </data>
+  <data name="ServiceErrors.FuncionarioAreaInvalid" xml:space="preserve">
+    <value>Area invalida.</value>
+  </data>
+  <data name="ServiceErrors.FuncionarioJobInvalid" xml:space="preserve">
+    <value>Cargo invalido.</value>
+  </data>
+  <data name="ServiceErrors.FuncionarioNotFound" xml:space="preserve">
+    <value>Funcionario nao encontrado.</value>
+  </data>
+  <data name="ServiceErrors.ManagerNotFound" xml:space="preserve">
+    <value>Gestor nao encontrado.</value>
+  </data>
   <data name="ServiceErrors.DepartmentCodeExists" xml:space="preserve">
     <value>Ja existe um departamento com o codigo '{0}'.</value>
   </data>
@@ -122,5 +143,14 @@
   </data>
   <data name="ServiceErrors.UserRolesNotFound" xml:space="preserve">
     <value>Uma ou mais roles nao foram encontradas.</value>
+  </data>
+  <data name="ServiceErrors.UserUnitsNotFound" xml:space="preserve">
+    <value>Uma ou mais unidades nao foram encontradas.</value>
+  </data>
+  <data name="ServiceErrors.UserNotFound" xml:space="preserve">
+    <value>Usuario nao encontrado.</value>
+  </data>
+  <data name="ServiceErrors.UserAlreadyHasFuncionario" xml:space="preserve">
+    <value>Usuario ja possui funcionario vinculado.</value>
   </data>
 </root>

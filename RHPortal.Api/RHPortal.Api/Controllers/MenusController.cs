@@ -114,12 +114,18 @@ public sealed class MenusController : ControllerBase
             });
         }
 
+        if (User.IsInRole("Owner"))
+        {
+            var items = await service.ListFullMenuForOwnerAsync(ct);
+            return Ok(items);
+        }
+
         var permissions = User.FindAll(PermissionConstants.ClaimType)
             .Select(x => x.Value)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .ToList();
 
-        var items = await service.ListForUserAsync(userId, permissions, ct);
-        return Ok(items);
+        var userMenus = await service.ListForUserAsync(userId, permissions, ct);
+        return Ok(userMenus);
     }
 }

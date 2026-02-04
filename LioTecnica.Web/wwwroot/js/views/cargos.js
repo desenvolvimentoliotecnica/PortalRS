@@ -1,11 +1,11 @@
 const CARGOS_API_BASE = "/Cargos/_api";
 const AREAS_LOOKUP_URL = "/api/lookup/areas";
-const MANAGERS_LOOKUP_URL = "/api/lookup/managers";
+const FUNCIONARIOS_LOOKUP_URL = "/api/lookup/funcionarios";
 const EMPTY_TEXT = "-";
 
 const state = {
   cargos: [],
-  managers: [],
+  funcionarios: [],
   areas: [],
   filters: { q: "", status: "all" }
 };
@@ -91,7 +91,7 @@ function normalizeCargoRow(c) {
     area: pick(c.area, c.areaName),
     areaId: pick(c.areaId),
     senioridade: (pick(c.senioridade, c.seniority) || "").toString().toLowerCase(),
-    gestores: Number.isFinite(+c.gestores) ? +c.gestores : (Number.isFinite(+c.managersCount) ? +c.managersCount : 0),
+    gestores: Number.isFinite(+c.gestores) ? +c.gestores : (Number.isFinite(+c.funcionariosCount) ? +c.funcionariosCount : (Number.isFinite(+c.managersCount) ? +c.managersCount : 0)),
     status: mapStatusFromApi(pick(c.status)),
     tipo: pick(c.tipo, c.type),
     descricao: pick(c.descricao, c.description)
@@ -193,14 +193,14 @@ function normalizeManager(m) {
   };
 }
 
-async function loadManagersLookup() {
+async function loadFuncionariosLookup() {
   const all = [];
   let page = 1;
   let hasMore = true;
 
   while (hasMore && page <= 20) {
-    const params = new URLSearchParams({ page: String(page), pageSize: "200" });
-    const data = await apiFetchJson(`${MANAGERS_LOOKUP_URL}?${params.toString()}`, { method: "GET" });
+    const params = new URLSearchParams({ page: String(page), pageSize: "200", onlyActive: "true" });
+    const data = await apiFetchJson(`${FUNCIONARIOS_LOOKUP_URL}?${params.toString()}`, { method: "GET" });
     const items = Array.isArray(data?.items) ? data.items : [];
 
     items.forEach(i => all.push(normalizeManager(i)));
@@ -209,20 +209,20 @@ async function loadManagersLookup() {
     page += 1;
   }
 
-  state.managers = all;
+  state.funcionarios = all;
 }
 
 function getCargoGestores(cargo) {
   const key = normalizeText(cargo?.nome || "");
   if (!key) return [];
-  return (state.managers || []).filter(g => normalizeText(g.cargo) === key);
+  return (state.funcionarios || []).filter(g => normalizeText(g.cargo) === key);
 }
 
 function updateKpis() {
   const total = state.cargos.length;
   const ativos = state.cargos.filter(c => c.status === "ativo").length;
   const gestoresCount = state.cargos.reduce((acc, c) => acc + (parseInt(c.gestores, 10) || 0), 0);
-  const headcount = (state.managers || []).reduce((acc, g) => acc + (parseInt(g.headcount, 10) || 0), 0);
+  const headcount = (state.funcionarios || []).reduce((acc, g) => acc + (parseInt(g.headcount, 10) || 0), 0);
 
   $("#kpiCargoTotal").textContent = total;
   $("#kpiCargoActive").textContent = ativos;
@@ -429,8 +429,8 @@ async function openCargoDetail(id) {
     console.warn("Falha ao carregar detalhes do cargo:", err);
   }
 
-  if (!state.managers.length) {
-    try { await loadManagersLookup(); } catch { }
+  if (!state.funcionarios.length) {
+    try { await loadFuncionariosLookup(); } catch { }
   }
 
   setText(root, "cargo-name", c.nome || EMPTY_TEXT);
@@ -520,7 +520,7 @@ function wireButtons() {
     if (!ok) return;
     try {
       await loadCargosFromApi();
-      await loadManagersLookup();
+      await loadFuncionariosLookup();
       updateKpis();
       renderTable();
       toast("Dados recarregados.");
@@ -553,12 +553,12 @@ function wireClock() {
 
   try {
     await loadCargosFromApi();
-    await loadManagersLookup();
+    await loadFuncionariosLookup();
   } catch (err) {
     console.error(err);
     toast("Falha ao carregar dados da API.");
     state.cargos = [];
-    state.managers = [];
+    state.funcionarios = [];
   }
 
   updateKpis();

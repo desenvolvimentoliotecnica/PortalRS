@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using LioTecnica.Web.Infrastructure.Serialization;
 using LioTecnica.Web.ViewModels.Admin;
 
 namespace LioTecnica.Web.Infrastructure.ApiClients;
@@ -8,7 +9,10 @@ namespace LioTecnica.Web.Infrastructure.ApiClients;
 public sealed class RolesApiClient
 {
     private readonly HttpClient _http;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new EnumNameOrNumberToIntConverter() }
+    };
 
     public RolesApiClient(HttpClient http)
     {
@@ -72,7 +76,7 @@ public sealed class RolesApiClient
         return response.IsSuccessStatusCode;
     }
 
-    public sealed record RoleCreateRequest(string Name, string Description, bool IsActive);
-    public sealed record RoleUpdateRequest(string Name, string Description, bool IsActive);
+    public sealed record RoleCreateRequest(string Name, string Description, bool IsActive, int VisibilityScope, int VagasDataScope, int AccessMode);
+    public sealed record RoleUpdateRequest(string Name, string Description, bool IsActive, int VisibilityScope, int VagasDataScope, int AccessMode);
     public sealed record RoleMenusUpdateRequest(IReadOnlyList<RoleMenuAssignmentViewModel> Items);
 }

@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using RhPortal.Api.Application.Pessoas;
 using RhPortal.Api.Contracts.Users;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 
@@ -13,16 +15,20 @@ public sealed class UserAdministrationService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly AppDbContext _db;
+    private readonly IPessoaService _pessoaService;
     private readonly IStringLocalizer<ServiceMessages> _localizer;
 
     public UserAdministrationService(
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,
-        AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
+        AppDbContext db,
+        IPessoaService pessoaService,
+        IStringLocalizer<ServiceMessages> localizer)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _db = db;
+        _pessoaService = pessoaService;
         _localizer = localizer;
     }
 
@@ -30,6 +36,7 @@ public sealed class UserAdministrationService
     {
         var users = await _userManager.Users
             .AsNoTracking()
+            .Include(x => x.Funcionario)
             .OrderBy(x => x.FullName)
             .ToListAsync(ct);
 
@@ -43,6 +50,12 @@ public sealed class UserAdministrationService
             .Where(x => roleIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Name ?? string.Empty, ct);
 
+        var userUnits = await _db.UserUnits
+            .AsNoTracking()
+            .Where(x => userIds.Contains(x.UserId))
+            .Include(x => x.Unit)
+            .ToListAsync(ct);
+
         return users.Select(u =>
         {
             var names = userRoles
@@ -52,19 +65,33 @@ public sealed class UserAdministrationService
                 .Distinct()
                 .ToList();
 
+            var units = userUnits
+                .Where(x => x.UserId == u.Id && x.Unit != null)
+                .Select(x => new UnitInfoResponse(x.Unit!.Id, x.Unit.Code, x.Unit.Name))
+                .DistinctBy(x => x.Id)
+                .ToList();
+
+            FuncionarioInfoResponse? funcionarioInfo = null;
+            if (u.Funcionario != null)
+                funcionarioInfo = new FuncionarioInfoResponse(u.Funcionario.Id, u.Funcionario.Name, u.Funcionario.Email, u.Funcionario.AreaId);
+
             return new UserListItemResponse(
                 u.Id,
                 u.FullName,
                 u.Email ?? string.Empty,
                 u.IsActive,
-                names
+                names,
+                units,
+                funcionarioInfo
             );
         }).ToList();
     }
 
     public async Task<UserResponse?> GetByIdAsync(Guid id, CancellationToken ct)
     {
-        var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var user = await _userManager.Users
+            .Include(x => x.Funcionario)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (user is null) return null;
 
         var userRoleIds = await _db.UserRoles
@@ -77,12 +104,24 @@ public sealed class UserAdministrationService
             .Select(x => new RoleInfoResponse(x.Id, x.Name ?? string.Empty))
             .ToListAsync(ct);
 
+        var units = await _db.UserUnits
+            .AsNoTracking()
+            .Where(x => x.UserId == user.Id)
+            .Select(x => new UnitInfoResponse(x.Unit!.Id, x.Unit.Code, x.Unit.Name))
+            .ToListAsync(ct);
+
+        FuncionarioInfoResponse? funcionarioInfo = null;
+        if (user.Funcionario != null)
+            funcionarioInfo = new FuncionarioInfoResponse(user.Funcionario.Id, user.Funcionario.Name, user.Funcionario.Email, user.Funcionario.AreaId);
+
         return new UserResponse(
             user.Id,
             user.FullName,
             user.Email ?? string.Empty,
             user.IsActive,
             roles,
+            units,
+            funcionarioInfo,
             user.CreatedAtUtc,
             user.UpdatedAtUtc
         );
@@ -100,13 +139,21 @@ public sealed class UserAdministrationService
 
         var roles = await LoadRolesAsync(request.RoleIds, ct);
 
+        if (request.FuncionarioId.HasValue && request.FuncionarioId.Value != Guid.Empty)
+        {
+            var funcionario = await _db.Funcionarios.FirstOrDefaultAsync(x => x.Id == request.FuncionarioId.Value, ct);
+            if (funcionario == null)
+                throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioNotFound"]);
+        }
+
         var user = new ApplicationUser
         {
             Id = Guid.NewGuid(),
             Email = email,
             UserName = email,
             FullName = request.FullName.Trim(),
-            IsActive = request.IsActive
+            IsActive = request.IsActive,
+            FuncionarioId = request.FuncionarioId
         };
 
         var createResult = await _userManager.CreateAsync(user, request.Password);
@@ -119,6 +166,41 @@ public sealed class UserAdministrationService
             var roleResult = await _userManager.AddToRolesAsync(user, roleNames);
             if (!roleResult.Succeeded)
                 throw new InvalidOperationException(string.Join("; ", roleResult.Errors.Select(x => x.Description)));
+        }
+
+        await SyncUserUnitsAsync(user.Id, request.UnitIds ?? [], ct);
+
+        if (request.FuncionarioId.HasValue && request.FuncionarioId.Value != Guid.Empty)
+        {
+            var funcionario = await _db.Funcionarios.FirstOrDefaultAsync(x => x.Id == request.FuncionarioId.Value, ct);
+            if (funcionario != null)
+            {
+                funcionario.UserId = user.Id;
+                await _db.SaveChangesAsync(ct);
+            }
+        }
+        else
+        {
+            var emailNormalized = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+            var pessoa = await _pessoaService.GetOrCreateByEmailAsync(
+                emailNormalized,
+                request.FullName.Trim(),
+                null, null, null, null, null, null,
+                OrigemPessoa.Funcionario,
+                ct);
+            var funcionario = new Funcionario
+            {
+                Id = Guid.NewGuid(),
+                TenantId = user.TenantId,
+                PessoaId = pessoa.Id,
+                Name = request.FullName.Trim(),
+                Email = emailNormalized,
+                UserId = user.Id,
+                Status = Domain.Enums.FuncionarioStatus.Active
+            };
+            _db.Funcionarios.Add(funcionario);
+            user.FuncionarioId = funcionario.Id;
+            await _db.SaveChangesAsync(ct);
         }
 
         var created = await GetByIdAsync(user.Id, ct);
@@ -144,9 +226,20 @@ public sealed class UserAdministrationService
         user.FullName = request.FullName.Trim();
         user.IsActive = request.IsActive;
 
+        if (request.FuncionarioId.HasValue && request.FuncionarioId.Value != Guid.Empty)
+        {
+            var funcionarioExists = await _db.Funcionarios.AnyAsync(x => x.Id == request.FuncionarioId.Value, ct);
+            if (!funcionarioExists)
+                throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioNotFound"]);
+        }
+        user.FuncionarioId = request.FuncionarioId;
+
         var result = await _userManager.UpdateAsync(user);
         if (!result.Succeeded)
             throw new InvalidOperationException(string.Join("; ", result.Errors.Select(x => x.Description)));
+
+        if (request.UnitIds is not null)
+            await SyncUserUnitsAsync(id, request.UnitIds, ct);
 
         return await GetByIdAsync(id, ct);
     }
@@ -199,6 +292,19 @@ public sealed class UserAdministrationService
         return true;
     }
 
+    public async Task<UserResponse?> SetPasswordAsync(Guid id, string newPassword, CancellationToken ct)
+    {
+        var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (user is null) return null;
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
+        if (!result.Succeeded)
+            throw new InvalidOperationException(string.Join("; ", result.Errors.Select(x => x.Description)));
+
+        return await GetByIdAsync(id, ct);
+    }
+
     private async Task<IReadOnlyList<ApplicationRole>> LoadRolesAsync(IReadOnlyList<Guid> roleIds, CancellationToken ct)
     {
         if (roleIds is null || roleIds.Count == 0)
@@ -212,5 +318,32 @@ public sealed class UserAdministrationService
             throw new InvalidOperationException(_localizer["ServiceErrors.UserRolesNotFound"]);
 
         return roles;
+    }
+
+    private async Task SyncUserUnitsAsync(Guid userId, IReadOnlyList<Guid> unitIds, CancellationToken ct)
+    {
+        var validIds = unitIds?.Where(x => x != Guid.Empty).Distinct().ToList() ?? [];
+        if (validIds.Count > 0)
+        {
+            var existingInTenant = await _db.Units
+                .AsNoTracking()
+                .Where(x => validIds.Contains(x.Id))
+                .Select(x => x.Id)
+                .ToListAsync(ct);
+            if (existingInTenant.Count != validIds.Count)
+                throw new InvalidOperationException(_localizer["ServiceErrors.UserUnitsNotFound"]);
+        }
+
+        var current = await _db.UserUnits.Where(x => x.UserId == userId).ToListAsync(ct);
+        _db.UserUnits.RemoveRange(current);
+        await _db.SaveChangesAsync(ct);
+
+        foreach (var unitId in validIds)
+        {
+            _db.UserUnits.Add(new UserUnit { UserId = userId, UnitId = unitId });
+        }
+
+        if (validIds.Count > 0)
+            await _db.SaveChangesAsync(ct);
     }
 }

@@ -20,13 +20,20 @@ public sealed class OwnerRedirectMiddleware
         if (context.User?.Identity?.IsAuthenticated == true &&
             context.User.IsInRole("Owner"))
         {
-            var path = context.Request.Path.Value?.TrimEnd('/') ?? "";
-            var isGet = string.Equals(context.Request.Method, "GET", StringComparison.OrdinalIgnoreCase);
+            var tenant = context.User.FindFirst("tenant")?.Value?.Trim();
+            var isOwnerContext = string.IsNullOrEmpty(tenant) ||
+                string.Equals(tenant, "owner", StringComparison.OrdinalIgnoreCase);
 
-            if (isGet && ShouldRedirectToOwnerTenants(path))
+            if (isOwnerContext)
             {
-                context.Response.Redirect("/Owner/Tenants", permanent: false);
-                return;
+                var path = context.Request.Path.Value?.TrimEnd('/') ?? "";
+                var isGet = string.Equals(context.Request.Method, "GET", StringComparison.OrdinalIgnoreCase);
+
+                if (isGet && ShouldRedirectToOwnerTenants(path))
+                {
+                    context.Response.Redirect("/Owner/Tenants", permanent: false);
+                    return;
+                }
             }
         }
 

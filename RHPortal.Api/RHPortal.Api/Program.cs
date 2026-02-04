@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Globalization;
 using System.Text.Json;
@@ -19,14 +20,21 @@ using RhPortal.Api.Application.Departments;
 using RhPortal.Api.Application.Departments.Handlers;
 using RhPortal.Api.Application.JobPositions;
 using RhPortal.Api.Application.JobPositions.Handlers;
-using RhPortal.Api.Application.Managers;
-using RhPortal.Api.Application.Managers.Handlers;
+using RhPortal.Api.Application.Funcionarios;
+using RhPortal.Api.Application.Funcionarios.Handlers;
 using RhPortal.Api.Application.Menus;
 using RhPortal.Api.Application.Portal;
 using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Application.Units;
 using RhPortal.Api.Application.Units.Handlers;
 using RhPortal.Api.Application.Users;
+using RhPortal.Api.Application.Feedback;
+using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.Me;
+using RhPortal.Api.Application.Pessoas;
+using RhPortal.Api.Application.BloqueioPessoa;
+using RhPortal.Api.Application.Talentos;
+using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Application.Vagas.Handlers;
 using RhPortal.Api.Application.Localization;
@@ -40,6 +48,7 @@ using RhPortal.Api.Logging.Logger;
 using RhPortal.Api.Logging.Middleware;
 using RhPortal.Api.Logging.Writer;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Inbox;
 using RhPortal.Api.Infrastructure.Localization;
@@ -49,6 +58,7 @@ using RhPortal.Api.Infrastructure.Ops;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Swagger;
 using RhPortal.Api.Messaging.Email;
+using RhPortal.Api.Contracts.Funcionarios;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,7 +79,12 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 
 builder.Services
     .AddControllers(options => { options.Filters.Add<ProblemDetailsLoggingFilter>(); })
-    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    .AddJsonOptions(o =>
+{
+    o.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    o.JsonSerializerOptions.Converters.Add(new FuncionarioCreateRequestJsonConverter());
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSignalR();
@@ -95,11 +110,14 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddHealthChecks()
+    .AddDbContextCheck<MasterDbContext>("database_master")
     .AddDbContextCheck<AppDbContext>("database");
 
 // Tenancy
 builder.Services.AddScoped<ITenantContext, TenantContext>();
+builder.Services.AddScoped<ITenantConnectionResolver, TenantConnectionResolver>();
 builder.Services.AddScoped<TenantMiddleware>();
+builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
 // Auditing
 builder.Services.AddHttpContextAccessor();
@@ -129,15 +147,26 @@ builder.Services.AddScoped<NotificationPublisher>();
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
 builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
 builder.Services.AddScoped<IEntraIdConfigService, EntraIdConfigService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IOwnerAiService, RhPortal.Api.Application.Ai.OwnerAiService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.OpenAiProvider>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPortal.Api.Application.Ai.UnifiedAiService>();
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<EmailDispatchWorker>();
+builder.Services.AddHostedService<CvImportWorker>();
 
 // PostgreSQL + EF Core
+builder.Services.AddDbContext<MasterDbContext>(options =>
+{
+    var conn = builder.Configuration.GetConnectionString("Master")
+        ?? builder.Configuration.GetConnectionString("Default");
+    options.UseNpgsql(conn);
+});
 builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 {
-    var conn = builder.Configuration.GetConnectionString("Default");
+    var resolver = sp.GetRequiredService<ITenantConnectionResolver>();
+    var conn = resolver.GetConnectionString();
     options.UseNpgsql(conn);
     options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
 });
@@ -158,6 +187,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<SlaVagaOptions>(builder.Configuration.GetSection(SlaVagaOptions.SectionName));
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
 if (jwtOptions is null || string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
@@ -182,7 +212,8 @@ builder.Services
             ValidIssuer = jwtOptions.Issuer,
             ValidAudience = jwtOptions.Audience,
             IssuerSigningKey = signingKey,
-            ClockSkew = TimeSpan.FromMinutes(1)
+            ClockSkew = TimeSpan.FromMinutes(1),
+            RoleClaimType = ClaimTypes.Role
         };
 
         options.Events = new JwtBearerEvents
@@ -226,6 +257,7 @@ builder.Services.AddAuthorization(options =>
         .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
         .RequireAuthenticatedUser()
         .Build();
+    options.AddPolicy("Owner", policy => policy.RequireRole("Owner"));
 });
 
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
@@ -235,15 +267,28 @@ builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
-builder.Services.AddScoped<IManagerService, ManagerService>();
+builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
 builder.Services.AddScoped<IVagaService, VagaService>();
 builder.Services.AddScoped<ICandidatoService, CandidatoService>();
+builder.Services.AddScoped<IPessoaService, PessoaService>();
+builder.Services.AddScoped<ICvGptExtractor, CvGptExtractor>();
+builder.Services.AddScoped<ITalentoService, TalentoService>();
+builder.Services.AddScoped<IBloqueioPessoaService, BloqueioPessoaService>();
+builder.Services.AddScoped<IMatchingService, MatchingService>();
 builder.Services.AddScoped<AgendaService>();
+builder.Services.AddScoped<CelebrationService>();
+builder.Services.AddScoped<FeedbackService>();
+builder.Services.AddScoped<DevelopmentPlanService>();
+builder.Services.AddScoped<OneOnOneService>();
+builder.Services.AddScoped<GamificationService>();
 builder.Services.AddScoped<IPortalCandidateAuthService, PortalCandidateAuthService>();
 builder.Services.AddScoped<IPasswordHasher<Candidato>, PasswordHasher<Candidato>>();
 builder.Services.AddScoped<ILocalizationConfigService, LocalizationConfigService>();
 
 builder.Services.AddScoped<AuthenticationService>();
+builder.Services.AddScoped<OwnerAuthService>();
+builder.Services.AddScoped<MeService>();
+builder.Services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
 builder.Services.AddScoped<UserAdministrationService>();
 builder.Services.AddScoped<RoleAdministrationService>();
 builder.Services.AddScoped<MenuAdministrationService>();
@@ -269,12 +314,13 @@ builder.Services.AddScoped<ICreateJobPositionHandler, CreateJobPositionHandler>(
 builder.Services.AddScoped<IUpdateJobPositionHandler, UpdateJobPositionHandler>();
 builder.Services.AddScoped<IDeleteJobPositionHandler, DeleteJobPositionHandler>();
 
-// Gestores
-builder.Services.AddScoped<IListManagersHandler, ListManagersHandler>();
-builder.Services.AddScoped<IGetManagerByIdHandler, GetManagerByIdHandler>();
-builder.Services.AddScoped<ICreateManagerHandler, CreateManagerHandler>();
-builder.Services.AddScoped<IUpdateManagerHandler, UpdateManagerHandler>();
-builder.Services.AddScoped<IDeleteManagerHandler, DeleteManagerHandler>();
+// Funcionários
+builder.Services.AddScoped<IListFuncionariosHandler, ListFuncionariosHandler>();
+builder.Services.AddScoped<IListUsersWithoutFuncionarioHandler, ListUsersWithoutFuncionarioHandler>();
+builder.Services.AddScoped<IGetFuncionarioByIdHandler, GetFuncionarioByIdHandler>();
+builder.Services.AddScoped<ICreateFuncionarioHandler, CreateFuncionarioHandler>();
+builder.Services.AddScoped<IUpdateFuncionarioHandler, UpdateFuncionarioHandler>();
+builder.Services.AddScoped<IDeleteFuncionarioHandler, DeleteFuncionarioHandler>();
 
 // Vagas
 builder.Services.AddScoped<IListVagasHandler, ListVagasHandler>();

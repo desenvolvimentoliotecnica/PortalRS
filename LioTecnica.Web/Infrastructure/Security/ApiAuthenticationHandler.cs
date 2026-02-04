@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -9,6 +9,9 @@ public sealed class ApiAuthenticationHandler : DelegatingHandler
 {
     private const string TenantHeader = "X-Tenant-Id";
     private const string OpsResetHeader = "X-OPS-RESET-KEY";
+
+    /// <summary>When set (e.g. on Owner/Tenants/{tenantId}/Config/*), API calls use this tenant instead of "owner".</summary>
+    public const string OwnerConfigTenantIdKey = "OwnerConfigTenantId";
 
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IConfiguration _config;
@@ -26,12 +29,32 @@ public sealed class ApiAuthenticationHandler : DelegatingHandler
         // 🔐 Auth + Tenant
         if (httpContext?.User?.Identity?.IsAuthenticated == true)
         {
+            var isOwnerPath = request.RequestUri?.AbsolutePath?.Contains("owner", StringComparison.OrdinalIgnoreCase) == true;
+            // For api/owner/* use Owner token from cookie when present (survives SwitchTenant)
+            var token = isOwnerPath && httpContext.Request.Cookies.TryGetValue("OwnerAccessToken", out var ownerToken) && !string.IsNullOrWhiteSpace(ownerToken)
+                ? ownerToken
+                : httpContext.User.FindFirst("access_token")?.Value;
+
             var tenantId = httpContext.User.FindFirst("tenant")?.Value;
+            // When Owner is on tenant config tabs, use that tenant for non-owner API calls so data is read/written in that tenant's DB
+            if (!isOwnerPath && IsOwner(httpContext))
+            {
+                if (httpContext.Items.TryGetValue(OwnerConfigTenantIdKey, out var configTenant) && configTenant is string ct && !string.IsNullOrWhiteSpace(ct))
+                    tenantId = ct;
+                else if (string.IsNullOrWhiteSpace(tenantId) && httpContext.Request.Cookies.TryGetValue("OwnerConfigTenantId", out var cookieVal) && !string.IsNullOrWhiteSpace(cookieVal))
+                    tenantId = cookieVal;
+            }
             if (!string.IsNullOrWhiteSpace(tenantId) && !request.Headers.Contains(TenantHeader))
                 request.Headers.TryAddWithoutValidation(TenantHeader, tenantId);
+            // For api/owner/* send tenant "owner" so API validation passes
+            if (isOwnerPath && !string.IsNullOrWhiteSpace(token) && request.Headers.Contains(TenantHeader))
+            {
+                request.Headers.Remove(TenantHeader);
+                request.Headers.TryAddWithoutValidation(TenantHeader, "owner");
+            }
 
-            var token = httpContext.User.FindFirst("access_token")?.Value;
-            if (!string.IsNullOrWhiteSpace(token) && request.Headers.Authorization is null)
+            var hasToken = !string.IsNullOrWhiteSpace(token);
+            if (hasToken && request.Headers.Authorization is null)
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
@@ -56,6 +79,13 @@ public sealed class ApiAuthenticationHandler : DelegatingHandler
         }
 
         return response;
+    }
+
+    private static bool IsOwner(HttpContext? context)
+    {
+        if (context?.User?.Identity?.IsAuthenticated != true) return false;
+        if (context.User.IsInRole("Owner")) return true;
+        return !string.IsNullOrWhiteSpace(context.Request.Cookies["OwnerAccessToken"]);
     }
 
     private static bool IsOpsResetEndpoint(HttpRequestMessage request)

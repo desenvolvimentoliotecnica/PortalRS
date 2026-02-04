@@ -648,6 +648,9 @@ async function saveRoleEditor() {
 
     const name = ($("#roleName").value || "").trim();
     const desc = ($("#roleDesc").value || "").trim();
+    const visibilityScope = parseInt($("#roleVisibilityScope").value || "0", 10);
+    const vagasDataScope = parseInt($("#roleVagasDataScope").value || "0", 10);
+    const accessMode = parseInt($("#roleAccessMode").value || "0", 10);
     if (!name) {
         showToast("Validacao", "Informe o nome do perfil.");
         return;
@@ -655,7 +658,7 @@ async function saveRoleEditor() {
 
     const updated = await apiFetchJson(`${ROLES_API_BASE}/${r.id}`, {
         method: "PUT",
-        body: JSON.stringify({ name, description: desc, isActive: true })
+        body: JSON.stringify({ name, description: desc, isActive: true, visibilityScope, vagasDataScope, accessMode })
     });
 
     if (!updated) {
@@ -748,12 +751,18 @@ async function deleteSelectedRole() {
 function openRoleModal() {
     $("#newRoleName").value = "";
     $("#newRoleDesc").value = "";
+    $("#newRoleVisibilityScope").value = "0";
+    $("#newRoleVagasDataScope").value = "0";
+    $("#newRoleAccessMode").value = "0";
     new bootstrap.Modal($("#modalRole")).show();
 }
 
 async function createRoleFromModal() {
     const name = ($("#newRoleName").value || "").trim();
     const desc = ($("#newRoleDesc").value || "").trim();
+    const visibilityScope = parseInt($("#newRoleVisibilityScope").value || "0", 10);
+    const vagasDataScope = parseInt($("#newRoleVagasDataScope").value || "0", 10);
+    const accessMode = parseInt($("#newRoleAccessMode").value || "0", 10);
     if (!name) {
         showToast("Validacao", "Informe o nome do perfil.");
         return;
@@ -761,7 +770,7 @@ async function createRoleFromModal() {
 
     const created = await apiFetchJson(ROLES_API_BASE, {
         method: "POST",
-        body: JSON.stringify({ name, description: desc, isActive: true })
+        body: JSON.stringify({ name, description: desc, isActive: true, visibilityScope, vagasDataScope, accessMode })
     });
 
     if (!created) {

@@ -186,6 +186,10 @@
 </div>
 
 @section Scripts {
+    @if (ViewData["OwnerConfigApiBase"] != null)
+    {
+        <script>window.__ownerConfigApiBase = "@ViewData["OwnerConfigApiBase"]";</script>
+    }
     <script src="~/js/views/admin-emails.js" asp-append-version="true"></script>
 }
 

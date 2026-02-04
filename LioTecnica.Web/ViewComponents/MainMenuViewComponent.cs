@@ -1,3 +1,4 @@
+using System.Net;
 using LioTecnica.Web.Infrastructure.ApiClients;
 using LioTecnica.Web.ViewModels.Admin;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +16,19 @@ public sealed class MainMenuViewComponent : ViewComponent
 
     public async Task<IViewComponentResult> InvokeAsync(string linkClass = "nav-link")
     {
-        var menus = await _menusApi.ListForCurrentUserAsync(HttpContext.RequestAborted);
+        IReadOnlyList<MenuForCurrentUserViewModel> menus;
+        try
+        {
+            menus = await _menusApi.ListForCurrentUserAsync(HttpContext.RequestAborted);
+        }
+        catch (HttpRequestException)
+        {
+            menus = Array.Empty<MenuForCurrentUserViewModel>();
+        }
+        catch (TaskCanceledException)
+        {
+            menus = Array.Empty<MenuForCurrentUserViewModel>();
+        }
         ViewData["LinkClass"] = linkClass;
         return View(menus.OrderBy(x => x.Order).ToList());
     }

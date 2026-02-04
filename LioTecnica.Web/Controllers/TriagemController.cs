@@ -48,7 +48,7 @@ public class TriagemController : Controller
     public async Task<IActionResult> GetCandidatos(CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId;
-        var resp = await _candidatosApi.GetCandidatosRawAsync(tenantId, q: null, vagaId: null, ct);
+        var resp = await _candidatosApi.GetCandidatosRawAsync(tenantId, q: null, statuses: null, vagaIds: null, ct: ct);
         return ToContentResult(resp);
     }
 

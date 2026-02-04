@@ -110,7 +110,6 @@ public sealed class DepartamentosController : Controller
             nome = d.Name ?? "",
             gestor = d.ManagerName ?? "",
             email = d.ManagerEmail ?? "",
-            centroCusto = d.CostCenter ?? "",
             location = d.Location ?? "",
             headcount = d.Headcount,
             status = MapStatus(d.Status),

@@ -84,7 +84,6 @@ public sealed class DepartmentService : IDepartmentService
                 x.ManagerName,
                 x.ManagerEmail,
                 x.Phone,
-                x.CostCenter,
                 x.BranchOrLocation,
                 x.Description,
                 x.CreatedAtUtc,
@@ -158,10 +157,6 @@ public sealed class DepartmentService : IDepartmentService
                 ? q.OrderBy(x => x.d.ManagerEmail).ThenBy(x => x.d.ManagerName).ThenBy(x => x.d.Name)
                 : q.OrderByDescending(x => x.d.ManagerEmail).ThenByDescending(x => x.d.ManagerName).ThenByDescending(x => x.d.Name),
 
-            "costcenter" => asc
-                ? q.OrderBy(x => x.d.CostCenter).ThenBy(x => x.d.Name)
-                : q.OrderByDescending(x => x.d.CostCenter).ThenByDescending(x => x.d.Name),
-
             "location" => asc
                 ? q.OrderBy(x => (x.u != null ? x.u.Name : x.d.BranchOrLocation)).ThenBy(x => x.d.Name)
                 : q.OrderByDescending(x => (x.u != null ? x.u.Name : x.d.BranchOrLocation)).ThenByDescending(x => x.d.Name),
@@ -199,7 +194,6 @@ public sealed class DepartmentService : IDepartmentService
                 x.d.Code,
                 x.d.ManagerName,
                 x.d.ManagerEmail,
-                x.d.CostCenter,
                 RawLocation = x.d.BranchOrLocation,
 
                 UnitCode = x.u != null ? x.u.Code : null,
@@ -224,7 +218,6 @@ public sealed class DepartmentService : IDepartmentService
                 r.Code,
                 r.ManagerName,
                 r.ManagerEmail,
-                r.CostCenter,
                 location,
                 r.Headcount,
                 r.Status,
@@ -257,7 +250,7 @@ public sealed class DepartmentService : IDepartmentService
                 x.Id, x.Code, x.Name, x.AreaId, x.Area!.Name,
                 x.Status, x.Headcount,
                 x.ManagerName, x.ManagerEmail,
-                x.Phone, x.CostCenter, x.BranchOrLocation,
+                x.Phone, x.BranchOrLocation,
                 x.Description, x.CreatedAtUtc, x.UpdatedAtUtc
             ))
             .FirstOrDefaultAsync(ct);
@@ -280,7 +273,6 @@ public sealed class DepartmentService : IDepartmentService
             ManagerName = request.ManagerName?.Trim(),
             ManagerEmail = request.ManagerEmail?.Trim(),
             Phone = request.Phone?.Trim(),
-            CostCenter = request.CostCenter?.Trim(),
             BranchOrLocation = request.BranchOrLocation?.Trim(),
             Description = request.Description?.Trim()
         };
@@ -309,7 +301,6 @@ public sealed class DepartmentService : IDepartmentService
         entity.ManagerName = request.ManagerName?.Trim();
         entity.ManagerEmail = request.ManagerEmail?.Trim();
         entity.Phone = request.Phone?.Trim();
-        entity.CostCenter = request.CostCenter?.Trim();
         entity.BranchOrLocation = request.BranchOrLocation?.Trim();
         entity.Description = request.Description?.Trim();
 

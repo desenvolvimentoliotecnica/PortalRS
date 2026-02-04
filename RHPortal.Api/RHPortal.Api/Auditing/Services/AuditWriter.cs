@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using RhPortal.Api.Auditing.Context;
 using RhPortal.Api.Auditing.Entities;
 using RhPortal.Api.Infrastructure.Data;
@@ -15,12 +16,14 @@ public sealed class AuditWriter
     private readonly IConfiguration _config;
     private readonly IHostEnvironment _env;
     private readonly IStringLocalizer<InfrastructureMessages> _localizer;
+    private readonly ILogger<AuditWriter> _logger;
 
-    public AuditWriter(IConfiguration config, IHostEnvironment env, IStringLocalizer<InfrastructureMessages> localizer)
+    public AuditWriter(IConfiguration config, IHostEnvironment env, IStringLocalizer<InfrastructureMessages> localizer, ILogger<AuditWriter> logger)
     {
         _config = config;
         _env = env;
         _localizer = localizer;
+        _logger = logger;
     }
 
     public async Task<Guid> EnsureTransactionAsync(AuditContext context, CancellationToken ct)
@@ -93,8 +96,16 @@ public sealed class AuditWriter
 
     private AppDbContext CreateDbContext(string tenantId)
     {
-        var conn = _config.GetConnectionString("Default")
-            ?? throw new InvalidOperationException(_localizer["InfrastructureErrors.ConnectionStringDefaultRequired"]);
+        var template = _config.GetConnectionString("TenantTemplate");
+        var useDefault = string.IsNullOrWhiteSpace(tenantId)
+            || string.Equals(tenantId, "system", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(tenantId, "owner", StringComparison.OrdinalIgnoreCase);
+        var conn = !string.IsNullOrWhiteSpace(template) && !useDefault
+            ? string.Format(template, tenantId)
+            : _config.GetConnectionString("Default")
+                ?? throw new InvalidOperationException(_localizer["InfrastructureErrors.ConnectionStringDefaultRequired"]);
+        var dbName = GetDatabaseNameFromConnectionString(conn);
+        _logger.LogDebug("AuditWriter.CreateDbContext: TenantId={TenantId}, useDefault={UseDefault}, Database={Database}", tenantId ?? "(null)", useDefault, dbName);
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(conn)
             .Options;
@@ -103,6 +114,18 @@ public sealed class AuditWriter
         return new AppDbContext(options, tenantContext);
     }
 
+    private static string GetDatabaseNameFromConnectionString(string conn)
+    {
+        if (string.IsNullOrWhiteSpace(conn)) return "(empty)";
+        var idx = conn.IndexOf("Database=", StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) return "(unknown)";
+        var start = idx + "Database=".Length;
+        var end = conn.IndexOf(';', start);
+        return end < 0 ? conn[start..].Trim() : conn[start..end].Trim();
+    }
+
     private string NormalizeTenant(string? tenantId)
-        => string.IsNullOrWhiteSpace(tenantId) ? "system" : tenantId.Trim().ToLowerInvariant();
+    {
+        return string.IsNullOrWhiteSpace(tenantId) ? "system" : tenantId.Trim().ToLowerInvariant();
+    }
 }

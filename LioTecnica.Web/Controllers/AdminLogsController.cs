@@ -51,4 +51,20 @@ public sealed class AdminLogsController : Controller
             return NotFound();
         return Ok(response);
     }
+
+    [HttpGet("/api/audit/entity-changes")]
+    public async Task<ActionResult<EntityChangesResponse>> GetEntityChanges(
+        [FromQuery] string? entityName,
+        [FromQuery] Guid? entityId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(entityName) || !entityId.HasValue)
+            return BadRequest("entityName and entityId are required.");
+        var response = await _api.GetEntityChangesAsync(entityName!, entityId.Value, page, pageSize, ct);
+        if (response is null)
+            return NotFound();
+        return Ok(response);
+    }
 }

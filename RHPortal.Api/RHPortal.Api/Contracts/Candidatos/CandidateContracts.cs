@@ -15,7 +15,10 @@ public sealed record CandidateCreateRequest(
     [MaxLength(2000)] string? Obs,
     string? CvText,
     CandidateMatchRequest? LastMatch,
-    IReadOnlyList<CandidateDocumentoRequest>? Documentos
+    IReadOnlyList<CandidateDocumentoRequest>? Documentos,
+    [MaxLength(120)] string? ApplicationRecruiterUserId,
+    [MaxLength(200)] string? ApplicationRecruiterUserName,
+    Guid? TalentoId = null
 );
 
 public sealed record CandidateUpdateRequest(
@@ -31,7 +34,10 @@ public sealed record CandidateUpdateRequest(
     string? CvText,
     CandidateMatchRequest? LastMatch,
     IReadOnlyList<CandidateDocumentoRequest>? Documentos,
-    CandidateStatusChangeRequest? StatusChange
+    CandidateStatusChangeRequest? StatusChange,
+    [MaxLength(120)] string? ApplicationRecruiterUserId,
+    [MaxLength(200)] string? ApplicationRecruiterUserName,
+    Guid? TalentoId = null
 );
 
 public sealed record CandidateListItemResponse(
@@ -49,6 +55,8 @@ public sealed record CandidateListItemResponse(
     string? Obs,
     string? CvText,
     CandidateMatchResponse? LastMatch,
+    string? ApplicationRecruiterUserId,
+    string? ApplicationRecruiterUserName,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
@@ -65,10 +73,14 @@ public sealed record CandidateResponse(
     Guid? VagaId,
     string? VagaCodigo,
     string? VagaTitulo,
+    Guid? VagaAreaId,
+    Guid? VagaRecrutadorResponsavelUserId,
     string? Obs,
     string? CvText,
     CandidateMatchResponse? LastMatch,
     IReadOnlyList<CandidateDocumentoResponse> Documentos,
+    string? ApplicationRecruiterUserId,
+    string? ApplicationRecruiterUserName,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
@@ -134,6 +146,19 @@ public sealed record CandidateStatusHistoryItemResponse(
 public sealed record CandidateListQuery(
     string? Q,
     CandidateStatus? Status,
+    IReadOnlyList<CandidateStatus>? Statuses,
     Guid? VagaId,
-    CandidateOrigin? Fonte
+    IReadOnlyList<Guid>? VagaIds,
+    CandidateOrigin? Fonte,
+    Guid? AreaId,
+    Guid? RecrutadorUserId,
+    int Page = 1,
+    int PageSize = 20
+);
+
+public sealed record CandidatePagedResponse(
+    IReadOnlyList<CandidateListItemResponse> Items,
+    int TotalCount,
+    int Page,
+    int PageSize
 );

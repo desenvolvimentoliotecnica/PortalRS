@@ -1,4 +1,4 @@
-﻿// Infrastructure/ApiClients/AreasApiClient.cs
+// Infrastructure/ApiClients/AreasApiClient.cs
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -139,6 +139,12 @@ public sealed class AreaResponse
 
     [JsonPropertyName("isActive")]
     public bool IsActive { get; set; }
+
+    [JsonPropertyName("parentId")]
+    public Guid? ParentId { get; set; }
+
+    [JsonPropertyName("ownerFuncionarioId")]
+    public Guid? OwnerFuncionarioId { get; set; }
 }
 
 public sealed class AreaCreateRequest
@@ -147,6 +153,8 @@ public sealed class AreaCreateRequest
     public string? Name { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }
+    public Guid? ParentId { get; set; }
+    public Guid? OwnerFuncionarioId { get; set; }
 }
 
 public sealed class AreaUpdateRequest
@@ -155,4 +163,6 @@ public sealed class AreaUpdateRequest
     public string? Name { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }
+    public Guid? ParentId { get; set; }
+    public Guid? OwnerFuncionarioId { get; set; }
 }

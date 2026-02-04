@@ -1,11 +1,36 @@
-﻿const ROLES_DATA = window.__adminRolesData || [];
+const ROLES_DATA = window.__adminRolesData || [];
+
+function visibilityLabel(v) {
+  const n = Number(v);
+  if (n === 0) return "Completa";
+  if (n === 1) return "Restrita (área/recrutador)";
+  return "—";
+}
+
+function vagasScopeLabel(v) {
+  const n = Number(v);
+  if (n === 0) return "Todas";
+  if (n === 1) return "Por área";
+  if (n === 2) return "Por recrutador";
+  return "—";
+}
+
+function accessModeLabel(v) {
+  const n = Number(v);
+  if (n === 0) return "Completo";
+  if (n === 1) return "Somente leitura";
+  return "—";
+}
 
 const state = {
   roles: ROLES_DATA.map(r => ({
     id: r.id,
     name: r.name,
     desc: r.description,
-    isActive: !!r.isActive
+    isActive: !!r.isActive,
+    visibilityScope: r.visibilityScope,
+    vagasDataScope: r.vagasDataScope,
+    accessMode: r.accessMode
   })),
   filters: { q: "", status: "all" }
 };
@@ -108,6 +133,15 @@ function renderRoles() {
     const descEl = row.querySelector('[data-role="role-desc"]');
     if (descEl) descEl.textContent = r.desc || "-";
 
+    const visEl = row.querySelector('[data-role="role-visibility"]');
+    if (visEl) visEl.textContent = visibilityLabel(r.visibilityScope);
+    const vagasEl = row.querySelector('[data-role="role-vagas"]');
+    if (vagasEl) vagasEl.textContent = vagasScopeLabel(r.vagasDataScope);
+    const accessEl = row.querySelector('[data-role="role-access"]');
+    if (accessEl) accessEl.textContent = accessModeLabel(r.accessMode);
+    const menusCountEl = row.querySelector('[data-role="role-menus-count"]');
+    if (menusCountEl) menusCountEl.innerHTML = '<span class="text-muted small">Ver detalhes</span>';
+
     const statusEl = row.querySelector('[data-role="role-status"]');
     if (statusEl) statusEl.innerHTML = statusTag(r.isActive);
 
@@ -116,72 +150,70 @@ function renderRoles() {
   });
 }
 
+const API_ROLES = "/UsuariosPerfis/_api/roles";
+
 function openDetailsModal(roleId) {
   const role = state.roles.find(r => r.id === roleId);
   if (!role) return;
 
-  const modal = new bootstrap.Modal($("#modalAdminRoleDetails"));
-  const nameEl = $("#modalAdminRoleDetails [data-role=\"detail-name\"]");
-  const idEl = $("#modalAdminRoleDetails [data-role=\"detail-id\"]");
-  const descEl = $("#modalAdminRoleDetails [data-role=\"detail-desc\"]");
-  const statusEl = $("#modalAdminRoleDetails [data-role=\"detail-status\"]");
-  const createdEl = $("#modalAdminRoleDetails [data-role=\"detail-created\"]");
-  const updatedEl = $("#modalAdminRoleDetails [data-role=\"detail-updated\"]");
+  const modalEl = document.getElementById("modalAdminRoleDetails");
+  const nameEl = modalEl?.querySelector("[data-role=\"detail-name\"]");
+  const idEl = modalEl?.querySelector("[data-role=\"detail-id\"]");
+  const descEl = modalEl?.querySelector("[data-role=\"detail-desc\"]");
+  const statusEl = modalEl?.querySelector("[data-role=\"detail-status\"]");
+  const visEl = modalEl?.querySelector("[data-role=\"detail-visibility\"]");
+  const vagasEl = modalEl?.querySelector("[data-role=\"detail-vagas\"]");
+  const accessEl = modalEl?.querySelector("[data-role=\"detail-access\"]");
+  const createdEl = modalEl?.querySelector("[data-role=\"detail-created\"]");
+  const updatedEl = modalEl?.querySelector("[data-role=\"detail-updated\"]");
+  const menusLoadingEl = modalEl?.querySelector("[data-role=\"detail-menus-loading\"]");
+  const menusListEl = document.getElementById("detail-menus-list");
+  const detailEditLink = modalEl?.querySelector("[data-role=\"detail-edit-link\"]");
 
   if (nameEl) nameEl.textContent = role.name || "-";
   if (idEl) idEl.textContent = role.id || "-";
   if (descEl) descEl.textContent = role.desc || "-";
   if (statusEl) statusEl.innerHTML = statusTag(role.isActive);
+  if (visEl) visEl.textContent = visibilityLabel(role.visibilityScope);
+  if (vagasEl) vagasEl.textContent = vagasScopeLabel(role.vagasDataScope);
+  if (accessEl) accessEl.textContent = accessModeLabel(role.accessMode);
   if (createdEl) createdEl.textContent = "-";
   if (updatedEl) updatedEl.textContent = "-";
-
-  apiFetchJson(`/UsuariosPerfis/_api/roles/${roleId}`, { method: "GET" })
-    .then(detail => {
-      if (!detail) return;
-      if (createdEl) createdEl.textContent = detail.createdAtUtc ? fmtDate(detail.createdAtUtc) : "-";
-      if (updatedEl) updatedEl.textContent = detail.updatedAtUtc ? fmtDate(detail.updatedAtUtc) : "-";
-    })
-    .catch(() => {});
-
-  modal.show();
-}
-
-async function openEditModal(roleId) {
-  const detail = await apiFetchJson(`/UsuariosPerfis/_api/roles/${roleId}`, { method: "GET" });
-  if (!detail) return;
-
-  $("#adminRoleId").value = detail.id;
-  $("#adminRoleName").value = detail.name || "";
-  $("#adminRoleDesc").value = detail.description || "";
-  $("#adminRoleStatus").value = detail.isActive ? "active" : "inactive";
-
-  const modal = new bootstrap.Modal($("#modalAdminRole"));
-  modal.show();
-}
-
-async function saveRole() {
-  const id = ($("#adminRoleId").value || "").trim();
-  const name = ($("#adminRoleName").value || "").trim();
-  const desc = ($("#adminRoleDesc").value || "").trim();
-  const status = $("#adminRoleStatus").value;
-
-  if (!id || !name) return;
-
-  await apiFetchJson(`/UsuariosPerfis/_api/roles/${id}`, {
-    method: "PUT",
-    body: JSON.stringify({ name, description: desc, isActive: status === "active" })
-  });
-
-  const entry = state.roles.find(r => r.id === id);
-  if (entry) {
-    entry.name = name;
-    entry.desc = desc;
-    entry.isActive = status === "active";
+  if (detailEditLink) {
+    detailEditLink.href = "/Admin/Roles/Edit/" + roleId;
   }
 
-  renderKPIs();
-  renderRoles();
-  bootstrap.Modal.getInstance($("#modalAdminRole")).hide();
+  if (menusLoadingEl) menusLoadingEl.textContent = "Carregando...";
+  if (menusListEl) menusListEl.innerHTML = "";
+
+  Promise.all([
+    apiFetchJson(`${API_ROLES}/${roleId}`, { method: "GET" }),
+    apiFetchJson(`${API_ROLES}/${roleId}/menus`, { method: "GET" })
+  ]).then(([detail, menus]) => {
+    if (createdEl && detail?.createdAtUtc) createdEl.textContent = fmtDate(detail.createdAtUtc);
+    if (updatedEl && detail?.updatedAtUtc) updatedEl.textContent = fmtDate(detail.updatedAtUtc);
+    if (menusLoadingEl) menusLoadingEl.remove();
+    if (menusListEl && Array.isArray(menus)) {
+      if (menus.length === 0) {
+        menusListEl.innerHTML = "<li class=\"text-muted\">Nenhum menu atribuído.</li>";
+      } else {
+        menus.forEach(m => {
+          const li = document.createElement("li");
+          li.className = "py-1";
+          const code = document.createElement("code");
+          code.className = "small";
+          code.textContent = m.permissionKey || "-";
+          li.appendChild(code);
+          menusListEl.appendChild(li);
+        });
+      }
+    }
+  }).catch(() => {
+    if (menusLoadingEl) menusLoadingEl.textContent = "Erro ao carregar.";
+    if (menusListEl) menusListEl.innerHTML = "<li class=\"text-muted\">Não foi possível carregar os menus.</li>";
+  });
+
+  new bootstrap.Modal(modalEl).show();
 }
 
 async function deleteRole(roleId) {
@@ -189,7 +221,7 @@ async function deleteRole(roleId) {
   const ok = confirm(`Excluir perfil "${role?.name || roleId}"?`);
   if (!ok) return;
 
-  await apiFetchJson(`/UsuariosPerfis/_api/roles/${roleId}`, { method: "DELETE" });
+  await apiFetchJson(`${API_ROLES}/${roleId}`, { method: "DELETE" });
   state.roles = state.roles.filter(r => r.id !== roleId);
   renderKPIs();
   renderRoles();
@@ -238,7 +270,10 @@ function wireRowActions() {
 
     const act = btn.dataset.act;
     if (act === "detail") openDetailsModal(roleId);
-    if (act === "edit") openEditModal(roleId);
+    if (act === "edit") {
+      window.location.href = "/Admin/Roles/Edit/" + roleId;
+      return;
+    }
     if (act === "del") deleteRole(roleId);
   });
 }
@@ -250,5 +285,4 @@ function wireRowActions() {
   wireGlobalSearch();
   wireClock();
   wireRowActions();
-  $("#btnAdminRoleSave").addEventListener("click", saveRole);
 })();

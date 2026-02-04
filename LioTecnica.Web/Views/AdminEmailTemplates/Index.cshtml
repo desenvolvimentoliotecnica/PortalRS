@@ -94,6 +94,10 @@
 </section>
 
 @section Scripts {
+    @if (ViewData["OwnerConfigApiBase"] != null)
+    {
+        <script>window.__ownerConfigApiBase = "@ViewData["OwnerConfigApiBase"]";</script>
+    }
     <script src="~/js/views/admin-email-templates.js?v=@DateTimeOffset.UtcNow.ToUnixTimeSeconds()"></script>
 }
 

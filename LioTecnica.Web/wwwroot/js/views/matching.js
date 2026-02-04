@@ -1,7 +1,8 @@
-﻿// ========= Logo (Data URI placeholder)
+// ========= Logo (Data URI placeholder)
 const LOGO_DATA_URI = "data:image/webp;base64,UklGRngUAABXRUJQVlA4IGwUAAAQYwCdASpbAVsBPlEokUajoqGhIpNoyHAK7AQYJjYQmG9Dtu/6p6QZ4lQd6lPde+Jk3i3kG2EoP+QW0c0h8Oe3jW2C5zE0o9jzZ1x2fX9cZlX0d7rW8r0vQ9p3d2nJ1bqzQfQZxVwTt7mJvU8j1GqF4oJc8Qb+gq+oQyHcQyYc2b9u2fYf0Rj9x9hRZp2Y2xK0yVQ8Hj4p6w8B1K2cKk2mY9m2r8kz3a4m7xG4xg9m5VjzP3E4RjQH8fYkC4mB8g0vR3c5h1D0yE8Qzv7t7gQj0Z9yKk3cWZgVnq3l1kq6rE8oWc4z6oZk8k0b1o9m8p2m+QJ3nJm6GgA=";
 const VAGAS_API_URL = window.__vagasApiUrl || "/api/vagas";
 const CANDIDATOS_API_URL = window.__candidatosApiUrl || "/api/candidatos";
+const MATCHING_RECALC_URL = (window.__apiBase || "") + "/api/matching/recalculate";
 
 function enumFirstCode(key, fallback){
   const list = getEnumOptions(key);
@@ -514,6 +515,16 @@ async function persistLastMatch(c, vaga, matchResult){
   return updated;
 }
 
+async function callRecalculateMatch(candidatoId, vagaId){
+  const qs = new URLSearchParams({ candidatoId, vagaId });
+  const res = await fetch(`${MATCHING_RECALC_URL}?${qs}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Accept": "application/json" }
+  });
+  if(!res.ok) throw new Error(`Recalcular falhou: ${res.status}`);
+}
+
 // ========= Detail
 function renderDetail(c, host){
   if(!host) return;
@@ -597,17 +608,26 @@ function renderDetail(c, host){
 
   bind("btnRecalcOne", async () => {
     clearCacheFor(c.id, v.id);
-    const result = calcMatch(c, v);
     try{
-      const updated = await persistLastMatch(c, v, result);
+      await callRecalculateMatch(c.id, v.id);
+      const updated = await apiFetchJson(`${CANDIDATOS_API_URL}/${c.id}`);
+      const mapped = mapApiCandidatoListItem(updated);
+      updateCandidateState(mapped);
       toast("Recalculado e salvo.");
       renderList();
-      renderDetail(updated, host);
+      renderDetail(mapped, host);
     }catch(err){
       console.error(err);
-      toast("Falha ao salvar o match.");
-      renderList();
-      renderDetail(c, host);
+      toast("Falha ao recalcular (use salvar no detalhe se o servidor não estiver disponível).");
+      const result = calcMatch(c, v);
+      try{
+        const updated = await persistLastMatch(c, v, result);
+        renderList();
+        renderDetail(updated, host);
+      }catch{
+        renderList();
+        renderDetail(c, host);
+      }
     }
   });
   bind("btnClearCacheOne", () => {

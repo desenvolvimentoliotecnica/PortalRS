@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Domain.Entities;
@@ -47,6 +47,7 @@ public static class DbSeeder
         using var scope = services.CreateScope();
 
         var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        var masterDb = scope.ServiceProvider.GetRequiredService<MasterDbContext>();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
@@ -64,51 +65,114 @@ public static class DbSeeder
                 ct);
         }
 
+        var tenantTemplate = config.GetConnectionString("TenantTemplate");
+        var useMultiDb = !string.IsNullOrWhiteSpace(tenantTemplate);
+
         try
         {
             await ReportAsync("start", "Iniciando operação...", 0);
 
             // ---------------------------
-            // Reset enable/disable
+            // 1. Migrate master DB
             // ---------------------------
-            var resetDbFromConfig = config.GetValue<bool>("Seed:ResetDatabase");
-            var resetDb = forceResetDatabase ?? resetDbFromConfig;
-            var cleanDb = forceCleanDatabase ?? false;
+            await ReportAsync("migrate-master", "Aplicando migrations no banco master...", 15);
+            await masterDb.Database.MigrateAsync(ct);
 
-            // MUITO IMPORTANTE: proteja para não apagar em produção
-            if (!env.IsDevelopment())
+            // ---------------------------
+            // 1b. Migrate Default DB (owner/system) so RequestLogs/LogEntries exist when using dev_render for owner context
+            // ---------------------------
+            await ReportAsync("migrate-default", "Aplicando migrations AppDbContext no banco default (owner/system)...", 16);
+            using (var defaultScope = services.CreateScope())
             {
-                resetDb = false;
-                cleanDb = false;
+                var defaultTenantCtx = defaultScope.ServiceProvider.GetRequiredService<ITenantContext>();
+                defaultTenantCtx.SetTenantId("owner");
+                var defaultDb = defaultScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                await defaultDb.Database.MigrateAsync(ct);
             }
 
-            if (resetDb)
+            if (useMultiDb)
             {
-                await ReportAsync("reset", "Resetando schema do banco...", 10);
-                if (string.Equals(db.Database.ProviderName, "Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.OrdinalIgnoreCase))
+                // ---------------------------
+                // 2. Seed tenants in master (so we have a list to create DBs for)
+                // ---------------------------
+                await ReportAsync("seed-master-tenants", "Registrando tenants no master...", 20);
+                await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantSeeder
+                    .EnsureAsync(masterDb, "liotecnica", "Liotecnica", null, ct);
+                await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantSeeder
+                    .EnsureAsync(masterDb, "dev", "Development", null, ct);
+
+                var ownerEmail = config.GetValue<string>("Seed:OwnerEmail");
+                var ownerPassword = config.GetValue<string>("Seed:OwnerPassword") ?? config.GetValue<string>("Seed:AdminPassword");
+                if (!string.IsNullOrWhiteSpace(ownerEmail) && !string.IsNullOrWhiteSpace(ownerPassword))
                 {
-                    await db.Database.ExecuteSqlRawAsync("DROP SCHEMA IF EXISTS public CASCADE;", ct);
-                    await db.Database.ExecuteSqlRawAsync("CREATE SCHEMA public;", ct);
+                    await ReportAsync("seed-owner", "Registrando owner no master...", 22);
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.OwnerSeeder
+                        .EnsureAsync(masterDb, ownerEmail, ownerPassword, ct);
                 }
-                else
-                {
-                    await db.Database.EnsureDeletedAsync(ct);
-                }
-            }
-            else if (cleanDb)
-            {
-                await ReportAsync("clean", "Limpando dados do banco...", 10);
-                await ClearAllDataAsync(db, ct);
-            }
 
-            await ReportAsync("migrate", "Aplicando migrations...", 25);
-            // ✅ Migrar sempre depois do reset
-            await db.Database.MigrateAsync(ct);
+                // ---------------------------
+                // 3. For each tenant: ensure DB exists and apply migrations
+                // ---------------------------
+                var tenantIds = await masterDb.Tenants.AsNoTracking().Select(t => t.TenantId).ToListAsync(ct);
+                var pct = 25;
+                var step = tenantIds.Count > 0 ? (35 - 25) / tenantIds.Count : 10;
+                foreach (var tenantId in tenantIds)
+                {
+                    await ReportAsync("ensure-tenant-db", $"Garantindo banco do tenant {tenantId}...", pct);
+                    await TenantDatabaseEnsurer.EnsureTenantDatabaseExistsAsync(config, tenantId, ct);
+                    // New scope per tenant so AppDbContext uses the correct tenant connection string
+                    using (var tenantScope = services.CreateScope())
+                    {
+                        var tenantCtx = tenantScope.ServiceProvider.GetRequiredService<ITenantContext>();
+                        tenantCtx.SetTenantId(tenantId);
+                        var tenantDb = tenantScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                        await tenantDb.Database.MigrateAsync(ct);
+                    }
+                    pct += step;
+                }
+            }
+            else
+            {
+                // ---------------------------
+                // Single-DB: reset enable/disable
+                // ---------------------------
+                var resetDbFromConfig = config.GetValue<bool>("Seed:ResetDatabase");
+                var resetDb = forceResetDatabase ?? resetDbFromConfig;
+                var cleanDb = forceCleanDatabase ?? false;
+
+                if (!env.IsDevelopment())
+                {
+                    resetDb = false;
+                    cleanDb = false;
+                }
+
+                if (resetDb)
+                {
+                    await ReportAsync("reset", "Resetando schema do banco...", 10);
+                    if (string.Equals(db.Database.ProviderName, "Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await db.Database.ExecuteSqlRawAsync("DROP SCHEMA IF EXISTS public CASCADE;", ct);
+                        await db.Database.ExecuteSqlRawAsync("CREATE SCHEMA public;", ct);
+                    }
+                    else
+                    {
+                        await db.Database.EnsureDeletedAsync(ct);
+                    }
+                }
+                else if (cleanDb)
+                {
+                    await ReportAsync("clean", "Limpando dados do banco...", 10);
+                    await ClearAllDataAsync(db, ct);
+                }
+
+                await ReportAsync("migrate", "Aplicando migrations...", 25);
+                await db.Database.MigrateAsync(ct);
+            }
 
             await ReportAsync("seed-core", "Aplicando seeds essenciais...", 35);
             // ✅ Seeds essenciais sempre (mesmo com Seed:Enabled=false)
             await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder
-                .EnsureDefaultMenusAsync(db, tenantContext, roleManager, localizer, ct);
+                .EnsureDefaultMenusAsync(masterDb, scope.ServiceProvider, tenantContext, roleManager, localizer, ct);
 
             // ---------------------------
             // Seed geral enable/disable
@@ -176,7 +240,7 @@ public static class DbSeeder
 
             await ReportAsync("seed-tenant", "Seeding tenant Liotecnica...", 55);
             await SeedTenantAsync(
-                db, tenantContext, userManager, roleManager,
+                scope.ServiceProvider, masterDb, tenantContext, userManager, roleManager,
                 tenantId: "liotecnica",
                 tenantName: "Liotecnica",
                 adminPassword: adminPassword,
@@ -202,7 +266,7 @@ public static class DbSeeder
 
             await ReportAsync("seed-tenant", "Seeding tenant Development...", 80);
             await SeedTenantAsync(
-                db, tenantContext, userManager, roleManager,
+                scope.ServiceProvider, masterDb, tenantContext, userManager, roleManager,
                 tenantId: "dev",
                 tenantName: "Development",
                 adminPassword: adminPassword,
@@ -251,7 +315,8 @@ public static class DbSeeder
     }
 
     private static async Task SeedTenantAsync(
-        AppDbContext db,
+        IServiceProvider scope,
+        MasterDbContext masterDb,
         ITenantContext tenantContext,
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,
@@ -275,9 +340,10 @@ public static class DbSeeder
         CancellationToken ct)
     {
         await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantSeeder
-            .EnsureAsync(db, tenantId, tenantName, ct);
+            .EnsureAsync(masterDb, tenantId, tenantName, null, ct);
 
         tenantContext.SetTenantId(tenantId);
+        var db = scope.GetRequiredService<AppDbContext>();
 
         var emailDomain = tenantId.Equals("liotecnica", StringComparison.OrdinalIgnoreCase)
             ? "liotecnica.com.br"
@@ -311,9 +377,6 @@ public static class DbSeeder
         // Seed de Cargos (JobPositions)
         await global::RhPortal.Api.Infrastructure.Data.Seeders.JobPositionSeeder
             .EnsureAsync(db, localizer, ct);
-
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.ManagerSeeder
-            .EnsureAsync(db, managerSeedCount, ct, randomSeed);
 
         if (seedVagasEnabled)
         {

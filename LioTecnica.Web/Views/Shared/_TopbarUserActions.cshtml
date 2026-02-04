@@ -2,6 +2,12 @@
 @using Microsoft.AspNetCore.Mvc.Localization
 @inject IViewLocalizer T
 
+@if (Model != "Owner")
+{
+    <div class="d-flex align-items-center gap-2 me-2">
+        @await Component.InvokeAsync("TopbarTenantSelector")
+    </div>
+}
 <div class="dropdown">
     <button class="btn btn-ghost dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
         <i class="bi bi-bell me-1"></i><span class="d-none d-sm-inline">@T["UserMenu_Notifications"]</span>

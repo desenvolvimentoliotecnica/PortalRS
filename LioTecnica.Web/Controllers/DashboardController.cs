@@ -18,6 +18,15 @@ public class DashboardController : Controller
 
     public IActionResult Index()
     {
+        // Owner não tem dashboard próprio: usa a connection Default e veria dados de outro tenant.
+        // Redireciona para a lista de tenants para que selecione um tenant e use "Acessar o tenant".
+        var tenantClaim = User?.FindFirst("tenant")?.Value?.Trim();
+        if (string.Equals(tenantClaim, "owner", StringComparison.OrdinalIgnoreCase))
+        {
+            TempData["OwnerInfo"] = "Selecione um tenant (Acessar o tenant) para ver o dashboard.";
+            return RedirectToAction("Tenants", "Owner");
+        }
+
         var model = new PageSeedViewModel { SeedJson = "{}" };
         return View(model);
     }

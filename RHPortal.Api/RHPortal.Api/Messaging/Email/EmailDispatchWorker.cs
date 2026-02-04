@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
@@ -25,39 +26,73 @@ public sealed class EmailDispatchWorker : BackgroundService
             {
                 await ProcessBatchAsync(stoppingToken);
             }
+            catch (OperationCanceledException)
+            {
+                break; // Graceful shutdown
+            }
+            catch (ObjectDisposedException)
+            {
+                break; // Host shutting down or failed to start (e.g. port in use)
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Email dispatch worker failed.");
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(20), stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break; // Graceful shutdown
+            }
         }
     }
 
     private async Task ProcessBatchAsync(CancellationToken ct)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
-        var configService = scope.ServiceProvider.GetRequiredService<IEmailConfigService>();
-        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        List<string> tenantIds;
+        using (var masterScope = _scopeFactory.CreateScope())
+        {
+            var masterDb = masterScope.ServiceProvider.GetRequiredService<MasterDbContext>();
+            tenantIds = await masterDb.Tenants
+                .AsNoTracking()
+                .Where(t => t.IsActive)
+                .Select(t => t.TenantId)
+                .ToListAsync(ct);
+        }
 
         var now = DateTimeOffset.UtcNow;
-        var pending = await db.EmailMessages
-            .IgnoreQueryFilters()
-            .Where(x => (x.Status == EmailMessageStatus.Queued || x.Status == EmailMessageStatus.Failed)
-                        && x.AttemptCount < x.MaxAttempts
-                        && (x.NextAttemptAtUtc == null || x.NextAttemptAtUtc <= now))
-            .OrderBy(x => x.CreatedAtUtc)
-            .Take(20)
-            .ToListAsync(ct);
-
-        foreach (var msg in pending)
+        foreach (var tenantId in tenantIds)
         {
-            tenantContext.SetTenantId(msg.TenantId);
-            var config = await configService.GetAsync(ct);
-            var providerName = string.IsNullOrWhiteSpace(config?.Provider) ? "smtp" : config.Provider.Trim().ToLowerInvariant();
-            await SendOneAsync(db, sender, msg, providerName, ct);
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                tenantContext.SetTenantId(tenantId);
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+                var configService = scope.ServiceProvider.GetRequiredService<IEmailConfigService>();
+
+                var pending = await db.EmailMessages
+                    .Where(x => (x.Status == EmailMessageStatus.Queued || x.Status == EmailMessageStatus.Failed)
+                                && x.AttemptCount < x.MaxAttempts
+                                && (x.NextAttemptAtUtc == null || x.NextAttemptAtUtc <= now))
+                    .OrderBy(x => x.CreatedAtUtc)
+                    .Take(20)
+                    .ToListAsync(ct);
+
+                var config = await configService.GetAsync(ct);
+                var providerName = string.IsNullOrWhiteSpace(config?.Provider) ? "smtp" : config.Provider.Trim().ToLowerInvariant();
+                foreach (var msg in pending)
+                    await SendOneAsync(db, sender, msg, providerName, ct);
+            }
+            catch (PostgresException ex) when (ex.SqlState == "42P01")
+            {
+                // relation does not exist: tenant DB may not have migrations applied yet
+                _logger.LogWarning("Tenant {TenantId}: schema missing (EmailMessages). Run migrations for this tenant.", tenantId);
+            }
         }
     }
 

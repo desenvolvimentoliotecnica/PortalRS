@@ -9,6 +9,7 @@ using RhPortal.Api.Contracts.Inbox;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Enums;
+using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Tenancy;
@@ -27,19 +28,22 @@ public sealed class InboxFileProcessor
     private readonly IHostEnvironment _env;
     private readonly IHubContext<InboxHub> _hub;
     private readonly IStringLocalizer<InfrastructureMessages> _localizer;
+    private readonly IMatchingService _matchingService;
 
     public InboxFileProcessor(
         AppDbContext db,
         ITenantContext tenantContext,
         IHostEnvironment env,
         IHubContext<InboxHub> hub,
-        IStringLocalizer<InfrastructureMessages> localizer)
+        IStringLocalizer<InfrastructureMessages> localizer,
+        IMatchingService matchingService)
     {
         _db = db;
         _tenantContext = tenantContext;
         _env = env;
         _hub = hub;
         _localizer = localizer;
+        _matchingService = matchingService;
     }
 
     public async Task ProcessAsync(
@@ -170,6 +174,8 @@ public sealed class InboxFileProcessor
             _db.Candidatos.Add(candidato);
             _db.InboxItems.Add(inbox);
             await _db.SaveChangesAsync(ct);
+
+            await _matchingService.CalculateAndStoreAsync(candidato.Id, vagaId, ct);
 
             await PublishRealtimeAsync("processed", inbox, ct);
             MoveToFolder(filePath, tenantId, options.ProcessedFolderName, options);

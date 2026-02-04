@@ -1,0 +1,46 @@
+@{
+    ViewData["Title"] = "OWNER • Criar tenant";
+    ViewData["SidebarSubtitle"] = "Proprietário";
+}
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", "OWNER • Criar tenant")
+    <div class="d-flex align-items-center gap-2">
+        @await Html.PartialAsync("_TopbarUserActions", "Owner")
+    </div>
+}
+
+<section class="content">
+    <div class="page-title">
+        <h4>Criar tenant</h4>
+        <div class="subtitle">Novo tenant será criado no master e o banco de dados será provisionado. Será criado um usuário admin: <code>admin@dev.local</code> com a senha definida em <code>Seed:AdminPassword</code> no appsettings da API.</div>
+    </div>
+
+    @if (TempData["OwnerError"] is string err && !string.IsNullOrWhiteSpace(err))
+    {
+        <div class="alert alert-danger" role="alert">@err</div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" asp-action="CreateTenant" asp-controller="Owner">
+                @Html.AntiForgeryToken()
+                <div class="mb-3">
+                    <label class="form-label" for="tenantId">TenantId</label>
+                    <input type="text" class="form-control" id="tenantId" name="tenantId" required maxlength="64" placeholder="ex: QUALIIT" pattern="[a-zA-Z0-9][a-zA-Z0-9\-]{1,62}" />
+                    <div class="form-text">Letras, números e hífen (2–63 caracteres). Será armazenado em minúsculas (ex.: QUALIIT → qualiit).</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="name">Nome</label>
+                    <input type="text" class="form-control" id="name" name="name" required maxlength="120" placeholder="ex: Qualiit" />
+                </div>
+                <button type="submit" class="btn btn-primary">Criar tenant</button>
+                <a class="btn btn-outline-secondary" asp-action="Tenants" asp-controller="Owner">Voltar</a>
+            </form>
+        </div>
+    </div>
+</section>
+
+@section Footer {
+    @await Html.PartialAsync("_Footer", Array.Empty<object>())
+}

@@ -29,7 +29,7 @@ public sealed class AccountController : Controller
 
     [AllowAnonymous]
     [HttpPost("/Account/Login")]
-    public async Task<IActionResult> Login([FromForm] LoginViewModel model, CancellationToken ct)
+    public async Task<IActionResult> Login([FromForm] LoginViewModel model, [FromServices] OwnerAuthApiClient ownerAuthApi, CancellationToken ct)
     {
         if (!ModelState.IsValid)
         {
@@ -37,10 +37,40 @@ public sealed class AccountController : Controller
             return View(model);
         }
 
-        var tenantId = model.TenantId.Trim().ToLowerInvariant();
+        var tenantId = model.TenantId?.Trim().ToLowerInvariant() ?? string.Empty;
+
+        if (string.Equals(tenantId, "owner", StringComparison.OrdinalIgnoreCase))
+        {
+            var ownerResponse = await ownerAuthApi.LoginAsync(model.Email.Trim(), model.Password, ct);
+            if (ownerResponse is null)
+            {
+                ModelState.AddModelError(string.Empty, "Credenciais de owner inválidas.");
+                PrepareLoginViewData();
+                return View(model);
+            }
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                AuthClaimsFactory.CreatePrincipalForOwner(ownerResponse),
+                new AuthenticationProperties { IsPersistent = false });
+
+            // Store Owner token in a separate cookie so api/owner/* still works after SwitchTenant
+            Response.Cookies.Append("OwnerAccessToken", ownerResponse.AccessToken, new CookieOptions
+            {
+                HttpOnly = true,
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+                Secure = !HttpContext.Request.Host.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase),
+                MaxAge = TimeSpan.FromMinutes(ownerResponse.AccessTokenExpirationMinutes)
+            });
+
+            var redirectUrl = string.IsNullOrWhiteSpace(model.ReturnUrl) ? "/Owner/Tenants" : model.ReturnUrl;
+            return LocalRedirect(redirectUrl);
+        }
+
         if (!TenantValidationMiddleware.IsValidTenantIdentifier(tenantId))
         {
-            ModelState.AddModelError(nameof(model.TenantId), "Tenant invalido. Use apenas letras, numeros e hifen.");
+            ModelState.AddModelError(nameof(model.TenantId), "Tenant invalido. Use apenas letras, numeros e hifen (ou 'owner' para proprietário).");
             PrepareLoginViewData();
             return View(model);
         }
@@ -55,11 +85,11 @@ public sealed class AccountController : Controller
 
         await HttpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
-            AuthClaimsFactory.CreatePrincipal(response),
+            AuthClaimsFactory.CreatePrincipal(response, tenantId),
             new AuthenticationProperties { IsPersistent = false });
 
-        var redirectUrl = string.IsNullOrWhiteSpace(model.ReturnUrl) ? "/" : model.ReturnUrl;
-        return LocalRedirect(redirectUrl);
+        var url = string.IsNullOrWhiteSpace(model.ReturnUrl) ? "/" : model.ReturnUrl;
+        return LocalRedirect(url);
     }
 
     [AllowAnonymous]
@@ -88,8 +118,35 @@ public sealed class AccountController : Controller
     [HttpPost("/Account/Logout")]
     public async Task<IActionResult> Logout()
     {
+        Response.Cookies.Delete("OwnerAccessToken", new CookieOptions { Path = "/" });
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction(nameof(Login));
+    }
+
+    [HttpPost("/Account/SwitchTenant")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SwitchTenant([FromForm] string tenantId, [FromServices] MeApiClient meApi, CancellationToken ct)
+    {
+        if (User?.Identity?.IsAuthenticated != true || string.IsNullOrWhiteSpace(tenantId))
+        {
+            return RedirectToAction(nameof(Login));
+        }
+
+        var response = await meApi.SwitchTenantAsync(tenantId.Trim(), ct);
+        if (response is null)
+        {
+            return BadRequest();
+        }
+
+        var newPrincipal = AuthClaimsFactory.CreatePrincipalWithSwitchedTenant(User, response.AccessToken, response.TenantId);
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            newPrincipal,
+            new AuthenticationProperties { IsPersistent = false });
+
+        if (string.Equals(response.TenantId, "owner", StringComparison.OrdinalIgnoreCase))
+            return LocalRedirect("/Owner/Tenants");
+        return LocalRedirect("/Dashboard");
     }
 
     private void PrepareLoginViewData(string? error = null)

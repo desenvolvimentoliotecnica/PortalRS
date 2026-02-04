@@ -1,4 +1,4 @@
-﻿// ========= Logo (Data URI placeholder)
+// ========= Logo (Data URI placeholder)
     const LOGO_DATA_URI = "data:image/webp;base64,UklGRngUAABXRUJQVlA4IGwUAAAQYwCdASpbAVsBPlEokUajoqGhIpNoyHAK7AQYJjYQmG9Dtu/6p6QZ4lQd6lPde+Jk3i3kG2EoP+QW0c0h8Oe3jW2C5zE0o9jzZ1x2fX9cZlX0d7rW8r0vQ9p3d2nJ1bqzQfQZxVwTt7mJvU8j1GqF4oJc8Qb+gq+oQyHcQyYc2b9u2fYf0Rj9x9hRZp2Y2xK0yVQ8Hj4p6w8B1K2cKk2mY9m2r8kz3a4m7xG4xg9m5VjzP3E4RjQH8fYkC4mB8g0vR3c5h1D0yE8Qzv7t7gQj0Z9yKk3cWZgVnq3l1kq6rE8oWc4z6oZk8k0b1o9m8p2m+QJ3nJm6GgA=";
     const VAGAS_API_URL = window.__triagemVagasApiUrl || "/Triagem/_api/vagas";
     const CANDIDATOS_API_URL = window.__triagemCandidatosApiUrl || "/Triagem/_api/candidatos";
@@ -154,6 +154,8 @@
         vagaId: api.vagaId,
         obs: api.obs || "",
         cvText: api.cvText || "",
+        applicationRecruiterUserId: api.applicationRecruiterUserId || null,
+        applicationRecruiterUserName: api.applicationRecruiterUserName || null,
         createdAt: api.createdAtUtc || api.createdAt,
         updatedAt: api.updatedAtUtc || api.updatedAt,
         lastMatch: mapLastMatchFromApi(api.lastMatch)
@@ -179,7 +181,9 @@
           vagaId: c.lastMatch.vagaId ?? null
         } : null,
         documentos: null,
-        statusChange: c.statusChange || null
+        statusChange: c.statusChange || null,
+        applicationRecruiterUserId: (c.applicationRecruiterUserId || "").trim() || null,
+        applicationRecruiterUserName: (c.applicationRecruiterUserName || "").trim() || null
       };
     }
 
@@ -350,7 +354,7 @@
       const sla = state.filters.sla;
 
       return state.candidatos.filter(c => {
-        if(!["triagem","pendente","aprovado","reprovado"].includes(c.status)) return false;
+        if(!["novo","triagem","pendente","aprovado","reprovado"].includes(c.status)) return false;
 
         if(vid !== "all" && c.vagaId !== vid) return false;
 
@@ -370,7 +374,10 @@
 
     function groupByStage(list){
       const g = { triagem: [], pendente: [], aprovado: [], reprovado: [] };
-      list.forEach(c => g[c.status]?.push(c));
+      list.forEach(c => {
+        const stage = (c.status === "novo") ? "triagem" : c.status;
+        if(g[stage]) g[stage].push(c);
+      });
       return g;
     }
 
@@ -613,6 +620,12 @@
       toggleRole(root, "detail-vaga-code-wrap", !!v);
       toggleRole(root, "detail-vaga-thr-wrap", !!v);
 
+      setText(root, "detail-recruiter", (c.applicationRecruiterUserName || "").trim() || EMPTY_TEXT);
+      const recruiterInput = root.querySelector('[data-role="detail-recruiter-input"]');
+      if(recruiterInput){
+        recruiterInput.value = (c.applicationRecruiterUserName || "").trim();
+      }
+
       const matchHost = root.querySelector('[data-role="detail-match-host"]');
       if(matchHost){
         matchHost.replaceChildren();
@@ -665,10 +678,25 @@
     function bindDetailActions(root, c){
       if(!root || !c) return;
       root.querySelectorAll("[data-dact]").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           const act = btn.dataset.dact;
           if(act === "decision") openDecision(c.id);
           if(act === "recalc") recalcMatch(c.id);
+          if(act === "assign-recruiter"){
+            const input = root.querySelector('[data-role="detail-recruiter-input"]');
+            const name = input ? (input.value || "").trim() : "";
+            const cand = findCand(c.id);
+            if(!cand) return;
+            cand.applicationRecruiterUserName = name || null;
+            cand.applicationRecruiterUserId = cand.applicationRecruiterUserId || null;
+            try{
+              await saveCandToApi(cand);
+              setText(root, "detail-recruiter", name || EMPTY_TEXT);
+              toast(name ? "Recrutador atribuído." : "Recrutador removido.");
+            }catch(err){
+              toast("Falha ao salvar.");
+            }
+          }
         });
       });
     }

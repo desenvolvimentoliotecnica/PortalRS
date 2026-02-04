@@ -1,5 +1,5 @@
 (() => {
-  const apiBase = "/Admin/EmailTemplates/_api";
+  const apiBase = (window.__ownerConfigApiBase || "/Admin/EmailTemplates") + "/_api";
   const listEl = document.getElementById("tplList");
   const searchEl = document.getElementById("tplSearch");
   const searchTopEl = document.getElementById("tplSearchTop");

@@ -144,6 +144,7 @@ public sealed class AuditMiddleware : IMiddleware
     {
         var transactionId = auditContext.TransactionId;
         var tenantId = auditContext.TenantId;
+        _logger.LogDebug("AuditMiddleware.PersistAuditAsync: TenantId={TenantId}, Path={Path}", tenantId, context.Request.Path);
 
         var auditTransactionId = await _writer.EnsureTransactionAsync(auditContext, context.RequestAborted);
         auditContext.AuditTransactionId = auditTransactionId;

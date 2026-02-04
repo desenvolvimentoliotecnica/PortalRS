@@ -1,20 +1,30 @@
+using System.Net.Http;
+using LioTecnica.Web.Infrastructure.ApiClients;
 using LioTecnica.Web.Infrastructure.Security;
 using LioTecnica.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using RhPortal.Web.Infrastructure.ApiClients;
 
-namespace RhPortal.Web.Controllers;
+namespace LioTecnica.Web.Controllers;
 
 public sealed class UnidadesController : Controller
 {
     private readonly UnitsApiClient _unitsApi;
-    private readonly ManagersApiClient _managersApi;
+    private readonly FuncionariosApiClient _funcionariosApi;
+    private readonly OwnerTenantsApiClient _ownerTenantsApi;
     private readonly PortalTenantContext _tenantContext;
 
-    public UnidadesController(UnitsApiClient unitsApi, ManagersApiClient managersApi, PortalTenantContext tenantContext)
+    [ActivatorUtilitiesConstructor]
+    public UnidadesController(
+        UnitsApiClient unitsApi,
+        FuncionariosApiClient funcionariosApi,
+        OwnerTenantsApiClient ownerTenantsApi,
+        PortalTenantContext tenantContext)
     {
         _unitsApi = unitsApi;
-        _managersApi = managersApi;
+        _funcionariosApi = funcionariosApi;
+        _ownerTenantsApi = ownerTenantsApi;
         _tenantContext = tenantContext;
     }
 
@@ -33,16 +43,42 @@ public sealed class UnidadesController : Controller
     public async Task<IActionResult> List(CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId;
+
+        // Owner: agregar unidades de todos os tenants (mostrar tudo)
+        if (string.Equals(tenantId, "owner", StringComparison.OrdinalIgnoreCase))
+        {
+            var tenants = await _ownerTenantsApi.ListTenantsAsync(ct);
+            var allItems = new List<UnitApiItem>();
+            if (tenants is { Count: > 0 })
+            {
+                foreach (var t in tenants.Where(x => x.IsActive))
+                {
+                    var paged = await _ownerTenantsApi.ListTenantUnitsAsync(t.TenantId, ct);
+                    if (paged?.Items is { Count: > 0 })
+                        allItems.AddRange(paged.Items);
+                }
+            }
+            var items = allItems.Select(MapToFrontUnidade).ToList();
+            return Ok(new
+            {
+                items,
+                Page = 1,
+                PageSize = items.Count,
+                TotalItems = items.Count,
+                TotalPages = items.Count == 0 ? 0 : 1
+            });
+        }
+
         var api = await _unitsApi.GetUnitsAsync(tenantId, ct);
 
-        var items = (api?.Items is { Count: > 0 })
+        var itemsNormal = (api?.Items is { Count: > 0 })
             ? api.Items.Select(MapToFrontUnidade).ToList()
             : new List<object>();
 
         return Ok(new
         {
-            items,
-            api.Page,
+            items = itemsNormal,
+            api!.Page,
             api.PageSize,
             api.TotalItems,
             api.TotalPages
@@ -60,9 +96,54 @@ public sealed class UnidadesController : Controller
     [HttpPost("/Unidades/_api")]
     public async Task<IActionResult> Create([FromBody] UnitCreateRequest request, CancellationToken ct)
     {
+        if (request is null)
+            return BadRequest(new { message = "Corpo da requisição inválido." });
+
+        // API exige Code, Name e Status (enum). Normaliza para não enviar null.
+        var payload = new UnitCreateRequest
+        {
+            Code = (request.Code ?? "").Trim(),
+            Name = (request.Name ?? "").Trim(),
+            Status = NormalizeStatus(request.Status),
+            City = request.City?.Trim(),
+            Uf = request.Uf?.Trim(),
+            AddressLine = request.AddressLine?.Trim(),
+            Neighborhood = request.Neighborhood?.Trim(),
+            ZipCode = request.ZipCode?.Trim(),
+            Email = request.Email?.Trim(),
+            Phone = request.Phone?.Trim(),
+            ResponsibleName = request.ResponsibleName?.Trim(),
+            Type = request.Type?.Trim(),
+            Headcount = request.Headcount,
+            Notes = request.Notes?.Trim()
+        };
+
+        if (string.IsNullOrEmpty(payload.Code) || string.IsNullOrEmpty(payload.Name))
+            return BadRequest(new { message = "Código e nome são obrigatórios." });
+
         var tenantId = _tenantContext.TenantId;
-        var created = await _unitsApi.CreateAsync(tenantId, request, ct);
-        return Ok(created);
+        try
+        {
+            var created = await _unitsApi.CreateAsync(tenantId, payload, ct);
+            return Ok(created);
+        }
+        catch (HttpRequestException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Garante status aceito pela API: Active ou Inactive.</summary>
+    private static string NormalizeStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return "Active";
+        var s = status.Trim();
+        if (s.Equals("Inactive", StringComparison.OrdinalIgnoreCase)) return "Inactive";
+        return "Active";
     }
 
     [HttpPut("/Unidades/_api/{id:guid}")]
@@ -102,30 +183,22 @@ public sealed class UnidadesController : Controller
         return Ok(items); // array direto
     }
 
-    // /Unidades/{id}/gestores -> web chama API e devolve JSON pro JS
-    [HttpGet("/Unidades/{id:guid}/gestores")]
-    public async Task<IActionResult> GestoresDaUnidade([FromRoute] Guid id, CancellationToken ct)
+    [HttpGet("/Unidades/{id:guid}/funcionarios")]
+    public async Task<IActionResult> FuncionariosDaUnidade([FromRoute] Guid id, CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId;
 
-        // chama API de gestores filtrando por UnitId
-        var api = await _managersApi.GetManagersAsync(
-            tenantId,
-            unitId: id,
-            page: 1,
-            pageSize: 200,
-            ct: ct
-        );
+        var api = await _funcionariosApi.GetFuncionariosByUnitAsync(tenantId, id, page: 1, pageSize: 200, ct);
 
-        // devolve no formato que teu JS j? espera
-        var items = api.Items.Select(m => new {
+        var items = (api?.Items ?? new()).Select(m => new
+        {
             id = m.Id,
             nome = m.Name,
             email = m.Email,
             cargo = m.JobPositionName,
             area = m.AreaName,
             unidade = m.UnitName,
-            status = (m.Status?.Equals("Active", StringComparison.OrdinalIgnoreCase) ?? false) ? "ativo" : "inativo",
+            status = m.Status == 1 ? "ativo" : "inativo",
             headcount = m.Headcount
         });
 

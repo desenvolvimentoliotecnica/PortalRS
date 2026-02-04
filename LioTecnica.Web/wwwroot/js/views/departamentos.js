@@ -183,7 +183,6 @@ function normalizeDeptRow(d) {
     const gestor = pick(d.gestor, d.managerName);
     const email = pick(d.email, d.managerEmail);
     const telefone = pick(d.telefone, d.phone);
-    const centroCusto = pick(d.centroCusto, d.costCenter);
 
     // ===== FILIAL / LOCATION =====
     const rawLocation = pick(
@@ -236,7 +235,6 @@ function normalizeDeptRow(d) {
         gestor,
         email,
         telefone,
-        centroCusto,
 
         // ✅ grid
         filial,
@@ -325,43 +323,6 @@ async function apiFetchJson(url, opts) {
 
     return bodyText || null;
 }
-
-
-function getCostCenterOptions() {
-    const set = new Set();
-
-    // tenta pegar dos departamentos já carregados (API)
-    (state.departamentos || []).forEach(d => {
-        const v = (d.centroCusto || d.costCenter || "").trim();
-        if (v) set.add(v);
-    });
-
-    // fallback caso não tenha nada ainda
-    if (set.size === 0) {
-        ["CC-1001", "CC-1002", "CC-1003", "CC-1004", "CC-1005", "CC-1006", "CC-1007", "CC-1008", "CC-1009", "CC-1010"].forEach(x => set.add(x));
-    }
-
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
-}
-
-function fillCostCenterSelect(selected) {
-    const select = $("#deptCentroCusto");
-    if (!select) return;
-
-    select.replaceChildren();
-    select.appendChild(buildOption("", "Selecionar centro de custo"));
-
-    getCostCenterOptions().forEach(cc => {
-        select.appendChild(buildOption(cc, cc, cc === selected));
-    });
-
-    if (selected && !Array.from(select.options).some(o => o.value === selected)) {
-        select.appendChild(buildOption(selected, selected, true));
-    }
-
-    select.value = selected || "";
-}
-
 
 
 function wireGestorAutoFill() {
@@ -592,7 +553,7 @@ function getFiltered() {
     return state.departamentos.filter(d => {
         if (st !== "all" && (d.status || "") !== st) return false;
         if (!q) return true;
-        const blob = normalizeText([d.nome, d.codigo, d.gestor, d.centroCusto, d.area].join(" "));
+        const blob = normalizeText([d.nome, d.codigo, d.gestor, d.area].join(" "));
         return blob.includes(q);
     });
 }
@@ -632,7 +593,6 @@ function renderTable() {
         setText(tr, "dept-code", d.codigo || EMPTY_TEXT);
         setText(tr, "dept-gestor", d.gestor || EMPTY_TEXT);
         setText(tr, "dept-email", d.email || EMPTY_TEXT);
-        setText(tr, "dept-cost", d.centroCusto || EMPTY_TEXT);
         setText(tr, "dept-local", d.filial || EMPTY_TEXT);
 
         setText(tr, "dept-headcount", d.headcount != null ? String(d.headcount) : "0");
@@ -706,7 +666,6 @@ async function openDeptModal(mode, id) {
 
             await fillAreaSelect(d.areaId || "");
             await fillGestorSelect(d.gestor || "");
-            fillCostCenterSelect(d.centroCusto || "");
 
             // ✅ aqui é a chave: selecionar pelo ID (GUID)
             let selectedUnitId = d.filialId || "";
@@ -730,7 +689,6 @@ async function openDeptModal(mode, id) {
             $("#deptGestor").value = d.gestor || "";
             $("#deptEmail").value = d.email || "";
             $("#deptTelefone").value = d.telefone || "";
-            $("#deptCentroCusto").value = d.centroCusto || "";
 
             // ✅ não sobrescreve com label
             if ($("#deptFilial")) $("#deptFilial").value = selectedUnitId ? String(selectedUnitId) : "";
@@ -744,7 +702,6 @@ async function openDeptModal(mode, id) {
     } else {
         await fillAreaSelect("");
         await fillGestorSelect("");
-        fillCostCenterSelect("");
         await fillFilialSelect("");
 
         $("#deptId").value = "";
@@ -755,7 +712,6 @@ async function openDeptModal(mode, id) {
         $("#deptGestor").value = "";
         $("#deptEmail").value = "";
         $("#deptTelefone").value = "";
-        $("#deptCentroCusto").value = "";
         if ($("#deptFilial")) $("#deptFilial").value = "";
         $("#deptDescricao").value = "";
     }
@@ -780,7 +736,6 @@ async function saveDeptFromModal() {
     const gestor = ($("#deptGestor").value || "").trim();
     const email = ($("#deptEmail").value || "").trim();
     const phone = ($("#deptTelefone").value || "").trim();
-    const costCenter = ($("#deptCentroCusto").value || "").trim();
     const description = ($("#deptDescricao").value || "").trim();
     const branchOrLocation = ($("#deptFilial") ? ($("#deptFilial").value || "").trim() : "");
 
@@ -798,7 +753,6 @@ async function saveDeptFromModal() {
         managerName: gestor,
         managerEmail: email,
         phone,
-        costCenter,
         branchOrLocation,
         description
     };
@@ -894,7 +848,6 @@ async function openDeptDetail(id) {
         areaId: detail?.areaId ?? d0.areaId,
         description: detail?.description ?? d0.description,
         branchOrLocation: detail?.branchOrLocation ?? d0.branchOrLocation,
-        costCenter: detail?.costCenter ?? d0.costCenter,
         managerName: detail?.managerName ?? d0.managerName,
         managerEmail: detail?.managerEmail ?? d0.managerEmail,
     };
@@ -968,9 +921,9 @@ async function openDeptDetail(id) {
 
 
 function exportCsv() {
-    const headers = ["Codigo", "Departamento", "Area", "Gestor", "Email", "Telefone", "CentroCusto", "Headcount", "Status"];
+    const headers = ["Codigo", "Departamento", "Area", "Gestor", "Email", "Telefone", "Headcount", "Status"];
     const rows = state.departamentos.map(d => [
-        d.codigo, d.nome, d.area, d.gestor, d.email, d.telefone, d.centroCusto, d.headcount, d.status
+        d.codigo, d.nome, d.area, d.gestor, d.email, d.telefone, d.headcount, d.status
     ]);
     const csv = [
         headers.map(h => `"${String(h).replaceAll('"', '""')}"`).join(";"),

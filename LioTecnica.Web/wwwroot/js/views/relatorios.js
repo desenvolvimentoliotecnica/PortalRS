@@ -275,6 +275,36 @@
           return apiFetchJson(`${REPORTS_API_BASE}/funil-vaga${qs}`, { method: "GET" });
         case "r5":
           return apiFetchJson(`${REPORTS_API_BASE}/ranking-matching${qs}&take=12`, { method: "GET" });
+        case "r6": {
+          const sla = await apiFetchJson(`${REPORTS_API_BASE}/sla-vaga${qs}`, { method: "GET" });
+          const porRecrutador = sla?.porRecrutador || [];
+          const porArea = sla?.porArea || [];
+          const rowsRec = porRecrutador.map(r => [
+            { text: r.grupoNome },
+            { text: String(r.total), className: "fw-semibold" },
+            { text: String(r.dentroSla), className: "text-success" },
+            { text: String(r.foraSla), className: "text-danger" },
+            { text: r.mediaDias != null ? r.mediaDias.toFixed(1) : "—" }
+          ]);
+          const rowsArea = porArea.map(r => [
+            { text: r.grupoNome },
+            { text: String(r.total), className: "fw-semibold" },
+            { text: String(r.dentroSla), className: "text-success" },
+            { text: String(r.foraSla), className: "text-danger" },
+            { text: r.mediaDias != null ? r.mediaDias.toFixed(1) : "—" }
+          ]);
+          const separator = porArea.length ? [[{ text: "— Por área —", className: "border-top fw-semibold" }, { text: "" }, { text: "" }, { text: "" }, { text: "" }]] : [];
+          return {
+            _sla: true,
+            porRecrutador,
+            porArea,
+            diasMetaGlobal: sla?.diasMetaGlobal ?? 30,
+            labels: porRecrutador.map(x => x.grupoNome),
+            values: porRecrutador.map(x => x.total),
+            headers: ["Recrutador / Área", "Total", "Dentro SLA", "Fora SLA", "Média (dias)"],
+            rows: rowsRec.concat(separator).concat(rowsArea)
+          };
+        }
         default:
           return { labels:[], values:[], headers:[], rows:[] };
       }

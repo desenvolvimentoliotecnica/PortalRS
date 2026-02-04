@@ -44,6 +44,13 @@ public sealed class VagasApiClient
         return SendAsync(req, ct);
     }
 
+    public Task<ApiRawResponse> GetMatchingCandidatesRawAsync(string tenantId, Guid vagaId, int minScore = 0, int take = 50, CancellationToken ct = default)
+    {
+        var qs = $"?minScore={minScore}&take={take}";
+        var req = BuildRequest(HttpMethod.Get, $"api/vagas/{vagaId}/matching-candidates{qs}", tenantId);
+        return SendAsync(req, ct);
+    }
+
     public Task<ApiRawResponse> GetEnumsRawAsync(string tenantId, CancellationToken ct)
     {
         var req = BuildRequest(HttpMethod.Get, "api/lookup/enums", tenantId);

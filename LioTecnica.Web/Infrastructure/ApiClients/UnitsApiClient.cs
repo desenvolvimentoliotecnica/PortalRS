@@ -33,8 +33,8 @@ public sealed class UnitsApiClient
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         var data = JsonSerializer.Deserialize<UnitsPagedResponse>(json, JsonOpts);
-
-        return data ?? new UnitsPagedResponse();
+        var result = data ?? new UnitsPagedResponse();
+        return result;
     }
 
     public async Task<UnitResponse?> GetByIdAsync(string tenantId, Guid id, CancellationToken ct)
@@ -64,7 +64,14 @@ public sealed class UnitsApiClient
         if (resp.StatusCode == HttpStatusCode.Unauthorized)
             return new UnitResponse();
 
-        resp.EnsureSuccessStatusCode();
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            var msg = TryGetValidationMessage(body) ?? body;
+            if (string.IsNullOrWhiteSpace(msg)) msg = $"API retornou {(int)resp.StatusCode} ({resp.ReasonPhrase}).";
+            throw new HttpRequestException(msg);
+        }
+
         var json = await resp.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<UnitResponse>(json, JsonOpts)!;
     }
@@ -99,5 +106,40 @@ public sealed class UnitsApiClient
 
         resp.EnsureSuccessStatusCode();
         return true;
+    }
+
+    /// <summary>Extrai mensagem de erro de resposta JSON (ProblemDetails ou { detail/message }). Prioriza "errors" para mostrar validação por campo.</summary>
+    private static string? TryGetValidationMessage(string jsonBody)
+    {
+        if (string.IsNullOrWhiteSpace(jsonBody)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonBody);
+            var root = doc.RootElement;
+            // Priorizar "errors" (validação por campo) para o usuário ver qual campo falhou
+            if (root.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Object)
+            {
+                var parts = new List<string>();
+                foreach (var prop in errors.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var entry in prop.Value.EnumerateArray())
+                            parts.Add($"{prop.Name}: {entry.GetString()}");
+                    }
+                    else
+                        parts.Add($"{prop.Name}: {prop.Value}");
+                }
+                if (parts.Count > 0) return string.Join("; ", parts);
+            }
+            if (root.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
+                return detail.GetString();
+            if (root.TryGetProperty("message", out var msg) && msg.ValueKind == JsonValueKind.String)
+                return msg.GetString();
+            if (root.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String)
+                return title.GetString();
+        }
+        catch { /* ignore parse errors */ }
+        return null;
     }
 }

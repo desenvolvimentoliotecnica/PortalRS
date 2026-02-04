@@ -30,6 +30,12 @@
   <data name="SeedErrors.NoValidManager" xml:space="preserve">
     <value>Nenhum manager valido encontrado.</value>
   </data>
+  <data name="SeedErrors.NoFuncionarios" xml:space="preserve">
+    <value>Nenhum funcionario encontrado. Rode o seed de Funcionarios antes.</value>
+  </data>
+  <data name="SeedErrors.NoValidFuncionario" xml:space="preserve">
+    <value>Nenhum funcionario valido encontrado.</value>
+  </data>
   <data name="SeedErrors.NoValidJobPosition" xml:space="preserve">
     <value>Nenhum JobPosition valido encontrado.</value>
   </data>
@@ -102,6 +108,12 @@
   <data name="Seed.OperationalRoleDescription" xml:space="preserve">
     <value>Acesso operacional</value>
   </data>
+  <data name="Seed.GestorRoleDescription" xml:space="preserve">
+    <value>Gestor de area - visao e acoes limitadas a sua area</value>
+  </data>
+  <data name="Seed.RecruiterRoleDescription" xml:space="preserve">
+    <value>Recrutador - vagas, candidatos, triagem e matching</value>
+  </data>
   <data name="Seed.Menu.Dashboard" xml:space="preserve">
     <value>Dashboard</value>
   </data>
@@ -113,6 +125,9 @@
   </data>
   <data name="Seed.Menu.Candidatos" xml:space="preserve">
     <value>Candidatos</value>
+  </data>
+  <data name="Seed.Menu.Talentos" xml:space="preserve">
+    <value>Talentos</value>
   </data>
   <data name="Seed.Menu.Triagem" xml:space="preserve">
     <value>Triagem</value>
@@ -129,11 +144,44 @@
   <data name="Seed.Menu.Relatorios" xml:space="preserve">
     <value>Relatorios</value>
   </data>
+  <data name="Seed.Menu.Celebracao" xml:space="preserve">
+    <value>Celebracao</value>
+  </data>
+  <data name="Seed.Menu.Desenvolvimento" xml:space="preserve">
+    <value>Desenvolvimento</value>
+  </data>
+  <data name="Seed.Menu.EnviarFeedback" xml:space="preserve">
+    <value>Enviar feedback</value>
+  </data>
+  <data name="Seed.Menu.Feedbacks" xml:space="preserve">
+    <value>Feedbacks</value>
+  </data>
+  <data name="Seed.Menu.MeusPlanos" xml:space="preserve">
+    <value>Meus planos de desenvolvimento</value>
+  </data>
+  <data name="Seed.Menu.Reunioes1a1" xml:space="preserve">
+    <value>Reunioes 1:1</value>
+  </data>
+  <data name="Seed.Menu.Gamificacao" xml:space="preserve">
+    <value>Gamificacao</value>
+  </data>
+  <data name="Seed.Menu.Gestao" xml:space="preserve">
+    <value>Gestao</value>
+  </data>
+  <data name="Seed.Menu.GestaoDashboard" xml:space="preserve">
+    <value>Dashboard</value>
+  </data>
+  <data name="Seed.Menu.GestaoPlanos" xml:space="preserve">
+    <value>Gestao dos Planos de Desenvolvimento</value>
+  </data>
+  <data name="Seed.Menu.GestaoHumor" xml:space="preserve">
+    <value>Humor</value>
+  </data>
+  <data name="Seed.Menu.GestaoResumo" xml:space="preserve">
+    <value>Resumo de Atividades</value>
+  </data>
   <data name="Seed.Menu.Departamentos" xml:space="preserve">
     <value>Departamentos</value>
-  </data>
-  <data name="Seed.Menu.CentrosCustos" xml:space="preserve">
-    <value>Centros de Custo</value>
   </data>
   <data name="Seed.Menu.Areas" xml:space="preserve">
     <value>Areas</value>
@@ -149,6 +197,12 @@
   </data>
   <data name="Seed.Menu.Gestores" xml:space="preserve">
     <value>Gestores</value>
+  </data>
+  <data name="Seed.Menu.Funcionarios" xml:space="preserve">
+    <value>Funcionários</value>
+  </data>
+  <data name="Seed.Menu.BloqueioPessoa" xml:space="preserve">
+    <value>Pessoa</value>
   </data>
   <data name="Seed.Menu.Usuarios" xml:space="preserve">
     <value>Usuarios</value>

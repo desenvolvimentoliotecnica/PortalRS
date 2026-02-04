@@ -9,11 +9,13 @@ namespace RhPortal.Api.Infrastructure.Notifications;
 public sealed class NotificationPublisher
 {
     private readonly AppDbContext _db;
+    private readonly MasterDbContext _masterDb;
     private readonly IHubContext<NotificationsHub> _hub;
 
-    public NotificationPublisher(AppDbContext db, IHubContext<NotificationsHub> hub)
+    public NotificationPublisher(AppDbContext db, MasterDbContext masterDb, IHubContext<NotificationsHub> hub)
     {
         _db = db;
+        _masterDb = masterDb;
         _hub = hub;
     }
 
@@ -65,7 +67,7 @@ public sealed class NotificationPublisher
         NotificationSendRequest request,
         CancellationToken ct)
     {
-        var tenantIds = await _db.Tenants
+        var tenantIds = await _masterDb.Tenants
             .AsNoTracking()
             .Select(t => t.TenantId)
             .Where(t => !string.IsNullOrWhiteSpace(t))

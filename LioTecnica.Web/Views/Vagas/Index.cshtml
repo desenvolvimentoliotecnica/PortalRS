@@ -373,10 +373,10 @@
 			<div class="tab-pane fade" id="tabCands" role="tabpanel">
 				<div class="d-flex align-items-center justify-content-between gap-2 mb-2">
 					<div>
-						<div class="fw-semibold">Candidatos vinculados</div>
-						<div class="text-muted small">Total: <span id="vagaCandsCount">0</span></div>
+						<div class="fw-semibold">Candidatos com matching</div>
+						<div class="text-muted small">Total: <span id="vagaCandsCount">0</span> (ordenado por score)</div>
 					</div>
-					<span class="badge-soft"><i class="bi bi-people me-1"></i>Relacionados</span>
+					<span class="badge-soft"><i class="bi bi-stars me-1"></i>Match</span>
 				</div>
 
 				<div class="table-responsive">
@@ -521,6 +521,7 @@
 		window.__candidatosApiUrl = "@Url.Content("~/api/candidatos")";
 		window.__areasApiUrl = "@Url.Content("~/api/lookup/areas")";
 		window.__departmentsApiUrl = "@Url.Content("~/api/lookup/departments")";
+		window.__managersApiUrl = "@Url.Content("~/api/lookup/managers")";
 </script>
 	<script src="~/js/views/vagas.js" asp-append-version="true"></script>
 }

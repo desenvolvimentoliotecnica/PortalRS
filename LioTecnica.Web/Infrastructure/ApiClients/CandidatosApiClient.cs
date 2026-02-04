@@ -18,14 +18,29 @@ public sealed class CandidatosApiClient
     public Task<ApiRawResponse> GetCandidatosRawAsync(
         string tenantId,
         string? q,
-        Guid? vagaId,
-        CancellationToken ct)
+        IReadOnlyList<string>? statuses,
+        IReadOnlyList<Guid>? vagaIds,
+        int page = 1,
+        int pageSize = 20,
+        CancellationToken ct = default)
     {
         var url = "api/candidatos";
 
         var qs = new List<string>();
         if (!string.IsNullOrWhiteSpace(q)) qs.Add($"q={Uri.EscapeDataString(q)}");
-        if (vagaId.HasValue) qs.Add($"vagaId={vagaId.Value:D}");
+        if (statuses is { Count: > 0 })
+        {
+            foreach (var s in statuses)
+                if (!string.IsNullOrWhiteSpace(s))
+                    qs.Add($"statuses={Uri.EscapeDataString(s)}");
+        }
+        if (vagaIds is { Count: > 0 })
+        {
+            foreach (var id in vagaIds)
+                qs.Add($"vagaIds={id:D}");
+        }
+        qs.Add($"page={Math.Max(1, page)}");
+        qs.Add($"pageSize={Math.Clamp(pageSize, 1, 100)}");
 
         if (qs.Count > 0)
             url += "?" + string.Join("&", qs);

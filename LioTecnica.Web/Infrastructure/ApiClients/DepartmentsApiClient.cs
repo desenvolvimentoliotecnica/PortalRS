@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -177,9 +177,6 @@ public sealed class DepartmentGridRowApiItem
     [JsonPropertyName("managerEmail")]
     public string? ManagerEmail { get; set; }
 
-    [JsonPropertyName("costCenter")]
-    public string? CostCenter { get; set; }
-
     [JsonPropertyName("location")]
     public string? Location { get; set; }
 
@@ -227,9 +224,6 @@ public sealed class DepartmentResponse
 
     [JsonPropertyName("phone")]
     public string? Phone { get; set; }
-
-    [JsonPropertyName("costCenter")]
-    public string? CostCenter { get; set; }
 
     [JsonPropertyName("branchOrLocation")]
     public string? BranchOrLocation { get; set; }

@@ -1,0 +1,47 @@
+@{
+	ViewData["Title"] = "Portal RH • Feedback • Enviar feedback";
+	ViewData["SidebarSubtitle"] = "Feedback";
+}
+
+@section Topbar {
+	@await Html.PartialAsync("_TopbarBrand", "Feedback • Enviar")
+	@await Html.PartialAsync("_TopbarUserActions", "RH")
+}
+
+<section class="content">
+	<div class="page-title">
+		<div>
+			<h4>Enviar feedback</h4>
+			<div class="subtitle">Envie um feedback para qualquer colaborador.</div>
+		</div>
+	</div>
+	<div class="card-soft p-3">
+		<form id="formEnviar">
+			<div class="mb-3">
+				<label class="form-label" for="toUserId">Destinatário</label>
+				<select class="form-select" id="toUserId" name="toUserId" required>
+					<option value="">Selecione um colaborador</option>
+				</select>
+			</div>
+			<div class="mb-3">
+				<label class="form-label" for="content">Mensagem</label>
+				<textarea class="form-control" id="content" name="content" rows="4" maxlength="4000" required placeholder="Escreva seu feedback..."></textarea>
+				<div class="form-text"><span id="charCount">0</span>/4000</div>
+			</div>
+			<div class="mb-3">
+				<label class="form-label" for="tipo">Tipo (opcional)</label>
+				<select class="form-select" id="tipo" name="tipo">
+					<option value="">—</option>
+					<option value="Reconhecimento">Reconhecimento</option>
+					<option value="Melhoria">Melhoria</option>
+					<option value="Neutro">Neutro</option>
+				</select>
+			</div>
+			<button type="submit" class="btn btn-brand" id="btnEnviar">Enviar feedback</button>
+		</form>
+	</div>
+</section>
+
+@section Scripts {
+	<script src="~/js/views/feedback-enviar.js" asp-append-version="true"></script>
+}

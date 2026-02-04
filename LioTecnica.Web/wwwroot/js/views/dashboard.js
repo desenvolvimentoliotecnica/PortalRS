@@ -119,10 +119,12 @@ async function updateDashboardKpis() {
     const elCvs = $("#kpiCvsHoje");
     const elPend = $("#kpiPendentes");
     const elApr = $("#kpiAprovados");
+    const elForaSla = $("#kpiVagasForaSla");
     if (elVagas) elVagas.textContent = data.openVagas ?? 0;
     if (elCvs) elCvs.textContent = data.cvsHoje ?? 0;
     if (elPend) elPend.textContent = data.pendentesMatch ?? 0;
     if (elApr) elApr.textContent = data.aprovados7Dias ?? 0;
+    if (elForaSla) elForaSla.textContent = data.vagasForaSla ?? 0;
 }
 
 async function updateFunnel() {

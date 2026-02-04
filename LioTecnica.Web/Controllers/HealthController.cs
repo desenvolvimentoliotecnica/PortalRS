@@ -1,3 +1,4 @@
+using System.Net;
 using LioTecnica.Web.Infrastructure.ApiClients;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,15 +20,30 @@ public sealed class HealthController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken ct)
     {
-        var response = await _healthApi.GetRawAsync(ct);
-        if (string.IsNullOrWhiteSpace(response.Content))
-            return StatusCode((int)response.StatusCode);
-
-        return new ContentResult
+        try
         {
-            StatusCode = (int)response.StatusCode,
-            ContentType = "application/json",
-            Content = response.Content
-        };
+            var response = await _healthApi.GetRawAsync(ct);
+            if (string.IsNullOrWhiteSpace(response.Content))
+                return StatusCode((int)response.StatusCode);
+
+            return new ContentResult
+            {
+                StatusCode = (int)response.StatusCode,
+                ContentType = "application/json",
+                Content = response.Content
+            };
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode((int)HttpStatusCode.ServiceUnavailable, new
+            {
+                status = "Unhealthy",
+                message = "RhApi is unreachable. Ensure RHPortal.Api is running."
+            });
+        }
+        catch (TaskCanceledException) when (ct.IsCancellationRequested)
+        {
+            return StatusCode(499);
+        }
     }
 }

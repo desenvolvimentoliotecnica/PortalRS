@@ -1,5 +1,5 @@
 (() => {
-  const apiBase = "/Admin/EmailConfig/_api";
+  const apiBase = (window.__ownerConfigApiBase || "/Admin/EmailConfig") + "/_api";
   const smtpHost = document.getElementById("smtpHost");
   const smtpPort = document.getElementById("smtpPort");
   const smtpSsl = document.getElementById("smtpSsl");

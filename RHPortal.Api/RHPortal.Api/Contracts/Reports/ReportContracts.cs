@@ -26,3 +26,19 @@ public sealed record ReportVagaLookupResponse(
     string? Codigo,
     string Titulo
 );
+
+/// <summary>Uma linha do relatório SLA por recrutador ou por área.</summary>
+public sealed record SlaVagaReportRowResponse(
+    string GrupoNome,
+    int Total,
+    int DentroSla,
+    int ForaSla,
+    double? MediaDias
+);
+
+/// <summary>Relatório SLA de vaga: agrupado por recrutador e por área.</summary>
+public sealed record SlaVagaReportResponse(
+    IReadOnlyList<SlaVagaReportRowResponse> PorRecrutador,
+    IReadOnlyList<SlaVagaReportRowResponse> PorArea,
+    int DiasMetaGlobal
+);

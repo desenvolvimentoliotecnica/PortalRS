@@ -34,7 +34,7 @@
   <div class="page-title">
     <div>
       <h4>Cargos</h4>
-      <div class="subtitle">Padronize cargos usados nos gestores e vagas.</div>
+      <div class="subtitle">Padronize cargos usados nos funcionários e vagas.</div>
     </div>
     <div class="d-flex align-items-center gap-2">
       <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">-</span></span>
@@ -47,7 +47,7 @@
     {
       new { ColClass = "col-6 col-lg-3", Title = "Cargos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCargoTotal", Value = "0", PillIcon = "bi-briefcase", PillText = "total", Hint = "Cargos cadastrados." },
       new { ColClass = "col-6 col-lg-3", Title = "Ativos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCargoActive", Value = "0", PillIcon = "bi-check2-circle", PillText = "ativos", Hint = "Cargos em operacao." },
-      new { ColClass = "col-6 col-lg-3", Title = "Gestores", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCargoManagers", Value = "0", PillIcon = "bi-person-badge", PillText = "gestores", Hint = "Gestores vinculados." },
+      new { ColClass = "col-6 col-lg-3", Title = "Funcionários", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCargoManagers", Value = "0", PillIcon = "bi-person-badge", PillText = "funcionários", Hint = "Funcionários vinculados." },
       new { ColClass = "col-6 col-lg-3", Title = "Headcount", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCargoHeadcount", Value = "0", PillIcon = "bi-people", PillText = "pessoas", Hint = "Soma dos headcounts." }
     };
   }
@@ -57,7 +57,7 @@
     <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
       <div>
         <div class="fw-bold">Lista de cargos</div>
-        <div class="text-muted small">Clique em um cargo para ver gestores vinculados.</div>
+        <div class="text-muted small">Clique em um cargo para ver funcionários vinculados.</div>
       </div>
       <div class="d-flex flex-wrap gap-2 justify-content-end">
         <div style="min-width:240px;">
@@ -87,7 +87,7 @@
           <th>Cargo</th>
           <th>Area</th>
           <th>Senioridade</th>
-          <th>Gestores</th>
+          <th>Funcionários</th>
           <th>Status</th>
           <th class="text-end">Acoes</th>
         </tr>

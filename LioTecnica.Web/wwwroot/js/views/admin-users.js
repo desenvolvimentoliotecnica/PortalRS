@@ -1,4 +1,4 @@
-﻿const USERS_DATA = window.__adminUsersData || [];
+const USERS_DATA = window.__adminUsersData || [];
 const ROLES_DATA = window.__adminRolesData || [];
 
 const state = {
@@ -147,6 +147,9 @@ function openDetailsModal(userId) {
   const user = state.users.find(u => u.id === userId);
   if (!user) return;
 
+  const editLink = document.getElementById("detailUserEditLink");
+  if (editLink) editLink.href = "/Admin/Users/Edit/" + userId;
+
   const modal = new bootstrap.Modal($("#modalAdminUserDetails"));
   const nameEl = $("#modalAdminUserDetails [data-role=\"detail-name\"]");
   const emailEl = $("#modalAdminUserDetails [data-role=\"detail-email\"]");
@@ -176,72 +179,6 @@ function openDetailsModal(userId) {
   modal.show();
 }
 
-function renderRoleChecks(selectedIds) {
-  const host = $("#adminUserRoles");
-  const set = new Set(selectedIds || []);
-  host.innerHTML = state.roles
-    .slice()
-    .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
-    .map(r => `
-      <div class="col-12 col-md-6">
-        <div class="form-check">
-          <input class="form-check-input admin-role-check" type="checkbox" id="admin_role_${r.id}" value="${r.id}" ${set.has(r.id) ? "checked" : ""}>
-          <label class="form-check-label" for="admin_role_${r.id}">
-            <span class="fw-semibold">${escapeHtml(r.name)}</span>
-          </label>
-        </div>
-      </div>
-    `).join("");
-}
-
-async function openEditModal(userId) {
-  const detail = await apiFetchJson(`/UsuariosPerfis/_api/users/${userId}`, { method: "GET" });
-  if (!detail) return;
-
-  $("#adminUserId").value = detail.id;
-  $("#adminUserName").value = detail.fullName || "";
-  $("#adminUserEmail").value = detail.email || "";
-  $("#adminUserStatus").value = detail.isActive ? "active" : "inactive";
-  renderRoleChecks((detail.roles || []).map(r => r.id));
-
-  const modal = new bootstrap.Modal($("#modalAdminUser"));
-  modal.show();
-}
-
-async function saveUser() {
-  const id = ($("#adminUserId").value || "").trim();
-  const name = ($("#adminUserName").value || "").trim();
-  const email = ($("#adminUserEmail").value || "").trim();
-  const status = $("#adminUserStatus").value;
-  const roleIds = $$(".admin-role-check").filter(x => x.checked).map(x => x.value);
-
-  if (!id || !name || !email) return;
-
-  await apiFetchJson(`/UsuariosPerfis/_api/users/${id}`, {
-    method: "PUT",
-    body: JSON.stringify({ email, fullName: name, isActive: status === "active" })
-  });
-
-  await apiFetchJson(`/UsuariosPerfis/_api/users/${id}/roles`, {
-    method: "PUT",
-    body: JSON.stringify({ roleIds })
-  });
-
-  const rolesById = new Map(state.roles.map(r => [r.id, r.name]));
-  const names = roleIds.map(rid => rolesById.get(rid)).filter(Boolean);
-  const entry = state.users.find(u => u.id === id);
-  if (entry) {
-    entry.name = name;
-    entry.email = email;
-    entry.isActive = status === "active";
-    entry.roles = names;
-  }
-
-  renderKPIs();
-  renderUsers();
-  bootstrap.Modal.getInstance($("#modalAdminUser")).hide();
-}
-
 async function deleteUser(userId) {
   const user = state.users.find(u => u.id === userId);
   const ok = confirm(`Excluir usuario "${user?.name || userId}"?`);
@@ -264,9 +201,70 @@ function wireRowActions() {
 
     const act = btn.dataset.act;
     if (act === "detail") openDetailsModal(userId);
-    if (act === "edit") openEditModal(userId);
+    if (act === "edit") {
+      window.location.href = "/Admin/Users/Edit/" + userId;
+      return;
+    }
+    if (act === "chpwd") openChangePasswordModal(userId);
     if (act === "del") deleteUser(userId);
   });
+}
+
+const USERS_API = "/UsuariosPerfis/_api/users";
+
+function openChangePasswordModal(userId) {
+  const user = state.users.find(u => u.id === userId);
+  if (!user) return;
+
+  const idEl = document.getElementById("chpwdUserId");
+  const nameEl = document.getElementById("modalPasswordUserName");
+  const newEl = document.getElementById("chpwdNewPassword");
+  const confirmEl = document.getElementById("chpwdConfirmPassword");
+  const errEl = document.getElementById("chpwdError");
+  if (idEl) idEl.value = userId;
+  if (nameEl) nameEl.textContent = user.name || user.email || "—";
+  if (newEl) { newEl.value = ""; newEl.focus(); }
+  if (confirmEl) confirmEl.value = "";
+  if (errEl) errEl.textContent = "";
+
+  new bootstrap.Modal(document.getElementById("modalAdminUserPassword")).show();
+}
+
+async function saveNewPassword() {
+  const idEl = document.getElementById("chpwdUserId");
+  const newEl = document.getElementById("chpwdNewPassword");
+  const confirmEl = document.getElementById("chpwdConfirmPassword");
+  const errEl = document.getElementById("chpwdError");
+  const id = (idEl?.value || "").trim();
+  const newPassword = (newEl?.value || "").trim();
+  const confirmPassword = (confirmEl?.value || "").trim();
+
+  if (errEl) errEl.textContent = "";
+  if (!id) return;
+  if (newPassword.length < 8) {
+    if (errEl) errEl.textContent = "A senha deve ter no mínimo 8 caracteres.";
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    if (errEl) errEl.textContent = "As senhas não coincidem.";
+    return;
+  }
+
+  try {
+    const res = await fetch(USERS_API + "/" + id + "/password", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ newPassword: newPassword })
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (errEl) errEl.textContent = data.detail || data.message || "Erro ao alterar senha.";
+      return;
+    }
+    bootstrap.Modal.getInstance(document.getElementById("modalAdminUserPassword"))?.hide();
+  } catch (e) {
+    if (errEl) errEl.textContent = "Erro ao alterar senha.";
+  }
 }
 
 function wireFilters() {
@@ -313,5 +311,6 @@ function wireClock() {
   wireGlobalSearch();
   wireClock();
   wireRowActions();
-  $("#btnAdminUserSave").addEventListener("click", saveUser);
+  const btnChpwd = document.getElementById("btnChpwdSave");
+  if (btnChpwd) btnChpwd.addEventListener("click", saveNewPassword);
 })();

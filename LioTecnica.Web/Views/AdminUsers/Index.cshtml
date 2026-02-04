@@ -49,7 +49,7 @@
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
             <div>
                 <div class="fw-bold">Lista de usuarios</div>
-                <div class="text-muted small">Clique em um usuario para editar.</div>
+                <div class="text-muted small">Use Editar para abrir a tela de cadastro com todos os dados.</div>
             </div>
             <div class="d-flex flex-wrap gap-2 justify-content-end">
                 <div style="min-width:240px;">
@@ -112,9 +112,10 @@
             <td data-role="user-roles"></td>
             <td><span data-role="user-status"></span></td>
             <td class="text-end">
-                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="detail"><i class="bi bi-eye"></i></button>
-                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="edit"><i class="bi bi-pencil"></i></button>
-                <button class="btn btn-ghost btn-sm text-danger" type="button" data-act="del"><i class="bi bi-trash3"></i></button>
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="detail" title="Detalhes"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="edit" title="Editar"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-ghost btn-sm me-1" type="button" data-act="chpwd" title="Alterar senha"><i class="bi bi-key"></i></button>
+                <button class="btn btn-ghost btn-sm text-danger" type="button" data-act="del" title="Excluir"><i class="bi bi-trash3"></i></button>
             </td>
         </tr>
     </template>
@@ -128,46 +129,33 @@
     <div style="height:14px;"></div>
 </section>
 
-<div class="modal fade" id="modalAdminUser" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal fade" id="modalAdminUserPassword" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
             <div class="modal-header">
                 <div>
-                    <h5 class="modal-title fw-bold" id="modalAdminUserTitle">Editar usuario</h5>
-                    <div class="text-muted small">Atualize dados basicos e perfis.</div>
+                    <h5 class="modal-title fw-bold">Alterar senha</h5>
+                    <div class="text-muted small" id="modalPasswordUserName">—</div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <input type="hidden" id="adminUserId">
-
-                <div class="row g-2">
-                    <div class="col-12 col-md-6">
-                        <label class="form-label small text-muted">Nome *</label>
-                        <input class="form-control" id="adminUserName" placeholder="Nome completo">
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <label class="form-label small text-muted">Email *</label>
-                        <input class="form-control" id="adminUserEmail" placeholder="usuario@empresa.com">
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <label class="form-label small text-muted">Status</label>
-                        <select class="form-select" id="adminUserStatus">
-                            <option value="active">Ativo</option>
-                            <option value="inactive">Inativo</option>
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label small text-muted">Perfis</label>
-                        <div class="row g-2 mt-1" id="adminUserRoles"></div>
-                    </div>
+                <input type="hidden" id="chpwdUserId">
+                <div class="mb-3">
+                    <label class="form-label" for="chpwdNewPassword">Nova senha *</label>
+                    <input class="form-control" id="chpwdNewPassword" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres" />
                 </div>
+                <div class="mb-0">
+                    <label class="form-label" for="chpwdConfirmPassword">Confirmar nova senha *</label>
+                    <input class="form-control" id="chpwdConfirmPassword" type="password" autocomplete="new-password" placeholder="Repita a senha" />
+                </div>
+                <div class="text-danger small mt-1" id="chpwdError" role="alert"></div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
+                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">
                     <i class="bi bi-x-lg me-1"></i>Cancelar
                 </button>
-                <button class="btn btn-brand" type="button" id="btnAdminUserSave">
+                <button type="button" class="btn btn-brand" id="btnChpwdSave">
                     <i class="bi bi-check2 me-1"></i>Salvar
                 </button>
             </div>
@@ -212,6 +200,9 @@
                 <button class="btn btn-ghost" type="button" data-bs-dismiss="modal">
                     <i class="bi bi-x-lg me-1"></i>Fechar
                 </button>
+                <a class="btn btn-brand" href="#" id="detailUserEditLink">
+                    <i class="bi bi-pencil me-1"></i>Editar na tela de cadastro
+                </a>
             </div>
         </div>
     </div>

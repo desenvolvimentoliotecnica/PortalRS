@@ -2,6 +2,8 @@
 @{
     ViewData["Title"] = "Portal RH - Accesses";
     ViewData["SidebarSubtitle"] = "Accesses";
+    var configBase = ViewData["ConfigBasePath"] as string;
+    var formAction = !string.IsNullOrEmpty(configBase) ? configBase : "/Admin/Accesses";
     var selectedPermissions = new HashSet<string>(
         Model.RoleMenus.Select(x => x.PermissionKey),
         StringComparer.OrdinalIgnoreCase);
@@ -50,7 +52,7 @@
     @await Html.PartialAsync("_KpiMiniRow", kpis)
 
     <div class="card-soft p-3 mb-3">
-        <form method="get" action="/Admin/Accesses" class="d-flex flex-wrap align-items-end justify-content-between gap-2">
+        <form method="get" action="@formAction" class="d-flex flex-wrap align-items-end justify-content-between gap-2">
             <div class="d-flex flex-wrap gap-2 align-items-end">
                 <div>
                     <label class="form-label small mb-1">Perfil</label>
@@ -92,7 +94,7 @@
     @if (Model.SelectedRoleId.HasValue)
     {
         <div class="card-soft p-3 mb-3">
-            <form method="post" action="/Admin/Accesses" id="accessForm">
+            <form method="post" action="@formAction" id="accessForm">
                 <input type="hidden" name="RoleId" value="@Model.SelectedRoleId" />
 
                 <div class="d-flex align-items-center justify-content-between gap-2 mb-2">

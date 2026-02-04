@@ -67,6 +67,14 @@ public class VagasController : Controller
         return ToContentResult(resp);
     }
 
+    [HttpGet("/api/vagas/{id:guid}/matching-candidates")]
+    public async Task<IActionResult> GetMatchingCandidates(Guid id, [FromQuery] int minScore = 0, [FromQuery] int take = 50, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _vagasApi.GetMatchingCandidatesRawAsync(tenantId, id, minScore, take, ct);
+        return ToContentResult(resp);
+    }
+
     private static IActionResult ToContentResult(ApiRawResponse resp)
     {
         if (string.IsNullOrWhiteSpace(resp.Content))

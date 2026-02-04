@@ -1,4 +1,4 @@
-﻿using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.Departments;
 
@@ -8,7 +8,6 @@ public sealed record DepartmentGridRowResponse(
     string Code,
     string? ManagerName,
     string? ManagerEmail,
-    string? CostCenter,
     string? Location,
     int Headcount,
     DepartmentStatus Status,
