@@ -7,6 +7,7 @@ using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
 
+
 /// <summary>
 /// Agenda corporativa: tipos e eventos (criação, edição, listagem).
 /// </summary>
