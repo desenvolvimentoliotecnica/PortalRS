@@ -24,10 +24,13 @@
     var portalVagasRoute = "/portalvagas";
     bool IsPortalVagas(LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel m)
         => string.Equals((m.Route ?? "").TrimEnd('/').ToLowerInvariant(), portalVagasRoute, StringComparison.Ordinal);
-    var recrutamento = Model.Where(x => GetModuleKey(x.Route) == "Recrutamento" && !IsPortalVagas(x)).ToList();
-    var cadastros = Model.Where(x => GetModuleKey(x.Route) == "Cadastros").ToList();
+    // Tela Desenvolvimento desativada: não exibir no menu
+    var recrutamento = Model.Where(x => GetModuleKey(x.Route) == "Recrutamento" && !IsPortalVagas(x) && x.PermissionKey != "feedback.desenvolvimento").ToList();
+    // Tela Departamentos desativada: não exibir no menu
+    var cadastros = Model.Where(x => GetModuleKey(x.Route) == "Cadastros" && x.PermissionKey != "departments.view").ToList();
     var relatorios = Model.Where(x => GetModuleKey(x.Route) == "Relatorios").ToList();
-    var feedback = Model.Where(x => GetModuleKey(x.Route) == "Feedback").ToList();
+    var feedbackDesenvolvimentoKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "feedback.send", "feedback.view", "feedback.myplans.view", "feedback.oneonone.view" };
+    var feedback = Model.Where(x => GetModuleKey(x.Route) == "Feedback" && !feedbackDesenvolvimentoKeys.Contains(x.PermissionKey)).ToList();
     var admin = Model.Where(x => GetModuleKey(x.Route) == "Admin").ToList();
 
     bool HasActive(IEnumerable<LioTecnica.Web.ViewModels.Admin.MenuForCurrentUserViewModel> items)

@@ -1,3 +1,4 @@
+@* Tela Desenvolvimento desativada. Controller redireciona para Celebração. *@
 @{
 	ViewData["Title"] = "Portal RH • Feedback • Enviar feedback";
 	ViewData["SidebarSubtitle"] = "Feedback";
@@ -5,7 +6,9 @@
 
 @section Topbar {
 	@await Html.PartialAsync("_TopbarBrand", "Feedback • Enviar")
-	@await Html.PartialAsync("_TopbarUserActions", "RH")
+	<div class="d-flex align-items-center gap-2">
+		@await Html.PartialAsync("_TopbarUserActions", "RH")
+	</div>
 }
 
 <section class="content">

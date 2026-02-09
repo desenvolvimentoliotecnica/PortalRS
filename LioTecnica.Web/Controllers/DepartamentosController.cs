@@ -16,16 +16,9 @@ public sealed class DepartamentosController : Controller
         _tenantContext = tenantContext;
     }
 
+    // Tela Departamentos desativada: redireciona para Áreas
     [HttpGet("/Departamentos")]
-    public IActionResult Index()
-    {
-        var model = new PageSeedViewModel
-        {
-            SeedJson = "{}"
-        };
-
-        return View("Index", model);
-    }
+    public IActionResult Index() => Redirect("/Areas");
 
     // ===== Proxy para o JS (listar com filtros) =====
     [HttpGet("/Departamentos/_api")]

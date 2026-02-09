@@ -1,3 +1,4 @@
+@* Tela Desenvolvimento desativada. Controller redireciona para Celebração. *@
 @{
 	ViewData["Title"] = "Portal RH • Feedback • Meus planos de desenvolvimento";
 	ViewData["SidebarSubtitle"] = "Feedback";
@@ -5,8 +6,10 @@
 
 @section Topbar {
 	@await Html.PartialAsync("_TopbarBrand", "Feedback • Meus planos")
-	<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar">Atualizar</button>
-	@await Html.PartialAsync("_TopbarUserActions", "RH")
+	<div class="d-flex align-items-center gap-2">
+		<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar">Atualizar</button>
+		@await Html.PartialAsync("_TopbarUserActions", "RH")
+	</div>
 }
 
 <section class="content">

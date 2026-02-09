@@ -4,7 +4,7 @@
 }
 
 @section Topbar {
-    @await Html.PartialAsync("_TopbarBrand", "Tela: Chaves de API")
+    @await Html.PartialAsync("_TopbarBrand", (string)null)
 
     <div class="d-flex align-items-center gap-2">
         @await Html.PartialAsync("_TopbarUserActions", "Admin")

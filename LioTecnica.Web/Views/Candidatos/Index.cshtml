@@ -12,7 +12,7 @@
 @await Html.PartialAsync("_Toast")
 
 @section Topbar {
-	@await Html.PartialAsync("_TopbarBrand", "Tela: Candidatos (status + match por vaga)")
+	@await Html.PartialAsync("_TopbarBrand", (string)null)
 
 	<div class="searchbox position-relative d-none d-md-block">
 		<i class="bi bi-search"></i>
@@ -37,7 +37,7 @@
 	<div class="page-title">
 		<div>
 			<h4>Candidatos</h4>
-			<div class="subtitle">Acompanhe candidatos por vaga, status e match estimado (MVP keyword).</div>
+			<div class="subtitle">Acompanhe candidatos por vaga, status e match estimado.</div>
 		</div>
 		<div class="d-flex align-items-center gap-2">
 			<span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">—</span></span>

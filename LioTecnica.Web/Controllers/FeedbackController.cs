@@ -24,10 +24,11 @@ public class FeedbackController : Controller
     public IActionResult Index() => RedirectToAction(nameof(Celebracao));
 
     public IActionResult Celebracao() => View();
-    public IActionResult Enviar() => View();
-    public IActionResult Feedbacks() => View();
-    public IActionResult MeusPlanos() => View();
-    public IActionResult Reunioes1a1() => View();
+    // Tela Desenvolvimento desativada: redireciona para Celebração
+    public IActionResult Enviar() => RedirectToAction(nameof(Celebracao));
+    public IActionResult Feedbacks() => RedirectToAction(nameof(Celebracao));
+    public IActionResult MeusPlanos() => RedirectToAction(nameof(Celebracao));
+    public IActionResult Reunioes1a1() => RedirectToAction(nameof(Celebracao));
     public IActionResult Gamificacao() => View();
     public IActionResult Gestao() => View();
 
