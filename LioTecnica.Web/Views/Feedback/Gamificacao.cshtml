@@ -6,17 +6,16 @@
 @section Topbar {
 	@await Html.PartialAsync("_TopbarBrand", (string)null)
 	<div class="d-flex align-items-center gap-2">
-		<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar">Atualizar</button>
 		@await Html.PartialAsync("_TopbarUserActions", "RH")
 	</div>
 }
 
 <section class="content">
-	<div class="page-title">
-		<div>
-			<h4>Gamificação</h4>
-			<div class="subtitle">Ranking RENDERCOINZ e seu saldo.</div>
-		</div>
+	<div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+		<h4>Gamificação</h4>
+		<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar">
+			<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+		</button>
 	</div>
 	<div class="card-soft p-3 mb-3">
 		<h5 class="mb-2">Meu saldo</h5>

@@ -17,6 +17,14 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
+      @await Html.PartialAsync("_TopbarUserActions", "RH")
+    </div>
+}
+
+<section class="content">
+  <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <h4>Unidades e filiais</h4>
+    <div class="d-flex flex-wrap gap-2">
       <button class="btn btn-ghost" type="button" id="btnExportUnidade" title="Exportar unidades (CSV)">
         <i class="bi bi-filetype-csv"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
       </button>
@@ -26,19 +34,6 @@
       <button class="btn btn-brand" type="button" id="btnNewUnidade">
         <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Nova unidade</span>
       </button>
-      @await Html.PartialAsync("_TopbarUserActions", "RH")
-    </div>
-}
-
-<section class="content">
-  <div class="page-title">
-    <div>
-      <h4>Unidades e filiais</h4>
-      <div class="subtitle">Estabelecimentos da empresa: gestão de unidades com equipes, vagas e contatos.</div>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">-</span></span>
-      <span class="badge-soft"><i class="bi bi-hdd me-1"></i>API</span>
     </div>
   </div>
 

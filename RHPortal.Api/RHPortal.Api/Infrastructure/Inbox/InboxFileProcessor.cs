@@ -128,6 +128,7 @@ public sealed class InboxFileProcessor
             var candidato = new Candidato
             {
                 Id = Guid.NewGuid(),
+                TenantId = tenantId,
                 Nome = nome,
                 Email = email,
                 Fonte = CandidateOrigin.Pasta,
@@ -147,6 +148,7 @@ public sealed class InboxFileProcessor
             candidato.Documentos.Add(new CandidatoDocumento
             {
                 Id = documentId,
+                TenantId = tenantId,
                 CandidatoId = candidato.Id,
                 Tipo = MapDocumentoTipo(ext),
                 NomeArquivo = Path.GetFileName(filePath),

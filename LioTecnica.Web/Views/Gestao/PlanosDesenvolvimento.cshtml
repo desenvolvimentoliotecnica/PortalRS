@@ -7,21 +7,20 @@
 	@await Html.PartialAsync("_TopbarBrand", (string)null)
 
 	<div class="d-flex align-items-center gap-2">
-		<button class="btn btn-ghost" type="button" id="btnFiltro" title="Filtros">
-			<i class="bi bi-sliders"></i><span class="d-none d-sm-inline ms-1">Filtros</span>
-		</button>
-		<button class="btn btn-brand" type="button" id="btnNovoPlano" title="Novo plano">
-			<i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo plano</span>
-		</button>
 		@await Html.PartialAsync("_TopbarUserActions", "RH")
 	</div>
 }
 
 <section class="content">
-	<div class="page-title">
-		<div>
-			<h4>Gestão dos Planos de Desenvolvimento</h4>
-			<div class="subtitle">Crie e acompanhe planos de desenvolvimento e metas dos seus colaboradores.</div>
+	<div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+		<h4>Gestão dos Planos de Desenvolvimento</h4>
+		<div class="d-flex flex-wrap gap-2">
+			<button class="btn btn-ghost" type="button" id="btnFiltro" title="Filtros">
+				<i class="bi bi-sliders"></i><span class="d-none d-sm-inline ms-1">Filtros</span>
+			</button>
+			<button class="btn btn-brand" type="button" id="btnNovoPlano" title="Novo plano">
+				<i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo plano</span>
+			</button>
 		</div>
 	</div>
 

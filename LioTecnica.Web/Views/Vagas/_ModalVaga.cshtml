@@ -1,4 +1,5 @@
-<div class="modal fade" id="modalVaga" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+<div class="modal fade" id="modalVaga" tabindex="-1" aria-hidden="true" data-bs-backdrop="static"
+  data-bs-keyboard="false">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
       <div class="modal-header">
@@ -12,49 +13,65 @@
       <div class="modal-body">
         <input type="hidden" id="vagaId">
 
-        <ul class="nav nav-pills gap-2 mb-3 flex-wrap" id="vagaModalTabs" role="tablist" style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
+        <ul class="nav nav-pills gap-2 mb-3 flex-wrap" id="vagaModalTabs" role="tablist"
+          style="background: rgba(173,200,220,.16); padding: .35rem; border-radius: 999px; border: 1px solid rgba(16,82,144,.14);">
           <li class="nav-item" role="presentation">
-            <button class="nav-link active rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaDados" type="button" role="tab">
+            <button class="nav-link active rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaDados"
+              type="button" role="tab">
               <i class="bi bi-card-text me-1"></i>Dados basicos
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaDiversidade" type="button" role="tab">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaDiversidade"
+              type="button" role="tab">
               <i class="bi bi-heart me-1"></i>Diversidade
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaProjeto" type="button" role="tab">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaProjeto" type="button"
+              role="tab">
               <i class="bi bi-folder me-1"></i>Projeto
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaLocal" type="button" role="tab">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaLocal" type="button"
+              role="tab">
               <i class="bi bi-geo-alt me-1"></i>Local e jornada
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaRemuneracao" type="button" role="tab">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaRemuneracao"
+              type="button" role="tab">
               <i class="bi bi-currency-dollar me-1"></i>Remuneracao
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaRequisitos" type="button" role="tab">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaRequisitos"
+              type="button" role="tab">
               <i class="bi bi-list-check me-1"></i>Requisitos
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaProcesso" type="button" role="tab">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaMatchingFiltros"
+              type="button" role="tab">
+              <i class="bi bi-stars me-1"></i>Filtros matching (IA)
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaProcesso" type="button"
+              role="tab">
               <i class="bi bi-diagram-3 me-1"></i>Processo seletivo
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaPublicacao" type="button" role="tab">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaPublicacao"
+              type="button" role="tab">
               <i class="bi bi-megaphone me-1"></i>Publicacao
             </button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaCands" type="button" role="tab">
+            <button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabVagaCands" type="button"
+              role="tab">
               <i class="bi bi-people me-1"></i>Candidatos
             </button>
           </li>
@@ -67,10 +84,13 @@
               <div class="col-12 mb-2">
                 <label class="form-label small text-muted">Copiar de outra vaga</label>
                 <div class="input-group">
-                  <input type="text" class="form-control" id="vagaCopiarDe" placeholder="Buscar vaga para copiar dados..." autocomplete="off">
-                  <button class="btn btn-outline-secondary" type="button" id="btnClearCopiarDe" title="Limpar"> <i class="bi bi-x-lg"></i> </button>
+                  <input type="text" class="form-control" id="vagaCopiarDe"
+                    placeholder="Buscar vaga para copiar dados..." autocomplete="off">
+                  <button class="btn btn-outline-secondary" type="button" id="btnClearCopiarDe" title="Limpar"> <i
+                      class="bi bi-x-lg"></i> </button>
                 </div>
-                <div class="small text-muted">Selecione uma vaga para preencher o formulario com seus dados (edite e salve como nova).</div>
+                <div class="small text-muted">Selecione uma vaga para preencher o formulario com seus dados (edite e
+                  salve como nova).</div>
               </div>
               <div class="col-12">
                 <div class="fw-semibold">Identificacao e contexto</div>
@@ -85,7 +105,7 @@
                 <input class="form-control" id="vagaTitulo" placeholder="Ex.: Analista de Marketing Jr">
               </div>
               <div class="col-12 col-md-4">
-                <label class="form-label small text-muted">Departamento *</label>
+                <label class="form-label small text-muted">Departamento</label>
                 <select class="form-select" id="vagaDepartamento"></select>
               </div>
               <div class="col-12 col-md-4">
@@ -125,7 +145,8 @@
               </div>
               <div class="col-12">
                 <label class="form-label small text-muted">Descricao interna</label>
-                <textarea class="form-control" id="vagaDescricao" rows="3" placeholder="Resumo interno da vaga, responsabilidades, etc."></textarea>
+                <textarea class="form-control" id="vagaDescricao" rows="3"
+                  placeholder="Resumo interno da vaga, responsabilidades, etc."></textarea>
               </div>
               <div class="col-12 col-md-3">
                 <label class="form-label small text-muted">Codigo interno</label>
@@ -145,11 +166,13 @@
               </div>
               <div class="col-12 col-md-4">
                 <label class="form-label small text-muted">Gestor requisitante</label>
-                <input class="form-control" id="vagaGestor" placeholder="Buscar gestor..." maxlength="120" autocomplete="off">
+                <input class="form-control" id="vagaGestor" placeholder="Buscar gestor..." maxlength="120"
+                  autocomplete="off">
               </div>
               <div class="col-12 col-md-4">
                 <label class="form-label small text-muted">Recrutador responsavel</label>
-                <input class="form-control" id="vagaRecrutador" placeholder="Buscar recrutador..." maxlength="120" autocomplete="off">
+                <input class="form-control" id="vagaRecrutador" placeholder="Buscar recrutador..." maxlength="120"
+                  autocomplete="off">
               </div>
               <div class="col-12 col-md-4">
                 <label class="form-label small text-muted">Prioridade</label>
@@ -157,21 +180,25 @@
               </div>
               <div class="col-12">
                 <label class="form-label small text-muted">Resumo / pitch da vaga</label>
-                <textarea class="form-control" id="vagaResumo" rows="2" placeholder="Explique rapidamente o proposito da vaga e o diferencial."></textarea>
+                <textarea class="form-control" id="vagaResumo" rows="2"
+                  placeholder="Explique rapidamente o proposito da vaga e o diferencial."></textarea>
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label small text-muted">Responsabilidades (separe por ;)</label>
-                <textarea class="form-control" id="vagaTagsResponsabilidades" rows="2" placeholder="Ex.: triagem de curriculos; entrevistas; alinhamento com gestores"></textarea>
+                <textarea class="form-control" id="vagaTagsResponsabilidades" rows="2"
+                  placeholder="Ex.: triagem de curriculos; entrevistas; alinhamento com gestores"></textarea>
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label small text-muted">Palavras-chave (separe por ;)</label>
-                <textarea class="form-control" id="vagaTagsKeywords" rows="2" placeholder="Ex.: recrutamento; ATS; entrevistas por competencia"></textarea>
+                <textarea class="form-control" id="vagaTagsKeywords" rows="2"
+                  placeholder="Ex.: recrutamento; ATS; entrevistas por competencia"></textarea>
               </div>
               <div class="col-12 col-md-4">
                 <label class="form-label small text-muted">Confidencial?</label>
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" id="vagaConfidencial">
-                  <label class="form-check-label" for="vagaConfidencial">Ocultar empresa/gestor em canais publicos</label>
+                  <label class="form-check-label" for="vagaConfidencial">Ocultar empresa/gestor em canais
+                    publicos</label>
                 </div>
               </div>
               <div class="col-12 col-md-4">
@@ -214,7 +241,8 @@
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label small text-muted">Publico afirmativo (opcional)</label>
-                <input class="form-control" id="vagaPublicoAfirmativo" placeholder="Ex.: PCD; Mulheres; Pessoas Negras" maxlength="120">
+                <input class="form-control" id="vagaPublicoAfirmativo" placeholder="Ex.: PCD; Mulheres; Pessoas Negras"
+                  maxlength="120">
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label small text-muted">Observacoes PCD</label>
@@ -240,7 +268,8 @@
               </div>
               <div class="col-12">
                 <label class="form-label small text-muted">Descricao do projeto</label>
-                <textarea class="form-control" id="vagaProjetoDescricao" rows="2" placeholder="Escopo e objetivos do projeto."></textarea>
+                <textarea class="form-control" id="vagaProjetoDescricao" rows="2"
+                  placeholder="Escopo e objetivos do projeto."></textarea>
               </div>
             </div>
           </div>
@@ -370,11 +399,13 @@
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label small text-muted">Stack / Ferramentas (separe por ;)</label>
-                <textarea class="form-control" id="vagaTagsStack" rows="2" placeholder="Ex.: Excel; Power BI; ATS"></textarea>
+                <textarea class="form-control" id="vagaTagsStack" rows="2"
+                  placeholder="Ex.: Excel; Power BI; ATS"></textarea>
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label small text-muted">Idiomas (separe por ;)</label>
-                <textarea class="form-control" id="vagaTagsIdiomas" rows="2" placeholder="Ex.: Ingles (B2); Espanhol (A2)"></textarea>
+                <textarea class="form-control" id="vagaTagsIdiomas" rows="2"
+                  placeholder="Ex.: Ingles (B2); Espanhol (A2)"></textarea>
               </div>
               <div class="col-12 d-flex align-items-center justify-content-between gap-2 flex-wrap mt-1">
                 <div>
@@ -390,7 +421,91 @@
               </div>
               <div class="col-12">
                 <label class="form-label small text-muted">Diferenciais</label>
-                <textarea class="form-control" id="vagaDiferenciais" rows="2" placeholder="Ex.: certificacoes, vivencia em alto volume"></textarea>
+                <textarea class="form-control" id="vagaDiferenciais" rows="2"
+                  placeholder="Ex.: certificacoes, vivencia em alto volume"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filtros de matching (IA) -->
+          <div class="tab-pane fade" id="tabVagaMatchingFiltros" role="tabpanel">
+            <div class="row g-2">
+              <div class="col-12">
+                <div class="fw-semibold">Regras de matching por IA</div>
+                <div class="text-muted small">Preencha os criterios do candidato ideal. Esses dados serao usados como
+                  contexto para o matching (e para a IA).</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small">Modalidade</label>
+                <select class="form-select" id="vagaMatchingModalidade" style="border-color:var(--lt-border);"></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small">Senioridade</label>
+                <select class="form-select" id="vagaMatchingSenioridade"
+                  style="border-color:var(--lt-border);"></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small">Escolaridade</label>
+                <select class="form-select" id="vagaMatchingEscolaridade"
+                  style="border-color:var(--lt-border);"></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small">Formacao (area)</label>
+                <select class="form-select" id="vagaMatchingFormacaoArea"
+                  style="border-color:var(--lt-border);"></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small">Cidade</label>
+                <input type="text" class="form-control" id="vagaMatchingCidade" placeholder="Ex.: Sao Paulo"
+                  style="border-color:var(--lt-border);">
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small">UF</label>
+                <select class="form-select" id="vagaMatchingUF" style="border-color:var(--lt-border);"></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small">Tempo de experiencia</label>
+                <select class="form-select" id="vagaMatchingExp" style="border-color:var(--lt-border);"></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small">Sexo</label>
+                <select class="form-select" id="vagaMatchingSexo" style="border-color:var(--lt-border);"></select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label small">PCD</label>
+                <select class="form-select" id="vagaMatchingPcd" style="border-color:var(--lt-border);"></select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small">Idade min.</label>
+                <input type="number" class="form-control" id="vagaMatchingIdadeMin" min="14" max="100" placeholder="-"
+                  style="border-color:var(--lt-border);">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small">Idade max.</label>
+                <input type="number" class="form-control" id="vagaMatchingIdadeMax" min="14" max="100" placeholder="-"
+                  style="border-color:var(--lt-border);">
+              </div>
+              <div class="col-12 col-md-4 d-flex align-items-end gap-2 flex-wrap pb-2">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="vagaMatchingRequerCnh">
+                  <label class="form-check-label small" for="vagaMatchingRequerCnh">Requer CNH</label>
+                </div>
+                <div class="vagaMatchingCnhCategoriaWrap" style="display:none;">
+                  <label class="form-label small me-1 mb-0">Categoria</label>
+                  <select class="form-select form-select-sm" id="vagaMatchingCnhCategoria"
+                    style="border-color:var(--lt-border); width:auto;"></select>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label small">Habilidades desejadas</label>
+                <input type="text" class="form-control" id="vagaMatchingHabilidades"
+                  placeholder="Ex.: .NET, SQL, APIs REST (separadas por virgula)"
+                  style="border-color:var(--lt-border);">
+              </div>
+              <div class="col-12">
+                <label class="form-label small text-muted">Observacoes adicionais (opcional)</label>
+                <textarea class="form-control" id="vagaMatchingObs" rows="2"
+                  placeholder="Outros criterios em texto livre" style="border-color:var(--lt-border);"></textarea>
               </div>
             </div>
           </div>
@@ -424,7 +539,8 @@
               </div>
               <div class="col-12">
                 <label class="form-label small text-muted">Observacoes internas do processo</label>
-                <textarea class="form-control" id="vagaObsProcesso" rows="2" placeholder="Ex.: aprovacoes necessarias, criterios de corte"></textarea>
+                <textarea class="form-control" id="vagaObsProcesso" rows="2"
+                  placeholder="Ex.: aprovacoes necessarias, criterios de corte"></textarea>
               </div>
             </div>
           </div>
@@ -446,11 +562,13 @@
               </div>
               <div class="col-12 col-md-4">
                 <label class="form-label small text-muted">Data de abertura (SLA)</label>
-                <input class="form-control" id="vagaDataAbertura" readonly placeholder="—" title="Preenchida ao abrir a vaga">
+                <input class="form-control" id="vagaDataAbertura" readonly placeholder="—"
+                  title="Preenchida ao abrir a vaga">
               </div>
               <div class="col-12 col-md-4">
                 <label class="form-label small text-muted">Meta SLA (dias)</label>
-                <input type="number" class="form-control" id="vagaSlaDiasMeta" min="0" placeholder="Ex.: 30" title="Dias para fechar a vaga (vazio = meta global)">
+                <input type="number" class="form-control" id="vagaSlaDiasMeta" min="0" placeholder="Ex.: 30"
+                  title="Dias para fechar a vaga (vazio = meta global)">
               </div>
               <div class="col-12">
                 <label class="form-label small text-muted">Canais</label>
@@ -483,18 +601,21 @@
               </div>
               <div class="col-12">
                 <label class="form-label small text-muted">Descricao publica</label>
-                <textarea class="form-control" id="vagaDescricaoPublica" rows="4" placeholder="Inclua responsabilidades, requisitos e beneficios."></textarea>
+                <textarea class="form-control" id="vagaDescricaoPublica" rows="4"
+                  placeholder="Inclua responsabilidades, requisitos e beneficios."></textarea>
               </div>
               <div class="col-12 col-md-6">
                 <div class="card-soft p-2">
                   <div class="fw-semibold mb-2">LGPD / Consentimentos</div>
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="vagaLgpdConsentimento">
-                    <label class="form-check-label" for="vagaLgpdConsentimento">Solicitar consentimento explicito</label>
+                    <label class="form-check-label" for="vagaLgpdConsentimento">Solicitar consentimento
+                      explicito</label>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="vagaLgpdCompartilhamento">
-                    <label class="form-check-label" for="vagaLgpdCompartilhamento">Compartilhar curriculo internamente</label>
+                    <label class="form-check-label" for="vagaLgpdCompartilhamento">Compartilhar curriculo
+                      internamente</label>
                   </div>
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="vagaLgpdRetencao">
@@ -524,13 +645,16 @@
                 </div>
               </div>
               <div class="col-12">
-                <div class="alert alert-primary mb-0" style="border-radius: 14px; border-color: rgba(16,82,144,.25); background: rgba(173,200,220,.22); color: var(--lt-primary);">
+                <div class="alert alert-primary mb-0"
+                  style="border-radius: 14px; border-color: rgba(16,82,144,.25); background: rgba(173,200,220,.22); color: var(--lt-primary);">
                   <div class="d-flex align-items-start gap-2">
                     <i class="bi bi-lightbulb mt-1"></i>
                     <div>
                       <div class="fw-semibold">Dica</div>
                       <div class="small">
-                        Salve a vaga e, em seguida, use <strong>Detalhes</strong> para cadastrar <strong>Requisitos</strong> com <strong>peso</strong> e marcar itens <strong>obrigatórios</strong>.
+                        Salve a vaga e, em seguida, use <strong>Detalhes</strong> para cadastrar
+                        <strong>Requisitos</strong> com <strong>peso</strong> e marcar itens
+                        <strong>obrigatórios</strong>.
                       </div>
                     </div>
                   </div>
@@ -539,169 +663,176 @@
             </div>
           </div>
 
-        <template id="tpl-vaga-benefit-row">
-          <div class="card-soft p-2 vaga-benefit-row">
-            <div class="d-flex align-items-start justify-content-between gap-2">
-              <div class="fw-semibold" data-role="benefit-title">Beneficio</div>
-                            <button type="button" class="btn btn-outline-danger btn-sm" data-act="remove">
-                <i class="bi bi-trash3"></i>
-              </button>
-            </div>
-            <div class="row g-2 mt-2">
-              <div class="col-12 col-md-4">
-                <label class="form-label small text-muted">Tipo</label>
-                <select class="form-select form-select-sm" data-role="benefit-type">
+          <template id="tpl-vaga-benefit-row">
+            <div class="card-soft p-2 vaga-benefit-row">
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <div class="fw-semibold" data-role="benefit-title">Beneficio</div>
+                <button type="button" class="btn btn-outline-danger btn-sm" data-act="remove">
+                  <i class="bi bi-trash3"></i>
+                </button>
+              </div>
+              <div class="row g-2 mt-2">
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted">Tipo</label>
+                  <select class="form-select form-select-sm" data-role="benefit-type">
                   </select>
-              </div>
-              <div class="col-12 col-md-4">
-                <label class="form-label small text-muted">Valor (opcional)</label>
-                <input class="form-control form-control-sm" data-role="benefit-value" placeholder="R$ 0,00">
-              </div>
-              <div class="col-12 col-md-2">
-                <label class="form-label small text-muted">Recorrencia</label>
-                <select class="form-select form-select-sm" data-role="benefit-rec">
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted">Valor (opcional)</label>
+                  <input class="form-control form-control-sm" data-role="benefit-value" placeholder="R$ 0,00">
+                </div>
+                <div class="col-12 col-md-2">
+                  <label class="form-label small text-muted">Recorrencia</label>
+                  <select class="form-select form-select-sm" data-role="benefit-rec">
                   </select>
-              </div>
-              <div class="col-12 col-md-2">
-                <label class="form-label small text-muted">Obrigatorio?</label>
-                <div class="form-check mt-1">
-                  <input class="form-check-input" type="checkbox" data-role="benefit-required">
-                  <label class="form-check-label">Sim</label>
+                </div>
+                <div class="col-12 col-md-2">
+                  <label class="form-label small text-muted">Obrigatorio?</label>
+                  <div class="form-check mt-1">
+                    <input class="form-check-input" type="checkbox" data-role="benefit-required">
+                    <label class="form-check-label">Sim</label>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted">Observacoes</label>
+                  <input class="form-control form-control-sm" data-role="benefit-obs"
+                    placeholder="Ex.: coparticipacao, carencia, faixa">
                 </div>
               </div>
-              <div class="col-12">
-                <label class="form-label small text-muted">Observacoes</label>
-                <input class="form-control form-control-sm" data-role="benefit-obs" placeholder="Ex.: coparticipacao, carencia, faixa">
-              </div>
             </div>
-          </div>
-        </template>
+          </template>
 
-        <template id="tpl-vaga-modal-req-row">
-          <div class="card-soft p-2 vaga-req-row">
-            <div class="d-flex align-items-start justify-content-between gap-2">
-              <div class="fw-semibold" data-role="req-title">Requisito</div>
-                            <button type="button" class="btn btn-outline-danger btn-sm" data-act="remove">
-                <i class="bi bi-trash3"></i>
-              </button>
-            </div>
-            <div class="row g-2 mt-2">
-              <div class="col-12 col-md-6">
-                <label class="form-label small text-muted">Requisito</label>
-                <input class="form-control form-control-sm" data-role="req-name" placeholder="Ex.: Excel avancado, SQL, etc.">
+          <template id="tpl-vaga-modal-req-row">
+            <div class="card-soft p-2 vaga-req-row">
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <div class="fw-semibold" data-role="req-title">Requisito</div>
+                <button type="button" class="btn btn-outline-danger btn-sm" data-act="remove">
+                  <i class="bi bi-trash3"></i>
+                </button>
               </div>
-              <div class="col-6 col-md-2">
-                <label class="form-label small text-muted">Peso (1-5)</label>
-                <select class="form-select form-select-sm" data-role="req-weight">
+              <div class="row g-2 mt-2">
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted">Requisito</label>
+                  <input class="form-control form-control-sm" data-role="req-name"
+                    placeholder="Ex.: Excel avancado, SQL, etc.">
+                </div>
+                <div class="col-6 col-md-2">
+                  <label class="form-label small text-muted">Peso (1-5)</label>
+                  <select class="form-select form-select-sm" data-role="req-weight">
                   </select>
-              </div>
-              <div class="col-6 col-md-2">
-                <label class="form-label small text-muted">Obrigatorio</label>
-                <div class="form-check mt-1">
-                  <input class="form-check-input" type="checkbox" data-role="req-required">
-                  <label class="form-check-label">Sim</label>
+                </div>
+                <div class="col-6 col-md-2">
+                  <label class="form-label small text-muted">Obrigatorio</label>
+                  <div class="form-check mt-1">
+                    <input class="form-check-input" type="checkbox" data-role="req-required">
+                    <label class="form-check-label">Sim</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-2">
+                  <label class="form-label small text-muted">Anos min.</label>
+                  <input class="form-control form-control-sm" data-role="req-years" placeholder="0">
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted">Nivel</label>
+                  <select class="form-select form-select-sm" data-role="req-level">
+                  </select>
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted">Avaliacao</label>
+                  <select class="form-select form-select-sm" data-role="req-eval">
+                  </select>
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted">Obs.</label>
+                  <input class="form-control form-control-sm" data-role="req-obs"
+                    placeholder="Ex.: precisa ter aplicado em alto volume">
                 </div>
               </div>
-              <div class="col-12 col-md-2">
-                <label class="form-label small text-muted">Anos min.</label>
-                <input class="form-control form-control-sm" data-role="req-years" placeholder="0">
-              </div>
-              <div class="col-12 col-md-4">
-                <label class="form-label small text-muted">Nivel</label>
-                <select class="form-select form-select-sm" data-role="req-level">
-                  </select>
-              </div>
-              <div class="col-12 col-md-4">
-                <label class="form-label small text-muted">Avaliacao</label>
-                <select class="form-select form-select-sm" data-role="req-eval">
-                  </select>
-              </div>
-              <div class="col-12 col-md-4">
-                <label class="form-label small text-muted">Obs.</label>
-                <input class="form-control form-control-sm" data-role="req-obs" placeholder="Ex.: precisa ter aplicado em alto volume">
-              </div>
             </div>
-          </div>
-        </template>
+          </template>
 
-        <template id="tpl-vaga-stage-row">
-          <div class="card-soft p-2 vaga-stage-row">
-            <div class="d-flex align-items-start justify-content-between gap-2">
-              <div class="fw-semibold" data-role="stage-title">Etapa</div>
-                            <button type="button" class="btn btn-outline-danger btn-sm" data-act="remove">
-                <i class="bi bi-trash3"></i>
-              </button>
-            </div>
-            <div class="row g-2 mt-2">
-              <div class="col-12 col-md-4">
-                <label class="form-label small text-muted">Nome da etapa</label>
-                <input class="form-control form-control-sm" data-role="stage-name" placeholder="Ex.: Entrevista RH">
+          <template id="tpl-vaga-stage-row">
+            <div class="card-soft p-2 vaga-stage-row">
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <div class="fw-semibold" data-role="stage-title">Etapa</div>
+                <button type="button" class="btn btn-outline-danger btn-sm" data-act="remove">
+                  <i class="bi bi-trash3"></i>
+                </button>
               </div>
-              <div class="col-12 col-md-3">
-                <label class="form-label small text-muted">Responsavel</label>
-                <input type="text" class="form-control form-control-sm" data-role="stage-owner" placeholder="Buscar gestor..." autocomplete="off">
-              </div>
-              <div class="col-6 col-md-2">
-                <label class="form-label small text-muted">Modo</label>
-                <select class="form-select form-select-sm" data-role="stage-mode">
+              <div class="row g-2 mt-2">
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted">Nome da etapa</label>
+                  <input class="form-control form-control-sm" data-role="stage-name" placeholder="Ex.: Entrevista RH">
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="form-label small text-muted">Responsavel</label>
+                  <input type="text" class="form-control form-control-sm" data-role="stage-owner"
+                    placeholder="Buscar gestor..." autocomplete="off">
+                </div>
+                <div class="col-6 col-md-2">
+                  <label class="form-label small text-muted">Modo</label>
+                  <select class="form-select form-select-sm" data-role="stage-mode">
                   </select>
-              </div>
-              <div class="col-6 col-md-3">
-                <label class="form-label small text-muted">SLA (dias)</label>
-                <input class="form-control form-control-sm" data-role="stage-sla" placeholder="3">
-              </div>
-              <div class="col-12">
-                <label class="form-label small text-muted">Descricao / instrucoes</label>
-                <input class="form-control form-control-sm" data-role="stage-desc" placeholder="Ex.: entrevista por competencias, 45min">
+                </div>
+                <div class="col-6 col-md-3">
+                  <label class="form-label small text-muted">SLA (dias)</label>
+                  <input class="form-control form-control-sm" data-role="stage-sla" placeholder="3">
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted">Descricao / instrucoes</label>
+                  <input class="form-control form-control-sm" data-role="stage-desc"
+                    placeholder="Ex.: entrevista por competencias, 45min">
+                </div>
               </div>
             </div>
-          </div>
-        </template>
+          </template>
 
-        <template id="tpl-vaga-question-row">
-          <div class="card-soft p-2 vaga-question-row">
-            <div class="d-flex align-items-start justify-content-between gap-2">
-              <div class="fw-semibold" data-role="question-title">Pergunta</div>
-                            <button type="button" class="btn btn-outline-danger btn-sm" data-act="remove">
-                <i class="bi bi-trash3"></i>
-              </button>
-            </div>
-            <div class="row g-2 mt-2">
-              <div class="col-12">
-                <label class="form-label small text-muted">Pergunta</label>
-                <input class="form-control form-control-sm" data-role="question-text" placeholder="Ex.: Tem disponibilidade para presencial 2x por semana?">
+          <template id="tpl-vaga-question-row">
+            <div class="card-soft p-2 vaga-question-row">
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <div class="fw-semibold" data-role="question-title">Pergunta</div>
+                <button type="button" class="btn btn-outline-danger btn-sm" data-act="remove">
+                  <i class="bi bi-trash3"></i>
+                </button>
               </div>
-              <div class="col-12 col-md-4">
-                <label class="form-label small text-muted">Tipo</label>
-                <select class="form-select form-select-sm" data-role="question-type">
+              <div class="row g-2 mt-2">
+                <div class="col-12">
+                  <label class="form-label small text-muted">Pergunta</label>
+                  <input class="form-control form-control-sm" data-role="question-text"
+                    placeholder="Ex.: Tem disponibilidade para presencial 2x por semana?">
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label small text-muted">Tipo</label>
+                  <select class="form-select form-select-sm" data-role="question-type">
                   </select>
-              </div>
-              <div class="col-6 col-md-2">
-                <label class="form-label small text-muted">Peso</label>
-                <select class="form-select form-select-sm" data-role="question-weight">
+                </div>
+                <div class="col-6 col-md-2">
+                  <label class="form-label small text-muted">Peso</label>
+                  <select class="form-select form-select-sm" data-role="question-weight">
                   </select>
-              </div>
-              <div class="col-6 col-md-3">
-                <label class="form-label small text-muted">Obrigatoria?</label>
-                <div class="form-check mt-1">
-                  <input class="form-check-input" type="checkbox" data-role="question-required">
-                  <label class="form-check-label">Sim</label>
+                </div>
+                <div class="col-6 col-md-3">
+                  <label class="form-label small text-muted">Obrigatoria?</label>
+                  <div class="form-check mt-1">
+                    <input class="form-check-input" type="checkbox" data-role="question-required">
+                    <label class="form-check-label">Sim</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="form-label small text-muted">Knockout?</label>
+                  <div class="form-check mt-1">
+                    <input class="form-check-input" type="checkbox" data-role="question-ko">
+                    <label class="form-check-label">Sim</label>
+                  </div>
+                </div>
+                <div class="col-12" data-role="question-options-wrap">
+                  <label class="form-label small text-muted">Opcoes (separe por ;)</label>
+                  <input class="form-control form-control-sm" data-role="question-options"
+                    placeholder="Ex.: Sim;Nao;Talvez">
                 </div>
               </div>
-              <div class="col-12 col-md-3">
-                <label class="form-label small text-muted">Knockout?</label>
-                <div class="form-check mt-1">
-                  <input class="form-check-input" type="checkbox" data-role="question-ko">
-                  <label class="form-check-label">Sim</label>
-                </div>
-              </div>
-              <div class="col-12" data-role="question-options-wrap">
-                <label class="form-label small text-muted">Opcoes (separe por ;)</label>
-                <input class="form-control form-control-sm" data-role="question-options" placeholder="Ex.: Sim;Nao;Talvez">
-              </div>
             </div>
-          </div>
-        </template>
+          </template>
 
           <div class="tab-pane fade" id="tabVagaCands" role="tabpanel">
             <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
@@ -713,19 +844,19 @@
             </div>
 
             <div class="table-responsive">
-  <table class="table align-middle mb-0">
-    <thead>
-<tr>
-                  <th style="min-width: 220px;">Candidato</th>
-                  <th style="min-width: 200px;">Email</th>
-                  <th style="min-width: 120px;">Status</th>
-                  <th style="min-width: 110px;">Match</th>
-                  <th class="text-end" style="min-width: 120px;">Acoes</th>
-                </tr>
-    </thead>
-    <tbody id="tblVagaEditCands"></tbody>
-  </table>
-</div>
+              <table class="table align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th style="min-width: 220px;">Candidato</th>
+                    <th style="min-width: 200px;">Email</th>
+                    <th style="min-width: 120px;">Status</th>
+                    <th style="min-width: 110px;">Match</th>
+                    <th class="text-end" style="min-width: 120px;">Acoes</th>
+                  </tr>
+                </thead>
+                <tbody id="tblVagaEditCands"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

@@ -18,8 +18,7 @@ namespace RHPortal.Api.Domain.Entities
         [Required, StringLength(160)]
         public string Titulo { get; set; } = string.Empty;  // vagaTitulo *
 
-        [Required]
-        public Guid DepartmentId { get; set; }          // vagaDepartmentId *
+        public Guid? DepartmentId { get; set; }         // vagaDepartmentId (opcional)
         public Department? Department { get; set; }     // navigation
 
         public VagaAreaTime? AreaTime { get; set; }         // vagaAreaTime
@@ -44,6 +43,11 @@ namespace RHPortal.Api.Domain.Entities
         public int PesoExperiencia { get; set; } = 30;
         public int PesoFormacao { get; set; } = 15;
         public int PesoLocalidade { get; set; } = 15;
+
+        /// <summary>Regras/filtros atuais de matching (prompt/contexto para IA).</summary>
+        public string? MatchingFiltrosRaw { get; set; }
+        /// <summary>Cópia dos filtros na criação da vaga; usado para "Reverter para filtros da criação".</summary>
+        public string? MatchingFiltrosOriginaisRaw { get; set; }
 
         public string? DescricaoInterna { get; set; }        // vagaDescricao
 

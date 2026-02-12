@@ -7,3 +7,12 @@
 **/bin/
 **/obj/
 *.docx
+
+# Arquivos de ambiente sensíveis
+.env
+.env.local
+**/.env
+
+# Arquivos problemáticos no Windows
+nul
+**/nul

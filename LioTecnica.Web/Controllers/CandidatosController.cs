@@ -26,6 +26,14 @@ public class CandidatosController : Controller
         return View(model);
     }
 
+    [HttpGet]
+    public IActionResult Detalhes(Guid id, Guid? vagaId)
+    {
+        ViewBag.CandidatoId = id;
+        ViewBag.VagaId = vagaId;
+        return View();
+    }
+
     [HttpGet("/api/candidatos")]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? q,

@@ -78,6 +78,7 @@ public sealed record CandidateResponse(
     Guid? VagaRecrutadorResponsavelUserId,
     Guid? TalentoId,
     string? Obs,
+    string? ResumoProfissional,
     string? CvText,
     CandidateMatchResponse? LastMatch,
     IReadOnlyList<CandidateDocumentoResponse> Documentos,

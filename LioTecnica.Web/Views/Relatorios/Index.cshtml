@@ -11,28 +11,24 @@
 	@await Html.PartialAsync("_TopbarBrand", (string)null)
 
 	<div class="d-flex align-items-center gap-2">
-		<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar dados">
-			<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
-		</button>
-
-		<button class="btn btn-ghost" type="button" id="btnExport" title="Exportar relatório atual (CSV)">
-			<i class="bi bi-filetype-csv"></i><span class="d-none d-sm-inline ms-1">Exportar CSV</span>
-		</button>
-
-		<button class="btn btn-brand" type="button" id="btnRun">
-			<i class="bi bi-play-circle"></i><span class="d-none d-sm-inline ms-1">Gerar</span>
-		</button>
-
 		@await Html.PartialAsync("_TopbarUserActions", "RH")
 	</div>
 }
 
 <!-- CONTENT -->
 <section class="content">
-	<div class="page-title">
-		<div>
-			<h4>Relatórios</h4>
-			<div class="subtitle">Gere relatórios operacionais e gerenciais. No sistema real: filtros & query Postgres & exportação.</div>
+	<div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+		<h4>Relatórios</h4>
+		<div class="d-flex flex-wrap gap-2">
+			<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar dados">
+				<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+			</button>
+			<button class="btn btn-ghost" type="button" id="btnExport" title="Exportar relatório atual (CSV)">
+				<i class="bi bi-filetype-csv"></i><span class="d-none d-sm-inline ms-1">Exportar CSV</span>
+			</button>
+			<button class="btn btn-brand" type="button" id="btnRun">
+				<i class="bi bi-play-circle"></i><span class="d-none d-sm-inline ms-1">Gerar</span>
+			</button>
 		</div>
 	</div>
 

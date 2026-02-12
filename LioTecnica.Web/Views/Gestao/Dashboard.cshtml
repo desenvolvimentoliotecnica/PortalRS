@@ -7,18 +7,19 @@
 	@await Html.PartialAsync("_TopbarBrand", (string)null)
 
 	<div class="d-flex align-items-center gap-2">
-		<button class="btn btn-ghost" type="button" title="Atualizar">
-			<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
-		</button>
 		@await Html.PartialAsync("_TopbarUserActions", "RH")
 	</div>
 }
 
 <section class="content">
-	<div class="page-title">
+	<div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
 		<div>
 			<h4>Dashboard</h4>
-			<div class="subtitle">Visão geral da gestão: planos de desenvolvimento, humor da equipe e resumo de atividades.</div>
+		</div>
+		<div class="d-flex flex-wrap gap-2">
+			<button class="btn btn-ghost" type="button" title="Atualizar">
+				<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+			</button>
 		</div>
 	</div>
 

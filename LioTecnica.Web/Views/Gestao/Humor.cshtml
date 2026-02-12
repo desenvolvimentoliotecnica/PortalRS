@@ -7,23 +7,24 @@
 	@await Html.PartialAsync("_TopbarBrand", (string)null)
 
 	<div class="d-flex align-items-center gap-2">
-		<select class="form-select form-select-sm" id="filtroPeriodo" style="min-width: 160px;">
-			<option value="7">Últimos 7 dias</option>
-			<option value="30" selected>Últimos 30 dias</option>
-			<option value="90">Últimos 90 dias</option>
-		</select>
-		<button class="btn btn-ghost" type="button" title="Atualizar">
-			<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
-		</button>
 		@await Html.PartialAsync("_TopbarUserActions", "RH")
 	</div>
 }
 
 <section class="content">
-	<div class="page-title">
+	<div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
 		<div>
 			<h4>Humor</h4>
-			<div class="subtitle">Acompanhe o humor e o engajamento da sua equipe ao longo do tempo.</div>
+		</div>
+		<div class="d-flex flex-nowrap align-items-center gap-2">
+			<select class="form-select form-select-sm page-title-select" id="filtroPeriodo">
+				<option value="7">Últimos 7 dias</option>
+				<option value="30" selected>Últimos 30 dias</option>
+				<option value="90">Últimos 90 dias</option>
+			</select>
+			<button class="btn btn-ghost" type="button" title="Atualizar">
+				<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+			</button>
 		</div>
 	</div>
 

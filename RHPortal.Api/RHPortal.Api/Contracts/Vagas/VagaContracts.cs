@@ -5,7 +5,7 @@ namespace RhPortal.Api.Contracts.Vagas;
 
 public sealed record VagaCreateRequest(
     [Required, MaxLength(160)] string Titulo,
-    [Required] Guid DepartmentId,
+    Guid? DepartmentId,
     [Required] Guid AreaId,
     [Required] VagaStatus Status,
     [MaxLength(40)] string? Codigo,
@@ -16,6 +16,7 @@ public sealed record VagaCreateRequest(
     VagaTipoContratacao? TipoContratacao,
     int MatchMinimoPercentual,
     VagaWeightsRequest? Weights,
+    string? MatchingFiltrosRaw,
     string? DescricaoInterna,
     [MaxLength(40)] string? CodigoInterno,
     [MaxLength(20)] string? CodigoCbo,
@@ -89,9 +90,11 @@ public sealed record VagaCreateRequest(
     IReadOnlyList<VagaPerguntaRequest>? PerguntasTriagem
 );
 
+public sealed record UpdateVagaMatchingFiltrosRequest(string? MatchingFiltrosRaw);
+
 public sealed record VagaUpdateRequest(
     [Required, MaxLength(160)] string Titulo,
-    [Required] Guid DepartmentId,
+    Guid? DepartmentId,
     [Required] Guid AreaId,
     [Required] VagaStatus Status,
     [MaxLength(40)] string? Codigo,
@@ -102,6 +105,7 @@ public sealed record VagaUpdateRequest(
     VagaTipoContratacao? TipoContratacao,
     int MatchMinimoPercentual,
     VagaWeightsRequest? Weights,
+    string? MatchingFiltrosRaw,
     string? DescricaoInterna,
     [MaxLength(40)] string? CodigoInterno,
     [MaxLength(20)] string? CodigoCbo,
@@ -179,7 +183,7 @@ public sealed record VagaResponse(
     Guid Id,
     string? Codigo,
     string Titulo,
-    Guid DepartmentId,
+    Guid? DepartmentId,
     string? DepartmentCode,
     string? DepartmentName,
     VagaAreaTime? AreaTime,
@@ -193,6 +197,8 @@ public sealed record VagaResponse(
     VagaTipoContratacao? TipoContratacao,
     int MatchMinimoPercentual,
     VagaWeightsResponse Weights,
+    string? MatchingFiltrosRaw,
+    string? MatchingFiltrosOriginaisRaw,
     string? DescricaoInterna,
     string? CodigoInterno,
     string? CodigoCbo,

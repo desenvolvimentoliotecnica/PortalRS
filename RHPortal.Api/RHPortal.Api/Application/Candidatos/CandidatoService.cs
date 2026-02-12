@@ -47,6 +47,8 @@ public sealed class CandidatoService : ICandidatoService
     private readonly NotificationPublisher _notificationPublisher;
     private readonly IMatchingService _matchingService;
     private readonly ICvGptExtractor _cvGptExtractor;
+    private readonly IRHPortalAiMatchClient? _aiMatchClient;
+    private readonly ICandidatoVagaMatchingScoreService? _matchingScoreService;
 
     public CandidatoService(
         AppDbContext db,
@@ -56,7 +58,9 @@ public sealed class CandidatoService : ICandidatoService
         IStringLocalizer<ServiceMessages> localizer,
         NotificationPublisher notificationPublisher,
         IMatchingService matchingService,
-        ICvGptExtractor cvGptExtractor)
+        ICvGptExtractor cvGptExtractor,
+        IRHPortalAiMatchClient? aiMatchClient = null,
+        ICandidatoVagaMatchingScoreService? matchingScoreService = null)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -66,6 +70,8 @@ public sealed class CandidatoService : ICandidatoService
         _notificationPublisher = notificationPublisher;
         _matchingService = matchingService;
         _cvGptExtractor = cvGptExtractor;
+        _aiMatchClient = aiMatchClient;
+        _matchingScoreService = matchingScoreService;
     }
 
     public async Task<CandidatePagedResponse> ListAsync(CandidateListQuery query, CancellationToken ct)
@@ -167,9 +173,11 @@ public sealed class CandidatoService : ICandidatoService
     {
         await EnsureVagaAsync(request.VagaId, ct);
 
+        var tenantId = _tenantContext.TenantId ?? "";
         var entity = new Candidato
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             Nome = (request.Nome ?? string.Empty).Trim(),
             Email = NormalizeEmail(request.Email),
             Fone = TrimToMax(request.Fone, 40),
@@ -186,7 +194,7 @@ public sealed class CandidatoService : ICandidatoService
             ApplicationRecruiterUserName = TrimToMax(request.ApplicationRecruiterUserName, 200)
         };
 
-        entity.Documentos = BuildDocumentos(request.Documentos, entity.Id);
+        entity.Documentos = BuildDocumentos(request.Documentos, entity.Id, tenantId);
 
         ApplyLastMatch(entity, request.LastMatch);
 
@@ -194,7 +202,13 @@ public sealed class CandidatoService : ICandidatoService
         await _db.SaveChangesAsync(ct);
 
         if (request.VagaId != Guid.Empty)
+        {
             await _matchingService.CalculateAndStoreAsync(entity.Id, request.VagaId, ct);
+            await TrySaveAiScoreAsync(entity.Id, request.VagaId, ct);
+        }
+
+        // Gera embedding do candidato em background (fire-and-forget)
+        TryGenerateCandidatoEmbeddingAsync(entity.Id, ct);
 
         await NotifyNewCandidateAsync(entity, ct);
 
@@ -229,12 +243,13 @@ public sealed class CandidatoService : ICandidatoService
 
         ApplyLastMatch(entity, request.LastMatch);
 
+        var tenantId = _tenantContext.TenantId ?? "";
         if (request.Documentos is not null)
         {
             if (entity.Documentos.Count > 0)
                 _db.CandidatoDocumentos.RemoveRange(entity.Documentos);
 
-            entity.Documentos = BuildDocumentos(request.Documentos, entity.Id);
+            entity.Documentos = BuildDocumentos(request.Documentos, entity.Id, tenantId);
         }
 
         if (previousStatus != request.Status)
@@ -245,6 +260,7 @@ public sealed class CandidatoService : ICandidatoService
             _db.CandidatoStatusHistories.Add(new CandidatoStatusHistory
             {
                 Id = Guid.NewGuid(),
+                TenantId = tenantId,
                 CandidatoId = entity.Id,
                 FromStatus = previousStatus,
                 ToStatus = request.Status,
@@ -259,9 +275,47 @@ public sealed class CandidatoService : ICandidatoService
         await _db.SaveChangesAsync(ct);
 
         if (entity.VagaId.HasValue && entity.VagaId.Value != Guid.Empty)
+        {
             await _matchingService.CalculateAndStoreAsync(id, entity.VagaId.Value, ct);
+            await TrySaveAiScoreAsync(id, entity.VagaId.Value, ct);
+        }
+
+        // Atualiza embedding do candidato em background (fire-and-forget)
+        TryGenerateCandidatoEmbeddingAsync(id, ct);
 
         return await GetByIdAsync(id, ct);
+    }
+
+    private void TryGenerateCandidatoEmbeddingAsync(Guid candidatoId, CancellationToken ct)
+    {
+        if (_aiMatchClient == null) return;
+        
+        // Fire-and-forget: executa em background sem bloquear
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var tenantId = _tenantContext.TenantId ?? "";
+                await _aiMatchClient.GenerateCandidatoEmbeddingAsync(candidatoId, tenantId, ct);
+            }
+            catch
+            {
+                // best-effort: ignora falhas silenciosamente em background
+            }
+        }, CancellationToken.None);
+    }
+
+    private async Task TrySaveAiScoreAsync(Guid candidatoId, Guid vagaId, CancellationToken ct)
+    {
+        if (_aiMatchClient == null || _matchingScoreService == null) return;
+        try
+        {
+            var tenantId = _tenantContext.TenantId ?? "";
+            var result = await _aiMatchClient.GetScoreForOneAsync(vagaId, candidatoId, tenantId, ct);
+            if (result.HasValue)
+                await _matchingScoreService.SaveAiScoreAsync(candidatoId, vagaId, result.Value.Score, ct);
+        }
+        catch { /* best-effort */ }
     }
 
     public async Task<IReadOnlyList<CandidateStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct)
@@ -341,9 +395,11 @@ public sealed class CandidatoService : ICandidatoService
             await arquivo.CopyToAsync(stream, ct);
         }
 
+        var tenantId = _tenantContext.TenantId ?? "";
         var doc = new CandidatoDocumento
         {
             Id = documentId,
+            TenantId = tenantId,
             CandidatoId = candidatoId,
             Tipo = tipo,
             NomeArquivo = originalName,
@@ -392,9 +448,11 @@ public sealed class CandidatoService : ICandidatoService
             await arquivo.CopyToAsync(stream, ct);
         }
 
+        var tenantId = _tenantContext.TenantId ?? "";
         var doc = new CandidatoDocumento
         {
             Id = documentId,
+            TenantId = tenantId,
             CandidatoId = candidatoId,
             Tipo = CandidateDocumentType.Curriculo,
             NomeArquivo = originalName,
@@ -501,6 +559,7 @@ public sealed class CandidatoService : ICandidatoService
             c.Vaga?.RecrutadorResponsavelUserId,
             c.TalentoId,
             c.Obs,
+            c.ResumoProfissional,
             c.CvText,
             MapMatch(c),
             c.Documentos.OrderByDescending(x => x.CreatedAtUtc).Select(doc => MapDocumento(c.Id, doc)).ToList(),
@@ -560,7 +619,7 @@ public sealed class CandidatoService : ICandidatoService
         entity.LastMatchVagaId = match.VagaId;
     }
 
-    private static List<CandidatoDocumento> BuildDocumentos(IReadOnlyList<CandidateDocumentoRequest>? items, Guid candidatoId)
+    private static List<CandidatoDocumento> BuildDocumentos(IReadOnlyList<CandidateDocumentoRequest>? items, Guid candidatoId, string tenantId)
     {
         if (items is null || items.Count == 0) return [];
 
@@ -571,6 +630,7 @@ public sealed class CandidatoService : ICandidatoService
             list.Add(new CandidatoDocumento
             {
                 Id = Guid.NewGuid(),
+                TenantId = tenantId,
                 CandidatoId = candidatoId,
                 Tipo = item.Tipo,
                 NomeArquivo = (item.NomeArquivo ?? string.Empty).Trim(),

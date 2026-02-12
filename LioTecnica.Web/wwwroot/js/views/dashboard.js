@@ -354,7 +354,8 @@ function setActiveMenu(key) {
     const meta = menuMeta[key] ?? menuMeta.dashboard;
 
     $("#pageH4").textContent = t(meta.titleKey, t("menu_dashboard_title_fallback", "Dashboard"));
-    $("#pageSub").textContent = t(meta.subKey, t("menu_dashboard_sub_fallback", "Visão geral do dia • vagas • recebimentos e triagem."));
+    const pageSubEl = document.getElementById("pageSub");
+    if (pageSubEl) pageSubEl.textContent = t(meta.subKey, t("menu_dashboard_sub_fallback", "Visão geral do dia • vagas • recebimentos e triagem."));
 
     $$(".sidebar .nav-link").forEach(a => a.classList.toggle("active", a.dataset.menu === key));
     $$("#offcanvasSidebar [data-menu]").forEach(a => {

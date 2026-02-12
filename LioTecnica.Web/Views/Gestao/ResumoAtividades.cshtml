@@ -7,30 +7,29 @@
 	@await Html.PartialAsync("_TopbarBrand", (string)null)
 
 	<div class="d-flex align-items-center gap-2">
-		<select class="form-select form-select-sm" id="filtroPeriodo" style="min-width: 160px;">
-			<option value="7">Últimos 7 dias</option>
-			<option value="30" selected>Últimos 30 dias</option>
-			<option value="90">Últimos 90 dias</option>
-		</select>
-		<select class="form-select form-select-sm" id="filtroTipo" style="min-width: 180px;">
-			<option value="">Todas as atividades</option>
-			<option value="feedback">Feedbacks</option>
-			<option value="plano">Planos / Metas</option>
-			<option value="1a1">Reuniões 1:1</option>
-			<option value="humor">Humor</option>
-		</select>
-		<button class="btn btn-ghost" type="button" title="Atualizar">
-			<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
-		</button>
 		@await Html.PartialAsync("_TopbarUserActions", "RH")
 	</div>
 }
 
 <section class="content">
-	<div class="page-title">
-		<div>
-			<h4>Resumo de Atividades</h4>
-			<div class="subtitle">Timeline de atividades da equipe: feedbacks, metas, reuniões 1:1 e humor.</div>
+	<div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+		<h4 class="mb-0">Resumo de Atividades</h4>
+		<div class="d-flex flex-nowrap align-items-center gap-2">
+			<select class="form-select form-select-sm page-title-select" id="filtroPeriodo">
+				<option value="7">Últimos 7 dias</option>
+				<option value="30" selected>Últimos 30 dias</option>
+				<option value="90">Últimos 90 dias</option>
+			</select>
+			<select class="form-select form-select-sm page-title-select" id="filtroTipo">
+				<option value="">Todas as atividades</option>
+				<option value="feedback">Feedbacks</option>
+				<option value="plano">Planos / Metas</option>
+				<option value="1a1">Reuniões 1:1</option>
+				<option value="humor">Humor</option>
+			</select>
+			<button class="btn btn-ghost" type="button" title="Atualizar">
+				<i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+			</button>
 		</div>
 	</div>
 

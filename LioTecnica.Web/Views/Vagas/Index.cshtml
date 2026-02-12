@@ -20,71 +20,42 @@
 	</div>
 
 	<div class="d-flex align-items-center gap-2">
-		<button class="btn btn-ghost" type="button" id="btnExportJson" title="Exportar vagas (JSON)">
-			<i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
-		</button>
-
-		<button class="btn btn-ghost" type="button" id="btnImportJson" title="Importar vagas (JSON)">
-			<i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">Importar</span>
-		</button>
-
-		<button class="btn btn-brand" type="button" id="btnNewVaga">
-			<i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Nova vaga</span>
-		</button>
-
 		@await Html.PartialAsync("_TopbarUserActions", "RH")
 	</div>
 }
 
 <!-- CONTENT -->
 <section class="content">
-	<div class="page-title">
+	<div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
 		<div>
 			<h4>Vagas</h4>
-			<div class="subtitle">Crie vagas, defina requisitos com peso e marque itens obrigatórios para o matching.</div>
+		</div>
+		<div class="d-flex align-items-center gap-2">
+			<button class="btn btn-ghost" type="button" id="btnExportJson" title="Exportar vagas (JSON)">
+				<i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
+			</button>
+			<button class="btn btn-ghost" type="button" id="btnImportJson" title="Importar vagas (JSON)">
+				<i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">Importar</span>
+			</button>
+			<button class="btn btn-brand" type="button" id="btnNewVaga">
+				<i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Nova vaga</span>
+			</button>
 		</div>
 	</div>
-
-	<!-- KPIs -->
-	@{
-		var kpis = new[]
-		{
-	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Total", ValueId = "kpiTotal", Value = "0", Hint = "vagas cadastradas", Icon = "bi-collection" },
-	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Abertas", ValueId = "kpiAbertas", Value = "0", Hint = "em andamento", Icon = "bi-briefcase" },
-	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Pausadas", ValueId = "kpiPausadas", Value = "0", Hint = "aguardando", Icon = "bi-pause-circle" },
-	new { ColClass = "col-12 col-md-6 col-xl-3", Label = "Fechadas", ValueId = "kpiFechadas", Value = "0", Hint = "encerradas", Icon = "bi-lock" }
-	};
-	}
-	@await Html.PartialAsync("_KpiCardRow", kpis)
 
 	<div class="row g-3 mt-1">
 		<!-- LISTA -->
 		<div class="col-12">
 			<div class="card-soft p-3">
-				<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-					<div>
-						<p class="mini-title mb-1">Lista</p>
-						<div class="fw-bold">Vagas cadastradas</div>
-						Use o botao Detalhes na lista para editar requisitos (pesos/obrigatorios), definir o match minimo e simular aderencia.
+				<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+					<div class="input-group" style="width: 260px;">
+						<span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
+							<i class="bi bi-search"></i>
+						</span>
+						<input class="form-control" id="fSearch" placeholder="Buscar por título, código, área..." style="border-color:var(--lt-border);">
 					</div>
-				</div>
-
-				<!-- filtros -->
-				<div class="row g-2 mb-2">
-					<div class="col-12 col-md-6">
-						<div class="input-group">
-							<span class="input-group-text" style="border-color:var(--lt-border); background: rgba(255,255,255,.65);">
-								<i class="bi bi-search"></i>
-							</span>
-							<input class="form-control" id="fSearch" placeholder="Buscar por título, código, área..." style="border-color:var(--lt-border);">
-						</div>
-					</div>
-					<div class="col-6 col-md-3">
-						<select class="form-select" id="fStatus" data-enum="vagaStatusFilter" style="border-color:var(--lt-border);"></select>
-					</div>
-					<div class="col-6 col-md-3">
-						<select class="form-select" id="fArea" data-enum="vagaAreaFilter" style="border-color:var(--lt-border);"></select>
-					</div>
+					<select class="form-select" id="fArea" data-enum="vagaAreaFilter" style="border-color:var(--lt-border); width: 200px;"></select>
+					<select class="form-select" id="fStatus" data-enum="vagaStatusFilter" style="border-color:var(--lt-border); width: 150px;"></select>
 				</div>
 
 							<div class="table-responsive">
@@ -147,6 +118,9 @@
 		<td class="text-end nowrap">
 			<button class="btn btn-ghost btn-sm me-1" data-act="detail">
 				<i class="bi bi-layout-text-window me-1"></i>Detalhes
+			</button>
+			<button class="btn btn-ghost btn-sm me-1" data-act="matching" title="Ver matching">
+				<i class="bi bi-stars me-1"></i>Matching
 			</button>
 			<button class="btn btn-ghost btn-sm me-1" data-act="edit">
 				<i class="bi bi-pencil me-1"></i>Editar
@@ -214,16 +188,20 @@
 				</button>
 			</li>
 			<li class="nav-item" role="presentation">
-				<button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabMatch" type="button" role="tab">
-					<i class="bi bi-sliders me-1"></i>Pesos &amp; Match
-				</button>
-			</li>
-			<li class="nav-item" role="presentation">
 				<button class="nav-link rounded-pill" data-bs-toggle="pill" data-bs-target="#tabCands" type="button" role="tab">
 					<i class="bi bi-people me-1"></i>Candidatos
 				</button>
 			</li>
 		</ul>
+
+		<div class="d-flex align-items-center gap-2 mb-3">
+			<span class="fw-semibold small">Match minimo</span>
+			<input type="range" class="form-range flex-grow-1" min="0" max="100" id="thresholdRange" style="max-width: 200px;">
+			<span class="badge-soft" style="min-width:74px;text-align:center;" id="thresholdLabel"></span>
+			<button class="btn btn-brand btn-sm" type="button" data-dact="saveThreshold">
+				<i class="bi bi-check2 me-1"></i>Salvar
+			</button>
+		</div>
 
 		<div class="tab-content">
 			<!-- RESUMO -->
@@ -300,73 +278,6 @@
 					Regras: score = soma(pesos encontrados) / soma(pesos totais) * 100.
 					Itens <strong>obrigatorios</strong> podem aplicar penalidade se ausentes.
 				</div>
-			</div>
-
-			<!-- PESOS & MATCH -->
-			<div class="tab-pane fade" id="tabMatch" role="tabpanel">
-				<div class="fw-semibold mb-1">Match minimo</div>
-				<div class="d-flex align-items-center gap-2">
-					<input type="range" class="form-range" min="0" max="100" id="thresholdRange">
-					<span class="badge-soft" style="min-width:74px;text-align:center;" id="thresholdLabel"></span>
-				</div>
-				<div class="text-muted small mb-3">Use isso como corte para triagem automatica.</div>
-
-				<div class="fw-semibold mb-2">Pesos por categoria (soma ideal = 100)</div>
-
-				<div class="mb-2">
-					<div class="d-flex align-items-center justify-content-between">
-						<div class="text-muted small">Competencia</div>
-						<div class="mono small"><span id="w_competencia_val"></span>%</div>
-					</div>
-					<input type="range" class="form-range" min="0" max="100" id="w_competencia">
-				</div>
-
-				<div class="mb-2">
-					<div class="d-flex align-items-center justify-content-between">
-						<div class="text-muted small">Experiencia</div>
-						<div class="mono small"><span id="w_experiencia_val"></span>%</div>
-					</div>
-					<input type="range" class="form-range" min="0" max="100" id="w_experiencia">
-				</div>
-
-				<div class="mb-2">
-					<div class="d-flex align-items-center justify-content-between">
-						<div class="text-muted small">Formacao</div>
-						<div class="mono small"><span id="w_formacao_val"></span>%</div>
-					</div>
-					<input type="range" class="form-range" min="0" max="100" id="w_formacao">
-				</div>
-
-				<div class="mb-2">
-					<div class="d-flex align-items-center justify-content-between">
-						<div class="text-muted small">Localidade</div>
-						<div class="mono small"><span id="w_localidade_val"></span>%</div>
-					</div>
-					<input type="range" class="form-range" min="0" max="100" id="w_localidade">
-				</div>
-
-				<div class="d-flex align-items-center justify-content-between mt-3">
-					<span class="badge-soft">Soma atual: <span id="weightsSum"></span></span>
-					<button class="btn btn-brand btn-sm" type="button" data-dact="saveWeights">
-						<i class="bi bi-check2 me-1"></i>Salvar
-					</button>
-				</div>
-
-				<hr class="my-3">
-
-				<div class="fw-semibold mb-1">Simulador rapido</div>
-				<div class="text-muted small mb-2">Cole um texto (curriculo em texto) e veja o match estimado por palavras-chave.</div>
-				<textarea class="form-control mb-2" id="simText" rows="5" placeholder="Cole aqui o texto do CV (extraido do PDF/DOCX)..."></textarea>
-				<div class="d-flex gap-2">
-					<button class="btn btn-ghost btn-sm" type="button" data-dact="simulate">
-						<i class="bi bi-play-circle me-1"></i>Simular
-					</button>
-					<button class="btn btn-ghost btn-sm" type="button" data-dact="simClear">
-						<i class="bi bi-eraser me-1"></i>Limpar
-					</button>
-				</div>
-
-				<div class="mt-2" id="simResult"></div>
 			</div>
 
 			<!-- CANDIDATOS -->
@@ -449,12 +360,147 @@
 			<span class="badge-soft" data-role="cand-match"></span>
 		</td>
 		<td class="text-end">
-			<a class="btn btn-ghost btn-sm" data-role="cand-open">
+			<button type="button" class="btn btn-ghost btn-sm" data-role="cand-open">
 				<i class="bi bi-box-arrow-up-right me-1"></i>Abrir
-			</a>
+			</button>
 		</td>
 	</tr>
 </template>
+
+<!-- Templates para modal de detalhes do candidato (mesmo conteudo do Matching) -->
+<template id="tpl-matching-tag">
+	<span class="status-tag">
+		<i class="bi" data-role="icon"></i>
+		<span data-role="text"></span>
+	</span>
+</template>
+<template id="tpl-matching-detail-empty">
+	<div class="empty">
+		<div class="d-flex align-items-start gap-2">
+			<i class="bi bi-info-circle mt-1"></i>
+			<div>
+				<div class="fw-bold">Selecione um candidato</div>
+				<div class="small mt-1">A tela exibira score, requisitos e explicacao do calculo.</div>
+			</div>
+		</div>
+	</div>
+</template>
+<template id="tpl-matching-detail-novaga">
+	<div class="empty">
+		<div class="fw-bold">Sem vaga vinculada</div>
+		<div class="small mt-1">Vincule a vaga ao candidato para calcular o matching.</div>
+	</div>
+</template>
+<template id="tpl-matching-detail">
+	<div class="card-soft p-3">
+		<div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+			<div class="d-flex align-items-center gap-2">
+				<div class="avatar" style="width:52px;height:52px;border-radius:16px;" data-role="detail-initials"></div>
+				<div>
+					<div class="fw-bold" style="font-size:1.05rem;" data-role="detail-name"></div>
+					<div class="text-muted small" data-role="detail-email"></div>
+					<div class="text-muted small"><i class="bi bi-clock-history me-1"></i>Atualizado: <span data-role="detail-updated"></span></div>
+				</div>
+			</div>
+			<div class="text-end">
+				<div data-role="detail-match-tag"></div>
+				<div class="text-muted small mt-1">Minimo: <span class="mono fw-semibold" data-role="detail-thr"></span></div>
+				<div class="text-muted small">
+					<i class="bi me-1" data-role="detail-cache-icon"></i><span data-role="detail-cache-text"></span>
+				</div>
+			</div>
+		</div>
+		<div class="d-flex flex-wrap gap-2 mb-3">
+			<span class="pill"><i class="bi bi-briefcase"></i><span data-role="detail-vaga-title"></span></span>
+			<span class="pill mono"><span data-role="detail-vaga-code"></span></span>
+			<span class="pill"><i class="bi bi-collection me-1"></i>Requisitos: <strong class="ms-1" data-role="detail-req-count"></strong></span>
+			<span class="pill"><i class="bi bi-check2-circle me-1"></i>Encontrados: <strong class="ms-1" data-role="detail-hit-count"></strong></span>
+			<span class="pill"><i class="bi bi-exclamation-triangle me-1"></i>Obrig. faltando: <strong class="ms-1" data-role="detail-miss-count"></strong></span>
+		</div>
+		<div class="mb-2">
+			<div class="d-flex align-items-center justify-content-between">
+				<div>
+					<div class="fw-bold">Score</div>
+					<div class="text-muted small">baseado em pesos e palavras-chave</div>
+				</div>
+				<div class="fw-bold" style="font-size:1.35rem;color:var(--lt-primary);" data-role="detail-score"></div>
+			</div>
+			<div class="progress mt-2">
+				<div class="progress-bar" data-role="detail-score-bar"></div>
+			</div>
+		</div>
+		<div class="row g-2 mt-3">
+			<div class="col-12 col-lg-6">
+				<div class="fw-bold mb-2">Requisitos (detalhado)</div>
+				<lt-list class="d-grid gap-2" id="candDetailReqList"></lt-list>
+			</div>
+			<div class="col-12 col-lg-6">
+				<div class="fw-bold mb-2">Explicacao do calculo</div>
+				<div class="card-soft p-3" style="box-shadow:none;">
+					<div class="d-flex align-items-start gap-2">
+						<i class="bi bi-info-circle mt-1"></i>
+						<div class="text-muted small">
+							<div><span class="mono">score = (peso_encontrado / peso_total) * 100</span></div>
+							<div class="mt-1">Penalidade: <span class="mono">-15 pontos</span> por obrigatorio faltando (max. <span class="mono">-40</span>).</div>
+							<div class="mt-1">Criterio: <span class="mono">score &gt;= threshold</span> =&gt; "Dentro".</div>
+						</div>
+					</div>
+					<hr class="my-3" style="border-color: rgba(16,82,144,.14);">
+					<div class="d-flex align-items-center justify-content-between">
+						<div class="text-muted small">Peso encontrado</div>
+						<div class="fw-bold mono"><span data-role="detail-hitPeso"></span>/<span data-role="detail-totalPeso"></span></div>
+					</div>
+					<div class="d-flex align-items-center justify-content-between mt-1">
+						<div class="text-muted small">Penalidade (obrigatorios)</div>
+						<div class="fw-bold mono" data-role="detail-penalty"></div>
+					</div>
+				</div>
+				<div class="mt-3" id="candDetailResumoWrap">
+					<div class="fw-bold">Resumo profissional</div>
+					<div class="text-muted small mt-1" id="candDetailResumoProfissional"></div>
+				</div>
+				<div class="mt-3" id="candDetailDocumentosWrap">
+					<div class="fw-bold">Documentos</div>
+					<div class="text-muted small mt-1" id="candDetailDocumentosList"></div>
+				</div>
+				<div class="mt-3">
+					<div class="fw-bold">Trecho do CV (texto)</div>
+					<div class="text-muted small">Texto usado para matching.</div>
+					<textarea class="form-control mt-2" id="candDetailCvText" rows="8" style="border-color:var(--lt-border);" readonly></textarea>
+				</div>
+			</div>
+		</div>
+	</div>
+</template>
+<template id="tpl-matching-req-row">
+	<div class="req-row">
+		<div class="d-flex align-items-start justify-content-between gap-2">
+			<div>
+				<div class="fw-semibold"><i class="bi me-1" data-role="req-icon"></i><span data-role="req-term"></span></div>
+				<div class="text-muted small">
+					Peso: <span class="mono" data-role="req-weight"></span>
+					<span class="mx-1">&bull;</span>
+					<span data-role="req-obrig"></span>
+				</div>
+				<div class="text-muted small mt-1" data-role="req-syn-wrap">Sinonimos: <span data-role="req-syn"></span></div>
+			</div>
+			<div data-role="req-tag-host"></div>
+		</div>
+	</div>
+</template>
+
+<!-- Modal: detalhes do candidato (na tela de Vagas, sem ir para Candidatos) -->
+<div class="modal fade" id="modalCandDetalhesVaga" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+	<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+		<div class="modal-content">
+			<div class="modal-header">
+				<div class="fw-bold">Detalhes do candidato</div>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+			</div>
+			<div class="modal-body" id="candDetalhesVagaBody"></div>
+		</div>
+	</div>
+</div>
 
 <template id="tpl-vaga-sim-alert-warning">
 	<div class="alert alert-warning" style="border-radius:14px;">Cole um texto para simular.</div>

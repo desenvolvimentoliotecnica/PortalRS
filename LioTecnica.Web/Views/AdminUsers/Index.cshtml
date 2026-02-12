@@ -15,22 +15,19 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
-        <a class="btn btn-brand" href="/Admin/Users/New">
-            <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo usuario</span>
-        </a>
         @await Html.PartialAsync("_TopbarUserActions", "Admin")
     </div>
 }
 
 <section class="content">
-    <div class="page-title">
+    <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
             <h4>Users</h4>
-            <div class="subtitle">Gerencie usuarios, perfis e acessos.</div>
         </div>
-        <div class="d-flex align-items-center gap-2">
-            <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">-</span></span>
-            <span class="badge-soft"><i class="bi bi-hdd me-1"></i>API</span>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-brand" href="/Admin/Users/New">
+                <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo usuario</span>
+            </a>
         </div>
     </div>
 

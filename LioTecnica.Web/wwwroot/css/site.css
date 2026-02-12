@@ -348,6 +348,49 @@ body {
   box-shadow: var(--lt-shadow);
 }
 
+/* Matching: círculo de porcentagem no ranking (maior, cores por faixa) */
+.score-circle {
+  --score: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: conic-gradient(var(--score-circle-fill, var(--lt-primary)) calc(var(--score) * 1%), var(--lt-border) 0);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.score-circle.score-high {
+  --score-circle-fill: #198754;
+}
+.score-circle.score-medium {
+  --score-circle-fill: #ffc107;
+}
+.score-circle.score-low {
+  --score-circle-fill: #dc3545;
+}
+.score-circle-value {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--lt-card);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--lt-primary);
+}
+.score-circle-value.score-high {
+  color: #198754;
+}
+.score-circle-value.score-medium {
+  color: #b8860b;
+}
+.score-circle-value.score-low {
+  color: #dc3545;
+}
+
 .btn-brand {
   background: linear-gradient(90deg, var(--lt-brand), var(--lt-primary));
   border: none;
@@ -796,6 +839,11 @@ body {
   gap: .75rem;
 }
 
+.matching-grid.matching-has-table {
+  display: block;
+  width: 100%;
+}
+
 .kpi .l {
   font-size: .85rem;
   color: rgba(13, 27, 42, .62);
@@ -829,6 +877,18 @@ body {
   grid-template-columns: 420px 1fr;
   gap: 1rem;
   min-width: 0;
+}
+
+.rank-match-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Selects no page-title: um ao lado do outro, largura conforme conteúdo */
+.page-title-select {
+  width: auto;
+  min-width: 10em;
+  max-width: 100%;
 }
 
 .chart-wrap {

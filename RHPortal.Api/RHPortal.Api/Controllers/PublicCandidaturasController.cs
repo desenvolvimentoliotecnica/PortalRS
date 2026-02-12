@@ -28,13 +28,19 @@ public sealed class PublicCandidaturasController : ControllerBase
 {
     private readonly IStringLocalizer<ControllerMessages> _localizer;
     private readonly IMatchingService _matchingService;
+    private readonly IRHPortalAiMatchClient? _aiMatchClient;
+    private readonly ICandidatoVagaMatchingScoreService? _matchingScoreService;
 
     public PublicCandidaturasController(
         IStringLocalizer<ControllerMessages> localizer,
-        IMatchingService matchingService)
+        IMatchingService matchingService,
+        IRHPortalAiMatchClient? aiMatchClient = null,
+        ICandidatoVagaMatchingScoreService? matchingScoreService = null)
     {
         _localizer = localizer;
         _matchingService = matchingService;
+        _aiMatchClient = aiMatchClient;
+        _matchingScoreService = matchingScoreService;
     }
 
     /// <summary>
@@ -70,10 +76,10 @@ public sealed class PublicCandidaturasController : ControllerBase
             return BadRequest(new { message = "Email é obrigatório." });
 
         // 1) Verifica se já existe candidato com este email (no tenant atual)
-        //    IMPORTANTE: se você usa filtro global por tenant no DbContext, isso já respeita o tenant.
+        var tenantId = tenantContext.TenantId ?? "";
         var existing = await db.Candidatos
             .AsTracking()
-            .FirstOrDefaultAsync(x => x.Email == email && x.TenantId == "liotecnica", ct);
+            .FirstOrDefaultAsync(x => x.Email == email && x.TenantId == tenantId, ct);
 
         var (cidade, uf) = ParseCidadeUf(request.CidadeUf);
         var obs = BuildObs(request);
@@ -130,6 +136,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                     existing.Vaga?.RecrutadorResponsavelUserId,
                     existing.TalentoId,
                     existing.Obs,
+                    existing.ResumoProfissional,
                     existing.CvText,
                     null,
                     Array.Empty<CandidateDocumentoResponse>(),
@@ -200,6 +207,18 @@ public sealed class PublicCandidaturasController : ControllerBase
                 }
             }
 
+            // Calcular e persistir score de matching por IA (um candidato, uma vaga)
+            if (_aiMatchClient != null && _matchingScoreService != null)
+            {
+                try
+                {
+                    var aiResult = await _aiMatchClient.GetScoreForOneAsync(request.VagaId, result.Id, tenantId, ct);
+                    if (aiResult.HasValue)
+                        await _matchingScoreService.SaveAiScoreAsync(result.Id, request.VagaId, aiResult.Value.Score, ct);
+                }
+                catch { /* best-effort: não falha a candidatura */ }
+            }
+
             // 4) Email (best effort) — pode manter como está
             try
             {
@@ -231,7 +250,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                 await NotifyPortalCandidaturaAsync(
                     db,
                     notificationPublisher,
-                    notifyTenantId,
+                    notifyTenantId ?? "",
                     notifyCandidateId,
                     ct);
             }

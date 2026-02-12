@@ -88,8 +88,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<RenderCoinBalance> RenderCoinBalances => Set<RenderCoinBalance>();
     public DbSet<RenderCoinTransaction> RenderCoinTransactions => Set<RenderCoinTransaction>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
-
-
+    public DbSet<CandidatoVagaMatchingScore> CandidatoVagaMatchingScores => Set<CandidatoVagaMatchingScore>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -602,7 +601,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             // Se você quer obrigar AreaId, deixe IsRequired()
             b.Property(x => x.AreaId).IsRequired();
 
-            b.Property(x => x.DepartmentId).IsRequired();
+            b.Property(x => x.DepartmentId).IsRequired(false);
 
             b.HasOne(x => x.Area)
                 .WithMany() // ou .WithMany(a => a.Vagas) se você tiver coleção em Area
@@ -612,6 +611,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Department)
                  .WithMany()
                  .HasForeignKey(x => x.DepartmentId)
+                 .IsRequired(false)
                  .OnDelete(DeleteBehavior.Restrict);
 
             b.HasOne(x => x.RecrutadorResponsavelUser)
@@ -1070,6 +1070,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
             b.HasIndex(x => new { x.TenantId, x.CandidatoId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoVagaMatchingScore>(b =>
+        {
+            b.ToTable("CandidatoVagaMatchingScores");
+            b.HasKey(x => new { x.CandidatoId, x.VagaId });
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Score).IsRequired();
+            b.Property(x => x.CalculatedAtUtc).IsRequired();
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.VagaId, x.Score });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

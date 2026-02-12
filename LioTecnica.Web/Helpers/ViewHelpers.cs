@@ -32,6 +32,10 @@ public static class ViewHelpers
 
         if (normalizedCurrent == normalizedRoute) return activeClass;
 
+        // Quando estiver em /Vagas/Matching/xxx, manter "Vagas" ativo na sidebar
+        if (normalizedRoute == "/vagas" && normalizedCurrent.StartsWith("/vagas/"))
+            return activeClass;
+
         if (normalizedCurrent == string.Empty || normalizedCurrent == "/")
         {
             if (normalizedRoute == "/dashboard" || normalizedRoute == string.Empty || normalizedRoute == "/")

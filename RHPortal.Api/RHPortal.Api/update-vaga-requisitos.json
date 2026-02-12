@@ -1,0 +1,52 @@
+{
+  "titulo": "Vaga Teste Matching IA",
+  "departmentId": "03c45978-1d54-413c-a7a9-332f7691fe53",
+  "areaId": "cb269d63-18eb-4401-81a0-b4c9208cc96b",
+  "status": 2,
+  "matchMinimoPercentual": 70,
+  "matchingFiltrosRaw": "Requisitos: Python, SQL, API REST. Keywords: backend, .NET, C#",
+  "weights": {
+    "competencia": 40,
+    "experiencia": 30,
+    "formacao": 15,
+    "localidade": 15
+  },
+  "requisitos": [
+    {
+      "ordem": 0,
+      "nome": "Python",
+      "peso": 5,
+      "obrigatorio": true
+    },
+    {
+      "ordem": 1,
+      "nome": "SQL",
+      "peso": 5,
+      "obrigatorio": true
+    },
+    {
+      "ordem": 2,
+      "nome": "API REST",
+      "peso": 4,
+      "obrigatorio": false
+    },
+    {
+      "ordem": 3,
+      "nome": "backend",
+      "peso": 4,
+      "obrigatorio": false
+    },
+    {
+      "ordem": 4,
+      "nome": ".NET",
+      "peso": 4,
+      "obrigatorio": false
+    },
+    {
+      "ordem": 5,
+      "nome": "C#",
+      "peso": 4,
+      "obrigatorio": false
+    }
+  ]
+}

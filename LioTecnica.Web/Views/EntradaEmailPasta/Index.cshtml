@@ -16,32 +16,27 @@
     @await Html.PartialAsync("_TopbarBrand", (string)null)
 
     <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar dados">
-            <i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
-        </button>
-
-        <button class="btn btn-ghost" type="button" id="btnExport" title="Exportar (JSON)">
-            <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
-        </button>
-
-        <button class="btn btn-ghost" type="button" id="btnImport" title="Importar (JSON)">
-            <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">Importar</span>
-        </button>
-
-        <button class="btn btn-brand" type="button" id="btnRunSim">
-            <i class="bi bi-play-circle"></i><span class="d-none d-sm-inline ms-1">Simular coleta</span>
-        </button>
-
         @await Html.PartialAsync("_TopbarUserActions", "RH")
     </div>
 }
 
 <!-- CONTENT -->
 <section class="content">
-    <div class="page-title">
-        <div>
-            <h4>Entrada (Email / Pasta)</h4>
-            <div class="subtitle">Central de ingestão: e-mails, pastas monitoradas e upload manual • tudo cai na fila de triagem.</div>
+    <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <h4>Entrada (Email / Pasta)</h4>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar dados">
+                <i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+            </button>
+            <button class="btn btn-ghost" type="button" id="btnExport" title="Exportar (JSON)">
+                <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
+            </button>
+            <button class="btn btn-ghost" type="button" id="btnImport" title="Importar (JSON)">
+                <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">Importar</span>
+            </button>
+            <button class="btn btn-brand" type="button" id="btnRunSim">
+                <i class="bi bi-play-circle"></i><span class="d-none d-sm-inline ms-1">Simular coleta</span>
+            </button>
         </div>
     </div>
 

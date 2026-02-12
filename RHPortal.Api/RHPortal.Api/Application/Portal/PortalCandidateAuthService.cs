@@ -119,9 +119,11 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
             OrigemTalento.Site,
             ct);
 
+        var tenantId = _tenantContext.TenantId ?? "";
         var entity = new Candidato
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             Nome = (request.Nome ?? string.Empty).Trim(),
             Email = email,
             Fone = NormalizeRequired(request.Fone),

@@ -44,9 +44,10 @@ public sealed class VagasApiClient
         return SendAsync(req, ct);
     }
 
-    public Task<ApiRawResponse> GetMatchingCandidatesRawAsync(string tenantId, Guid vagaId, int minScore = 0, int take = 50, CancellationToken ct = default)
+    public Task<ApiRawResponse> GetMatchingCandidatesRawAsync(string tenantId, Guid vagaId, int minScore = 0, int take = 50, bool useAi = false, CancellationToken ct = default)
     {
         var qs = $"?minScore={minScore}&take={take}";
+        if (useAi) qs += "&useAi=true";
         var req = BuildRequest(HttpMethod.Get, $"api/vagas/{vagaId}/matching-candidates{qs}", tenantId);
         return SendAsync(req, ct);
     }
@@ -54,6 +55,13 @@ public sealed class VagasApiClient
     public Task<ApiRawResponse> GetEnumsRawAsync(string tenantId, CancellationToken ct)
     {
         var req = BuildRequest(HttpMethod.Get, "api/lookup/enums", tenantId);
+        return SendAsync(req, ct);
+    }
+
+    public Task<ApiRawResponse> UpdateMatchingFiltrosRawAsync(string tenantId, Guid id, JsonElement payload, CancellationToken ct)
+    {
+        var json = JsonSerializer.Serialize(payload, JsonOpts);
+        var req = BuildRequest(HttpMethod.Patch, $"api/vagas/{id}/matching-filtros", tenantId, jsonBody: json);
         return SendAsync(req, ct);
     }
 
