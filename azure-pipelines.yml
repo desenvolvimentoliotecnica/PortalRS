@@ -1,0 +1,72 @@
+trigger:
+  - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  package_name: "deploy-package.tar.gz"
+  artifact_name: "drop"
+
+steps:
+  - task: Bash@3
+    displayName: "Compactar projeto para release"
+    inputs:
+      targetType: "inline"
+      script: |
+        set -euo pipefail
+
+        echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
+        cd "$(Build.SourcesDirectory)"
+
+        # Detecta automaticamente se o conteúdo está dentro da pasta Voltage.RenderRH
+        if [ -d "Voltage.RenderRH" ]; then
+          ROOT_DIR="Voltage.RenderRH"
+        else
+          ROOT_DIR="."
+        fi
+
+        echo "Root detectado: ${ROOT_DIR}"
+
+        tar -czf "$(Build.SourcesDirectory)/$(package_name)" \
+          --exclude='.git' \
+          --exclude='$(package_name)' \
+          --exclude='.vs' \
+          --exclude='.vscode' \
+          --exclude='.idea' \
+          --exclude='**/bin' \
+          --exclude='**/obj' \
+          --exclude='**/*.log' \
+          --exclude='**/.env' \
+          --exclude='RHPortal.Ai/.venv' \
+          --exclude='Liotecnica.Integration.RM.Schema.Tables/CV' \
+          --exclude='Liotecnica.Integration.RM.Logs' \
+          -C "${ROOT_DIR}" .
+
+        # Valida se gerou
+        test -f "$(Build.SourcesDirectory)/$(package_name)" || (echo "ERRO: pacote não foi criado"; exit 1)
+
+        echo "Pacote gerado:"
+        ls -lh "$(Build.SourcesDirectory)/$(package_name)"
+
+        # Valida conteúdo mínimo esperado para seu projeto
+        tar -tzf "$(Build.SourcesDirectory)/$(package_name)" | grep -q "^RHPortal.Api/RHPortal.Api.sln$" || (echo "ERRO: RHPortal.Api.sln não encontrado no pacote"; exit 1)
+        tar -tzf "$(Build.SourcesDirectory)/$(package_name)" | grep -q "^LioTecnica.sln$" || (echo "ERRO: LioTecnica.sln não encontrado no pacote"; exit 1)
+        tar -tzf "$(Build.SourcesDirectory)/$(package_name)" | grep -q "^RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj$" || (echo "ERRO: RHPortal.Api.csproj não encontrado"; exit 1)
+        tar -tzf "$(Build.SourcesDirectory)/$(package_name)" | grep -q "^LioTecnica.Web/LioTecnica.Web.csproj$" || (echo "ERRO: LioTecnica.Web.csproj não encontrado"; exit 1)
+
+        echo "✅ Pacote validado com sucesso"
+
+  - task: CopyFiles@2
+    displayName: "Organizar para artefato"
+    inputs:
+      SourceFolder: "$(Build.SourcesDirectory)"
+      Contents: "$(package_name)"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Publicar artefato"
+    inputs:
+      PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+      ArtifactName: "$(artifact_name)"
+      publishLocation: "Container"
