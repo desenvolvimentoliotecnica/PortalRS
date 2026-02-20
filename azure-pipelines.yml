@@ -7,6 +7,7 @@ pool:
 variables:
   package_name: "deploy-package.tar.gz"
   artifact_name: "drop"
+  package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
 
 steps:
   - task: Bash@3
@@ -19,7 +20,6 @@ steps:
         echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
         cd "$(Build.SourcesDirectory)"
 
-        # Detecta automaticamente se o conteúdo está dentro da pasta Voltage.RenderRH
         if [ -d "Voltage.RenderRH" ]; then
           ROOT_DIR="Voltage.RenderRH"
         else
@@ -27,8 +27,10 @@ steps:
         fi
 
         echo "Root detectado: ${ROOT_DIR}"
+        echo "Pacote será gerado em: $(package_path)"
 
-        tar -czf "$(Build.SourcesDirectory)/$(package_name)" \
+        tar -czf "$(package_path)" \
+          --warning=no-file-changed \
           --exclude='.git' \
           --exclude='$(package_name)' \
           --exclude='.vs' \
@@ -43,24 +45,21 @@ steps:
           --exclude='Liotecnica.Integration.RM.Logs' \
           -C "${ROOT_DIR}" .
 
-        # Valida se gerou
-        test -f "$(Build.SourcesDirectory)/$(package_name)" || (echo "ERRO: pacote não foi criado"; exit 1)
+        test -f "$(package_path)" || (echo "ERRO: pacote não foi criado"; exit 1)
 
-        echo "Pacote gerado:"
-        ls -lh "$(Build.SourcesDirectory)/$(package_name)"
+        ls -lh "$(package_path)"
 
-        # Valida conteúdo mínimo esperado para seu projeto
-        tar -tzf "$(Build.SourcesDirectory)/$(package_name)" | grep -q "^RHPortal.Api/RHPortal.Api.sln$" || (echo "ERRO: RHPortal.Api.sln não encontrado no pacote"; exit 1)
-        tar -tzf "$(Build.SourcesDirectory)/$(package_name)" | grep -q "^LioTecnica.sln$" || (echo "ERRO: LioTecnica.sln não encontrado no pacote"; exit 1)
-        tar -tzf "$(Build.SourcesDirectory)/$(package_name)" | grep -q "^RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj$" || (echo "ERRO: RHPortal.Api.csproj não encontrado"; exit 1)
-        tar -tzf "$(Build.SourcesDirectory)/$(package_name)" | grep -q "^LioTecnica.Web/LioTecnica.Web.csproj$" || (echo "ERRO: LioTecnica.Web.csproj não encontrado"; exit 1)
+        tar -tzf "$(package_path)" | grep -q "^RHPortal.Api/RHPortal.Api.sln$" || (echo "ERRO: RHPortal.Api.sln não encontrado"; exit 1)
+        tar -tzf "$(package_path)" | grep -q "^LioTecnica.sln$" || (echo "ERRO: LioTecnica.sln não encontrado"; exit 1)
+        tar -tzf "$(package_path)" | grep -q "^RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj$" || (echo "ERRO: RHPortal.Api.csproj não encontrado"; exit 1)
+        tar -tzf "$(package_path)" | grep -q "^LioTecnica.Web/LioTecnica.Web.csproj$" || (echo "ERRO: LioTecnica.Web.csproj não encontrado"; exit 1)
 
         echo "✅ Pacote validado com sucesso"
 
   - task: CopyFiles@2
     displayName: "Organizar para artefato"
     inputs:
-      SourceFolder: "$(Build.SourcesDirectory)"
+      SourceFolder: "$(Agent.TempDirectory)"
       Contents: "$(package_name)"
       TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
 
