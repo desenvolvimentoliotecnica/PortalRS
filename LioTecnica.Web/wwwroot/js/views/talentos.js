@@ -93,7 +93,10 @@ async function loadTalentos() {
   const data = await apiFetchJson(url, { method: "GET" });
   state.items = data?.items ?? [];
   state.totalCount = data?.totalCount ?? 0;
+  state.page = data?.page ?? state.page;
+  state.pageSize = data?.pageSize ?? state.pageSize;
   renderList();
+  renderPagination();
 }
 
 function renderList() {
@@ -135,6 +138,49 @@ function renderList() {
   const countEl = document.getElementById("talentosCount");
   if (hintEl) hintEl.textContent = `Total: ${state.totalCount}`;
   if (countEl) countEl.textContent = String(state.items.length);
+}
+
+function renderPagination() {
+  const wrap = document.getElementById("paginationWrap");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+
+  const total = Number(state.totalCount || 0);
+  const pageSize = Math.max(1, Number(state.pageSize || 20));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, Number(state.page || 1)), totalPages);
+
+  const prevBtn = document.createElement("button");
+  prevBtn.type = "button";
+  prevBtn.className = "btn btn-ghost btn-sm";
+  prevBtn.innerHTML = '<i class="bi bi-chevron-left"></i>';
+  prevBtn.title = "Página anterior";
+  prevBtn.disabled = page <= 1;
+  prevBtn.addEventListener("click", () => goToPage(page - 1));
+  wrap.appendChild(prevBtn);
+
+  const pageLabel = document.createElement("span");
+  pageLabel.className = "small text-muted ms-1 me-1";
+  pageLabel.textContent = `${page} / ${totalPages}`;
+  wrap.appendChild(pageLabel);
+
+  const nextBtn = document.createElement("button");
+  nextBtn.type = "button";
+  nextBtn.className = "btn btn-ghost btn-sm";
+  nextBtn.innerHTML = '<i class="bi bi-chevron-right"></i>';
+  nextBtn.title = "Próxima página";
+  nextBtn.disabled = page >= totalPages;
+  nextBtn.addEventListener("click", () => goToPage(page + 1));
+  wrap.appendChild(nextBtn);
+}
+
+async function goToPage(page) {
+  const total = Number(state.totalCount || 0);
+  const pageSize = Math.max(1, Number(state.pageSize || 20));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (page < 1 || page > totalPages || page === state.page) return;
+  state.page = page;
+  await loadTalentos();
 }
 
 const BLOQUEIO_PESSOA_API = "/api/bloqueio-pessoa";

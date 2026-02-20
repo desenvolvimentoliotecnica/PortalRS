@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.Pessoas;
 using RhPortal.Api.Contracts.Pessoas;
 using RhPortal.Api.Contracts.Talentos;
@@ -27,6 +28,7 @@ public sealed class TalentoService : ITalentoService
     private readonly IHostEnvironment _hostEnvironment;
     private readonly ICvGptExtractor _cvGptExtractor;
     private readonly ILogger<TalentoService> _logger;
+    private readonly IRHPortalAiMatchClient? _aiMatchClient;
 
     public TalentoService(
         AppDbContext db,
@@ -34,7 +36,8 @@ public sealed class TalentoService : ITalentoService
         IPessoaService pessoaService,
         IHostEnvironment hostEnvironment,
         ICvGptExtractor cvGptExtractor,
-        ILogger<TalentoService> logger)
+        ILogger<TalentoService> logger,
+        IRHPortalAiMatchClient? aiMatchClient = null)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -42,6 +45,7 @@ public sealed class TalentoService : ITalentoService
         _hostEnvironment = hostEnvironment;
         _cvGptExtractor = cvGptExtractor;
         _logger = logger;
+        _aiMatchClient = aiMatchClient;
     }
 
     public async Task<TalentoPagedResponse> ListAsync(TalentoListQuery query, CancellationToken ct)
@@ -191,6 +195,7 @@ public sealed class TalentoService : ITalentoService
                     existingTalento.CvProfileJson = BuildCvProfileJson(existingTalento);
                     await _db.SaveChangesAsync(ct);
                 }
+                TryGenerateTalentoEmbeddingAsync(existingTalento.Id);
                 var response = (await GetByIdAsync(existingTalento.Id, ct))!;
                 return new CreateTalentoResult(response, false, null, null);
             }
@@ -242,6 +247,7 @@ public sealed class TalentoService : ITalentoService
                 ApplyDocumentos(similarEntity, request.Documentos);
                 similarEntity.CvProfileJson = BuildCvProfileJson(similarEntity);
                 await _db.SaveChangesAsync(ct);
+                TryGenerateTalentoEmbeddingAsync(similarEntity.Id);
                 var similarCreated = (await GetByIdAsync(similarEntity.Id, ct))!;
                 return new CreateTalentoResult(similarCreated, false, null, null);
             }
@@ -284,6 +290,7 @@ public sealed class TalentoService : ITalentoService
         entity.CvProfileJson = BuildCvProfileJson(entity);
         await _db.SaveChangesAsync(ct);
 
+        TryGenerateTalentoEmbeddingAsync(entity.Id);
         var created = (await GetByIdAsync(entity.Id, ct))!;
         return new CreateTalentoResult(created, false, null, null);
     }
@@ -386,7 +393,25 @@ public sealed class TalentoService : ITalentoService
         AddUpdateRequestChildrenToContext(id, request);
 
         await _db.SaveChangesAsync(ct);
+        TryGenerateTalentoEmbeddingAsync(id);
         return (await GetByIdAsync(id, ct))!;
+    }
+
+    private void TryGenerateTalentoEmbeddingAsync(Guid talentoId)
+    {
+        if (_aiMatchClient == null) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var tenantId = _tenantContext.TenantId ?? "";
+                await _aiMatchClient.GenerateTalentoEmbeddingAsync(talentoId, tenantId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao gerar embedding do talento {TalentoId}", talentoId);
+            }
+        }, CancellationToken.None);
     }
 
     private void ApplyUpdateRequestToEntity(Talento entity, TalentoUpdateRequest request)

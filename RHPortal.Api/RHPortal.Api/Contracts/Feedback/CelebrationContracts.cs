@@ -23,3 +23,30 @@ public sealed record CelebrationFeedResponse(
     int PageSize);
 
 public sealed record CelebrationMentionUserResponse(Guid Id, string FullName, string? Email);
+
+public sealed record CelebrationCommentCreateRequest(
+    [Required, MinLength(1), MaxLength(2000)] string Content,
+    [Required] IReadOnlyList<Guid> MentionedUserIds);
+
+public sealed record CelebrationCommentMentionResponse(Guid UserId, string FullName);
+
+public sealed record CelebrationCommentReactionSummaryResponse(string Type, int Count, bool ReactedByMe);
+
+public sealed record CelebrationCommentResponse(
+    Guid Id,
+    Guid PostId,
+    Guid AuthorId,
+    string AuthorFullName,
+    string Content,
+    DateTimeOffset CreatedAtUtc,
+    IReadOnlyList<CelebrationCommentMentionResponse> Mentions,
+    IReadOnlyList<CelebrationCommentReactionSummaryResponse> Reactions);
+
+public sealed record CelebrationCommentsListResponse(
+    IReadOnlyList<CelebrationCommentResponse> Items,
+    int TotalCount,
+    int Page,
+    int PageSize);
+
+public sealed record CelebrationCommentReactionToggleRequest(
+    [Required, MinLength(1), MaxLength(20)] string Type);

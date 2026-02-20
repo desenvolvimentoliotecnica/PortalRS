@@ -1,0 +1,20 @@
+Starting check_db_status...
+Connecting to DB: localhost:5432/dev_render
+Connected.
+
+--- Recent Vagas ---
+Found 1 vagas.
+ID: a0000001-0000-4000-8000-000000000001 | Title: Desenvolvedor Full Stack (vaga de teste) | Code: TESTE-001 | Has Embedding: True | Generated At: 2026-02-19 06:51:37.879059-03:00
+
+--- Embedding Counts ---
+Candidatos with embedding: 3
+Talentos with embedding: 0
+
+--- Test Search for Vaga a0000001-0000-4000-8000-000000000001 ---
+Imported search_all_by_similarity.
+Search Results Count: 3
+ - Maria Silva (candidato): 63%
+ - João Santos (candidato): 59%
+ - Ana Costa (candidato): 58%
+
+Done.

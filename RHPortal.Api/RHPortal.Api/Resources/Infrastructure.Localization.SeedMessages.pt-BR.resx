@@ -165,6 +165,9 @@
   <data name="Seed.Menu.Gamificacao" xml:space="preserve">
     <value>Gamificacao</value>
   </data>
+  <data name="Seed.Menu.Pesquisas" xml:space="preserve">
+    <value>Pesquisas</value>
+  </data>
   <data name="Seed.Menu.Gestao" xml:space="preserve">
     <value>Gestao</value>
   </data>

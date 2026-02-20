@@ -1,4 +1,4 @@
-﻿(() => {
+(() => {
   const g = window;
 
   g.$ = (sel, root = document) => root.querySelector(sel);
@@ -341,6 +341,133 @@
     restoreScroll(mobileScroll, STORAGE_KEY_MOBILE);
     bindScroll(desktopScroll, STORAGE_KEY);
     bindScroll(mobileScroll, STORAGE_KEY_MOBILE);
+  }
+})();
+
+(() => {
+  const bs = window.bootstrap;
+  if (!bs?.Collapse) return;
+
+  const BTN_SELECTOR = '.nav-item-sub > button.nav-section-toggle[data-bs-toggle="collapse"]';
+
+  const getGroupRoot = (btn) => {
+    return btn.closest(".nav-module-body") || btn.closest(".sidebar-scroll") || btn.closest(".offcanvas") || document.body;
+  };
+
+  const getTargetSelector = (btn) => btn.getAttribute("data-bs-target") || "";
+  const getTargetEl = (btn) => {
+    const sel = getTargetSelector(btn);
+    if (!sel) return null;
+    try {
+      return document.querySelector(sel);
+    } catch {
+      return null;
+    }
+  };
+
+  const getCollapse = (btn) => {
+    const el = getTargetEl(btn);
+    if (!el) return null;
+    return bs.Collapse.getOrCreateInstance(el, { toggle: false });
+  };
+
+  const closeOthersInGroup = (groupRoot, keepTargetSel) => {
+    groupRoot.querySelectorAll(BTN_SELECTOR).forEach(otherBtn => {
+      if (otherBtn.getAttribute("data-bs-target") === keepTargetSel) return;
+      const otherCollapse = getCollapse(otherBtn);
+      otherCollapse?.hide();
+    });
+  };
+
+  const bind = (btn) => {
+    if (btn.dataset.ltBound === "1") return;
+    btn.dataset.ltBound = "1";
+
+    const targetEl = getTargetEl(btn);
+    if (!targetEl) return;
+
+    // Ao abrir um submenu, fecha os demais do mesmo módulo (somente via clique)
+    targetEl.addEventListener("show.bs.collapse", () => {
+      const groupRoot = getGroupRoot(btn);
+      const targetSel = getTargetSelector(btn);
+      closeOthersInGroup(groupRoot, targetSel);
+    });
+  };
+
+  const init = () => {
+    document.querySelectorAll(BTN_SELECTOR).forEach(bind);
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+})();
+
+// Persist sidebar open module across navigation and normalize small topbar back buttons on Feedback pages
+(() => {
+  const SIDEBAR_KEY = "lt_sidebar_open_target";
+  const normalizeTopbarBacks = () => {
+    try {
+      const topbar = document.querySelector("header.topbar .topbar-inner");
+      if (!topbar) return;
+      // find icon-only ghost buttons (small p-2) and convert to full "Voltar" when on Feedback area
+      const candidates = Array.from(topbar.querySelectorAll('a.btn.btn-ghost.p-2[href="/Vagas"]'));
+      if (!candidates.length) return;
+      const isFeedback = window.location.pathname && window.location.pathname.toLowerCase().includes("/feedback");
+      candidates.forEach(a => {
+        a.classList.remove("p-2");
+        a.classList.add("");
+        a.innerHTML = `<i class="bi bi-arrow-left"></i><span class="d-none d-sm-inline ms-1">Voltar</span>`;
+        if (isFeedback) {
+          a.setAttribute("href", "/Feedback/Gamificacao");
+          a.setAttribute("title", "Voltar");
+        } else {
+          a.setAttribute("title", "Voltar para Vagas");
+        }
+      });
+    } catch (e) { /* ignore */ }
+  };
+
+  const saveOpenModuleBeforeNav = (ev) => {
+    try {
+      const link = ev.target.closest("a");
+      if (!link) return;
+      // Find currently expanded module toggle button
+      const openBtn = document.querySelector('.nav-section-toggle[aria-expanded="true"][data-bs-toggle="collapse"]');
+      if (openBtn) {
+        const target = openBtn.getAttribute("data-bs-target") || "";
+        try { sessionStorage.setItem(SIDEBAR_KEY, target); } catch {}
+      } else {
+        try { sessionStorage.removeItem(SIDEBAR_KEY); } catch {}
+      }
+    } catch (e) {}
+  };
+
+  const restoreOpenModule = () => {
+    try {
+      const target = sessionStorage.getItem(SIDEBAR_KEY);
+      if (!target) return;
+      const el = document.querySelector(target);
+      if (!el || !window.bootstrap || !window.bootstrap.Collapse) return;
+      // ensure module is shown
+      const c = bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
+      c.show();
+    } catch (e) {}
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      normalizeTopbarBacks();
+      restoreOpenModule();
+      // capture clicks to save state before navigation
+      document.addEventListener("click", saveOpenModuleBeforeNav, true);
+    }, { once: true });
+  } else {
+    normalizeTopbarBacks();
+    restoreOpenModule();
+    document.addEventListener("click", saveOpenModuleBeforeNav, true);
   }
 })();
 

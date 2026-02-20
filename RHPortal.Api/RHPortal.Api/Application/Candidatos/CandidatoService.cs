@@ -174,12 +174,60 @@ public sealed class CandidatoService : ICandidatoService
         await EnsureVagaAsync(request.VagaId, ct);
 
         var tenantId = _tenantContext.TenantId ?? "";
+        // Deduplicate by email: if candidate with same email exists in tenant, update instead of creating duplicate.
+        var normalizedEmail = NormalizeEmail(request.Email);
+        var existing = await _db.Candidatos
+            .AsTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Email == normalizedEmail, ct);
+
+        if (existing != null)
+        {
+            // Update fields with incoming data
+            existing.Nome = (request.Nome ?? string.Empty).Trim();
+            existing.Fone = TrimToMax(request.Fone, 40);
+            existing.Cidade = TrimToMax(request.Cidade, 120);
+            existing.Uf = NormalizeUf(request.Uf);
+            existing.Fonte = request.Fonte;
+            existing.Status = CandidateStatus.Triagem;
+            existing.VagaId = request.VagaId;
+            existing.TalentoId = request.TalentoId;
+            existing.Obs = TrimToMax(request.Obs, 2000);
+            existing.CvText = TrimOrNull(request.CvText);
+            existing.ApplicationRecruiterUserId = TrimToMax(request.ApplicationRecruiterUserId, 120);
+            existing.ApplicationRecruiterUserName = TrimToMax(request.ApplicationRecruiterUserName, 200);
+            existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+            // Merge/replace documentos if provided
+            if (request.Documentos != null && request.Documentos.Count > 0)
+            {
+                await _db.Entry(existing).Collection(x => x.Documentos).LoadAsync(ct);
+                existing.Documentos = BuildDocumentos(request.Documentos, existing.Id, tenantId);
+            }
+
+            ApplyLastMatch(existing, request.LastMatch);
+
+            await _db.SaveChangesAsync(ct);
+
+            if (request.VagaId != Guid.Empty)
+            {
+                await _matchingService.CalculateAndStoreAsync(existing.Id, request.VagaId, ct);
+                await TrySaveAiScoreAsync(existing.Id, request.VagaId, ct);
+            }
+
+            // Regenerate embedding in background for updated candidate
+            TryGenerateCandidatoEmbeddingAsync(existing.Id, ct);
+
+            await NotifyNewCandidateAsync(existing, ct);
+
+            return (await GetByIdAsync(existing.Id, ct))!;
+        }
+
         var entity = new Candidato
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             Nome = (request.Nome ?? string.Empty).Trim(),
-            Email = NormalizeEmail(request.Email),
+            Email = normalizedEmail,
             Fone = TrimToMax(request.Fone, 40),
             Cidade = TrimToMax(request.Cidade, 120),
             Uf = NormalizeUf(request.Uf),
@@ -311,7 +359,10 @@ public sealed class CandidatoService : ICandidatoService
         try
         {
             var tenantId = _tenantContext.TenantId ?? "";
-            var result = await _aiMatchClient.GetScoreForOneAsync(vagaId, candidatoId, tenantId, ct);
+            // Usa evaluate-one unificado (LLM 80/20); fallback para legado se falhar
+            var result = await _aiMatchClient.EvaluateOneUnifiedAsync(vagaId, candidatoId, "candidato", tenantId, ct);
+            if (!result.HasValue)
+                result = await _aiMatchClient.GetScoreForOneAsync(vagaId, candidatoId, tenantId, ct);
             if (result.HasValue)
                 await _matchingScoreService.SaveAiScoreAsync(candidatoId, vagaId, result.Value.Score, ct);
         }

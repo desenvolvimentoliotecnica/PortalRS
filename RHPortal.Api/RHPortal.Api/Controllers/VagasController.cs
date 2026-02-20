@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.Vagas.Handlers;
@@ -102,49 +103,40 @@ public sealed class VagasController : ControllerBase
     }
 
     /// <summary>
-    /// Lista candidatos com score de matching para a vaga, ordenados por score (maior primeiro).
-    /// useAi=true: ranking por IA (filtros da vaga); em falha do RHPortal.Ai faz fallback para matching por keywords.
+    /// Lista candidatos e talentos com score de matching para a vaga (embedding + vetorial + LLM 80/20).
+    /// Sem fallback: exige RHPortal.Ai em execução.
     /// </summary>
     /// <param name="id">ID da vaga.</param>
     /// <param name="minScore">Score mínimo (0 a 100).</param>
-    /// <param name="take">Quantidade de itens (1 a 200).</param>
-    /// <param name="useAi">Se true, usa RHPortal.Ai (score por critérios da vaga).</param>
+    /// <param name="take">Quantidade de itens (10 a 100, default 20).</param>
     [HttpGet("{id:guid}/matching-candidates")]
     [ProducesResponseType(typeof(IReadOnlyList<MatchingCandidateItemResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<IReadOnlyList<MatchingCandidateItemResponse>>> GetMatchingCandidates(
         [FromRoute] Guid id,
-        [FromServices] IMatchingService matchingService,
         [FromServices] ICandidatoVagaMatchingScoreService? scoreStore,
         [FromQuery] int minScore = 0,
-        [FromQuery] int take = 50,
-        [FromQuery] bool useAi = false,
+        [FromQuery] int take = 20,
         CancellationToken ct = default)
     {
-        if (useAi && _aiMatchClient != null)
-        {
-            // Estratégia 1: Matching híbrido (vetorial + LLM inteligente)
-            var hybridItems = await _aiMatchClient.GetMatchingHybridAsync(
-                id,
-                _tenantContext.TenantId ?? "",
-                minScore,
-                take,
-                ct
-            ).ConfigureAwait(false);
-            
-            if (hybridItems != null)
-                return Ok(hybridItems);
-            
-            // Fallback 1: Se híbrido falhar, tenta ler scores salvos
-            if (scoreStore != null)
-            {
-                var storedItems = await scoreStore.GetRankingByVagaFromStoreAsync(id, minScore, take, ct).ConfigureAwait(false);
-                return Ok(storedItems);
-            }
-        }
-        
-        // Fallback 2: Matching por keywords (sempre funciona)
-        var itemsByKeywords = await matchingService.GetCandidatesWithScoresAsync(id, minScore, take, ct);
-        return Ok(itemsByKeywords);
+        if (_aiMatchClient == null)
+            return StatusCode(503, new { message = "Serviço de matching por IA (RHPortal.Ai) não configurado. Configure o cliente e execute o RHPortal.Ai." });
+
+        var unifiedItems = await _aiMatchClient.RunUnifiedMatchingAsync(
+            id,
+            _tenantContext.TenantId ?? "",
+            minScore,
+            Math.Clamp(take, 10, 100),
+            ct
+        ).ConfigureAwait(false);
+
+        if (unifiedItems == null)
+            return StatusCode(503, new { message = "RHPortal.Ai indisponível ou falha ao calcular matching. Verifique se o serviço está rodando e se há embeddings para vaga, candidatos e talentos." });
+
+        if (scoreStore != null)
+            _ = PersistUnifiedRankingInBackgroundAsync(id, unifiedItems, _tenantContext.TenantId ?? "");
+
+        return Ok(unifiedItems);
     }
 
     /// <summary>
@@ -231,18 +223,37 @@ public sealed class VagasController : ControllerBase
             var scoreService = scope.ServiceProvider.GetService<ICandidatoVagaMatchingScoreService>();
             if (client == null || scoreService == null)
                 return;
-            var list = await client.GetMatchingByFiltersAsync(vagaId, tenantId, minScore: 0, take: 500);
-            if (list == null || list.Count == 0)
-            {
-                await scoreService.ReplaceScoresForVagaAsync(vagaId, Array.Empty<(Guid, int)>(), tenantId);
-                return;
-            }
-            var items = list.Select(x => (x.CandidatoId, x.Score)).ToList();
+            // Usa matching unificado (vetorial + LLM 80/20); persiste só candidatos (tabela não guarda talentos)
+            var list = await client.RunUnifiedMatchingAsync(vagaId, tenantId, minScore: 0, take: 20);
+            var items = list?
+                .Where(x => string.Equals(x.Source, "candidato", StringComparison.OrdinalIgnoreCase))
+                .Select(x => (x.CandidatoId, x.Score))
+                .ToList() ?? new List<(Guid, int)>();
             await scoreService.ReplaceScoresForVagaAsync(vagaId, items, tenantId);
         }
         catch
         {
             // best-effort; log em produção se desejar
+        }
+    }
+
+    private async Task PersistUnifiedRankingInBackgroundAsync(Guid vagaId, IReadOnlyList<MatchingCandidateItemResponse> unifiedItems, string tenantId)
+    {
+        try
+        {
+            var items = unifiedItems
+                .Where(x => string.Equals(x.Source, "candidato", StringComparison.OrdinalIgnoreCase))
+                .Select(x => (x.CandidatoId, x.Score))
+                .ToList();
+            if (items.Count == 0) return;
+            using var scope = _scopeFactory.CreateScope();
+            var scoreService = scope.ServiceProvider.GetService<ICandidatoVagaMatchingScoreService>();
+            if (scoreService == null) return;
+            await scoreService.ReplaceScoresForVagaAsync(vagaId, items, tenantId);
+        }
+        catch
+        {
+            // best-effort
         }
     }
 

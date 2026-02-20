@@ -15,16 +15,36 @@ let SORT_DEFAULT = enumFirstCode("matchingSort", "score_desc");
 const EMPTY_TEXT = "—";
 const BULLET = "-";
 
+const DEFAULT_RANKING_SIZE = 20;
+// const RANKING_SIZE_OPTIONS = [10, 20, 40, 50, 100]; // Removed
+
 const state = {
   vagas: [],
   candidatos: [],
   vagaDetails: {},
-  matchCache: {}, // { "<candId>|<vagaId>": {score, pass, hits[], missMandatory[], at} }
+  matchCache: {},
   selectedId: null,
   filters: { q: "", vagaId: VAGA_ALL, status: STATUS_ALL, sort: SORT_DEFAULT },
-  /** Candidatos do ranking da vaga selecionada (GET matching-candidates). */
-  rankingCandidates: []
+  rankingCandidates: [],
+  rankingSize: DEFAULT_RANKING_SIZE,
+  rankingLoading: false,
+  activeTab: "suggestions", // suggestions | rejected
+  // Cache for tabs to avoid database calls on switch
+  suggestionsCache: null, // array or null
+  rejectedCache: null     // array or null
 };
+
+function getRankingSize() {
+  return state.rankingSize || DEFAULT_RANKING_SIZE;
+}
+
+function showRankingLoading(show) {
+  const el = document.getElementById("matchingLoadingOverlay");
+  if (!el) return;
+  el.classList.toggle("active", !!show);
+  el.setAttribute("aria-busy", show ? "true" : "false");
+  state.rankingLoading = !!show;
+}
 
 function normalizeEnumCode(value) {
   return (value ?? "").toString().trim().toLowerCase();
@@ -187,10 +207,11 @@ async function fetchCandidatos() {
   return Array.isArray(list) ? list.map(mapApiCandidatoListItem) : [];
 }
 
-/** Retorna candidatos com score para a vaga (ordenados por score desc). useAi=true: ranking por critérios da vaga (IA). */
-async function fetchMatchingCandidatesByVaga(vagaId, take = 100, useAi = true) {
+/** Retorna candidatos e talentos com score para a vaga (embedding + LLM 80/20). */
+async function fetchMatchingCandidatesByVaga(vagaId, useAi = true) {
   if (!vagaId) return [];
-  const qs = `take=${take}${useAi ? "&useAi=true" : ""}`;
+  const size = DEFAULT_RANKING_SIZE;
+  const qs = `take=${size}${useAi ? "&useAi=true" : ""}`;
   const data = await apiFetchJson(`${VAGAS_API_URL}/${encodeURIComponent(vagaId)}/matching-candidates?${qs}`);
   if (!Array.isArray(data)) return [];
   return data.map(c => ({
@@ -198,8 +219,92 @@ async function fetchMatchingCandidatesByVaga(vagaId, take = 100, useAi = true) {
     nome: c.nome ?? "",
     email: c.email ?? "",
     score: Number.isFinite(c.score) ? c.score : 0,
-    pass: !!c.pass
+    pass: !!c.pass,
+    source: c.source ?? "candidato",
+    scoreFiltros: Number.isFinite(c.scoreFiltros) ? c.scoreFiltros : 0,
+    scoreRequisitos: Number.isFinite(c.scoreRequisitos) ? c.scoreRequisitos : 0,
+    justificativa: c.justificativa ?? ""
   }));
+}
+
+async function fetchRejectedCandidates(vagaId) {
+  if (!vagaId || vagaId === VAGA_ALL) return [];
+  const url = `${CANDIDATOS_API_URL}?vagaId=${encodeURIComponent(vagaId)}&status=Reprovado&pageSize=100`;
+  const data = await apiFetchJson(url);
+  if (data && Array.isArray(data.items)) {
+    // Map and calculate match locally
+    const vaga = findVaga(vagaId);
+    return data.items.map(c => {
+      // Convert API item to local candidate state for calcMatch if needed
+      // But calcMatch needs full candidate object?
+      // Let's assume basic fields are enough or acceptable.
+      // Actually matching.js has `calcMatch(c, v)`.
+      // We try to calc score.
+      const mapped = mapApiCandidatoListItem(c);
+      const match = vaga ? calcMatch(mapped, vaga) : { score: 0, pass: false };
+      return {
+        id: c.id,
+        nome: c.nome,
+        email: c.email,
+        score: match.score || 0,
+        pass: match.pass || false,
+        source: 'candidato',
+        scoreFiltros: 0, // detailed score not available from calcMatch yet unless we expand it
+        scoreRequisitos: 0,
+        justificativa: "Candidato reprovado."
+      };
+    });
+  }
+  return [];
+}
+
+/** Carrega o ranking, usa cache se disponivel. Triggered on init, tab switch, filter change. */
+async function loadRankingForVaga(vagaId, forceRefresh = false) {
+  if (!vagaId || vagaId === VAGA_ALL) {
+    state.rankingCandidates = [];
+    renderList();
+    return;
+  }
+
+  // Check cache first
+  if (!forceRefresh) {
+    if (state.activeTab === "suggestions" && state.suggestionsCache) {
+      state.rankingCandidates = state.suggestionsCache;
+      renderList();
+      return;
+    }
+    if (state.activeTab === "rejected" && state.rejectedCache) {
+      state.rankingCandidates = state.rejectedCache;
+      renderList();
+      return;
+    }
+  }
+
+  showRankingLoading(true);
+  try {
+    let results = [];
+    if (state.activeTab === "rejected") {
+      results = await fetchRejectedCandidates(vagaId);
+      state.rejectedCache = results;
+    } else {
+      results = await fetchMatchingCandidatesByVaga(vagaId);
+      state.suggestionsCache = results;
+    }
+    state.rankingCandidates = results;
+    renderList();
+  } catch (err) {
+    state.rankingCandidates = [];
+    console.error(err);
+    if (typeof toast === "function") toast(err?.message || "Falha ao carregar ranking.");
+  } finally {
+    showRankingLoading(false);
+  }
+  // Se veio vazio, informar que estamos populando a base vetorial em background
+  if (!state.rankingCandidates || state.rankingCandidates.length === 0) {
+    if (typeof toast === "function") {
+      toast("Populando a base vetorial de talentos em segundo plano. Tente novamente em alguns segundos.", { duration: 8000 });
+    }
+  }
 }
 
 async function fetchCandidatoFull(id) {
@@ -383,9 +488,8 @@ function renderVagaList() {
       const sel = $("#fVaga");
       if (sel) sel.value = v.id;
       await ensureVagaDetails(v.id);
-      state.rankingCandidates = await fetchMatchingCandidatesByVaga(v.id, 100);
+      await loadRankingForVaga(v.id);
       renderVagaList();
-      renderList();
     });
     host.appendChild(btn);
   });
@@ -439,14 +543,42 @@ function renderList() {
 
   host?.replaceChildren();
   host?.classList?.remove("matching-has-table");
+
+  // TABS
+  const tabs = document.createElement("ul");
+  tabs.className = "nav nav-tabs mb-3";
+  const createTab = (id, label) => {
+    const li = document.createElement("li");
+    li.className = "nav-item";
+    const a = document.createElement("button");
+    a.className = "nav-link " + (state.activeTab === id ? "active" : "");
+    a.type = "button";
+    a.textContent = label;
+    a.onclick = async () => {
+      if (state.activeTab === id) return;
+      state.activeTab = id;
+      await loadRankingForVaga(vagaId);
+    };
+    li.appendChild(a);
+    return li;
+  };
+  tabs.appendChild(createTab("suggestions", "Sugestões"));
+  tabs.appendChild(createTab("rejected", "Reprovados"));
+  host.appendChild(tabs);
+
   if (!ranking.length) {
     const empty = cloneTemplate("tpl-matching-empty");
-    if (empty) host.appendChild(empty);
+    if (empty) {
+      // Customize empty message based on tab
+      const msg = empty.querySelector("p");
+      if (msg) msg.textContent = state.activeTab === "rejected" ? "Nenhum candidato reprovado." : "Nenhuma sugestão encontrada.";
+      host.appendChild(empty);
+    }
   } else {
     host?.classList?.add("matching-has-table");
     const table = document.createElement("table");
     table.className = "table table-hover align-middle mb-0 w-100";
-    table.innerHTML = "<thead><tr><th style=\"width:48px;\"></th><th>Nome</th><th>E-mail</th><th style=\"width:90px;\">Match</th><th class=\"text-end\" style=\"width:100px;\">Ações</th><th class=\"text-end\" style=\"width:80px;\">Pontos</th></tr></thead><tbody></tbody>";
+    table.innerHTML = "<thead><tr><th style=\"width:48px;\"></th><th>Nome</th><th>E-mail</th><th style=\"width:90px;\">Match</th><th class=\"text-end\" style=\"width:140px;\">Ações</th><th class=\"text-end\" style=\"width:80px;\">Pontos</th></tr></thead><tbody></tbody>";
     const tbody = table.querySelector("tbody");
     ranking.forEach(r => {
       const row = buildRankingRow(r);
@@ -466,6 +598,18 @@ function buildRankingRow(r) {
   setText(tr, "rank-initials", initials(r.nome));
   setText(tr, "rank-name", r.nome);
   setText(tr, "rank-email", r.email);
+
+  // Source badge (Candidato vs Talento)
+  const nameEl = tr.querySelector("[data-role=\"rank-name\"]");
+  if (nameEl && r.source) {
+    const srcBadge = document.createElement("span");
+    srcBadge.className = "badge ms-2 " + (r.source === "talento" ? "bg-info text-dark" : "bg-primary");
+    srcBadge.style.fontSize = "0.7em";
+    srcBadge.textContent = r.source === "talento" ? "Talento" : "Candidato";
+    nameEl.appendChild(document.createTextNode(" "));
+    nameEl.appendChild(srcBadge);
+  }
+
   const matchEl = tr.querySelector("[data-role=\"rank-match\"]");
   if (matchEl) {
     matchEl.textContent = r.pass ? "Dentro" : "Abaixo";
@@ -473,6 +617,14 @@ function buildRankingRow(r) {
   }
   const score = Number.isFinite(r.score) ? clamp(Math.round(r.score), 0, 100) : 0;
   setText(tr, "rank-score", score + "%");
+
+  // Tooltip
+  const scoreEl = tr.querySelector("[data-role=\"rank-score\"]");
+  if (scoreEl && (r.justificativa || r.scoreFiltros || r.scoreRequisitos)) {
+    const tip = `Filtros: ${r.scoreFiltros ?? 0}% | Requisitos: ${r.scoreRequisitos ?? 0}%${r.justificativa ? "\n" + r.justificativa : ""}`;
+    scoreEl.setAttribute("title", tip);
+    scoreEl.style.cursor = "help";
+  }
   const circleEl = tr.querySelector("[data-role=\"rank-score-circle\"]");
   if (circleEl) {
     circleEl.style.setProperty("--score", String(score));
@@ -489,8 +641,12 @@ function buildRankingRow(r) {
     else valueEl.classList.add("score-low");
   }
 
+  /* Open Button: Icon only */
   const openBtn = tr.querySelector("[data-role=\"rank-open\"]");
   if (openBtn) {
+    openBtn.title = "Abrir Detalhes";
+    openBtn.className = "btn btn-sm btn-outline-secondary"; // Ensure consistent styling
+    openBtn.innerHTML = "<i class=\"bi bi-eye\"></i>"; // Icon only
     openBtn.addEventListener("click", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -498,14 +654,39 @@ function buildRankingRow(r) {
       const qs = vagaId ? "?vagaId=" + encodeURIComponent(vagaId) : "";
       window.location.href = "/Candidatos/Detalhes/" + encodeURIComponent(r.id) + qs;
     });
+
+    // Add Reprove Button
+    if (state.activeTab === "suggestions") {
+      const btnReprove = document.createElement("button");
+      btnReprove.className = "btn btn-sm btn-outline-danger ms-2"; // increased spacing
+      btnReprove.title = "Reprovar candidato";
+      btnReprove.innerHTML = "<i class=\"bi bi-x-lg\"></i>";
+      btnReprove.onclick = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await reproveCandidate(r.id, r.source);
+      };
+      const parent = openBtn.parentElement;
+      if (parent) {
+        // Ensure proper order
+        parent.replaceChildren(); // clear
+        parent.appendChild(openBtn);
+        parent.appendChild(btnReprove);
+      }
+    }
   }
 
   tr.addEventListener("click", () => {
     state.selectedId = r.id;
-    renderList();
+    // Don't re-render entire list because it kills DOM state and selection.
+    // Just update active class.
+    const all = document.querySelectorAll("#candList tr");
+    all.forEach(x => x.classList.remove("table-active"));
+    tr.classList.add("table-active");
+
     const detailHost = $("#detailHost");
     if (detailHost) {
-      openDetailPanelFromRanking(r).then(() => {});
+      openDetailPanelFromRanking(r).then(() => { });
     }
   });
   return tr;
@@ -852,9 +1033,13 @@ function clearCacheForVaga(vagaId) {
   Object.keys(state.matchCache).forEach(k => {
     if (k.endsWith("|" + vagaId)) delete state.matchCache[k];
   });
+  state.suggestionsCache = null;
+  state.rejectedCache = null;
 }
 function clearCacheAll() {
   state.matchCache = {};
+  state.suggestionsCache = null;
+  state.rejectedCache = null;
 }
 
 // ========= Wire
@@ -909,18 +1094,26 @@ function wireFilters() {
     const vagaId = state.filters.vagaId;
     if (vagaId && vagaId !== VAGA_ALL) {
       await ensureVagaDetails(vagaId);
-      state.rankingCandidates = await fetchMatchingCandidatesByVaga(vagaId, 100);
+      await loadRankingForVaga(vagaId);
     } else {
       state.rankingCandidates = [];
+      renderList();
     }
     renderVagaList();
-    renderList();
   };
 
   $("#fSearch").addEventListener("input", apply);
   $("#fVaga").addEventListener("change", applyWithVaga);
   $("#fStatus").addEventListener("change", apply);
   $("#fSort").addEventListener("change", apply);
+
+  /* RANKING_SIZE_OPTIONS removed
+  const fRankingSize = document.getElementById("fRankingSize");
+  if (fRankingSize) {
+    fRankingSize.disabled = true;
+    fRankingSize.parentElement.style.display = 'none'; // Hide if possible
+  }
+  */
 }
 
 // ---------- Modal Editar Filtros de Matching (mesmos campos da criação de vaga)
@@ -1157,6 +1350,7 @@ function wireButtons() {
 }
 
 // ========= Init
+
 (async function init() {
   initLogo();
   wireClock();
@@ -1191,7 +1385,7 @@ function wireButtons() {
     const fVagaEl = document.getElementById("fVaga");
     if (fVagaEl) fVagaEl.value = fixedVagaId;
     await ensureVagaDetails(fixedVagaId);
-    state.rankingCandidates = await fetchMatchingCandidatesByVaga(fixedVagaId, 100);
+    await loadRankingForVaga(fixedVagaId);
     const vagaHeader = $("#vagaHeader");
     const titleActions = $("#matchingPageTitleActions");
     if (vagaHeader) vagaHeader.classList.remove("d-none");
@@ -1205,3 +1399,46 @@ function wireButtons() {
 
   renderList();
 })();
+
+async function reproveCandidate(id, source) {
+  if (!confirm("Tem certeza que deseja reprovar este candidato?")) return;
+  const vagaId = state.filters.vagaId;
+  if (!vagaId || vagaId === VAGA_ALL) return;
+  const item = state.rankingCandidates.find(x => x.id === id);
+
+  try {
+    if (source === "talento") {
+      // Convert Talento to Candidate with Reprovado
+      const talento = item;
+      await apiFetchJson(CANDIDATOS_API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          talentoId: id,
+          vagaId: vagaId,
+          status: "Reprovado",
+          nome: talento?.nome || "Talento",
+          email: talento?.email || "placeholder@email.com"
+        })
+      });
+    } else {
+      // Update existing
+      const cand = await apiFetchJson(`${CANDIDATOS_API_URL}/${id}`);
+      if (cand) {
+        cand.status = "Reprovado";
+        await apiFetchJson(`${CANDIDATOS_API_URL}/${id}`, {
+          method: "PUT",
+          body: JSON.stringify(cand)
+        });
+      }
+    }
+    if (typeof toast === "function") toast("Candidato reprovado.");
+    state.suggestionsCache = null;
+    state.rejectedCache = null;
+    await loadRankingForVaga(vagaId, true);
+  } catch (err) {
+    console.error(err);
+    if (typeof toast === "function") toast("Erro ao reprovar: " + (err.message || err));
+    // Rollback if needed?
+    // For now simple alert
+  }
+}

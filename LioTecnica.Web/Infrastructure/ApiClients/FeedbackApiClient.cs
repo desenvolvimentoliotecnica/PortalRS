@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Globalization;
 
 namespace LioTecnica.Web.Infrastructure.ApiClients;
 
@@ -11,9 +12,23 @@ public sealed class FeedbackApiClient
 
     public FeedbackApiClient(HttpClient http) => _http = http;
 
-    public Task<ApiRawResponse> GetCelebrationFeedRawAsync(string tenantId, int page = 1, int pageSize = 20, CancellationToken ct = default)
+    public Task<ApiRawResponse> GetCelebrationFeedRawAsync(
+        string tenantId,
+        int page = 1,
+        int pageSize = 20,
+        string? filter = null,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        CancellationToken ct = default)
     {
         var qs = $"?page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(filter))
+            qs += "&filter=" + Uri.EscapeDataString(filter.Trim());
+        if (from.HasValue)
+            qs += "&from=" + Uri.EscapeDataString(from.Value.ToString("o", CultureInfo.InvariantCulture));
+        if (to.HasValue)
+            qs += "&to=" + Uri.EscapeDataString(to.Value.ToString("o", CultureInfo.InvariantCulture));
+
         var req = BuildRequest(HttpMethod.Get, $"api/feedback/celebrations/feed{qs}", tenantId);
         return SendAsync(req, ct);
     }
@@ -31,6 +46,27 @@ public sealed class FeedbackApiClient
         if (!string.IsNullOrWhiteSpace(q))
             qs += "&q=" + Uri.EscapeDataString(q);
         var req = BuildRequest(HttpMethod.Get, "api/feedback/celebrations/mention-users" + qs, tenantId);
+        return SendAsync(req, ct);
+    }
+
+    public Task<ApiRawResponse> GetCelebrationCommentsRawAsync(string tenantId, Guid postId, int page = 1, int pageSize = 20, CancellationToken ct = default)
+    {
+        var qs = $"?page={page}&pageSize={pageSize}";
+        var req = BuildRequest(HttpMethod.Get, $"api/feedback/celebrations/{postId}/comments{qs}", tenantId);
+        return SendAsync(req, ct);
+    }
+
+    public Task<ApiRawResponse> CreateCelebrationCommentRawAsync(string tenantId, Guid postId, object payload, CancellationToken ct)
+    {
+        var json = JsonSerializer.Serialize(payload, JsonOpts);
+        var req = BuildRequest(HttpMethod.Post, $"api/feedback/celebrations/{postId}/comments", tenantId, json);
+        return SendAsync(req, ct);
+    }
+
+    public Task<ApiRawResponse> ToggleCelebrationCommentReactionRawAsync(string tenantId, Guid commentId, object payload, CancellationToken ct)
+    {
+        var json = JsonSerializer.Serialize(payload, JsonOpts);
+        var req = BuildRequest(HttpMethod.Post, $"api/feedback/celebrations/comments/{commentId}/reactions", tenantId, json);
         return SendAsync(req, ct);
     }
 
@@ -115,6 +151,14 @@ public sealed class FeedbackApiClient
     public Task<ApiRawResponse> GetGamificationMyBalanceRawAsync(string tenantId, CancellationToken ct = default)
     {
         var req = BuildRequest(HttpMethod.Get, "api/feedback/gamification/my-balance", tenantId);
+        return SendAsync(req, ct);
+    }
+
+    public Task<ApiRawResponse> GetGamificationHistoryRawAsync(string tenantId, int months = 12, decimal goal = 5000, CancellationToken ct = default)
+    {
+        months = Math.Clamp(months, 1, 36);
+        var qs = $"?months={months}&goal={Uri.EscapeDataString(goal.ToString(CultureInfo.InvariantCulture))}";
+        var req = BuildRequest(HttpMethod.Get, "api/feedback/gamification/history" + qs, tenantId);
         return SendAsync(req, ct);
     }
 

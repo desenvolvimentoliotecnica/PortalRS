@@ -103,6 +103,44 @@ public static class MenuSeeder
         if (cadastroUpdated)
             await db.SaveChangesAsync(ct);
 
+        // Pesquisas desativado temporariamente.
+        // Bloco mantido comentado para facilitar reativacao futura.
+        /*
+        var pesquisasUpdated = false;
+        var pesquisasMenu = await db.Menus.FirstOrDefaultAsync(x => x.PermissionKey == "feedback.pesquisas.view", ct);
+        if (pesquisasMenu != null)
+        {
+            if (!string.Equals(pesquisasMenu.Route, "/Feedback/Pesquisas", StringComparison.OrdinalIgnoreCase))
+            {
+                pesquisasMenu.Route = "/Feedback/Pesquisas";
+                pesquisasUpdated = true;
+            }
+
+            if (pesquisasMenu.Order != 16)
+            {
+                pesquisasMenu.Order = 16;
+                pesquisasUpdated = true;
+            }
+
+            if (!string.Equals(pesquisasMenu.DisplayNameKey, "Seed.Menu.Pesquisas", StringComparison.Ordinal))
+            {
+                pesquisasMenu.DisplayNameKey = "Seed.Menu.Pesquisas";
+                pesquisasUpdated = true;
+            }
+
+            var pesquisasLabel = localizer["Seed.Menu.Pesquisas"].Value;
+            if (!string.IsNullOrWhiteSpace(pesquisasLabel) &&
+                !string.Equals(pesquisasMenu.DisplayName, pesquisasLabel, StringComparison.Ordinal))
+            {
+                pesquisasMenu.DisplayName = pesquisasLabel;
+                pesquisasUpdated = true;
+            }
+        }
+
+        if (pesquisasUpdated)
+            await db.SaveChangesAsync(ct);
+        */
+
         var adminMenuAssignments = menuByKey.Values
             .Select(x => (MenuId: x.Id, x.PermissionKey))
             .ToList();
@@ -156,8 +194,10 @@ public static class MenuSeeder
         ("/Feedback/Feedbacks", "bi-chat-quote", 12, "feedback.view", false, "Seed.Menu.Feedbacks", "feedback.desenvolvimento"),
         ("/Feedback/MeusPlanos", "bi-journal-check", 13, "feedback.myplans.view", false, "Seed.Menu.MeusPlanos", "feedback.desenvolvimento"),
         ("/Feedback/Reunioes1a1", "bi-people", 14, "feedback.oneonone.view", false, "Seed.Menu.Reunioes1a1", "feedback.desenvolvimento"),
-        ("/Feedback/Gamificacao", "bi-trophy", 15, "feedback.gamificacao.view", false, "Seed.Menu.Gamificacao", null),
-        ("/Feedback/Gestao", "bi-person-badge", 16, "feedback.gestao.view", false, "Seed.Menu.Gestao", null),
+        // Pesquisas desativado temporariamente.
+        // ("/Feedback/Pesquisas", "bi-search", 16, "feedback.pesquisas.view", false, "Seed.Menu.Pesquisas", null),
+        ("/Feedback/Gamificacao", "bi-trophy", 16, "feedback.gamificacao.view", false, "Seed.Menu.Gamificacao", null),
+        ("/Feedback/Gestao", "bi-person-badge", 17, "feedback.gestao.view", false, "Seed.Menu.Gestao", null),
         ("/EntradaEmailPasta", "bi-inbox", 21, "entrada.view", false, "Seed.Menu.Entrada", null),
         ("/Relatorios", "bi-graph-up", 40, "relatorios.view", false, "Seed.Menu.Relatorios", null),
         ("/Gestao/Dashboard", "bi-speedometer2", 48, "gestao.dashboard", false, "Seed.Menu.GestaoDashboard", "feedback.gestao.view"),

@@ -23,6 +23,8 @@
 
         if (r == "/relatorios") return "Relatorios";
 
+        if (r == "/pesquisas") return "Feedback";
+
         if (r.StartsWith("/feedback", StringComparison.Ordinal) || r.StartsWith("/gestao", StringComparison.Ordinal)) return
         "Feedback";
 

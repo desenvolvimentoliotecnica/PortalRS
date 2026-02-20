@@ -27,6 +27,12 @@
     </button>
     <div class="@collapseClass nav-module-body" id="@collapseId" aria-labelledby="@(collapseId)-trigger">
         <div class="nav-group">
+            @* Always expose an "Início" shortcut for Feedback module (links to /Feedback/Feedbacks) *@
+            <div class="nav-item mt-1">
+                <a class="@(linkClass) d-flex align-items-center" href="/Feedback/Feedbacks">
+                    <i class="bi bi-house me-2"></i>Início
+                </a>
+            </div>
             @foreach (var menu in roots)
             {
                 var children = childrenByParentId.TryGetValue(menu.Id, out var c) ? c : null;
@@ -44,9 +50,12 @@
                                 data-bs-target="#@subCollapseId"
                                 aria-expanded="@(hasActiveChild ? "true" : "false")"
                                 aria-controls="@subCollapseId">
-                            <i class="bi @menu.Icon me-2"></i>@menu.DisplayName
-                            <i class="bi bi-chevron-right ms-auto small nav-chevron-collapsed"></i>
-                            <i class="bi bi-chevron-down ms-auto small nav-chevron-expanded"></i>
+                            <i class="bi @menu.Icon me-2"></i>
+                            <span class="nav-sub-label">@menu.DisplayName</span>
+                            <span class="nav-sub-chevron" aria-hidden="true">
+                                <i class="bi bi-chevron-right nav-chevron-collapsed"></i>
+                                <i class="bi bi-chevron-down nav-chevron-expanded"></i>
+                            </span>
                         </button>
                         <div class="@subCollapseClass nav-group ps-3" id="@subCollapseId">
                             @foreach (var child in children!)

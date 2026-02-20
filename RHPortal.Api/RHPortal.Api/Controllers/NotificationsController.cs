@@ -27,6 +27,7 @@ public sealed class NotificationsController : ControllerBase
         var safeTake = Math.Clamp(take, 1, 100);
         var rawItems = await db.Notifications
             .AsNoTracking()
+            .Where(n => n.UserId == null || n.UserId == parsedUserId)
             .OrderByDescending(x => x.CreatedAtUtc)
             .Take(safeTake)
             .ToListAsync(ct);
@@ -70,6 +71,7 @@ public sealed class NotificationsController : ControllerBase
 
         var unreadCount = await db.Notifications
             .AsNoTracking()
+            .Where(n => n.UserId == null || n.UserId == parsedUserId)
             .CountAsync(n => !db.NotificationReceipts.Any(r => r.NotificationId == n.Id && r.UserId == parsedUserId && r.ReadAtUtc != null), ct);
 
         return Ok(new NotificationsListResponse(unreadCount, items));
@@ -125,6 +127,14 @@ public sealed class NotificationsController : ControllerBase
         if (!Guid.TryParse(userId, out var parsedUserId))
             return Unauthorized();
 
+        var notification = await db.Notifications
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (notification is null)
+            return NotFound();
+        if (notification.UserId.HasValue && notification.UserId.Value != parsedUserId)
+            return NotFound();
+
         var receipt = await db.NotificationReceipts
             .FirstOrDefaultAsync(x => x.NotificationId == id && x.UserId == parsedUserId, ct);
 
@@ -157,6 +167,14 @@ public sealed class NotificationsController : ControllerBase
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userId, out var parsedUserId))
             return Unauthorized();
+
+        var notification = await db.Notifications
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (notification is null)
+            return NotFound();
+        if (notification.UserId.HasValue && notification.UserId.Value != parsedUserId)
+            return NotFound();
 
         var receipt = await db.NotificationReceipts
             .FirstOrDefaultAsync(x => x.NotificationId == id && x.UserId == parsedUserId, ct);

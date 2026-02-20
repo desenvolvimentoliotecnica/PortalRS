@@ -35,6 +35,33 @@
 		<div id="mentionDropdown" class="list-group position-absolute shadow d-none" style="z-index: 1050; max-height: 200px; overflow-y: auto;"></div>
 	</div>
 
+	<div class="card-soft p-3 mb-3">
+		<div class="fw-bold mb-2">Filtros</div>
+		<div class="d-flex flex-wrap gap-2 align-items-end">
+			<div class="btn-group" role="group" aria-label="Filtro de celebrações">
+				<button type="button" class="btn btn-ghost btn-sm active" id="btnFilterAll" data-filter="all">Todas</button>
+				<button type="button" class="btn btn-ghost btn-sm" id="btnFilterSent" data-filter="sent">Enviadas</button>
+				<button type="button" class="btn btn-ghost btn-sm" id="btnFilterReceived" data-filter="received">Recebidas</button>
+			</div>
+
+			<div>
+				<label class="form-label small mb-1" for="filterFrom">Data de início</label>
+				<input type="date" class="form-control form-control-sm" id="filterFrom" />
+			</div>
+			<div>
+				<label class="form-label small mb-1" for="filterTo">Data de fim</label>
+				<input type="date" class="form-control form-control-sm" id="filterTo" />
+			</div>
+
+			<div class="d-flex gap-2">
+				<button type="button" class="btn btn-brand btn-sm" id="btnApplyFilters">
+					<i class="bi bi-funnel me-1"></i>Filtrar
+				</button>
+				<button type="button" class="btn btn-ghost btn-sm" id="btnClearFilters">Limpar</button>
+			</div>
+		</div>
+	</div>
+
 	<div class="card-soft p-3">
 		<div class="fw-bold mb-2">Feed</div>
 		<div id="feedList"></div>

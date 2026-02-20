@@ -133,7 +133,7 @@ Responda APENAS com uma única linha: valores SIM ou NÃO separados por vírgula
         if score == 0:
             continue
         results.append({
-            "candidato_id": str(c["id"]),
+            "candidato_id": str(c["Id"]),
             "nome": (c.get("Nome") or "").strip(),
             "email": (c.get("Email") or "").strip(),
             "similaridade": score,
@@ -166,7 +166,7 @@ def run_matching_vector(vaga: dict[str, Any], candidatos: list[dict[str, Any]]) 
         doc = Document(
             page_content=content,
             metadata={
-                "candidato_id": str(c["id"]),
+                "candidato_id": str(c["Id"]),
                 "nome": (c.get("Nome") or "").strip(),
                 "email": (c.get("Email") or "").strip(),
             },

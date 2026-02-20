@@ -68,7 +68,11 @@ public sealed class CandidatoVagaMatchingScoreService : ICandidatoVagaMatchingSc
                     c.Email ?? "",
                     s.Score,
                     s.Score >= safeMin,
-                    s.CalculatedAtUtc))
+                    s.CalculatedAtUtc,
+                    null,
+                    null,
+                    null,
+                    null))
             .ToListAsync(ct);
         return list;
     }

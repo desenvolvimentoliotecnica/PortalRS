@@ -809,20 +809,24 @@ public sealed class VagaService : IVagaService
     private void TryGenerateVagaEmbeddingAsync(Guid vagaId, CancellationToken ct)
     {
         if (_aiMatchClient == null) return;
-        
-        // Fire-and-forget: executa em background sem bloquear
+        var tenantId = _tenantContext.TenantId ?? "";
+
+        // Fire-and-forget: embedding da vaga + batch de talentos sem embedding (worker de matching vetorizado)
         _ = Task.Run(async () =>
         {
             try
             {
-                var tenantId = _tenantContext.TenantId ?? "";
                 await _aiMatchClient.GenerateVagaEmbeddingAsync(vagaId, tenantId, ct);
+                // Gera embeddings para talentos do tenant que ainda não têm (até 50 por rodada)
+                var (generated, total) = await _aiMatchClient.GenerateTalentosEmbeddingsBatchAsync(tenantId, limit: 50, ct);
+                if (total > 0)
+                    _logger.LogInformation("Batch embeddings talentos: {Generated} de {Total} processados para tenant {TenantId}", generated, total, tenantId);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Falha ao gerar embedding para vaga {VagaId}", vagaId);
             }
-        }, CancellationToken.None); // Usa None para não cancelar se request for cancelado
+        }, CancellationToken.None);
     }
 
     private static string? JoinSinonimos(IReadOnlyList<string>? sinonimos)

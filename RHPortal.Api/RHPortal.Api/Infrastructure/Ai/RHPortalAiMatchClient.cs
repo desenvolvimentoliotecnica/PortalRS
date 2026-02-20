@@ -8,7 +8,7 @@ using RhPortal.Api.Contracts.Matching;
 namespace RhPortal.Api.Infrastructure.Ai;
 
 /// <summary>
-/// Cliente HTTP para RHPortal.Ai (POST /match). Em falha retorna null para fallback.
+/// Cliente HTTP para RHPortal.Ai. Suporta matching unificado (v2) e endpoints legados.
 /// BaseAddress configurado no registro do HttpClient (Program.cs).
 /// </summary>
 public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
@@ -22,6 +22,186 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
         _http = http;
         _logger = logger;
     }
+
+    // ─── Matching Unificado (v2) ─────────────────────────────────────────
+
+    public async Task<IReadOnlyList<MatchingCandidateItemResponse>?> RunUnifiedMatchingAsync(
+        Guid vagaId,
+        string tenantId,
+        int minScore = 0,
+        int take = 20,
+        CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            vaga_id = vagaId.ToString(),
+            tenant_id = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId.Trim(),
+            limit = Math.Clamp(take, 10, 100),
+        };
+        var json = JsonSerializer.Serialize(payload, JsonOptions);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        try
+        {
+            using var response = await _http.PostAsync("matching/run", content, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("RHPortal.Ai /matching/run retornou {StatusCode}", response.StatusCode);
+                return null;
+            }
+
+            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("matching", out var matchArray))
+                return Array.Empty<MatchingCandidateItemResponse>();
+
+            var matching = new List<MatchingCandidateItemResponse>();
+            foreach (var item in matchArray.EnumerateArray())
+            {
+                var personIdStr = item.TryGetProperty("person_id", out var pid) ? pid.GetString() : null;
+                if (string.IsNullOrEmpty(personIdStr) || !Guid.TryParse(personIdStr, out var personId))
+                    continue;
+
+                var nome = item.TryGetProperty("nome", out var n) ? n.GetString() ?? "" : "";
+                var email = item.TryGetProperty("email", out var e) ? e.GetString() ?? "" : "";
+                var scoreFinal = item.TryGetProperty("score_final", out var sf) ? sf.GetInt32() : 0;
+                var scoreFiltros = item.TryGetProperty("score_filtros", out var sfl) ? sfl.GetInt32() : 0;
+                var scoreRequisitos = item.TryGetProperty("score_requisitos", out var sr) ? sr.GetInt32() : 0;
+                var source = item.TryGetProperty("source", out var src) ? src.GetString() ?? "candidato" : "candidato";
+                var justificativa = item.TryGetProperty("justificativa", out var j) ? j.GetString() ?? "" : "";
+
+                if (scoreFinal < minScore)
+                    continue;
+
+                matching.Add(new MatchingCandidateItemResponse(
+                    CandidatoId: personId,
+                    Nome: nome,
+                    Email: email,
+                    Score: scoreFinal,
+                    Pass: scoreFinal >= minScore,
+                    LastMatchAtUtc: DateTimeOffset.UtcNow,
+                    Source: source,
+                    ScoreFiltros: scoreFiltros,
+                    ScoreRequisitos: scoreRequisitos,
+                    Justificativa: justificativa
+                ));
+            }
+
+            return matching;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao chamar /matching/run para vaga {VagaId}", vagaId);
+            return null;
+        }
+    }
+
+    // ─── Evaluate One (unificado) ─────────────────────────────────────────
+
+    public async Task<(int Score, string? Nome, string? Email)?> EvaluateOneUnifiedAsync(
+        Guid vagaId,
+        Guid personId,
+        string source,
+        string tenantId,
+        CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            vaga_id = vagaId.ToString(),
+            person_id = personId.ToString(),
+            source = string.IsNullOrWhiteSpace(source) ? "candidato" : source.Trim().ToLowerInvariant(),
+            tenant_id = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId.Trim(),
+        };
+        var json = JsonSerializer.Serialize(payload, JsonOptions);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        try
+        {
+            using var response = await _http.PostAsync("matching/evaluate-one", content, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("RHPortal.Ai /matching/evaluate-one retornou {StatusCode}", response.StatusCode);
+                return null;
+            }
+            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            var score = root.TryGetProperty("score_final", out var sf) ? sf.GetInt32() : 0;
+            var nome = root.TryGetProperty("nome", out var n) ? n.GetString() : null;
+            var email = root.TryGetProperty("email", out var e) ? e.GetString() : null;
+            return (Math.Clamp(score, 0, 100), nome, email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao chamar RHPortal.Ai /matching/evaluate-one");
+            return null;
+        }
+    }
+
+    // ─── Embedding de Talento ─────────────────────────────────────────────
+
+    public async Task<bool> GenerateTalentoEmbeddingAsync(Guid talentoId, string tenantId, CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            tenant_id = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId.Trim()
+        };
+        var json = JsonSerializer.Serialize(payload, JsonOptions);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        try
+        {
+            using var response = await _http.PostAsync($"embeddings/talento/{talentoId}", content, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("RHPortal.Ai /embeddings/talento/{TalentoId} retornou {StatusCode}", talentoId, response.StatusCode);
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao gerar embedding do talento {TalentoId}", talentoId);
+            return false;
+        }
+    }
+
+    public async Task<(int Generated, int TotalProcessed)> GenerateTalentosEmbeddingsBatchAsync(
+        string tenantId,
+        int limit = 50,
+        CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            tenant_id = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId.Trim(),
+            limit = Math.Clamp(limit, 1, 100),
+        };
+        var json = JsonSerializer.Serialize(payload, JsonOptions);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        try
+        {
+            using var response = await _http.PostAsync("embeddings/talentos/batch", content, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("RHPortal.Ai /embeddings/talentos/batch retornou {StatusCode}", response.StatusCode);
+                return (0, 0);
+            }
+            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            var generated = root.TryGetProperty("generated", out var g) ? g.GetInt32() : 0;
+            var totalProcessed = root.TryGetProperty("total_processed", out var t) ? t.GetInt32() : 0;
+            return (generated, totalProcessed);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao chamar RHPortal.Ai /embeddings/talentos/batch");
+            return (0, 0);
+        }
+    }
+
+    // ─── Endpoints Legados ────────────────────────────────────────────────
 
     public async Task<IReadOnlyList<MatchingCandidateItemResponse>?> GetMatchingByFiltersAsync(
         Guid vagaId,
@@ -62,10 +242,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
                     if (similaridade < minScore)
                         continue;
                     matching.Add(new MatchingCandidateItemResponse(
-                        candidatoId,
-                        nome,
-                        email,
-                        similaridade,
+                        candidatoId, nome, email, similaridade,
                         Pass: similaridade >= minScore,
                         LastMatchAtUtc: null));
                 }
@@ -114,7 +291,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
             return null;
         }
     }
-    
+
     public async Task<bool> GenerateVagaEmbeddingAsync(Guid vagaId, string tenantId, CancellationToken ct = default)
     {
         var payload = new
@@ -123,7 +300,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
         };
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        
+
         try
         {
             using var response = await _http.PostAsync($"embeddings/vaga/{vagaId}", content, ct).ConfigureAwait(false);
@@ -140,7 +317,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
             return false;
         }
     }
-    
+
     public async Task<bool> GenerateCandidatoEmbeddingAsync(Guid candidatoId, string tenantId, CancellationToken ct = default)
     {
         var payload = new
@@ -149,7 +326,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
         };
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        
+
         try
         {
             using var response = await _http.PostAsync($"embeddings/candidato/{candidatoId}", content, ct).ConfigureAwait(false);
@@ -166,7 +343,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
             return false;
         }
     }
-    
+
     public async Task<IReadOnlyList<MatchingCandidateItemResponse>?> GetMatchingHybridAsync(
         Guid vagaId,
         string tenantId,
@@ -174,57 +351,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
         int take = 50,
         CancellationToken ct = default)
     {
-        var payload = new
-        {
-            vaga_id = vagaId.ToString(),
-            tenant_id = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId.Trim(),
-            limit = Math.Clamp(take, 1, 200),
-        };
-        var json = JsonSerializer.Serialize(payload, JsonOptions);
-        using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        
-        try
-        {
-            using var response = await _http.PostAsync("match-hybrid", content, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning("RHPortal.Ai /match-hybrid retornou {StatusCode}", response.StatusCode);
-                return null;
-            }
-            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            var doc = JsonDocument.Parse(body);
-            var root = doc.RootElement;
-            if (!root.TryGetProperty("matching", out var matchArray))
-                return Array.Empty<MatchingCandidateItemResponse>();
-
-            var matching = new List<MatchingCandidateItemResponse>();
-            foreach (var item in matchArray.EnumerateArray())
-            {
-                var candidatoId = item.TryGetProperty("candidato_id", out var cid)
-                    ? Guid.Parse(cid.GetString() ?? Guid.Empty.ToString())
-                    : Guid.Empty;
-                var nome = item.TryGetProperty("nome", out var n) ? n.GetString() ?? "" : "";
-                var email = item.TryGetProperty("email", out var e) ? e.GetString() ?? "" : "";
-                var similaridade = item.TryGetProperty("similaridade", out var s) ? s.GetInt32() : 0;
-
-                if (candidatoId == Guid.Empty || similaridade < minScore)
-                    continue;
-
-                matching.Add(new MatchingCandidateItemResponse(
-                    candidatoId,
-                    nome,
-                    email,
-                    similaridade,
-                    similaridade >= minScore,
-                    LastMatchAtUtc: DateTimeOffset.UtcNow
-                ));
-            }
-            return matching;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erro ao chamar /match-hybrid para vaga {VagaId}", vagaId);
-            return null;
-        }
+        // Redireciona para o matching unificado
+        return await RunUnifiedMatchingAsync(vagaId, tenantId, minScore, take, ct);
     }
 }

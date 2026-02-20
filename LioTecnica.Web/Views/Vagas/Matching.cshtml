@@ -12,8 +12,8 @@
 
 @section Topbar {
     <div class="d-flex align-items-center gap-2">
-        <a href="@Url.Action("Index", "Vagas")" class="btn btn-ghost p-2" title="Voltar para Vagas" aria-label="Voltar para Vagas">
-            <i class="bi bi-arrow-left"></i>
+        <a href="@Url.Action("Index", "Vagas")" class="btn btn-ghost" title="Voltar" aria-label="Voltar para Vagas">
+            <i class="bi bi-arrow-left"></i><span class="d-none d-sm-inline ms-1">Voltar</span>
         </a>
         @await Html.PartialAsync("_TopbarBrand", (string)null)
     </div>
@@ -73,14 +73,22 @@
         </div>
     </div>
 
-    <div class="card-soft p-3 mb-3">
+    <div class="card-soft p-3 mb-3 position-relative">
+        <div id="matchingLoadingOverlay" class="loading-overlay" aria-live="polite" aria-busy="false">
+            <div class="panel" role="status">
+                <div class="spinner-border text-primary" aria-hidden="true"></div>
+                <span>Carregando ranking de candidatos e talentos...</span>
+                <span class="visually-hidden">Carregando</span>
+            </div>
+        </div>
         <div id="vagaHeader" class="d-none d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-            <div class="fw-bold">Candidatos</div>
+            <div class="fw-bold">Candidatos e talentos</div>
             <div class="d-flex flex-wrap align-items-center gap-2">
                 <span class="badge rounded-pill bg-primary" style="font-size:0.8rem;"><i class="bi bi-people me-1"></i><span id="listCount">0</span></span>
                 <span class="badge rounded-pill bg-success" style="font-size:0.8rem;"><i class="bi bi-check2-circle me-1"></i><span id="cardInside">0</span></span>
                 <span class="badge rounded-pill bg-warning text-dark" style="font-size:0.8rem;"><i class="bi bi-exclamation-triangle me-1"></i><span id="cardFail">0</span></span>
                 <span class="badge rounded-pill" style="font-size:0.8rem; background: rgba(16,82,144,.12); color: var(--lt-primary);"><span id="cardAvg">0%</span> média</span>
+                <span class="small text-muted mb-0">Ranking: Top 20</span>
             </div>
         </div>
 

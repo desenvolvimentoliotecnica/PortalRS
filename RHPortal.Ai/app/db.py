@@ -1,31 +1,50 @@
 """
 Consulta ao PostgreSQL: vagas (requisitos + filtros matching) e candidatos (perfil).
-Tabelas: Vagas, VagaRequisitos, Candidatos, CandidatoCompetencias.
+Tabelas: Vagas, VagaRequisitos, Candidatos, CandidatoCompetencias, Talentos,
+TalentoCompetencias, TalentoExperiencias, TalentoFormacoes.
 """
+import os
 from typing import Any
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-from app.config import DATABASE_URL, TENANT_ID
+from app.config import DATABASE_URL, TENANT_ID, get_database_url
+
+# Evita libpq ler PGPASSWORD etc. do ambiente (Windows).
+for _k in ("PGPASSWORD", "PGUSER", "PGDATABASE", "PGHOST", "PGPORT"):
+    os.environ.pop(_k, None)
+# Força libpq a usar UTF-8 (evita UnicodeDecodeError ao decodificar mensagens no Windows).
+os.environ["PGCLIENTENCODING"] = "UTF8"
 
 
 def _conn(tenant_id: str | None = None):
-    if not DATABASE_URL:
+    url = get_database_url(tenant_id)
+    if not url:
         raise ValueError("DATABASE_URL não configurada")
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(url)
 
+
+# ─── Vaga ───────────────────────────────────────────────────────────────────
 
 def get_vaga_perfil(vaga_id: str, tenant_id: str | None = None) -> dict[str, Any] | None:
-    """Retorna título, MatchingFiltrosRaw e lista de requisitos (Nome, SinonimosRaw) da vaga."""
+    """Retorna perfil completo da vaga para matching: todos os campos + requisitos."""
     tid = tenant_id or TENANT_ID
-    with _conn() as conn:
+    with _conn(tid) as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT id, "TenantId", "Codigo", "Titulo", "MatchingFiltrosRaw"
+                SELECT "Id", "TenantId", "Codigo", "Titulo", "MatchingFiltrosRaw",
+                       "Senioridade", "Modalidade", "Escolaridade",
+                       "DescricaoInterna", "DescricaoPublica",
+                       "Cidade", "Uf",
+                       "TagsStackRaw", "TagsIdiomasRaw", "TagsKeywordsRaw", "Diferenciais",
+                       "ExperienciaMinimaAnos", "FormacaoArea",
+                       "QuantidadeVagas", "TipoContratacao",
+                       "AceitaPcd", "ExigeCnh", "Urgente",
+                       "ResumoPitch"
                 FROM "Vagas"
-                WHERE id = %s AND ("TenantId" = %s OR %s = '')
+                WHERE "Id" = %s AND ("TenantId" = %s OR %s = '')
                 """,
                 (vaga_id, tid, tid or ""),
             )
@@ -36,7 +55,8 @@ def get_vaga_perfil(vaga_id: str, tenant_id: str | None = None) -> dict[str, Any
 
             cur.execute(
                 """
-                SELECT "Nome", "SinonimosRaw", "Obrigatorio"
+                SELECT "Nome", "SinonimosRaw", "Obrigatorio", "Peso", "AnosMinimos",
+                       "Nivel", "Categoria"
                 FROM "VagaRequisitos"
                 WHERE "VagaId" = %s
                 ORDER BY "Ordem", "Nome"
@@ -48,19 +68,21 @@ def get_vaga_perfil(vaga_id: str, tenant_id: str | None = None) -> dict[str, Any
             return vaga
 
 
+# ─── Candidato ──────────────────────────────────────────────────────────────
+
 def get_candidato_perfil(candidato_id: str, tenant_id: str | None = None) -> dict[str, Any] | None:
     """
     Retorna um único candidato com perfil para matching:
     id, Nome, Email, cv_text, resumo_profissional, cidade, uf, competencias (texto).
     """
     tid = tenant_id or TENANT_ID
-    with _conn() as conn:
+    with _conn(tid) as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            where = 'c.id = %s AND c."TenantId" = %s' if tid else "c.id = %s"
+            where = 'c."Id" = %s AND c."TenantId" = %s' if tid else 'c."Id" = %s'
             params: list[Any] = [candidato_id, tid] if tid else [candidato_id]
             cur.execute(
                 f"""
-                SELECT c.id, c."Nome", c."Email", c."CvText", c."ResumoProfissional", c."Cidade", c."Uf"
+                SELECT c."Id", c."Nome", c."Email", c."CvText", c."ResumoProfissional", c."Cidade", c."Uf"
                 FROM "Candidatos" c
                 WHERE {where}
                 """,
@@ -93,14 +115,14 @@ def get_candidatos_perfis(tenant_id: str | None = None) -> list[dict[str, Any]]:
     A IA fará a filtragem por similaridade com a vaga.
     """
     tid = tenant_id or TENANT_ID
-    with _conn() as conn:
+    with _conn(tid) as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             where = 'WHERE c."TenantId" = %s' if tid else "WHERE 1=1"
             params: list[Any] = [tid] if tid else []
 
             cur.execute(
                 f"""
-                SELECT c.id, c."Nome", c."Email", c."CvText", c."ResumoProfissional", c."Cidade", c."Uf"
+                SELECT c."Id", c."Nome", c."Email", c."CvText", c."ResumoProfissional", c."Cidade", c."Uf"
                 FROM "Candidatos" c
                 {where}
                 ORDER BY c."Nome"
@@ -120,7 +142,7 @@ def get_candidatos_perfis(tenant_id: str | None = None) -> list[dict[str, Any]]:
             if not candidatos:
                 return []
 
-            ids = [str(c["id"]) for c in candidatos]
+            ids = [str(c["Id"]) for c in candidatos]
             cur.execute(
                 """
                 SELECT "CandidatoId", "Nome", "Tipo", "Nivel"
@@ -136,5 +158,113 @@ def get_candidatos_perfis(tenant_id: str | None = None) -> list[dict[str, Any]]:
                 cid = str(row["CandidatoId"])
                 by_cand.setdefault(cid, []).append((row["Nome"] or "").strip())
             for c in candidatos:
-                c["competencias"] = " ".join(by_cand.get(str(c["id"]), []))
+                c["competencias"] = " ".join(by_cand.get(str(c["Id"]), []))
             return candidatos
+
+
+# ─── Talento (Banco de Talentos) ────────────────────────────────────────────
+
+def get_talento_perfil(talento_id: str, tenant_id: str | None = None) -> dict[str, Any] | None:
+    """
+    Retorna um talento completo com perfil para matching:
+    Pessoa (Nome, Email, Cidade, UF, ResumoProfissional),
+    Competências (Nome, Tipo, Nivel, TempoAtuacao),
+    Experiências (Empresa, Cargo, Atividades, NivelSenioridade),
+    Formação (Curso, Instituição, Tipo, Status).
+    """
+    tid = tenant_id or TENANT_ID
+    with _conn(tid) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Talento + Pessoa
+            cur.execute(
+                """
+                SELECT t."Id", t."TenantId", t."CvProfileJson",
+                       p."Nome", p."Email", p."Cidade", p."Uf",
+                       p."ResumoProfissional", p."Fone", p."LinkedinUrl"
+                FROM "Talentos" t
+                JOIN "Pessoas" p ON p."Id" = t."PessoaId" AND p."TenantId" = t."TenantId"
+                WHERE t."Id" = %s AND (t."TenantId" = %s OR %s = '')
+                """,
+                (talento_id, tid, tid or ""),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            talento = dict(row)
+
+            # Competências
+            cur.execute(
+                """
+                SELECT "Nome", "Tipo", "Nivel", "TempoAtuacao", "Evidencia"
+                FROM "TalentoCompetencias"
+                WHERE "TalentoId" = %s
+                ORDER BY "Nome"
+                """,
+                (talento_id,),
+            )
+            talento["competencias"] = [dict(r) for r in cur.fetchall()]
+
+            # Experiências
+            cur.execute(
+                """
+                SELECT "Empresa", "Cargo", "Inicio", "Fim",
+                       "TipoContratacao", "Local", "Atividades",
+                       "ResumoAtividades", "NivelSenioridade"
+                FROM "TalentoExperiencias"
+                WHERE "TalentoId" = %s
+                ORDER BY "Inicio" DESC NULLS LAST
+                """,
+                (talento_id,),
+            )
+            talento["experiencias"] = [dict(r) for r in cur.fetchall()]
+
+            # Formação
+            cur.execute(
+                """
+                SELECT "Curso", "Instituicao", "Tipo", "Status", "Inicio", "Fim"
+                FROM "TalentoFormacoes"
+                WHERE "TalentoId" = %s
+                ORDER BY "Inicio" DESC NULLS LAST
+                """,
+                (talento_id,),
+            )
+            talento["formacao"] = [dict(r) for r in cur.fetchall()]
+
+            return talento
+
+
+def get_talentos_ids(tenant_id: str | None = None) -> list[str]:
+    """Retorna lista de IDs de todos os talentos do tenant (para geração em lote de embeddings)."""
+    tid = tenant_id or TENANT_ID
+    with _conn(tid) as conn:
+        with conn.cursor() as cur:
+            where = 'WHERE "TenantId" = %s' if tid else ""
+            params: list[Any] = [tid] if tid else []
+            cur.execute(f'SELECT "Id" FROM "Talentos" {where}', params)
+            return [str(row[0]) for row in cur.fetchall()]
+
+
+def get_talentos_ids_sem_embedding(tenant_id: str | None = None, limit: int = 50) -> list[str]:
+    """Retorna IDs de talentos do tenant que ainda não têm embedding (para batch)."""
+    tid = tenant_id or TENANT_ID
+    with _conn(tid) as conn:
+        with conn.cursor() as cur:
+            where = 'WHERE "TenantId" = %s AND "Embedding" IS NULL' if tid else 'WHERE "Embedding" IS NULL'
+            params: list[Any] = [tid] if tid else []
+            cur.execute(f'SELECT "Id" FROM "Talentos" {where} LIMIT %s', params + [limit])
+            return [str(row[0]) for row in cur.fetchall()]
+
+
+def get_vagas_abertas_ids(tenant_id: str | None = None) -> list[str]:
+    """Retorna IDs de vagas com status Aberta do tenant."""
+    tid = tenant_id or TENANT_ID
+    with _conn(tid) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT "Id" FROM "Vagas"
+                WHERE "Status" = 2 AND ("TenantId" = %s OR %s = '')
+                """,
+                (tid, tid or ""),
+            )
+            return [str(row[0]) for row in cur.fetchall()]

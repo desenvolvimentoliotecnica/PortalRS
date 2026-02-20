@@ -1184,7 +1184,7 @@ async function fetchCandidatesByVaga(vagaId) {
 async function fetchMatchingCandidatesByVaga(vagaId) {
   if (!vagaId) return [];
   try {
-    const res = await fetch(`${VAGAS_API_URL}/${encodeURIComponent(vagaId)}/matching-candidates?take=30`, {
+    const res = await fetch(`${VAGAS_API_URL}/${encodeURIComponent(vagaId)}/matching-candidates?take=20`, {
       headers: { "Accept": "application/json" },
       credentials: "same-origin"
     });
@@ -2069,6 +2069,11 @@ function buildVagaPayloadFromForm() {
   const current = currentId ? findVaga(currentId) : null;
   const weights = current?.weights || { competencia: 40, experiencia: 30, formacao: 15, localidade: 15 };
 
+  const matchingFiltrosRaw = emptyToNull(buildMatchingFiltrosRawFromSelects());
+  if (!currentId && !matchingFiltrosRaw) {
+    return { error: "Preencha os filtros de matching para criar a vaga." };
+  }
+
   const payload = {
     titulo,
     departmentId: emptyToNull(departmentId),
@@ -2082,7 +2087,7 @@ function buildVagaPayloadFromForm() {
     tipoContratacao: emptyToNull(getValue("vagaTipoContratacao")),
     matchMinimoPercentual,
     weights,
-    matchingFiltrosRaw: emptyToNull(buildMatchingFiltrosRawFromSelects()),
+    matchingFiltrosRaw,
     descricaoInterna: emptyToNull(getValue("vagaDescricao")),
     codigoInterno: emptyToNull(getValue("vagaCodigoInterno")),
     codigoCbo: emptyToNull(getValue("vagaCbo")),

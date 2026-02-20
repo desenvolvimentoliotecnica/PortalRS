@@ -3,13 +3,24 @@ using RhPortal.Api.Contracts.Matching;
 namespace RhPortal.Api.Application.Matching;
 
 /// <summary>
-/// Cliente HTTP para o serviço RHPortal.Ai (matching por filtros da vaga).
+/// Cliente HTTP para o serviço RHPortal.Ai (matching unificado + embeddings).
 /// </summary>
 public interface IRHPortalAiMatchClient
 {
     /// <summary>
-    /// Chama POST /match no RHPortal.Ai e retorna lista de candidatos com score 0-100 (por critérios).
-    /// Em caso de falha (rede, 5xx), retorna null para permitir fallback.
+    /// Chama POST /matching/run no RHPortal.Ai — matching unificado (vetorial + LLM 80/20).
+    /// Retorna ranking de candidatos + talentos com scores detalhados.
+    /// Em caso de falha, retorna null para permitir fallback.
+    /// </summary>
+    Task<IReadOnlyList<MatchingCandidateItemResponse>?> RunUnifiedMatchingAsync(
+        Guid vagaId,
+        string tenantId,
+        int minScore = 0,
+        int take = 20,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// [LEGADO] Chama POST /match no RHPortal.Ai e retorna lista de candidatos com score 0-100 (por critérios).
     /// </summary>
     Task<IReadOnlyList<MatchingCandidateItemResponse>?> GetMatchingByFiltersAsync(
         Guid vagaId,
@@ -19,7 +30,7 @@ public interface IRHPortalAiMatchClient
         CancellationToken ct = default);
 
     /// <summary>
-    /// Chama POST /match-one no RHPortal.Ai para um único (candidato, vaga). Retorna (Score, Nome, Email) ou null em falha.
+    /// Chama POST /match-one no RHPortal.Ai para um único (candidato, vaga). [LEGADO]
     /// </summary>
     Task<(int Score, string? Nome, string? Email)?> GetScoreForOneAsync(
         Guid vagaId,
@@ -28,8 +39,17 @@ public interface IRHPortalAiMatchClient
         CancellationToken ct = default);
 
     /// <summary>
-    /// Chama POST /embeddings/vaga/{id} para gerar e salvar embedding de uma vaga.
-    /// Retorna true se sucesso.
+    /// Chama POST /matching/evaluate-one no RHPortal.Ai — avalia uma pessoa (candidato ou talento) contra a vaga (LLM 80/20).
+    /// </summary>
+    Task<(int Score, string? Nome, string? Email)?> EvaluateOneUnifiedAsync(
+        Guid vagaId,
+        Guid personId,
+        string source,
+        string tenantId,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Gera e salva embedding de uma vaga.
     /// </summary>
     Task<bool> GenerateVagaEmbeddingAsync(
         Guid vagaId,
@@ -37,8 +57,7 @@ public interface IRHPortalAiMatchClient
         CancellationToken ct = default);
 
     /// <summary>
-    /// Chama POST /embeddings/candidato/{id} para gerar e salvar embedding de um candidato.
-    /// Retorna true se sucesso.
+    /// Gera e salva embedding de um candidato.
     /// </summary>
     Task<bool> GenerateCandidatoEmbeddingAsync(
         Guid candidatoId,
@@ -46,8 +65,23 @@ public interface IRHPortalAiMatchClient
         CancellationToken ct = default);
 
     /// <summary>
-    /// Chama POST /match-hybrid para matching híbrido (vetorial + LLM).
-    /// Retorna null em falha.
+    /// Gera e salva embedding de um talento.
+    /// </summary>
+    Task<bool> GenerateTalentoEmbeddingAsync(
+        Guid talentoId,
+        string tenantId,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Gera embeddings em lote para talentos do tenant que ainda não têm (POST /embeddings/talentos/batch).
+    /// </summary>
+    Task<(int Generated, int TotalProcessed)> GenerateTalentosEmbeddingsBatchAsync(
+        string tenantId,
+        int limit = 50,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// [LEGADO] Chama POST /match-hybrid para matching híbrido.
     /// </summary>
     Task<IReadOnlyList<MatchingCandidateItemResponse>?> GetMatchingHybridAsync(
         Guid vagaId,

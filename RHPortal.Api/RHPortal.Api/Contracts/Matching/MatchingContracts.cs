@@ -9,5 +9,9 @@ public sealed record MatchingCandidateItemResponse(
     string Email,
     int Score,
     bool Pass,
-    DateTimeOffset? LastMatchAtUtc
+    DateTimeOffset? LastMatchAtUtc,
+    string? Source = null,
+    int? ScoreFiltros = null,
+    int? ScoreRequisitos = null,
+    string? Justificativa = null
 );
