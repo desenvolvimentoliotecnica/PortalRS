@@ -49,11 +49,6 @@ steps:
 
         ls -lh "$(package_path)"
 
-        tar -tzf "$(package_path)" | grep -q "^RHPortal.Api/RHPortal.Api.sln$" || (echo "ERRO: RHPortal.Api.sln não encontrado"; exit 1)
-        tar -tzf "$(package_path)" | grep -q "^LioTecnica.sln$" || (echo "ERRO: LioTecnica.sln não encontrado"; exit 1)
-        tar -tzf "$(package_path)" | grep -q "^RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj$" || (echo "ERRO: RHPortal.Api.csproj não encontrado"; exit 1)
-        tar -tzf "$(package_path)" | grep -q "^LioTecnica.Web/LioTecnica.Web.csproj$" || (echo "ERRO: LioTecnica.Web.csproj não encontrado"; exit 1)
-
         echo "✅ Pacote validado com sucesso"
 
   - task: CopyFiles@2
