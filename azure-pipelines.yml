@@ -28,16 +28,6 @@ steps:
         ls -la
         echo "Criando tar..."
         tar -czf "${PACKAGE_NAME}" \
-          --warning=no-file-changed \
-          --exclude=".git" \
-          --exclude="${PACKAGE_NAME}" \
-          --exclude=".vs" \
-          --exclude=".vscode" \
-          --exclude=".idea" \
-          --exclude="**/bin" \
-          --exclude="**/obj" \
-          --exclude="**/*.log" \
-          --exclude="**/.env" \
           -C "${ROOT_DIR}" . || { echo "ERRO: tar falhou com código $?"; exit 1; }
         test -f "${PACKAGE_NAME}" || { echo "ERRO: arquivo não criado"; exit 1; }
         ls -lh "${PACKAGE_NAME}"
