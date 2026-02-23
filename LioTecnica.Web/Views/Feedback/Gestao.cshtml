@@ -5,8 +5,10 @@
 
 @section Topbar {
 	@await Html.PartialAsync("_TopbarBrand", "Feedback • Gestão")
-	<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar">Atualizar</button>
-	@await Html.PartialAsync("_TopbarUserActions", "RH")
+	<div class="d-flex align-items-center gap-2">
+		<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar">Atualizar</button>
+		@await Html.PartialAsync("_TopbarUserActions", "RH")
+	</div>
 }
 
 <section class="content">

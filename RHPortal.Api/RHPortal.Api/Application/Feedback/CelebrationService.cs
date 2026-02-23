@@ -61,15 +61,39 @@ public sealed class CelebrationService
         return new CelebrationPostResponse(created.Id, created.AuthorId, created.Author?.FullName ?? "", created.Content, created.CreatedAtUtc, mentionList);
     }
 
-    public async Task<CelebrationFeedResponse> ListFeedAsync(int page = 1, int pageSize = 20, CancellationToken ct = default)
+    public async Task<CelebrationFeedResponse> ListFeedAsync(
+        Guid currentUserId,
+        string? filter,
+        DateTimeOffset? from,
+        DateTimeOffset? to,
+        int page = 1,
+        int pageSize = 20,
+        CancellationToken ct = default)
     {
         var tenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("Tenant context required.");
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var query = _db.CelebrationPosts
+        var baseQuery = _db.CelebrationPosts
             .AsNoTracking()
-            .Where(x => x.TenantId == tenantId)
+            .Where(x => x.TenantId == tenantId);
+
+        if (from.HasValue)
+            baseQuery = baseQuery.Where(x => x.CreatedAtUtc >= from.Value);
+        if (to.HasValue)
+            baseQuery = baseQuery.Where(x => x.CreatedAtUtc <= to.Value);
+
+        var normalizedFilter = (filter ?? "all").Trim().ToLowerInvariant();
+        if (normalizedFilter == "sent")
+        {
+            baseQuery = baseQuery.Where(x => x.AuthorId == currentUserId);
+        }
+        else if (normalizedFilter == "received")
+        {
+            baseQuery = baseQuery.Where(x => x.Mentions.Any(m => m.UserId == currentUserId));
+        }
+
+        var query = baseQuery
             .Include(x => x.Author)
             .Include(x => x.Mentions)
             .ThenInclude(m => m.User)
@@ -120,5 +144,179 @@ public sealed class CelebrationService
             .Take(take)
             .Select(u => new CelebrationMentionUserResponse(u.Id, u.FullName ?? "", u.Email))
             .ToListAsync(ct);
+    }
+
+    public async Task<CelebrationCommentsListResponse> ListCommentsAsync(Guid currentUserId, Guid postId, int page = 1, int pageSize = 20, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("Tenant context required.");
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var query = _db.CelebrationComments
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.PostId == postId)
+            .Include(x => x.Author)
+            .Include(x => x.Mentions)
+            .ThenInclude(m => m.User)
+            .OrderBy(x => x.CreatedAtUtc);
+
+        var total = await query.CountAsync(ct);
+        var comments = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        var commentIds = comments.Select(x => x.Id).ToList();
+        var reactions = await _db.CelebrationCommentReactions
+            .AsNoTracking()
+            .Where(r => commentIds.Contains(r.CommentId))
+            .Select(r => new { r.CommentId, r.UserId, r.Type })
+            .ToListAsync(ct);
+
+        var reactionCounts = reactions
+            .GroupBy(x => new { x.CommentId, Type = (x.Type ?? "").Trim().ToLowerInvariant() })
+            .ToDictionary(g => (g.Key.CommentId, g.Key.Type), g => g.Count());
+
+        var reactedByMe = reactions
+            .Where(x => x.UserId == currentUserId)
+            .GroupBy(x => new { x.CommentId, Type = (x.Type ?? "").Trim().ToLowerInvariant() })
+            .ToDictionary(g => (g.Key.CommentId, g.Key.Type), g => true);
+
+        var items = comments.Select(c =>
+        {
+            var mentions = c.Mentions
+                .Select(m => new CelebrationCommentMentionResponse(m.UserId, m.User?.FullName ?? ""))
+                .ToList();
+
+            var likeCount = reactionCounts.TryGetValue((c.Id, "like"), out var lc) ? lc : 0;
+            var likeMine = reactedByMe.ContainsKey((c.Id, "like"));
+            var reactionList = new List<CelebrationCommentReactionSummaryResponse>
+            {
+                new("like", likeCount, likeMine)
+            };
+
+            return new CelebrationCommentResponse(
+                c.Id,
+                c.PostId,
+                c.AuthorId,
+                c.Author?.FullName ?? "",
+                c.Content,
+                c.CreatedAtUtc,
+                mentions,
+                reactionList);
+        }).ToList();
+
+        return new CelebrationCommentsListResponse(items, total, page, pageSize);
+    }
+
+    public async Task<CelebrationCommentResponse?> CreateCommentAsync(Guid postId, CelebrationCommentCreateRequest request, Guid authorId, CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("Tenant context required.");
+
+        var exists = await _db.CelebrationPosts
+            .AsNoTracking()
+            .AnyAsync(x => x.TenantId == tenantId && x.Id == postId, ct);
+        if (!exists)
+            return null;
+
+        var comment = new CelebrationComment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PostId = postId,
+            AuthorId = authorId,
+            Content = request.Content.Trim(),
+            CreatedAtUtc = DateTimeOffset.UtcNow
+        };
+        _db.CelebrationComments.Add(comment);
+
+        var mentionedIds = (request.MentionedUserIds ?? Array.Empty<Guid>()).Distinct().ToList();
+        if (mentionedIds.Count > 0)
+        {
+            var validUserIds = await _db.Users
+                .Where(u => u.TenantId == tenantId && mentionedIds.Contains(u.Id))
+                .Select(u => u.Id)
+                .ToListAsync(ct);
+
+            foreach (var userId in validUserIds)
+            {
+                _db.CelebrationCommentMentions.Add(new CelebrationCommentMention
+                {
+                    Id = Guid.NewGuid(),
+                    CommentId = comment.Id,
+                    UserId = userId
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        var created = await _db.CelebrationComments
+            .AsNoTracking()
+            .Include(x => x.Author)
+            .Include(x => x.Mentions)
+            .ThenInclude(m => m.User)
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.Id == comment.Id, ct);
+
+        if (created is null)
+            throw new InvalidOperationException("Comment not found after create.");
+
+        var mentionList = created.Mentions
+            .Select(m => new CelebrationCommentMentionResponse(m.UserId, m.User?.FullName ?? ""))
+            .ToList();
+
+        return new CelebrationCommentResponse(
+            created.Id,
+            created.PostId,
+            created.AuthorId,
+            created.Author?.FullName ?? "",
+            created.Content,
+            created.CreatedAtUtc,
+            mentionList,
+            new List<CelebrationCommentReactionSummaryResponse> { new("like", 0, false) });
+    }
+
+    public async Task<CelebrationCommentReactionSummaryResponse?> ToggleCommentReactionAsync(Guid commentId, Guid userId, string type, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("Tenant context required.");
+        var normalizedType = (type ?? "").Trim().ToLowerInvariant();
+        if (normalizedType.Length == 0) normalizedType = "like";
+        if (normalizedType.Length > 20) normalizedType = normalizedType[..20];
+
+        var commentExists = await _db.CelebrationComments
+            .AsNoTracking()
+            .AnyAsync(x => x.TenantId == tenantId && x.Id == commentId, ct);
+        if (!commentExists)
+            return null;
+
+        var existing = await _db.CelebrationCommentReactions
+            .FirstOrDefaultAsync(x => x.CommentId == commentId && x.UserId == userId && x.Type.ToLower() == normalizedType, ct);
+
+        var reactedByMeNow = false;
+        if (existing is null)
+        {
+            _db.CelebrationCommentReactions.Add(new CelebrationCommentReaction
+            {
+                Id = Guid.NewGuid(),
+                CommentId = commentId,
+                UserId = userId,
+                Type = normalizedType,
+                CreatedAtUtc = DateTimeOffset.UtcNow
+            });
+            reactedByMeNow = true;
+        }
+        else
+        {
+            _db.CelebrationCommentReactions.Remove(existing);
+            reactedByMeNow = false;
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        var count = await _db.CelebrationCommentReactions
+            .AsNoTracking()
+            .CountAsync(x => x.CommentId == commentId && x.Type.ToLower() == normalizedType, ct);
+
+        return new CelebrationCommentReactionSummaryResponse(normalizedType, count, reactedByMeNow);
     }
 }

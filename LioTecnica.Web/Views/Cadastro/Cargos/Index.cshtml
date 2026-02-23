@@ -1,0 +1,153 @@
+@model PageSeedViewModel
+@{
+    ViewData["Title"] = "Portal RH - Cadastro - Cargo";
+    ViewData["SidebarSubtitle"] = "Cargo";
+}
+
+@await Html.PartialAsync("~/Views/Cargos/_ModalCargo.cshtml")
+@await Html.PartialAsync("~/Views/Cargos/_ModalCargoGestores.cshtml")
+@await Html.PartialAsync("_Toast")
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", (string)null)
+
+    <div class="searchbox position-relative d-none d-md-block">
+      <i class="bi bi-search"></i>
+      <input id="globalSearchCargo" class="form-control" placeholder="Buscar cargo..." />
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      @await Html.PartialAsync("_TopbarUserActions", "RH")
+    </div>
+}
+
+<section class="content">
+  <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div>
+      <h4>Cargo</h4>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-ghost" type="button" id="btnExportCargo" title="Exportar cargos (CSV)">
+        <i class="bi bi-filetype-csv"></i><span class="d-none d-sm-inline ms-1">Exportar</span>
+      </button>
+      <button class="btn btn-ghost" type="button" id="btnSeedReset" title="Recarregar dados">
+        <i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+      </button>
+      <button class="btn btn-brand" type="button" id="btnNewCargo">
+        <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Novo cargo</span>
+      </button>
+    </div>
+  </div>
+
+  @{
+    var kpis = new[]
+    {
+      new { ColClass = "col-6 col-lg-3", Title = "Cargos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCargoTotal", Value = "0", PillIcon = "bi-briefcase", PillText = "total", Hint = "Cargos cadastrados." },
+      new { ColClass = "col-6 col-lg-3", Title = "Ativos", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCargoActive", Value = "0", PillIcon = "bi-check2-circle", PillText = "ativos", Hint = "Cargos em operacao." },
+      new { ColClass = "col-6 col-lg-3", Title = "Funcionários", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCargoManagers", Value = "0", PillIcon = "bi-person-badge", PillText = "funcionários", Hint = "Funcionários vinculados." },
+      new { ColClass = "col-6 col-lg-3", Title = "Headcount", ValueStyle = "font-size:1.6rem;color:var(--lt-primary);", ValueId = "kpiCargoHeadcount", Value = "0", PillIcon = "bi-people", PillText = "pessoas", Hint = "Soma dos headcounts." }
+    };
+  }
+  @await Html.PartialAsync("_KpiMiniRow", kpis)
+
+  <div class="card-soft p-3 mb-3">
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
+      <div>
+        <div class="fw-bold">Lista de cargos</div>
+        <div class="text-muted small">Clique em um cargo para ver funcionários vinculados.</div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <div style="min-width:240px;">
+          <label class="form-label small mb-1">Buscar</label>
+          <div class="input-group">
+            <span class="input-group-text" style="background:rgba(255,255,255,.65)"><i class="bi bi-search"></i></span>
+            <input class="form-control" id="cSearch" placeholder="nome, codigo, area...">
+          </div>
+        </div>
+        <div>
+          <label class="form-label small mb-1">Status</label>
+          <select class="form-select" id="cStatus">
+            <option value="all">Todos</option>
+            <option value="ativo">Ativo</option>
+            <option value="inativo">Inativo</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-3 divider">
+
+        <div class="table-responsive">
+  <table class="table table-sm align-middle mb-0">
+    <thead>
+<tr>
+          <th>Cargo</th>
+          <th>Area</th>
+          <th>Senioridade</th>
+          <th>Funcionários</th>
+          <th>Status</th>
+          <th class="text-end">Acoes</th>
+        </tr>
+    </thead>
+    <tbody id="cargoTbody"></tbody>
+  </table>
+</div>
+
+    <div class="d-flex align-items-center justify-content-between mt-2">
+      <div class="text-muted small" id="cargoHint">-</div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="pill"><i class="bi bi-table"></i><span id="cargoCount">0</span> exibidos</span>
+      </div>
+    </div>
+  </div>
+
+  <template id="tpl-cargo-row">
+    <tr>
+      <td>
+        <div class="fw-semibold" data-role="cargo-name"></div>
+        <div class="text-muted small" data-role="cargo-code"></div>
+      </td>
+      <td data-role="cargo-area"></td>
+      <td data-role="cargo-senioridade"></td>
+      <td class="mono" data-role="cargo-gestores"></td>
+      <td><span data-role="cargo-status-host"></span></td>
+      <td class="text-end">
+        <button class="btn btn-ghost btn-sm me-1" type="button" data-act="detail">
+          <i class="bi bi-eye"></i>
+        </button>
+        <button class="btn btn-ghost btn-sm me-1" type="button" data-act="edit">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-ghost btn-sm text-danger" type="button" data-act="del">
+          <i class="bi bi-trash3"></i>
+        </button>
+      </td>
+    </tr>
+  </template>
+
+  <template id="tpl-cargo-empty-row">
+    <tr>
+      <td colspan="6" class="text-center text-muted py-3">Nenhum cargo encontrado.</td>
+    </tr>
+  </template>
+
+  <div style="height:14px;"></div>
+</section>
+
+@section Footer {
+  @{
+    var footerItems = new[]
+    {
+      new { Icon = "bi-briefcase", Text = "Cargo", Id = "", Class = "" },
+      new { Icon = "bi-shield-check", Text = "LGPD", Id = "", Class = "" },
+      new { Icon = "", Text = "build: demo", Id = "buildId", Class = "mono muted" }
+    };
+  }
+  @await Html.PartialAsync("_Footer", footerItems)
+}
+
+@section Scripts {
+  <script>
+  </script>
+  <script src="~/js/views/cargos.js" asp-append-version="true"></script>
+}

@@ -13,3 +13,56 @@
     </div>
   </div>
 
+  <div class="modal fade" id="modalCvSuggested" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content" style="border-radius: 18px; border: 1px solid var(--lt-border);">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title fw-bold">Dados extraídos do currículo</h5>
+            <div class="text-muted small">Revise e aplique no candidato (e no talento, se houver)</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="suggestedCandidatoId" />
+          <input type="hidden" id="suggestedTalentoId" />
+          <textarea type="hidden" id="suggestedCvText" class="d-none"></textarea>
+          <div class="row g-2 mb-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label small">Nome</label>
+              <input class="form-control form-control-sm" id="suggestedNome" />
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label small">Email</label>
+              <input class="form-control form-control-sm" type="email" id="suggestedEmail" />
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label small">Fone</label>
+              <input class="form-control form-control-sm" id="suggestedFone" />
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label small">Cidade</label>
+              <input class="form-control form-control-sm" id="suggestedCidade" />
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label small">UF</label>
+              <input class="form-control form-control-sm" id="suggestedUf" maxlength="2" placeholder="UF" />
+            </div>
+            <div class="col-12">
+              <label class="form-label small">Resumo profissional</label>
+              <textarea class="form-control form-control-sm" id="suggestedResumo" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button type="button" class="btn btn-brand btn-sm" id="btnApplyCandidato">
+              <i class="bi bi-person-check me-1"></i>Aplicar no candidato
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm d-none" id="btnApplyCandidatoETalento">
+              <i class="bi bi-person-badge me-1"></i>Aplicar no candidato e no talento
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>

@@ -37,4 +37,17 @@ public sealed class GamificationController : ControllerBase
         var result = await service.GetMyBalanceAsync(userId, ct);
         return Ok(result);
     }
+
+    [RequirePermission("feedback.gamificacao.view")]
+    [HttpGet("history")]
+    [ProducesResponseType(typeof(MonthlyTop3HistoryResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<MonthlyTop3HistoryResponse>> GetHistory(
+        [FromServices] GamificationService service,
+        CancellationToken ct,
+        [FromQuery] int months = 6,
+        [FromQuery] decimal goal = 5000)
+    {
+        var result = await service.GetMonthlyTop3HistoryAsync(months, goal, ct);
+        return Ok(result);
+    }
 }

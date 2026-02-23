@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.Vagas.Handlers;
@@ -16,10 +17,20 @@ namespace RhPortal.Api.Controllers;
 public sealed class VagasController : ControllerBase
 {
     private readonly ICurrentUserContext _userContext;
+    private readonly IRHPortalAiMatchClient? _aiMatchClient;
+    private readonly ITenantContext _tenantContext;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public VagasController(ICurrentUserContext userContext)
+    public VagasController(
+        ICurrentUserContext userContext,
+        ITenantContext tenantContext,
+        IServiceScopeFactory scopeFactory,
+        IRHPortalAiMatchClient? aiMatchClient = null)
     {
         _userContext = userContext;
+        _tenantContext = tenantContext;
+        _scopeFactory = scopeFactory;
+        _aiMatchClient = aiMatchClient;
     }
 
     /// <summary>
@@ -92,22 +103,40 @@ public sealed class VagasController : ControllerBase
     }
 
     /// <summary>
-    /// Lista candidatos com score de matching para a vaga, ordenados por score (maior primeiro).
+    /// Lista candidatos e talentos com score de matching para a vaga (embedding + vetorial + LLM 80/20).
+    /// Sem fallback: exige RHPortal.Ai em execução.
     /// </summary>
     /// <param name="id">ID da vaga.</param>
     /// <param name="minScore">Score mínimo (0 a 100).</param>
-    /// <param name="take">Quantidade de itens (1 a 200).</param>
+    /// <param name="take">Quantidade de itens (10 a 100, default 20).</param>
     [HttpGet("{id:guid}/matching-candidates")]
     [ProducesResponseType(typeof(IReadOnlyList<MatchingCandidateItemResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<IReadOnlyList<MatchingCandidateItemResponse>>> GetMatchingCandidates(
         [FromRoute] Guid id,
-        [FromServices] IMatchingService matchingService,
+        [FromServices] ICandidatoVagaMatchingScoreService? scoreStore,
         [FromQuery] int minScore = 0,
-        [FromQuery] int take = 50,
+        [FromQuery] int take = 20,
         CancellationToken ct = default)
     {
-        var items = await matchingService.GetCandidatesWithScoresAsync(id, minScore, take, ct);
-        return Ok(items);
+        if (_aiMatchClient == null)
+            return StatusCode(503, new { message = "Serviço de matching por IA (RHPortal.Ai) não configurado. Configure o cliente e execute o RHPortal.Ai." });
+
+        var unifiedItems = await _aiMatchClient.RunUnifiedMatchingAsync(
+            id,
+            _tenantContext.TenantId ?? "",
+            minScore,
+            Math.Clamp(take, 10, 100),
+            ct
+        ).ConfigureAwait(false);
+
+        if (unifiedItems == null)
+            return StatusCode(503, new { message = "RHPortal.Ai indisponível ou falha ao calcular matching. Verifique se o serviço está rodando e se há embeddings para vaga, candidatos e talentos." });
+
+        if (scoreStore != null)
+            _ = PersistUnifiedRankingInBackgroundAsync(id, unifiedItems, _tenantContext.TenantId ?? "");
+
+        return Ok(unifiedItems);
     }
 
     /// <summary>
@@ -159,6 +188,72 @@ public sealed class VagasController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Atualiza apenas os filtros de matching (IA) da vaga.
+    /// </summary>
+    [HttpPatch("{id:guid}/matching-filtros")]
+    [ProducesResponseType(typeof(VagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VagaResponse>> UpdateMatchingFiltros(
+        [FromRoute] Guid id,
+        [FromBody] UpdateVagaMatchingFiltrosRequest request,
+        [FromServices] IUpdateVagaMatchingFiltrosHandler handler,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
+            return Forbid();
+        var updated = await handler.HandleAsync(id, request ?? new UpdateVagaMatchingFiltrosRequest(null), ct);
+        if (updated is null)
+            return NotFound();
+        var tenantId = _tenantContext.TenantId ?? "";
+        _ = RecalcMatchingScoresInBackgroundAsync(id, tenantId);
+        return Ok(updated);
+    }
+
+    private async Task RecalcMatchingScoresInBackgroundAsync(Guid vagaId, string tenantId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var client = scope.ServiceProvider.GetService<IRHPortalAiMatchClient>();
+            var scoreService = scope.ServiceProvider.GetService<ICandidatoVagaMatchingScoreService>();
+            if (client == null || scoreService == null)
+                return;
+            // Usa matching unificado (vetorial + LLM 80/20); persiste só candidatos (tabela não guarda talentos)
+            var list = await client.RunUnifiedMatchingAsync(vagaId, tenantId, minScore: 0, take: 20);
+            var items = list?
+                .Where(x => string.Equals(x.Source, "candidato", StringComparison.OrdinalIgnoreCase))
+                .Select(x => (x.CandidatoId, x.Score))
+                .ToList() ?? new List<(Guid, int)>();
+            await scoreService.ReplaceScoresForVagaAsync(vagaId, items, tenantId);
+        }
+        catch
+        {
+            // best-effort; log em produção se desejar
+        }
+    }
+
+    private async Task PersistUnifiedRankingInBackgroundAsync(Guid vagaId, IReadOnlyList<MatchingCandidateItemResponse> unifiedItems, string tenantId)
+    {
+        try
+        {
+            var items = unifiedItems
+                .Where(x => string.Equals(x.Source, "candidato", StringComparison.OrdinalIgnoreCase))
+                .Select(x => (x.CandidatoId, x.Score))
+                .ToList();
+            if (items.Count == 0) return;
+            using var scope = _scopeFactory.CreateScope();
+            var scoreService = scope.ServiceProvider.GetService<ICandidatoVagaMatchingScoreService>();
+            if (scoreService == null) return;
+            await scoreService.ReplaceScoresForVagaAsync(vagaId, items, tenantId);
+        }
+        catch
+        {
+            // best-effort
         }
     }
 

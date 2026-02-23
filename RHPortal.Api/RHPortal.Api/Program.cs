@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using RhPortal.Api.Application.ApiKeys;
 using RhPortal.Api.Application.Authentication;
 using RhPortal.Api.Application.Agenda;
 using RhPortal.Api.Application.Candidatos;
@@ -48,12 +49,14 @@ using RhPortal.Api.Logging.Logger;
 using RhPortal.Api.Logging.Middleware;
 using RhPortal.Api.Logging.Writer;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Infrastructure;
 using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Inbox;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Infrastructure.Ai;
 using RhPortal.Api.Infrastructure.Ops;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Swagger;
@@ -63,6 +66,7 @@ using RhPortal.Api.Contracts.Funcionarios;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<DevelopmentExceptionDetailHandler>();
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
@@ -147,6 +151,7 @@ builder.Services.AddScoped<NotificationPublisher>();
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
 builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
 builder.Services.AddScoped<IEntraIdConfigService, EntraIdConfigService>();
+builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IOwnerAiService, RhPortal.Api.Application.Ai.OwnerAiService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.OpenAiProvider>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPortal.Api.Application.Ai.UnifiedAiService>();
@@ -188,6 +193,19 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SlaVagaOptions>(builder.Configuration.GetSection(SlaVagaOptions.SectionName));
+builder.Services.Configure<RhAiOptions>(builder.Configuration.GetSection(RhAiOptions.SectionName));
+
+// Cliente RHPortal.Ai (matching vetorial + LLM 80/20): só registra se RhAi:BaseUrl estiver configurado
+var rhAiBaseUrl = builder.Configuration[$"{RhAiOptions.SectionName}:BaseUrl"]?.Trim();
+if (!string.IsNullOrEmpty(rhAiBaseUrl))
+{
+    var baseUri = new Uri(rhAiBaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    builder.Services.AddHttpClient<IRHPortalAiMatchClient, RHPortalAiMatchClient>(client =>
+    {
+        client.BaseAddress = baseUri;
+        client.Timeout = TimeSpan.FromSeconds(180);
+    });
+}
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
 if (jwtOptions is null || string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
@@ -203,6 +221,8 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.ForwardDefaultSelector = context =>
+            context.Request.Headers.ContainsKey(ApiKeyConstants.ApiKeyHeaderName) ? ApiKeyConstants.ApiKeyScheme : null;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -249,12 +269,13 @@ builder.Services
                 return Task.CompletedTask;
             }
         };
-    });
+    })
+    .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(ApiKeyConstants.ApiKeyScheme, _ => { });
 
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+        .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme, ApiKeyConstants.ApiKeyScheme)
         .RequireAuthenticatedUser()
         .Build();
     options.AddPolicy("Owner", policy => policy.RequireRole("Owner"));
@@ -340,6 +361,11 @@ var app = builder.Build();
 
 Directory.CreateDirectory(Path.Combine(app.Environment.ContentRootPath, "App_Data"));
 await DbSeeder.MigrateAndSeedAsync(app.Services, app.Configuration, app.Environment);
+
+// Modo "migrate": aplica migrations (incluindo tenants) e encerra sem subir o servidor.
+var runMigrateOnly = args.Length > 0 && string.Equals(args[0], "migrate", StringComparison.OrdinalIgnoreCase);
+if (runMigrateOnly)
+    return;
 
 var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>();
 

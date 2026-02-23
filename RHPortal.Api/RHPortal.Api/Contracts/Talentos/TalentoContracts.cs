@@ -54,6 +54,12 @@ public sealed record TalentoDocumentoSummary(
     DateTimeOffset CreatedAtUtc
 );
 
+/// <summary>Metadados de documento para criar no talento (sem arquivo; ex.: integração RM).</summary>
+public sealed record TalentoDocumentoMetaItem(
+    [Required, MaxLength(200)] string NomeArquivo,
+    [MaxLength(240)] string? Descricao = null
+);
+
 public sealed record TalentoCreateRequest(
     [Required, MaxLength(160)] string Nome,
     [Required, MaxLength(180)] string Email,
@@ -74,7 +80,8 @@ public sealed record TalentoCreateRequest(
     IReadOnlyList<TalentoCompetenciaItem>? Competencias = null,
     IReadOnlyList<TalentoExperienciaItem>? Experiencias = null,
     IReadOnlyList<TalentoTreinamentoItem>? Treinamentos = null,
-    IReadOnlyList<TalentoFormacaoItem>? Formacao = null
+    IReadOnlyList<TalentoFormacaoItem>? Formacao = null,
+    IReadOnlyList<TalentoDocumentoMetaItem>? Documentos = null
 );
 
 /// <summary>Result of create talento: either created or similar found (409).</summary>
@@ -221,6 +228,13 @@ public sealed record SimilarPessoaSummary(
     string Nome,
     string? Email,
     string? Fone
+);
+
+/// <summary>Resposta do upload de currículo no talento com extração de texto e dados sugeridos pela LLM (para revisar na tela e aplicar).</summary>
+public sealed record TalentoCurriculoExtrairResponse(
+    TalentoDocumentoSummary Documento,
+    string? CvText,
+    TalentoImportPdfSuggestedData? SuggestedData
 );
 
 /// <summary>Resposta da importação de PDF no talento. ExtracaoGptSemDados é true quando enviarParaGpt foi true mas a extração via GPT não retornou dados.</summary>

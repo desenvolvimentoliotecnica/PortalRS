@@ -26,6 +26,14 @@ public class CandidatosController : Controller
         return View(model);
     }
 
+    [HttpGet]
+    public IActionResult Detalhes(Guid id, Guid? vagaId)
+    {
+        ViewBag.CandidatoId = id;
+        ViewBag.VagaId = vagaId;
+        return View();
+    }
+
     [HttpGet("/api/candidatos")]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? q,
@@ -91,6 +99,28 @@ public class CandidatosController : Controller
 
         var tenantId = _tenantContext.TenantId;
         var resp = await _candidatosApi.UploadDocumentoRawAsync(tenantId, id, arquivo, tipo, descricao, ct);
+        return ToContentResult(resp);
+    }
+
+    /// <summary>Upload de currículo (PDF) + extração de texto e dados sugeridos pela LLM para revisar na tela e aplicar no candidato/talento.</summary>
+    [HttpPost("/api/candidatos/{id:guid}/documentos/curriculo-extrair")]
+    [RequestSizeLimit(52_428_800)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
+    public async Task<IActionResult> UploadCurriculoEExtrair(
+        Guid id,
+        [FromForm] IFormFile? arquivo,
+        [FromForm] bool enviarParaGpt = true,
+        CancellationToken ct = default)
+    {
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = "Arquivo PDF é obrigatório." });
+
+        var ext = Path.GetExtension(arquivo.FileName)?.ToLowerInvariant() ?? "";
+        if (ext != ".pdf")
+            return BadRequest(new { message = "Apenas arquivos PDF são aceitos." });
+
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _candidatosApi.UploadCurriculoEExtrairRawAsync(tenantId, id, arquivo, enviarParaGpt, ct);
         return ToContentResult(resp);
     }
 

@@ -3,8 +3,8 @@
 @inject IViewLocalizer T
 
 @{
-    ViewData["Title"] = T["Page_Title"].Value;                 // "Portal RH • Devcraft Studio — Agenda"
-    ViewData["SidebarSubtitle"] = T["Sidebar_Subtitle"].Value; // "Agenda • Entrevistas • Eventos"
+    ViewData["Title"] = T["Page_Title"].Value;                 // "Portal RH ? Devcraft Studio ? Agenda"
+    ViewData["SidebarSubtitle"] = T["Sidebar_Subtitle"].Value; // "Agenda ? Entrevistas ? Eventos"
 }
 
 <style>
@@ -17,7 +17,7 @@
         min-height: 640px;
         width: 100%;
         max-width: 100%;
-        overflow: hidden; /* evita scrollbar horizontal na página */
+        overflow: hidden; /* evita scrollbar horizontal na p?gina */
     }
 
     #calendar {
@@ -37,7 +37,7 @@
         width: 100%;
     }
 
-    /* mantém header e body sincronizados quando aparece scrollbar vertical */
+    /* mant?m header e body sincronizados quando aparece scrollbar vertical */
     #calendarHost .fc-scroller {
         scrollbar-gutter: stable;
     }
@@ -46,10 +46,10 @@
     #calendarHost .fc table {
         border-collapse: separate !important;
         border-spacing: 0 !important;
-        /* NÃO use padding aqui (isso quebra o layout interno do FullCalendar) */
+        /* N?O use padding aqui (isso quebra o layout interno do FullCalendar) */
     }
 
-    /* ? estica o “scrollgrid” e as tabelas que definem as colunas */
+    /* ? estica o ?scrollgrid? e as tabelas que definem as colunas */
     #calendarHost .fc .fc-scrollgrid,
     #calendarHost .fc .fc-scrollgrid table,
     #calendarHost .fc .fc-col-header table,
@@ -63,7 +63,7 @@
         width: 100% !important;
     }
 
-    /* ? a largura real vem do COLGROUP (1ª coluna) */
+    /* ? a largura real vem do COLGROUP (1? coluna) */
     #calendarHost .fc .fc-timegrid-slots table colgroup col:first-child,
     #calendarHost .fc .fc-timegrid-cols table colgroup col:first-child,
     #calendarHost .fc .fc-col-header table colgroup col:first-child,
@@ -71,7 +71,7 @@
         width: var(--fc-time-label-width) !important;
     }
 
-    /* reforço (visual) nas células */
+    /* refor?o (visual) nas c?lulas */
     #calendarHost .fc th.fc-timegrid-slot-label,
     #calendarHost .fc td.fc-timegrid-slot-label,
     #calendarHost .fc th.fc-timegrid-axis,
@@ -160,18 +160,18 @@
     }
 
         #calendarHost .fc .fc-scrollgrid {
-            border: 0 !important; /* a borda agora é do #calendarHost */
+            border: 0 !important; /* a borda agora ? do #calendarHost */
             border-radius: 0 !important;
             overflow: visible !important;
         }
 
-        /* mantém as bordas internas do grid */
+        /* mant?m as bordas internas do grid */
         #calendarHost .fc-theme-standard td,
         #calendarHost .fc-theme-standard th {
             border-color: rgba(16,82,144,.14);
         }
 
-        /* opcional: garante que nada pinte por trás do wrapper */
+        /* opcional: garante que nada pinte por tr?s do wrapper */
         #calendarHost .fc {
             background: transparent;
         }
@@ -251,18 +251,6 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-ghost" type="button" id="btnExportJson" title="@T["Btn_ExportJson_Title"]">
-            <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">@T["Btn_Export"]</span>
-        </button>
-
-        <button class="btn btn-ghost" type="button" id="btnImportJson" title="@T["Btn_ImportJson_Title"]">
-            <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">@T["Btn_Import"]</span>
-        </button>
-
-        <button class="btn btn-brand" type="button" id="btnNewEvent">
-            <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">@T["Btn_NewEvent"]</span>
-        </button>
-
         @await Html.PartialAsync("_TopbarUserActions", "RH")
     </div>
 }
@@ -271,7 +259,7 @@
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1085;">
     <div id="appToast" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="d-flex">
-            <div class="toast-body" id="toastMsg">—</div>
+            <div class="toast-body" id="toastMsg">?</div>
             <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="@T["Close"]"></button>
         </div>
     </div>
@@ -282,10 +270,20 @@
 
 <!-- CONTENT -->
 <section class="content">
-    <div class="page-title">
+    <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
             <h4>@T["H4_Agenda"]</h4>
-            <div class="subtitle">@T["Page_Subtitle"]</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-ghost" type="button" id="btnExportJson" title="@T["Btn_ExportJson_Title"]">
+                <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">@T["Btn_Export"]</span>
+            </button>
+            <button class="btn btn-ghost" type="button" id="btnImportJson" title="@T["Btn_ImportJson_Title"]">
+                <i class="bi bi-upload"></i><span class="d-none d-sm-inline ms-1">@T["Btn_Import"]</span>
+            </button>
+            <button class="btn btn-brand" type="button" id="btnNewEvent">
+                <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">@T["Btn_NewEvent"]</span>
+            </button>
         </div>
     </div>
 
@@ -312,7 +310,7 @@
                         <button class="btn btn-ghost btn-sm" type="button" id="calNext" title="@T["Cal_Next_Title"]"><i class="bi bi-chevron-right"></i></button>
                     </div>
 
-                    <div class="fw-bold" id="calTitle" style="font-size:1.05rem;">—</div>
+                    <div class="fw-bold" id="calTitle" style="font-size:1.05rem;">?</div>
 
                     <div class="d-flex align-items-center gap-2">
                         <div class="btn-group" role="group" aria-label="@T["Aria_ViewMode"]">
@@ -481,14 +479,14 @@
                     <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                         <div>
                             <div class="mini-title mb-1">@T["Modal_View_MiniTitle"]</div>
-                            <div class="fw-bold" style="font-size:1.08rem;" id="viewTitle">—</div>
+                            <div class="fw-bold" style="font-size:1.08rem;" id="viewTitle">?</div>
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
-                            <span class="badge-soft" id="viewType">—</span>
-                            <span class="badge-soft" id="viewStatus">—</span>
+                            <span class="badge-soft" id="viewType">?</span>
+                            <span class="badge-soft" id="viewStatus">?</span>
                         </div>
                     </div>
-                    <div class="text-muted small mt-1" id="viewWhen">—</div>
+                    <div class="text-muted small mt-1" id="viewWhen">?</div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="@T["Close"]"></button>
             </div>
@@ -500,32 +498,32 @@
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Candidate"]</div>
-                            <div class="fw-semibold" id="viewCandidate">—</div>
+                            <div class="fw-semibold" id="viewCandidate">?</div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Job"]</div>
-                            <div class="fw-semibold" id="viewVaga">—</div>
-                            <div class="text-muted small mono" id="viewVagaCode">—</div>
+                            <div class="fw-semibold" id="viewVaga">?</div>
+                            <div class="text-muted small mono" id="viewVagaCode">?</div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Location"]</div>
-                            <div class="fw-semibold" id="viewLocation">—</div>
+                            <div class="fw-semibold" id="viewLocation">?</div>
                         </div>
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Owner"]</div>
-                            <div class="fw-semibold" id="viewOwner">—</div>
+                            <div class="fw-semibold" id="viewOwner">?</div>
                         </div>
                     </div>
                     <div class="col-12">
                         <div class="card-soft p-2" style="box-shadow:none;">
                             <div class="small text-muted">@T["Card_Notes"]</div>
-                            <div class="text-muted" id="viewNotes" style="white-space:pre-wrap;">—</div>
+                            <div class="text-muted" id="viewNotes" style="white-space:pre-wrap;">?</div>
                         </div>
                     </div>
                 </div>
@@ -559,10 +557,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@@fullcalendar/bootstrap5@6.1.11/index.global.min.js"></script>
 
     <script>
-        // Strings para o JS (agendas.js) — use: const t = k => (window.__i18n?.[k] ?? k);
+        // Strings para o JS (agendas.js) ? use: const t = k => (window.__i18n?.[k] ?? k);
         window.__i18n = {
             toastCloseAria: "@T["Close"]",
-            toastMsgDefault: "—",
+            toastMsgDefault: "?",
 
             // Topbar
             topbarBrand: "@T["Topbar_Brand"]",

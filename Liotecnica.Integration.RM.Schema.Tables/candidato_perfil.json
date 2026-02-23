@@ -1,0 +1,3392 @@
+[
+  {
+    "CODPESSOA": "9281",
+    "CvText": "Forma\u00E7\u00E3o: ensino medio comleto - ee professor porcino rodrigues",
+    "Formacao": [
+      {
+        "Curso": "ensino medio comleto",
+        "Instituicao": "ee professor porcino rodrigues",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9324",
+    "CvText": "Forma\u00E7\u00E3o: 1 -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "427",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Universidade Cruzeiro do Sul\nForma\u00E7\u00E3o: Arco Administrativo - Centro de Integra\u00E7\u00E3o Empresa-Escola\nForma\u00E7\u00E3o: Profissionalizante de Tecnologia da Informa\u00E7\u00E3o - Cedaspy\nForma\u00E7\u00E3o: Ingl\u00EAs - EFP",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Universidade Cruzeiro do Sul",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Arco Administrativo",
+        "Instituicao": "Centro de Integra\u00E7\u00E3o Empresa-Escola",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Profissionalizante de Tecnologia da Informa\u00E7\u00E3o",
+        "Instituicao": "Cedaspy",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Ingl\u00EAs",
+        "Instituicao": "EFP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "1169",
+    "CvText": "Forma\u00E7\u00E3o: SUPPLY CHAIN MANAGEMENTE E LOG\u00CDSTICA - FACULDADE CAPITAL FEDERAL - FECAF",
+    "Formacao": [
+      {
+        "Curso": "SUPPLY CHAIN MANAGEMENTE E LOG\u00CDSTICA",
+        "Instituicao": "FACULDADE CAPITAL FEDERAL - FECAF",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9066",
+    "CvText": "Forma\u00E7\u00E3o: 6 - Universidade Nove de Julho\nForma\u00E7\u00E3o: 1 - Universidade Nove de Julho",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "1",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "593",
+    "CvText": "Forma\u00E7\u00E3o: 1 - ANHANGUERA EDUCACIONAL",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "ANHANGUERA EDUCACIONAL",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "1322",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Centro Universit\u00E1rio das Faculdades Metropolitanas Unidas",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Centro Universit\u00E1rio das Faculdades Metropolitanas Unidas",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9325",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Faculdade Tabo\u00E3o da Serra\nForma\u00E7\u00E3o: Mec\u00E2nico Geral - Escola Senai Ary Torres\nForma\u00E7\u00E3o: T\u00E9cnico em Mec\u00E2nica de Precis\u00E3o - Escola Senai Sui\u00E7o Brasileira\nForma\u00E7\u00E3o: T\u00E9cnico em Inform\u00E1tica Industrial - Instituto Radial de Ensino e Pesquisa",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Faculdade Tabo\u00E3o da Serra",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Mec\u00E2nico Geral",
+        "Instituicao": "Escola Senai Ary Torres",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnico em Mec\u00E2nica de Precis\u00E3o",
+        "Instituicao": "Escola Senai Sui\u00E7o Brasileira",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnico em Inform\u00E1tica Industrial",
+        "Instituicao": "Instituto Radial de Ensino e Pesquisa",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9250",
+    "CvText": "Forma\u00E7\u00E3o: 1 - ananguera",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "ananguera",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11875",
+    "CvText": "Forma\u00E7\u00E3o: Log\u00EDstica - Universidade Nove De Julho",
+    "Formacao": [
+      {
+        "Curso": "Log\u00EDstica",
+        "Instituicao": "Universidade Nove De Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11878",
+    "CvText": "Forma\u00E7\u00E3o: 10 - Unifecaf\nForma\u00E7\u00E3o: Ensino m\u00E9dio - E.E Marechal Henrique Teixeira Lott",
+    "Formacao": [
+      {
+        "Curso": "10",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "E.E Marechal Henrique Teixeira Lott",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "447",
+    "CvText": "Forma\u00E7\u00E3o: 15 - Universidade Nove de Julho\nForma\u00E7\u00E3o: T\u00E9cnico em Seguran\u00E7a do Trabalho - Col\u00E9gio Aur\u00E9lio",
+    "Formacao": [
+      {
+        "Curso": "15",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnico em Seguran\u00E7a do Trabalho",
+        "Instituicao": "Col\u00E9gio Aur\u00E9lio",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "622",
+    "CvText": "Forma\u00E7\u00E3o: 9 - FACULDADE METROPOLITANAS UNIDAS",
+    "Formacao": [
+      {
+        "Curso": "9",
+        "Instituicao": "FACULDADE METROPOLITANAS UNIDAS",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "1162",
+    "CvText": "Forma\u00E7\u00E3o: 16 - Uninive",
+    "Formacao": [
+      {
+        "Curso": "16",
+        "Instituicao": "Uninive",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9050",
+    "CvText": "Forma\u00E7\u00E3o: Mecatr\u00F4nica -\nForma\u00E7\u00E3o: 14 - Unip\nForma\u00E7\u00E3o: 16 - Uninove\nForma\u00E7\u00E3o: T\u00E9cnico Adm -",
+    "Formacao": [
+      {
+        "Curso": "Mecatr\u00F4nica",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "14",
+        "Instituicao": "Unip",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "16",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnico Adm",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9067",
+    "CvText": "Forma\u00E7\u00E3o: 16 - universidade anhembi morumbi",
+    "Formacao": [
+      {
+        "Curso": "16",
+        "Instituicao": "universidade anhembi morumbi",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9107",
+    "CvText": "Forma\u00E7\u00E3o: 14 - Universidade S\u00E3o Judas Tadeu",
+    "Formacao": [
+      {
+        "Curso": "14",
+        "Instituicao": "Universidade S\u00E3o Judas Tadeu",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "1214",
+    "CvText": "Forma\u00E7\u00E3o: HIST\u00D3RIA - LICENCIATURA - Est\u00E1cio",
+    "Formacao": [
+      {
+        "Curso": "HIST\u00D3RIA - LICENCIATURA",
+        "Instituicao": "Est\u00E1cio",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10091",
+    "CvText": "Forma\u00E7\u00E3o: 15 - UNIVERSIDADE S\u00C3O JUDAS TADEU\nForma\u00E7\u00E3o: 19 - FACULDADES INTEGRADAS DE S\u00C3O PAULO",
+    "Formacao": [
+      {
+        "Curso": "15",
+        "Instituicao": "UNIVERSIDADE S\u00C3O JUDAS TADEU",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "19",
+        "Instituicao": "FACULDADES INTEGRADAS DE S\u00C3O PAULO",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13889",
+    "CvText": "Forma\u00E7\u00E3o: Tecn\u00F3logo em Log\u00EDstica - UNIFECAFE",
+    "Formacao": [
+      {
+        "Curso": "Tecn\u00F3logo em Log\u00EDstica",
+        "Instituicao": "UNIFECAFE",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12565",
+    "CvText": "Forma\u00E7\u00E3o: Ensino Escolar - E.E.Comandante Jacques Yves Cousteau",
+    "Formacao": [
+      {
+        "Curso": "Ensino Escolar",
+        "Instituicao": "E.E.Comandante Jacques Yves Cousteau",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9671",
+    "CvText": "Forma\u00E7\u00E3o: 27 - Centro universit\u00E1rio das am\u00E9ricas FAM",
+    "Formacao": [
+      {
+        "Curso": "27",
+        "Instituicao": "Centro universit\u00E1rio das am\u00E9ricas FAM",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9715",
+    "CvText": "Forma\u00E7\u00E3o: 29 - FECAF - FACULDADE CAPITAL FEDERAL",
+    "Formacao": [
+      {
+        "Curso": "29",
+        "Instituicao": "FECAF - FACULDADE CAPITAL FEDERAL",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9744",
+    "CvText": "Forma\u00E7\u00E3o: 27 - Universidade Presbiteriana Mackenzie\nForma\u00E7\u00E3o: Microbiologia Avan\u00E7ada - Faculdade Unyleya",
+    "Formacao": [
+      {
+        "Curso": "27",
+        "Instituicao": "Universidade Presbiteriana Mackenzie",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Microbiologia Avan\u00E7ada",
+        "Instituicao": "Faculdade Unyleya",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9799",
+    "CvText": "Forma\u00E7\u00E3o: 29 - Universidade nove de julho / uninove - SP",
+    "Formacao": [
+      {
+        "Curso": "29",
+        "Instituicao": "Universidade nove de julho / uninove - SP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9805",
+    "CvText": "Forma\u00E7\u00E3o: Eletro Eletronica -",
+    "Formacao": [
+      {
+        "Curso": "Eletro Eletronica",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9809",
+    "CvText": "Forma\u00E7\u00E3o: 26 - FINPEC - COLEGIO DESAFIO\nForma\u00E7\u00E3o: 29 - FECAF\nForma\u00E7\u00E3o: GEST\u00C3O DA QUALIDADE - UNIVERSIDADE ANHEMBI MORUMBI",
+    "Formacao": [
+      {
+        "Curso": "26",
+        "Instituicao": "FINPEC - COLEGIO DESAFIO",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "29",
+        "Instituicao": "FECAF",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "GEST\u00C3O DA QUALIDADE",
+        "Instituicao": "UNIVERSIDADE ANHEMBI MORUMBI",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9866",
+    "CvText": "Forma\u00E7\u00E3o: T\u00C9CNOLOGO EM GEST\u00C3O DE QUALIDADE - UNINOVE",
+    "Formacao": [
+      {
+        "Curso": "T\u00C9CNOLOGO EM GEST\u00C3O DE QUALIDADE",
+        "Instituicao": "UNINOVE",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9886",
+    "CvText": "Forma\u00E7\u00E3o: 26 - USP",
+    "Formacao": [
+      {
+        "Curso": "26",
+        "Instituicao": "USP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9946",
+    "CvText": "Forma\u00E7\u00E3o: Brigadista - Escola do varejo da constru\u00E7\u00E3o civil Jos\u00E9 Olavo de nogueira",
+    "Formacao": [
+      {
+        "Curso": "Brigadista",
+        "Instituicao": "Escola do varejo da constru\u00E7\u00E3o civil Jos\u00E9 Olavo de nogueira",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12608",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Unifatecei",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Unifatecei",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13475",
+    "CvText": "Forma\u00E7\u00E3o: 1 - FACULDADE TABO\u00C3O DA SERRA",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "FACULDADE TABO\u00C3O DA SERRA",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13807",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o financeira - Cruzeiro do Sul",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o financeira",
+        "Instituicao": "Cruzeiro do Sul",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13945",
+    "CvText": "Forma\u00E7\u00E3o: 11 - UNIBAN\nForma\u00E7\u00E3o: Gest\u00E3o Financeira - UNIVERSIDADE ANHEMBI MORUMBI\nForma\u00E7\u00E3o: MBA EM CONTROLADORIA, AUDITORIA E COMPLICE - UNIVERSIDADE ANHEMBI MORUMBI",
+    "Formacao": [
+      {
+        "Curso": "11",
+        "Instituicao": "UNIBAN",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Gest\u00E3o Financeira",
+        "Instituicao": "UNIVERSIDADE ANHEMBI MORUMBI",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "MBA EM CONTROLADORIA, AUDITORIA E COMPLICE",
+        "Instituicao": "UNIVERSIDADE ANHEMBI MORUMBI",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14027",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Italo brasileiro\nForma\u00E7\u00E3o: Controladoria - Trevisan Escola de negocios\nForma\u00E7\u00E3o: Finan\u00E7as - Saint Paul",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Italo brasileiro",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Controladoria",
+        "Instituicao": "Trevisan Escola de negocios",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Finan\u00E7as",
+        "Instituicao": "Saint Paul",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14034",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o financeira - Fecaf",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o financeira",
+        "Instituicao": "Fecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14035",
+    "CvText": "Forma\u00E7\u00E3o: 1 - ANHANGUERA EDUCACIONAL",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "ANHANGUERA EDUCACIONAL",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14037",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Uninove",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14038",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Anahnguera Osasco",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Anahnguera Osasco",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14041",
+    "CvText": "Forma\u00E7\u00E3o: 1 - UNIVERSIDADE PAULISTA",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "UNIVERSIDADE PAULISTA",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14048",
+    "CvText": "Forma\u00E7\u00E3o: Gestao Financeira - ESTACIO DE SA",
+    "Formacao": [
+      {
+        "Curso": "Gestao Financeira",
+        "Instituicao": "ESTACIO DE SA",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14049",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o Financeira - UniFecaf",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o Financeira",
+        "Instituicao": "UniFecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14050",
+    "CvText": "Forma\u00E7\u00E3o: 15 - UNIVERSIDADE NOVE DE JULHO",
+    "Formacao": [
+      {
+        "Curso": "15",
+        "Instituicao": "UNIVERSIDADE NOVE DE JULHO",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14060",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Universidade Nove de Julho\nForma\u00E7\u00E3o: MBA em Controladoria, Auditoria e Compliance - Universidade Anhembi Morumbi",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "MBA em Controladoria, Auditoria e Compliance",
+        "Instituicao": "Universidade Anhembi Morumbi",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14064",
+    "CvText": "Forma\u00E7\u00E3o: 1 -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14065",
+    "CvText": "Forma\u00E7\u00E3o: 1 -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14069",
+    "CvText": "Forma\u00E7\u00E3o: 1 -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14071",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Fmu",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Fmu",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14072",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Universidade Nove de Julho\nForma\u00E7\u00E3o: 31 - Universidade Nove de Julho",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "31",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14073",
+    "CvText": "Forma\u00E7\u00E3o: 1 -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14075",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Uninove",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14076",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de recursos humanos - Unifecaf",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de recursos humanos",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14078",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de recursos humanos - UniFECAF\nForma\u00E7\u00E3o: Log\u00EDstica - UniFECAF",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de recursos humanos",
+        "Instituicao": "UniFECAF",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Log\u00EDstica",
+        "Instituicao": "UniFECAF",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14080",
+    "CvText": "Forma\u00E7\u00E3o: 1 - FACULDADE SUMARE\nForma\u00E7\u00E3o: Engenharia econ\u00F4mica e finan\u00E7as - Fmu",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "FACULDADE SUMARE",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Engenharia econ\u00F4mica e finan\u00E7as",
+        "Instituicao": "Fmu",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14082",
+    "CvText": "Forma\u00E7\u00E3o: 1 - UNIVERSIDADE S\u00C3O JUDAS TADEU",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "UNIVERSIDADE S\u00C3O JUDAS TADEU",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14088",
+    "CvText": "Forma\u00E7\u00E3o: TECN\u00D3LOGA EM GESTAO FINANCEIRA - CENTRO UNIVERSIT\u00C1RIO SUMARE\nForma\u00E7\u00E3o: TECN\u00D3LOGA EM PROCESSOS GERENCIAIS - UNIVESP",
+    "Formacao": [
+      {
+        "Curso": "TECN\u00D3LOGA EM GESTAO FINANCEIRA",
+        "Instituicao": "CENTRO UNIVERSIT\u00C1RIO SUMARE",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "TECN\u00D3LOGA EM PROCESSOS GERENCIAIS",
+        "Instituicao": "UNIVESP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14091",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o Empresarial - Funda\u00E7\u00E3o Get\u00FAlio Vargas - FGV\nForma\u00E7\u00E3o: 12 - UNIVERSIDADE NOVE DE JULHO - UNINOVE",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o Empresarial",
+        "Instituicao": "Funda\u00E7\u00E3o Get\u00FAlio Vargas - FGV",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "12",
+        "Instituicao": "UNIVERSIDADE NOVE DE JULHO - UNINOVE",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14094",
+    "CvText": "Forma\u00E7\u00E3o: 1 - FACULDADE ANHANGUERA EDUCACIONAL",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "FACULDADE ANHANGUERA EDUCACIONAL",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14095",
+    "CvText": "Forma\u00E7\u00E3o: 12 -",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14108",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Universidade Nove de Julho - Uninove",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Universidade Nove de Julho - Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14115",
+    "CvText": "Forma\u00E7\u00E3o: 1 - UNIVERSIDADE PAULISTA\nForma\u00E7\u00E3o: GEST\u00C3O FINANCEIRA - UNIVERSIDADE PRESBITERIANA MACKENZIE\nForma\u00E7\u00E3o: CONTROLADORIA - UNIVERSIDADE PAULISTA\nForma\u00E7\u00E3o: 12 - UNIVERSIDADE S\u00C3O JUDAS TADEU",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "UNIVERSIDADE PAULISTA",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "GEST\u00C3O FINANCEIRA",
+        "Instituicao": "UNIVERSIDADE PRESBITERIANA MACKENZIE",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "CONTROLADORIA",
+        "Instituicao": "UNIVERSIDADE PAULISTA",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "12",
+        "Instituicao": "UNIVERSIDADE S\u00C3O JUDAS TADEU",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14121",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de Recursos Humanos - Universidade Nove de Julho",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de Recursos Humanos",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14124",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o Financeira - UniFECAF",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o Financeira",
+        "Instituicao": "UniFECAF",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14126",
+    "CvText": "Forma\u00E7\u00E3o: GEST\u00C3O FINANCEIRA - AHANGUERA EDUCACIONAL",
+    "Formacao": [
+      {
+        "Curso": "GEST\u00C3O FINANCEIRA",
+        "Instituicao": "AHANGUERA EDUCACIONAL",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14131",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de Turismo - Uninter\nForma\u00E7\u00E3o: Economia, Investimentos e Banking - Faculdade L\u00EDbano",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de Turismo",
+        "Instituicao": "Uninter",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Economia, Investimentos e Banking",
+        "Instituicao": "Faculdade L\u00EDbano",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14149",
+    "CvText": "Forma\u00E7\u00E3o: matematica - centro universitario adventista de sao paulo\nForma\u00E7\u00E3o: 12 -\nForma\u00E7\u00E3o: financas, controladoria e auditoria - fecap",
+    "Formacao": [
+      {
+        "Curso": "matematica",
+        "Instituicao": "centro universitario adventista de sao paulo",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "12",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "financas, controladoria e auditoria",
+        "Instituicao": "fecap",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14161",
+    "CvText": "Forma\u00E7\u00E3o: 1 - ANHANGUERA EDUCACIONAL",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "ANHANGUERA EDUCACIONAL",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14166",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o Financeira - Unifecaf\nForma\u00E7\u00E3o: 5 - Universidade Santo Amaro",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o Financeira",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "5",
+        "Instituicao": "Universidade Santo Amaro",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14169",
+    "CvText": "Forma\u00E7\u00E3o: 12 - FACULDADE SUMAR\u00C9",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "FACULDADE SUMAR\u00C9",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14170",
+    "CvText": "Forma\u00E7\u00E3o: GESTAO EMPRESARIAL - FATECSP",
+    "Formacao": [
+      {
+        "Curso": "GESTAO EMPRESARIAL",
+        "Instituicao": "FATECSP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14174",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Fatec - Gar\u00E7a\nForma\u00E7\u00E3o: 1 - Estacio",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Fatec - Gar\u00E7a",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "1",
+        "Instituicao": "Estacio",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14183",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Centro Universit\u00E1rio Sant\u2019Anna",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Centro Universit\u00E1rio Sant\u2019Anna",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14193",
+    "CvText": "Forma\u00E7\u00E3o: Processos Ger\u00EAncias - Sociedade Potiguar de Educa\u00E7\u00E3o e Cultura",
+    "Formacao": [
+      {
+        "Curso": "Processos Ger\u00EAncias",
+        "Instituicao": "Sociedade Potiguar de Educa\u00E7\u00E3o e Cultura",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14216",
+    "CvText": "Forma\u00E7\u00E3o: Logistica - Unifecaf\nForma\u00E7\u00E3o: Radiologia - Unifecaf",
+    "Formacao": [
+      {
+        "Curso": "Logistica",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Radiologia",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14217",
+    "CvText": "Forma\u00E7\u00E3o: Tecnologia em Gest\u00E3o de Recursos Humanos - Faculdade Campo Limpo Paulista \u2013 FACCAMP\nForma\u00E7\u00E3o: Comunica\u00E7\u00E3o Empresarial - Centro Universit\u00E1rio Padre Anchieta \u2013 Unianchieta",
+    "Formacao": [
+      {
+        "Curso": "Tecnologia em Gest\u00E3o de Recursos Humanos",
+        "Instituicao": "Faculdade Campo Limpo Paulista \u2013 FACCAMP",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Comunica\u00E7\u00E3o Empresarial",
+        "Instituicao": "Centro Universit\u00E1rio Padre Anchieta \u2013 Unianchieta",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14227",
+    "CvText": "Forma\u00E7\u00E3o: 12 - centro universitario Anhanguera",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "centro universitario Anhanguera",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14236",
+    "CvText": "Forma\u00E7\u00E3o: 1 - UNIVERSIDADE PAULISTA",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "UNIVERSIDADE PAULISTA",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14243",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Unasp",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Unasp",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9872",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de Recursos Humanos - Centro Universidade Italo Brasileira\nForma\u00E7\u00E3o: Psicologia Organizacional - Centro Universit\u00E1rio Italo Brasileiro",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de Recursos Humanos",
+        "Instituicao": "Centro Universidade Italo Brasileira",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Psicologia Organizacional",
+        "Instituicao": "Centro Universit\u00E1rio Italo Brasileiro",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9959",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Anhanguera",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Anhanguera",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9966",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Anhanguera",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Anhanguera",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9975",
+    "CvText": "Forma\u00E7\u00E3o: Tecnologia em Log\u00EDstica - Fecaf",
+    "Formacao": [
+      {
+        "Curso": "Tecnologia em Log\u00EDstica",
+        "Instituicao": "Fecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9863",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Universidade Bandeirantes de S\u00E3o Paulo\nForma\u00E7\u00E3o: T\u00E9cnico em Log\u00EDstica - Faculdade Anhanguera",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Universidade Bandeirantes de S\u00E3o Paulo",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnico em Log\u00EDstica",
+        "Instituicao": "Faculdade Anhanguera",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13048",
+    "CvText": "Forma\u00E7\u00E3o: t\u00E9cnico em analise cl\u00EDnicas - I.E.P.Albert Eistein",
+    "Formacao": [
+      {
+        "Curso": "t\u00E9cnico em analise cl\u00EDnicas",
+        "Instituicao": "I.E.P.Albert Eistein",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9494",
+    "CvText": "Forma\u00E7\u00E3o: 18 - Universidade Virtual do Estado de S\u00E3o Paulo\nForma\u00E7\u00E3o: 12 - Uninove",
+    "Formacao": [
+      {
+        "Curso": "18",
+        "Instituicao": "Universidade Virtual do Estado de S\u00E3o Paulo",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "12",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9641",
+    "CvText": "Forma\u00E7\u00E3o: Log\u00EDstica - Centro Universit\u00E1rio das Faculdades Metropolitanas Unidas \u2013 FMU",
+    "Formacao": [
+      {
+        "Curso": "Log\u00EDstica",
+        "Instituicao": "Centro Universit\u00E1rio das Faculdades Metropolitanas Unidas \u2013 FMU",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9655",
+    "CvText": "Forma\u00E7\u00E3o: Brigada de inc\u00EAndio - Ecofire treinamento",
+    "Formacao": [
+      {
+        "Curso": "Brigada de inc\u00EAndio",
+        "Instituicao": "Ecofire treinamento",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9692",
+    "CvText": "Forma\u00E7\u00E3o: 1 -\nForma\u00E7\u00E3o: Nutri\u00E7\u00E3o e Diet\u00E9tica -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Nutri\u00E7\u00E3o e Diet\u00E9tica",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9695",
+    "CvText": "Forma\u00E7\u00E3o: 1 -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9773",
+    "CvText": "Forma\u00E7\u00E3o: ENGENHARIA QUIMICA - UNISA",
+    "Formacao": [
+      {
+        "Curso": "ENGENHARIA QUIMICA",
+        "Instituicao": "UNISA",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9846",
+    "CvText": "Forma\u00E7\u00E3o: Palestra Limpeza e Higienizacao - Dist. Autorizada Hig Clean",
+    "Formacao": [
+      {
+        "Curso": "Palestra Limpeza e Higienizacao",
+        "Instituicao": "Dist. Autorizada Hig Clean",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10089",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o De Seguran\u00E7a Publica - UniFecaf",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o De Seguran\u00E7a Publica",
+        "Instituicao": "UniFecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10163",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Centro universit\u00E1rio Anhanguera de S\u00E3o Paulo",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Centro universit\u00E1rio Anhanguera de S\u00E3o Paulo",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10204",
+    "CvText": "Forma\u00E7\u00E3o: Fisioterapia - Anhanguera",
+    "Formacao": [
+      {
+        "Curso": "Fisioterapia",
+        "Instituicao": "Anhanguera",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10215",
+    "CvText": "Forma\u00E7\u00E3o: Ensino m\u00E9dio completo - E.e Mirna Elisa bonazzio",
+    "Formacao": [
+      {
+        "Curso": "Ensino m\u00E9dio completo",
+        "Instituicao": "E.e Mirna Elisa bonazzio",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10236",
+    "CvText": "Forma\u00E7\u00E3o: 12 - terbyte",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "terbyte",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10244",
+    "CvText": "Forma\u00E7\u00E3o: Tecnologia em log\u00EDstica - Universidade nove de julho",
+    "Formacao": [
+      {
+        "Curso": "Tecnologia em log\u00EDstica",
+        "Instituicao": "Universidade nove de julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10261",
+    "CvText": "Forma\u00E7\u00E3o: 1 - etec\nForma\u00E7\u00E3o: Ensino m\u00E9dio - Edi Wilson Gonzaga",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "etec",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "Edi Wilson Gonzaga",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10268",
+    "CvText": "Forma\u00E7\u00E3o: Ensino m\u00E9dio - Mar\u00EDa Antonieta Martins de Almeida",
+    "Formacao": [
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "Mar\u00EDa Antonieta Martins de Almeida",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10270",
+    "CvText": "Forma\u00E7\u00E3o: Ensino medio - EE Reverendo Almir Pereira Bahia",
+    "Formacao": [
+      {
+        "Curso": "Ensino medio",
+        "Instituicao": "EE Reverendo Almir Pereira Bahia",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10279",
+    "CvText": "Forma\u00E7\u00E3o: tecnologia de alimentos -",
+    "Formacao": [
+      {
+        "Curso": "tecnologia de alimentos",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10288",
+    "CvText": "Forma\u00E7\u00E3o: ANHANGUERA - GESTAO EM RECURSOS HUMANO",
+    "Formacao": [
+      {
+        "Curso": "ANHANGUERA",
+        "Instituicao": "GESTAO EM RECURSOS HUMANO",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10295",
+    "CvText": "Forma\u00E7\u00E3o: 29 - Universidade Nove de Julho - Uninove",
+    "Formacao": [
+      {
+        "Curso": "29",
+        "Instituicao": "Universidade Nove de Julho - Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10297",
+    "CvText": "Forma\u00E7\u00E3o: Ensino m\u00E9dio - Escola p\u00FAblica",
+    "Formacao": [
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "Escola p\u00FAblica",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10318",
+    "CvText": "Forma\u00E7\u00E3o: Operador de Empilhadeira -",
+    "Formacao": [
+      {
+        "Curso": "Operador de Empilhadeira",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10357",
+    "CvText": "Forma\u00E7\u00E3o: Inspetor de qualidade -",
+    "Formacao": [
+      {
+        "Curso": "Inspetor de qualidade",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10358",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de Recursos Humanos - Centro Universit\u00E1rio UniAteneu",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de Recursos Humanos",
+        "Instituicao": "Centro Universit\u00E1rio UniAteneu",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10364",
+    "CvText": "Forma\u00E7\u00E3o: ENSINO MEDIO COMPLETO - VILAS BOAS",
+    "Formacao": [
+      {
+        "Curso": "ENSINO MEDIO COMPLETO",
+        "Instituicao": "VILAS BOAS",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10365",
+    "CvText": "Forma\u00E7\u00E3o: Ensino m\u00E9dio - E E Professor Porcino Rodrigues",
+    "Formacao": [
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "E E Professor Porcino Rodrigues",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10383",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Universidade Anhanguera Uniderp",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Universidade Anhanguera Uniderp",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10416",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Anhembi Morumbi",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Anhembi Morumbi",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10440",
+    "CvText": "Forma\u00E7\u00E3o: T\u00E9cnico de enfermagem -",
+    "Formacao": [
+      {
+        "Curso": "T\u00E9cnico de enfermagem",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10453",
+    "CvText": "Forma\u00E7\u00E3o: 9 - FECAF",
+    "Formacao": [
+      {
+        "Curso": "9",
+        "Instituicao": "FECAF",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10456",
+    "CvText": "Forma\u00E7\u00E3o: 16 - Uninove",
+    "Formacao": [
+      {
+        "Curso": "16",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10477",
+    "CvText": "Forma\u00E7\u00E3o: Log\u00EDstica - FECAF",
+    "Formacao": [
+      {
+        "Curso": "Log\u00EDstica",
+        "Instituicao": "FECAF",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10478",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Unip",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Unip",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10531",
+    "CvText": "Forma\u00E7\u00E3o: 6 - Uninove",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10534",
+    "CvText": "Forma\u00E7\u00E3o: 1 - UNITALO\nForma\u00E7\u00E3o: 18 - UNIVESP",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "UNITALO",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "18",
+        "Instituicao": "UNIVESP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10535",
+    "CvText": "Forma\u00E7\u00E3o: 1 -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10577",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Aboa",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Aboa",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10582",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de Recursos Humanos - Universidade Presbiteriana Mackenzie\nForma\u00E7\u00E3o: Gest\u00E3o Estrat\u00E9gica de Pessoas - Universidade Presbiteriana Mackenzie",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de Recursos Humanos",
+        "Instituicao": "Universidade Presbiteriana Mackenzie",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Gest\u00E3o Estrat\u00E9gica de Pessoas",
+        "Instituicao": "Universidade Presbiteriana Mackenzie",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10603",
+    "CvText": "Forma\u00E7\u00E3o: 12 - FMU - Faculdade Metropolitana Unidas",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "FMU - Faculdade Metropolitana Unidas",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10622",
+    "CvText": "Forma\u00E7\u00E3o: INFORM\u00C1TICA BASICO - STYLO",
+    "Formacao": [
+      {
+        "Curso": "INFORM\u00C1TICA BASICO",
+        "Instituicao": "STYLO",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10630",
+    "CvText": "Forma\u00E7\u00E3o: Log\u00EDstica - Escola T\u00E9cnica Estadual\nForma\u00E7\u00E3o: Assistente Financeiro - Senac",
+    "Formacao": [
+      {
+        "Curso": "Log\u00EDstica",
+        "Instituicao": "Escola T\u00E9cnica Estadual",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Assistente Financeiro",
+        "Instituicao": "Senac",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10685",
+    "CvText": "Forma\u00E7\u00E3o: 1 -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10695",
+    "CvText": "Forma\u00E7\u00E3o: English Melp Stage One - Din\u00E2mica Computa\u00E7\u00E3o\nForma\u00E7\u00E3o: Pacote Office B\u00E1sico - Pela Internet\nForma\u00E7\u00E3o: T\u00E9cnicas de Lideran\u00E7a - Sara Nossa Terra- Embu das Artes\nForma\u00E7\u00E3o: Ensino M\u00E9dio - E.E Jo\u00E3o Martins",
+    "Formacao": [
+      {
+        "Curso": "English Melp Stage One",
+        "Instituicao": "Din\u00E2mica Computa\u00E7\u00E3o",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Pacote Office B\u00E1sico",
+        "Instituicao": "Pela Internet",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnicas de Lideran\u00E7a",
+        "Instituicao": "Sara Nossa Terra- Embu das Artes",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Ensino M\u00E9dio",
+        "Instituicao": "E.E Jo\u00E3o Martins",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10699",
+    "CvText": "Forma\u00E7\u00E3o: ENSINO M\u00C9DIO - EE JO\u00C3O BAPTISTA DE OLIVEIRA",
+    "Formacao": [
+      {
+        "Curso": "ENSINO M\u00C9DIO",
+        "Instituicao": "EE JO\u00C3O BAPTISTA DE OLIVEIRA",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10722",
+    "CvText": "Forma\u00E7\u00E3o: 10 - Uninove",
+    "Formacao": [
+      {
+        "Curso": "10",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10729",
+    "CvText": "Forma\u00E7\u00E3o: Ensino m\u00E9dio completo - e.e vila Olinda II",
+    "Formacao": [
+      {
+        "Curso": "Ensino m\u00E9dio completo",
+        "Instituicao": "e.e vila Olinda II",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10818",
+    "CvText": "Forma\u00E7\u00E3o: Log\u00EDstica - ETEC - Centro Paula Souza",
+    "Formacao": [
+      {
+        "Curso": "Log\u00EDstica",
+        "Instituicao": "ETEC - Centro Paula Souza",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10826",
+    "CvText": "Forma\u00E7\u00E3o: Recursos Humanos - Centro Universit\u00E1rio \u00CDtalo Brasileiro",
+    "Formacao": [
+      {
+        "Curso": "Recursos Humanos",
+        "Instituicao": "Centro Universit\u00E1rio \u00CDtalo Brasileiro",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10833",
+    "CvText": "Forma\u00E7\u00E3o: Enfermeira - Est\u00E1cio",
+    "Formacao": [
+      {
+        "Curso": "Enfermeira",
+        "Instituicao": "Est\u00E1cio",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10836",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de pessoas RH - Universidade bandeirantes de S\u00E3o Paulo",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de pessoas RH",
+        "Instituicao": "Universidade bandeirantes de S\u00E3o Paulo",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10840",
+    "CvText": "Forma\u00E7\u00E3o: Biomedicina - Universidade Nove de Julho",
+    "Formacao": [
+      {
+        "Curso": "Biomedicina",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10869",
+    "CvText": "Forma\u00E7\u00E3o: computa\u00E7\u00E3o gr\u00E1fica - Escola Advanced Computa\u00E7\u00E3o Gr\u00E1fica",
+    "Formacao": [
+      {
+        "Curso": "computa\u00E7\u00E3o gr\u00E1fica",
+        "Instituicao": "Escola Advanced Computa\u00E7\u00E3o Gr\u00E1fica",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10894",
+    "CvText": "Forma\u00E7\u00E3o: 23 -",
+    "Formacao": [
+      {
+        "Curso": "23",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10898",
+    "CvText": "Forma\u00E7\u00E3o: 16 - Unicesumar",
+    "Formacao": [
+      {
+        "Curso": "16",
+        "Instituicao": "Unicesumar",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10908",
+    "CvText": "Forma\u00E7\u00E3o: Auxiliar de contabilidade -\nForma\u00E7\u00E3o: Aux\u00EDliar administrativo -\nForma\u00E7\u00E3o: Ensino m\u00E9dio -",
+    "Formacao": [
+      {
+        "Curso": "Auxiliar de contabilidade",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Aux\u00EDliar administrativo",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10918",
+    "CvText": "Forma\u00E7\u00E3o: T\u00E9cnico em Qu\u00EDmica - Col\u00E9gio Desafio-Finpec",
+    "Formacao": [
+      {
+        "Curso": "T\u00E9cnico em Qu\u00EDmica",
+        "Instituicao": "Col\u00E9gio Desafio-Finpec",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10957",
+    "CvText": "Forma\u00E7\u00E3o: 29 - Uinonove",
+    "Formacao": [
+      {
+        "Curso": "29",
+        "Instituicao": "Uinonove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10959",
+    "CvText": "Forma\u00E7\u00E3o: Tecnologia em Logistica - UNINOVE",
+    "Formacao": [
+      {
+        "Curso": "Tecnologia em Logistica",
+        "Instituicao": "UNINOVE",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10960",
+    "CvText": "Forma\u00E7\u00E3o: Ensino M\u00E9dio Completo - Maria Aparecida Nigro Gava",
+    "Formacao": [
+      {
+        "Curso": "Ensino M\u00E9dio Completo",
+        "Instituicao": "Maria Aparecida Nigro Gava",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11024",
+    "CvText": "Forma\u00E7\u00E3o: 23 - Faculdade Bilac",
+    "Formacao": [
+      {
+        "Curso": "23",
+        "Instituicao": "Faculdade Bilac",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11038",
+    "CvText": "Forma\u00E7\u00E3o: 6 - Faculdade Fecaf",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "Faculdade Fecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11042",
+    "CvText": "Forma\u00E7\u00E3o: Nutri\u00E7\u00E3o e Diet\u00E9tica - Escola T\u00E9cnica Estadual Get\u00FAlio Vargas\nForma\u00E7\u00E3o: 33 - Universidade Federal de Lavras\nForma\u00E7\u00E3o: Engenharia de Biomateriais (\u00EAnfase em alimentos) - Universidade Federal de Lavras/ Embrapa Instrumenta\u00E7\u00E3o\nForma\u00E7\u00E3o: Engenharia de Biomateriais (\u00EAnfase em alimentos) - Embrapa Instrumenta\u00E7\u00E3o",
+    "Formacao": [
+      {
+        "Curso": "Nutri\u00E7\u00E3o e Diet\u00E9tica",
+        "Instituicao": "Escola T\u00E9cnica Estadual Get\u00FAlio Vargas",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "33",
+        "Instituicao": "Universidade Federal de Lavras",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Engenharia de Biomateriais (\u00EAnfase em alimentos)",
+        "Instituicao": "Universidade Federal de Lavras/ Embrapa Instrumenta\u00E7\u00E3o",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Engenharia de Biomateriais (\u00EAnfase em alimentos)",
+        "Instituicao": "Embrapa Instrumenta\u00E7\u00E3o",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11103",
+    "CvText": "Forma\u00E7\u00E3o: 6 - Uninove",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11122",
+    "CvText": "Forma\u00E7\u00E3o: Operador de empilhadeira -",
+    "Formacao": [
+      {
+        "Curso": "Operador de empilhadeira",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11150",
+    "CvText": "Forma\u00E7\u00E3o: Inform\u00E1tica b\u00E1sica - microlins",
+    "Formacao": [
+      {
+        "Curso": "Inform\u00E1tica b\u00E1sica",
+        "Instituicao": "microlins",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11159",
+    "CvText": "Forma\u00E7\u00E3o: 6 - Faculdade Fecaf",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "Faculdade Fecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11181",
+    "CvText": "Forma\u00E7\u00E3o: 23 -",
+    "Formacao": [
+      {
+        "Curso": "23",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11191",
+    "CvText": "Forma\u00E7\u00E3o: M.B.A Higiene dos alimentos -",
+    "Formacao": [
+      {
+        "Curso": "M.B.A Higiene dos alimentos",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11215",
+    "CvText": "Forma\u00E7\u00E3o: T\u00E9cnico Seguran\u00E7a do Trabalho - Vital Brasil\nForma\u00E7\u00E3o: T\u00E9cnico em mec\u00E2nica - Radial Cursos",
+    "Formacao": [
+      {
+        "Curso": "T\u00E9cnico Seguran\u00E7a do Trabalho",
+        "Instituicao": "Vital Brasil",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnico em mec\u00E2nica",
+        "Instituicao": "Radial Cursos",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11259",
+    "CvText": "Forma\u00E7\u00E3o: T\u00C9CNICO EM QUALIDADE -",
+    "Formacao": [
+      {
+        "Curso": "T\u00C9CNICO EM QUALIDADE",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11263",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de Recursos Humanos - Universidade Nove de Julho",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de Recursos Humanos",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11301",
+    "CvText": "Forma\u00E7\u00E3o: Ensino m\u00E9dio - EE.Prof Eul\u00E1lia Malta",
+    "Formacao": [
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "EE.Prof Eul\u00E1lia Malta",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11314",
+    "CvText": "Forma\u00E7\u00E3o: Enfermagem -",
+    "Formacao": [
+      {
+        "Curso": "Enfermagem",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11333",
+    "CvText": "Forma\u00E7\u00E3o: \u2013 Log\u00EDstica - FATEC",
+    "Formacao": [
+      {
+        "Curso": "\u2013 Log\u00EDstica",
+        "Instituicao": "FATEC",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11347",
+    "CvText": "Forma\u00E7\u00E3o: T\u00E9cnico de enfermagem - Hospital das cl\u00EDnicas",
+    "Formacao": [
+      {
+        "Curso": "T\u00E9cnico de enfermagem",
+        "Instituicao": "Hospital das cl\u00EDnicas",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11349",
+    "CvText": "Forma\u00E7\u00E3o: Informatica P. - Microcamp",
+    "Formacao": [
+      {
+        "Curso": "Informatica P.",
+        "Instituicao": "Microcamp",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11386",
+    "CvText": "Forma\u00E7\u00E3o: 1 - UNINOVE",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "UNINOVE",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11396",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Faculdade Est\u00E1cio de S\u00E1",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Faculdade Est\u00E1cio de S\u00E1",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11397",
+    "CvText": "Forma\u00E7\u00E3o: 6 - Etec \u2013 Escola T\u00E9cnica Estadual de S\u00E3o Paulo - Embu das Artes",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "Etec \u2013 Escola T\u00E9cnica Estadual de S\u00E3o Paulo - Embu das Artes",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11399",
+    "CvText": "Forma\u00E7\u00E3o: 16 - Universidade Anhembi Morumbi",
+    "Formacao": [
+      {
+        "Curso": "16",
+        "Instituicao": "Universidade Anhembi Morumbi",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11416",
+    "CvText": "Forma\u00E7\u00E3o: Ensino medio - EEPG Jo\u00E3o martins",
+    "Formacao": [
+      {
+        "Curso": "Ensino medio",
+        "Instituicao": "EEPG Jo\u00E3o martins",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11442",
+    "CvText": "Forma\u00E7\u00E3o: Ensino m\u00E9dio completo - Laurita Ortega Mari",
+    "Formacao": [
+      {
+        "Curso": "Ensino m\u00E9dio completo",
+        "Instituicao": "Laurita Ortega Mari",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11473",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Faculdade Estacio",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Faculdade Estacio",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11488",
+    "CvText": "Forma\u00E7\u00E3o: Ensino m\u00E9dio - EE.Americo Franco",
+    "Formacao": [
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "EE.Americo Franco",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11519",
+    "CvText": "Forma\u00E7\u00E3o: Biomedicina - Uninove\nForma\u00E7\u00E3o: Tecnico em an\u00E1lises cl\u00EDnicas - Uninove\nForma\u00E7\u00E3o: Ensino Medio - Dr. Reinaldo do Nascimento Falleiros",
+    "Formacao": [
+      {
+        "Curso": "Biomedicina",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Tecnico em an\u00E1lises cl\u00EDnicas",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Ensino Medio",
+        "Instituicao": "Dr. Reinaldo do Nascimento Falleiros",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11524",
+    "CvText": "Forma\u00E7\u00E3o: 6 - Udemy",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "Udemy",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11564",
+    "CvText": "Forma\u00E7\u00E3o: 33 - FMU",
+    "Formacao": [
+      {
+        "Curso": "33",
+        "Instituicao": "FMU",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11613",
+    "CvText": "Forma\u00E7\u00E3o: 6 -",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11625",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Unifecaf",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11633",
+    "CvText": "Forma\u00E7\u00E3o: Engenharia de Bioprocessos e Biotecnologia - Unesp - Botucatu",
+    "Formacao": [
+      {
+        "Curso": "Engenharia de Bioprocessos e Biotecnologia",
+        "Instituicao": "Unesp - Botucatu",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11660",
+    "CvText": "Forma\u00E7\u00E3o: 29 -",
+    "Formacao": [
+      {
+        "Curso": "29",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11723",
+    "CvText": "Forma\u00E7\u00E3o: 13 - Universidade Nove de Julho",
+    "Formacao": [
+      {
+        "Curso": "13",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11735",
+    "CvText": "Forma\u00E7\u00E3o: T\u00E9cnico em processos gerenciais - Uninove",
+    "Formacao": [
+      {
+        "Curso": "T\u00E9cnico em processos gerenciais",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11770",
+    "CvText": "Forma\u00E7\u00E3o: BIOMEDICINA - FACULDADE LUS\u00D3FONA DE S\u00C3O PAULO",
+    "Formacao": [
+      {
+        "Curso": "BIOMEDICINA",
+        "Instituicao": "FACULDADE LUS\u00D3FONA DE S\u00C3O PAULO",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11788",
+    "CvText": "Forma\u00E7\u00E3o: GEST\u00C3O COMERCIAL - UNICID \u2013 Universidade Cidade de S\u00E3o Paulo",
+    "Formacao": [
+      {
+        "Curso": "GEST\u00C3O COMERCIAL",
+        "Instituicao": "UNICID \u2013 Universidade Cidade de S\u00E3o Paulo",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11817",
+    "CvText": "Forma\u00E7\u00E3o: Recursos humanos - Unifecaf",
+    "Formacao": [
+      {
+        "Curso": "Recursos humanos",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11853",
+    "CvText": "Forma\u00E7\u00E3o: t\u00E9cnico em contabilidade -",
+    "Formacao": [
+      {
+        "Curso": "t\u00E9cnico em contabilidade",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11862",
+    "CvText": "Forma\u00E7\u00E3o: 6 -",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11888",
+    "CvText": "Forma\u00E7\u00E3o: RH Tecnologo - Nutri\u00E7\u00E3o",
+    "Formacao": [
+      {
+        "Curso": "RH Tecnologo",
+        "Instituicao": "Nutri\u00E7\u00E3o",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11901",
+    "CvText": "Forma\u00E7\u00E3o: 8 - Faculdade das Americas",
+    "Formacao": [
+      {
+        "Curso": "8",
+        "Instituicao": "Faculdade das Americas",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11904",
+    "CvText": "Forma\u00E7\u00E3o: 23 - Anhanguera",
+    "Formacao": [
+      {
+        "Curso": "23",
+        "Instituicao": "Anhanguera",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11924",
+    "CvText": "Forma\u00E7\u00E3o: Log\u00EDstica - Fecaf",
+    "Formacao": [
+      {
+        "Curso": "Log\u00EDstica",
+        "Instituicao": "Fecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11948",
+    "CvText": "Forma\u00E7\u00E3o: t\u00E9cnico em log\u00EDstica -",
+    "Formacao": [
+      {
+        "Curso": "t\u00E9cnico em log\u00EDstica",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "11995",
+    "CvText": "Forma\u00E7\u00E3o: 14 - Universidade Nove de Julho-UNINOVE\nForma\u00E7\u00E3o: Engeharia de Controle e Automa\u00E7\u00E3o - Anhaguera-SP",
+    "Formacao": [
+      {
+        "Curso": "14",
+        "Instituicao": "Universidade Nove de Julho-UNINOVE",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Engeharia de Controle e Automa\u00E7\u00E3o",
+        "Instituicao": "Anhaguera-SP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12012",
+    "CvText": "Forma\u00E7\u00E3o: Ensino Medio - EE Martinho Silva",
+    "Formacao": [
+      {
+        "Curso": "Ensino Medio",
+        "Instituicao": "EE Martinho Silva",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12044",
+    "CvText": "Forma\u00E7\u00E3o: 31 -",
+    "Formacao": [
+      {
+        "Curso": "31",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12051",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de Pessoas nas Organiza\u00E7\u00F5es RH - Uniban - Universidade Bandeirantes de SP",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de Pessoas nas Organiza\u00E7\u00F5es RH",
+        "Instituicao": "Uniban - Universidade Bandeirantes de SP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12117",
+    "CvText": "Forma\u00E7\u00E3o: 6 - UniFECAF",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "UniFECAF",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12134",
+    "CvText": "Forma\u00E7\u00E3o: Radiologia - Est\u00E1cio",
+    "Formacao": [
+      {
+        "Curso": "Radiologia",
+        "Instituicao": "Est\u00E1cio",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12149",
+    "CvText": "Forma\u00E7\u00E3o: 29 - CENTRO UNIVERSITARIO S\u00C3O CAMILO\nForma\u00E7\u00E3o: Desenvolvimento Anal\u00EDtico e Controle de Qualidade - CSA-Educacional",
+    "Formacao": [
+      {
+        "Curso": "29",
+        "Instituicao": "CENTRO UNIVERSITARIO S\u00C3O CAMILO",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Desenvolvimento Anal\u00EDtico e Controle de Qualidade",
+        "Instituicao": "CSA-Educacional",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12307",
+    "CvText": "Forma\u00E7\u00E3o: Ensino m\u00E9dio - E.E.Prof. Samuel Morse",
+    "Formacao": [
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "E.E.Prof. Samuel Morse",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12321",
+    "CvText": "Forma\u00E7\u00E3o: 6 -",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12330",
+    "CvText": "Forma\u00E7\u00E3o: 23 - Anhanguera Educacional",
+    "Formacao": [
+      {
+        "Curso": "23",
+        "Instituicao": "Anhanguera Educacional",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12339",
+    "CvText": "Forma\u00E7\u00E3o: fisioterapia - UNASP",
+    "Formacao": [
+      {
+        "Curso": "fisioterapia",
+        "Instituicao": "UNASP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12356",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Anhanguera educacional",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Anhanguera educacional",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12357",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Unisa",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Unisa",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12373",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Faculdade de Ci\u00EAncias e Tecnologia da Bahia FACITE",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Faculdade de Ci\u00EAncias e Tecnologia da Bahia FACITE",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12408",
+    "CvText": "Forma\u00E7\u00E3o: 31 - UNITALO BRASILEIRA",
+    "Formacao": [
+      {
+        "Curso": "31",
+        "Instituicao": "UNITALO BRASILEIRA",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12475",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Unip",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Unip",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12480",
+    "CvText": "Forma\u00E7\u00E3o: 15 - UNIVERSIDADE NOVE DE JULHO",
+    "Formacao": [
+      {
+        "Curso": "15",
+        "Instituicao": "UNIVERSIDADE NOVE DE JULHO",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12488",
+    "CvText": "Forma\u00E7\u00E3o: Engenharia Qu\u00EDmica - UNIFESP",
+    "Formacao": [
+      {
+        "Curso": "Engenharia Qu\u00EDmica",
+        "Instituicao": "UNIFESP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12495",
+    "CvText": "Forma\u00E7\u00E3o: 10 -",
+    "Formacao": [
+      {
+        "Curso": "10",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12522",
+    "CvText": "Forma\u00E7\u00E3o: 16 - E.E PROFESSOR AYRES NETO\nForma\u00E7\u00E3o: DESENHO T\u00C9CNICO MEC\u00C2NICO - Senai Su\u00ED\u00E7o Brasileiro",
+    "Formacao": [
+      {
+        "Curso": "16",
+        "Instituicao": "E.E PROFESSOR AYRES NETO",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "DESENHO T\u00C9CNICO MEC\u00C2NICO",
+        "Instituicao": "Senai Su\u00ED\u00E7o Brasileiro",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12590",
+    "CvText": "Forma\u00E7\u00E3o: 33 -\nForma\u00E7\u00E3o: T\u00E9cnico Qualidade -\nForma\u00E7\u00E3o: T\u00E9cnico Log\u00EDstica -\nForma\u00E7\u00E3o: Gest\u00E3o da produ\u00E7\u00E3o industria -",
+    "Formacao": [
+      {
+        "Curso": "33",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnico Qualidade",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnico Log\u00EDstica",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Gest\u00E3o da produ\u00E7\u00E3o industria",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12698",
+    "CvText": "Forma\u00E7\u00E3o: 29 - Universidade Nove de Julho",
+    "Formacao": [
+      {
+        "Curso": "29",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12701",
+    "CvText": "Forma\u00E7\u00E3o: 17 -",
+    "Formacao": [
+      {
+        "Curso": "17",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12776",
+    "CvText": "Forma\u00E7\u00E3o: 16 - Universidade Nove de Julho",
+    "Formacao": [
+      {
+        "Curso": "16",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12790",
+    "CvText": "Forma\u00E7\u00E3o: 6 -\nForma\u00E7\u00E3o: tecnologia em gest\u00E3o de recursos humanos - FMU",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "tecnologia em gest\u00E3o de recursos humanos",
+        "Instituicao": "FMU",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12796",
+    "CvText": "Forma\u00E7\u00E3o: 10 - Universidade Paulista",
+    "Formacao": [
+      {
+        "Curso": "10",
+        "Instituicao": "Universidade Paulista",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12800",
+    "CvText": "Forma\u00E7\u00E3o: Artes Visuais - Faculdades Metropolitanas Unidas",
+    "Formacao": [
+      {
+        "Curso": "Artes Visuais",
+        "Instituicao": "Faculdades Metropolitanas Unidas",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12878",
+    "CvText": "Forma\u00E7\u00E3o: 12 - UNIP",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "UNIP",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12908",
+    "CvText": "Forma\u00E7\u00E3o: 22 - Universidade Estacio de Sa",
+    "Formacao": [
+      {
+        "Curso": "22",
+        "Instituicao": "Universidade Estacio de Sa",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12918",
+    "CvText": "Forma\u00E7\u00E3o: 5 -",
+    "Formacao": [
+      {
+        "Curso": "5",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12932",
+    "CvText": "Forma\u00E7\u00E3o: Tecnica de enfermagem - Senac",
+    "Formacao": [
+      {
+        "Curso": "Tecnica de enfermagem",
+        "Instituicao": "Senac",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12948",
+    "CvText": "Forma\u00E7\u00E3o: 31 -",
+    "Formacao": [
+      {
+        "Curso": "31",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "12960",
+    "CvText": "Forma\u00E7\u00E3o: Inform\u00E1tica Essencial - CenterByte",
+    "Formacao": [
+      {
+        "Curso": "Inform\u00E1tica Essencial",
+        "Instituicao": "CenterByte",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13063",
+    "CvText": "Forma\u00E7\u00E3o: Log\u00EDstica - IBGM",
+    "Formacao": [
+      {
+        "Curso": "Log\u00EDstica",
+        "Instituicao": "IBGM",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13120",
+    "CvText": "Forma\u00E7\u00E3o: 28 - Uninove",
+    "Formacao": [
+      {
+        "Curso": "28",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13187",
+    "CvText": "Forma\u00E7\u00E3o: Transporte log\u00EDstica - Senac Santo amaro",
+    "Formacao": [
+      {
+        "Curso": "Transporte log\u00EDstica",
+        "Instituicao": "Senac Santo amaro",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13249",
+    "CvText": "Forma\u00E7\u00E3o: T\u00E9cnic nutri\u00E7\u00E3o -",
+    "Formacao": [
+      {
+        "Curso": "T\u00E9cnic nutri\u00E7\u00E3o",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13292",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o  Empresarial - UNINOVE\nForma\u00E7\u00E3o: 23 - UNINOVE",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o  Empresarial",
+        "Instituicao": "UNINOVE",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "23",
+        "Instituicao": "UNINOVE",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13343",
+    "CvText": "Forma\u00E7\u00E3o: Inform\u00E1tica b\u00E1sica - Raposo net",
+    "Formacao": [
+      {
+        "Curso": "Inform\u00E1tica b\u00E1sica",
+        "Instituicao": "Raposo net",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13407",
+    "CvText": "Forma\u00E7\u00E3o: 26 - FAM - Centro Universit\u00E1rio",
+    "Formacao": [
+      {
+        "Curso": "26",
+        "Instituicao": "FAM - Centro Universit\u00E1rio",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13447",
+    "CvText": "Forma\u00E7\u00E3o: 7 - Anhanguera educacional",
+    "Formacao": [
+      {
+        "Curso": "7",
+        "Instituicao": "Anhanguera educacional",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13451",
+    "CvText": "Forma\u00E7\u00E3o: Trabalho em altura bombeiro civil -",
+    "Formacao": [
+      {
+        "Curso": "Trabalho em altura bombeiro civil",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13520",
+    "CvText": "Forma\u00E7\u00E3o: Computa\u00E7\u00E3o - Curso t\u00E9cnico",
+    "Formacao": [
+      {
+        "Curso": "Computa\u00E7\u00E3o",
+        "Instituicao": "Curso t\u00E9cnico",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13572",
+    "CvText": "Forma\u00E7\u00E3o: 29 -",
+    "Formacao": [
+      {
+        "Curso": "29",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13622",
+    "CvText": "Forma\u00E7\u00E3o: ODONTOLOGIA - UNIFECAF",
+    "Formacao": [
+      {
+        "Curso": "ODONTOLOGIA",
+        "Instituicao": "UNIFECAF",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13627",
+    "CvText": "Forma\u00E7\u00E3o: 12 - Unifecaf",
+    "Formacao": [
+      {
+        "Curso": "12",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13645",
+    "CvText": "Forma\u00E7\u00E3o: 9 - Unifecaf\nForma\u00E7\u00E3o: Enfermagem - Unifecaf",
+    "Formacao": [
+      {
+        "Curso": "9",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Enfermagem",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13695",
+    "CvText": "Forma\u00E7\u00E3o: ENSINO MEDIO COMPLETO - EE ASA BRANCA",
+    "Formacao": [
+      {
+        "Curso": "ENSINO MEDIO COMPLETO",
+        "Instituicao": "EE ASA BRANCA",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13721",
+    "CvText": "Forma\u00E7\u00E3o: Educa\u00E7\u00E3o f\u00EDsica - FAEM -EMBU DAS ARTES",
+    "Formacao": [
+      {
+        "Curso": "Educa\u00E7\u00E3o f\u00EDsica",
+        "Instituicao": "FAEM -EMBU DAS ARTES",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13769",
+    "CvText": "Forma\u00E7\u00E3o: Segundo grau completo - Escola estadual yoshio ninomya",
+    "Formacao": [
+      {
+        "Curso": "Segundo grau completo",
+        "Instituicao": "Escola estadual yoshio ninomya",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13791",
+    "CvText": "Forma\u00E7\u00E3o: 31 - Cruzeiro do sul",
+    "Formacao": [
+      {
+        "Curso": "31",
+        "Instituicao": "Cruzeiro do sul",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13855",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de Recursos Humanos - FMU",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de Recursos Humanos",
+        "Instituicao": "FMU",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13861",
+    "CvText": "Forma\u00E7\u00E3o: Fisioterapia - Unifecaf\nForma\u00E7\u00E3o: Ensino m\u00E9dio - Reynaldo do Nascimento Falleiros",
+    "Formacao": [
+      {
+        "Curso": "Fisioterapia",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "Reynaldo do Nascimento Falleiros",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13870",
+    "CvText": "Forma\u00E7\u00E3o: 16 - UNIFECAF",
+    "Formacao": [
+      {
+        "Curso": "16",
+        "Instituicao": "UNIFECAF",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13921",
+    "CvText": "Forma\u00E7\u00E3o: 31 - Universidade Nove de Julho",
+    "Formacao": [
+      {
+        "Curso": "31",
+        "Instituicao": "Universidade Nove de Julho",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13936",
+    "CvText": "Forma\u00E7\u00E3o: Mec\u00E2nico de motor ciclo Otto -\nForma\u00E7\u00E3o: Ensino m\u00E9dio - Eduir",
+    "Formacao": [
+      {
+        "Curso": "Mec\u00E2nico de motor ciclo Otto",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "Ensino m\u00E9dio",
+        "Instituicao": "Eduir",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13958",
+    "CvText": "Forma\u00E7\u00E3o: Gest\u00E3o de recursos humanos - Unifecaf",
+    "Formacao": [
+      {
+        "Curso": "Gest\u00E3o de recursos humanos",
+        "Instituicao": "Unifecaf",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13971",
+    "CvText": "Forma\u00E7\u00E3o: Fisioterapia - Uninove",
+    "Formacao": [
+      {
+        "Curso": "Fisioterapia",
+        "Instituicao": "Uninove",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "14257",
+    "CvText": "Forma\u00E7\u00E3o: 1 - Pro jovem trabalhador",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "Pro jovem trabalhador",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "13748",
+    "CvText": "Forma\u00E7\u00E3o: Ci\u00EAncias biologica - Cruzeiro do Sul\nForma\u00E7\u00E3o: T\u00E9cnico de nutri\u00E7\u00E3o e diet\u00E9tica - Senac",
+    "Formacao": [
+      {
+        "Curso": "Ci\u00EAncias biologica",
+        "Instituicao": "Cruzeiro do Sul",
+        "Inicio": null,
+        "Fim": null
+      },
+      {
+        "Curso": "T\u00E9cnico de nutri\u00E7\u00E3o e diet\u00E9tica",
+        "Instituicao": "Senac",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "564",
+    "CvText": "Forma\u00E7\u00E3o: 1 -",
+    "Formacao": [
+      {
+        "Curso": "1",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "9444",
+    "CvText": "Forma\u00E7\u00E3o: 9 - Universidade Paulista",
+    "Formacao": [
+      {
+        "Curso": "9",
+        "Instituicao": "Universidade Paulista",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
+    "CODPESSOA": "10519",
+    "CvText": "Forma\u00E7\u00E3o: 6 - Universidade Nove de Julho (UNINOVE)",
+    "Formacao": [
+      {
+        "Curso": "6",
+        "Instituicao": "Universidade Nove de Julho (UNINOVE)",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  }
+]

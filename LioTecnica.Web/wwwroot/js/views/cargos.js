@@ -1,4 +1,8 @@
-const CARGOS_API_BASE = "/Cargos/_api";
+const CARGOS_API_BASE = (function () {
+  var p = (window.location.pathname || "").toLowerCase();
+  if (p.startsWith("/cadastro/cargos")) return "/Cadastro/Cargos/_api";
+  return "/Cargos/_api";
+})();
 const AREAS_LOOKUP_URL = "/api/lookup/areas";
 const FUNCIONARIOS_LOOKUP_URL = "/api/lookup/funcionarios";
 const EMPTY_TEXT = "-";

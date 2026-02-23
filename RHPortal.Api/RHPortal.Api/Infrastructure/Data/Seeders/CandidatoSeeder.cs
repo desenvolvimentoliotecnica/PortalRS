@@ -85,6 +85,7 @@ public static class CandidatoSeeder
             var candidato = new Candidato
             {
                 Id = Guid.NewGuid(),
+                TenantId = tenantId,
                 Nome = nome,
                 Email = email,
                 Fone = faker.Phone.PhoneNumber("(11) 9####-####"),

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using System.Security.Claims;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Infrastructure.Notifications;
@@ -13,6 +14,10 @@ public sealed class NotificationsHub : Hub
         if (!string.IsNullOrWhiteSpace(tenantId))
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, GetTenantGroup(tenantId));
+
+            var userIdClaim = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (Guid.TryParse(userIdClaim, out var userId))
+                await Groups.AddToGroupAsync(Context.ConnectionId, GetTenantUserGroup(tenantId, userId));
         }
 
         await base.OnConnectedAsync();
@@ -24,6 +29,10 @@ public sealed class NotificationsHub : Hub
         if (!string.IsNullOrWhiteSpace(tenantId))
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, GetTenantGroup(tenantId));
+
+            var userIdClaim = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (Guid.TryParse(userIdClaim, out var userId))
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, GetTenantUserGroup(tenantId, userId));
         }
 
         await base.OnDisconnectedAsync(exception);
@@ -31,6 +40,9 @@ public sealed class NotificationsHub : Hub
 
     public static string GetTenantGroup(string tenantId)
         => $"tenant:{tenantId}";
+
+    public static string GetTenantUserGroup(string tenantId, Guid userId)
+        => $"tenant:{tenantId}:user:{userId}";
 
     private static string? ResolveTenantId(HubCallerContext context)
     {

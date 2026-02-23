@@ -110,6 +110,26 @@ public sealed class CandidatosApiClient
         return SendAsync(req, ct);
     }
 
+    /// <summary>Upload de currículo (PDF) + extração de texto e dados sugeridos pela LLM para revisar na tela.</summary>
+    public Task<ApiRawResponse> UploadCurriculoEExtrairRawAsync(
+        string tenantId,
+        Guid candidatoId,
+        IFormFile arquivo,
+        bool enviarParaGpt = true,
+        CancellationToken ct = default)
+    {
+        var content = new MultipartFormDataContent();
+        var fileContent = new StreamContent(arquivo.OpenReadStream());
+        if (!string.IsNullOrWhiteSpace(arquivo.ContentType))
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(arquivo.ContentType);
+        fileContent.Headers.ContentLength = arquivo.Length;
+        content.Add(fileContent, "arquivo", arquivo.FileName ?? "curriculo.pdf");
+        content.Add(new StringContent(enviarParaGpt ? "true" : "false"), "enviarParaGpt");
+
+        var req = BuildRequest(HttpMethod.Post, $"api/candidatos/{candidatoId}/documentos/curriculo-extrair", tenantId, content);
+        return SendAsync(req, ct);
+    }
+
     public Task<ApiRawResponse> DeleteDocumentoRawAsync(string tenantId, Guid candidatoId, Guid documentoId, CancellationToken ct)
     {
         var req = BuildRequest(HttpMethod.Delete, $"api/candidatos/{candidatoId}/documentos/{documentoId}", tenantId);

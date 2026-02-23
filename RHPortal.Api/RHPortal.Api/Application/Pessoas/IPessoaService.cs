@@ -15,6 +15,7 @@ public interface IPessoaService
     Task<(Pessoa Pessoa, Talento? Talento)?> FindSimilarAsync(string? email, string? fone, string? nome, string? cep, string? logradouro, string? numero, CancellationToken ct);
     Task<PessoaResponse> CreateAsync(PessoaCreateRequest request, CancellationToken ct);
     Task<PessoaResponse?> UpdateAsync(Guid id, PessoaUpdateRequest request, CancellationToken ct);
+    Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     /// <summary>Creates a Pessoa if no one exists with the given email (normalized); otherwise returns the existing one. Origem is set when creating a new Pessoa.</summary>
     Task<Pessoa> GetOrCreateByEmailAsync(string email, string? nome, string? fone, string? cidade, string? uf, string? linkedinUrl, string? resumoProfissional, string? obs, OrigemPessoa? origem, CancellationToken ct);
 }

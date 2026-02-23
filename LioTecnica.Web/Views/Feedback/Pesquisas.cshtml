@@ -1,0 +1,42 @@
+@{
+    ViewData["Title"] = "Portal RH • Pesquisas";
+    ViewData["SidebarSubtitle"] = "Feedback";
+}
+
+@section Topbar {
+    @await Html.PartialAsync("_TopbarBrand", (string)null)
+    <div class="d-flex align-items-center gap-2">
+        @await Html.PartialAsync("_TopbarUserActions", "RH")
+    </div>
+}
+
+<section class="content">
+    <div class="page-title" style="align-items:center">
+        <h4 class="m-0">Pesquisa Rápida</h4>
+        <div class="d-flex gap-2">
+            <a class="btn btn-primary" id="btnNovaPesquisa">Nova Pesquisa</a>
+        </div>
+    </div>
+
+    <div class="card-soft p-3 mt-3">
+        <div class="fw-bold mb-2">Pesquisas Rápidas</div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>Exibindo <select id="pageSize" class="form-select form-select-sm d-inline-block w-auto"><option>10</option></select> resultados por página</div>
+            <input id="pesquisaFiltro" class="form-control w-25" placeholder="Filtrar..." />
+        </div>
+
+        <table class="table table-borderless">
+            <thead>
+                <tr><th>Pesquisa</th><th>Data Criação</th><th>Data Encerramento</th><th>Departamentos</th><th>Respostas</th><th>Média</th><th>Status</th><th>Ações</th></tr>
+            </thead>
+            <tbody id="pesquisasList">
+                <tr><td colspan="8" class="text-center text-muted">Nenhum registro encontrado</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="~/js/views/feedback-pesquisas.js" asp-append-version="true"></script>
+}
+

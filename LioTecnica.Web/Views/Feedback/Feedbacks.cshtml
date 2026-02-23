@@ -1,3 +1,4 @@
+@* Tela Desenvolvimento desativada. Controller redireciona para Celebração. *@
 @{
 	ViewData["Title"] = "Portal RH • Feedback • Feedbacks";
 	ViewData["SidebarSubtitle"] = "Feedback";
@@ -11,39 +12,25 @@
 	</div>
 }
 
-<section class="content">
+<section class="content feedback-dashboard-page">
 	<div class="page-title">
 		<div>
-			<h4>Feedbacks</h4>
-			<div class="subtitle">Recebidos, enviados e todos da empresa.</div>
+			<h4>Início</h4>
+			<div class="subtitle">Acompanhamento da gestão e do time.</div>
 		</div>
 	</div>
-	<ul class="nav nav-tabs mb-3" id="feedbacksTab" role="tablist">
-		<li class="nav-item" role="presentation">
-			<button class="nav-link active" id="tab-received" data-bs-toggle="tab" data-bs-target="#pane-received" type="button" role="tab">Recebidos</button>
-		</li>
-		<li class="nav-item" role="presentation">
-			<button class="nav-link" id="tab-sent" data-bs-toggle="tab" data-bs-target="#pane-sent" type="button" role="tab">Enviados</button>
-		</li>
-		<li class="nav-item" role="presentation">
-			<button class="nav-link" id="tab-all" data-bs-toggle="tab" data-bs-target="#pane-all" type="button" role="tab">Todos (empresa)</button>
-		</li>
-	</ul>
-	<div class="tab-content" id="feedbacksTabContent">
-		<div class="tab-pane fade show active" id="pane-received" role="tabpanel">
-			<div id="listReceived" class="card-soft p-3"></div>
-			<div id="emptyReceived" class="text-muted text-center py-4 d-none">Nenhum feedback recebido.</div>
-			<div id="loadMoreReceived" class="text-center mt-2 d-none"><button type="button" class="btn btn-ghost btn-sm" id="btnLoadMoreReceived">Carregar mais</button></div>
+	<div id="kpiRow" class="dashboard-kpi-row mb-3"></div>
+	<div class="grid2 mb-3">
+		<div id="leftCol">
+			<div id="oneOnOnePanel" class="card-soft p-3 mb-3"></div>
+			<div id="moodPanel" class="card-soft p-3 mb-3"></div>
+			<div id="teamSummary" class="card-soft p-3 mb-3"></div>
+			<div id="quickLinksPanel" class="mb-3"></div>
+			<div id="activitiesPanel" class="card-soft p-3 mb-3"></div>
 		</div>
-		<div class="tab-pane fade" id="pane-sent" role="tabpanel">
-			<div id="listSent" class="card-soft p-3"></div>
-			<div id="emptySent" class="text-muted text-center py-4 d-none">Nenhum feedback enviado.</div>
-			<div id="loadMoreSent" class="text-center mt-2 d-none"><button type="button" class="btn btn-ghost btn-sm" id="btnLoadMoreSent">Carregar mais</button></div>
-		</div>
-		<div class="tab-pane fade" id="pane-all" role="tabpanel">
-			<div id="listAll" class="card-soft p-3"></div>
-			<div id="emptyAll" class="text-muted text-center py-4 d-none">Nenhum feedback.</div>
-			<div id="loadMoreAll" class="text-center mt-2 d-none"><button type="button" class="btn btn-ghost btn-sm" id="btnLoadMoreAll">Carregar mais</button></div>
+		<div id="rightCol">
+			<div id="profilePanel" class="card-soft p-3 mb-3"></div>
+			<div id="rankingPanel" class="card-soft p-3 mb-3"></div>
 		</div>
 	</div>
 </section>

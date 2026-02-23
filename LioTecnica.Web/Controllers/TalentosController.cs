@@ -89,6 +89,28 @@ public sealed class TalentosController : Controller
         return ToContentResult(resp);
     }
 
+    /// <summary>Upload de currículo (PDF) no talento existente + extração de texto e dados sugeridos pela LLM para revisar na tela.</summary>
+    [HttpPost("/Talentos/_api/{id:guid}/documentos/curriculo-extrair")]
+    [RequestSizeLimit(52_428_800)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
+    public async Task<IActionResult> UploadCurriculoEExtrair(
+        Guid id,
+        [FromForm] IFormFile? arquivo,
+        [FromForm] bool enviarParaGpt = true,
+        CancellationToken ct = default)
+    {
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = "Arquivo PDF é obrigatório." });
+
+        var ext = Path.GetExtension(arquivo.FileName)?.ToLowerInvariant() ?? "";
+        if (ext != ".pdf")
+            return BadRequest(new { message = "Apenas arquivos PDF são aceitos." });
+
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _api.UploadCurriculoEExtrairRawAsync(tenantId, id, arquivo, enviarParaGpt, ct);
+        return ToContentResult(resp);
+    }
+
     [HttpPost("/Talentos/_api/import-jobs/{id:guid}/aprovar")]
     public async Task<IActionResult> AprovarImportJob(Guid id, CancellationToken ct = default)
     {

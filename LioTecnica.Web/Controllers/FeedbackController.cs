@@ -21,21 +21,32 @@ public class FeedbackController : Controller
         _tenantContext = tenantContext;
     }
 
-    public IActionResult Index() => RedirectToAction(nameof(Celebracao));
+    // Quando acessar /Feedback/ redirecionar para a tela Início (Feedbacks) por padrão
+    public IActionResult Index() => RedirectToAction(nameof(Feedbacks));
 
     public IActionResult Celebracao() => View();
-    public IActionResult Enviar() => View();
+    // Tela Desenvolvimento desativada: redireciona para Celebração
+    public IActionResult Enviar() => RedirectToAction(nameof(Celebracao));
     public IActionResult Feedbacks() => View();
-    public IActionResult MeusPlanos() => View();
-    public IActionResult Reunioes1a1() => View();
+    public IActionResult MeusPlanos() => RedirectToAction(nameof(Celebracao));
+    public IActionResult Reunioes1a1() => RedirectToAction(nameof(Celebracao));
     public IActionResult Gamificacao() => View();
+    public IActionResult GamificacaoHistorico() => View();
+    // Tela Pesquisas desativada temporariamente.
+    public IActionResult Pesquisas() => RedirectToAction(nameof(Celebracao));
     public IActionResult Gestao() => View();
 
     [HttpGet("/Feedback/_api/celebrations/feed")]
-    public async Task<IActionResult> GetCelebrationFeed([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+    public async Task<IActionResult> GetCelebrationFeed(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? filter = null,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        CancellationToken ct = default)
     {
         var tenantId = _tenantContext.TenantId;
-        var resp = await _feedbackApi.GetCelebrationFeedRawAsync(tenantId ?? "", page, pageSize, ct);
+        var resp = await _feedbackApi.GetCelebrationFeedRawAsync(tenantId ?? "", page, pageSize, filter, from, to, ct);
         return ToContentResult(resp);
     }
 
@@ -52,6 +63,30 @@ public class FeedbackController : Controller
     {
         var tenantId = _tenantContext.TenantId;
         var resp = await _feedbackApi.GetCelebrationMentionUsersRawAsync(tenantId ?? "", q, take, ct);
+        return ToContentResult(resp);
+    }
+
+    [HttpGet("/Feedback/_api/celebrations/{postId:guid}/comments")]
+    public async Task<IActionResult> GetCelebrationComments(Guid postId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _feedbackApi.GetCelebrationCommentsRawAsync(tenantId ?? "", postId, page, pageSize, ct);
+        return ToContentResult(resp);
+    }
+
+    [HttpPost("/Feedback/_api/celebrations/{postId:guid}/comments")]
+    public async Task<IActionResult> CreateCelebrationComment(Guid postId, [FromBody] JsonElement payload, CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _feedbackApi.CreateCelebrationCommentRawAsync(tenantId ?? "", postId, payload, ct);
+        return ToContentResult(resp);
+    }
+
+    [HttpPost("/Feedback/_api/celebrations/comments/{commentId:guid}/reactions")]
+    public async Task<IActionResult> ToggleCelebrationCommentReaction(Guid commentId, [FromBody] JsonElement payload, CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _feedbackApi.ToggleCelebrationCommentReactionRawAsync(tenantId ?? "", commentId, payload, ct);
         return ToContentResult(resp);
     }
 
@@ -155,6 +190,14 @@ public class FeedbackController : Controller
     {
         var tenantId = _tenantContext.TenantId;
         var resp = await _feedbackApi.GetGamificationMyBalanceRawAsync(tenantId ?? "", ct);
+        return ToContentResult(resp);
+    }
+
+    [HttpGet("/Feedback/_api/gamification/history")]
+    public async Task<IActionResult> GetGamificationHistory([FromQuery] int months = 12, [FromQuery] decimal goal = 5000, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _feedbackApi.GetGamificationHistoryRawAsync(tenantId ?? "", months: months, goal: goal, ct: ct);
         return ToContentResult(resp);
     }
 

@@ -165,6 +165,9 @@
   <data name="Seed.Menu.Gamificacao" xml:space="preserve">
     <value>Gamificacao</value>
   </data>
+  <data name="Seed.Menu.Pesquisas" xml:space="preserve">
+    <value>Pesquisas</value>
+  </data>
   <data name="Seed.Menu.Gestao" xml:space="preserve">
     <value>Gestao</value>
   </data>
@@ -187,10 +190,13 @@
     <value>Areas</value>
   </data>
   <data name="Seed.Menu.Categorias" xml:space="preserve">
-    <value>Categorias</value>
+    <value>Função</value>
   </data>
   <data name="Seed.Menu.Cargos" xml:space="preserve">
-    <value>Cargos</value>
+    <value>Cargo</value>
+  </data>
+  <data name="Seed.Menu.Funcoes" xml:space="preserve">
+    <value>Função</value>
   </data>
   <data name="Seed.Menu.Unidades" xml:space="preserve">
     <value>Unidades</value>
@@ -233,6 +239,9 @@
   </data>
   <data name="Seed.Menu.ConfigEntraId" xml:space="preserve">
     <value>Config Entra ID</value>
+  </data>
+  <data name="Seed.Menu.ApiKeys" xml:space="preserve">
+    <value>Chaves de API</value>
   </data>
   <data name="Seed.Menu.Idioma" xml:space="preserve">
     <value>Idioma</value>

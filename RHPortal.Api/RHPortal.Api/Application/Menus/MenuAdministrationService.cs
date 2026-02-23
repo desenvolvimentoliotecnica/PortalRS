@@ -36,6 +36,8 @@ public sealed class MenuAdministrationService
             ["feedback.list"] = "Seed.Menu.Feedbacks",
             ["feedback.myplans.view"] = "Seed.Menu.MeusPlanos",
             ["feedback.oneonone.view"] = "Seed.Menu.Reunioes1a1",
+            // Pesquisas desativado temporariamente.
+            // ["feedback.pesquisas.view"] = "Seed.Menu.Pesquisas",
             ["feedback.gamificacao.view"] = "Seed.Menu.Gamificacao",
             ["feedback.gestao.view"] = "Seed.Menu.Gestao",
             ["gestao.dashboard"] = "Seed.Menu.GestaoDashboard",
@@ -44,7 +46,7 @@ public sealed class MenuAdministrationService
             ["gestao.resumo"] = "Seed.Menu.GestaoResumo",
             ["departments.view"] = "Seed.Menu.Departamentos",
             ["areas.view"] = "Seed.Menu.Areas",
-            ["categories.view"] = "Seed.Menu.Categorias",
+            ["categories.view"] = "Seed.Menu.Funcoes",
             ["jobpositions.view"] = "Seed.Menu.Cargos",
             ["units.view"] = "Seed.Menu.Unidades",
             ["funcionarios.view"] = "Seed.Menu.Funcionarios",
@@ -65,6 +67,8 @@ public sealed class MenuAdministrationService
     /// <summary>Permission keys for tenant-config-only items; excluded from main menu (sidebar).</summary>
     private static readonly HashSet<string> ConfigOnlyPermissionKeys = new(StringComparer.OrdinalIgnoreCase)
     {
+        // Pesquisas desativado temporariamente.
+        "feedback.pesquisas.view",
         "access.manage",
         "menus.manage",
         "audit.view",
@@ -235,7 +239,11 @@ public sealed class MenuAdministrationService
     private static IReadOnlyList<MenuForCurrentUserResponse> BuildFullMenuTemplate()
     {
         var culture = CultureInfo.CurrentUICulture;
-        string L(string key) => SeedResourceManager.GetString(key, culture) ?? key;
+        string L(string key)
+        {
+            var value = GetSeedValue(culture.Name, key);
+            return string.IsNullOrWhiteSpace(value) ? key : value;
+        }
 
         var descriptors = MenuSeeder.GetDefaultMenuDescriptors();
         var idByPermissionKey = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
@@ -422,8 +430,15 @@ public sealed class MenuAdministrationService
 
     private static string? GetSeedValue(string cultureName, string key)
     {
-        var culture = CultureInfo.GetCultureInfo(cultureName);
-        return SeedResourceManager.GetString(key, culture);
+        try
+        {
+            var culture = CultureInfo.GetCultureInfo(cultureName);
+            return SeedResourceManager.GetString(key, culture);
+        }
+        catch (MissingManifestResourceException)
+        {
+            return null;
+        }
     }
 
     private string ResolveDisplayName(Menu menu)
@@ -431,8 +446,28 @@ public sealed class MenuAdministrationService
         if (!string.IsNullOrWhiteSpace(menu.DisplayNameKey))
         {
             var value = GetSeedValue(CultureInfo.CurrentUICulture.Name, menu.DisplayNameKey);
+            if (string.IsNullOrWhiteSpace(value))
+                value = GetSeedValue("pt-BR", menu.DisplayNameKey);
+            if (string.IsNullOrWhiteSpace(value))
+                value = GetSeedValue("en-US", menu.DisplayNameKey);
             if (!string.IsNullOrWhiteSpace(value))
                 return value;
+        }
+
+        // Defensive fallback for legacy rows where DisplayName persisted as resource key.
+        if (!string.IsNullOrWhiteSpace(menu.DisplayName) && menu.DisplayName.StartsWith("Seed.Menu.", StringComparison.Ordinal))
+        {
+            var byCurrent = GetSeedValue(CultureInfo.CurrentUICulture.Name, menu.DisplayName);
+            if (!string.IsNullOrWhiteSpace(byCurrent))
+                return byCurrent;
+
+            var byPtBr = GetSeedValue("pt-BR", menu.DisplayName);
+            if (!string.IsNullOrWhiteSpace(byPtBr))
+                return byPtBr;
+
+            var byEnUs = GetSeedValue("en-US", menu.DisplayName);
+            if (!string.IsNullOrWhiteSpace(byEnUs))
+                return byEnUs;
         }
 
         return menu.DisplayName;

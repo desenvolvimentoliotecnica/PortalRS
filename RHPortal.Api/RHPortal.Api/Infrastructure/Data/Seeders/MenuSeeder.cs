@@ -82,6 +82,65 @@ public static class MenuSeeder
             await db.SaveChangesAsync(ct);
         }
 
+        // Cadastro: uma tela "Função" (PFUNCAO) e uma "Cargo" (PCARGO), nome igual ao RM
+        var cadastroUpdated = false;
+        var categoriesMenu = await db.Menus.FirstOrDefaultAsync(x => x.PermissionKey == "categories.view", ct);
+        if (categoriesMenu != null && (categoriesMenu.Route != "/Cadastro/Funcoes" || categoriesMenu.DisplayNameKey != "Seed.Menu.Funcoes"))
+        {
+            categoriesMenu.Route = "/Cadastro/Funcoes";
+            categoriesMenu.DisplayNameKey = "Seed.Menu.Funcoes";
+            categoriesMenu.DisplayName = localizer["Seed.Menu.Funcoes"].Value;
+            cadastroUpdated = true;
+        }
+        var jobpositionsMenu = await db.Menus.FirstOrDefaultAsync(x => x.PermissionKey == "jobpositions.view", ct);
+        if (jobpositionsMenu != null && (jobpositionsMenu.Route != "/Cadastro/Cargos" || jobpositionsMenu.DisplayNameKey != "Seed.Menu.Cargos"))
+        {
+            jobpositionsMenu.Route = "/Cadastro/Cargos";
+            jobpositionsMenu.DisplayNameKey = "Seed.Menu.Cargos";
+            jobpositionsMenu.DisplayName = localizer["Seed.Menu.Cargos"].Value;
+            cadastroUpdated = true;
+        }
+        if (cadastroUpdated)
+            await db.SaveChangesAsync(ct);
+
+        // Pesquisas desativado temporariamente.
+        // Bloco mantido comentado para facilitar reativacao futura.
+        /*
+        var pesquisasUpdated = false;
+        var pesquisasMenu = await db.Menus.FirstOrDefaultAsync(x => x.PermissionKey == "feedback.pesquisas.view", ct);
+        if (pesquisasMenu != null)
+        {
+            if (!string.Equals(pesquisasMenu.Route, "/Feedback/Pesquisas", StringComparison.OrdinalIgnoreCase))
+            {
+                pesquisasMenu.Route = "/Feedback/Pesquisas";
+                pesquisasUpdated = true;
+            }
+
+            if (pesquisasMenu.Order != 16)
+            {
+                pesquisasMenu.Order = 16;
+                pesquisasUpdated = true;
+            }
+
+            if (!string.Equals(pesquisasMenu.DisplayNameKey, "Seed.Menu.Pesquisas", StringComparison.Ordinal))
+            {
+                pesquisasMenu.DisplayNameKey = "Seed.Menu.Pesquisas";
+                pesquisasUpdated = true;
+            }
+
+            var pesquisasLabel = localizer["Seed.Menu.Pesquisas"].Value;
+            if (!string.IsNullOrWhiteSpace(pesquisasLabel) &&
+                !string.Equals(pesquisasMenu.DisplayName, pesquisasLabel, StringComparison.Ordinal))
+            {
+                pesquisasMenu.DisplayName = pesquisasLabel;
+                pesquisasUpdated = true;
+            }
+        }
+
+        if (pesquisasUpdated)
+            await db.SaveChangesAsync(ct);
+        */
+
         var adminMenuAssignments = menuByKey.Values
             .Select(x => (MenuId: x.Id, x.PermissionKey))
             .ToList();
@@ -129,15 +188,16 @@ public static class MenuSeeder
         ("/Talentos", "bi-person-plus", 5, "talentos.view", false, "Seed.Menu.Talentos", null),
         ("/Triagem", "bi-funnel", 6, "triagem.view", false, "Seed.Menu.Triagem", null),
         ("/Matching", "bi-stars", 7, "matching.view", false, "Seed.Menu.Matching", null),
-        ("/PortalVagas", "bi-globe2", 8, "portalvagas.view", true, "Seed.Menu.PortalVagas", null),
         ("/Feedback/Celebracao", "bi-balloon-heart", 9, "feedback.celebracao.view", false, "Seed.Menu.Celebracao", null),
         ("#", "bi-journal-plus", 10, "feedback.desenvolvimento", false, "Seed.Menu.Desenvolvimento", null),
         ("/Feedback/Enviar", "bi-send", 11, "feedback.send", false, "Seed.Menu.EnviarFeedback", "feedback.desenvolvimento"),
         ("/Feedback/Feedbacks", "bi-chat-quote", 12, "feedback.view", false, "Seed.Menu.Feedbacks", "feedback.desenvolvimento"),
         ("/Feedback/MeusPlanos", "bi-journal-check", 13, "feedback.myplans.view", false, "Seed.Menu.MeusPlanos", "feedback.desenvolvimento"),
         ("/Feedback/Reunioes1a1", "bi-people", 14, "feedback.oneonone.view", false, "Seed.Menu.Reunioes1a1", "feedback.desenvolvimento"),
-        ("/Feedback/Gamificacao", "bi-trophy", 15, "feedback.gamificacao.view", false, "Seed.Menu.Gamificacao", null),
-        ("/Feedback/Gestao", "bi-person-badge", 16, "feedback.gestao.view", false, "Seed.Menu.Gestao", null),
+        // Pesquisas desativado temporariamente.
+        // ("/Feedback/Pesquisas", "bi-search", 16, "feedback.pesquisas.view", false, "Seed.Menu.Pesquisas", null),
+        ("/Feedback/Gamificacao", "bi-trophy", 16, "feedback.gamificacao.view", false, "Seed.Menu.Gamificacao", null),
+        ("/Feedback/Gestao", "bi-person-badge", 17, "feedback.gestao.view", false, "Seed.Menu.Gestao", null),
         ("/EntradaEmailPasta", "bi-inbox", 21, "entrada.view", false, "Seed.Menu.Entrada", null),
         ("/Relatorios", "bi-graph-up", 40, "relatorios.view", false, "Seed.Menu.Relatorios", null),
         ("/Gestao/Dashboard", "bi-speedometer2", 48, "gestao.dashboard", false, "Seed.Menu.GestaoDashboard", "feedback.gestao.view"),
@@ -146,8 +206,8 @@ public static class MenuSeeder
         ("/Gestao/ResumoAtividades", "bi-activity", 51, "gestao.resumo", false, "Seed.Menu.GestaoResumo", "feedback.gestao.view"),
         ("/Departamentos", "bi-diagram-2", 41, "departments.view", false, "Seed.Menu.Departamentos", null),
         ("/Areas", "bi-diagram-3", 43, "areas.view", false, "Seed.Menu.Areas", null),
-        ("/Categorias", "bi-tags", 44, "categories.view", false, "Seed.Menu.Categorias", null),
-        ("/Cargos", "bi-briefcase", 45, "jobpositions.view", false, "Seed.Menu.Cargos", null),
+        ("/Cadastro/Funcoes", "bi-tags", 44, "categories.view", false, "Seed.Menu.Funcoes", null),
+        ("/Cadastro/Cargos", "bi-briefcase", 45, "jobpositions.view", false, "Seed.Menu.Cargos", null),
         ("/Unidades", "bi-building", 46, "units.view", false, "Seed.Menu.Unidades", null),
         ("/Funcionarios", "bi-person-badge", 47, "funcionarios.view", false, "Seed.Menu.Funcionarios", null),
         ("/Pessoas", "bi-person-x", 48, "bloqueio-pessoa.view", false, "Seed.Menu.BloqueioPessoa", null),
@@ -161,7 +221,8 @@ public static class MenuSeeder
         ("/Admin/Emails", "bi-envelope", 87, "emails.manage", false, "Seed.Menu.Emails", null),
         ("/Admin/EmailConfig", "bi-gear", 88, "email-config.manage", false, "Seed.Menu.ConfigEmail", null),
         ("/Admin/EntraIdConfig", "bi-microsoft", 89, "entra-config.manage", false, "Seed.Menu.ConfigEntraId", null),
-        ("/Admin/LocalizationConfig", "bi-translate", 90, "localization-config.manage", false, "Seed.Menu.Idioma", null)
+        ("/Admin/ApiKeys", "bi-key-fill", 90, "api-keys.manage", false, "Seed.Menu.ApiKeys", null),
+        ("/Admin/LocalizationConfig", "bi-translate", 91, "localization-config.manage", false, "Seed.Menu.Idioma", null)
     ];
 
     private static List<Menu> BuildDefaultMenus(IStringLocalizer<SeedMessages> localizer)

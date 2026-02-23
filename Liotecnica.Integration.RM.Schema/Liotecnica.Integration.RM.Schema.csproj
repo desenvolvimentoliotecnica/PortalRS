@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Liotecnica.Integration.RM.Schema</RootNamespace>
+    <AssemblyName>Liotecnica.Integration.RM.Schema</AssemblyName>
+    <Description>Pacote de rastreio das tabelas e colunas do banco Corporativo RM (áreas, departamentos, cargos, vagas) usadas na integração com o Portal RH.</Description>
+  </PropertyGroup>
+
+</Project>

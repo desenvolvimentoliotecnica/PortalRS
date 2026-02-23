@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RhPortal.Api.Contracts.Talentos;
 using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.Candidates;
@@ -75,7 +76,9 @@ public sealed record CandidateResponse(
     string? VagaTitulo,
     Guid? VagaAreaId,
     Guid? VagaRecrutadorResponsavelUserId,
+    Guid? TalentoId,
     string? Obs,
+    string? ResumoProfissional,
     string? CvText,
     CandidateMatchResponse? LastMatch,
     IReadOnlyList<CandidateDocumentoResponse> Documentos,
@@ -83,6 +86,13 @@ public sealed record CandidateResponse(
     string? ApplicationRecruiterUserName,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
+);
+
+/// <summary>Resposta do upload de currículo com extração de texto e dados sugeridos pela LLM.</summary>
+public sealed record CandidatoCurriculoExtrairResponse(
+    CandidateDocumentoResponse Documento,
+    string? CvText,
+    TalentoImportPdfSuggestedData? SuggestedData
 );
 
 public sealed record CandidateMatchRequest(

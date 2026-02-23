@@ -4,6 +4,8 @@ public sealed class Notification
 {
     public Guid Id { get; set; }
     public string TenantId { get; set; } = string.Empty;
+    public Guid? UserId { get; set; }
+    public ApplicationUser? User { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public string Level { get; set; } = "info";

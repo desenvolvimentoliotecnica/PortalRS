@@ -44,7 +44,8 @@ public sealed class FuncionarioService : IFuncionarioService
             .AsNoTracking()
             .Include(x => x.Unit)
             .Include(x => x.Area)
-            .Include(x => x.JobPosition);
+            .Include(x => x.JobPosition)
+            .Include(x => x.RequisitoCategoria);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -118,7 +119,9 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.AreaId,
                 x.Area != null ? x.Area.Name : null,
                 x.JobPositionId,
-                x.JobPosition != null ? x.JobPosition.Name : null
+                x.JobPosition != null ? x.JobPosition.Name : null,
+                x.RequisitoCategoriaId,
+                x.RequisitoCategoria != null ? x.RequisitoCategoria.Name : null
             ))
             .ToListAsync(ct);
 
@@ -140,6 +143,7 @@ public sealed class FuncionarioService : IFuncionarioService
             .Include(x => x.Unit)
             .Include(x => x.Area)
             .Include(x => x.JobPosition)
+            .Include(x => x.RequisitoCategoria)
             .Where(x => x.Id == id)
             .Select(x => new FuncionarioResponse(
                 x.Id,
@@ -154,6 +158,8 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.Area != null ? x.Area.Name : null,
                 x.JobPositionId,
                 x.JobPosition != null ? x.JobPosition.Name : null,
+                x.RequisitoCategoriaId,
+                x.RequisitoCategoria != null ? x.RequisitoCategoria.Name : null,
                 x.UserId,
                 x.Notes,
                 x.CreatedAtUtc,
@@ -179,8 +185,8 @@ public sealed class FuncionarioService : IFuncionarioService
             normalizedEmail = !string.IsNullOrWhiteSpace(normalizedEmail) ? normalizedEmail : NormalizeEmail(user.Email ?? "");
         }
 
-        if (request.UnitId.HasValue || request.AreaId.HasValue || request.JobPositionId.HasValue)
-            await EnsureReferencesExist(request.UnitId, request.AreaId, request.JobPositionId, ct);
+        if (request.UnitId.HasValue || request.AreaId.HasValue || request.JobPositionId.HasValue || request.RequisitoCategoriaId.HasValue)
+            await EnsureReferencesExist(request.UnitId, request.AreaId, request.JobPositionId, request.RequisitoCategoriaId, ct);
 
         var emailAlreadyExists = await _db.Funcionarios.AnyAsync(x => x.Email == normalizedEmail, ct);
         if (emailAlreadyExists)
@@ -207,6 +213,7 @@ public sealed class FuncionarioService : IFuncionarioService
             UnitId = request.UnitId,
             AreaId = request.AreaId,
             JobPositionId = request.JobPositionId,
+            RequisitoCategoriaId = request.RequisitoCategoriaId,
             Notes = TrimOrNull(request.Notes),
             UserId = request.UserId
         };
@@ -226,8 +233,8 @@ public sealed class FuncionarioService : IFuncionarioService
 
         var normalizedEmail = NormalizeEmail(request.Email);
 
-        if (request.UnitId.HasValue || request.AreaId.HasValue || request.JobPositionId.HasValue)
-            await EnsureReferencesExist(request.UnitId, request.AreaId, request.JobPositionId, ct);
+        if (request.UnitId.HasValue || request.AreaId.HasValue || request.JobPositionId.HasValue || request.RequisitoCategoriaId.HasValue)
+            await EnsureReferencesExist(request.UnitId, request.AreaId, request.JobPositionId, request.RequisitoCategoriaId, ct);
 
         var emailConflict = await _db.Funcionarios.AnyAsync(x => x.Id != id && x.Email == normalizedEmail, ct);
         if (emailConflict)
@@ -241,6 +248,7 @@ public sealed class FuncionarioService : IFuncionarioService
         entity.UnitId = request.UnitId;
         entity.AreaId = request.AreaId;
         entity.JobPositionId = request.JobPositionId;
+        entity.RequisitoCategoriaId = request.RequisitoCategoriaId;
         entity.Notes = TrimOrNull(request.Notes);
 
         await _db.SaveChangesAsync(ct);
@@ -257,7 +265,7 @@ public sealed class FuncionarioService : IFuncionarioService
         return true;
     }
 
-    private async Task EnsureReferencesExist(Guid? unitId, Guid? areaId, Guid? jobPositionId, CancellationToken ct)
+    private async Task EnsureReferencesExist(Guid? unitId, Guid? areaId, Guid? jobPositionId, Guid? requisitoCategoriaId, CancellationToken ct)
     {
         if (unitId.HasValue)
         {
@@ -273,6 +281,11 @@ public sealed class FuncionarioService : IFuncionarioService
         {
             var jobExists = await _db.JobPositions.AnyAsync(x => x.Id == jobPositionId.Value, ct);
             if (!jobExists) throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioJobInvalid"]);
+        }
+        if (requisitoCategoriaId.HasValue)
+        {
+            var catExists = await _db.RequisitoCategorias.AnyAsync(x => x.Id == requisitoCategoriaId.Value, ct);
+            if (!catExists) throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioRequisitoCategoriaInvalid"]);
         }
     }
 

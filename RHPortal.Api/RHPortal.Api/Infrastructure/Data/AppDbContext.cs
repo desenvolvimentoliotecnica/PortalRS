@@ -81,14 +81,22 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<NotificationReceipt> NotificationReceipts => Set<NotificationReceipt>();
     public DbSet<CelebrationPost> CelebrationPosts => Set<CelebrationPost>();
     public DbSet<CelebrationMention> CelebrationMentions => Set<CelebrationMention>();
+    public DbSet<CelebrationComment> CelebrationComments => Set<CelebrationComment>();
+    public DbSet<CelebrationCommentMention> CelebrationCommentMentions => Set<CelebrationCommentMention>();
+    public DbSet<CelebrationCommentReaction> CelebrationCommentReactions => Set<CelebrationCommentReaction>();
     public DbSet<FeedbackItem> FeedbackItems => Set<FeedbackItem>();
     public DbSet<DevelopmentPlan> DevelopmentPlans => Set<DevelopmentPlan>();
     public DbSet<DevelopmentPlanGoal> DevelopmentPlanGoals => Set<DevelopmentPlanGoal>();
     public DbSet<OneOnOneMeeting> OneOnOneMeetings => Set<OneOnOneMeeting>();
     public DbSet<RenderCoinBalance> RenderCoinBalances => Set<RenderCoinBalance>();
     public DbSet<RenderCoinTransaction> RenderCoinTransactions => Set<RenderCoinTransaction>();
-
-
+    public DbSet<Survey> Surveys => Set<Survey>();
+    public DbSet<SurveyQuestion> SurveyQuestions => Set<SurveyQuestion>();
+    public DbSet<SurveyOption> SurveyOptions => Set<SurveyOption>();
+    public DbSet<SurveyResponse> SurveyResponses => Set<SurveyResponse>();
+    public DbSet<SurveyAnswer> SurveyAnswers => Set<SurveyAnswer>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<CandidatoVagaMatchingScore> CandidatoVagaMatchingScores => Set<CandidatoVagaMatchingScore>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -551,6 +559,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.JobPositionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            b.HasOne(x => x.RequisitoCategoria)
+                .WithMany()
+                .HasForeignKey(x => x.RequisitoCategoriaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             b.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
@@ -596,7 +609,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             // Se você quer obrigar AreaId, deixe IsRequired()
             b.Property(x => x.AreaId).IsRequired();
 
-            b.Property(x => x.DepartmentId).IsRequired();
+            b.Property(x => x.DepartmentId).IsRequired(false);
 
             b.HasOne(x => x.Area)
                 .WithMany() // ou .WithMany(a => a.Vagas) se você tiver coleção em Area
@@ -606,6 +619,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Department)
                  .WithMany()
                  .HasForeignKey(x => x.DepartmentId)
+                 .IsRequired(false)
                  .OnDelete(DeleteBehavior.Restrict);
 
             b.HasOne(x => x.RecrutadorResponsavelUser)
@@ -1067,6 +1081,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<CandidatoVagaMatchingScore>(b =>
+        {
+            b.ToTable("CandidatoVagaMatchingScores");
+            b.HasKey(x => new { x.CandidatoId, x.VagaId });
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Score).IsRequired();
+            b.Property(x => x.CalculatedAtUtc).IsRequired();
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.VagaId, x.Score });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<EmailMessage>(b =>
         {
             b.ToTable("EmailMessages");
@@ -1126,6 +1159,22 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.IsEnabled).IsRequired();
 
             b.HasIndex(x => new { x.TenantId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<ApiKey>(b =>
+        {
+            b.ToTable("ApiKeys");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.KeyHash).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(500);
+            b.Property(x => x.IsActive).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.KeyHash }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Name });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1289,6 +1338,71 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasIndex(x => x.PostId);
         });
 
+        modelBuilder.Entity<CelebrationComment>(b =>
+        {
+            b.ToTable("CelebrationComments");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Content).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+
+            b.HasOne(x => x.Post)
+                .WithMany()
+                .HasForeignKey(x => x.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Author)
+                .WithMany()
+                .HasForeignKey(x => x.AuthorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.PostId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CelebrationCommentMention>(b =>
+        {
+            b.ToTable("CelebrationCommentMentions");
+            b.HasKey(x => x.Id);
+
+            b.HasOne(x => x.Comment)
+                .WithMany(x => x.Mentions)
+                .HasForeignKey(x => x.CommentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => x.CommentId);
+            b.HasIndex(x => new { x.CommentId, x.UserId }).IsUnique();
+        });
+
+        modelBuilder.Entity<CelebrationCommentReaction>(b =>
+        {
+            b.ToTable("CelebrationCommentReactions");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.Type).HasMaxLength(20).IsRequired();
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+
+            b.HasOne(x => x.Comment)
+                .WithMany()
+                .HasForeignKey(x => x.CommentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => x.CommentId);
+            b.HasIndex(x => new { x.CommentId, x.Type });
+            b.HasIndex(x => new { x.CommentId, x.UserId, x.Type }).IsUnique();
+        });
+
         modelBuilder.Entity<FeedbackItem>(b =>
         {
             b.ToTable("FeedbackItems");
@@ -1418,12 +1532,68 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        // Surveys
+        modelBuilder.Entity<Survey>(b =>
+        {
+            b.ToTable("Surveys");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(240).IsRequired();
+            b.Property(x => x.Type).HasMaxLength(40);
+            b.Property(x => x.DepartmentsJson).HasColumnType("jsonb");
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SurveyQuestion>(b =>
+        {
+            b.ToTable("SurveyQuestions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Text).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.Type).HasMaxLength(40);
+            b.HasIndex(x => new { x.TenantId, x.SurveyId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SurveyOption>(b =>
+        {
+            b.ToTable("SurveyOptions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Text).HasMaxLength(400).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.QuestionId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SurveyResponse>(b =>
+        {
+            b.ToTable("SurveyResponses");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.SubmittedAtUtc).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.SurveyId });
+            b.HasIndex(x => new { x.TenantId, x.UserId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SurveyAnswer>(b =>
+        {
+            b.ToTable("SurveyAnswers");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TextAnswer).HasMaxLength(2000);
+            b.HasIndex(x => new { x.TenantId, x.ResponseId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<Notification>(b =>
         {
             b.ToTable("Notifications");
             b.HasKey(x => x.Id);
 
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.UserId);
             b.Property(x => x.Title).HasMaxLength(200).IsRequired();
             b.Property(x => x.Message).HasMaxLength(2000).IsRequired();
             b.Property(x => x.Level).HasMaxLength(20).IsRequired();
@@ -1432,7 +1602,13 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.CreatedAtUtc).IsRequired();
             b.Property(x => x.UpdatedAtUtc).IsRequired();
 
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasIndex(x => new { x.TenantId, x.UserId, x.CreatedAtUtc });
             b.HasIndex(x => new { x.TenantId, x.IsRead });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
@@ -1943,6 +2119,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) entraConfig.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) entraConfig.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is ApiKey apiKey)
+            {
+                if (entry.State == EntityState.Added) apiKey.CreatedAtUtc = now;
             }
 
             if (entry.Entity is AgendaEventType agendaType)

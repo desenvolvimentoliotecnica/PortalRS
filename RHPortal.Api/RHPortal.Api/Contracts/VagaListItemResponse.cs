@@ -12,7 +12,7 @@ public sealed record VagaListItemResponse(
     string? AreaCode,
     string? AreaName,
 
-    Guid DepartmentId,
+    Guid? DepartmentId,
     string? DepartmentCode,
     string? DepartmentName,
 

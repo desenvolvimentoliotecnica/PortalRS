@@ -1,0 +1,19 @@
+=== Instalar pgvector no PostgreSQL 18 (Windows) ===
+
+1. Execute o script como ADMINISTRADOR:
+   - Clique com o botao direito em "install-pgvector.ps1"
+   - Selecione "Executar com PowerShell"
+   - Se pedir confirmacao de execucao, aceite.
+
+   OU abra PowerShell como Administrador e rode:
+   cd "caminho\Voltage.RenderRH\__scripts__\pgvector-windows"
+   Set-ExecutionPolicy Bypass -Scope Process -Force
+   .\install-pgvector.ps1
+
+2. Se o PostgreSQL estiver em outro caminho, edite install-pgvector.ps1
+   e altere a variavel PGROOT (ex.: C:\Program Files\PostgreSQL\17).
+
+3. Apos instalar, rode a migration no banco (veja o README na pasta
+   RHPortal.Api/RHPortal.Api/Migrations ou use o script run-embedding-migration.sh).
+
+Binarios: pgvector v0.8.1 para PostgreSQL 18 (andreiramani/pgvector_pgsql_windows).

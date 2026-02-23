@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Pessoas;
 using RhPortal.Api.Domain.Entities;
@@ -187,34 +188,62 @@ public sealed class PessoaService : IPessoaService
 
     public async Task<PessoaResponse> CreateAsync(PessoaCreateRequest request, CancellationToken ct)
     {
-        var entity = new Pessoa
+        const string logPath = "/Users/victoralves/Projects/Voltage.RenderRH/.cursor/debug.log";
+        void Log(string hypothesisId, string location, string message, object? data = null)
         {
-            Id = Guid.NewGuid(),
-            TenantId = _tenantContext.TenantId,
-            Origem = request.Origem,
-            Nome = (request.Nome ?? string.Empty).Trim(),
-            Email = NormalizeEmail(request.Email),
-            Fone = TrimToMax(request.Fone, 40),
-            Cidade = TrimToMax(request.Cidade, 120),
-            Uf = TrimToMax(request.Uf, 2),
-            LinkedinUrl = TrimToMax(request.LinkedinUrl, 260),
-            ResumoProfissional = TrimToMax(request.ResumoProfissional, 2000),
-            Obs = TrimToMax(request.Obs, 2000),
-            Cep = TrimToMax(request.Cep, 20),
-            Logradouro = TrimToMax(request.Logradouro, 200),
-            Numero = TrimToMax(request.Numero, 40),
-            Bairro = TrimToMax(request.Bairro, 120),
-            Complemento = TrimToMax(request.Complemento, 120),
-            Cpf = TrimToMax(request.Cpf, 14),
-            Rg = TrimToMax(request.Rg, 20),
-            FoneContato = TrimToMax(request.FoneContato, 40),
-            DataNascimento = request.DataNascimento,
-            CreatedAtUtc = DateTimeOffset.UtcNow,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
-        };
-        _db.Pessoas.Add(entity);
-        await _db.SaveChangesAsync(ct);
-        return MapToResponse(entity);
+            try
+            {
+                var line = JsonSerializer.Serialize(new { hypothesisId, location, message, data, timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), sessionId = "debug-session", runId = "run1" }) + "\n";
+                File.AppendAllText(logPath, line);
+            }
+            catch { /* no-op */ }
+        }
+        // #region agent log
+        try
+        {
+            var tenantId = _tenantContext.TenantId;
+            Log("A", "PessoaService.CreateAsync:entry", "CreateAsync called", new { tenantIdLength = tenantId?.Length ?? 0, tenantIdEmpty = string.IsNullOrEmpty(tenantId), origem = request?.Origem.ToString(), nomeLen = request?.Nome?.Length ?? 0, emailLen = request?.Email?.Length ?? 0 });
+            var entity = new Pessoa
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId,
+                Origem = request.Origem,
+                Nome = (request.Nome ?? string.Empty).Trim(),
+                Email = NormalizeEmail(request.Email),
+                Fone = TrimToMax(request.Fone, 40),
+                Cidade = TrimToMax(request.Cidade, 120),
+                Uf = TrimToMax(request.Uf, 2),
+                LinkedinUrl = TrimToMax(request.LinkedinUrl, 260),
+                ResumoProfissional = TrimToMax(request.ResumoProfissional, 2000),
+                Obs = TrimToMax(request.Obs, 2000),
+                Cep = TrimToMax(request.Cep, 20),
+                Logradouro = TrimToMax(request.Logradouro, 200),
+                Numero = TrimToMax(request.Numero, 40),
+                Bairro = TrimToMax(request.Bairro, 120),
+                Complemento = TrimToMax(request.Complemento, 120),
+                Cpf = TrimToMax(request.Cpf, 14),
+                Rg = TrimToMax(request.Rg, 20),
+                FoneContato = TrimToMax(request.FoneContato, 40),
+                DataNascimento = ToUtcDate(request.DataNascimento),
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            };
+            Log("E", "PessoaService.CreateAsync:entityBuilt", "Entity built", new { entityTenantIdLen = entity.TenantId?.Length ?? 0, entityEmailLen = entity.Email?.Length ?? 0 });
+            _db.Pessoas.Add(entity);
+            Log("C", "PessoaService.CreateAsync:beforeSaveChanges", "Before SaveChangesAsync");
+            await _db.SaveChangesAsync(ct);
+            Log("C", "PessoaService.CreateAsync:afterSaveChanges", "After SaveChangesAsync");
+            Log("D", "PessoaService.CreateAsync:beforeMapToResponse", "Before MapToResponse");
+            var response = MapToResponse(entity);
+            Log("D", "PessoaService.CreateAsync:afterMapToResponse", "After MapToResponse");
+            return response;
+        }
+        catch (Exception ex)
+        {
+            Log("A", "PessoaService.CreateAsync:catch", "Exception", new { exType = ex.GetType().FullName, exMessage = ex.Message, innerType = ex.InnerException?.GetType().FullName, innerMessage = ex.InnerException?.Message });
+            throw;
+        }
+        // #endregion
     }
 
     public async Task<PessoaResponse?> UpdateAsync(Guid id, PessoaUpdateRequest request, CancellationToken ct)
@@ -239,11 +268,20 @@ public sealed class PessoaService : IPessoaService
         entity.Cpf = TrimToMax(request.Cpf, 14);
         entity.Rg = TrimToMax(request.Rg, 20);
         entity.FoneContato = TrimToMax(request.FoneContato, 40);
-        entity.DataNascimento = request.DataNascimento;
+        entity.DataNascimento = ToUtcDate(request.DataNascimento);
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
         return MapToResponse(entity);
+    }
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.Pessoas.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return false;
+        _db.Pessoas.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<Pessoa> GetOrCreateByEmailAsync(string email, string? nome, string? fone, string? cidade, string? uf, string? linkedinUrl, string? resumoProfissional, string? obs, OrigemPessoa? origem, CancellationToken ct)
@@ -315,4 +353,15 @@ public sealed class PessoaService : IPessoaService
     }
 
     private static string? TrimToMax(string? value, int max) => string.IsNullOrWhiteSpace(value) ? null : (value.Length <= max ? value.Trim() : value.Trim().Substring(0, max));
+
+    /// <summary>Converts DateTime to UTC for PostgreSQL (timestamp with time zone). Unspecified is treated as UTC.</summary>
+    private static DateTime? ToUtcDate(DateTime? value)
+    {
+        if (value is null) return null;
+        var d = value.Value;
+        if (d.Kind == DateTimeKind.Utc) return d;
+        if (d.Kind == DateTimeKind.Unspecified)
+            return DateTime.SpecifyKind(d, DateTimeKind.Utc);
+        return d.ToUniversalTime();
+    }
 }

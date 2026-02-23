@@ -19,6 +19,61 @@ public sealed class NotificationPublisher
         _hub = hub;
     }
 
+    public async Task<IReadOnlyList<NotificationItem>> PublishToUsersAsync(
+        string tenantId,
+        IReadOnlyList<Guid> userIds,
+        string title,
+        string message,
+        string? url,
+        string level = "info",
+        CancellationToken ct = default)
+    {
+        var safeTenantId = (tenantId ?? "").Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(safeTenantId))
+            return Array.Empty<NotificationItem>();
+
+        var distinctUserIds = userIds
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToList();
+        if (distinctUserIds.Count == 0)
+            return Array.Empty<NotificationItem>();
+
+        var now = DateTimeOffset.UtcNow;
+        var safeLevel = string.IsNullOrWhiteSpace(level) ? "info" : level.Trim().ToLowerInvariant();
+        var safeTitle = (title ?? "").Trim();
+        var safeMessage = (message ?? "").Trim();
+        var safeUrl = string.IsNullOrWhiteSpace(url) ? null : url.Trim();
+
+        var notifications = distinctUserIds
+            .Select(userId => new Notification
+            {
+                Id = Guid.NewGuid(),
+                TenantId = safeTenantId,
+                UserId = userId,
+                Title = safeTitle,
+                Message = safeMessage,
+                Level = safeLevel,
+                Url = safeUrl,
+                IsRead = false,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            })
+            .ToList();
+
+        _db.Notifications.AddRange(notifications);
+        await _db.SaveChangesAsync(ct);
+
+        foreach (var notification in notifications)
+        {
+            await _hub.Clients
+                .Group(NotificationsHub.GetTenantUserGroup(notification.TenantId, notification.UserId!.Value))
+                .SendAsync("notification.received", MapToItem(notification), ct);
+        }
+
+        return notifications.Select(MapToItem).ToArray();
+    }
+
     public async Task<IReadOnlyList<NotificationItem>> PublishToTenantsAsync(
         IReadOnlyList<string> tenantIds,
         NotificationSendRequest request,
@@ -38,6 +93,7 @@ public sealed class NotificationPublisher
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId.Trim(),
+                UserId = null,
                 Title = title,
                 Message = message,
                 Level = level,

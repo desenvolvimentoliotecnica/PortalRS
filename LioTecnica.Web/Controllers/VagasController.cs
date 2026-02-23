@@ -27,6 +27,28 @@ public class VagasController : Controller
         return View(model);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Matching(Guid id, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        string? titulo = null;
+        try
+        {
+            var resp = await _vagasApi.GetVagaByIdRawAsync(tenantId, id, ct);
+            if (resp.StatusCode == System.Net.HttpStatusCode.OK && !string.IsNullOrWhiteSpace(resp.Content))
+            {
+                using var doc = JsonDocument.Parse(resp.Content);
+                if (doc.RootElement.TryGetProperty("titulo", out var t))
+                    titulo = t.GetString();
+            }
+        }
+        catch { /* best-effort */ }
+
+        ViewBag.VagaId = id;
+        ViewBag.VagaTitulo = titulo ?? "Vaga";
+        return View();
+    }
+
     [HttpGet("/api/vagas")]
     public async Task<IActionResult> GetAll(CancellationToken ct)
     {
@@ -68,10 +90,18 @@ public class VagasController : Controller
     }
 
     [HttpGet("/api/vagas/{id:guid}/matching-candidates")]
-    public async Task<IActionResult> GetMatchingCandidates(Guid id, [FromQuery] int minScore = 0, [FromQuery] int take = 50, CancellationToken ct = default)
+    public async Task<IActionResult> GetMatchingCandidates(Guid id, [FromQuery] int minScore = 0, [FromQuery] int take = 50, [FromQuery] bool useAi = false, CancellationToken ct = default)
     {
         var tenantId = _tenantContext.TenantId;
-        var resp = await _vagasApi.GetMatchingCandidatesRawAsync(tenantId, id, minScore, take, ct);
+        var resp = await _vagasApi.GetMatchingCandidatesRawAsync(tenantId, id, minScore, take, useAi, ct);
+        return ToContentResult(resp);
+    }
+
+    [HttpPatch("/api/vagas/{id:guid}/matching-filtros")]
+    public async Task<IActionResult> UpdateMatchingFiltros(Guid id, [FromBody] JsonElement payload, CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _vagasApi.UpdateMatchingFiltrosRawAsync(tenantId, id, payload, ct);
         return ToContentResult(resp);
     }
 

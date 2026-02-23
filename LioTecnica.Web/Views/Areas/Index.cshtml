@@ -9,7 +9,7 @@
 @await Html.PartialAsync("_Toast")
 
 @section Topbar {
-    @await Html.PartialAsync("_TopbarBrand", "Tela: Areas")
+    @await Html.PartialAsync("_TopbarBrand", (string)null)
 
     <div class="searchbox position-relative d-none d-md-block">
       <i class="bi bi-search"></i>
@@ -17,6 +17,14 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
+      @await Html.PartialAsync("_TopbarUserActions", "RH")
+    </div>
+}
+
+<section class="content">
+  <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <h4>Areas</h4>
+    <div class="d-flex flex-wrap gap-2">
       <button class="btn btn-ghost" type="button" id="btnOrgChart" title="Estrutura organizacional">
         <i class="bi bi-diagram-3"></i><span class="d-none d-sm-inline ms-1">Estrutura organizacional</span>
       </button>
@@ -29,19 +37,6 @@
       <button class="btn btn-brand" type="button" id="btnNewArea">
         <i class="bi bi-plus-lg"></i><span class="d-none d-sm-inline ms-1">Nova area</span>
       </button>
-      @await Html.PartialAsync("_TopbarUserActions", "RH")
-    </div>
-}
-
-<section class="content">
-  <div class="page-title">
-    <div>
-      <h4>Areas</h4>
-      <div class="subtitle">Gerencie areas usadas em vagas, departamentos e gestores.</div>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="badge-soft"><i class="bi bi-clock me-1"></i><span id="nowLabel">-</span></span>
-      <span class="badge-soft"><i class="bi bi-hdd me-1"></i>API</span>
     </div>
   </div>
 

@@ -12,7 +12,8 @@ const state = {
   unidades: [],
   cargos: [],
   filters: { q: "", status: "all" },
-  syncUsers: []
+  syncUsers: [],
+  pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 0 }
 };
 
 function apiFetchJson(url, opts) {
@@ -86,28 +87,34 @@ function normalizeFuncionarioRow(f) {
   };
 }
 
-async function loadFuncionariosFromApi() {
-  // #region agent log
-  fetch("http://127.0.0.1:7256/ingest/0fc6dcde-670e-45dd-8620-222860647680", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "funcionarios.js:loadFuncionariosFromApi:start", message: "loadFuncionariosFromApi called", data: {}, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H3" }) }).catch(() => {});
-  // #endregion
-  const params = new URLSearchParams({ page: "1", pageSize: "200" });
+async function loadFuncionariosFromApi(page, pageSize) {
+  page = Math.max(1, parseInt(page, 10) || 1);
+  pageSize = Math.min(100, Math.max(10, parseInt(pageSize, 10) || state.pagination.pageSize));
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize)
+  });
+  const search = (state.filters.q || "").trim();
+  const status = (state.filters.status || "all").trim();
+  if (search) params.set("search", search);
+  if (status !== "all") params.set("status", status);
   const url = `${FUNCIONARIOS_API_BASE}?${params.toString()}`;
   let data;
   try {
     data = await apiFetchJson(url, { method: "GET" });
   } catch (err) {
-    // #region agent log
-    fetch("http://127.0.0.1:7256/ingest/0fc6dcde-670e-45dd-8620-222860647680", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "funcionarios.js:loadFuncionariosFromApi:catch", message: "apiFetchJson failed", data: { errMessage: (err && err.message) || "", errStatus: err && err.status, errUrl: err && err.url }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H3" }) }).catch(() => {});
-    // #endregion
     throw err;
   }
-  // #region agent log
-  const dataKeys = data && typeof data === "object" ? Object.keys(data) : [];
-  const itemsLen = Array.isArray(data?.items) ? data.items.length : (Array.isArray(data) ? data.length : 0);
-  fetch("http://127.0.0.1:7256/ingest/0fc6dcde-670e-45dd-8620-222860647680", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ location: "funcionarios.js:loadFuncionariosFromApi", message: "Response parsed", data: { dataKeys, itemsLen }, timestamp: Date.now(), sessionId: "debug-session", hypothesisId: "H4" }) }).catch(() => {});
-  // #endregion
   const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
   state.funcionarios = items.map(normalizeFuncionarioRow);
+  state.pagination = {
+    page: data.page ?? page,
+    pageSize: data.pageSize ?? pageSize,
+    totalItems: data.totalItems ?? 0,
+    totalPages: data.totalPages ?? 1
+  };
+  const pageSizeEl = $("#funcionarioPageSize");
+  if (pageSizeEl && state.pagination.pageSize) pageSizeEl.value = String(state.pagination.pageSize);
 }
 
 async function loadAreasLookup(force = false) {
@@ -198,7 +205,7 @@ function buildStatusBadge(status) {
 }
 
 function updateKpis() {
-  const total = state.funcionarios.length;
+  const total = state.pagination.totalItems;
   const ativos = state.funcionarios.filter(g => g.status === "ativo").length;
   const headcount = state.funcionarios.reduce((acc, g) => acc + (parseInt(g.headcount, 10) || 0), 0);
   $("#kpiFuncionarioTotal").textContent = total;
@@ -206,28 +213,18 @@ function updateKpis() {
   $("#kpiFuncionarioHeadcount").textContent = headcount;
 }
 
-function normalizeText(s) {
-  return (s ?? "").toString().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
-}
-
-function getFiltered() {
-  const q = normalizeText(state.filters.q || "");
-  const st = state.filters.status;
-  return state.funcionarios.filter(g => {
-    if (st !== "all" && (g.status || "") !== st) return false;
-    if (!q) return true;
-    const blob = normalizeText([g.nome, g.cargo, g.area, g.email, g.unidade].join(" "));
-    return blob.includes(q);
-  });
-}
-
 function renderTable() {
   const tbody = $("#funcionarioTbody");
   if (!tbody) return;
   tbody.replaceChildren();
-  const rows = getFiltered();
+  const rows = state.funcionarios;
+  const p = state.pagination;
+  const start = p.totalItems === 0 ? 0 : (p.page - 1) * p.pageSize + 1;
+  const end = Math.min(p.page * p.pageSize, p.totalItems);
   $("#funcionarioCount").textContent = rows.length;
-  $("#funcionarioHint").textContent = rows.length ? `${rows.length} funcionários encontrados.` : "Nenhum funcionário encontrado.";
+  $("#funcionarioHint").textContent = p.totalItems === 0
+    ? "Nenhum funcionário encontrado."
+    : `${start}–${end} de ${p.totalItems} funcionários.`;
 
   if (!rows.length) {
     const empty = cloneTemplate("tpl-funcionario-empty-row");
@@ -356,9 +353,10 @@ async function saveFuncionarioFromModal() {
       });
       toast("Funcionário criado.");
     }
-    await loadFuncionariosFromApi();
+    await loadFuncionariosFromApi(state.pagination.page, state.pagination.pageSize);
     updateKpis();
     renderTable();
+    renderPagination();
     bootstrap.Modal.getOrCreateInstance($("#modalFuncionario")).hide();
   } catch (err) {
     console.error(err);
@@ -392,9 +390,10 @@ async function deleteFuncionario(id) {
   try {
     await apiFetchJson(`${FUNCIONARIOS_API_BASE}/${id}`, { method: "DELETE" });
     toast("Funcionário removido.");
-    await loadFuncionariosFromApi();
+    await loadFuncionariosFromApi(state.pagination.page, state.pagination.pageSize);
     updateKpis();
     renderTable();
+    renderPagination();
   } catch (err) {
     console.error(err);
     toast("Falha ao excluir funcionário.");
@@ -420,20 +419,87 @@ function exportCsv() {
 }
 
 function wireFilters() {
-  const apply = () => {
+  const apply = async () => {
     state.filters.q = ($("#gSearch").value || "").trim();
     state.filters.status = $("#gStatus").value || "all";
-    renderTable();
+    try {
+      await loadFuncionariosFromApi(1, state.pagination.pageSize);
+      updateKpis();
+      renderTable();
+      renderPagination();
+    } catch (err) {
+      console.error(err);
+      toast("Falha ao aplicar filtros.");
+    }
   };
   const gSearch = $("#gSearch");
   const gStatus = $("#gStatus");
-  if (gSearch) gSearch.addEventListener("input", apply);
+  if (gSearch) gSearch.addEventListener("input", debounce(apply, 350));
   if (gStatus) gStatus.addEventListener("change", apply);
   const globalSearch = $("#globalSearchFuncionario");
   if (globalSearch) globalSearch.addEventListener("input", () => {
     if ($("#gSearch")) $("#gSearch").value = globalSearch.value;
     apply();
   });
+}
+
+function debounce(fn, ms) {
+  let t;
+  return function (...args) {
+    clearTimeout(t);
+    t = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
+
+function renderPagination() {
+  const container = $("#funcionarioPagination");
+  if (!container) return;
+  container.replaceChildren();
+  const p = state.pagination;
+  if (p.totalPages <= 1 && p.totalItems <= p.pageSize) return;
+  const start = (p.page - 1) * p.pageSize + 1;
+  const end = Math.min(p.page * p.pageSize, p.totalItems);
+  const ul = document.createElement("ul");
+  ul.className = "pagination pagination-sm mb-0 flex-wrap";
+  const addPage = (label, pageNum, disabled = false, active = false) => {
+    const li = document.createElement("li");
+    li.className = `page-item ${disabled ? "disabled" : ""} ${active ? "active" : ""}`;
+    const a = document.createElement("a");
+    a.className = "page-link";
+    a.href = "#";
+    a.textContent = label;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (!disabled) goToPage(pageNum);
+    });
+    li.appendChild(a);
+    ul.appendChild(li);
+  };
+  addPage("Anterior", p.page - 1, p.page <= 1);
+  const maxButtons = 5;
+  let from = Math.max(1, p.page - Math.floor(maxButtons / 2));
+  let to = Math.min(p.totalPages, from + maxButtons - 1);
+  if (to - from < maxButtons - 1) from = Math.max(1, to - maxButtons + 1);
+  for (let i = from; i <= to; i++) addPage(String(i), i, false, i === p.page);
+  addPage("Próxima", p.page + 1, p.page >= p.totalPages);
+  container.appendChild(ul);
+  const info = document.createElement("span");
+  info.className = "text-muted small ms-2 align-self-center";
+  info.textContent = `${start}–${end} de ${p.totalItems}`;
+  container.appendChild(info);
+}
+
+async function goToPage(pageNum) {
+  pageNum = Math.max(1, Math.min(state.pagination.totalPages, pageNum));
+  try {
+    await loadFuncionariosFromApi(pageNum, state.pagination.pageSize);
+    updateKpis();
+    renderTable();
+    renderPagination();
+  } catch (err) {
+    console.error(err);
+    toast("Falha ao carregar página.");
+  }
 }
 
 function wireButtons() {
@@ -446,9 +512,10 @@ function wireButtons() {
     const ok = confirm("Recarregar dados da API?");
     if (!ok) return;
     try {
-      await loadFuncionariosFromApi();
+      await loadFuncionariosFromApi(state.pagination.page, state.pagination.pageSize);
       updateKpis();
       renderTable();
+      renderPagination();
       toast("Dados recarregados.");
     } catch (err) {
       console.error(err);
@@ -457,6 +524,20 @@ function wireButtons() {
   });
   const btnExport = $("#btnExportFuncionario");
   if (btnExport) btnExport.addEventListener("click", exportCsv);
+
+  const pageSizeSelect = $("#funcionarioPageSize");
+  if (pageSizeSelect) pageSizeSelect.addEventListener("change", async () => {
+    const size = parseInt(pageSizeSelect.value, 10) || 20;
+    try {
+      await loadFuncionariosFromApi(1, size);
+      updateKpis();
+      renderTable();
+      renderPagination();
+    } catch (err) {
+      console.error(err);
+      toast("Falha ao alterar página.");
+    }
+  });
 
   const btnSyncUsers = $("#btnSyncUsers");
   // #region agent log
@@ -613,9 +694,10 @@ async function cadastrarSelecionadosComoFuncionarios() {
     }
   }
   bootstrap.Modal.getOrCreateInstance($("#modalSyncUsuarios")).hide();
-  await loadFuncionariosFromApi();
+  await loadFuncionariosFromApi(1, state.pagination.pageSize);
   updateKpis();
   renderTable();
+  renderPagination();
   if (failCount === 0) toast(`${okCount} funcionário(s) cadastrado(s).`);
   else toast(`${okCount} cadastrado(s), ${failCount} falha(s).`);
   if (btn) btn.disabled = false;
@@ -635,7 +717,7 @@ function wireClock() {
 (async function init() {
   wireClock();
   try {
-    await loadFuncionariosFromApi();
+    await loadFuncionariosFromApi(1, state.pagination.pageSize);
   } catch (err) {
     console.error(err);
     toast("Falha ao carregar dados da API.");
@@ -648,6 +730,7 @@ function wireClock() {
   }
   updateKpis();
   renderTable();
+  renderPagination();
   wireFilters();
   wireButtons();
 })();

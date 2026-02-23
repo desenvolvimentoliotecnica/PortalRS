@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.Pessoas;
@@ -56,6 +57,15 @@ public sealed class PessoasController : ControllerBase
         [FromServices] IPessoaService service,
         CancellationToken ct)
     {
+        // #region agent log
+        const string logPath = "/Users/victoralves/Projects/Voltage.RenderRH/.cursor/debug.log";
+        try
+        {
+            var line = JsonSerializer.Serialize(new { hypothesisId = "B", location = "PessoasController.Create:entry", message = "Model binding OK", data = new { requestNotNull = request != null, origem = request?.Origem.ToString() }, timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), sessionId = "debug-session", runId = "run1" }) + "\n";
+            System.IO.File.AppendAllText(logPath, line);
+        }
+        catch { /* no-op */ }
+        // #endregion
         var result = await service.CreateAsync(request, ct);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
@@ -74,5 +84,18 @@ public sealed class PessoasController : ControllerBase
     {
         var result = await service.UpdateAsync(id, request, ct);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>Remove uma pessoa.</summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        [FromRoute] Guid id,
+        [FromServices] IPessoaService service,
+        CancellationToken ct)
+    {
+        var deleted = await service.DeleteAsync(id, ct);
+        return deleted ? NoContent() : NotFound();
     }
 }

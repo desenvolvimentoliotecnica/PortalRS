@@ -7,7 +7,7 @@
 @await Html.PartialAsync("_Toast")
 
 @section Topbar {
-    @await Html.PartialAsync("_TopbarBrand", "Tela: Pessoa")
+    @await Html.PartialAsync("_TopbarBrand", (string)null)
 
     <div class="searchbox position-relative d-none d-md-block">
         <i class="bi bi-search"></i>
@@ -15,9 +15,6 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-ghost" type="button" id="btnRefreshPessoas" title="Atualizar">
-            <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
-        </button>
         @await Html.PartialAsync("_TopbarUserActions", "RH")
     </div>
 }
@@ -28,11 +25,15 @@
     <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
             <h4>Pessoa</h4>
-            <div class="subtitle">Todas as pessoas cadastradas. Bloqueie ou desbloqueie pela ação na linha. Use "Bloquear pessoa" para adicionar alguém que ainda não está na lista.</div>
         </div>
-        <button type="button" class="btn btn-brand" id="btnBloquearPessoaManual" title="Bloquear pessoa (nome e e-mail)">
-            <i class="bi bi-person-x me-1"></i>Bloquear pessoa
-        </button>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-ghost" type="button" id="btnRefreshPessoas" title="Atualizar">
+                <i class="bi bi-arrow-clockwise"></i><span class="d-none d-sm-inline ms-1">Atualizar</span>
+            </button>
+            <button type="button" class="btn btn-brand" id="btnBloquearPessoaManual" title="Bloquear pessoa (nome e e-mail)">
+                <i class="bi bi-person-x me-1"></i>Bloquear pessoa
+            </button>
+        </div>
     </div>
 
     <div class="card-soft p-3 mb-3">

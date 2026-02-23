@@ -20,6 +20,7 @@ public sealed class FuncionarioCreateRequestJsonConverter : JsonConverter<Funcio
         r.UnitId = GetGuid(root, "UnitId", "unitId");
         r.AreaId = GetGuid(root, "AreaId", "areaId");
         r.JobPositionId = GetGuid(root, "JobPositionId", "jobPositionId");
+        r.RequisitoCategoriaId = GetGuid(root, "RequisitoCategoriaId", "requisitoCategoriaId");
         r.Notes = GetString(root, "Notes", "notes");
         r.UserId = GetGuid(root, "UserId", "userId");
         return r;

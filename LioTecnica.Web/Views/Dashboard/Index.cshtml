@@ -5,6 +5,7 @@
 @{
     ViewData["Title"] = T["Page_Title"].Value;                 // "Portal RH • Devcraft Studio"
     ViewData["SidebarSubtitle"] = T["Sidebar_Subtitle"].Value; // "Recrutamento & Match"
+    ViewBag.MobileMenuInPageTitle = true;
 }
 
 @section Topbar {
@@ -16,26 +17,28 @@
     </div>
 
     <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-ghost" type="button" data-bs-toggle="offcanvas" data-bs-target="#drawerFilters">
-            <i class="bi bi-sliders"></i>
-            <span class="d-none d-sm-inline ms-1">@T["Btn_Filters"]</span>
-        </button>
-
-        <button class="btn btn-brand" type="button" data-bs-toggle="offcanvas" data-bs-target="#drawerQuick">
-            <i class="bi bi-plus-lg"></i>
-            <span class="d-none d-sm-inline ms-1">@T["Btn_Actions"]</span>
-        </button>
-
         @await Html.PartialAsync("_TopbarUserActions", "RH")
     </div>
 }
 
 <!-- CONTENT -->
 <section class="content">
-    <div class="page-title">
+    <div class="page-title d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
             <h4 id="pageH4">@T["H4_Dashboard"]</h4>
-            <div class="subtitle" id="pageSub">@T["Page_Subtitle"]</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-ghost" type="button" data-bs-toggle="offcanvas" data-bs-target="#drawerFilters">
+                <i class="bi bi-sliders"></i>
+                <span class="d-none d-sm-inline ms-1">@T["Btn_Filters"]</span>
+            </button>
+            <button class="btn btn-brand" type="button" data-bs-toggle="offcanvas" data-bs-target="#drawerQuick">
+                <i class="bi bi-plus-lg"></i>
+                <span class="d-none d-sm-inline ms-1">@T["Btn_Actions"]</span>
+            </button>
+            <button class="btn btn-ghost d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasSidebar" aria-label="Abrir menu">
+                <i class="bi bi-list"></i>
+            </button>
         </div>
     </div>
 
