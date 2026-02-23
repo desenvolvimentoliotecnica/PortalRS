@@ -2,8 +2,9 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copy project file and restore as distinct layers
-COPY RHPortal.Api/RHPortal.Api.csproj RHPortal.Api/
-RUN dotnet restore RHPortal.Api/RHPortal.Api.csproj
+# Note: solution has nested folder RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj
+COPY RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj RHPortal.Api/
+RUN dotnet restore RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj
 
 # Copy everything else and build
 COPY . .
