@@ -14,36 +14,34 @@ steps:
     inputs:
       targetType: "inline"
       script: |
-        set -euo pipefail
-
-        echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
-        cd "$(Build.SourcesDirectory)"
-
+        set -eo pipefail
+        ROOT_DIR="."
         if [ -d "Voltage.RenderRH" ]; then
           ROOT_DIR="Voltage.RenderRH"
-        else
-          ROOT_DIR="."
         fi
-
-        echo "Root detectado: ${ROOT_DIR}"
-        echo "Pacote: $(package_name)"
-
-        tar -czf "$(package_name)" \
+        PACKAGE_NAME="deploy-package.tar.gz"
+        echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
+        cd "$(Build.SourcesDirectory)"
+        echo "Root: ${ROOT_DIR}"
+        echo "Pacote: ${PACKAGE_NAME}"
+        echo "Conteúdo do diretório:"
+        ls -la
+        echo "Criando tar..."
+        tar -czf "${PACKAGE_NAME}" \
           --warning=no-file-changed \
-          --exclude='.git' \
-          --exclude='$(package_name)' \
-          --exclude='.vs' \
-          --exclude='.vscode' \
-          --exclude='.idea' \
-          --exclude='**/bin' \
-          --exclude='**/obj' \
-          --exclude='**/*.log' \
-          --exclude='**/.env' \
-          -C "${ROOT_DIR}" .
-
-        test -f "$(package_name)" || (echo "ERRO: pacote não foi criado"; exit 1)
-        ls -lh "$(package_name)"
-        echo "✅ Pacote validado com sucesso"
+          --exclude=".git" \
+          --exclude="${PACKAGE_NAME}" \
+          --exclude=".vs" \
+          --exclude=".vscode" \
+          --exclude=".idea" \
+          --exclude="**/bin" \
+          --exclude="**/obj" \
+          --exclude="**/*.log" \
+          --exclude="**/.env" \
+          -C "${ROOT_DIR}" . || { echo "ERRO: tar falhou com código $?"; exit 1; }
+        test -f "${PACKAGE_NAME}" || { echo "ERRO: arquivo não criado"; exit 1; }
+        ls -lh "${PACKAGE_NAME}"
+        echo "Pacote validado com sucesso"
 
   - task: CopyFiles@2
     displayName: "Organizar para artefato"
