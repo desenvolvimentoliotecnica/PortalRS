@@ -1,63 +1,72 @@
 trigger:
   - develop
- 
+
 pool:
   vmImage: ubuntu-latest
- 
+
 variables:
   package_name: "deploy-package.tar.gz"
   artifact_name: "drop"
   package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
- 
+
 steps:
   - task: Bash@3
     displayName: "Compactar projeto para release"
     inputs:
       targetType: "inline"
       script: |
-        set -euo pipefail
- 
+        set -eo pipefail
+
         echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
         cd "$(Build.SourcesDirectory)"
- 
+
+        PACKAGE_PATH="$(package_path)"
+        PACKAGE_NAME="$(package_name)"
+
         if [ -d "Voltage.RenderRH" ]; then
-          ROOT_DIR="Voltage.RenderRH"
+          echo "Incluindo pasta Voltage.RenderRH no tar (estrutura preservada)"
+          tar -czf "$PACKAGE_PATH" \
+            --warning=no-file-changed \
+            --exclude='.git' \
+            --exclude='.vs' \
+            --exclude='.vscode' \
+            --exclude='.idea' \
+            --exclude='deploy-package.tar.gz' \
+            --exclude='*/bin' \
+            --exclude='*/obj' \
+            --exclude='*.log' \
+            --exclude='.env' \
+            --exclude='*/.venv' \
+            --exclude='*Liotecnica.Integration.RM.Schema.Tables/CV' \
+            --exclude='*Liotecnica.Integration.RM.Logs' \
+            Voltage.RenderRH
         else
-          ROOT_DIR="."
+          echo "Root: . (sem Voltage.RenderRH)"
+          tar -czf "$PACKAGE_PATH" \
+            --warning=no-file-changed \
+            --exclude='.git' \
+            --exclude='.vs' \
+            --exclude='.vscode' \
+            --exclude='.idea' \
+            --exclude='deploy-package.tar.gz' \
+            --exclude='bin' \
+            --exclude='obj' \
+            --exclude='*.log' \
+            --exclude='.env' \
+            -C . .
         fi
- 
-        echo "Root detectado: ${ROOT_DIR}"
-        echo "Pacote será gerado em: $(package_path)"
- 
-        tar -czf "$(package_path)" \
-          --warning=no-file-changed \
-          --exclude='.git' \
-          --exclude='$(package_name)' \
-          --exclude='.vs' \
-          --exclude='.vscode' \
-          --exclude='.idea' \
-          --exclude='**/bin' \
-          --exclude='**/obj' \
-          --exclude='**/*.log' \
-          --exclude='**/.env' \
-          --exclude='RHPortal.Ai/.venv' \
-          --exclude='Liotecnica.Integration.RM.Schema.Tables/CV' \
-          --exclude='Liotecnica.Integration.RM.Logs' \
-          -C "${ROOT_DIR}" .
- 
-        test -f "$(package_path)" || (echo "ERRO: pacote não foi criado"; exit 1)
- 
-        ls -lh "$(package_path)"
- 
-        echo "✅ Pacote validado com sucesso"
- 
+
+        test -f "$PACKAGE_PATH" || (echo "ERRO: pacote não foi criado"; exit 1)
+        ls -lh "$PACKAGE_PATH"
+        echo "Pacote validado com sucesso"
+
   - task: CopyFiles@2
     displayName: "Organizar para artefato"
     inputs:
       SourceFolder: "$(Agent.TempDirectory)"
       Contents: "$(package_name)"
       TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
- 
+
   - task: PublishBuildArtifacts@1
     displayName: "Publicar artefato"
     inputs:
