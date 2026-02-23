@@ -1,48 +1,66 @@
 trigger:
   - develop
-
+ 
 pool:
   vmImage: ubuntu-latest
-
+ 
 variables:
-  package_name: 'deploy-package.tar.gz'
-  artifact_name: 'drop'
-
+  package_name: "deploy-package.tar.gz"
+  artifact_name: "drop"
+  package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
+ 
 steps:
   - task: Bash@3
     displayName: "Compactar projeto para release"
     inputs:
       targetType: "inline"
       script: |
-        set -eo pipefail
-        ROOT_DIR="."
-        if [ -d "Voltage.RenderRH" ]; then
-          ROOT_DIR="Voltage.RenderRH"
-        fi
-        PACKAGE_NAME="deploy-package.tar.gz"
+        set -euo pipefail
+ 
         echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
         cd "$(Build.SourcesDirectory)"
-        echo "Root: ${ROOT_DIR}"
-        echo "Pacote: ${PACKAGE_NAME}"
-        echo "Conteúdo do diretório:"
-        ls -la
-        echo "Criando tar..."
-        tar -czf "${PACKAGE_NAME}" \
-          -C "${ROOT_DIR}" . || { echo "ERRO: tar falhou com código $?"; exit 1; }
-        test -f "${PACKAGE_NAME}" || { echo "ERRO: arquivo não criado"; exit 1; }
-        ls -lh "${PACKAGE_NAME}"
-        echo "Pacote validado com sucesso"
-
+ 
+        if [ -d "Voltage.RenderRH" ]; then
+          ROOT_DIR="Voltage.RenderRH"
+        else
+          ROOT_DIR="."
+        fi
+ 
+        echo "Root detectado: ${ROOT_DIR}"
+        echo "Pacote será gerado em: $(package_path)"
+ 
+        tar -czf "$(package_path)" \
+          --warning=no-file-changed \
+          --exclude='.git' \
+          --exclude='$(package_name)' \
+          --exclude='.vs' \
+          --exclude='.vscode' \
+          --exclude='.idea' \
+          --exclude='**/bin' \
+          --exclude='**/obj' \
+          --exclude='**/*.log' \
+          --exclude='**/.env' \
+          --exclude='RHPortal.Ai/.venv' \
+          --exclude='Liotecnica.Integration.RM.Schema.Tables/CV' \
+          --exclude='Liotecnica.Integration.RM.Logs' \
+          -C "${ROOT_DIR}" .
+ 
+        test -f "$(package_path)" || (echo "ERRO: pacote não foi criado"; exit 1)
+ 
+        ls -lh "$(package_path)"
+ 
+        echo "✅ Pacote validado com sucesso"
+ 
   - task: CopyFiles@2
     displayName: "Organizar para artefato"
     inputs:
-      SourceFolder: '$(Build.SourcesDirectory)'
-      Contents: '$(package_name)'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)/$(artifact_name)'
-
+      SourceFolder: "$(Agent.TempDirectory)"
+      Contents: "$(package_name)"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+ 
   - task: PublishBuildArtifacts@1
     displayName: "Publicar artefato"
     inputs:
-      PathtoPublish: '$(Build.ArtifactStagingDirectory)/$(artifact_name)'
-      ArtifactName: '$(artifact_name)'
-      publishLocation: 'Container'
+      PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+      ArtifactName: "$(artifact_name)"
+      publishLocation: "Container"
