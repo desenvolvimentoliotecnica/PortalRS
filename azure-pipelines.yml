@@ -5,9 +5,8 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  package_name: "deploy-package.tar.gz"
-  artifact_name: "drop"
-  package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
+  package_name: 'deploy-package.tar.gz'
+  artifact_name: 'drop'
 
 steps:
   - task: Bash@3
@@ -27,9 +26,9 @@ steps:
         fi
 
         echo "Root detectado: ${ROOT_DIR}"
-        echo "Pacote será gerado em: $(package_path)"
+        echo "Pacote: $(package_name)"
 
-        tar -czf "$(package_path)" \
+        tar -czf "$(package_name)" \
           --warning=no-file-changed \
           --exclude='.git' \
           --exclude='$(package_name)' \
@@ -40,27 +39,22 @@ steps:
           --exclude='**/obj' \
           --exclude='**/*.log' \
           --exclude='**/.env' \
-          --exclude='RHPortal.Ai/.venv' \
-          --exclude='Liotecnica.Integration.RM.Schema.Tables/CV' \
-          --exclude='Liotecnica.Integration.RM.Logs' \
           -C "${ROOT_DIR}" .
 
-        test -f "$(package_path)" || (echo "ERRO: pacote não foi criado"; exit 1)
-
-        ls -lh "$(package_path)"
-
+        test -f "$(package_name)" || (echo "ERRO: pacote não foi criado"; exit 1)
+        ls -lh "$(package_name)"
         echo "✅ Pacote validado com sucesso"
 
   - task: CopyFiles@2
     displayName: "Organizar para artefato"
     inputs:
-      SourceFolder: "$(Agent.TempDirectory)"
-      Contents: "$(package_name)"
-      TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+      SourceFolder: '$(Build.SourcesDirectory)'
+      Contents: '$(package_name)'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)/$(artifact_name)'
 
   - task: PublishBuildArtifacts@1
     displayName: "Publicar artefato"
     inputs:
-      PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
-      ArtifactName: "$(artifact_name)"
-      publishLocation: "Container"
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)/$(artifact_name)'
+      ArtifactName: '$(artifact_name)'
+      publishLocation: 'Container'
