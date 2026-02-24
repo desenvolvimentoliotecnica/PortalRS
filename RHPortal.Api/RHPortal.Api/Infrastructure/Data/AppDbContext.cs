@@ -98,6 +98,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<SurveyAnswer> SurveyAnswers => Set<SurveyAnswer>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<CandidatoVagaMatchingScore> CandidatoVagaMatchingScores => Set<CandidatoVagaMatchingScore>();
+    public DbSet<VagaUnifiedMatchingCache> VagaUnifiedMatchingCaches => Set<VagaUnifiedMatchingCache>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1098,6 +1099,34 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.VagaId)
                 .OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(x => new { x.VagaId, x.Score });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<VagaUnifiedMatchingCache>(b =>
+        {
+            b.ToTable("VagaUnifiedMatchingCaches");
+            b.HasKey(x => x.VagaId);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CurrentFiltersHash).HasMaxLength(64).IsRequired();
+            b.Property(x => x.PendingFiltersHash).HasMaxLength(64);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            // jsonb no Postgres; armazenamos o array de itens retornado pela IA
+            b.Property(x => x.ItemsJson).HasColumnType("jsonb");
+            b.Property(x => x.LastError).HasMaxLength(2000);
+
+            b.Property(x => x.StartedAtUtc);
+            b.Property(x => x.ComputedAtUtc);
+            b.Property(x => x.LastAccessAtUtc);
+
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.VagaId }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

@@ -138,6 +138,7 @@ builder.Services.AddSingleton(DbLogQueue.Create());
 builder.Services.AddSingleton<DbLoggerProvider>();
 builder.Services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<DbLoggerProvider>());
 builder.Services.AddHostedService<DbLogWriterService>();
+builder.Services.AddHostedService<VagaUnifiedMatchingCacheCleanupService>();
 
 // Inbox folder watcher
 builder.Services.Configure<InboxFolderOptions>(builder.Configuration.GetSection("InboxFolder"));
@@ -296,6 +297,7 @@ builder.Services.AddScoped<ICvGptExtractor, CvGptExtractor>();
 builder.Services.AddScoped<ITalentoService, TalentoService>();
 builder.Services.AddScoped<IBloqueioPessoaService, BloqueioPessoaService>();
 builder.Services.AddScoped<IMatchingService, MatchingService>();
+builder.Services.AddScoped<IVagaUnifiedMatchingCacheService, VagaUnifiedMatchingCacheService>();
 builder.Services.AddScoped<AgendaService>();
 builder.Services.AddScoped<CelebrationService>();
 builder.Services.AddScoped<FeedbackService>();
