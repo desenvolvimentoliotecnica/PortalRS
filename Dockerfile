@@ -5,6 +5,8 @@ WORKDIR /src
 # Restaura pelo .sln para cache decente
 COPY LioTecnica.sln ./
 COPY LioTecnica.Web/*.csproj LioTecnica.Web/
+COPY Liotecnica.Integration.RM.Schema/*.csproj Liotecnica.Integration.RM.Schema/
+COPY Liotecnica.Integration.RM/*.csproj Liotecnica.Integration.RM/
 RUN dotnet restore ./LioTecnica.sln
 
 # Copia tudo e publica
@@ -18,5 +20,6 @@ WORKDIR /app
 COPY --from=build /out .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
-
-CMD ["dotnet","LioTecnica.Web.dll"]
+ENV ASPNETCORE_URLS=http://+:80
+EXPOSE 80
+CMD ["dotnet", "LioTecnica.Web.dll"]

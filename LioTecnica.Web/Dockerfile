@@ -3,6 +3,8 @@ WORKDIR /src
 
 COPY LioTecnica.sln ./
 COPY LioTecnica.Web/*.csproj LioTecnica.Web/
+COPY Liotecnica.Integration.RM.Schema/*.csproj Liotecnica.Integration.RM.Schema/
+COPY Liotecnica.Integration.RM/*.csproj Liotecnica.Integration.RM/
 RUN dotnet restore ./LioTecnica.sln
 
 COPY . .
