@@ -211,11 +211,13 @@ public sealed class CandidatosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CandidatoCurriculoExtrairResponse>> UploadCurriculoEExtrair(
         [FromRoute] Guid id,
-        [FromForm] IFormFile? arquivo,
+        [FromForm] CandidateCurriculoUploadRequest request,
         [FromServices] ICandidatoService service,
-        CancellationToken ct,
-        [FromForm] bool enviarParaGpt = true)
+        CancellationToken ct)
     {
+        var arquivo = request.Arquivo;
+        var enviarParaGpt = request.EnviarParaGpt;
+
         if (arquivo is null || arquivo.Length == 0)
             return BadRequest(new { message = "Arquivo PDF é obrigatório." });
 

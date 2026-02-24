@@ -9,13 +9,20 @@
 
     var normalizedCurrent = currentPath.TrimEnd('/').ToLowerInvariant();
 
-    // Route-based module mapping (plan: Recrutamento, Cadastros, Relatórios, Admin)
+    // Route + permissionKey mapping (Recrutamento, Cadastros, Relatórios, Admin, Feedback)
 
-    string GetModuleKey(string route)
+    string GetModuleKey(string route, string permissionKey = "")
 
     {
 
-        if (string.IsNullOrWhiteSpace(route)) return "Recrutamento";
+        if (string.IsNullOrWhiteSpace(route) || route == "#")
+        {
+            // Items com rota '#' são grupos sem tela própria – classificar pela permissionKey
+            var pk = (permissionKey ?? "").ToLowerInvariant();
+            if (pk.StartsWith("feedback.") || pk.StartsWith("desempenho")) return "Feedback";
+            if (string.IsNullOrWhiteSpace(route)) return "Recrutamento";
+            return "Recrutamento";
+        }
 
         var r = route.TrimEnd('/').ToLowerInvariant();
 
@@ -25,7 +32,7 @@
 
         if (r == "/pesquisas") return "Feedback";
 
-        if (r.StartsWith("/feedback", StringComparison.Ordinal) || r.StartsWith("/gestao", StringComparison.Ordinal)) return
+        if (r.StartsWith("/feedback", StringComparison.Ordinal) || r.StartsWith("/gestao", StringComparison.Ordinal) || r.StartsWith("/desempenho", StringComparison.Ordinal)) return
         "Feedback";
 
         if (r is "/dashboard" or "/agendas" or "/vagas" or "/candidatos" or "/talentos" or "/triagem" or "/matching" or
@@ -55,25 +62,21 @@
 
     => string.Equals((m.Route ?? "").TrimEnd('/'), "/matching", StringComparison.OrdinalIgnoreCase);
 
-    // Tela Desenvolvimento desativada: não exibir no menu; Matching removido (acesso via Vagas > Matching na linha)
+    // Matching removido do menu (acesso via Vagas > Matching na linha)
 
-    var recrutamento = Model.Where(x => GetModuleKey(x.Route) == "Recrutamento" && !IsPortalVagas(x) && x.PermissionKey !=
-    "feedback.desenvolvimento" && !IsMatching(x)).ToList();
+    var recrutamento = Model.Where(x => GetModuleKey(x.Route, x.PermissionKey) == "Recrutamento" && !IsPortalVagas(x) && !IsMatching(x)).ToList();
 
     // Tela Departamentos desativada: não exibir no menu
 
-    var cadastros = Model.Where(x => GetModuleKey(x.Route) == "Cadastros" && x.PermissionKey !=
+    var cadastros = Model.Where(x => GetModuleKey(x.Route, x.PermissionKey) == "Cadastros" && x.PermissionKey !=
     "departments.view").ToList();
 
-    var relatorios = Model.Where(x => GetModuleKey(x.Route) == "Relatorios").ToList();
+    var relatorios = Model.Where(x => GetModuleKey(x.Route, x.PermissionKey) == "Relatorios").ToList();
 
-    var feedbackDesenvolvimentoKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "feedback.send",
-"feedback.view", "feedback.myplans.view", "feedback.oneonone.view" };
+    // Feedback: inclui TODOS os itens do módulo (Celebrações, Desenvolvimento + filhos, Gamificação, Pesquisas, Gestão, Desempenho)
+    var feedback = Model.Where(x => GetModuleKey(x.Route, x.PermissionKey) == "Feedback").ToList();
 
-    var feedback = Model.Where(x => GetModuleKey(x.Route) == "Feedback" &&
-    !feedbackDesenvolvimentoKeys.Contains(x.PermissionKey)).ToList();
-
-    var admin = Model.Where(x => GetModuleKey(x.Route) == "Admin").ToList();
+    var admin = Model.Where(x => GetModuleKey(x.Route, x.PermissionKey) == "Admin").ToList();
 
 
 
@@ -87,10 +90,17 @@
 
             var route = (m.Route ?? "").TrimEnd('/').ToLowerInvariant();
 
+            if (route == "#") return false; // skip group parents without real routes
+
             if (normalizedCurrent == route) return true;
 
             // Quando estiver em /Vagas/Matching/xxx, considerar "Vagas" ativo para o módulo continuar expandido
             if (route == "/vagas" && normalizedCurrent.StartsWith("/vagas/")) return true;
+
+            // Qualquer sub-rota de /feedback ou /gestao ou /desempenho expande o módulo Feedback
+            if (route.StartsWith("/feedback") && normalizedCurrent.StartsWith("/feedback")) return true;
+            if (route.StartsWith("/gestao") && normalizedCurrent.StartsWith("/gestao")) return true;
+            if (route.StartsWith("/desempenho") && normalizedCurrent.StartsWith("/desempenho")) return true;
 
             if ((normalizedCurrent == "" || normalizedCurrent == "/") && (route == "/dashboard" || route == "" || route == "/"))
                 return true;

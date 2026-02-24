@@ -12,7 +12,7 @@ public sealed class TenantMiddleware : IMiddleware
 {
     public const string TenantHeaderName = "X-Tenant-Id";
     private static readonly Regex TenantPattern = new("^[a-z0-9][a-z0-9\\-]{1,62}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly string[] PublicPathsWithoutTenant = ["/health", "/swagger"];
+    private static readonly string[] PublicPathsWithoutTenant = new[] { "/health", "/swagger" };
 
     private readonly ITenantContext _tenantContext;
     private readonly MasterDbContext _masterDb;

@@ -45,7 +45,7 @@
 
     function fmtPoints(n) {
         const v = typeof n === "number" ? n : 0;
-        return v.toLocaleString("pt-BR") + " Feedzcoin";
+        return v.toLocaleString("pt-BR") + " RenderCoin";
     }
 
     const MOCK_RULES_LEFT = [
@@ -85,7 +85,7 @@
     function renderRuleLine(r) {
         return `<div class="d-flex justify-content-between gap-3">
             <div class="text-muted">${escapeHtml(r.label)}</div>
-            <div class="fw-semibold">${escapeHtml(String(r.points))} Feedzcoin</div>
+            <div class="fw-semibold">${escapeHtml(String(r.points))} RenderCoin</div>
         </div>`;
     }
 
