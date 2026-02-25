@@ -3,31 +3,25 @@
 #   Cursor/VS Code: Terminal > Run Task... > "Dev: All (4 terminais)"
 #   Isso abre 4 terminais na IDE (API, Portal, RHPortal.Ai, Integração RM).
 # Este script continua disponível para rodar tudo em um único terminal (background + foreground).
-set -e
+set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Derruba as portas antes de subir (5056 = API, 5051 = Portal, 8000 = RHPortal.Ai)
-for port in 5056 5051 8000; do
-  p=$(lsof -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null || true)
-  [ -z "$p" ] && p=$(lsof -ti ":$port" 2>/dev/null || true)
-  if [ -n "$p" ]; then
-    echo "▶ Liberando porta $port (PID $p)..."
-    for pid in $p; do
-      ppid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
-      [ -n "$ppid" ] && [ "$ppid" -gt 1 ] && kill -9 "$ppid" 2>/dev/null || true
-    done
-    echo "$p" | xargs kill -9 2>/dev/null || true
-  fi
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/ports.sh"
+
+# Derruba as portas antes de subir (5056 = API, 5051 = Portal, 8000 = RHPortal.Ai, 3000/3001 = Next)
+for port in 5056 5051 8000 3000 3001; do
+  free_port "$port"
 done
-sleep 2
 
 cleanup() {
   echo ""
-  echo "▶ Encerrando API, Portal, AI e Integração..."
+  echo "▶ Encerrando API, Portal, AI, Integração e Next..."
   kill "$API_PID" 2>/dev/null || true
   [ -n "$AI_PID" ] && kill "$AI_PID" 2>/dev/null || true
   [ -n "$INTEGRATION_PID" ] && kill "$INTEGRATION_PID" 2>/dev/null || true
+  [ -n "${NEXT_PID:-}" ] && kill "$NEXT_PID" 2>/dev/null || true
   exit 0
 }
 trap cleanup SIGINT SIGTERM
@@ -82,6 +76,20 @@ if [ -d "$INTEGRATION_DIR" ]; then
   echo "▶ Subindo Integração RM em background..."
   (cd "$INTEGRATION_DIR" && dotnet run -nologo) &
   INTEGRATION_PID=$!
+fi
+
+# --- Next.js: sobe o frontend novo em background (porta 3000)
+NEXT_DIR="$ROOT/LioTecnica.Web.Next"
+NEXT_PID=""
+if [ -d "$NEXT_DIR" ]; then
+  echo "▶ Subindo Next.js em background (http://localhost:3000/app)..."
+  (
+    cd "$NEXT_DIR"
+    rm -f .next/dev/lock 2>/dev/null || true
+    pnpm install
+    LEGACY_ORIGIN=http://localhost:5051 PORT=3000 exec pnpm dev
+  ) &
+  NEXT_PID=$!
 fi
 
 # Espera a API ficar pronta (health em localhost:5056) antes de subir o Portal

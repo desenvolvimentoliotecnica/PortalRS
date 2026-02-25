@@ -1,0 +1,39 @@
+:root {
+  /* ===== Legado (extraído de LioTecnica.Web/wwwroot/css/site.css) ===== */
+  --lt-primary: 12 58 100; /* #0C3A64 */
+  --lt-brand: 16 82 145; /* #105291 */
+  --lt-soft: 173 200 220; /* #ADC8DC */
+  --lt-bg: 246 249 252; /* #F6F9FC */
+  --lt-card: 255 255 255; /* #FFFFFF */
+  --lt-text: 13 27 42; /* #0D1B2A */
+
+  --lt-border: rgb(var(--lt-brand) / 0.18);
+  --lt-shadow: 0 10px 30px rgb(11 58 100 / 0.1);
+
+  /* ===== shadcn tokens (Tailwind v4) ===== */
+  --radius: 0.875rem;
+  --background: rgb(var(--lt-bg));
+  --foreground: rgb(var(--lt-text));
+
+  --card: rgb(var(--lt-card));
+  --card-foreground: rgb(var(--lt-text));
+  --popover: rgb(var(--lt-card));
+  --popover-foreground: rgb(var(--lt-text));
+
+  --primary: rgb(var(--lt-brand));
+  --primary-foreground: rgb(255 255 255);
+
+  --secondary: rgb(var(--lt-soft));
+  --secondary-foreground: rgb(var(--lt-primary));
+
+  --muted: rgb(235 241 247);
+  --muted-foreground: rgb(13 27 42 / 0.65);
+
+  --accent: rgb(235 241 247);
+  --accent-foreground: rgb(var(--lt-primary));
+
+  --destructive: rgb(220 53 69);
+  --border: rgb(var(--lt-brand) / 0.18);
+  --input: rgb(var(--lt-brand) / 0.18);
+  --ring: rgb(var(--lt-brand) / 0.35);
+}
