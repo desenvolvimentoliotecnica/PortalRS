@@ -31,7 +31,14 @@ const state = {
   activeTab: "suggestions", // suggestions | rejected
   // Cache for tabs to avoid database calls on switch
   suggestionsCache: null, // array or null
-  rejectedCache: null     // array or null
+  rejectedCache: null,    // array or null
+
+  // Status do ranking (para stale + loading)
+  rankingMeta: null,      // { status, startedAtUtc, computedAtUtc, filtersHash, lastError }
+  rankingPollToken: 0,
+  rankingPollTimer: null,
+  rankingPollDelayMs: 1200,
+  lastEmptyToastAtMs: 0
 };
 
 function getRankingSize() {
@@ -207,14 +214,8 @@ async function fetchCandidatos() {
   return Array.isArray(list) ? list.map(mapApiCandidatoListItem) : [];
 }
 
-/** Retorna candidatos e talentos com score para a vaga (embedding + LLM 80/20). */
-async function fetchMatchingCandidatesByVaga(vagaId, useAi = true) {
-  if (!vagaId) return [];
-  const size = DEFAULT_RANKING_SIZE;
-  const qs = `take=${size}${useAi ? "&useAi=true" : ""}`;
-  const data = await apiFetchJson(`${VAGAS_API_URL}/${encodeURIComponent(vagaId)}/matching-candidates?${qs}`);
-  if (!Array.isArray(data)) return [];
-  return data.map(c => ({
+function mapApiUnifiedRankingItem(c) {
+  return {
     id: c.candidatoId,
     nome: c.nome ?? "",
     email: c.email ?? "",
@@ -224,7 +225,34 @@ async function fetchMatchingCandidatesByVaga(vagaId, useAi = true) {
     scoreFiltros: Number.isFinite(c.scoreFiltros) ? c.scoreFiltros : 0,
     scoreRequisitos: Number.isFinite(c.scoreRequisitos) ? c.scoreRequisitos : 0,
     justificativa: c.justificativa ?? ""
-  }));
+  };
+}
+
+async function fetchMatchingRankingSnapshot(vagaId) {
+  if (!vagaId) return { status: "failed", lastError: "Vaga inválida." };
+  const size = DEFAULT_RANKING_SIZE;
+  const url = `${VAGAS_API_URL}/${encodeURIComponent(vagaId)}/matching-ranking?take=${size}`;
+
+  const response = await fetch(url, {
+    headers: { "Accept": "application/json" },
+    credentials: "same-origin"
+  });
+
+  if (response.status === 401) {
+    const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.href = `/Account/Login?returnUrl=${returnUrl}`;
+    throw new Error("Unauthorized");
+  }
+
+  let data = null;
+  try { data = await response.json(); } catch { /* ignore */ }
+
+  if (!response.ok) {
+    // Mantém corpo estruturado (failed + stale) quando o backend retornar 500
+    return data || { status: "failed", lastError: `Falha ao carregar ranking (${response.status}).` };
+  }
+
+  return data || { status: "failed", lastError: "Resposta inválida do servidor." };
 }
 
 async function fetchRejectedCandidates(vagaId) {
@@ -262,6 +290,7 @@ async function fetchRejectedCandidates(vagaId) {
 async function loadRankingForVaga(vagaId, forceRefresh = false) {
   if (!vagaId || vagaId === VAGA_ALL) {
     state.rankingCandidates = [];
+    state.rankingMeta = null;
     renderList();
     return;
   }
@@ -270,39 +299,95 @@ async function loadRankingForVaga(vagaId, forceRefresh = false) {
   if (!forceRefresh) {
     if (state.activeTab === "suggestions" && state.suggestionsCache) {
       state.rankingCandidates = state.suggestionsCache;
+      state.rankingMeta = { status: "ready", isCached: true };
       renderList();
       return;
     }
     if (state.activeTab === "rejected" && state.rejectedCache) {
       state.rankingCandidates = state.rejectedCache;
+      state.rankingMeta = { status: "ready", isCached: true };
       renderList();
       return;
     }
   }
 
+  // Cancela qualquer polling anterior
+  state.rankingPollToken++;
+  if (state.rankingPollTimer) {
+    clearTimeout(state.rankingPollTimer);
+    state.rankingPollTimer = null;
+  }
+
+  // Por padrão, só bloqueia com overlay quando não temos stale pra mostrar
   showRankingLoading(true);
   try {
     let results = [];
     if (state.activeTab === "rejected") {
       results = await fetchRejectedCandidates(vagaId);
       state.rejectedCache = results;
+      state.rankingMeta = { status: "ready" };
     } else {
-      results = await fetchMatchingCandidatesByVaga(vagaId);
-      state.suggestionsCache = results;
+      const token = state.rankingPollToken;
+      const snap = await fetchMatchingRankingSnapshot(vagaId);
+
+      const toLocal = (arr) => Array.isArray(arr) ? arr.map(mapApiUnifiedRankingItem) : [];
+
+      if (snap?.status === "ready") {
+        results = toLocal(snap.items);
+        state.suggestionsCache = results;
+        state.rankingMeta = { status: "ready", computedAtUtc: snap.computedAtUtc, filtersHash: snap.filtersHash };
+        state.rankingPollDelayMs = 1200;
+        showRankingLoading(false);
+      } else if (snap?.status === "processing") {
+        results = toLocal(snap.staleItems);
+        state.suggestionsCache = results.length ? results : null;
+        state.rankingMeta = { status: "processing", startedAtUtc: snap.startedAtUtc, filtersHash: snap.filtersHash };
+
+        // Se temos stale, não bloqueia a tabela com overlay; mostra indicador no render.
+        showRankingLoading(!results.length);
+
+        const delay = state.rankingPollDelayMs || 1200;
+        state.rankingPollDelayMs = Math.min(10000, Math.round(delay * 1.35));
+        state.rankingPollTimer = setTimeout(async () => {
+          if (state.rankingPollToken !== token) return;
+          if (state.activeTab !== "suggestions") return;
+          if (state.filters.vagaId !== vagaId) return;
+          await loadRankingForVaga(vagaId, true);
+        }, delay);
+      } else if (snap?.status === "failed") {
+        results = toLocal(snap.staleItems);
+        state.suggestionsCache = results.length ? results : null;
+        state.rankingMeta = { status: "failed", lastError: snap.lastError, filtersHash: snap.filtersHash };
+        showRankingLoading(false);
+        if (typeof toast === "function") toast(snap?.lastError || "Falha ao carregar ranking.");
+      } else {
+        results = [];
+        state.suggestionsCache = null;
+        state.rankingMeta = { status: "failed", lastError: "Resposta inesperada do servidor." };
+        showRankingLoading(false);
+        if (typeof toast === "function") toast("Resposta inesperada do servidor.");
+      }
     }
     state.rankingCandidates = results;
     renderList();
   } catch (err) {
     state.rankingCandidates = [];
+    state.rankingMeta = { status: "failed", lastError: err?.message || String(err) };
     console.error(err);
     if (typeof toast === "function") toast(err?.message || "Falha ao carregar ranking.");
   } finally {
-    showRankingLoading(false);
+    // Se estamos em processing e sem stale, mantém overlay; caso contrário, esconde.
+    const keep = state.rankingMeta && state.rankingMeta.status === "processing" && (!state.rankingCandidates || state.rankingCandidates.length === 0);
+    showRankingLoading(!!keep);
   }
   // Se veio vazio, informar que estamos populando a base vetorial em background
   if (!state.rankingCandidates || state.rankingCandidates.length === 0) {
     if (typeof toast === "function") {
-      toast("Populando a base vetorial de talentos em segundo plano. Tente novamente em alguns segundos.", { duration: 8000 });
+      const now = Date.now();
+      if (!state.lastEmptyToastAtMs || (now - state.lastEmptyToastAtMs) > 15000) {
+        state.lastEmptyToastAtMs = now;
+        toast("Populando a base vetorial de talentos em segundo plano. Tente novamente em alguns segundos.", { duration: 8000 });
+      }
     }
   }
 }
@@ -565,6 +650,24 @@ function renderList() {
   tabs.appendChild(createTab("suggestions", "Sugestões"));
   tabs.appendChild(createTab("rejected", "Reprovados"));
   host.appendChild(tabs);
+
+  // Indicador de atualização (stale + background)
+  if (state.activeTab === "suggestions" && state.rankingMeta && state.rankingMeta.status === "processing") {
+    const info = document.createElement("div");
+    info.className = "alert alert-info py-2 px-3 small mb-3";
+    info.style.borderRadius = "12px";
+    info.style.borderColor = "rgba(13,110,253,.25)";
+    info.style.background = "rgba(13,110,253,.08)";
+    info.innerHTML = "<i class=\"bi bi-arrow-repeat me-1\"></i>Atualizando ranking em segundo plano…";
+    host.appendChild(info);
+  }
+  if (state.activeTab === "suggestions" && state.rankingMeta && state.rankingMeta.status === "failed") {
+    const warn = document.createElement("div");
+    warn.className = "alert alert-warning py-2 px-3 small mb-3";
+    warn.style.borderRadius = "12px";
+    warn.innerHTML = "<i class=\"bi bi-exclamation-triangle me-1\"></i>Falha ao atualizar ranking. Exibindo último resultado disponível.";
+    host.appendChild(warn);
+  }
 
   if (!ranking.length) {
     const empty = cloneTemplate("tpl-matching-empty");

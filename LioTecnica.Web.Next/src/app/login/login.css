@@ -1,0 +1,7 @@
+/* Login page — minimal overrides for the modern glassmorphism LoginScreen.
+   Most styling now lives in Tailwind classes inside LoginScreen.tsx. */
+
+/* Ensure full-bleed layout with no body margin artifacts */
+.login-shell {
+  min-height: 100dvh;
+}

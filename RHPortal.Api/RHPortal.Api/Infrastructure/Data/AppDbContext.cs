@@ -85,6 +85,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CelebrationCommentMention> CelebrationCommentMentions => Set<CelebrationCommentMention>();
     public DbSet<CelebrationCommentReaction> CelebrationCommentReactions => Set<CelebrationCommentReaction>();
     public DbSet<FeedbackItem> FeedbackItems => Set<FeedbackItem>();
+    public DbSet<FeedbackItemRating> FeedbackItemRatings => Set<FeedbackItemRating>();
     public DbSet<DevelopmentPlan> DevelopmentPlans => Set<DevelopmentPlan>();
     public DbSet<DevelopmentPlanGoal> DevelopmentPlanGoals => Set<DevelopmentPlanGoal>();
     public DbSet<OneOnOneMeeting> OneOnOneMeetings => Set<OneOnOneMeeting>();
@@ -97,6 +98,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<SurveyAnswer> SurveyAnswers => Set<SurveyAnswer>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<CandidatoVagaMatchingScore> CandidatoVagaMatchingScores => Set<CandidatoVagaMatchingScore>();
+    public DbSet<VagaUnifiedMatchingCache> VagaUnifiedMatchingCaches => Set<VagaUnifiedMatchingCache>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1100,6 +1102,34 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<VagaUnifiedMatchingCache>(b =>
+        {
+            b.ToTable("VagaUnifiedMatchingCaches");
+            b.HasKey(x => x.VagaId);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CurrentFiltersHash).HasMaxLength(64).IsRequired();
+            b.Property(x => x.PendingFiltersHash).HasMaxLength(64);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+
+            // jsonb no Postgres; armazenamos o array de itens retornado pela IA
+            b.Property(x => x.ItemsJson).HasColumnType("jsonb");
+            b.Property(x => x.LastError).HasMaxLength(2000);
+
+            b.Property(x => x.StartedAtUtc);
+            b.Property(x => x.ComputedAtUtc);
+            b.Property(x => x.LastAccessAtUtc);
+
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.VagaId }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<EmailMessage>(b =>
         {
             b.ToTable("EmailMessages");
@@ -1411,6 +1441,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.Property(x => x.Content).HasMaxLength(4000).IsRequired();
             b.Property(x => x.Tipo).HasMaxLength(40);
+            b.Property(x => x.InternalNotes).HasMaxLength(4000);
 
             b.HasOne(x => x.FromUser)
                 .WithMany()
@@ -1422,10 +1453,23 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.ToUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            b.HasMany(x => x.Ratings)
+                .WithOne(x => x.FeedbackItem)
+                .HasForeignKey(x => x.FeedbackItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
             b.HasIndex(x => new { x.TenantId, x.ToUserId });
             b.HasIndex(x => new { x.TenantId, x.FromUserId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<FeedbackItemRating>(b =>
+        {
+            b.ToTable("FeedbackItemRatings");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.ItemName).HasMaxLength(120).IsRequired();
+            b.HasIndex(x => x.FeedbackItemId);
         });
 
         modelBuilder.Entity<DevelopmentPlan>(b =>

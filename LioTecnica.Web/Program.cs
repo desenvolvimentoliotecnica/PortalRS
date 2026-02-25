@@ -15,6 +15,7 @@ using LioTecnica.Web.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using RhPortal.Web.Infrastructure.ApiClients;
+using Yarp.ReverseProxy.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,9 @@ builder.Services.AddControllersWithViews(options =>
     options.ViewLocationFormats.Add("/Views/Shared/Components/MainMenu/{0}.cshtml");
 })
 .AddControllersAsServices();
+
+// Reverse proxy (optional) for mounting Next.js under /app/* in production without breaking legacy routes.
+builder.Services.AddReverseProxy();
 
 // Replace default IControllerActivatorProvider so OwnerController/UnidadesController are resolved from DI when building the cache (avoids ActivatorUtilities.TryFindMatchingConstructor).
 var activatorDescriptor = builder.Services.FirstOrDefault(d => d.ServiceType == typeof(Microsoft.AspNetCore.Mvc.Controllers.IControllerActivatorProvider));
@@ -419,6 +423,38 @@ app.UseMiddleware<TenantValidationMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<OwnerRedirectMiddleware>();
 app.UseMiddleware<ApiUnauthorizedMiddleware>();
+
+// Optional: reverse proxy /app/* -> Next.js (rollback: set NextFrontend:Enabled=false)
+var nextEnabled = builder.Configuration.GetValue<bool?>("NextFrontend:Enabled") ?? false;
+var nextOrigin = builder.Configuration["NextFrontend:Origin"]?.TrimEnd('/');
+if (nextEnabled && !string.IsNullOrWhiteSpace(nextOrigin))
+{
+    var routes = new[]
+    {
+        new RouteConfig
+        {
+            RouteId = "next_app",
+            ClusterId = "next",
+            Match = new RouteMatch { Path = "/app/{**catch-all}" }
+        }
+    };
+
+    var clusters = new[]
+    {
+        new ClusterConfig
+        {
+            ClusterId = "next",
+            Destinations = new Dictionary<string, DestinationConfig>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["d1"] = new DestinationConfig { Address = nextOrigin + "/" }
+            }
+        }
+    };
+
+    // NOTE: this keeps legacy as source of truth for auth/cookies; Next SSR can call back into /bff/*.
+    builder.Services.AddReverseProxy().LoadFromMemory(routes, clusters);
+    app.MapReverseProxy();
+}
 
 app.MapControllerRoute(
     name: "default",

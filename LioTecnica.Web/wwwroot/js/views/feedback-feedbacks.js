@@ -2,35 +2,52 @@
     "use strict";
 
     const API_MINE = "/Feedback/_api/items/mine";
-    const API_ALL = "/Feedback/_api/items/all";
     const PAGE_SIZE = 20;
-    let pageReceived = 1;
-    let pageSent = 1;
-    let pageAll = 1;
-    let totalReceived = 0;
-    let totalSent = 0;
-    let totalAll = 0;
+
+    // DOM refs
+    const filterFrom = document.getElementById("filterFrom");
+    const filterTo = document.getElementById("filterTo");
+    const btnFilter = document.getElementById("btnFilter");
+    const btnClearFilter = document.getElementById("btnClearFilter");
+    const searchBox = document.getElementById("searchBox");
+
+    const kpiReceived = document.getElementById("kpiReceived");
+    const kpiSent = document.getElementById("kpiSent");
+    const countReceived = document.getElementById("countReceived");
+    const countSent = document.getElementById("countSent");
 
     const listReceived = document.getElementById("listReceived");
     const emptyReceived = document.getElementById("emptyReceived");
     const loadMoreReceived = document.getElementById("loadMoreReceived");
     const btnLoadMoreReceived = document.getElementById("btnLoadMoreReceived");
+
     const listSent = document.getElementById("listSent");
     const emptySent = document.getElementById("emptySent");
     const loadMoreSent = document.getElementById("loadMoreSent");
     const btnLoadMoreSent = document.getElementById("btnLoadMoreSent");
-    const listAll = document.getElementById("listAll");
-    const emptyAll = document.getElementById("emptyAll");
-    const loadMoreAll = document.getElementById("loadMoreAll");
-    const btnLoadMoreAll = document.getElementById("btnLoadMoreAll");
-    const btnRefresh = document.getElementById("btnRefresh");
 
-    async function apiGet(url) {
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
-        if (!res.ok) throw new Error("Falha: " + res.status);
-        return res.json();
+    const starsUserAlinhamento = document.getElementById("starsUserAlinhamento");
+    const starsUserFoco = document.getElementById("starsUserFoco");
+
+    let pageReceived = 1;
+    let pageSent = 1;
+    let totalReceivedCount = 0;
+    let totalSentCount = 0;
+
+    // All loaded items (for client-side filtering)
+    let allReceived = [];
+    let allSent = [];
+
+    // ── Defaults: 3 months ago to today ──
+    function setDefaultDates() {
+        const today = new Date();
+        const threeMonthsAgo = new Date(today);
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        if (filterTo) filterTo.value = today.toISOString().slice(0, 10);
+        if (filterFrom) filterFrom.value = threeMonthsAgo.toISOString().slice(0, 10);
     }
 
+    // ── Helpers ──
     function escapeHtml(s) {
         if (!s) return "";
         const div = document.createElement("div");
@@ -42,41 +59,136 @@
         if (!iso) return "";
         const d = new Date(iso);
         if (Number.isNaN(d.getTime())) return "";
-        return d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+        return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
     }
 
+    function getInitials(name) {
+        return (name || "").split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
+    }
+
+    async function apiGet(url) {
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        if (!res.ok) throw new Error("Falha: " + res.status);
+        return res.json();
+    }
+
+    // ── Date filter ──
+    function isInDateRange(isoDate) {
+        if (!filterFrom || !filterTo) return true;
+        const from = filterFrom.value;
+        const to = filterTo.value;
+        if (!from && !to) return true;
+        const d = new Date(isoDate);
+        if (Number.isNaN(d.getTime())) return true;
+        if (from && d < new Date(from + "T00:00:00")) return false;
+        if (to && d > new Date(to + "T23:59:59")) return false;
+        return true;
+    }
+
+    // ── Search filter ──
+    function matchesSearch(item) {
+        if (!searchBox || !searchBox.value.trim()) return true;
+        const q = searchBox.value.trim().toLowerCase();
+        const fields = [
+            item.fromUserFullName, item.toUserFullName, item.content, item.tipo
+        ].filter(Boolean).join(" ").toLowerCase();
+        return fields.includes(q);
+    }
+
+    // ── Render a feedback row ──
     function renderRow(item) {
         const fromName = escapeHtml(item.fromUserFullName || "");
         const toName = escapeHtml(item.toUserFullName || "");
         const content = escapeHtml(item.content || "");
         const date = formatDate(item.createdAtUtc);
-        const tipo = item.tipo ? `<span class="tag ms-1">${escapeHtml(item.tipo)}</span>` : "";
-        const avatarUrl = item.fromUserAvatarUrl || item.fromAvatarUrl || "";
+        const tipo = item.tipo ? `<span class="badge bg-light text-dark ms-2">${escapeHtml(item.tipo)}</span>` : "";
+        const presencial = item.isPresencial ? `<span class="badge bg-info text-white ms-1"><i class="bi bi-person-check me-1"></i>Presencial</span>` : "";
 
-        const avatarHtml = avatarUrl
-            ? `<img src="${avatarUrl}" alt="${fromName}" class="avatar" style="width:48px;height:48px;border-radius:12px;object-fit:cover;">`
-            : `<div class="initials-badge">${(fromName || "").split(" ").map(s => s[0]).slice(0,2).join("").toUpperCase()}</div>`;
+        const avatarHtml = `<div class="initials-badge">${getInitials(fromName)}</div>`;
+
+        // Star ratings
+        let ratingsHtml = "";
+        if (item.ratings && item.ratings.length > 0) {
+            ratingsHtml = '<div class="mt-2 d-flex gap-3 flex-wrap">';
+            item.ratings.forEach(r => {
+                ratingsHtml += `<span class="small text-muted">${escapeHtml(r.itemName)}: `;
+                for (let i = 1; i <= 5; i++) {
+                    ratingsHtml += i <= r.stars
+                        ? '<i class="bi bi-star-fill star-filled"></i>'
+                        : '<i class="bi bi-star text-muted"></i>';
+                }
+                ratingsHtml += `</span>`;
+            });
+            ratingsHtml += '</div>';
+        }
 
         return `
-            <div class="item mb-2 p-2">
+            <div class="fb-row item mb-2 p-3">
                 <div class="d-flex align-items-start gap-3">
                     <div class="flex-shrink-0">${avatarHtml}</div>
                     <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between align-items-start">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
                             <div>
                                 <span class="fw-semibold">${fromName}</span>
                                 <span class="text-muted"> → </span>
                                 <span class="fw-semibold">${toName}</span>
-                                ${tipo}
+                                ${tipo}${presencial}
                             </div>
                             <div class="text-muted small">${date}</div>
                         </div>
                         <div class="mt-2 text-break">${content}</div>
+                        ${ratingsHtml}
                     </div>
                 </div>
             </div>`;
     }
 
+    // ── Compute star averages for items ──
+    function computeItemAverages(items) {
+        const buckets = {};
+        items.forEach(item => {
+            if (!item.ratings) return;
+            item.ratings.forEach(r => {
+                const name = r.itemName || "";
+                if (!buckets[name]) buckets[name] = { sum: 0, count: 0 };
+                buckets[name].sum += r.stars;
+                buckets[name].count++;
+            });
+        });
+        return buckets;
+    }
+
+    function renderStarsAvg(avg) {
+        if (!avg || avg === 0) return '<span class="text-muted small">Sem feedbacks relacionados ao item</span>';
+        let html = "";
+        for (let i = 1; i <= 5; i++) {
+            if (i <= Math.floor(avg)) {
+                html += '<i class="bi bi-star-fill star-filled"></i>';
+            } else if (i - 0.5 <= avg) {
+                html += '<i class="bi bi-star-half star-filled"></i>';
+            } else {
+                html += '<i class="bi bi-star text-muted"></i>';
+            }
+        }
+        html += `<span class="small fw-bold ms-1">${avg.toFixed(1)}</span>`;
+        return html;
+    }
+
+    function updateItemSummaries() {
+        const avgs = computeItemAverages(allReceived);
+        if (starsUserAlinhamento) {
+            const bucket = avgs["Alinhamento Cultural"];
+            const avg = bucket ? bucket.sum / bucket.count : 0;
+            starsUserAlinhamento.innerHTML = renderStarsAvg(avg);
+        }
+        if (starsUserFoco) {
+            const bucket = avgs["Foco no Cliente"];
+            const avg = bucket ? bucket.sum / bucket.count : 0;
+            starsUserFoco.innerHTML = renderStarsAvg(avg);
+        }
+    }
+
+    // ── Load received ──
     async function loadReceived(append) {
         if (!append) {
             pageReceived = 1;
@@ -85,18 +197,33 @@
         }
         try {
             const data = await apiGet(`${API_MINE}?filter=received&page=${pageReceived}&pageSize=${PAGE_SIZE}`);
-            totalReceived = data.totalCount || 0;
-            (data.items || []).forEach(item => {
+            totalReceivedCount = data.totalCount || 0;
+
+            const items = (data.items || []);
+            if (!append) allReceived = items; else allReceived = allReceived.concat(items);
+
+            // Apply client-side filters
+            const filtered = items.filter(i => isInDateRange(i.createdAtUtc) && matchesSearch(i));
+            filtered.forEach(item => {
                 if (listReceived) listReceived.insertAdjacentHTML("beforeend", renderRow(item));
             });
-            if (!append && totalReceived === 0 && emptyReceived) emptyReceived.classList.remove("d-none");
-            if (loadMoreReceived) loadMoreReceived.classList.toggle("d-none", pageReceived * PAGE_SIZE >= totalReceived);
+
+            // Update counters
+            const displayCount = allReceived.filter(i => isInDateRange(i.createdAtUtc) && matchesSearch(i)).length;
+            if (kpiReceived) kpiReceived.textContent = displayCount;
+            if (countReceived) countReceived.textContent = displayCount;
+
+            if (!append && displayCount === 0 && emptyReceived) emptyReceived.classList.remove("d-none");
+            if (loadMoreReceived) loadMoreReceived.classList.toggle("d-none", pageReceived * PAGE_SIZE >= totalReceivedCount);
+
+            updateItemSummaries();
         } catch (e) {
-            console.error(e);
-            if (listReceived && !append) listReceived.innerHTML = "<div class=\"text-danger\">Erro ao carregar.</div>";
+            console.error("loadReceived:", e);
+            if (listReceived && !append) listReceived.innerHTML = '<div class="text-danger">Erro ao carregar.</div>';
         }
     }
 
+    // ── Load sent ──
     async function loadSent(append) {
         if (!append) {
             pageSent = 1;
@@ -105,363 +232,95 @@
         }
         try {
             const data = await apiGet(`${API_MINE}?filter=sent&page=${pageSent}&pageSize=${PAGE_SIZE}`);
-            totalSent = data.totalCount || 0;
-            (data.items || []).forEach(item => {
+            totalSentCount = data.totalCount || 0;
+
+            const items = (data.items || []);
+            if (!append) allSent = items; else allSent = allSent.concat(items);
+
+            const filtered = items.filter(i => isInDateRange(i.createdAtUtc) && matchesSearch(i));
+            filtered.forEach(item => {
                 if (listSent) listSent.insertAdjacentHTML("beforeend", renderRow(item));
             });
-            if (!append && totalSent === 0 && emptySent) emptySent.classList.remove("d-none");
-            if (loadMoreSent) loadMoreSent.classList.toggle("d-none", pageSent * PAGE_SIZE >= totalSent);
+
+            const displayCount = allSent.filter(i => isInDateRange(i.createdAtUtc) && matchesSearch(i)).length;
+            if (kpiSent) kpiSent.textContent = displayCount;
+            if (countSent) countSent.textContent = displayCount;
+
+            if (!append && displayCount === 0 && emptySent) emptySent.classList.remove("d-none");
+            if (loadMoreSent) loadMoreSent.classList.toggle("d-none", pageSent * PAGE_SIZE >= totalSentCount);
         } catch (e) {
-            console.error(e);
-            if (listSent && !append) listSent.innerHTML = "<div class=\"text-danger\">Erro ao carregar.</div>";
+            console.error("loadSent:", e);
+            if (listSent && !append) listSent.innerHTML = '<div class="text-danger">Erro ao carregar.</div>';
         }
     }
 
-    async function loadAll(append) {
-        if (!append) {
-            pageAll = 1;
-            if (listAll) listAll.innerHTML = "";
-            if (emptyAll) emptyAll.classList.add("d-none");
+    // ── Re-render from cached data (after filter/search change) ──
+    function rerender() {
+        if (listReceived) {
+            listReceived.innerHTML = "";
+            const filtered = allReceived.filter(i => isInDateRange(i.createdAtUtc) && matchesSearch(i));
+            filtered.forEach(item => listReceived.insertAdjacentHTML("beforeend", renderRow(item)));
+            if (kpiReceived) kpiReceived.textContent = filtered.length;
+            if (countReceived) countReceived.textContent = filtered.length;
+            if (emptyReceived) emptyReceived.classList.toggle("d-none", filtered.length > 0);
         }
-        try {
-            const data = await apiGet(`${API_ALL}?page=${pageAll}&pageSize=${PAGE_SIZE}`);
-            totalAll = data.totalCount || 0;
-            (data.items || []).forEach(item => {
-                if (listAll) listAll.insertAdjacentHTML("beforeend", renderRow(item));
-            });
-            if (!append && totalAll === 0 && emptyAll) emptyAll.classList.remove("d-none");
-            if (loadMoreAll) loadMoreAll.classList.toggle("d-none", pageAll * PAGE_SIZE >= totalAll);
-        } catch (e) {
-            console.error(e);
-            if (listAll && !append) listAll.innerHTML = "<div class=\"text-danger\">Erro ao carregar. Verifique permissão.</div>";
+        if (listSent) {
+            listSent.innerHTML = "";
+            const filtered = allSent.filter(i => isInDateRange(i.createdAtUtc) && matchesSearch(i));
+            filtered.forEach(item => listSent.insertAdjacentHTML("beforeend", renderRow(item)));
+            if (kpiSent) kpiSent.textContent = filtered.length;
+            if (countSent) countSent.textContent = filtered.length;
+            if (emptySent) emptySent.classList.toggle("d-none", filtered.length > 0);
         }
+        updateItemSummaries();
     }
 
-    if (btnLoadMoreReceived) btnLoadMoreReceived.addEventListener("click", function () { pageReceived++; loadReceived(true); });
-    if (btnLoadMoreSent) btnLoadMoreSent.addEventListener("click", function () { pageSent++; loadSent(true); });
-    if (btnLoadMoreAll) btnLoadMoreAll.addEventListener("click", function () { pageAll++; loadAll(true); });
+    // ── Load more ──
+    if (btnLoadMoreReceived) btnLoadMoreReceived.addEventListener("click", () => { pageReceived++; loadReceived(true); });
+    if (btnLoadMoreSent) btnLoadMoreSent.addEventListener("click", () => { pageSent++; loadSent(true); });
 
-    if (btnRefresh) {
-        btnRefresh.addEventListener("click", function () {
-            if (listReceived) loadReceived(false);
-            if (listSent) loadSent(false);
-            if (listAll) loadAll(false);
-            loadKPIs();
-            loadRanking();
-            loadOneOnOne();
-            loadActivities();
-            loadMood();
-            loadTeamSummary();
-            loadQuickLinks();
-            loadProfilePanel();
-        });
-    }
+    // ── Filter / search events ──
+    if (btnFilter) btnFilter.addEventListener("click", rerender);
+    if (btnClearFilter) btnClearFilter.addEventListener("click", () => {
+        setDefaultDates();
+        if (searchBox) searchBox.value = "";
+        rerender();
+    });
 
-    document.getElementById("tab-received")?.addEventListener("shown.bs.tab", () => { if (pageReceived === 1 && listReceived && listReceived.children.length === 0) loadReceived(false); });
-    document.getElementById("tab-sent")?.addEventListener("shown.bs.tab", () => { if (pageSent === 1 && listSent && listSent.children.length === 0) loadSent(false); });
-    document.getElementById("tab-all")?.addEventListener("shown.bs.tab", () => { if (pageAll === 1 && listAll && listAll.children.length === 0) loadAll(false); });
+    let searchDebounce = null;
+    if (searchBox) searchBox.addEventListener("input", () => {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(rerender, 300);
+    });
 
-    if (listReceived) loadReceived(false);
+    // ── Tab lazy load ──
+    document.getElementById("tab-sent")?.addEventListener("shown.bs.tab", () => {
+        if (allSent.length === 0) loadSent(false);
+    });
 
-    const DEMO_MODE = true;
-    const MOCK_DASH = {
-        kpis: { coins: 600, rank: 4, teamCount: 5, efficiencyFeedback: 0, efficiencyOneOnOne: 60, efficiencyCelebration: 0, efficiencyDev: 60 },
-        profile: { name: "LUCAS MUNIZ MACHADO", coins: 600, progress: 50, progressText: "4 de 8", roleBadge: "Gestor campeão" },
-        ranking: {
-            goal: 5000,
-            current: 600,
-            items: [
-                { name: "PAULO", initials: "P", points: 700, position: 2 },
-                { name: "JEFFERSON", initials: "J", points: 400, position: 5 },
-                { name: "EVERTON", initials: "E", points: 400, position: 6 },
-                { name: "ANDRE", initials: "A", points: 200, position: 9 },
-                { name: "THAIS", initials: "T", points: 100, position: 10 },
-            ]
-        },
-        oneOnOne: {
-            items: [
-                { withName: "MARCOS RYUJI TONOOKA", date: "27 de janeiro de 2026", time: "12:30 até 13:00" },
-                { withName: "MARCOS RYUJI TONOOKA", date: "29 de janeiro de 2026", time: "09:15 até 09:45" },
-                { withName: "GABRIEL VICTOR LAUDARES CELSO", date: "02 de fevereiro de 2026", time: "17:00 até 17:30" },
-            ]
-        },
-        teamTable: [
-            { name: "ELTON DE FREITAS ...", mood: "Nunca respondeu", feedback: "435 dias", oneOnOne: "28 dias", pdi: "Todos em dia" },
-            { name: "GABRIEL VICTOR ...", mood: "20/10/2025 07:49", feedback: "160 dias", oneOnOne: "24 dias", pdi: "Todos em dia" },
-        ],
-        activities: [
-            { name: "ADRIANO VITOR DOS SANTOS", action: "respondeu o Termômetro de Humor", summary: "😟 😕 😐 🙂 😀", date: "1 semana atrás" },
-            { name: "ANTONIO FRANCISCO ALMEIDA", action: "enviou um novo Feedback", summary: "Novo feedback enviado", date: "1 semana atrás" },
-            { name: "PAULO CEZAR DOS SANTOS", action: "respondeu o Termômetro de Humor", summary: "😟 😕 😐 🙂 😀", date: "2 semanas atrás" },
-        ],
-    };
-
-    function getInitials(name) {
-        return (name || "").split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
-    }
-
-    async function loadKPIs() {
-        try {
-            const data = DEMO_MODE ? MOCK_DASH.kpis : await apiGet("/Feedback/_api/gamification/my-balance");
-            const row = document.getElementById("kpiRow");
-            if (!row) return;
-            row.innerHTML = `
-                <div class="fd-hero card-soft">
-                    <div class="fd-hero-title">Olá LUCAS MUNIZ MACHADO, como está sua gestão?</div>
-                    <div class="fd-hero-grid">
-                        <div class="fd-hero-item">
-                            <div class="fd-hero-label">Seu time</div>
-                            <div class="fd-hero-value">Colaboradores: ${data?.teamCount ?? 0}</div>
-                        </div>
-                        <div class="fd-hero-item">
-                            <div class="fd-hero-label">Feedbacks</div>
-                            <div class="fd-hero-value">Eficiência: ${data?.efficiencyFeedback ?? 0}%</div>
-                        </div>
-                        <div class="fd-hero-item">
-                            <div class="fd-hero-label">1:1</div>
-                            <div class="fd-hero-value">Eficiência: ${data?.efficiencyOneOnOne ?? 0}%</div>
-                        </div>
-                        <div class="fd-hero-item">
-                            <div class="fd-hero-label">Celebrações</div>
-                            <div class="fd-hero-value">Eficiência: ${data?.efficiencyCelebration ?? 0}%</div>
-                        </div>
-                        <div class="fd-hero-item">
-                            <div class="fd-hero-label">Desenvolvimento</div>
-                            <div class="fd-hero-value">Eficiência: ${data?.efficiencyDev ?? 0}%</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="d-flex gap-2 flex-wrap mt-2">
-                    <div class="kpi card-soft p-3">
-                        <div class="meta"><div class="label">Feedzcoin</div><div class="value">${data?.coins ?? 0}</div></div>
-                    </div>
-                    <div class="kpi card-soft p-3">
-                        <div class="meta"><div class="label">Posição</div><div class="value">${data?.rank ?? "-"}</div></div>
-                    </div>
-                    <div class="kpi card-soft p-3">
-                        <div class="meta"><div class="label">Equipe</div><div class="value">${data?.teamCount ?? "-"}</div></div>
-                    </div>
-                </div>`;
-        } catch (e) { console.error("loadKPIs:", e); }
-    }
-
-    async function loadRanking() {
-        try {
-            const data = DEMO_MODE ? MOCK_DASH.ranking : await apiGet("/Feedback/_api/gamification/leaderboard?page=1&pageSize=10");
-            const el = document.getElementById("rankingPanel");
-            if (!el) return;
-            const goal = data.goal || 5000;
-            const current = data.current || 0;
-            const progress = Math.min(100, Math.round((current / goal) * 100));
-            el.innerHTML = `
-                <div class="fd-panel-title">Ranking Mensal</div>
-                <div class="fd-rank-meta">Meta ${goal.toLocaleString("pt-BR")} Feedzcoin</div>
-                <div class="progress my-2"><div class="progress-bar" style="width:${progress}%"></div></div>
-                <div class="fd-rank-number">${current.toLocaleString("pt-BR")} / ${goal.toLocaleString("pt-BR")}</div>
-                <div class="fd-rank-tabs"><span class="active">Colaboradores</span><span>Gestores</span></div>
-                ${(data.items || []).map((it) => `
-                    <div class="row-item d-flex justify-content-between align-items-center p-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="avatar">${(it.initials || getInitials(it.name)).slice(0,2)}</div>
-                            <div>
-                                <div class="fw-semibold">${it.name}</div>
-                            </div>
-                        </div>
-                        <div class="muted small">${it.position || "-"}º <strong>${it.points ?? 0}</strong></div>
-                    </div>`).join("")}
-            `;
-        } catch (e) { console.error("loadRanking:", e); }
-    }
-
-    async function loadOneOnOne() {
-        try {
-            const data = DEMO_MODE ? MOCK_DASH.oneOnOne : await apiGet("/Feedback/_api/oneonone?page=1&pageSize=5");
-            const el = document.getElementById("oneOnOnePanel");
-            if (!el) return;
-            if (!data.items || data.items.length === 0) {
-                el.innerHTML = '<div class="text-muted">Nenhuma reunião 1:1 agendada.</div>';
-                return;
-            }
-            el.innerHTML = `
-                <div class="fd-panel-head">
-                    <div>
-                        <div class="fd-panel-title">Você possui reuniões 1:1 que não foram finalizadas</div>
-                        <div class="fd-panel-sub">Confira as reuniões que já passaram e não foram finalizadas</div>
-                    </div>
-                    <div class="fd-panel-sub">Mostrando ${data.items.length} reuniões</div>
-                </div>
-                ${(data.items || []).map(it => `
-                <div class="item mb-2 p-2">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <div class="fw-semibold">${it.title || it.withName || "1:1"}</div>
-                            <div class="muted small">${it.date || it.scheduledAt || ""} ${it.time ? `• ${it.time}` : ""}</div>
-                        </div>
-                        <div><a class="btn btn-ghost btn-sm" href="${it.url || '#'}">Ir para reunião</a></div>
-                    </div>
-                </div>`).join("")}
-                <div class="text-center"><button class="btn btn-link btn-sm">Carregar mais</button></div>
-            `;
-        } catch (e) { console.error("loadOneOnOne:", e); }
-    }
-
-    async function loadActivities() {
-        try {
-            const data = DEMO_MODE ? { items: MOCK_DASH.activities } : await apiGet("/Feedback/_api/celebrations/feed?page=1&pageSize=10");
-            const el = document.getElementById("activitiesPanel");
-            if (!el) return;
-            if (!data.items || data.items.length === 0) {
-                el.innerHTML = '<div class="text-muted">Nenhuma atividade recente.</div>';
-                return;
-            }
-            el.innerHTML = `
-                <div class="fd-panel-title">Atividades recentes</div>
-                ${(data.items || []).map(it => `
-                <div class="item mb-2 p-2 d-flex align-items-start">
-                    <div class="flex-shrink-0">${it.avatarUrl ? `<img src="${it.avatarUrl}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;">` : `<div class="initials-badge">${getInitials(it.name)}</div>`}</div>
-                    <div class="flex-grow-1 ms-3">
-                        <div class="fw-semibold">${it.name || it.from || ''} <span class="muted small"> ${it.action || ''}</span></div>
-                        <div class="muted small">${it.summary || it.content || ''}</div>
-                    </div>
-                    <div class="muted small ms-2">${it.date || it.createdAtUtc || ''}</div>
-                </div>`).join("")}
-            `;
-        } catch (e) { console.error("loadActivities:", e); }
-    }
-
-    async function loadMood() {
-        try {
-            const el = document.getElementById("moodPanel");
-            if (!el) return;
-            el.innerHTML = `
-                <div class="fd-panel-title text-center">Como você está se sentindo?</div>
-                <div class="d-flex gap-2 align-items-center justify-content-center mb-3 fd-mood-row">
-                    <button class="btn btn-ghost">😢</button>
-                    <button class="btn btn-ghost">🙁</button>
-                    <button class="btn btn-ghost">😐</button>
-                    <button class="btn btn-ghost">🙂</button>
-                    <button class="btn btn-ghost">😀</button>
-                </div>
-                <textarea class="form-control mb-2" rows="2" placeholder="Nos conte o que te faz sentir assim"></textarea>
-                <div class="text-center"><button class="btn btn-brand">Enviar humor</button></div>
-            `;
-        } catch (e) { console.error("loadMood:", e); }
-    }
-
-    async function loadTeamSummary() {
-        const el = document.getElementById("teamSummary");
-        if (!el) return;
-        const rows = DEMO_MODE ? MOCK_DASH.teamTable : [];
-        el.innerHTML = `
-            <div class="fd-panel-title">Acompanhe seu time</div>
-            <div class="table-responsive">
-                <table class="table fd-team-table">
-                    <thead>
-                        <tr>
-                            <th>Colaborador</th>
-                            <th>Humor</th>
-                            <th>Feedback</th>
-                            <th>1:1</th>
-                            <th>PDI</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows.map(r => `
-                            <tr>
-                                <td>${r.name}</td>
-                                <td>${r.mood}</td>
-                                <td>${r.feedback}</td>
-                                <td>${r.oneOnOne}</td>
-                                <td>${r.pdi}</td>
-                            </tr>`).join("")}
-                    </tbody>
-                </table>
-            </div>
-            <div class="text-end"><a href="#" class="small">Mostrar mais detalhes</a></div>
-        `;
-    }
-
-    function loadQuickLinks() {
-        const el = document.getElementById("quickLinksPanel");
-        if (!el) return;
-        el.innerHTML = `
-            <div class="fd-quick-links">
-                <a href="/Gestao/ResumoAtividades" class="fd-link-card"><i class="bi bi-activity me-2"></i>Resumo de atividades</a>
-                <a href="/Gestao/Feedbacks" class="fd-link-card"><i class="bi bi-chat-left-text me-2"></i>Gestão de Feedbacks</a>
-                <a href="/Feedback/Celebracao" class="fd-link-card"><i class="bi bi-stars me-2"></i>Celebrações <strong class="ms-1">3 Recebidas</strong></a>
-                <a href="/Feedback/Feedbacks" class="fd-link-card"><i class="bi bi-chat-quote me-2"></i>Feedbacks <strong class="ms-1">3 Recebidos</strong></a>
-                ${"" /* Pesquisas desativado temporariamente.
-                <a href="/Pesquisas" class="fd-link-card"><i class="bi bi-search me-2"></i>Pesquisas <strong class="ms-1">0 Respondidas</strong></a>
-                */}
-            </div>
-        `;
-    }
-
-    function loadProfilePanel() {
-        const el = document.getElementById("profilePanel");
-        if (!el) return;
-        const p = MOCK_DASH.profile;
-        el.innerHTML = `
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <img src="/assets/images/user.png" alt="${p.name}" class="avatar">
-                <div>
-                    <div class="fw-semibold">${p.name}</div>
-                    <div class="muted small">💰 ${p.coins}</div>
-                </div>
-            </div>
-            <div class="fd-badge">${p.roleBadge}</div>
-            <p class="muted small mb-2">Mantenha o engajamento na Feedz e seja um gestor campeão.</p>
-            <div class="progress mb-1"><div class="progress-bar" style="width:${p.progress}%"></div></div>
-            <div class="d-flex justify-content-between muted small"><span>${p.progress}%</span><span>${p.progressText}</span></div>
-            <div class="fd-action-list mt-2">
-                <div class="fd-action-item"><i class="bi bi-arrow-right-short"></i> 0/2 Feedbacks para liderados</div>
-                <div class="fd-action-item done"><i class="bi bi-check2"></i> 4/4 Acessar a Feedz</div>
-                <div class="fd-action-item"><i class="bi bi-arrow-right-short"></i> 0/2 Enviar celebração</div>
-            </div>
-        `;
-    }
-
-    // Initialize home blocks (non-blocking)
-    loadKPIs();
-    loadRanking();
-    loadOneOnOne();
-    loadActivities();
-    loadMood();
-    loadTeamSummary();
-    loadQuickLinks();
-    loadProfilePanel();
-
-    // Persist tab selection: keep selected tab when navigating/reloading
+    // ── Persist tab ──
     (function persistTab() {
         try {
-            const tabContainer = document.getElementById('feedbacksTab');
-            if (!tabContainer) return;
-            const tabLinks = Array.from(tabContainer.querySelectorAll('.nav-link'));
-            // Restore saved tab
-            const saved = localStorage.getItem('feedbackSelectedTab');
+            const tabs = document.getElementById("fbTabs");
+            if (!tabs) return;
+            const links = Array.from(tabs.querySelectorAll(".nav-link"));
+            const saved = localStorage.getItem("fbSelectedTab");
             if (saved) {
-                const savedBtn = document.getElementById(saved);
-                if (savedBtn) {
-                    if (window.bootstrap && typeof window.bootstrap.Tab === 'function') {
-                        new bootstrap.Tab(savedBtn).show();
-                    } else {
-                        savedBtn.click();
-                    }
+                const btn = document.getElementById(saved);
+                if (btn && typeof bootstrap !== "undefined") {
+                    new bootstrap.Tab(btn).show();
                 }
             }
-            // Store on shown (Bootstrap event) and on click fallback
-            tabLinks.forEach(btn => {
-                btn.addEventListener('shown.bs.tab', () => {
-                    try { localStorage.setItem('feedbackSelectedTab', btn.id); } catch (e) {}
-                });
-                btn.addEventListener('click', () => {
-                    tabLinks.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    try { localStorage.setItem('feedbackSelectedTab', btn.id); } catch (e) {}
+            links.forEach(btn => {
+                btn.addEventListener("shown.bs.tab", () => {
+                    try { localStorage.setItem("fbSelectedTab", btn.id); } catch (e) { }
                 });
             });
-        } catch (e) {
-            console.warn('persistTab error', e);
-        }
+        } catch (e) { console.warn("persistTab error", e); }
     })();
+
+    // ── Init ──
+    setDefaultDates();
+    loadReceived(false);
+    // Sent tab loads lazily on first show
 })();

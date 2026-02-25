@@ -26,12 +26,14 @@ public class FeedbackController : Controller
 
     public IActionResult Celebracao() => View();
     // Tela Desenvolvimento desativada: redireciona para Celebração
-    public IActionResult Enviar() => RedirectToAction(nameof(Celebracao));
+    public IActionResult Enviar() => View();
     public IActionResult Feedbacks() => View();
     public IActionResult MeusPlanos() => RedirectToAction(nameof(Celebracao));
-    public IActionResult Reunioes1a1() => RedirectToAction(nameof(Celebracao));
+    public IActionResult Reunioes1a1() => View();
     public IActionResult Gamificacao() => View();
     public IActionResult GamificacaoHistorico() => View();
+    // Compat: item de menu antigo apontava para /Feedback/GamificacaoRanking
+    public IActionResult GamificacaoRanking() => View("Gamificacao");
     // Tela Pesquisas desativada temporariamente.
     public IActionResult Pesquisas() => RedirectToAction(nameof(Celebracao));
     public IActionResult Gestao() => View();

@@ -103,43 +103,55 @@ public static class MenuSeeder
         if (cadastroUpdated)
             await db.SaveChangesAsync(ct);
 
-        // Pesquisas desativado temporariamente.
-        // Bloco mantido comentado para facilitar reativacao futura.
-        /*
-        var pesquisasUpdated = false;
-        var pesquisasMenu = await db.Menus.FirstOrDefaultAsync(x => x.PermissionKey == "feedback.pesquisas.view", ct);
-        if (pesquisasMenu != null)
+        // Remover item duplicado/deprecado da sidebar:
+        // "Meus planos de desenvolvimento" (/Feedback/MeusPlanos) -> já existe "Gestao dos Planos de Desenvolvimento" (/Gestao/PlanosDesenvolvimento).
+        var meusPlanosMenu = await db.Menus.FirstOrDefaultAsync(
+            x => x.PermissionKey == "feedback.myplans.view" || x.Route == "/Feedback/MeusPlanos",
+            ct);
+        if (meusPlanosMenu != null)
         {
-            if (!string.Equals(pesquisasMenu.Route, "/Feedback/Pesquisas", StringComparison.OrdinalIgnoreCase))
-            {
-                pesquisasMenu.Route = "/Feedback/Pesquisas";
-                pesquisasUpdated = true;
-            }
-
-            if (pesquisasMenu.Order != 16)
-            {
-                pesquisasMenu.Order = 16;
-                pesquisasUpdated = true;
-            }
-
-            if (!string.Equals(pesquisasMenu.DisplayNameKey, "Seed.Menu.Pesquisas", StringComparison.Ordinal))
-            {
-                pesquisasMenu.DisplayNameKey = "Seed.Menu.Pesquisas";
-                pesquisasUpdated = true;
-            }
-
-            var pesquisasLabel = localizer["Seed.Menu.Pesquisas"].Value;
-            if (!string.IsNullOrWhiteSpace(pesquisasLabel) &&
-                !string.Equals(pesquisasMenu.DisplayName, pesquisasLabel, StringComparison.Ordinal))
-            {
-                pesquisasMenu.DisplayName = pesquisasLabel;
-                pesquisasUpdated = true;
-            }
+            await db.RoleMenus
+                .Where(x => x.MenuId == meusPlanosMenu.Id)
+                .ExecuteDeleteAsync(ct);
+            db.Menus.Remove(meusPlanosMenu);
+            await db.SaveChangesAsync(ct);
+            // Rebuild menuByKey so removed menu won't be assigned to roles below.
+            menuByKey = await db.Menus.ToDictionaryAsync(x => x.PermissionKey, x => x, ct);
         }
 
-        if (pesquisasUpdated)
+        // Remover menus de Desempenho (não implementar agora / não exibir na sidebar)
+        // - Grupo: "Desempenho" (permissionKey: desempenho)
+        // - Item: "Minhas Avaliações" (permissionKey: desempenho.minhasavaliacoes)
+        var desempenhoMenuIds = await db.Menus
+            .Where(x =>
+                x.PermissionKey == "desempenho"
+                || x.PermissionKey == "desempenho.minhasavaliacoes"
+                || x.Route == "/Desempenho/MinhasAvaliacoes")
+            .Select(x => x.Id)
+            .ToListAsync(ct);
+
+        if (desempenhoMenuIds.Count > 0)
+        {
+            // Remove RoleMenus primeiro (FK)
+            await db.RoleMenus
+                .Where(x => desempenhoMenuIds.Contains(x.MenuId))
+                .ExecuteDeleteAsync(ct);
+
+            // Remove menus (e filhos, se existirem)
+            var toRemove = await db.Menus
+                .Where(x => desempenhoMenuIds.Contains(x.Id)
+                            || (x.ParentId.HasValue && desempenhoMenuIds.Contains(x.ParentId.Value)))
+                .ToListAsync(ct);
+
+            db.Menus.RemoveRange(toRemove);
             await db.SaveChangesAsync(ct);
-        */
+
+            // Rebuild menuByKey so removed menus won't be assigned to roles below.
+            menuByKey = await db.Menus.ToDictionaryAsync(x => x.PermissionKey, x => x, ct);
+        }
+
+
+
 
         var adminMenuAssignments = menuByKey.Values
             .Select(x => (MenuId: x.Id, x.PermissionKey))
@@ -181,48 +193,67 @@ public static class MenuSeeder
     /// </summary>
     public static IReadOnlyList<(string Route, string Icon, int Order, string PermissionKey, bool OpenInNewTab, string DisplayNameKey, string? ParentPermissionKey)> GetDefaultMenuDescriptors() =>
     [
+        // Início
         ("/Dashboard", "bi-speedometer2", 1, "dashboard.view", false, "Seed.Menu.Dashboard", null),
-        ("/Agendas", "bi-calendar-event", 2, "agenda.view", false, "Seed.Menu.Agenda", null),
-        ("/Vagas", "bi-briefcase", 3, "vagas.view", false, "Seed.Menu.Vagas", null),
-        ("/Candidatos", "bi-people", 4, "candidatos.view", false, "Seed.Menu.Candidatos", null),
-        ("/Talentos", "bi-person-plus", 5, "talentos.view", false, "Seed.Menu.Talentos", null),
-        ("/Triagem", "bi-funnel", 6, "triagem.view", false, "Seed.Menu.Triagem", null),
-        ("/Matching", "bi-stars", 7, "matching.view", false, "Seed.Menu.Matching", null),
-        ("/Feedback/Celebracao", "bi-balloon-heart", 9, "feedback.celebracao.view", false, "Seed.Menu.Celebracao", null),
+
+        // Celebrações
+        ("/Feedback/Celebracao", "bi-balloon-heart", 5, "feedback.celebracao.view", false, "Seed.Menu.Celebracao", null),
+
+        // Desenvolvimento (grupo) + subitens
         ("#", "bi-journal-plus", 10, "feedback.desenvolvimento", false, "Seed.Menu.Desenvolvimento", null),
         ("/Feedback/Enviar", "bi-send", 11, "feedback.send", false, "Seed.Menu.EnviarFeedback", "feedback.desenvolvimento"),
         ("/Feedback/Feedbacks", "bi-chat-quote", 12, "feedback.view", false, "Seed.Menu.Feedbacks", "feedback.desenvolvimento"),
-        ("/Feedback/MeusPlanos", "bi-journal-check", 13, "feedback.myplans.view", false, "Seed.Menu.MeusPlanos", "feedback.desenvolvimento"),
         ("/Feedback/Reunioes1a1", "bi-people", 14, "feedback.oneonone.view", false, "Seed.Menu.Reunioes1a1", "feedback.desenvolvimento"),
-        // Pesquisas desativado temporariamente.
-        // ("/Feedback/Pesquisas", "bi-search", 16, "feedback.pesquisas.view", false, "Seed.Menu.Pesquisas", null),
-        ("/Feedback/Gamificacao", "bi-trophy", 16, "feedback.gamificacao.view", false, "Seed.Menu.Gamificacao", null),
-        ("/Feedback/Gestao", "bi-person-badge", 17, "feedback.gestao.view", false, "Seed.Menu.Gestao", null),
-        ("/EntradaEmailPasta", "bi-inbox", 21, "entrada.view", false, "Seed.Menu.Entrada", null),
-        ("/Relatorios", "bi-graph-up", 40, "relatorios.view", false, "Seed.Menu.Relatorios", null),
-        ("/Gestao/Dashboard", "bi-speedometer2", 48, "gestao.dashboard", false, "Seed.Menu.GestaoDashboard", "feedback.gestao.view"),
-        ("/Gestao/PlanosDesenvolvimento", "bi-journal-check", 49, "gestao.planos", false, "Seed.Menu.GestaoPlanos", "feedback.gestao.view"),
-        ("/Gestao/Humor", "bi-emoji-smile", 50, "gestao.humor", false, "Seed.Menu.GestaoHumor", "feedback.gestao.view"),
-        ("/Gestao/ResumoAtividades", "bi-activity", 51, "gestao.resumo", false, "Seed.Menu.GestaoResumo", "feedback.gestao.view"),
-        ("/Departamentos", "bi-diagram-2", 41, "departments.view", false, "Seed.Menu.Departamentos", null),
-        ("/Areas", "bi-diagram-3", 43, "areas.view", false, "Seed.Menu.Areas", null),
-        ("/Cadastro/Funcoes", "bi-tags", 44, "categories.view", false, "Seed.Menu.Funcoes", null),
-        ("/Cadastro/Cargos", "bi-briefcase", 45, "jobpositions.view", false, "Seed.Menu.Cargos", null),
-        ("/Unidades", "bi-building", 46, "units.view", false, "Seed.Menu.Unidades", null),
-        ("/Funcionarios", "bi-person-badge", 47, "funcionarios.view", false, "Seed.Menu.Funcionarios", null),
-        ("/Pessoas", "bi-person-x", 48, "bloqueio-pessoa.view", false, "Seed.Menu.BloqueioPessoa", null),
-        ("/Admin/Users", "bi-people", 80, "users.read", false, "Seed.Menu.Usuarios", null),
-        ("/Admin/Roles", "bi-shield-lock", 81, "roles.manage", false, "Seed.Menu.Perfis", null),
-        ("/Admin/Menus", "bi-list-check", 82, "menus.manage", false, "Seed.Menu.Menus", null),
-        ("/Admin/Accesses", "bi-key", 83, "access.manage", false, "Seed.Menu.Acessos", null),
-        ("/Admin/Logs", "bi-activity", 84, "audit.view", false, "Seed.Menu.LogsTransacionais", null),
-        ("/Admin/OperationalLogs", "bi-journal-text", 85, "logs.view", false, "Seed.Menu.LogsOperacionais", null),
-        ("/Admin/EmailTemplates", "bi-envelope-paper", 86, "email-templates.manage", false, "Seed.Menu.TemplatesEmail", null),
-        ("/Admin/Emails", "bi-envelope", 87, "emails.manage", false, "Seed.Menu.Emails", null),
-        ("/Admin/EmailConfig", "bi-gear", 88, "email-config.manage", false, "Seed.Menu.ConfigEmail", null),
-        ("/Admin/EntraIdConfig", "bi-microsoft", 89, "entra-config.manage", false, "Seed.Menu.ConfigEntraId", null),
-        ("/Admin/ApiKeys", "bi-key-fill", 90, "api-keys.manage", false, "Seed.Menu.ApiKeys", null),
-        ("/Admin/LocalizationConfig", "bi-translate", 91, "localization-config.manage", false, "Seed.Menu.Idioma", null)
+
+        // Gamificação (grupo + ranking + histórico)
+        ("#", "bi-trophy", 20, "feedback.gamificacao.view", false, "Seed.Menu.Gamificacao", null),
+        ("/Feedback/Gamificacao", "bi-trophy", 21, "feedback.gamificacao.ranking", false, "Seed.Menu.GamificacaoRanking", "feedback.gamificacao.view"),
+        ("/Feedback/GamificacaoHistorico", "bi-clock-history", 22, "feedback.gamificacao.history", false, "Seed.Menu.GamificacaoHistorico", "feedback.gamificacao.view"),
+
+        // Pesquisas (grupo + subitens)
+        ("#", "bi-search", 30, "feedback.pesquisas.view", false, "Seed.Menu.Pesquisas", null),
+        ("/Feedback/PesquisaRapida", "bi-search-heart", 31, "feedback.pesquisa.rapida", false, "Seed.Menu.PesquisaRapida", "feedback.pesquisas.view"),
+        ("/Feedback/SuperPesquisa", "bi-search", 32, "feedback.pesquisa.super", false, "Seed.Menu.SuperPesquisa", "feedback.pesquisas.view"),
+
+        // Gestão (grupo + subitens)
+        ("#", "bi-person-badge", 40, "feedback.gestao.view", false, "Seed.Menu.Gestao", null),
+        ("/Gestao/Dashboard", "bi-speedometer2", 41, "gestao.dashboard", false, "Seed.Menu.GestaoDashboard", "feedback.gestao.view"),
+        ("/Gestao/PlanosDesenvolvimento", "bi-journal-check", 42, "gestao.planos", false, "Seed.Menu.GestaoPlanos", "feedback.gestao.view"),
+        ("/Gestao/Humor", "bi-emoji-smile", 43, "gestao.humor", false, "Seed.Menu.GestaoHumor", "feedback.gestao.view"),
+        ("/Gestao/ResumoAtividades", "bi-activity", 44, "gestao.resumo", false, "Seed.Menu.GestaoResumo", "feedback.gestao.view"),
+
+        // Desempenho (ocultar por enquanto)
+        // ("#", "bi-bar-chart", 50, "desempenho", false, "Seed.Menu.Desempenho", null),
+        // ("/Desempenho/MinhasAvaliacoes", "bi-card-checklist", 51, "desempenho.minhasavaliacoes", false, "Seed.Menu.MinhasAvaliacoes", "desempenho"),
+
+        // Outros menus existentes (mantidos)
+        ("/Agendas", "bi-calendar-event", 2, "agenda.view", false, "Seed.Menu.Agenda", null),
+        ("/Vagas", "bi-briefcase", 3, "vagas.view", false, "Seed.Menu.Vagas", null),
+        ("/Candidatos", "bi-people", 4, "candidatos.view", false, "Seed.Menu.Candidatos", null),
+        ("/Talentos", "bi-person-plus", 6, "talentos.view", false, "Seed.Menu.Talentos", null),
+        ("/Triagem", "bi-funnel", 7, "triagem.view", false, "Seed.Menu.Triagem", null),
+        ("/Matching", "bi-stars", 8, "matching.view", false, "Seed.Menu.Matching", null),
+        ("/EntradaEmailPasta", "bi-inbox", 60, "entrada.view", false, "Seed.Menu.Entrada", null),
+        ("/Relatorios", "bi-graph-up", 70, "relatorios.view", false, "Seed.Menu.Relatorios", null),
+        ("/Departamentos", "bi-diagram-2", 80, "departments.view", false, "Seed.Menu.Departamentos", null),
+        ("/Areas", "bi-diagram-3", 81, "areas.view", false, "Seed.Menu.Areas", null),
+        ("/Cadastro/Funcoes", "bi-tags", 82, "categories.view", false, "Seed.Menu.Funcoes", null),
+        ("/Cadastro/Cargos", "bi-briefcase", 83, "jobpositions.view", false, "Seed.Menu.Cargos", null),
+        ("/Unidades", "bi-building", 84, "units.view", false, "Seed.Menu.Unidades", null),
+        ("/Funcionarios", "bi-person-badge", 85, "funcionarios.view", false, "Seed.Menu.Funcionarios", null),
+        ("/Pessoas", "bi-person-x", 86, "bloqueio-pessoa.view", false, "Seed.Menu.BloqueioPessoa", null),
+        ("/Admin/Users", "bi-people", 90, "users.read", false, "Seed.Menu.Usuarios", null),
+        ("/Admin/Roles", "bi-shield-lock", 91, "roles.manage", false, "Seed.Menu.Perfis", null),
+        ("/Admin/Menus", "bi-list-check", 92, "menus.manage", false, "Seed.Menu.Menus", null),
+        ("/Admin/Accesses", "bi-key", 93, "access.manage", false, "Seed.Menu.Acessos", null),
+        ("/Admin/Logs", "bi-activity", 94, "audit.view", false, "Seed.Menu.LogsTransacionais", null),
+        ("/Admin/OperationalLogs", "bi-journal-text", 95, "logs.view", false, "Seed.Menu.LogsOperacionais", null),
+        ("/Admin/EmailTemplates", "bi-envelope-paper", 96, "email-templates.manage", false, "Seed.Menu.TemplatesEmail", null),
+        ("/Admin/Emails", "bi-envelope", 97, "emails.manage", false, "Seed.Menu.Emails", null),
+        ("/Admin/EmailConfig", "bi-gear", 98, "email-config.manage", false, "Seed.Menu.ConfigEmail", null),
+        ("/Admin/EntraIdConfig", "bi-microsoft", 99, "entra-config.manage", false, "Seed.Menu.ConfigEntraId", null),
+        ("/Admin/ApiKeys", "bi-key-fill", 100, "api-keys.manage", false, "Seed.Menu.ApiKeys", null),
+        ("/Admin/LocalizationConfig", "bi-translate", 101, "localization-config.manage", false, "Seed.Menu.Idioma", null)
     ];
 
     private static List<Menu> BuildDefaultMenus(IStringLocalizer<SeedMessages> localizer)

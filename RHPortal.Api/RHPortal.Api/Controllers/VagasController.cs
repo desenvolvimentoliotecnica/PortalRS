@@ -140,6 +140,56 @@ public sealed class VagasController : ControllerBase
     }
 
     /// <summary>
+    /// Retorna o ranking unificado (candidatos + talentos) a partir do cache persistido.
+    /// Se não estiver pronto para os filtros atuais, inicia recálculo em background e retorna 202 com stale (se houver).
+    /// </summary>
+    [HttpGet("{id:guid}/matching-ranking")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetMatchingRanking(
+        [FromRoute] Guid id,
+        [FromServices] IVagaUnifiedMatchingCacheService cacheService,
+        [FromQuery] int take = 20,
+        CancellationToken ct = default)
+    {
+        var snapshot = await cacheService.GetOrStartAsync(id, take, ct);
+
+        if (snapshot.Status == RhPortal.Api.Domain.Entities.UnifiedMatchingCacheStatus.Ready)
+        {
+            return Ok(new
+            {
+                status = "ready",
+                filtersHash = snapshot.FiltersHash,
+                computedAtUtc = snapshot.ComputedAtUtc,
+                items = snapshot.Items
+            });
+        }
+
+        if (snapshot.Status == RhPortal.Api.Domain.Entities.UnifiedMatchingCacheStatus.Failed)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                status = "failed",
+                filtersHash = snapshot.FiltersHash,
+                startedAtUtc = snapshot.StartedAtUtc,
+                computedAtUtc = snapshot.ComputedAtUtc,
+                lastError = snapshot.LastError,
+                staleItems = snapshot.StaleItems
+            });
+        }
+
+        return Accepted(new
+        {
+            status = "processing",
+            filtersHash = snapshot.FiltersHash,
+            startedAtUtc = snapshot.StartedAtUtc,
+            computedAtUtc = snapshot.ComputedAtUtc,
+            staleItems = snapshot.StaleItems
+        });
+    }
+
+    /// <summary>
     /// Cria uma nova vaga.
     /// </summary>
     [HttpPost]
@@ -202,6 +252,7 @@ public sealed class VagasController : ControllerBase
         [FromRoute] Guid id,
         [FromBody] UpdateVagaMatchingFiltrosRequest request,
         [FromServices] IUpdateVagaMatchingFiltrosHandler handler,
+        [FromServices] IVagaUnifiedMatchingCacheService unifiedCache,
         CancellationToken ct)
     {
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
@@ -209,8 +260,8 @@ public sealed class VagasController : ControllerBase
         var updated = await handler.HandleAsync(id, request ?? new UpdateVagaMatchingFiltrosRequest(null), ct);
         if (updated is null)
             return NotFound();
-        var tenantId = _tenantContext.TenantId ?? "";
-        _ = RecalcMatchingScoresInBackgroundAsync(id, tenantId);
+        // Dispara recálculo unificado em background; a tela lê do cache.
+        _ = unifiedCache.InvalidateAndStartAsync(id, take: 20, ct: CancellationToken.None);
         return Ok(updated);
     }
 

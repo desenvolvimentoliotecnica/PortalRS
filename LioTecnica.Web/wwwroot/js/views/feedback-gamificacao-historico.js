@@ -83,7 +83,7 @@
                 <div class="card-soft overflow-hidden h-100">
                     <div class="p-3 text-center text-white" style="background:#49b35c">
                         <div class="fw-bold">${escapeHtml(monthTitle(item.year, item.month))}</div>
-                        <div class="small opacity-75">Meta ${GOAL.toLocaleString("pt-BR")} Feedzcoin</div>
+                        <div class="small opacity-75">Meta ${GOAL.toLocaleString("pt-BR")} RenderCoin</div>
                     </div>
                     <div class="p-3">
                         ${(item.top3 || []).map(renderEntry).join("")}

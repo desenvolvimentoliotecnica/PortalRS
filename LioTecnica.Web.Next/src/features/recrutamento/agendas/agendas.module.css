@@ -1,0 +1,100 @@
+/* Port direto do CSS embutido do legado (Agendas/Index.cshtml), focado em largura/sync do FullCalendar. */
+
+:root {
+  --fc-time-label-width: 50px;
+}
+
+.calendarHost {
+  min-height: 640px;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.calendarHost :global(.fc) {
+  width: 100%;
+  max-width: 100%;
+  font-size: 0.92rem;
+}
+
+.calendarHost :global(.fc-view-harness) {
+  width: 100%;
+}
+
+.calendarHost :global(.fc-scroller) {
+  scrollbar-gutter: stable;
+}
+
+.calendarHost :global(.fc table) {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+.calendarHost :global(.fc .fc-scrollgrid),
+.calendarHost :global(.fc .fc-scrollgrid table),
+.calendarHost :global(.fc .fc-col-header table),
+.calendarHost :global(.fc .fc-timegrid-cols table),
+.calendarHost :global(.fc .fc-timegrid-slots table) {
+  width: 100% !important;
+  table-layout: fixed;
+}
+
+.calendarHost :global(.fc .fc-scrollgrid-section-liquid > td) {
+  width: 100% !important;
+}
+
+.calendarHost :global(.fc .fc-timegrid-slots table colgroup col:first-child),
+.calendarHost :global(.fc .fc-timegrid-cols table colgroup col:first-child),
+.calendarHost :global(.fc .fc-col-header table colgroup col:first-child),
+.calendarHost :global(.fc .fc-scrollgrid table colgroup col:first-child) {
+  width: var(--fc-time-label-width) !important;
+}
+
+.calendarHost :global(.fc th.fc-timegrid-slot-label),
+.calendarHost :global(.fc td.fc-timegrid-slot-label),
+.calendarHost :global(.fc th.fc-timegrid-axis),
+.calendarHost :global(.fc td.fc-timegrid-axis) {
+  width: var(--fc-time-label-width) !important;
+  max-width: var(--fc-time-label-width) !important;
+  white-space: nowrap;
+}
+
+.calendarHost :global(.fc .fc-timegrid-slot-label-cushion) {
+  white-space: nowrap;
+  padding: 0 0.5rem;
+}
+
+.calendarHost :global(.fc .fc-scrollgrid) {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(16, 82, 144, 0.14);
+}
+
+.calendarHost :global(.fc-theme-standard td),
+.calendarHost :global(.fc-theme-standard th) {
+  border-color: rgba(16, 82, 144, 0.14);
+}
+
+.calendarHost :global(.fc .fc-col-header-cell-cushion) {
+  color: rgb(var(--lt-text));
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.calendarHost :global(.fc .fc-timegrid-slot-label) {
+  color: rgb(var(--lt-text) / 0.65);
+  font-size: 0.82rem;
+}
+
+.calendarHost :global(.fc .fc-day-today) {
+  background: rgba(0, 110, 99, 0.05) !important;
+}
+
+.calendarHost :global(.fc .fc-timegrid-now-indicator-line) {
+  border-color: rgb(var(--lt-brand));
+}
+
+.calendarHost :global(.fc .fc-timegrid-now-indicator-arrow) {
+  border-color: rgb(var(--lt-brand));
+}
+

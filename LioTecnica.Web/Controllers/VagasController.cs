@@ -97,6 +97,14 @@ public class VagasController : Controller
         return ToContentResult(resp);
     }
 
+    [HttpGet("/api/vagas/{id:guid}/matching-ranking")]
+    public async Task<IActionResult> GetMatchingRanking(Guid id, [FromQuery] int take = 20, CancellationToken ct = default)
+    {
+        var tenantId = _tenantContext.TenantId;
+        var resp = await _vagasApi.GetMatchingRankingRawAsync(tenantId, id, take, ct);
+        return ToContentResult(resp);
+    }
+
     [HttpPatch("/api/vagas/{id:guid}/matching-filtros")]
     public async Task<IActionResult> UpdateMatchingFiltros(Guid id, [FromBody] JsonElement payload, CancellationToken ct)
     {

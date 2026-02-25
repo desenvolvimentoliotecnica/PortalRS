@@ -52,6 +52,13 @@ public sealed class VagasApiClient
         return SendAsync(req, ct);
     }
 
+    public Task<ApiRawResponse> GetMatchingRankingRawAsync(string tenantId, Guid vagaId, int take = 20, CancellationToken ct = default)
+    {
+        var qs = $"?take={take}";
+        var req = BuildRequest(HttpMethod.Get, $"api/vagas/{vagaId}/matching-ranking{qs}", tenantId);
+        return SendAsync(req, ct);
+    }
+
     public Task<ApiRawResponse> GetEnumsRawAsync(string tenantId, CancellationToken ct)
     {
         var req = BuildRequest(HttpMethod.Get, "api/lookup/enums", tenantId);

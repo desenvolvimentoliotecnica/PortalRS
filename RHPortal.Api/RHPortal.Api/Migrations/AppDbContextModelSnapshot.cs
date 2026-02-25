@@ -3147,6 +3147,13 @@ namespace RHPortal.Api.Migrations
                     b.Property<Guid>("FromUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("InternalNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<bool>("IsPresencial")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("TenantId")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -3172,6 +3179,30 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("TenantId", "ToUserId");
 
                     b.ToTable("FeedbackItems", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.FeedbackItemRating", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FeedbackItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("Stars")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FeedbackItemId");
+
+                    b.ToTable("FeedbackItemRatings", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Funcionario", b =>
@@ -3948,6 +3979,181 @@ namespace RHPortal.Api.Migrations
                     b.ToTable("RoleMenus", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Survey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DepartmentsJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset?>("EndAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("StartAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<string>("Type")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "CreatedAtUtc");
+
+                    b.ToTable("Surveys", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ResponseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TextAnswer")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResponseId");
+
+                    b.HasIndex("TenantId", "ResponseId");
+
+                    b.ToTable("SurveyAnswers", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QuestionId");
+
+                    b.HasIndex("TenantId", "QuestionId");
+
+                    b.ToTable("SurveyOptions", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyQuestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SurveyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Type")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SurveyId");
+
+                    b.HasIndex("TenantId", "SurveyId");
+
+                    b.ToTable("SurveyQuestions", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyResponse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("SubmittedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SurveyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SurveyId");
+
+                    b.HasIndex("TenantId", "SurveyId");
+
+                    b.HasIndex("TenantId", "UserId");
+
+                    b.ToTable("SurveyResponses", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Talento", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4419,6 +4625,56 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("UnitId");
 
                     b.ToTable("UserUnits", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.VagaUnifiedMatchingCache", b =>
+                {
+                    b.Property<Guid>("VagaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ComputedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CurrentFiltersHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ItemsJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset?>("LastAccessAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("PendingFiltersHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("VagaId");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.HasIndex("TenantId", "VagaId")
+                        .IsUnique();
+
+                    b.ToTable("VagaUnifiedMatchingCaches", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Logging.Entities.ExceptionLog", b =>
@@ -5391,6 +5647,17 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("ToUser");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.FeedbackItemRating", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.FeedbackItem", "FeedbackItem")
+                        .WithMany("Ratings")
+                        .HasForeignKey("FeedbackItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FeedbackItem");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Funcionario", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.Area", "Area")
@@ -5556,6 +5823,50 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyAnswer", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.SurveyResponse", "Response")
+                        .WithMany("Answers")
+                        .HasForeignKey("ResponseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Response");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyOption", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.SurveyQuestion", "Question")
+                        .WithMany("Options")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Question");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyQuestion", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Survey", "Survey")
+                        .WithMany("Questions")
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Survey");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyResponse", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Survey", "Survey")
+                        .WithMany("Responses")
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Survey");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Talento", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.Pessoa", "Pessoa")
@@ -5660,6 +5971,17 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.VagaUnifiedMatchingCache", b =>
+                {
+                    b.HasOne("RHPortal.Api.Domain.Entities.Vaga", "Vaga")
+                        .WithMany()
+                        .HasForeignKey("VagaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Vaga");
+                });
+
             modelBuilder.Entity("RHPortal.Api.Domain.Entities.Vaga", b =>
                 {
                     b.Navigation("Beneficios");
@@ -5728,6 +6050,11 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("Attempts");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.FeedbackItem", b =>
+                {
+                    b.Navigation("Ratings");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.InboxItem", b =>
                 {
                     b.Navigation("Anexos");
@@ -5736,6 +6063,23 @@ namespace RHPortal.Api.Migrations
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Pessoa", b =>
                 {
                     b.Navigation("Bloqueios");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Survey", b =>
+                {
+                    b.Navigation("Questions");
+
+                    b.Navigation("Responses");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyQuestion", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyResponse", b =>
+                {
+                    b.Navigation("Answers");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Talento", b =>

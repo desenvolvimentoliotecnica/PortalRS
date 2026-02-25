@@ -29,19 +29,22 @@ public sealed class VagaService : IVagaService
     private readonly ILogger<VagaService> _logger;
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly IRHPortalAiMatchClient? _aiMatchClient;
+    private readonly IVagaUnifiedMatchingCacheService? _unifiedMatchingCache;
 
     public VagaService(
         AppDbContext db,
         ITenantContext tenantContext,
         ILogger<VagaService> logger,
         IStringLocalizer<ServiceMessages> localizer,
-        IRHPortalAiMatchClient? aiMatchClient = null)
+        IRHPortalAiMatchClient? aiMatchClient = null,
+        IVagaUnifiedMatchingCacheService? unifiedMatchingCache = null)
     {
         _db = db;
         _tenantContext = tenantContext;
         _logger = logger;
         _localizer = localizer;
         _aiMatchClient = aiMatchClient;
+        _unifiedMatchingCache = unifiedMatchingCache;
     }
 
     public async Task<IReadOnlyList<VagaListItemResponse>> ListAsync(VagaListQuery query, CancellationToken ct)
@@ -270,6 +273,7 @@ public sealed class VagaService : IVagaService
         if (request.DepartmentId.HasValue && request.DepartmentId.Value != Guid.Empty)
             await EnsureDepartmentAsync(request.DepartmentId.Value, ct);
 
+        var oldFiltros = entity.MatchingFiltrosRaw;
         ApplyUpdate(entity, request);
         ReplaceChildren(entity, request);
 
@@ -307,6 +311,17 @@ public sealed class VagaService : IVagaService
         // Gera embedding da vaga em background após atualização
         TryGenerateVagaEmbeddingAsync(id, ct);
 
+        // Se os filtros de matching mudaram, dispara recálculo unificado em background.
+        if (!string.Equals(Norm(oldFiltros), Norm(entity.MatchingFiltrosRaw), StringComparison.Ordinal))
+        {
+            try
+            {
+                if (_unifiedMatchingCache != null)
+                    _ = _unifiedMatchingCache.InvalidateAndStartAsync(id, take: 20, ct: CancellationToken.None);
+            }
+            catch { /* best-effort */ }
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -315,10 +330,24 @@ public sealed class VagaService : IVagaService
         var entity = await _db.Vagas.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
         EnsureTenantOwnership(entity);
+        var old = entity.MatchingFiltrosRaw;
         entity.MatchingFiltrosRaw = string.IsNullOrWhiteSpace(matchingFiltrosRaw) ? null : matchingFiltrosRaw.Trim();
         await _db.SaveChangesAsync(ct);
+
+        if (!string.Equals(Norm(old), Norm(entity.MatchingFiltrosRaw), StringComparison.Ordinal))
+        {
+            try
+            {
+                if (_unifiedMatchingCache != null)
+                    _ = _unifiedMatchingCache.InvalidateAndStartAsync(id, take: 20, ct: CancellationToken.None);
+            }
+            catch { /* best-effort */ }
+        }
+
         return await GetByIdAsync(id, ct);
     }
+
+    private static string Norm(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : s.Trim();
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
     {

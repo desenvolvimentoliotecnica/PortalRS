@@ -16,3 +16,4 @@
 # Arquivos problemáticos no Windows
 nul
 **/nul
+Liotecnica.Integration.RM.Logs/extraction.log

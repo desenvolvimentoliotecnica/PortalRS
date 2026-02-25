@@ -1,0 +1,181 @@
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  1. AI (FastAPI) Health[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;32m✅ PASS[0m [AI01] GET http://localhost:8000/health → 200
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  2. API — Owner Login[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;32m✅ PASS[0m [OWNER-LOGIN] Owner login OK
+  ℹ️  Using tenant: dev
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  3. Owner API endpoints[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;32m✅ PASS[0m [OW01] GET http://localhost:5056/api/owner/tenants → 200
+[0;32m✅ PASS[0m [OW02] GET http://localhost:5056/api/owner/tenants/dev → 200
+[0;32m✅ PASS[0m [OW03] GET http://localhost:5056/api/owner/tenants/migrations/status → 200
+[0;32m✅ PASS[0m [OW04] GET http://localhost:5056/api/owner/tenants/dev/users → 200
+[0;32m✅ PASS[0m [OW05] GET http://localhost:5056/api/owner/tenants/dev/roles → 200
+[0;32m✅ PASS[0m [OW06] GET http://localhost:5056/api/owner/tenants/dev/units → 200
+[0;32m✅ PASS[0m [OW07] GET http://localhost:5056/api/owner/tenants/dev/funcionarios → 200
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  4. API — Admin Login[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [ADMIN-LOGIN] Could not obtain admin token, using owner token
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  5. Auth & Identity[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [A04] GET http://localhost:5056/api/auth/me → 400 (expected 200)
+[0;31m❌ FAIL[0m [A05] GET http://localhost:5056/api/me → 400 (expected 200)
+[0;31m❌ FAIL[0m [A06] GET http://localhost:5056/api/me/tenants → 400 (expected 200)
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  6. Dashboard[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [D01] GET http://localhost:5056/api/dashboard/kpis → 400 (expected 200)
+[0;31m❌ FAIL[0m [D02] GET http://localhost:5056/api/dashboard/recebidos-series?days=7 → 400 (expected 200)
+[0;31m❌ FAIL[0m [D03] GET http://localhost:5056/api/dashboard/funnel → 400 (expected 200)
+[0;31m❌ FAIL[0m [D04] GET http://localhost:5056/api/dashboard/top-matches?take=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [D05] GET http://localhost:5056/api/dashboard/open-vagas?take=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [D06] GET http://localhost:5056/api/dashboard/vagas-lookup → 400 (expected 200)
+[0;31m❌ FAIL[0m [D07] GET http://localhost:5056/api/dashboard/areas-lookup → 400 (expected 200)
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  7. Vagas[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [V01] GET http://localhost:5056/api/vagas?page=1&pageSize=5 → 400 (expected 200)
+[1;33m⏭ SKIP[0m [V02] No vaga found for detail test
+[1;33m⏭ SKIP[0m [V06] No vaga found for matching test
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  8. Candidatos[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [C01] GET http://localhost:5056/api/candidatos?page=1&pageSize=5 → 400 (expected 200)
+[1;33m⏭ SKIP[0m [C02] No candidato found
+[1;33m⏭ SKIP[0m [C10] No candidato found
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  9. Talentos[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [T01] GET http://localhost:5056/api/talentos?page=1&pageSize=5 → 400 (expected 200)
+[1;33m⏭ SKIP[0m [T02] No talento found
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  10. Funcionários[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [CA01] GET http://localhost:5056/api/funcionarios?page=1&pageSize=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [CA06] GET http://localhost:5056/api/funcionarios/users-without-funcionario → 400 (expected 200)
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  11. Agenda[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [CA07] GET http://localhost:5056/api/agenda/types → 400 (expected 200)
+[0;31m❌ FAIL[0m [CA08] GET http://localhost:5056/api/agenda/events → 400 (expected 200)
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  12. Áreas, Departamentos, Unidades, Cargos[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [CA13] GET http://localhost:5056/api/areas → 400 (expected 200)
+[0;31m❌ FAIL[0m [CA14] GET http://localhost:5056/api/departments → 400 (expected 200)
+[0;31m❌ FAIL[0m [CA15] GET http://localhost:5056/api/units → 400 (expected 200)
+[0;31m❌ FAIL[0m [CA16] GET http://localhost:5056/api/job-positions → 400 (expected 200)
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  13. Usuários, Roles, Menus[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [CA17] GET http://localhost:5056/api/users → 400 (expected 200)
+[0;31m❌ FAIL[0m [CA18] GET http://localhost:5056/api/roles → 400 (expected 200)
+[0;31m❌ FAIL[0m [CA19-list] GET http://localhost:5056/api/menus → 400 (expected 200)
+[0;31m❌ FAIL[0m [CA19-user] GET http://localhost:5056/api/menus/for-current-user → 400 (expected 200)
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  14. Notificações[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [CA20] GET http://localhost:5056/api/notifications?take=10 → 400 (expected 200)
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  15. Feedback Module[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [F02] GET http://localhost:5056/api/feedback/items/mine?page=1&pageSize=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [F03] GET http://localhost:5056/api/feedback/items/all?page=1&pageSize=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [F05] GET http://localhost:5056/api/feedback/celebrations/feed?page=1&pageSize=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [F06] GET http://localhost:5056/api/feedback/celebrations/mention-users?take=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [F11] GET http://localhost:5056/api/feedback/oneonone?page=1&pageSize=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [F17] GET http://localhost:5056/api/feedback/plans/my?page=1&pageSize=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [F18] GET http://localhost:5056/api/feedback/plans/team?page=1&pageSize=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [F24] GET http://localhost:5056/api/feedback/gamification/leaderboard?page=1&pageSize=5 → 400 (expected 200)
+[0;31m❌ FAIL[0m [F25] GET http://localhost:5056/api/feedback/gamification/my-balance → 400 (expected 200)
+[0;31m❌ FAIL[0m [F26] GET http://localhost:5056/api/feedback/gamification/history?months=3 → 400 (expected 200)
+[0;31m❌ FAIL[0m [F27] GET http://localhost:5056/api/feedback/surveys?page=1&pageSize=5 → 400 (expected 200)
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  16. AI Matching Endpoints[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;32m✅ PASS[0m [AI01] GET http://localhost:8000/health → 200
+[1;33m⏭ SKIP[0m [AI02] No vaga for matching
+[1;33m⏭ SKIP[0m [AI03] No vaga for evaluate-one
+[1;33m⏭ SKIP[0m [AI08] No vaga for similarity
+[1;33m⏭ SKIP[0m [AI09] No vaga for legacy match
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  17. Web (MVC) Pages — Health Check[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;31m❌ FAIL[0m [W01-login] GET http://localhost:5064/Account/Login → 000 (expected 200)
+[0;31m❌ FAIL[0m [W03-health] GET http://localhost:5064/health → 000 (expected 200)
+
+[0;36m══════════════════════════════════════════════════════════════[0m
+[0;36m  RESULTADO FINAL[0m
+[0;36m══════════════════════════════════════════════════════════════[0m
+
+  Total:   59
+  [0;32mPassed:  10[0m
+  [0;31mFailed:  40[0m
+  [1;33mSkipped: 9[0m
+
+[0;31mFalhas:[0m
+
+  ❌ ADMIN-LOGIN: failed to get admin token
+  ❌ A04: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ A05: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ A06: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ D01: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ D02: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ D03: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ D04: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ D05: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ D06: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ D07: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ V01: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ C01: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ T01: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA01: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA06: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA07: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA08: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA13: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA14: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA15: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA16: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA17: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA18: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA19-list: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA19-user: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ CA20: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F02: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F03: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F05: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F06: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F11: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F17: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F18: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F24: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F25: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F26: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ F27: expected 200, got 400 — {"title":"InfrastructureErrors.TenantHeaderRequiredTitle","status":400,"detail":"InfrastructureErrors.TenantHeaderMissingDetail"}
+  ❌ W01-login: expected 200, got 000 — {"status":"ok","service":"rhportal-ai","version":"2.0.0"}
+  ❌ W03-health: expected 200, got 000 — {"status":"ok","service":"rhportal-ai","version":"2.0.0"}
+

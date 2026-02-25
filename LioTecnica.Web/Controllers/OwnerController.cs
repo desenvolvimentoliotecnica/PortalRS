@@ -699,6 +699,86 @@ public sealed class OwnerController : Controller
         return RedirectToAction(nameof(TenantUsers), new { tenantId });
     }
 
+    // ── _api JSON endpoints consumed by Next.js TenantsScreen ──
+
+    [HttpGet("/Owner/Tenants/_api/list")]
+    public async Task<IActionResult> TenantsApiList(CancellationToken ct)
+    {
+        var list = await _ownerTenantsApi.ListTenantsAsync(ct);
+        if (list is null) return StatusCode(502, new { error = "Não foi possível carregar a lista de tenants." });
+
+        IReadOnlyList<TenantMigrationStatusDto>? statusList = null;
+        try { statusList = await _ownerTenantsApi.GetMigrationStatusAsync(ct); } catch { }
+        var statusByTenant = statusList?.ToDictionary(s => s.TenantId, StringComparer.OrdinalIgnoreCase) ?? new Dictionary<string, TenantMigrationStatusDto>();
+
+        var withStatus = list.Select(t =>
+        {
+            var st = statusByTenant.GetValueOrDefault(t.TenantId);
+            return new TenantWithStatusDto(t.TenantId, t.Name, t.IsActive, t.CreatedAtUtc, t.UpdatedAtUtc, st?.IsUpToDate, st?.PendingCount ?? 0, st?.ErrorMessage);
+        }).ToList();
+
+        return Ok(withStatus);
+    }
+
+    [HttpGet("/Owner/Tenants/_api/detail/{tenantId}")]
+    public async Task<IActionResult> TenantsApiDetail(string tenantId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var tenant = await _ownerTenantsApi.GetTenantAsync(tenantId, ct);
+        if (tenant is null) return NotFound(new { error = "Tenant não encontrado." });
+
+        TenantMigrationStatusDto? migrationStatus = null;
+        try
+        {
+            var statusList = await _ownerTenantsApi.GetMigrationStatusAsync(ct);
+            migrationStatus = statusList?.FirstOrDefault(s => string.Equals(s.TenantId, tenantId, StringComparison.OrdinalIgnoreCase));
+        }
+        catch { }
+
+        return Ok(new { tenant, migrationStatus });
+    }
+
+    [HttpPost("/Owner/Tenants/_api/create")]
+    public async Task<IActionResult> TenantsApiCreate([FromBody] TenantsApiCreateRequest request, CancellationToken ct)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.TenantId) || string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { error = "TenantId e Nome são obrigatórios." });
+        var (success, error) = await _ownerTenantsApi.CreateTenantAsync(request.TenantId, request.Name, ct);
+        if (!success) return BadRequest(new { error = error ?? "Erro ao criar tenant." });
+        return Ok(new { tenantId = request.TenantId.Trim().ToLowerInvariant() });
+    }
+
+    public record TenantsApiCreateRequest(string TenantId, string Name);
+
+    [HttpPost("/Owner/Tenants/_api/delete/{tenantId}")]
+    public async Task<IActionResult> TenantsApiDelete(string tenantId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var (success, error) = await _ownerTenantsApi.DeleteTenantAsync(tenantId, ct);
+        if (!success) return BadRequest(new { error = error ?? "Erro ao eliminar tenant." });
+        return Ok(new { message = $"Tenant {tenantId} desativado." });
+    }
+
+    [HttpPost("/Owner/Tenants/_api/migrations/apply/{tenantId}")]
+    public async Task<IActionResult> TenantsApiApplyMigrations(string tenantId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var (success, appliedCount, error) = await _ownerTenantsApi.ApplyMigrationsAsync(tenantId, ct);
+        if (!success) return BadRequest(new { error = error ?? "Erro ao aplicar migrações." });
+        return Ok(new { message = appliedCount > 0 ? $"Migrações aplicadas: {appliedCount}" : "Tenant já estava em dia.", appliedCount });
+    }
+
+    [HttpPost("/Owner/Tenants/_api/seed/{tenantId}")]
+    public async Task<IActionResult> TenantsApiSeed(string tenantId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var (success, error) = await _ownerTenantsApi.SeedTenantAsync(tenantId, ct);
+        if (!success) return BadRequest(new { error = error ?? "Erro ao executar seed." });
+        return Ok(new { message = $"Seed executado no tenant {tenantId}." });
+    }
+
+    // ── End _api JSON endpoints ──
+
     [HttpGet("/Owner/Tenants/Create")]
     public IActionResult CreateTenant()
     {
@@ -734,6 +814,195 @@ public sealed class OwnerController : Controller
         TempData["CreatedTenantId"] = tenantId.Trim().ToLowerInvariant();
         return RedirectToAction(nameof(Tenants));
     }
+
+    // ── _api JSON endpoints for TenantUsers consumed by Next.js ──
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Users/_api/list")]
+    public async Task<IActionResult> TenantUsersApiList(string tenantId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var users = await _ownerTenantUsersApi.ListUsersAsync(tenantId, ct);
+        return Ok(users ?? Array.Empty<UserListItemViewModel>());
+    }
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Users/_api/get/{id:guid}")]
+    public async Task<IActionResult> TenantUsersApiGet(string tenantId, Guid id, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var user = await _ownerTenantUsersApi.GetUserAsync(tenantId, id, ct);
+        return user is null ? NotFound(new { error = "Usuário não encontrado." }) : Ok(user);
+    }
+
+    [HttpPost("/Owner/Tenants/{tenantId}/Users/_api/create")]
+    public async Task<IActionResult> TenantUsersApiCreate(string tenantId, [FromBody] UserFormApiModel model, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        if (string.IsNullOrWhiteSpace(model.Email) || string.IsNullOrWhiteSpace(model.FullName) || string.IsNullOrWhiteSpace(model.Password))
+            return BadRequest(new { error = "Email, Nome e Senha são obrigatórios." });
+        var request = new UsersApiClient.UserCreateRequest(
+            model.Email.Trim(), model.FullName.Trim(), model.Password,
+            model.IsActive, model.RoleIds ?? new List<Guid>(),
+            model.UnitIds?.Count > 0 ? model.UnitIds : null,
+            model.FuncionarioId);
+        var created = await _ownerTenantUsersApi.CreateUserAsync(tenantId, request, ct);
+        return created is null ? BadRequest(new { error = "Não foi possível criar o usuário." }) : Ok(created);
+    }
+
+    [HttpPut("/Owner/Tenants/{tenantId}/Users/_api/update/{id:guid}")]
+    public async Task<IActionResult> TenantUsersApiUpdate(string tenantId, Guid id, [FromBody] UserFormApiModel model, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var updateReq = new UsersApiClient.UserUpdateRequest(
+            model.Email?.Trim() ?? "", model.FullName?.Trim() ?? "", model.IsActive,
+            model.UnitIds?.Count > 0 ? model.UnitIds : null,
+            model.FuncionarioId);
+        var updated = await _ownerTenantUsersApi.UpdateUserAsync(tenantId, id, updateReq, ct);
+        if (updated is null) return BadRequest(new { error = "Não foi possível atualizar o usuário." });
+        await _ownerTenantUsersApi.UpdateUserRolesAsync(tenantId, id, model.RoleIds ?? new List<Guid>(), ct);
+        return Ok(updated);
+    }
+
+    [HttpPost("/Owner/Tenants/{tenantId}/Users/_api/delete/{id:guid}")]
+    public async Task<IActionResult> TenantUsersApiDelete(string tenantId, Guid id, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var removed = await _ownerTenantUsersApi.DeleteUserAsync(tenantId, id, ct);
+        return removed ? Ok(new { message = "Usuário removido." }) : BadRequest(new { error = "Não foi possível remover o usuário." });
+    }
+
+    [HttpPut("/Owner/Tenants/{tenantId}/Users/_api/password/{id:guid}")]
+    public async Task<IActionResult> TenantUsersApiSetPassword(string tenantId, Guid id, [FromBody] SetPasswordApiModel model, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        if (string.IsNullOrWhiteSpace(model.NewPassword) || model.NewPassword.Length < 8)
+            return BadRequest(new { error = "A nova senha deve ter no mínimo 8 caracteres." });
+        var updated = await _ownerTenantUsersApi.SetUserPasswordAsync(tenantId, id, model.NewPassword, ct);
+        return updated is null ? BadRequest(new { error = "Não foi possível alterar a senha." }) : Ok(new { message = "Senha alterada." });
+    }
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Users/_api/roles")]
+    public async Task<IActionResult> TenantUsersApiListRoles(string tenantId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var roles = await _ownerTenantUsersApi.ListRolesAsync(tenantId, ct);
+        return Ok(roles);
+    }
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Users/_api/units")]
+    public async Task<IActionResult> TenantUsersApiListUnits(string tenantId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var units = await _ownerTenantUsersApi.ListUnitsAsync(tenantId, 1, 500, ct);
+        return Ok(units.Items);
+    }
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Users/_api/funcionarios")]
+    public async Task<IActionResult> TenantUsersApiListFuncionarios(string tenantId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId)) return BadRequest(new { error = "TenantId inválido." });
+        var funcionarios = await _ownerTenantUsersApi.ListFuncionariosAsync(tenantId, 1, 500, ct);
+        return Ok(funcionarios.Items);
+    }
+
+    public record UserFormApiModel(string? Email, string? FullName, string? Password, bool IsActive, List<Guid>? RoleIds, List<Guid>? UnitIds, Guid? FuncionarioId);
+    public record SetPasswordApiModel(string NewPassword);
+
+    // ── _api JSON endpoints for Accesses consumed by Next.js ──
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Config/Acessos/_api/roles")]
+    public async Task<IActionResult> ConfigAcessosApiRoles(string tenantId, CancellationToken ct)
+    {
+        var redirect = await EnsureOwnerConfigTenantAsync(tenantId, ct);
+        if (redirect is not null) return Unauthorized();
+        var roles = await _rolesApi.ListAsync(ct);
+        return Ok(roles);
+    }
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Config/Acessos/_api/menus")]
+    public async Task<IActionResult> ConfigAcessosApiMenus(string tenantId, CancellationToken ct)
+    {
+        var redirect = await EnsureOwnerConfigTenantAsync(tenantId, ct);
+        if (redirect is not null) return Unauthorized();
+        var menus = await _menusApi.ListAsync(ct);
+        return Ok(menus);
+    }
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Config/Acessos/_api/role-menus/{roleId:guid}")]
+    public async Task<IActionResult> ConfigAcessosApiRoleMenus(string tenantId, Guid roleId, CancellationToken ct)
+    {
+        var redirect = await EnsureOwnerConfigTenantAsync(tenantId, ct);
+        if (redirect is not null) return Unauthorized();
+        var assignments = await _rolesApi.GetRoleMenusAsync(roleId, ct);
+        return Ok(assignments);
+    }
+
+    [HttpPut("/Owner/Tenants/{tenantId}/Config/Acessos/_api/role-menus/{roleId:guid}")]
+    public async Task<IActionResult> ConfigAcessosApiUpdateRoleMenus(string tenantId, Guid roleId, [FromBody] AcessosUpdateApiModel model, CancellationToken ct)
+    {
+        var redirect = await EnsureOwnerConfigTenantAsync(tenantId, ct);
+        if (redirect is not null) return Unauthorized();
+        var menus = await _menusApi.ListAsync(ct);
+        var menuByPermission = menus.ToDictionary(x => x.PermissionKey, x => x);
+        var items = new List<RoleMenuAssignmentViewModel>();
+        foreach (var permission in (model.SelectedPermissions ?? Array.Empty<string>()).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (menuByPermission.TryGetValue(permission, out var menu))
+            {
+                items.Add(new RoleMenuAssignmentViewModel(menu.Id, permission));
+                continue;
+            }
+            if (string.Equals(permission, "users.write", StringComparison.OrdinalIgnoreCase) && menuByPermission.TryGetValue("users.read", out var usersMenu))
+                items.Add(new RoleMenuAssignmentViewModel(usersMenu.Id, "users.write"));
+        }
+        await _rolesApi.UpdateRoleMenusAsync(roleId, new RolesApiClient.RoleMenusUpdateRequest(items), ct);
+        return Ok(new { message = "Acessos atualizados." });
+    }
+
+    public record AcessosUpdateApiModel(string[]? SelectedPermissions);
+
+    // ── _api JSON endpoints for Menus consumed by Next.js ──
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Config/Menus/_api/list")]
+    public async Task<IActionResult> ConfigMenusApiList(string tenantId, CancellationToken ct)
+    {
+        var redirect = await EnsureOwnerConfigTenantAsync(tenantId, ct);
+        if (redirect is not null) return Unauthorized();
+        var menus = await _menusApi.ListAsync(ct);
+        return Ok(menus);
+    }
+
+    [HttpGet("/Owner/Tenants/{tenantId}/Config/Menus/_api/get/{id:guid}")]
+    public async Task<IActionResult> ConfigMenusApiGet(string tenantId, Guid id, CancellationToken ct)
+    {
+        var redirect = await EnsureOwnerConfigTenantAsync(tenantId, ct);
+        if (redirect is not null) return Unauthorized();
+        var menu = await _menusApi.GetByIdAsync(id, ct);
+        return menu is null ? NotFound() : Ok(menu);
+    }
+
+    [HttpPost("/Owner/Tenants/{tenantId}/Config/Menus/_api/create")]
+    public async Task<IActionResult> ConfigMenusApiCreate(string tenantId, [FromBody] MenuFormApiModel model, CancellationToken ct)
+    {
+        var redirect = await EnsureOwnerConfigTenantAsync(tenantId, ct);
+        if (redirect is not null) return Unauthorized();
+        var request = new MenusApiClient.MenuCreateRequest(model.DisplayName?.Trim() ?? "", model.Route?.Trim() ?? "", model.Icon?.Trim() ?? "", model.Order, model.ParentId, model.PermissionKey?.Trim() ?? "", model.IsActive);
+        var created = await _menusApi.CreateAsync(request, ct);
+        return created is null ? BadRequest(new { error = "Não foi possível criar o menu." }) : Ok(created);
+    }
+
+    [HttpPut("/Owner/Tenants/{tenantId}/Config/Menus/_api/update/{id:guid}")]
+    public async Task<IActionResult> ConfigMenusApiUpdate(string tenantId, Guid id, [FromBody] MenuFormApiModel model, CancellationToken ct)
+    {
+        var redirect = await EnsureOwnerConfigTenantAsync(tenantId, ct);
+        if (redirect is not null) return Unauthorized();
+        var request = new MenusApiClient.MenuUpdateRequest(model.DisplayName?.Trim() ?? "", model.Route?.Trim() ?? "", model.Icon?.Trim() ?? "", model.Order, model.ParentId, model.PermissionKey?.Trim() ?? "", model.IsActive);
+        var updated = await _menusApi.UpdateAsync(id, request, ct);
+        return updated is null ? BadRequest(new { error = "Não foi possível atualizar o menu." }) : Ok(updated);
+    }
+
+    public record MenuFormApiModel(string? DisplayName, string? Route, string? Icon, int Order, Guid? ParentId, string? PermissionKey, bool IsActive);
+
+    // ── End additional _api endpoints ──
 
     [HttpGet("/Owner/Tenants/{tenantId}/Users")]
     public async Task<IActionResult> TenantUsers(string tenantId, CancellationToken ct)

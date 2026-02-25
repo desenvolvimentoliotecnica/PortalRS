@@ -28,8 +28,25 @@ public sealed class FeedbackService
             ToUserId = request.ToUserId,
             Content = request.Content.Trim(),
             Tipo = request.Tipo?.Trim().Length > 0 ? request.Tipo.Trim() : null,
+            IsPresencial = request.IsPresencial,
+            InternalNotes = string.IsNullOrWhiteSpace(request.InternalNotes) ? null : request.InternalNotes.Trim(),
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
+
+        if (request.Ratings is { Count: > 0 })
+        {
+            foreach (var r in request.Ratings)
+            {
+                item.Ratings.Add(new FeedbackItemRating
+                {
+                    Id = Guid.NewGuid(),
+                    FeedbackItemId = item.Id,
+                    ItemName = r.ItemName.Trim(),
+                    Stars = Math.Clamp(r.Stars, 1, 5)
+                });
+            }
+        }
+
         _db.FeedbackItems.Add(item);
         await _db.SaveChangesAsync(ct);
 
@@ -37,6 +54,7 @@ public sealed class FeedbackService
             .AsNoTracking()
             .Include(x => x.FromUser)
             .Include(x => x.ToUser)
+            .Include(x => x.Ratings)
             .FirstOrDefaultAsync(x => x.Id == item.Id, ct);
         if (created is null)
             throw new InvalidOperationException("Feedback not found after create.");
@@ -61,24 +79,16 @@ public sealed class FeedbackService
         var query = baseQuery
             .Include(x => x.FromUser)
             .Include(x => x.ToUser)
+            .Include(x => x.Ratings)
             .OrderByDescending(x => x.CreatedAtUtc);
 
         var total = await query.CountAsync(ct);
         var items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new FeedbackItemResponse(
-                x.Id,
-                x.FromUserId,
-                x.FromUser!.FullName ?? "",
-                x.ToUserId,
-                x.ToUser!.FullName ?? "",
-                x.Content,
-                x.Tipo,
-                x.CreatedAtUtc))
             .ToListAsync(ct);
 
-        return new FeedbackListResponse(items, total, page, pageSize);
+        return new FeedbackListResponse(items.Select(MapToResponse).ToList(), total, page, pageSize);
     }
 
     public async Task<FeedbackListResponse> ListAllAsync(int page = 1, int pageSize = 20, CancellationToken ct = default)
@@ -92,24 +102,16 @@ public sealed class FeedbackService
             .Where(x => x.TenantId == tenantId)
             .Include(x => x.FromUser)
             .Include(x => x.ToUser)
+            .Include(x => x.Ratings)
             .OrderByDescending(x => x.CreatedAtUtc);
 
         var total = await query.CountAsync(ct);
         var items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new FeedbackItemResponse(
-                x.Id,
-                x.FromUserId,
-                x.FromUser!.FullName ?? "",
-                x.ToUserId,
-                x.ToUser!.FullName ?? "",
-                x.Content,
-                x.Tipo,
-                x.CreatedAtUtc))
             .ToListAsync(ct);
 
-        return new FeedbackListResponse(items, total, page, pageSize);
+        return new FeedbackListResponse(items.Select(MapToResponse).ToList(), total, page, pageSize);
     }
 
     private static FeedbackItemResponse MapToResponse(FeedbackItem x)
@@ -122,6 +124,9 @@ public sealed class FeedbackService
             x.ToUser?.FullName ?? "",
             x.Content,
             x.Tipo,
+            x.IsPresencial,
+            x.InternalNotes,
+            x.Ratings.Select(r => new FeedbackRatingResponse(r.ItemName, r.Stars)).ToList(),
             x.CreatedAtUtc);
     }
 }

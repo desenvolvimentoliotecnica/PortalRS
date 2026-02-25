@@ -1,4 +1,3 @@
-@* Tela Desenvolvimento desativada. Controller redireciona para Celebração. *@
 @{
 	ViewData["Title"] = "Portal RH • Feedback • Feedbacks";
 	ViewData["SidebarSubtitle"] = "Feedback";
@@ -7,30 +6,206 @@
 @section Topbar {
 	@await Html.PartialAsync("_TopbarBrand", "Feedback • Feedbacks")
 	<div class="d-flex align-items-center gap-2">
-		<button class="btn btn-ghost" type="button" id="btnRefresh" title="Atualizar">Atualizar</button>
 		@await Html.PartialAsync("_TopbarUserActions", "RH")
 	</div>
 }
 
-<section class="content feedback-dashboard-page">
+<section class="content feedbacks-page">
+	<!-- Header -->
 	<div class="page-title">
 		<div>
-			<h4>Início</h4>
-			<div class="subtitle">Acompanhamento da gestão e do time.</div>
+			<h4>Feedbacks</h4>
+			<div class="subtitle">Dê, solicite e receba feedbacks precisos de uma maneira confidencial e construtiva</div>
+		</div>
+		<div class="d-flex gap-2 flex-wrap">
+			<button class="btn btn-ghost" id="btnSolicitar" disabled title="Em breve">
+				<i class="bi bi-inbox me-1"></i>Solicitar Feedback
+			</button>
+			<a href="/Feedback/Enviar" class="btn btn-brand">
+				<i class="bi bi-send me-1"></i>Enviar Feedback
+			</a>
 		</div>
 	</div>
-	<div id="kpiRow" class="dashboard-kpi-row mb-3"></div>
-	<div class="grid2 mb-3">
-		<div id="leftCol">
-			<div id="oneOnOnePanel" class="card-soft p-3 mb-3"></div>
-			<div id="moodPanel" class="card-soft p-3 mb-3"></div>
-			<div id="teamSummary" class="card-soft p-3 mb-3"></div>
-			<div id="quickLinksPanel" class="mb-3"></div>
-			<div id="activitiesPanel" class="card-soft p-3 mb-3"></div>
+
+	<!-- Filtros -->
+	<div class="card-soft p-3 mb-3">
+		<div class="d-flex flex-wrap align-items-end gap-3">
+			<div>
+				<label class="form-label small mb-1" for="filterFrom">De</label>
+				<input type="date" class="form-control form-control-sm" id="filterFrom">
+			</div>
+			<div>
+				<label class="form-label small mb-1" for="filterTo">Até</label>
+				<input type="date" class="form-control form-control-sm" id="filterTo">
+			</div>
+			<div class="d-flex gap-2">
+				<button class="btn btn-ghost btn-sm" id="btnClearFilter">Limpar</button>
+				<button class="btn btn-brand btn-sm" id="btnFilter">Filtrar</button>
+			</div>
+			<div class="ms-auto">
+				<input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Buscar...">
+			</div>
 		</div>
-		<div id="rightCol">
-			<div id="profilePanel" class="card-soft p-3 mb-3"></div>
-			<div id="rankingPanel" class="card-soft p-3 mb-3"></div>
+	</div>
+
+	<!-- KPIs do período -->
+	<div class="row g-3 mb-3">
+		<div class="col-sm-6">
+			<div class="card-soft p-3 fb-kpi-card">
+				<div class="d-flex align-items-center gap-3">
+					<div class="kpi-icon received"><i class="bi bi-arrow-down-circle"></i></div>
+					<div>
+						<div class="text-muted small">Feedbacks recebidos</div>
+						<div class="fw-bold fs-4" id="kpiReceived">0</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-sm-6">
+			<div class="card-soft p-3 fb-kpi-card">
+				<div class="d-flex align-items-center gap-3">
+					<div class="kpi-icon sent"><i class="bi bi-arrow-up-circle"></i></div>
+					<div>
+						<div class="text-muted small">Feedbacks enviados</div>
+						<div class="fw-bold fs-4" id="kpiSent">0</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Resumo por item -->
+	<div class="card-soft p-3 mb-3">
+		<h6 class="fw-bold mb-3">Resumo por Item</h6>
+		<div class="row g-3" id="itemSummaryRow">
+			<div class="col-md-6">
+				<div class="fb-item-summary card-soft p-3">
+					<div class="fw-bold">Alinhamento Cultural</div>
+					<div class="d-flex align-items-center gap-2 mt-2">
+						<span class="text-muted small">Sua média:</span>
+						<span class="fb-stars-display" id="starsUserAlinhamento">
+							<span class="text-muted small">Sem feedbacks</span>
+						</span>
+					</div>
+					<div class="d-flex align-items-center gap-2 mt-1">
+						<span class="text-muted small">Média empresa:</span>
+						<span class="fb-stars-display" id="starsCompanyAlinhamento">
+							<i class="bi bi-star-fill star-filled"></i>
+							<i class="bi bi-star-fill star-filled"></i>
+							<i class="bi bi-star-fill star-filled"></i>
+							<i class="bi bi-star-fill star-filled"></i>
+							<i class="bi bi-star-half star-filled"></i>
+							<span class="small fw-bold ms-1">4.7</span>
+						</span>
+					</div>
+				</div>
+			</div>
+			<div class="col-md-6">
+				<div class="fb-item-summary card-soft p-3">
+					<div class="fw-bold">Foco no Cliente</div>
+					<div class="d-flex align-items-center gap-2 mt-2">
+						<span class="text-muted small">Sua média:</span>
+						<span class="fb-stars-display" id="starsUserFoco">
+							<span class="text-muted small">Sem feedbacks</span>
+						</span>
+					</div>
+					<div class="d-flex align-items-center gap-2 mt-1">
+						<span class="text-muted small">Média empresa:</span>
+						<span class="fb-stars-display" id="starsCompanyFoco">
+							<i class="bi bi-star-fill star-filled"></i>
+							<i class="bi bi-star-fill star-filled"></i>
+							<i class="bi bi-star-fill star-filled"></i>
+							<i class="bi bi-star-fill star-filled"></i>
+							<i class="bi bi-star-half star-filled"></i>
+							<span class="small fw-bold ms-1">4.7</span>
+						</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Resumo Mensal -->
+	<div class="card-soft p-3 mb-3">
+		<h6 class="fw-bold mb-2">Resumo Mensal</h6>
+		<div class="text-muted small" id="monthlySummary">
+			<i class="bi bi-bar-chart me-1"></i>Sem feedbacks o suficiente para fazer a análise
+		</div>
+	</div>
+
+	<!-- Listagens: tabs -->
+	<div class="card-soft p-3">
+		<ul class="nav nav-tabs" id="fbTabs" role="tablist">
+			<li class="nav-item" role="presentation">
+				<button class="nav-link active" id="tab-received" data-bs-toggle="tab" data-bs-target="#pane-received" type="button" role="tab">
+					Recebidos (<span id="countReceived">0</span>)
+				</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link" id="tab-sent" data-bs-toggle="tab" data-bs-target="#pane-sent" type="button" role="tab">
+					Enviados (<span id="countSent">0</span>)
+				</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link" id="tab-solicitations-received" data-bs-toggle="tab" data-bs-target="#pane-solicitations-received" type="button" role="tab">
+					Solicitações Recebidas (<span id="countSolReceived">0</span>)
+				</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link" id="tab-solicitations-sent" data-bs-toggle="tab" data-bs-target="#pane-solicitations-sent" type="button" role="tab">
+					Solicitações Enviadas (<span id="countSolSent">0</span>)
+				</button>
+			</li>
+		</ul>
+		<div class="tab-content mt-3" id="fbTabContent">
+			<!-- Recebidos -->
+			<div class="tab-pane fade show active" id="pane-received" role="tabpanel">
+				<div id="listReceived"></div>
+				<div id="emptyReceived" class="fb-empty-state d-none">
+					<i class="bi bi-chat-left-dots"></i>
+					<div class="fw-bold mt-2">Não encontramos nada por aqui</div>
+					<div class="text-muted small">Nenhum feedback recebido no período selecionado</div>
+				</div>
+				<div id="loadMoreReceived" class="text-center mt-2 d-none">
+					<button class="btn btn-ghost btn-sm" id="btnLoadMoreReceived">Carregar mais</button>
+				</div>
+			</div>
+			<!-- Enviados -->
+			<div class="tab-pane fade" id="pane-sent" role="tabpanel">
+				<div id="listSent"></div>
+				<div id="emptySent" class="fb-empty-state d-none">
+					<i class="bi bi-chat-left-dots"></i>
+					<div class="fw-bold mt-2">Não encontramos nada por aqui</div>
+					<div class="text-muted small">Nenhum feedback enviado no período selecionado</div>
+				</div>
+				<div id="loadMoreSent" class="text-center mt-2 d-none">
+					<button class="btn btn-ghost btn-sm" id="btnLoadMoreSent">Carregar mais</button>
+				</div>
+			</div>
+			<!-- Solicitações Recebidas -->
+			<div class="tab-pane fade" id="pane-solicitations-received" role="tabpanel">
+				<div class="fb-empty-state">
+					<i class="bi bi-inbox"></i>
+					<div class="fw-bold mt-2">Não encontramos nada por aqui</div>
+					<div class="text-muted small">Nenhuma solicitação recebida no período selecionado</div>
+				</div>
+			</div>
+			<!-- Solicitações Enviadas -->
+			<div class="tab-pane fade" id="pane-solicitations-sent" role="tabpanel">
+				<div class="fb-empty-state">
+					<i class="bi bi-send"></i>
+					<div class="fw-bold mt-2">Não encontramos nada por aqui</div>
+					<div class="text-muted small">Nenhuma solicitação enviada no período selecionado</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Detalhe lateral (placeholder) -->
+	<div class="card-soft p-3 mt-3 d-none" id="feedbackDetail">
+		<div class="text-muted text-center">
+			<i class="bi bi-chat-left-dots fs-1"></i>
+			<div class="mt-2">Nenhum feedback selecionado</div>
 		</div>
 	</div>
 </section>

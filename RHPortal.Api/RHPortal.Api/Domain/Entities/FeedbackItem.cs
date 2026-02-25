@@ -19,5 +19,12 @@ public sealed class FeedbackItem : ITenantEntity
     [MaxLength(40)]
     public string? Tipo { get; set; }
 
+    public bool IsPresencial { get; set; }
+
+    [MaxLength(4000)]
+    public string? InternalNotes { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
+
+    public List<FeedbackItemRating> Ratings { get; set; } = new();
 }

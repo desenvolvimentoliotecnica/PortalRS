@@ -183,6 +183,24 @@
   <data name="Seed.Menu.GestaoResumo" xml:space="preserve">
     <value>Resumo de Atividades</value>
   </data>
+  <data name="Seed.Menu.GamificacaoRanking" xml:space="preserve">
+    <value>Ranking</value>
+  </data>
+  <data name="Seed.Menu.GamificacaoHistorico" xml:space="preserve">
+    <value>Historico</value>
+  </data>
+  <data name="Seed.Menu.PesquisaRapida" xml:space="preserve">
+    <value>Pesquisa Rapida</value>
+  </data>
+  <data name="Seed.Menu.SuperPesquisa" xml:space="preserve">
+    <value>Super Pesquisa</value>
+  </data>
+  <data name="Seed.Menu.Desempenho" xml:space="preserve">
+    <value>Desempenho</value>
+  </data>
+  <data name="Seed.Menu.MinhasAvaliacoes" xml:space="preserve">
+    <value>Minhas Avaliacoes</value>
+  </data>
   <data name="Seed.Menu.Departamentos" xml:space="preserve">
     <value>Departamentos</value>
   </data>

@@ -34,7 +34,6 @@ public sealed class MenuAdministrationService
             ["feedback.send"] = "Seed.Menu.EnviarFeedback",
             ["feedback.view"] = "Seed.Menu.Feedbacks",
             ["feedback.list"] = "Seed.Menu.Feedbacks",
-            ["feedback.myplans.view"] = "Seed.Menu.MeusPlanos",
             ["feedback.oneonone.view"] = "Seed.Menu.Reunioes1a1",
             // Pesquisas desativado temporariamente.
             // ["feedback.pesquisas.view"] = "Seed.Menu.Pesquisas",
@@ -69,6 +68,8 @@ public sealed class MenuAdministrationService
     {
         // Pesquisas desativado temporariamente.
         "feedback.pesquisas.view",
+        // Item duplicado/deprecado da sidebar.
+        "feedback.myplans.view",
         "access.manage",
         "menus.manage",
         "audit.view",

@@ -124,6 +124,11 @@ public sealed record CandidateDocumentoUploadRequest(
     [Required] IFormFile Arquivo
 );
 
+public sealed record CandidateCurriculoUploadRequest(
+    [Required] IFormFile Arquivo,
+    bool EnviarParaGpt = true
+);
+
 public sealed record CandidateDocumentoResponse(
     Guid Id,
     CandidateDocumentType Tipo,
