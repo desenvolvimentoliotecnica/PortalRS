@@ -1,0 +1,121 @@
+trigger:
+  - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  package_name: "deploy-package.tar.gz"
+  artifact_name: "F785-deploy"
+  package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
+
+steps:
+  - task: NodeTool@0
+    displayName: "Node.js 18.x"
+    inputs:
+      versionSpec: "18.x"
+
+  - script: |
+      set -e
+      ROOT="$(Build.SourcesDirectory)"
+      cd "$ROOT"
+
+      # Encontrar pasta do frontend (F785-app ou raiz)
+      if [ -f "F785-app/package.json" ]; then
+        FRONTEND_DIR="F785-app"
+      elif [ -f "package.json" ]; then
+        FRONTEND_DIR="."
+      else
+        echo "##vso[task.logissue type=error]package.json não encontrado em F785-app/ nem na raiz"
+        echo "Conteúdo de $(Build.SourcesDirectory):"
+        ls -la
+        exit 1
+      fi
+
+      echo "Frontend em: $FRONTEND_DIR"
+      cd "$FRONTEND_DIR"
+      npm ci
+      npm run build
+    displayName: "Build frontend"
+
+  - script: |
+      set -e
+      ROOT="$(Build.SourcesDirectory)"
+      cd "$ROOT"
+
+      if [ -f "F785-app/backend/package.json" ]; then
+        cd F785-app/backend
+        npm ci --omit=dev
+      else
+        echo "##vso[task.logissue type=warning]F785-app/backend/package.json não encontrado - pulando instalação backend"
+      fi
+    displayName: "Instalar dependências backend"
+
+  - task: Bash@3
+    displayName: "Compactar projeto para release"
+    inputs:
+      targetType: "inline"
+      script: |
+        set -eo pipefail
+
+        echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
+        cd "$(Build.SourcesDirectory)"
+
+        PACKAGE_PATH="$(package_path)"
+        PACKAGE_NAME="$(package_name)"
+
+        if [ -d "F785-app" ]; then
+          echo "Compactando F785-app (excluindo node_modules e cache)"
+          tar -czf "$PACKAGE_PATH" \
+            --warning=no-file-changed \
+            --exclude='.git' \
+            --exclude='.vs' \
+            --exclude='.vscode' \
+            --exclude='.idea' \
+            --exclude='deploy-package.tar.gz' \
+            --exclude='F785-app/node_modules' \
+            --exclude='F785-app/backend/node_modules' \
+            --exclude='F785-app/dist' \
+            --exclude='*.log' \
+            --exclude='.env' \
+            --exclude='F785-app/.env' \
+            --exclude='F785-app/backend/.env' \
+            -C . F785-app
+        elif [ -f "package.json" ]; then
+          echo "Compactando raiz (projeto sem pasta F785-app)"
+          tar -czf "$PACKAGE_PATH" \
+            --warning=no-file-changed \
+            --exclude='.git' \
+            --exclude='.vs' \
+            --exclude='.vscode' \
+            --exclude='.idea' \
+            --exclude='deploy-package.tar.gz' \
+            --exclude='node_modules' \
+            --exclude='backend/node_modules' \
+            --exclude='dist' \
+            --exclude='*.log' \
+            --exclude='.env' \
+            -C . .
+        else
+          echo "ERRO: Pasta F785-app não encontrada e package.json ausente na raiz"
+          ls -la
+          exit 1
+        fi
+
+        test -f "$PACKAGE_PATH" || (echo "ERRO: pacote não foi criado"; exit 1)
+        ls -lh "$PACKAGE_PATH"
+        echo "Pacote validado com sucesso"
+
+  - task: CopyFiles@2
+    displayName: "Organizar para artefato"
+    inputs:
+      SourceFolder: "$(Agent.TempDirectory)"
+      Contents: "$(package_name)"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Publicar artefato"
+    inputs:
+      PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+      ArtifactName: "$(artifact_name)"
+      publishLocation: "Container"
