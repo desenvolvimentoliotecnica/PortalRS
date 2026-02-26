@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portal RH • Liotécnica</title>
+  <link rel="stylesheet" href="css/site.css" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <style>
+    .landing {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+    }
+    .landing-card {
+      background: var(--lt-card, #fff);
+      border-radius: var(--radius-xl, 18px);
+      box-shadow: var(--lt-shadow, 0 10px 30px rgba(11,58,100,.1));
+      padding: 2.5rem;
+      max-width: 420px;
+      border: 1px solid var(--lt-border, rgba(16,82,144,.18));
+    }
+    .landing-card .logo-initials {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--lt-primary, #0C3A64), var(--lt-brand, #105291));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 auto 1rem;
+    }
+    .landing-card h1 {
+      font-size: 1.4rem;
+      color: var(--lt-text, #0D1B2A);
+      margin-bottom: 0.25rem;
+    }
+    .landing-card p {
+      color: var(--lt-muted, rgba(13,27,42,.65));
+      font-size: 0.95rem;
+      margin-bottom: 1.5rem;
+    }
+    .landing-card .btn-portal {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(180deg, var(--lt-primary, #0C3A64), var(--lt-brand, #105291));
+      color: #fff;
+      border-radius: var(--radius-lg);
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .landing-card .btn-portal:hover {
+      color: #fff;
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <div class="landing">
+    <div class="landing-card">
+      <div class="logo-initials" aria-hidden="true">LT</div>
+      <h1>Portal RH</h1>
+      <p>Liotécnica • Gestão de Recursos Humanos</p>
+      <a href="__BACKEND_URL__" id="portalLink" class="btn-portal">
+        <i class="bi bi-box-arrow-in-right"></i> Acessar aplicação
+      </a>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var url = '__BACKEND_URL__';
+      var link = document.getElementById('portalLink');
+      if (url && url.indexOf('__') === -1) {
+        link.href = url;
+      } else {
+        link.href = '#';
+        link.onclick = function (e) {
+          e.preventDefault();
+          var u = prompt('URL do backend (ex: http://seu-servidor:8080):');
+          if (u) window.location.href = u;
+          return false;
+        };
+      }
+    })();
+  </script>
+</body>
+</html>
