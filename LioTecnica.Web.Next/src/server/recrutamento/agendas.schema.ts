@@ -25,6 +25,7 @@ export const AgendaEventApiSchema = z.object({
   vagaCode: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   typeCode: z.string().optional().nullable(),
+  typeLabel: z.string().optional().nullable(),
   typeColor: z.string().optional().nullable(),
   typeIcon: z.string().optional().nullable(),
 });

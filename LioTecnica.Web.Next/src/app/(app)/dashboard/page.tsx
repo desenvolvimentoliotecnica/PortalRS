@@ -16,7 +16,7 @@ export default async function DashboardPage() {
     fetch(await legacyAbsoluteUrl("/Dashboard/_api/recebidos-series?days=14"), { headers: { cookie }, cache: "no-store", redirect: "manual" }),
     fetch(await legacyAbsoluteUrl("/Dashboard/_api/vagas"), { headers: { cookie }, cache: "no-store", redirect: "manual" }),
     fetch(await legacyAbsoluteUrl("/Dashboard/_api/areas"), { headers: { cookie }, cache: "no-store", redirect: "manual" }),
-    fetch(await legacyAbsoluteUrl("/Dashboard/_api/top-matches?minMatch=0&take=15"), { headers: { cookie }, cache: "no-store", redirect: "manual" }),
+    fetch(await legacyAbsoluteUrl("/Dashboard/_api/top-matches?minMatch=70&take=15"), { headers: { cookie }, cache: "no-store", redirect: "manual" }),
   ]);
 
   const isJson = (res: Response) => (res.headers.get("content-type") ?? "").toLowerCase().includes("application/json");

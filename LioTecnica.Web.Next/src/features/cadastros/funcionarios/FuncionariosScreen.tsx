@@ -12,6 +12,8 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import PaginationBar from "@/components/pagination/PaginationBar";
+import { useClientPagination } from "@/hooks/useClientPagination";
 
 const BASE = "/app";
 
@@ -86,10 +88,6 @@ export default function FuncionariosScreen() {
     const [detailItem, setDetailItem] = useState<FuncItem | null>(null);
     const [syncing, setSyncing] = useState(false);
 
-    /* pagination */
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(20);
-
     const syncList = useCallback(async () => {
         const payload = await fetchJson<{ items: FuncItem[] }>(`${BASE}/Funcionarios/_api`);
         setRows(Array.isArray(payload?.items) ? payload.items : []);
@@ -130,14 +128,11 @@ export default function FuncionariosScreen() {
     }, [q, rows, statusFilter]);
 
     /* pagination */
-    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-    const paged = useMemo(() => {
-        const start = (page - 1) * pageSize;
-        return filtered.slice(start, start + pageSize);
-    }, [filtered, page, pageSize]);
-
-    // Reset to page 1 when filter changes
-    useEffect(() => { setPage(1); }, [q, statusFilter, pageSize]);
+    const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
+        initialPageSize: 20,
+        resetDeps: [q, statusFilter],
+    });
+    const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.end, slice.start]);
 
     /* KPIs — Razor: Funcionários, Ativos, Headcount, Unidades */
     const kpis = useMemo(() => {
@@ -318,21 +313,14 @@ export default function FuncionariosScreen() {
                 </Table>
 
                 {/* Pagination */}
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                        <span>Exibir</span>
-                        <select className="h-8 rounded border bg-transparent px-2 text-xs" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-                            {PAGE_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <span>por página</span>
-                        <span className="ml-2">{filtered.length} registro(s)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
-                        <span className="px-2 text-xs">{page} / {totalPages}</span>
-                        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Próxima</Button>
-                    </div>
-                </div>
+                <PaginationBar
+                    page={page}
+                    pageSize={pageSize}
+                    totalItems={filtered.length}
+                    pageSizes={PAGE_SIZES}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                />
             </div>
 
             {/* Edit/Create Dialog */}

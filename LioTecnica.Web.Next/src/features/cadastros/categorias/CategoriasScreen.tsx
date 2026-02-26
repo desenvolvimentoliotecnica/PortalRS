@@ -12,6 +12,8 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import PaginationBar from "@/components/pagination/PaginationBar";
+import { useClientPagination } from "@/hooks/useClientPagination";
 
 const BASE = "/app";
 
@@ -105,6 +107,13 @@ export default function CategoriasScreen() {
             return [codigo(c), nome(c), descricao(c)].join(" ").toLowerCase().includes(qq);
         });
     }, [q, rows, statusFilter]);
+
+    /* pagination (client-side) */
+    const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
+        initialPageSize: 20,
+        resetDeps: [q, statusFilter],
+    });
+    const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.end, slice.start]);
 
     /* KPIs — matching Razor: Funções, Ativas, Requisitos, Vagas com requisitos */
     const kpis = useMemo(() => {
@@ -229,7 +238,7 @@ export default function CategoriasScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Carregando…</TableCell></TableRow>
-                        ) : filtered.length ? filtered.map((c) => (
+                        ) : filtered.length ? paged.map((c) => (
                             <TableRow key={c.id}>
                                 <TableCell>
                                     <div className="font-semibold">{nome(c)}</div>
@@ -251,7 +260,13 @@ export default function CategoriasScreen() {
                         )}
                     </TableBody>
                 </Table>
-                <div className="mt-2 text-xs text-muted-foreground">{filtered.length} de {rows.length} funções</div>
+                <PaginationBar
+                    page={page}
+                    pageSize={pageSize}
+                    totalItems={filtered.length}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                />
             </div>
 
             {/* Edit/Create Dialog */}

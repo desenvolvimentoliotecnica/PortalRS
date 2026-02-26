@@ -10,6 +10,8 @@ import {
     Trash2,
     Eye,
     ExternalLink,
+    ChevronRight,
+    ChevronDown,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 /* ──────────────────────────── consts & types ──────────────────────────── */
 
@@ -75,6 +78,8 @@ interface LookupItem {
     name: string;
 }
 
+type AreaNode = AreaListItem & { children: AreaNode[] };
+
 /* ──────────────────────────── helpers ──────────────────────────── */
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -116,6 +121,116 @@ const emptyDraft: AreaDraft = {
     description: "",
 };
 
+function keyOf(id: string | null | undefined) {
+    const v = (id ?? "").trim().toLowerCase();
+    return v ? v : null;
+}
+
+function buildAreaTree(areas: AreaListItem[]): AreaNode[] {
+    const byId = new Map<string, AreaNode>();
+    for (const a of areas) {
+        const k = keyOf(a.id);
+        if (!k) continue;
+        byId.set(k, { ...a, children: [] });
+    }
+
+    const roots: AreaNode[] = [];
+    for (const n of byId.values()) {
+        const parentKey = keyOf(n.parentId);
+        if (!parentKey || !byId.has(parentKey)) {
+            roots.push(n);
+        } else {
+            byId.get(parentKey)!.children.push(n);
+        }
+    }
+
+    const sortByName = (list: AreaNode[]) =>
+        list.sort((x, y) => (x.name || "").localeCompare(y.name || ""));
+
+    function sortAll(nodes: AreaNode[]) {
+        sortByName(nodes);
+        nodes.forEach((n) => {
+            if (n.children.length) sortAll(n.children);
+        });
+    }
+
+    sortAll(roots);
+    return roots;
+}
+
+function collectNodeKeysWithChildren(roots: AreaNode[]) {
+    const out: string[] = [];
+    function walk(nodes: AreaNode[]) {
+        for (const n of nodes) {
+            if (n.children.length) {
+                const k = keyOf(n.id);
+                if (k) out.push(k);
+                walk(n.children);
+            }
+        }
+    }
+    walk(roots);
+    return out;
+}
+
+function walkTreeVisible(roots: AreaNode[], collapsedKeys: Set<string>) {
+    const rows: Array<{
+        area: AreaNode;
+        depth: number;
+        hasChildren: boolean;
+        isCollapsed: boolean;
+    }> = [];
+
+    function walk(nodes: AreaNode[], depth: number, ancestorCollapsed: boolean) {
+        for (const n of nodes) {
+            if (ancestorCollapsed) continue;
+            const hasChildren = n.children.length > 0;
+            const isCollapsed = hasChildren && !!keyOf(n.id) && collapsedKeys.has(keyOf(n.id)!);
+            rows.push({ area: n, depth, hasChildren, isCollapsed });
+            if (hasChildren && !isCollapsed) walk(n.children, depth + 1, false);
+        }
+    }
+
+    walk(roots, 0, false);
+    return rows;
+}
+
+function getAreasSortedByHierarchy(areas: AreaListItem[]) {
+    const byId = new Map<string, AreaListItem>();
+    for (const a of areas) {
+        const k = keyOf(a.id);
+        if (k) byId.set(k, a);
+    }
+
+    const roots = areas.filter((a) => {
+        const parentKey = keyOf(a.parentId);
+        return !parentKey || !byId.has(parentKey);
+    });
+
+    const childrenByParent = new Map<string, AreaListItem[]>();
+    for (const a of areas) {
+        const parentKey = keyOf(a.parentId);
+        if (!parentKey) continue;
+        if (!childrenByParent.has(parentKey)) childrenByParent.set(parentKey, []);
+        childrenByParent.get(parentKey)!.push(a);
+    }
+    for (const list of childrenByParent.values()) {
+        list.sort((x, y) => (x.name || "").localeCompare(y.name || ""));
+    }
+    roots.sort((x, y) => (x.name || "").localeCompare(y.name || ""));
+
+    const out: Array<{ area: AreaListItem; depth: number }> = [];
+    function add(node: AreaListItem, depth: number) {
+        out.push({ area: node, depth });
+        const k = keyOf(node.id);
+        if (!k) return;
+        const children = childrenByParent.get(k) || [];
+        children.forEach((c) => add(c, depth + 1));
+    }
+    roots.forEach((r) => add(r, 0));
+    return out;
+}
+
 /* ──────────────────────────── component ──────────────────────────── */
 
 export default function AreasScreen() {
@@ -123,6 +238,7 @@ export default function AreasScreen() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<AreaListItem[]>([]);
     const [funcionarios, setFuncionarios] = useState<LookupItem[]>([]);
+    const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
 
     /* ── filters ── */
     const [q, setQ] = useState("");
@@ -149,6 +265,7 @@ export default function AreasScreen() {
         );
         const items = Array.isArray(payload?.items) ? payload.items : [];
         setRows(items);
+        setCollapsedKeys(new Set(collectNodeKeysWithChildren(buildAreaTree(items))));
     }, []);
 
     const loadFuncionarios = useCallback(async () => {
@@ -176,8 +293,29 @@ export default function AreasScreen() {
         };
     }, [syncList, loadFuncionarios]);
 
+    const rowsById = useMemo(() => {
+        const m = new Map<string, AreaListItem>();
+        rows.forEach((a) => {
+            const k = keyOf(a.id);
+            if (k) m.set(k, a);
+        });
+        return m;
+    }, [rows]);
+
+    const getParentDisplay = useCallback(
+        (a: AreaListItem) => {
+            const parentKey = keyOf(a.parentId);
+            if (parentKey) {
+                const p = rowsById.get(parentKey);
+                if (p) return p.name || p.code || "—";
+            }
+            return a.parentName || "—";
+        },
+        [rowsById],
+    );
+
     /* ── filtering ── */
-    const filtered = useMemo(() => {
+    const matchFiltered = useMemo(() => {
         const qq = q.trim().toLowerCase();
         return rows.filter((a) => {
             const st = (a.status ?? "").toLowerCase();
@@ -192,13 +330,48 @@ export default function AreasScreen() {
             )
                 return false;
             if (!qq) return true;
-            const blob = [a.code, a.name, a.parentName, a.ownerName, a.description]
+            const blob = [a.code, a.name, getParentDisplay(a), a.ownerName, a.description]
                 .filter(Boolean)
                 .join(" ")
                 .toLowerCase();
             return blob.includes(qq);
         });
-    }, [q, rows, statusFilter]);
+    }, [getParentDisplay, q, rows, statusFilter]);
+
+    const visibleTreeRows = useMemo(() => {
+        const byId = new Map<string, AreaListItem>();
+        rows.forEach((a) => {
+            const k = keyOf(a.id);
+            if (k) byId.set(k, a);
+        });
+
+        const visibleKeys = new Set<string>();
+        matchFiltered.forEach((a) => {
+            const k = keyOf(a.id);
+            if (k) visibleKeys.add(k);
+            let parentKey = keyOf(a.parentId);
+            while (parentKey) {
+                const p = byId.get(parentKey);
+                if (!p) break;
+                visibleKeys.add(parentKey);
+                parentKey = keyOf(p.parentId);
+            }
+        });
+
+        const tree = buildAreaTree(rows);
+        const walked = walkTreeVisible(tree, collapsedKeys);
+        return walked.filter((r) => {
+            const k = keyOf(r.area.id);
+            return !!k && visibleKeys.has(k);
+        });
+    }, [collapsedKeys, matchFiltered, rows]);
+
+    const hintText = useMemo(() => {
+        if (loading) return "Carregando…";
+        return visibleTreeRows.length
+            ? `${visibleTreeRows.length} áreas encontradas.`
+            : "Nenhuma área encontrada.";
+    }, [loading, visibleTreeRows.length]);
 
     /* ── KPIs ── */
     const kpis = useMemo(() => {
@@ -212,6 +385,8 @@ export default function AreasScreen() {
         const totalVagas = rows.reduce((s, a) => s + (a.vacanciesTotal ?? 0), 0);
         return { total, active, openVagas, totalVagas };
     }, [rows]);
+
+    const parentOptions = useMemo(() => getAreasSortedByHierarchy(rows), [rows]);
 
     /* ── CRUD actions ── */
     function openNew() {
@@ -439,17 +614,55 @@ export default function AreasScreen() {
                                     Carregando…
                                 </TableCell>
                             </TableRow>
-                        ) : filtered.length ? (
-                            filtered.map((a) => (
+                        ) : visibleTreeRows.length ? (
+                            visibleTreeRows.map(({ area: a, depth, hasChildren, isCollapsed }) => (
                                 <TableRow key={a.id}>
                                     <TableCell>
-                                        <div className="font-semibold">{a.name}</div>
-                                        <div className="text-muted-foreground text-xs font-mono">
-                                            {a.code || "—"}
+                                        <div className="flex items-center">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon-xs"
+                                                title="Expandir/colapsar"
+                                                aria-label="Expandir/colapsar"
+                                                className={cn(
+                                                    "mr-1",
+                                                    !hasChildren && "invisible pointer-events-none",
+                                                )}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    const k = keyOf(a.id);
+                                                    if (!k) return;
+                                                    setCollapsedKeys((prev) => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(k)) next.delete(k);
+                                                        else next.add(k);
+                                                        return next;
+                                                    });
+                                                }}
+                                            >
+                                                {hasChildren ? (
+                                                    isCollapsed ? (
+                                                        <ChevronRight />
+                                                    ) : (
+                                                        <ChevronDown />
+                                                    )
+                                                ) : null}
+                                            </Button>
+
+                                            <div
+                                                className="min-w-0"
+                                                style={{ paddingLeft: `${(depth || 0) * 2}rem` }}
+                                            >
+                                                <div className="font-semibold">{a.name}</div>
+                                                <div className="text-muted-foreground text-xs font-mono">
+                                                    {a.code || "—"}
+                                                </div>
+                                            </div>
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-sm">
-                                        {a.parentName || "—"}
+                                        {getParentDisplay(a)}
                                     </TableCell>
                                     <TableCell className="text-sm">
                                         {a.ownerName || "—"}
@@ -507,10 +720,12 @@ export default function AreasScreen() {
                     </TableBody>
                 </Table>
 
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                        {filtered.length} de {rows.length} áreas
-                    </span>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+                    <div>{hintText}</div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/60 px-3 py-1 text-xs">
+                        <span className="font-semibold">{visibleTreeRows.length}</span>
+                        <span>exibidas</span>
+                    </div>
                 </div>
             </div>
 
@@ -564,11 +779,12 @@ export default function AreasScreen() {
                                 }
                             >
                                 <option value="">Nenhuma (raiz)</option>
-                                {rows
-                                    .filter((a) => a.id !== draft.id)
-                                    .map((a) => (
-                                        <option key={a.id} value={a.id}>
-                                            {a.name}
+                                {parentOptions
+                                    .filter(({ area }) => area.id !== draft.id)
+                                    .map(({ area, depth }) => (
+                                        <option key={area.id} value={area.id}>
+                                            {(depth ? "\u00A0\u00A0".repeat(depth) + "└ " : "") +
+                                                area.name}
                                         </option>
                                     ))}
                             </select>

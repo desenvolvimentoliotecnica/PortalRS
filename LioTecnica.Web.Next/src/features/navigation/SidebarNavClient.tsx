@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
@@ -14,13 +14,13 @@ import {
   Building,
   Building2,
   Calendar,
-  ChevronDown,
   ChevronRight,
   Clock,
   Filter,
   Gauge,
   Globe,
   Heart,
+  Home,
   Inbox,
   Key,
   KeyRound,
@@ -49,7 +49,9 @@ import {
 import { cn } from "@/lib/utils";
 import type { BffNavItem } from "@/server/bff/navigation.schema";
 
-/* ─── Icon map: Bootstrap Icon name → Lucide equivalent ─── */
+/* ═══════════════════════════════════════════════════════════════════
+   ICON MAP: Bootstrap Icon name → Lucide equivalent
+   ═══════════════════════════════════════════════════════════════════ */
 const DEFAULT_ICON: LucideIcon = BarChart3;
 const ICONS: Record<string, LucideIcon> = {
   // Recrutamento
@@ -63,6 +65,7 @@ const ICONS: Record<string, LucideIcon> = {
   "bi-inbox": Inbox,
   // Feedback
   "bi-balloon-heart": Heart,
+  "bi-house": Home,
   "bi-journal-plus": NotebookPen,
   "bi-send": Send,
   "bi-chat-quote": MessageSquare,
@@ -93,14 +96,16 @@ const ICONS: Record<string, LucideIcon> = {
   "bi-microsoft": Globe,
   "bi-translate": Languages,
   "bi-bar-chart": BarChart3,
-  // Fallback plain names (for owner nav items set in C#)
+  // Fallback plain names
   brain: Brain,
   building2: Building2,
   briefcase: Briefcase,
   layoutdashboard: LayoutDashboard,
 };
 
-/* ─── Route map: Razor nested paths → flat Next.js routes ─── */
+/* ═══════════════════════════════════════════════════════════════════
+   ROUTE MAP: Razor nested paths → flat Next.js routes
+   ═══════════════════════════════════════════════════════════════════ */
 const ROUTE_MAP: Record<string, string> = {
   "/cadastro/cargos": "/cargos",
   "/cadastro/unidades": "/unidades",
@@ -108,38 +113,34 @@ const ROUTE_MAP: Record<string, string> = {
   "/cadastro/categorias": "/categorias",
   "/cadastro/areas": "/areas",
   "/cadastro/departamentos": "/departamentos",
-  "/cadastro/pessoas": "/funcionarios",
+  "/cadastro/pessoas": "/pessoas",
 };
 
-/** Normalize a BFF href to the correct Next.js route. */
 function normalizeHref(raw: string): string {
   if (!raw || raw === "#") return "#";
-  // Owner routes preserve casing (/Owner/Tenants)
   if (raw.startsWith("/Owner") || raw.startsWith("/owner")) return raw;
   const lower = raw.toLowerCase().replace(/\/+$/, "");
   return ROUTE_MAP[lower] ?? lower;
 }
 
-/* ─── Module classification (mirrors Razor GetModuleKey) ─── */
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE CLASSIFICATION (mirrors Razor GetModuleKey)
+   ═══════════════════════════════════════════════════════════════════ */
 type ModuleKey = "Recrutamento" | "Cadastros" | "Relatórios" | "Feedback" | "Admin" | "Owner";
-
 const MODULE_ORDER: ModuleKey[] = ["Recrutamento", "Cadastros", "Relatórios", "Feedback", "Admin", "Owner"];
 
 const RECRUTAMENTO_ROUTES = new Set([
   "/dashboard", "/agendas", "/vagas", "/candidatos",
   "/talentos", "/triagem", "/matching", "/portalvagas", "/entradaemailpasta",
 ]);
-
 const CADASTROS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
   "/unidades", "/funcionarios", "/pessoas",
 ]);
-
-const HIDDEN_ROUTES = new Set(["/matching"]); // acesso via Vagas
+const HIDDEN_ROUTES = new Set(["/matching"]);
 
 function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
   if (!href || href === "#") {
-    // Group parent with no route — classify by children's routes
     if (children?.length) {
       for (const child of children) {
         const childModule = getModuleKey(child.href, child.children);
@@ -148,9 +149,7 @@ function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
     }
     return "Recrutamento";
   }
-
   const r = href.replace(/\/+$/, "").toLowerCase();
-
   if (r.startsWith("/owner")) return "Owner";
   if (r.startsWith("/admin")) return "Admin";
   if (r === "/relatorios") return "Relatórios";
@@ -158,24 +157,59 @@ function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
   if (r.startsWith("/feedback") || r.startsWith("/gestao") || r.startsWith("/desempenho")) return "Feedback";
   if (RECRUTAMENTO_ROUTES.has(r)) return "Recrutamento";
   if (CADASTROS_ROUTES.has(r) || r.startsWith("/cadastro/")) return "Cadastros";
-
-  return "Recrutamento"; // default
+  return "Recrutamento";
 }
 
 function isRouteHidden(href: string): boolean {
   return HIDDEN_ROUTES.has(href.replace(/\/+$/, "").toLowerCase());
 }
 
-/* ─── NavLink ─── */
-function NavLink({ item, normalized }: { item: BffNavItem; normalized: string }) {
-  const rawHref = item.href || "#";
-  // Normalize: lowercase + remap nested Razor paths to flat Next.js routes
-  const href = normalizeHref(rawHref);
-  const normalizedLower = normalized.toLowerCase();
-  const hrefLower = href.toLowerCase().replace(/\/+$/, "");
-  const active =
-    hrefLower !== "#" &&
-    (normalizedLower === hrefLower || (hrefLower.length > 1 && normalizedLower.startsWith(`${hrefLower}/`)));
+/** Check if a normalized pathname matches a given href */
+function isActive(normalized: string, href: string): boolean {
+  const n = normalized.toLowerCase();
+  const h = href.toLowerCase().replace(/\/+$/, "");
+  if (h === "#" || h === "") return false;
+  return n === h || (h.length > 1 && n.startsWith(`${h}/`));
+}
+
+/** Check if any item or its children are active */
+function hasActiveDescendant(item: BffNavItem, normalized: string): boolean {
+  const href = normalizeHref(item.href);
+  if (isActive(normalized, href)) return true;
+  return item.children?.some((c) => hasActiveDescendant(c, normalized)) ?? false;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COLLAPSIBLE SECTION — CSS grid-template-rows animation
+   ═══════════════════════════════════════════════════════════════════ */
+function Collapsible({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateRows: open ? "1fr" : "0fr",
+        transition: "grid-template-rows 250ms cubic-bezier(.4,0,.2,1)",
+      }}
+    >
+      <div style={{ overflow: "hidden" }}>{children}</div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   NAV LINK — leaf item (no children)
+   ═══════════════════════════════════════════════════════════════════ */
+function NavLeaf({
+  item,
+  normalized,
+  indent = false,
+}: {
+  item: BffNavItem;
+  normalized: string;
+  indent?: boolean;
+}) {
+  const href = normalizeHref(item.href || "#");
+  const active = isActive(normalized, href);
   const iconKey = (item.icon ?? "").toLowerCase();
   const Icon = ICONS[iconKey] ?? DEFAULT_ICON;
   const target = item.openInNewTab ? "_blank" : undefined;
@@ -185,32 +219,95 @@ function NavLink({ item, normalized }: { item: BffNavItem; normalized: string })
     <li>
       <Link
         className={cn(
-          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.9rem] leading-snug text-white/85 transition",
-          "hover:bg-white/10 hover:text-white",
-          active && "bg-white/15 font-medium text-white",
+          "group flex items-center gap-3 rounded-xl px-3 py-2 text-[0.88rem] leading-snug text-white/80",
+          "border border-transparent transition-all duration-200",
+          "hover:bg-white/10 hover:border-white/12 hover:text-white",
+          active && "bg-white/[.16] border-white/[.22] text-white font-medium",
+          indent && "ml-5 text-[0.82rem] py-1.5",
         )}
         href={href}
         rel={rel}
         target={target}
       >
-        <Icon aria-hidden className="size-5 shrink-0 opacity-90" />
+        <Icon
+          aria-hidden
+          className={cn(
+            "shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100",
+            indent ? "size-[18px]" : "size-5",
+            active && "opacity-100",
+          )}
+        />
         <span className="truncate">{item.label}</span>
       </Link>
-
-      {item.children?.length ? (
-        <ul className="mt-1 space-y-1 pl-4">
-          {item.children
-            .filter((c) => !isRouteHidden(c.href))
-            .map((c) => (
-              <NavLink item={c} key={c.id} normalized={normalized} />
-            ))}
-        </ul>
-      ) : null}
     </li>
   );
 }
 
-/* ─── Module Section ─── */
+/* ═══════════════════════════════════════════════════════════════════
+   NAV GROUP — item with children (sub-accordion)
+   ═══════════════════════════════════════════════════════════════════ */
+function NavGroup({ item, normalized }: { item: BffNavItem; normalized: string }) {
+  const hasActive = hasActiveDescendant(item, normalized);
+  const [open, setOpen] = useState(hasActive);
+  const iconKey = (item.icon ?? "").toLowerCase();
+  const Icon = ICONS[iconKey] ?? DEFAULT_ICON;
+
+  const visibleChildren = (item.children ?? []).filter((c) => !isRouteHidden(c.href));
+  if (visibleChildren.length === 0) {
+    return <NavLeaf item={item} normalized={normalized} />;
+  }
+
+  return (
+    <li>
+      <button
+        type="button"
+        className={cn(
+          "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[0.88rem] leading-snug text-white/80",
+          "border border-transparent transition-all duration-200",
+          "hover:bg-white/10 hover:border-white/12 hover:text-white",
+          open && "text-white/95",
+        )}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Icon aria-hidden className="size-5 shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100" />
+        <span className="truncate flex-1 text-left">{item.label}</span>
+        <ChevronRight
+          aria-hidden
+          className={cn(
+            "size-3.5 shrink-0 opacity-60 transition-transform duration-250",
+            open && "rotate-90",
+          )}
+        />
+      </button>
+      <Collapsible open={open}>
+        <ul className="mt-0.5 space-y-0.5">
+          {visibleChildren.map((c) =>
+            c.children?.length ? (
+              <NavGroup key={c.id} item={c} normalized={normalized} />
+            ) : (
+              <NavLeaf key={c.id} item={c} normalized={normalized} indent />
+            ),
+          )}
+        </ul>
+      </Collapsible>
+    </li>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   NAV ITEM — dispatcher: leaf or group
+   ═══════════════════════════════════════════════════════════════════ */
+function NavItem({ item, normalized }: { item: BffNavItem; normalized: string }) {
+  const visibleChildren = (item.children ?? []).filter((c) => !isRouteHidden(c.href));
+  if (visibleChildren.length > 0) {
+    return <NavGroup item={item} normalized={normalized} />;
+  }
+  return <NavLeaf item={item} normalized={normalized} />;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODULE SECTION — top-level accordion (RECRUTAMENTO, CADASTROS, etc.)
+   ═══════════════════════════════════════════════════════════════════ */
 function ModuleSection({
   label,
   items,
@@ -227,32 +324,42 @@ function ModuleSection({
   if (items.length === 0) return null;
 
   return (
-    <div className="mb-2">
+    <div className="mt-1">
+      {/* Module header */}
       <button
         type="button"
-        className="flex w-full items-center justify-between px-3 py-2.5 text-[0.7rem] font-bold tracking-[0.15em] text-white/90 uppercase hover:text-white transition"
+        className={cn(
+          "flex w-full items-center justify-between rounded-lg px-3 py-2",
+          "text-[0.72rem] font-bold tracking-[0.16em] text-white/85 uppercase",
+          "transition-colors duration-200 hover:bg-white/[.08] hover:text-white",
+        )}
         onClick={() => setOpen((v) => !v)}
       >
         <span>{label}</span>
-        {open ? (
-          <ChevronDown className="size-3.5 opacity-70" />
-        ) : (
-          <ChevronRight className="size-3.5 opacity-70" />
-        )}
+        <ChevronRight
+          aria-hidden
+          className={cn(
+            "size-3.5 opacity-60 transition-transform duration-250",
+            open && "rotate-90",
+          )}
+        />
       </button>
 
-      {open && (
-        <ul className="space-y-1">
+      {/* Module body */}
+      <Collapsible open={open}>
+        <ul className="space-y-0.5 pb-1">
           {items.map((item) => (
-            <NavLink item={item} key={item.id} normalized={normalized} />
+            <NavItem key={item.id} item={item} normalized={normalized} />
           ))}
         </ul>
-      )}
+      </Collapsible>
     </div>
   );
 }
 
-/* ─── Sidebar Nav ─── */
+/* ═══════════════════════════════════════════════════════════════════
+   SIDEBAR NAV — main export
+   ═══════════════════════════════════════════════════════════════════ */
 export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
   const pathname = usePathname();
   const normalized = pathname.replace(/^\/app(?=\/|$)/, "") || "/";
@@ -261,44 +368,31 @@ export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
     const map: Record<ModuleKey, BffNavItem[]> = {
       Recrutamento: [],
       Cadastros: [],
-      Relatórios: [],
+      "Relatórios": [],
       Feedback: [],
       Admin: [],
       Owner: [],
     };
-
     for (const item of items) {
       if (isRouteHidden(item.href)) continue;
       const key = getModuleKey(item.href, item.children);
       map[key].push(item);
     }
-
     return map;
   }, [items]);
 
-  // Determine which module contains the active route
   const activeModule = useMemo<ModuleKey>(() => {
     const norm = normalized.toLowerCase();
     for (const mod of MODULE_ORDER) {
       for (const item of grouped[mod]) {
-        const href = (item.href || "").replace(/\/+$/, "").toLowerCase();
-        if (href !== "#" && (norm === href || (href.length > 1 && norm.startsWith(`${href}/`)))) {
-          return mod;
-        }
-        // Check children
-        for (const child of item.children ?? []) {
-          const childHref = (child.href || "").replace(/\/+$/, "").toLowerCase();
-          if (childHref !== "#" && (norm === childHref || (childHref.length > 1 && norm.startsWith(`${childHref}/`)))) {
-            return mod;
-          }
-        }
+        if (hasActiveDescendant(item, normalized)) return mod;
       }
     }
     return "Recrutamento";
   }, [grouped, normalized]);
 
   return (
-    <nav className="px-2 pb-4 pt-2">
+    <nav className="px-2 pb-4 pt-1">
       {MODULE_ORDER.map((mod) => (
         <ModuleSection
           key={mod}

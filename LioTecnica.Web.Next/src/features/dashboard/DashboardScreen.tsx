@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { toast } from "sonner";
+import { Folder, Mail } from "lucide-react";
 
 const BASE = "/app";
+const DEFAULT_MIN_MATCH = 70;
 
 type Kpis = {
   openVagas: number;
@@ -37,6 +39,21 @@ type TopMatchRow = {
   etapa: string;
 };
 
+type EnumOption = { code: string; text: string };
+type EnumData = Record<string, EnumOption[]>;
+
+type OpenVagaRow = {
+  id: string;
+  codigo: string;
+  titulo: string;
+  area: string;
+  modalidade: string;
+  cidade: string;
+  uf: string;
+  senioridade: string;
+  updatedAtUtc: string;
+};
+
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
@@ -54,11 +71,42 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+function formatLocal(v: { cidade?: string | null; uf?: string | null }) {
+  const parts = [v.cidade, v.uf].map((x) => (x ?? "").trim()).filter(Boolean);
+  return parts.length ? parts.join(" - ") : "-";
+}
+
+function formatDate(iso: string) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP_${res.status}`);
   if (res.status === 204) return null as T;
   return (await res.json()) as T;
+}
+
+function mapEnumData(payload: unknown): EnumData {
+  const r = asRecord(payload) ?? {};
+  const out: EnumData = {};
+  Object.entries(r).forEach(([key, value]) => {
+    const arr = Array.isArray(value) ? (value as unknown[]) : [];
+    out[key] = arr
+      .map((x) => {
+        const rr = asRecord(x);
+        if (!rr) return null;
+        const code = pickString(rr.code, "");
+        const text = pickString(rr.text, "");
+        if (!code) return null;
+        return { code, text };
+      })
+      .filter(Boolean) as EnumOption[];
+  });
+  return out;
 }
 
 function mapKpis(payload: unknown): Kpis {
@@ -141,11 +189,54 @@ function mapTopMatches(payload: unknown): TopMatchRow[] {
     .filter(Boolean) as TopMatchRow[];
 }
 
+function mapOpenVagas(payload: unknown): OpenVagaRow[] {
+  const arr = Array.isArray(payload) ? (payload as unknown[]) : [];
+  return arr
+    .map((x) => {
+      const r = asRecord(x) ?? {};
+      const id = pickString(r.id, "");
+      if (!id) return null;
+      return {
+        id,
+        codigo: pickString(r.codigo, "-"),
+        titulo: pickString(r.titulo, "-"),
+        area: pickString(r.area, "-"),
+        modalidade: pickString(r.modalidade, "-"),
+        cidade: pickString(r.cidade, ""),
+        uf: pickString(r.uf, ""),
+        senioridade: pickString(r.senioridade, "-"),
+        updatedAtUtc: pickString(r.updatedAtUtc, ""),
+      };
+    })
+    .filter(Boolean) as OpenVagaRow[];
+}
+
 function BadgeEtapa({ etapa }: { etapa: string }) {
   const e = (etapa || "").toLowerCase();
   const cls =
     e.includes("reprov") ? "bad" : e.includes("aprov") ? "ok" : e.includes("entrev") ? "warn" : e.includes("triag") ? "warn" : "";
   return <span className={`status-tag ${cls}`}>{etapa}</span>;
+}
+
+function OriginBadge({ origem }: { origem: string }) {
+  const raw = (origem || "").trim();
+  const lower = raw.toLowerCase();
+  const Icon = lower === "email" ? Mail : Folder;
+  const label = raw || "-";
+  return (
+    <span className="badge-soft">
+      <Icon size={14} />
+      {label}
+    </span>
+  );
+}
+
+function goToVagaDetail(vagaId: string) {
+  if (!vagaId) return;
+  const url = new URL(`${BASE}/vagas`, window.location.origin);
+  url.searchParams.set("vagaId", vagaId);
+  url.searchParams.set("open", "detail");
+  window.location.href = url.toString();
 }
 
 export default function DashboardScreen({
@@ -174,13 +265,38 @@ export default function DashboardScreen({
   const [quickOpen, setQuickOpen] = useState(false);
 
   const [vagaId, setVagaId] = useState<string>("all");
-  const [minMatch, setMinMatch] = useState<number>(0);
+  const [minMatch, setMinMatch] = useState<number>(DEFAULT_MIN_MATCH);
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
   const [quickArea, setQuickArea] = useState<string>("");
 
+  const [enums, setEnums] = useState<EnumData>({});
+  const [openVagasOpen, setOpenVagasOpen] = useState(false);
+  const [openVagas, setOpenVagas] = useState<OpenVagaRow[]>([]);
+  const [openVagasLoading, setOpenVagasLoading] = useState(false);
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickStatus, setQuickStatus] = useState("");
+  const [quickKeywords, setQuickKeywords] = useState("");
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
+
+  useEffect(() => {
+    void fetchJson<unknown>(`${BASE}/api/lookup/enums`)
+      .then((data) => setEnums(mapEnumData(data)))
+      .catch(() => {
+        // silencioso: enums só melhoram os selects; tela não deve quebrar sem eles
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!openVagasOpen) return;
+    setOpenVagasLoading(true);
+    void fetchJson<unknown>(`${BASE}/Dashboard/_api/open-vagas?take=200`)
+      .then((rows) => setOpenVagas(mapOpenVagas(rows)))
+      .catch(() => toast.error("Falha ao carregar vagas abertas."))
+      .finally(() => setOpenVagasLoading(false));
+  }, [openVagasOpen]);
 
   useEffect(() => {
     const ctx = canvasRef.current;
@@ -250,13 +366,25 @@ export default function DashboardScreen({
     }
   }
 
-  async function refreshTopMatches() {
+  async function refreshTopMatches(
+    overrides?: Partial<{
+      vagaId: string;
+      minMatch: number;
+      from: string;
+      to: string;
+    }>,
+  ) {
+    const nextVagaId = overrides?.vagaId ?? vagaId;
+    const nextMinMatch = overrides?.minMatch ?? minMatch;
+    const nextFrom = overrides?.from ?? from;
+    const nextTo = overrides?.to ?? to;
+
     const params = new URLSearchParams();
-    params.set("minMatch", String(clamp(minMatch, 0, 100)));
+    params.set("minMatch", String(clamp(nextMinMatch, 0, 100)));
     params.set("take", "15");
-    if (vagaId && vagaId !== "all") params.set("vagaId", vagaId);
-    if (from) params.set("from", new Date(`${from}T00:00:00Z`).toISOString());
-    if (to) params.set("to", new Date(`${to}T23:59:59Z`).toISOString());
+    if (nextVagaId && nextVagaId !== "all") params.set("vagaId", nextVagaId);
+    if (nextFrom) params.set("from", new Date(`${nextFrom}T00:00:00Z`).toISOString());
+    if (nextTo) params.set("to", new Date(`${nextTo}T23:59:59Z`).toISOString());
     try {
       const rows = await fetchJson<unknown>(`${BASE}/Dashboard/_api/top-matches?${params.toString()}`);
       setTopMatches(mapTopMatches(rows));
@@ -286,7 +414,17 @@ export default function DashboardScreen({
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-        <div className="card-soft p-3">
+        <div
+          className="card-soft p-3 cursor-pointer"
+          role="button"
+          tabIndex={0}
+          onClick={() => setOpenVagasOpen(true)}
+          onKeyDown={(ev) => {
+            if (ev.key !== "Enter" && ev.key !== " ") return;
+            ev.preventDefault();
+            setOpenVagasOpen(true);
+          }}
+        >
           <div className="mini-title mb-1">Vagas abertas</div>
           <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.openVagas}</div>
           <div className="text-muted-foreground text-sm">em aberto</div>
@@ -368,10 +506,10 @@ export default function DashboardScreen({
             <div className="text-muted-foreground text-sm">Top 15 por score</div>
           </div>
           <div className="flex gap-2">
-            <button className="btn-ghost" type="button" onClick={() => toast.info("Export (legado): implemente se precisar.")}>
+            <button className="btn-ghost" type="button">
               Exportar
             </button>
-            <button className="btn-brand" type="button" onClick={() => toast.info("Nova vaga: use a tela Vagas.")}>
+            <button className="btn-brand" type="button" onClick={() => setQuickOpen(true)}>
               Nova vaga
             </button>
           </div>
@@ -404,7 +542,7 @@ export default function DashboardScreen({
                       <div className="text-muted-foreground text-sm">ID: {x.candidatoId || "-"}</div>
                     </td>
                     <td>
-                      <span className="badge-soft">{x.origem || "-"}</span>
+                      <OriginBadge origem={x.origem || "-"} />
                     </td>
                     <td>
                       <div className="flex items-center gap-2">
@@ -423,7 +561,7 @@ export default function DashboardScreen({
                         className="btn-ghost"
                         type="button"
                         onClick={() => {
-                          window.location.href = `${BASE}/vagas`;
+                          goToVagaDetail(x.vagaId);
                         }}
                       >
                         Ver vaga
@@ -434,7 +572,7 @@ export default function DashboardScreen({
               ) : (
                 <tr>
                   <td colSpan={6} className="text-center text-muted py-4">
-                    Sem dados.
+                    Nenhum registro atende o filtro atual.
                   </td>
                 </tr>
               )}
@@ -448,8 +586,8 @@ export default function DashboardScreen({
           <div className="ml-auto h-dvh w-full max-w-md bg-white p-4 shadow-2xl">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <div className="mini-title mb-1">Filtros</div>
-                <div className="text-lg font-extrabold">Dashboard</div>
+                <div className="fw-bold">Filtros e Visões</div>
+                <div className="text-muted-foreground text-sm">Ajuste o dashboard para a operação do RH</div>
               </div>
               <button className="btn-ghost px-3 py-2" type="button" onClick={() => setFiltersOpen(false)}>
                 Fechar
@@ -458,9 +596,13 @@ export default function DashboardScreen({
 
             <div className="mt-4 space-y-3">
               <div>
-                <label className="mini-title mb-1 block">Vaga</label>
+                <div className="fw-semibold mb-2">Vaga</div>
                 <select className="form-select" value={vagaId} onChange={(e) => setVagaId(e.target.value)}>
-                  <option value="all">Todas</option>
+                  {(enums.vagaFilterSimple?.length ? enums.vagaFilterSimple : [{ code: "all", text: "Todas" }]).map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.text}
+                    </option>
+                  ))}
                   {vagas
                     .slice()
                     .sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR"))
@@ -472,33 +614,47 @@ export default function DashboardScreen({
                 </select>
               </div>
 
-              <div>
-                <label className="mini-title mb-1 block">Match mínimo</label>
-                <input
-                  className="form-control"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={minMatch}
-                  onChange={(e) => setMinMatch(clamp(Number(e.target.value), 0, 100))}
-                />
+              <div className="card-soft p-3">
+                <div className="fw-semibold mb-2">Período</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="form-label small text-muted-foreground block mb-1">De</label>
+                    <input className="form-control" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="form-label small text-muted-foreground block mb-1">Até</label>
+                    <input className="form-control" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mini-title mb-1 block">De</label>
-                  <input className="form-control" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <div>
+                <div className="fw-semibold mb-2">Match mínimo</div>
+                <input className="w-full" type="range" min={0} max={100} value={minMatch} onChange={(e) => setMinMatch(clamp(Number(e.target.value), 0, 100))} />
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>0%</span>
+                  <span>50%</span>
+                  <span>100%</span>
                 </div>
-                <div>
-                  <label className="mini-title mb-1 block">Até</label>
-                  <input className="form-control" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                <div className="mt-2 badge-soft">
+                  Atual: <span className="font-semibold">{minMatch}%</span>
                 </div>
               </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setFiltersOpen(false)}>
-                Cancelar
+              <button
+                className="btn-ghost"
+                type="button"
+                onClick={() => {
+                  setMinMatch(DEFAULT_MIN_MATCH);
+                  setVagaId("all");
+                  setFrom("");
+                  setTo("");
+                  void refreshTopMatches({ minMatch: DEFAULT_MIN_MATCH, vagaId: "all", from: "", to: "" });
+                }}
+              >
+                Limpar
               </button>
               <button
                 className="btn-brand"
@@ -519,8 +675,8 @@ export default function DashboardScreen({
           <div className="ml-auto h-dvh w-full max-w-md bg-white p-4 shadow-2xl">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <div className="mini-title mb-1">Ações rápidas</div>
-                <div className="text-lg font-extrabold">Criar vaga (atalho)</div>
+                <div className="fw-bold">Ações rápidas</div>
+                <div className="text-muted-foreground text-sm">Atalhos para operação do RH</div>
               </div>
               <button className="btn-ghost px-3 py-2" type="button" onClick={() => setQuickOpen(false)}>
                 Fechar
@@ -528,36 +684,153 @@ export default function DashboardScreen({
             </div>
 
             <div className="mt-4 space-y-3">
-              <div>
-                <label className="mini-title mb-1 block">Área</label>
-                <select className="form-select" value={quickArea} onChange={(e) => setQuickArea(e.target.value)}>
-                  <option value="">Selecionar área</option>
-                  {areas.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.nome}
-                    </option>
-                  ))}
-                </select>
+              <div className="card-soft p-3">
+                <div className="fw-semibold mb-2">Criar vaga</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="col-span-2">
+                    <label className="form-label small text-muted-foreground block mb-1">Título</label>
+                    <input className="form-control" placeholder="Ex.: Analista de Marketing Jr" value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="form-label small text-muted-foreground block mb-1">Área</label>
+                    <select className="form-select" value={quickArea} onChange={(e) => setQuickArea(e.target.value)}>
+                      <option value="">Selecionar área</option>
+                      {areas.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label small text-muted-foreground block mb-1">Status</label>
+                    <select className="form-select" value={quickStatus} onChange={(e) => setQuickStatus(e.target.value)}>
+                      <option value="">Selecionar status</option>
+                      {(enums.vagaStatus ?? []).map((opt) => (
+                        <option key={opt.code} value={opt.code}>
+                          {opt.text}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="form-label small text-muted-foreground block mb-1">Palavras-chave (separadas por vírgula)</label>
+                    <input className="form-control" placeholder="Ex.: power bi, seo, redes sociais, crm" value={quickKeywords} onChange={(e) => setQuickKeywords(e.target.value)} />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <button
+                    className="btn-brand w-full"
+                    type="button"
+                    onClick={() => {
+                      window.alert("Use a tela de Vagas para criar uma nova vaga.");
+                    }}
+                  >
+                    Salvar
+                  </button>
+                </div>
               </div>
 
-              <div className="text-muted-foreground text-sm">
-                Atalho: no Razor esse drawer abre criação rápida. Aqui, por enquanto, direcionamos para a tela de Vagas.
+              <div className="card-soft p-3">
+                <div className="fw-semibold mb-2">Entrada de currículos</div>
+                <div className="flex flex-col gap-2">
+                  <button className="btn-ghost" type="button">
+                    Conectar caixa de e-mail
+                  </button>
+                  <button className="btn-ghost" type="button">
+                    Configurar pasta monitorada
+                  </button>
+                  <button className="btn-ghost" type="button">
+                    Rodar processamento agora
+                  </button>
+                </div>
+              </div>
+
+              <div className="card-soft p-3">
+                <div className="fw-semibold mb-2">Motor de match</div>
+                <div className="text-muted-foreground text-sm mb-2">Ajustes: pesos, obrigatórios e sinônimos por vaga.</div>
+                <button className="btn-brand w-full" type="button" onClick={() => toast.info("Em breve: configurações do matching.")}>
+                  Abrir configurações
+                </button>
               </div>
             </div>
+          </div>
+        </div>
+      ) : null}
 
-            <div className="mt-6 flex justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setQuickOpen(false)}>
-                Cancelar
+      {openVagasOpen ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <div className="card-soft w-full max-w-5xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-start justify-between gap-2 p-4 border-b border-black/10">
+              <div className="flex items-center gap-2">
+                <div>
+                  <div className="fw-bold text-lg">Vagas abertas</div>
+                  <div className="text-muted-foreground text-sm">Lista de vagas em aberto</div>
+                </div>
+                <span className="badge-soft">{openVagas.length}</span>
+              </div>
+              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setOpenVagasOpen(false)}>
+                Fechar
               </button>
-              <button
-                className="btn-brand"
-                type="button"
-                onClick={() => {
-                  window.location.href = `${BASE}/vagas`;
-                }}
-              >
-                Ir para Vagas
-              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: 120 }}>Código</th>
+                      <th style={{ minWidth: 240 }}>Vaga</th>
+                      <th style={{ minWidth: 160 }}>Área</th>
+                      <th style={{ minWidth: 150 }}>Modo</th>
+                      <th style={{ minWidth: 160 }}>Local</th>
+                      <th className="text-end" style={{ minWidth: 140 }}>
+                        Atualizado
+                      </th>
+                      <th className="text-end" style={{ minWidth: 120 }}>
+                        Ações
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openVagasLoading ? (
+                      <tr>
+                        <td colSpan={7} className="text-center text-muted py-4">
+                          Carregando...
+                        </td>
+                      </tr>
+                    ) : openVagas.length ? (
+                      openVagas
+                        .slice()
+                        .sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR"))
+                        .map((v) => (
+                          <tr key={v.id}>
+                            <td className="mono">{v.codigo || "-"}</td>
+                            <td>
+                              <div className="fw-semibold">{v.titulo || "-"}</div>
+                              <div className="text-muted-foreground text-sm">{v.senioridade || "-"}</div>
+                            </td>
+                            <td>{v.area || "-"}</td>
+                            <td>{v.modalidade || "-"}</td>
+                            <td>{formatLocal(v)}</td>
+                            <td className="text-end mono">{formatDate(v.updatedAtUtc)}</td>
+                            <td className="text-end">
+                              <button className="btn-ghost" type="button" onClick={() => goToVagaDetail(v.id)}>
+                                Ver vaga
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="text-center text-muted py-4">
+                          Nenhuma vaga em aberto.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

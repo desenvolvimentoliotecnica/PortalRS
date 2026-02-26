@@ -12,6 +12,8 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import PaginationBar from "@/components/pagination/PaginationBar";
+import { useClientPagination } from "@/hooks/useClientPagination";
 
 const BASE = "/app";
 
@@ -110,6 +112,13 @@ export default function CargosScreen() {
             return [c.codigo, c.nome, c.area, c.senioridade].filter(Boolean).join(" ").toLowerCase().includes(qq);
         });
     }, [q, rows, statusFilter]);
+
+    /* pagination (client-side) */
+    const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
+        initialPageSize: 20,
+        resetDeps: [q, statusFilter],
+    });
+    const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.end, slice.start]);
 
     /* KPIs — Razor: Cargos, Ativos, Funcionários, Headcount */
     const kpis = useMemo(() => {
@@ -242,7 +251,7 @@ export default function CargosScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Carregando…</TableCell></TableRow>
-                        ) : filtered.length ? filtered.map((c) => (
+                        ) : filtered.length ? paged.map((c) => (
                             <TableRow key={c.id}>
                                 <TableCell>
                                     <div className="font-semibold">{c.nome}</div>
@@ -265,7 +274,13 @@ export default function CargosScreen() {
                         )}
                     </TableBody>
                 </Table>
-                <div className="mt-2 text-xs text-muted-foreground">{filtered.length} de {rows.length} cargos</div>
+                <PaginationBar
+                    page={page}
+                    pageSize={pageSize}
+                    totalItems={filtered.length}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                />
             </div>
 
             {/* Edit/Create Dialog — Razor fields: Código, Cargo, Status, Área, Senioridade, Tipo, Descrição */}

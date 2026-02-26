@@ -8,6 +8,7 @@ export const DocumentoSchema = z
     descricao: z.string().optional().nullable(),
     tamanhoBytes: z.number().optional().nullable(),
     url: z.string().optional().nullable(),
+    contentType: z.string().optional().nullable(),
     createdAt: z.string().optional().nullable(),
   })
   .passthrough();
@@ -22,24 +23,32 @@ export const CandidatoSchema = z
     fone: z.string().optional().nullable(),
     cidade: z.string().optional().nullable(),
     uf: z.string().optional().nullable(),
+    fonte: z.string().optional().nullable(),
     status: z.string().optional().nullable(),
     vagaId: z.string().optional().nullable(),
     vagaTitle: z.string().optional().nullable(),
     vagaCode: z.string().optional().nullable(),
     cvText: z.string().optional().nullable(),
     resumoProfissional: z.string().optional().nullable(),
+    obs: z.string().optional().nullable(),
     lastMatch: z
       .object({
         score: z.number().optional().nullable(),
         pass: z.boolean().optional().nullable(),
         at: z.string().optional().nullable(),
+        atUtc: z.string().optional().nullable(),
         vagaId: z.string().optional().nullable(),
       })
       .optional()
       .nullable(),
     documentos: z.array(DocumentoSchema).optional().nullable(),
     updatedAt: z.string().optional().nullable(),
+    updatedAtUtc: z.string().optional().nullable(),
+    createdAt: z.string().optional().nullable(),
+    createdAtUtc: z.string().optional().nullable(),
     talentoId: z.string().optional().nullable(),
+    applicationRecruiterUserId: z.string().optional().nullable(),
+    applicationRecruiterUserName: z.string().optional().nullable(),
   })
   .passthrough();
 

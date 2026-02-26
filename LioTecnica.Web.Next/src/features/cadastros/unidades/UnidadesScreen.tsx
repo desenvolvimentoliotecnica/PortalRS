@@ -12,6 +12,8 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import PaginationBar from "@/components/pagination/PaginationBar";
+import { useClientPagination } from "@/hooks/useClientPagination";
 
 const BASE = "/app";
 
@@ -120,6 +122,13 @@ export default function UnidadesScreen() {
             return [u.nome, u.codigo, u.cidade, u.email, u.tipo].filter(Boolean).join(" ").toLowerCase().includes(qq);
         });
     }, [q, rows, statusFilter]);
+
+    /* pagination (client-side) */
+    const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
+        initialPageSize: 20,
+        resetDeps: [q, statusFilter],
+    });
+    const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.end, slice.start]);
 
     /* KPIs — Razor: Unidades, Ativas, Headcount, Vagas abertas */
     const kpis = useMemo(() => {
@@ -264,7 +273,7 @@ export default function UnidadesScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Carregando…</TableCell></TableRow>
-                        ) : filtered.length ? filtered.map((u) => (
+                        ) : filtered.length ? paged.map((u) => (
                             <TableRow key={u.id}>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
@@ -299,7 +308,13 @@ export default function UnidadesScreen() {
                         )}
                     </TableBody>
                 </Table>
-                <div className="mt-2 text-xs text-muted-foreground">{filtered.length} de {rows.length} unidades</div>
+                <PaginationBar
+                    page={page}
+                    pageSize={pageSize}
+                    totalItems={filtered.length}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                />
             </div>
 
             {/* Edit/Create Dialog — all 15 fields from Razor */}

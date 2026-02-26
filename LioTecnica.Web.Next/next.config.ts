@@ -40,6 +40,14 @@ const nextConfig: NextConfig = {
 
       // SignalR hubs (EntradaEmailPasta).
       { source: "/hubs/:path*", destination: `${legacyOrigin}/hubs/:path*` },
+
+      /**
+       * Portal Vagas (legado) — endpoints consumidos no browser pela UI migrada.
+       * Mantemos a UI do Portal Vagas em `/app/PortalVagas/*` (por causa do basePath),
+       * mas as APIs no legado continuam em `/PortalVagas/*`.
+       */
+      { source: "/PortalVagas/Agenda", destination: `${legacyOrigin}/PortalVagas/Agenda` },
+      { source: "/PortalVagas/Agenda/:path*", destination: `${legacyOrigin}/PortalVagas/Agenda/:path*` },
     ];
   },
 };

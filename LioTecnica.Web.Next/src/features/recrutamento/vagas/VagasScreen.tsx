@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
 import type { MatchingCandidate, VagaDetail, VagaListItem } from "@/server/recrutamento/vagas.schema";
+import PaginationBar from "@/components/pagination/PaginationBar";
+import { useClientPagination } from "@/hooks/useClientPagination";
 
 const BASE = "/app";
 
@@ -102,6 +105,9 @@ function clamp(n: number, min: number, max: number) {
 }
 
 export default function VagasScreen() {
+  const searchParams = useSearchParams();
+  const deeplinkHandled = useRef(false);
+
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<VagaListItem[]>([]);
 
@@ -175,6 +181,13 @@ export default function VagasScreen() {
     });
   }, [area, q, rows, status]);
 
+  /* pagination (client-side) */
+  const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
+    initialPageSize: 20,
+    resetDeps: [q, area, status],
+  });
+  const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.end, slice.start]);
+
   async function ensureDetail(id: string) {
     const res = await fetchJson<VagaDetail>(`${BASE}/api/vagas/${encodeURIComponent(id)}`);
     return res;
@@ -193,6 +206,17 @@ export default function VagasScreen() {
       setDetail(null);
     }
   }
+
+  // Deep-link support: /app/vagas?vagaId=...&open=detail
+  useEffect(() => {
+    if (deeplinkHandled.current) return;
+    const open = searchParams.get("open");
+    const vagaId = searchParams.get("vagaId");
+    if (open === "detail" && vagaId) {
+      deeplinkHandled.current = true;
+      void openDetails(vagaId);
+    }
+  }, [openDetails, searchParams]);
 
   function openNew() {
     setDraft({
@@ -497,7 +521,7 @@ export default function VagasScreen() {
                   </td>
                 </tr>
               ) : filtered.length ? (
-                filtered.map((v) => {
+                paged.map((v) => {
                   const { total, obrig } = calcReqTotals(v);
                   const thr = clamp(pickNumber(v.threshold ?? v.matchMinimoPercentual, 0), 0, 100);
                   const loc = [v.cidade, v.uf].filter(Boolean).join(" - ");
@@ -539,10 +563,7 @@ export default function VagasScreen() {
                           className="btn-ghost px-3 py-2 me-1"
                           type="button"
                           onClick={() => {
-                            void openDetails(v.id).then(() => {
-                              setDetailTab("candidatos");
-                              void loadMatchingCandidates();
-                            });
+                            window.location.href = `/app/matching?vagaId=${encodeURIComponent(v.id)}`;
                           }}
                           title="Ver matching"
                         >
@@ -571,6 +592,14 @@ export default function VagasScreen() {
             </tbody>
           </table>
         </div>
+
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          totalItems={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {detailOpen ? (

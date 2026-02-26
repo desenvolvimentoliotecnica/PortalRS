@@ -229,7 +229,7 @@ export default function TopbarClient({
 
                 {/* Portal de Vagas */}
                 <DropdownMenuItem asChild>
-                  <a href="/PortalVagas" target="_blank" rel="noopener">
+                  <a href={`${process.env.NEXT_PUBLIC_PORTAL_ORIGIN || ""}/PortalVagas`} target="_blank" rel="noopener">
                     <Globe className="size-4 mr-2" />
                     Portal de Vagas
                   </a>
