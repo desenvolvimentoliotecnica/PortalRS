@@ -6,10 +6,26 @@ pool:
 
 variables:
   package_name: "deploy-package.tar.gz"
-  artifact_name: "drop"
+  artifact_name: "F785-deploy"
   package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
 
 steps:
+  - task: NodeTool@0
+    displayName: "Node.js 18.x"
+    inputs:
+      versionSpec: "18.x"
+
+  - script: |
+      cd F785-app
+      npm ci
+      npm run build
+    displayName: "Build frontend"
+
+  - script: |
+      cd F785-app/backend
+      npm ci --omit=dev
+    displayName: "Instalar dependências backend"
+
   - task: Bash@3
     displayName: "Compactar projeto para release"
     inputs:
@@ -23,8 +39,8 @@ steps:
         PACKAGE_PATH="$(package_path)"
         PACKAGE_NAME="$(package_name)"
 
-        if [ -d "Voltage.RenderRH" ]; then
-          echo "Incluindo pasta Voltage.RenderRH no tar (estrutura preservada)"
+        if [ -d "F785-app" ]; then
+          echo "Compactando F785-app (excluindo node_modules e cache)"
           tar -czf "$PACKAGE_PATH" \
             --warning=no-file-changed \
             --exclude='.git' \
@@ -32,28 +48,17 @@ steps:
             --exclude='.vscode' \
             --exclude='.idea' \
             --exclude='deploy-package.tar.gz' \
-            --exclude='*/bin' \
-            --exclude='*/obj' \
+            --exclude='F785-app/node_modules' \
+            --exclude='F785-app/backend/node_modules' \
+            --exclude='F785-app/dist' \
             --exclude='*.log' \
             --exclude='.env' \
-            --exclude='*/.venv' \
-            --exclude='*Liotecnica.Integration.RM.Schema.Tables/CV' \
-            --exclude='*Liotecnica.Integration.RM.Logs' \
-            Voltage.RenderRH
+            --exclude='F785-app/.env' \
+            --exclude='F785-app/backend/.env' \
+            -C . F785-app
         else
-          echo "Root: . (sem Voltage.RenderRH)"
-          tar -czf "$PACKAGE_PATH" \
-            --warning=no-file-changed \
-            --exclude='.git' \
-            --exclude='.vs' \
-            --exclude='.vscode' \
-            --exclude='.idea' \
-            --exclude='deploy-package.tar.gz' \
-            --exclude='bin' \
-            --exclude='obj' \
-            --exclude='*.log' \
-            --exclude='.env' \
-            -C . .
+          echo "ERRO: Pasta F785-app não encontrada"
+          exit 1
         fi
 
         test -f "$PACKAGE_PATH" || (echo "ERRO: pacote não foi criado"; exit 1)
