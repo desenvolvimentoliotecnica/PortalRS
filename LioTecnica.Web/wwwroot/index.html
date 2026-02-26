@@ -73,14 +73,14 @@
       <div class="logo-initials" aria-hidden="true">LT</div>
       <h1>Portal RH</h1>
       <p>Liotécnica • Gestão de Recursos Humanos</p>
-      <a href="__BACKEND_URL__" id="portalLink" class="btn-portal">
+      <a href="http://98.88.70.205:8081" id="portalLink" class="btn-portal">
         <i class="bi bi-box-arrow-in-right"></i> Acessar aplicação
       </a>
     </div>
   </div>
   <script>
     (function () {
-      var url = '__BACKEND_URL__';
+      var url = 'http://98.88.70.205:8081';
       var link = document.getElementById('portalLink');
       if (url && url.indexOf('__') === -1) {
         link.href = url;
@@ -88,7 +88,7 @@
         link.href = '#';
         link.onclick = function (e) {
           e.preventDefault();
-          var u = prompt('URL do backend (ex: http://seu-servidor:8080):');
+          var u = prompt('URL do backend (ex: http://seu-servidor:8081):');
           if (u) window.location.href = u;
           return false;
         };
