@@ -100,6 +100,26 @@ const ICONS: Record<string, LucideIcon> = {
   layoutdashboard: LayoutDashboard,
 };
 
+/* ─── Route map: Razor nested paths → flat Next.js routes ─── */
+const ROUTE_MAP: Record<string, string> = {
+  "/cadastro/cargos": "/cargos",
+  "/cadastro/unidades": "/unidades",
+  "/cadastro/funcionarios": "/funcionarios",
+  "/cadastro/categorias": "/categorias",
+  "/cadastro/areas": "/areas",
+  "/cadastro/departamentos": "/departamentos",
+  "/cadastro/pessoas": "/funcionarios",
+};
+
+/** Normalize a BFF href to the correct Next.js route. */
+function normalizeHref(raw: string): string {
+  if (!raw || raw === "#") return "#";
+  // Owner routes preserve casing (/Owner/Tenants)
+  if (raw.startsWith("/Owner") || raw.startsWith("/owner")) return raw;
+  const lower = raw.toLowerCase().replace(/\/+$/, "");
+  return ROUTE_MAP[lower] ?? lower;
+}
+
 /* ─── Module classification (mirrors Razor GetModuleKey) ─── */
 type ModuleKey = "Recrutamento" | "Cadastros" | "Relatórios" | "Feedback" | "Admin" | "Owner";
 
@@ -149,8 +169,8 @@ function isRouteHidden(href: string): boolean {
 /* ─── NavLink ─── */
 function NavLink({ item, normalized }: { item: BffNavItem; normalized: string }) {
   const rawHref = item.href || "#";
-  // Use original href case from BFF — Next.js route folders match the BFF casing
-  const href = rawHref;
+  // Normalize: lowercase + remap nested Razor paths to flat Next.js routes
+  const href = normalizeHref(rawHref);
   const normalizedLower = normalized.toLowerCase();
   const hrefLower = href.toLowerCase().replace(/\/+$/, "");
   const active =
