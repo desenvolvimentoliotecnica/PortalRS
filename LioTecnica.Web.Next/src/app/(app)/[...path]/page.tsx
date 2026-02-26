@@ -7,9 +7,10 @@ import { requireMe } from "@/server/bff/requireMe";
 export default async function LegacyFallbackPage({
   params,
 }: {
-  params: { path: string[] };
+  params: Promise<{ path: string[] }>;
 }) {
-  const path = Array.isArray(params.path) ? params.path : [];
+  const { path: rawPath } = await params;
+  const path = Array.isArray(rawPath) ? rawPath : [];
   const nextPath = `/app/${path.join("/")}`;
 
   // Enforce auth for any internal route.
