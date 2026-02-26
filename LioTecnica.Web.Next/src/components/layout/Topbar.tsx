@@ -1,8 +1,10 @@
-import { getMe } from "@/server/bff/client";
+"use client";
+
 import type { BffNavItem } from "@/server/bff/navigation.schema";
 import TopbarClient from "@/components/layout/TopbarClient";
+import { useAuth } from "@/hooks/useAuth";
 
-export default async function Topbar({ navItems }: { navItems: BffNavItem[] }) {
-  const me = await getMe().catch(() => null);
+export default function Topbar({ navItems }: { navItems: BffNavItem[] }) {
+  const { me } = useAuth();
   return <TopbarClient navItems={navItems} me={me} />;
 }

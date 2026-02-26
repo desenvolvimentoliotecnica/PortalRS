@@ -114,6 +114,19 @@ const ROUTE_MAP: Record<string, string> = {
   "/cadastro/areas": "/areas",
   "/cadastro/departamentos": "/departamentos",
   "/cadastro/pessoas": "/pessoas",
+  // Admin
+  "/admin/users": "/admin/users",
+  "/admin/roles": "/admin/roles",
+  "/admin/accesses": "/admin/accesses",
+  "/admin/menus": "/admin/menus",
+  "/admin/logs": "/admin/logs",
+  "/admin/operationallogs": "/admin/operational-logs",
+  "/admin/emails": "/admin/emails",
+  "/admin/emailconfig": "/admin/email-config",
+  "/admin/emailtemplates": "/admin/email-templates",
+  "/admin/apikeys": "/admin/api-keys",
+  "/admin/entraidconfig": "/admin/entra-id",
+  "/admin/localizationconfig": "/admin/localization",
 };
 
 function normalizeHref(raw: string): string {

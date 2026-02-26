@@ -40,10 +40,10 @@ type ReportCell =
   | boolean
   | null
   | {
-      text?: string | number | null;
-      className?: string | null;
-      icon?: string | null;
-    };
+    text?: string | number | null;
+    className?: string | null;
+    icon?: string | null;
+  };
 
 type ReportPayload = {
   labels?: unknown;
@@ -516,6 +516,7 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
 
   return (
     <section className="space-y-4">
+      {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-lg font-bold">Relatórios</h4>
@@ -570,141 +571,57 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
         </div>
       </div>
 
-      <div className="card-soft p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <div className="fw-bold">Filtros</div>
-            <div className="text-muted-foreground text-sm">Os filtros alteram tabela/gráfico do relatório selecionado.</div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              className="btn-brand px-3 py-2"
-              type="button"
-              onClick={() => {
-                void loadCurrentReport().catch(() => toast.error("Falha ao aplicar filtros."));
-              }}
-            >
-              <Filter className="size-4" />
-              <span className="ml-1">Aplicar</span>
-            </button>
-            <button
-              className="btn-ghost px-3 py-2"
-              type="button"
-              onClick={() => {
-                const next = { period: "30d", vaga: vagaAll || "all", origem: "all", status: "all", q: "" };
-                setFilters(next);
-                void loadCurrentReport(next).catch(() => toast.error("Falha ao limpar filtros."));
-              }}
-            >
-              <Clock className="size-4" />
-              <span className="ml-1">Limpar</span>
-            </button>
-          </div>
-        </div>
+      {/* ── Two‑column layout: Catalog | Report ── */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[280px_1fr]">
 
-        <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-12 items-end">
-          <div className="lg:col-span-2">
-            <label className="form-label small">Período</label>
-            <select className="form-select" value={filters.period} onChange={(e) => setFilters((p) => ({ ...p, period: e.target.value }))}>
-              {periodOptions.map((opt) => (
-                <option key={opt.code} value={opt.code}>
-                  {opt.text}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="lg:col-span-4">
-            <label className="form-label small">Vaga</label>
-            <select className="form-select" value={filters.vaga} onChange={(e) => setFilters((p) => ({ ...p, vaga: e.target.value }))}>
-              {vagaOptions.map((opt) => (
-                <option key={`${opt.kind}:${opt.value}`} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="lg:col-span-2">
-            <label className="form-label small">Origem</label>
-            <select className="form-select" value={filters.origem} onChange={(e) => setFilters((p) => ({ ...p, origem: e.target.value }))}>
-              {origemOptions.map((opt) => (
-                <option key={opt.code} value={opt.code}>
-                  {opt.text}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="lg:col-span-2">
-            <label className="form-label small">Status</label>
-            <select className="form-select" value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>
-              {statusOptions.map((opt) => (
-                <option key={opt.code} value={opt.code}>
-                  {opt.text}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="lg:col-span-2">
-            <label className="form-label small">Buscar</label>
-            <input className="form-control" value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="Nome, email, assunto, arquivo..." />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[360px_1fr]">
-        <div className="space-y-3">
-          <div className="card-soft p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="fw-bold">Catálogo de relatórios</div>
-                <div className="text-muted-foreground text-sm">Selecione um relatório e configure filtros.</div>
-              </div>
-              {loading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : null}
+        {/* ── LEFT: Catálogo de relatórios ── */}
+        <div className="card-soft p-3 self-start">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="fw-bold">Catálogo de relatórios</div>
+              <div className="text-muted-foreground text-sm">Selecione um relatório e configure filtros.</div>
             </div>
-            <hr className="my-3 divider" />
+            {loading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : null}
+          </div>
+          <hr className="my-3 divider" />
 
-            <div className="grid gap-2">
-              {(catalog.length ? catalog : [{ id: reportId, icon: "bar-chart", title: reportTitleById(reportId), desc: reportDescById(reportId), scope: "relatórios" }]).map(
-                (r) => {
-                  const Icon = iconForCatalog(r.icon);
-                  const active = r.id === reportId;
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      className={active ? "tile active text-start" : "tile text-start"}
-                      onClick={() => {
-                        setReportId(r.id);
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="iconbox">
-                            <Icon className="size-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="fw-bold truncate">{r.title}</div>
-                            <div className="text-muted-foreground text-sm truncate">{r.desc}</div>
-                          </div>
-                        </div>
-                        <span className="pill shrink-0">{r.scope || "escopo"}</span>
+          <div className="grid gap-2">
+            {(catalog.length ? catalog : [{ id: reportId, icon: "bar-chart", title: reportTitleById(reportId), desc: reportDescById(reportId), scope: "relatórios" }]).map(
+              (r) => {
+                const Icon = iconForCatalog(r.icon);
+                const active = r.id === reportId;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className={active ? "tile active text-start" : "tile text-start"}
+                    onClick={() => {
+                      setReportId(r.id);
+                    }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="iconbox">
+                        <Icon className="size-5" />
                       </div>
-                    </button>
-                  );
-                },
-              )}
-            </div>
+                      <div className="min-w-0">
+                        <div className="fw-bold truncate">{r.title}</div>
+                        <div className="text-muted-foreground text-sm truncate">{r.desc}</div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              },
+            )}
           </div>
         </div>
 
+        {/* ── RIGHT: Report detail ── */}
         <div className="space-y-3 min-w-0">
           <div className="card-soft p-3">
+            {/* Report title + tags */}
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <div className="fw-bold">{activeReport?.title || reportTitleById(reportId)}</div>
+                <div className="fw-bold text-base">{activeReport?.title || reportTitleById(reportId)}</div>
                 <div className="text-muted-foreground text-sm">{activeReport?.desc || reportDescById(reportId) || "Selecione um relatório no catálogo."}</div>
               </div>
               <div className="flex flex-wrap gap-2 justify-end">
@@ -719,6 +636,84 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
 
             <hr className="my-3 divider" />
 
+            {/* ── Inline filters ── */}
+            <div className="flex flex-wrap items-end gap-2 mb-3">
+              <div className="min-w-[120px] flex-1">
+                <label className="form-label small">Período</label>
+                <select className="form-select" value={filters.period} onChange={(e) => setFilters((p) => ({ ...p, period: e.target.value }))}>
+                  {periodOptions.map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.text}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="min-w-[160px] flex-[2]">
+                <label className="form-label small">Vaga</label>
+                <select className="form-select" value={filters.vaga} onChange={(e) => setFilters((p) => ({ ...p, vaga: e.target.value }))}>
+                  {vagaOptions.map((opt) => (
+                    <option key={`${opt.kind}:${opt.value}`} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="min-w-[120px] flex-1">
+                <label className="form-label small">Origem</label>
+                <select className="form-select" value={filters.origem} onChange={(e) => setFilters((p) => ({ ...p, origem: e.target.value }))}>
+                  {origemOptions.map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.text}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="min-w-[120px] flex-1">
+                <label className="form-label small">Status</label>
+                <select className="form-select" value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>
+                  {statusOptions.map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.text}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="min-w-[140px] flex-1">
+                <label className="form-label small">Buscar</label>
+                <input className="form-control" value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="Nome, email..." />
+              </div>
+
+              <div className="flex gap-2 shrink-0">
+                <button
+                  className="btn-brand px-3 py-2"
+                  type="button"
+                  onClick={() => {
+                    void loadCurrentReport().catch(() => toast.error("Falha ao aplicar filtros."));
+                  }}
+                >
+                  <Filter className="size-4" />
+                  <span className="ml-1">Aplicar</span>
+                </button>
+                <button
+                  className="btn-ghost px-3 py-2"
+                  type="button"
+                  onClick={() => {
+                    const next = { period: "30d", vaga: vagaAll || "all", origem: "all", status: "all", q: "" };
+                    setFilters(next);
+                    void loadCurrentReport(next).catch(() => toast.error("Falha ao limpar filtros."));
+                  }}
+                >
+                  <Clock className="size-4" />
+                  <span className="ml-1">Limpar</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ── Chart ── */}
             <div className="chart-wrap mb-3 relative">
               <canvas ref={chartCanvasRef} style={{ width: "100%", height: "100%" }} />
               {loading ? (
@@ -731,6 +726,7 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
               ) : null}
             </div>
 
+            {/* ── Results table ── */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="mini-title">Resultados</div>
               <div className="flex gap-2 flex-wrap">
