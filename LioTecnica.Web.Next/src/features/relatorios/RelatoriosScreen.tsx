@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
-const REPORTS_API_BASE = `${BASE}/Relatorios/_api`;
+const REPORTS_API_BASE = `/api/reports`;
 
 type EnumOption = { code: string; text: string };
 type EnumsByKey = Record<string, EnumOption[]>;

@@ -50,7 +50,7 @@ const emptyForm = (): MenuForm => ({
 });
 
 export default function TabMenus({ tenantId }: { tenantId: string }) {
-    const apiBase = `${BASE}/Owner/Tenants/${encodeURIComponent(tenantId)}/Config/Menus/_api`;
+    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/config/menus`;
 
     const [menus, setMenus] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);

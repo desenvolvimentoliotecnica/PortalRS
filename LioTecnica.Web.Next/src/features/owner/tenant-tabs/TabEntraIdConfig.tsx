@@ -26,7 +26,7 @@ interface EntraIdConfig {
 }
 
 export default function TabEntraIdConfig({ tenantId }: { tenantId: string }) {
-    const apiBase = `${BASE}/Owner/Tenants/${encodeURIComponent(tenantId)}/Config/EntraIdConfig/_api`;
+    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/config/entra-id`;
 
     const [config, setConfig] = useState<EntraIdConfig>({
         isEnabled: false,

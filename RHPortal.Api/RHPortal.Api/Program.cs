@@ -95,13 +95,19 @@ builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
 builder.Services.AddCors(options =>
 {
-    // Necessario para o SignalR funcionar quando o front roda em outro host/porta.
-    var webOrigin = builder.Configuration["Cors:WebOrigin"] ?? "https://localhost:7091";
+    var allowAny = string.Equals(builder.Configuration["Cors:AllowAny"], "true", StringComparison.OrdinalIgnoreCase);
+    var webOrigins = (builder.Configuration["Cors:WebOrigin"] ?? "https://localhost:7091")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
     options.AddPolicy("WebApp", policy =>
-        policy.WithOrigins(webOrigin)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials());
+    {
+        if (allowAny)
+            policy.AllowAnyOrigin();
+        else
+            policy.WithOrigins(webOrigins).AllowCredentials();
+
+        policy.AllowAnyHeader().AllowAnyMethod();
+    });
 });
 
 builder.Services.AddSwaggerGen(c =>
@@ -371,20 +377,15 @@ if (runMigrateOnly)
 
 var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>();
 
-if (app.Environment.IsDevelopment())
+// Swagger enabled always (for QA/staging debugging; disable in prod via reverse proxy if needed)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        // Ordena operações dentro do controller (normalmente existe em versões antigas)
-        var opSorterProp = c.ConfigObject.GetType().GetProperty("OperationsSorter");
-        opSorterProp?.SetValue(c.ConfigObject, "alpha"); // ou "method"
-
-        // Ordena controllers/tags (em versões novas existe; em antigas não — por isso reflection)
-        var tagsSorterProp = c.ConfigObject.GetType().GetProperty("TagsSorter");
-        tagsSorterProp?.SetValue(c.ConfigObject, "alpha");
-    });
-}
+    var opSorterProp = c.ConfigObject.GetType().GetProperty("OperationsSorter");
+    opSorterProp?.SetValue(c.ConfigObject, "alpha");
+    var tagsSorterProp = c.ConfigObject.GetType().GetProperty("TagsSorter");
+    tagsSorterProp?.SetValue(c.ConfigObject, "alpha");
+});
 
 app.UseExceptionHandler();
 

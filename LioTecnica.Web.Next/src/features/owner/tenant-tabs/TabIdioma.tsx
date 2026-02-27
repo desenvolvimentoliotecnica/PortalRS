@@ -32,7 +32,7 @@ interface LocalizationConfig {
 
 export default function TabIdioma({ tenantId }: { tenantId: string }) {
     const router = useRouter();
-    const apiBase = `${BASE}/Owner/Tenants/${encodeURIComponent(tenantId)}/Config/LocalizationConfig/_api`;
+    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/config/localization`;
 
     const [config, setConfig] = useState<LocalizationConfig>({ culture: "pt-BR", uiCulture: "pt-BR" });
     const [loading, setLoading] = useState(true);

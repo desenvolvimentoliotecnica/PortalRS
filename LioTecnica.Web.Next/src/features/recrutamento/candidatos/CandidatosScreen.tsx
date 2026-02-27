@@ -697,7 +697,7 @@ export default function CandidatosScreen() {
           treinamentos: Array.isArray((s as Record<string, unknown>)?.treinamentos) ? (s as Record<string, unknown>)?.treinamentos : null,
           formacao: Array.isArray((s as Record<string, unknown>)?.formacao) ? (s as Record<string, unknown>)?.formacao : null,
         };
-        await fetchJson(`${BASE}/Talentos/_api/${encodeURIComponent(talentoId)}`, {
+        await fetchJson(`/api/talentos/${encodeURIComponent(talentoId)}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(talentPayload),

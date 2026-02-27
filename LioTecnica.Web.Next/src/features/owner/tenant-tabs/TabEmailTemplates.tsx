@@ -26,7 +26,7 @@ interface Template {
 }
 
 export default function TabEmailTemplates({ tenantId }: { tenantId: string }) {
-    const apiBase = `${BASE}/Owner/Tenants/${encodeURIComponent(tenantId)}/Config/EmailTemplates/_api`;
+    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/config/email-templates`;
 
     const [templates, setTemplates] = useState<Template[]>([]);
     const [loading, setLoading] = useState(true);

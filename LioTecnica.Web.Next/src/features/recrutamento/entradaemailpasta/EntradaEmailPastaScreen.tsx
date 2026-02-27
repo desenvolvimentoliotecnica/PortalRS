@@ -103,34 +103,34 @@ function mapInbox(x: unknown): InboxItem | null {
     previewText: pickString(r.previewText, "") || null,
     processamento: asRecord(r.processamento)
       ? {
-          pct: pickNumber(asRecord(r.processamento)?.pct, 0),
-          etapa: pickString(asRecord(r.processamento)?.etapa, "") || null,
-          log: Array.isArray(asRecord(r.processamento)?.log) ? (asRecord(r.processamento)!.log as string[]) : null,
-          tentativas: pickNumber(asRecord(r.processamento)?.tentativas, 0),
-          ultimoErro: pickString(asRecord(r.processamento)?.ultimoErro, "") || null,
-        }
+        pct: pickNumber(asRecord(r.processamento)?.pct, 0),
+        etapa: pickString(asRecord(r.processamento)?.etapa, "") || null,
+        log: Array.isArray(asRecord(r.processamento)?.log) ? (asRecord(r.processamento)!.log as string[]) : null,
+        tentativas: pickNumber(asRecord(r.processamento)?.tentativas, 0),
+        ultimoErro: pickString(asRecord(r.processamento)?.ultimoErro, "") || null,
+      }
       : null,
     anexos: Array.isArray(r.anexos)
       ? (r.anexos as unknown[]).map((a) => {
-          const ar = asRecord(a) ?? {};
-          return {
-            id: pickString(ar.id, "") || null,
-            nome: pickString(ar.nome, ""),
-            tipo: pickString(ar.tipo, "") || null,
-            tamanhoKB: pickNumber(ar.tamanhoKB, 0),
-            hash: pickString(ar.hash, "") || null,
-          };
-        })
+        const ar = asRecord(a) ?? {};
+        return {
+          id: pickString(ar.id, "") || null,
+          nome: pickString(ar.nome, ""),
+          tipo: pickString(ar.tipo, "") || null,
+          tamanhoKB: pickNumber(ar.tamanhoKB, 0),
+          hash: pickString(ar.hash, "") || null,
+        };
+      })
       : null,
     suggestedVagas: Array.isArray(r.suggestedVagas)
       ? (r.suggestedVagas as unknown[]).map((s) => {
-          const sr = asRecord(s) ?? {};
-          return {
-            vagaId: pickString(sr.vagaId, ""),
-            titulo: pickString(sr.titulo, "") || null,
-            score: pickNumber(sr.score, 0),
-          };
-        })
+        const sr = asRecord(s) ?? {};
+        return {
+          vagaId: pickString(sr.vagaId, ""),
+          titulo: pickString(sr.titulo, "") || null,
+          score: pickNumber(sr.score, 0),
+        };
+      })
       : null,
   };
 }
@@ -202,8 +202,8 @@ export default function EntradaEmailPastaScreen({
   async function refreshAll(silent?: boolean) {
     try {
       const [v, i] = await Promise.all([
-        fetchJson<unknown>(`${BASE}/EntradaEmailPasta/_api/vagas`),
-        fetchJson<unknown>(`${BASE}/EntradaEmailPasta/_api/inbox`, {
+        fetchJson<unknown>(`/api/inbox/vagas`),
+        fetchJson<unknown>(`/api/inbox`, {
           headers: silent ? { "X-LT-Silent": "1" } : undefined,
         }),
       ]);
@@ -242,12 +242,12 @@ export default function EntradaEmailPastaScreen({
     void conn.start().then(
       () => {
       },
-      () => {},
+      () => { },
     );
 
     return () => {
       if (hubDebounceRef.current) window.clearTimeout(hubDebounceRef.current);
-      void conn.stop().catch(() => {});
+      void conn.stop().catch(() => { });
     };
   }, [tenantId]);
 
@@ -318,7 +318,7 @@ export default function EntradaEmailPastaScreen({
       try {
         const data = new FormData();
         data.append("file", f, f.name);
-        await fetchJson(`${BASE}/EntradaEmailPasta/_api/upload`, { method: "POST", body: data });
+        await fetchJson(`/api/inbox/upload`, { method: "POST", body: data });
       } catch {
         toast.error("Falha ao enviar upload.");
       }
@@ -341,7 +341,7 @@ export default function EntradaEmailPastaScreen({
       anexos: item.anexos ?? [],
       suggestedVagas: item.suggestedVagas ?? [],
     };
-    const saved = await fetchJson<unknown>(`${BASE}/EntradaEmailPasta/_api/inbox/${encodeURIComponent(item.id)}`, {
+    const saved = await fetchJson<unknown>(`/api/inbox/${encodeURIComponent(item.id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -352,7 +352,7 @@ export default function EntradaEmailPastaScreen({
   }
 
   async function createInboxItem(payload: unknown) {
-    const saved = await fetchJson<unknown>(`${BASE}/EntradaEmailPasta/_api/inbox`, {
+    const saved = await fetchJson<unknown>(`/api/inbox`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -535,7 +535,7 @@ export default function EntradaEmailPastaScreen({
       documentos: null,
     };
     try {
-      await fetchJson(`${BASE}/EntradaEmailPasta/_api/candidatos`, {
+      await fetchJson(`/api/inbox/candidatos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -560,7 +560,7 @@ export default function EntradaEmailPastaScreen({
 
   async function addToTalentos(itemId: string) {
     try {
-      const res = await apiFetch(`${BASE}/EntradaEmailPasta/_api/inbox/${encodeURIComponent(itemId)}/add-to-talentos`, {
+      const res = await apiFetch(`/api/inbox/${encodeURIComponent(itemId)}/add-to-talentos`, {
         method: "POST",
         headers: { Accept: "application/json" },
       });
@@ -605,7 +605,7 @@ export default function EntradaEmailPastaScreen({
       return;
     }
     for (const x of list) {
-      await fetchJson(`${BASE}/EntradaEmailPasta/_api/inbox`, {
+      await fetchJson(`/api/inbox`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(x),
@@ -857,18 +857,18 @@ export default function EntradaEmailPastaScreen({
                 <div className="text-muted-foreground text-sm">
                   {selected.remetente || "—"}
                 </div>
-                  <div className="text-muted-foreground text-sm">
-                    Destino: <span className="mono">{selected.destinatario || "—"}</span>
-                  </div>
+                <div className="text-muted-foreground text-sm">
+                  Destino: <span className="mono">{selected.destinatario || "—"}</span>
+                </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className={`status-tag ${statusTag(selected.status).cls}`}>{statusTag(selected.status).label}</span>
                   <span className="pill">Origem: {origemTag(selected.origem)}</span>
-                    <span className="pill">
-                      Recebido em:{" "}
-                      <strong className="ms-1 mono">
-                        {selected.recebidoEm ? new Date(selected.recebidoEm).toLocaleString("pt-BR") : "—"}
-                      </strong>
-                    </span>
+                  <span className="pill">
+                    Recebido em:{" "}
+                    <strong className="ms-1 mono">
+                      {selected.recebidoEm ? new Date(selected.recebidoEm).toLocaleString("pt-BR") : "—"}
+                    </strong>
+                  </span>
                   <span className="pill">
                     Tentativas: <strong className="ms-1">{selected.processamento?.tentativas ?? 0}</strong>
                   </span>
@@ -912,9 +912,8 @@ export default function EntradaEmailPastaScreen({
                             return (
                               <div
                                 key={s.vagaId}
-                                className={`rounded-2xl border border-[rgba(16,82,144,.14)] bg-white/55 p-3 ${
-                                  isAssigned ? "ring-2 ring-emerald-400/40" : ""
-                                }`}
+                                className={`rounded-2xl border border-[rgba(16,82,144,.14)] bg-white/55 p-3 ${isAssigned ? "ring-2 ring-emerald-400/40" : ""
+                                  }`}
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="min-w-0">

@@ -203,7 +203,7 @@ export default function FuncoesScreen() {
 
   const syncAll = useCallback(async () => {
     const [funcoesPayload, vagasPayload] = await Promise.all([
-      fetchJson<{ items: unknown[] }>(`${BASE}/Cadastro/Funcoes/_api`),
+      fetchJson<{ items: unknown[] }>(`/api/requisito-categorias`),
       fetchJson<unknown>(`${BASE}/api/vagas`),
     ]);
 
@@ -293,7 +293,7 @@ export default function FuncoesScreen() {
 
   async function openEdit(item: FuncaoRow) {
     try {
-      const detail = await fetchJson<unknown>(`${BASE}/Cadastro/Funcoes/_api/${item.id}`);
+      const detail = await fetchJson<unknown>(`/api/requisito-categorias/${item.id}`);
       const r = asRecord(detail) ?? {};
       const isActive = pickBool(r.isActive ?? r.IsActive ?? r.status, item.isActive);
       setDraft({
@@ -325,14 +325,14 @@ export default function FuncoesScreen() {
 
     try {
       if (draft.id) {
-        await fetchJson(`${BASE}/Cadastro/Funcoes/_api/${draft.id}`, {
+        await fetchJson(`/api/requisito-categorias/${draft.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         toast.success("Função atualizada.");
       } else {
-        await fetchJson(`${BASE}/Cadastro/Funcoes/_api`, {
+        await fetchJson(`/api/requisito-categorias`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -351,7 +351,7 @@ export default function FuncoesScreen() {
   async function confirmDelete() {
     if (!deleteTarget) return;
     try {
-      await fetchJson(`${BASE}/Cadastro/Funcoes/_api/${deleteTarget.id}`, { method: "DELETE" });
+      await fetchJson(`/api/requisito-categorias/${deleteTarget.id}`, { method: "DELETE" });
       toast.success("Função excluída.");
       setDeleteTarget(null);
       await syncAll();

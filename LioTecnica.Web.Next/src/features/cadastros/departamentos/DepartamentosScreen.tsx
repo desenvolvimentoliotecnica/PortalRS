@@ -75,13 +75,13 @@ export default function DepartamentosScreen() {
     const [deleteTarget, setDeleteTarget] = useState<DeptItem | null>(null);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: DeptItem[] }>(`${BASE}/Departamentos/_api`);
+        const payload = await fetchJson<{ items: DeptItem[] }>(`/api/departments`);
         setRows(Array.isArray(payload?.items) ? payload.items : []);
     }, []);
 
     const loadAreas = useCallback(async () => {
         try {
-            const payload = await fetchJson<{ items: AreaLookup[] }>(`${BASE}/Areas/_api`);
+            const payload = await fetchJson<{ items: AreaLookup[] }>(`/api/areas`);
             setAreas(Array.isArray(payload?.items) ? payload.items : []);
         } catch { /* optional */ }
     }, []);
@@ -125,7 +125,7 @@ export default function DepartamentosScreen() {
 
     async function openEdit(item: DeptItem) {
         try {
-            const detail = await fetchJson<Record<string, unknown>>(`${BASE}/Departamentos/_api/${item.id}`);
+            const detail = await fetchJson<Record<string, unknown>>(`/api/departments/${item.id}`);
             setDraft({
                 id: item.id,
                 code: String(detail?.code ?? detail?.Code ?? item.codigo ?? ""),
@@ -152,10 +152,10 @@ export default function DepartamentosScreen() {
         };
         try {
             if (draft.id) {
-                await fetchJson(`${BASE}/Departamentos/_api/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/departments/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Departamento atualizado.");
             } else {
-                await fetchJson(`${BASE}/Departamentos/_api`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/departments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Departamento criado.");
             }
             setEditOpen(false);
@@ -167,7 +167,7 @@ export default function DepartamentosScreen() {
     async function confirmDelete() {
         if (!deleteTarget) return;
         try {
-            await fetchJson(`${BASE}/Departamentos/_api/${deleteTarget.id}`, { method: "DELETE" });
+            await fetchJson(`/api/departments/${deleteTarget.id}`, { method: "DELETE" });
             toast.success("Departamento excluído.");
             setDeleteTarget(null);
             await syncList();

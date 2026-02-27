@@ -89,16 +89,16 @@ export default function FuncionariosScreen() {
     const [syncing, setSyncing] = useState(false);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: FuncItem[] }>(`${BASE}/Funcionarios/_api`);
+        const payload = await fetchJson<{ items: FuncItem[] }>(`/api/funcionarios`);
         setRows(Array.isArray(payload?.items) ? payload.items : []);
     }, []);
 
     const loadLookups = useCallback(async () => {
         try {
             const [a, u, c] = await Promise.all([
-                fetchJson<{ items: LookupItem[] }>(`${BASE}/Areas/_api`).catch(() => ({ items: [] })),
-                fetchJson<{ items: LookupItem[] }>(`${BASE}/Unidades/_api`).catch(() => ({ items: [] })),
-                fetchJson<{ items: LookupItem[] }>(`${BASE}/Cargos/_api`).catch(() => ({ items: [] })),
+                fetchJson<{ items: LookupItem[] }>(`/api/areas`).catch(() => ({ items: [] })),
+                fetchJson<{ items: LookupItem[] }>(`/api/units`).catch(() => ({ items: [] })),
+                fetchJson<{ items: LookupItem[] }>(`/api/job-positions`).catch(() => ({ items: [] })),
             ]);
             setAreas(Array.isArray(a?.items) ? a.items : []);
             setUnidades(Array.isArray(u?.items) ? u.items : []);
@@ -148,7 +148,7 @@ export default function FuncionariosScreen() {
 
     async function openEdit(item: FuncItem) {
         try {
-            const d = await fetchJson<Record<string, unknown>>(`${BASE}/Funcionarios/_api/${item.id}`);
+            const d = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${item.id}`);
             setDraft({
                 id: item.id,
                 name: String(d?.name ?? d?.Name ?? d?.nome ?? item.nome ?? ""),
@@ -179,10 +179,10 @@ export default function FuncionariosScreen() {
         };
         try {
             if (draft.id) {
-                await fetchJson(`${BASE}/Funcionarios/_api/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/funcionarios/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Funcionário atualizado.");
             } else {
-                await fetchJson(`${BASE}/Funcionarios/_api`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/funcionarios`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Funcionário criado.");
             }
             setEditOpen(false);
@@ -194,7 +194,7 @@ export default function FuncionariosScreen() {
     async function confirmDelete() {
         if (!deleteTarget) return;
         try {
-            await fetchJson(`${BASE}/Funcionarios/_api/${deleteTarget.id}`, { method: "DELETE" });
+            await fetchJson(`/api/funcionarios/${deleteTarget.id}`, { method: "DELETE" });
             toast.success("Funcionário excluído.");
             setDeleteTarget(null);
             await syncList();
@@ -205,7 +205,7 @@ export default function FuncionariosScreen() {
     async function handleSync() {
         setSyncing(true);
         try {
-            await fetchJson(`${BASE}/Funcionarios/_api/sync`, { method: "POST" });
+            await fetchJson(`/api/funcionarios/sync`, { method: "POST" });
             toast.success("Sincronização concluída.");
             await syncList();
         } catch { toast.error("Falha ao sincronizar."); }
@@ -215,7 +215,7 @@ export default function FuncionariosScreen() {
     /* Bloqueio toggle */
     async function toggleBlock(item: FuncItem) {
         try {
-            await fetchJson(`${BASE}/Funcionarios/_api/${item.id}/block`, { method: "POST" });
+            await fetchJson(`/api/funcionarios/${item.id}/block`, { method: "POST" });
             toast.success(item.bloqueado ? "Desbloqueado." : "Bloqueado.");
             await syncList();
         } catch { toast.error("Falha ao alterar bloqueio."); }

@@ -170,7 +170,7 @@ export default function TalentosScreen({
     params.set("pageSize", String(nextPageSize));
     if (nextQ.trim()) params.set("q", nextQ.trim());
     if (nextOrigem) params.set("origem", nextOrigem);
-    const data = await fetchJson<unknown>(`${BASE}/Talentos/_api/list?${params.toString()}`);
+    const data = await fetchJson<unknown>(`/api/talentos?${params.toString()}`);
     const mapped = mapPaged(data);
     setItems(mapped.items);
     setTotalCount(mapped.totalCount);
@@ -180,7 +180,7 @@ export default function TalentosScreen({
 
   async function openDetail(id: string) {
     try {
-      const data = await fetchJson<unknown>(`${BASE}/Talentos/_api/${encodeURIComponent(id)}`);
+      const data = await fetchJson<unknown>(`/api/talentos/${encodeURIComponent(id)}`);
       setDetail(asRecord(data));
       setDetailOpen(true);
     } catch {
@@ -190,7 +190,7 @@ export default function TalentosScreen({
 
   async function openEdit(id: string) {
     try {
-      const data = await fetchJson<unknown>(`${BASE}/Talentos/_api/${encodeURIComponent(id)}`);
+      const data = await fetchJson<unknown>(`/api/talentos/${encodeURIComponent(id)}`);
       const r = asRecord(data) ?? {};
       setEditDraft({ ...r });
       setEditOpen(true);
@@ -206,7 +206,7 @@ export default function TalentosScreen({
 
   async function saveEdit() {
     const id = pickString(editDraft.id, "");
-    const url = id ? `${BASE}/Talentos/_api/${encodeURIComponent(id)}` : `${BASE}/Talentos/_api`;
+    const url = id ? `/api/talentos/${encodeURIComponent(id)}` : `/api/talentos`;
     const method = id ? "PUT" : "POST";
     try {
       await fetchJson(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(editDraft) });
@@ -221,7 +221,7 @@ export default function TalentosScreen({
   async function deleteTalent(id: string, nome?: string | null) {
     if (!confirm(`Eliminar talento "${nome ?? ""}"?`)) return;
     try {
-      await fetchJson(`${BASE}/Talentos/_api/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await fetchJson(`/api/talentos/${encodeURIComponent(id)}`, { method: "DELETE" });
       toast.success("Talento eliminado.");
       await sync(1);
     } catch {
@@ -237,7 +237,7 @@ export default function TalentosScreen({
     form.append("arquivo", importFile);
     form.append("enviarParaGpt", importEnviarGpt ? "true" : "false");
     try {
-      const resp = await fetchJson<unknown>(`${BASE}/Talentos/_api/import-pdf`, { method: "POST", body: form });
+      const resp = await fetchJson<unknown>(`/api/talentos/import-pdf`, { method: "POST", body: form });
       const r = asRecord(resp) ?? {};
       const jobId = pickString(r.jobId, "");
       toast.success(jobId ? `Import iniciado (job ${jobId}).` : "Import concluído.");
@@ -255,7 +255,7 @@ export default function TalentosScreen({
       return;
     }
     try {
-      const tal = await fetchJson<unknown>(`${BASE}/Talentos/_api/${encodeURIComponent(cadCandTalentoId)}`);
+      const tal = await fetchJson<unknown>(`/api/talentos/${encodeURIComponent(cadCandTalentoId)}`);
       const t = asRecord(tal) ?? {};
       const payload = {
         nome: pickString(t.nome, ""),

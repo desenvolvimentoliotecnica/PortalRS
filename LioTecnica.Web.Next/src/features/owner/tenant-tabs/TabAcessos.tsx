@@ -22,7 +22,7 @@ interface MenuItem { id: string; displayName: string; permissionKey: string; rou
 interface Assignment { menuId: string; permissionKey: string; }
 
 export default function TabAcessos({ tenantId }: { tenantId: string }) {
-    const apiBase = `${BASE}/Owner/Tenants/${encodeURIComponent(tenantId)}/Config/Acessos/_api`;
+    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/config/acessos`;
 
     const [roles, setRoles] = useState<RoleItem[]>([]);
     const [menus, setMenus] = useState<MenuItem[]>([]);

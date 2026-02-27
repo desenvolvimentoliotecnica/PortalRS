@@ -47,7 +47,7 @@ interface PagedResponse {
 }
 
 export default function TabLogsOperacionais({ tenantId }: { tenantId: string }) {
-    const apiBase = `${BASE}/Owner/Tenants/${encodeURIComponent(tenantId)}/Config/OperationalLogs/_api`;
+    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/config/operational-logs`;
 
     const [items, setItems] = useState<LogItem[]>([]);
     const [page, setPage] = useState(1);

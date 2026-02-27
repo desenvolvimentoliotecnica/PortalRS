@@ -99,7 +99,7 @@ export default function UnidadesScreen() {
     const [detailItem, setDetailItem] = useState<UnidadeItem | null>(null);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: UnidadeItem[] }>(`${BASE}/Unidades/_api`);
+        const payload = await fetchJson<{ items: UnidadeItem[] }>(`/api/units`);
         setRows(Array.isArray(payload?.items) ? payload.items : []);
     }, []);
 
@@ -143,7 +143,7 @@ export default function UnidadesScreen() {
 
     async function openEdit(item: UnidadeItem) {
         try {
-            const d = await fetchJson<Record<string, unknown>>(`${BASE}/Unidades/_api/${item.id}`);
+            const d = await fetchJson<Record<string, unknown>>(`/api/units/${item.id}`);
             setDraft({
                 id: item.id,
                 code: String(d?.code ?? d?.Code ?? d?.codigo ?? item.codigo ?? ""),
@@ -188,10 +188,10 @@ export default function UnidadesScreen() {
         };
         try {
             if (draft.id) {
-                await fetchJson(`${BASE}/Unidades/_api/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/units/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Unidade atualizada.");
             } else {
-                await fetchJson(`${BASE}/Unidades/_api`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/units`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Unidade criada.");
             }
             setEditOpen(false);
@@ -203,7 +203,7 @@ export default function UnidadesScreen() {
     async function confirmDelete() {
         if (!deleteTarget) return;
         try {
-            await fetchJson(`${BASE}/Unidades/_api/${deleteTarget.id}`, { method: "DELETE" });
+            await fetchJson(`/api/units/${deleteTarget.id}`, { method: "DELETE" });
             toast.success("Unidade excluída.");
             setDeleteTarget(null);
             await syncList();
