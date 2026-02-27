@@ -1,61 +1,123 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Search, Plus, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, LayoutList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
 } from "@/components/ui/table";
+import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
+
+/* ── Types ── */
+interface MenuItem {
+    id: string;
+    displayName: string;
+    route: string | null;
+    icon: string | null;
+    parentId: string | null;
+    order: number;
+    isActive: boolean;
+    module: string | null;
+}
+
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+    const res = await apiFetch(url, { cache: "no-store", ...init });
+    if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error((body as any)?.detail || (body as any)?.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+}
 
 export default function AdminMenusScreen() {
+    const [menus, setMenus] = useState<MenuItem[]>([]);
+    const [loading, setLoading] = useState(true);
     const [q, setQ] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
+    const [moduleFilter, setModuleFilter] = useState("all");
 
-    const kpis = useMemo(() => [
-        { label: "Menus", value: 0, color: "text-primary" },
-        { label: "Ativos", value: 0, color: "text-emerald-600" },
-        { label: "Inativos", value: 0, color: "text-zinc-500" },
-        { label: "Com ícone", value: 0, color: "text-primary" },
-    ], []);
+    const loadMenus = useCallback(async () => {
+        setLoading(true);
+        try {
+            const list = await fetchJson<MenuItem[]>("/api/menus");
+            setMenus(list);
+        } catch (err) {
+            console.error("Failed to load menus", err);
+            toast.error("Falha ao carregar menus.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { void loadMenus(); }, [loadMenus]);
+
+    const modules = useMemo(() => [...new Set(menus.map(m => m.module).filter(Boolean))] as string[], [menus]);
+
+    const filtered = useMemo(() => {
+        let list = menus;
+        if (q.trim()) {
+            const lower = q.toLowerCase();
+            list = list.filter(m => m.displayName.toLowerCase().includes(lower) || (m.route ?? "").toLowerCase().includes(lower));
+        }
+        if (moduleFilter !== "all") list = list.filter(m => m.module === moduleFilter);
+        return list.sort((a, b) => a.order - b.order);
+    }, [menus, q, moduleFilter]);
+
+    const parents = menus.filter(m => !m.parentId);
+    const children = (parentId: string) => filtered.filter(m => m.parentId === parentId);
+
+    async function handleDelete(id: string, name: string) {
+        if (!confirm(`Remover o menu "${name}"?`)) return;
+        try {
+            await apiFetch(`/api/menus/${id}`, { method: "DELETE" });
+            toast.success(`Menu "${name}" removido.`);
+            void loadMenus();
+        } catch {
+            toast.error("Falha ao remover menu.");
+        }
+    }
 
     return (
         <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h4 className="text-lg font-bold">Menus</h4>
-                    <div className="text-muted-foreground text-sm">Itens de menu e permissões.</div>
+                    <div className="text-muted-foreground text-sm">Gerencie a estrutura dos menus de navegação.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" disabled><RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span></Button>
-                    <Button size="sm" disabled><Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo menu</span></Button>
+                    <Button variant="ghost" size="sm" onClick={() => void loadMenus()} disabled={loading}>
+                        <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
+                    </Button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {kpis.map((k) => (
-                    <div key={k.label} className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                        <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">{k.label}</div>
-                        <div className={`mt-1 text-2xl font-bold ${k.color}`}>{k.value}</div>
-                    </div>
-                ))}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Total de Menus</div>
+                    <div className="mt-1 text-2xl font-bold text-primary">{menus.length}</div>
+                </div>
+                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Módulos</div>
+                    <div className="mt-1 text-2xl font-bold text-sky-600">{modules.length}</div>
+                </div>
+                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Raízes</div>
+                    <div className="mt-1 text-2xl font-bold text-emerald-600">{parents.length}</div>
+                </div>
             </div>
 
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                 <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <div className="font-semibold">Lista de menus</div>
-                        <div className="text-muted-foreground text-sm">Clique em um item para editar.</div>
-                    </div>
+                    <div className="font-semibold">Estrutura dos menus</div>
                     <div className="flex flex-wrap items-center gap-2">
                         <div className="relative">
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input className="w-[240px] pl-8" placeholder="título, rota, perm..." value={q} onChange={(e) => setQ(e.target.value)} />
+                            <Input className="w-[200px] pl-8" placeholder="buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                            <option value="all">Todos</option>
-                            <option value="active">Ativo</option>
-                            <option value="inactive">Inativo</option>
+                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
+                            <option value="all">Todos módulos</option>
+                            {modules.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
                     </div>
                 </div>
@@ -65,18 +127,46 @@ export default function AdminMenusScreen() {
                         <TableRow>
                             <TableHead>Menu</TableHead>
                             <TableHead>Rota</TableHead>
-                            <TableHead>Permissão</TableHead>
-                            <TableHead>Ordem</TableHead>
-                            <TableHead>Status</TableHead>
+                            <TableHead>Módulo</TableHead>
+                            <TableHead>Ícone</TableHead>
+                            <TableHead className="text-center">Ordem</TableHead>
+                            <TableHead className="text-center">Status</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                                Nenhum menu encontrado.
-                            </TableCell>
-                        </TableRow>
+                        {loading ? (
+                            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
+                        ) : filtered.length === 0 ? (
+                            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nenhum menu encontrado.</TableCell></TableRow>
+                        ) : (
+                            filtered.map((m) => (
+                                <TableRow key={m.id} className={m.parentId ? "bg-muted/20" : ""}>
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                            {m.parentId && <span className="text-muted-foreground">└</span>}
+                                            <LayoutList className="size-4 text-primary" />
+                                            {m.displayName}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell><code className="text-xs">{m.route || "—"}</code></TableCell>
+                                    <TableCell className="text-xs">{m.module || "—"}</TableCell>
+                                    <TableCell className="text-xs">{m.icon || "—"}</TableCell>
+                                    <TableCell className="text-center">{m.order}</TableCell>
+                                    <TableCell className="text-center">
+                                        {m.isActive
+                                            ? <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">Ativo</span>
+                                            : <span className="inline-flex items-center rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 text-xs font-medium">Inativo</span>
+                                        }
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleDelete(m.id, m.displayName)}>
+                                            <Trash2 className="size-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
                     </TableBody>
                 </Table>
             </div>
