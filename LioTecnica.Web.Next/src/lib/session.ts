@@ -86,3 +86,20 @@ export function tryGetTenantIdFromJwt(token: string): string | null {
   }
 }
 
+export function tryGetRolesFromJwt(token: string): string[] {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return [];
+    const payloadJson = base64UrlDecode(parts[1]);
+    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    // .NET uses "http://schemas.microsoft.com/ws/2008/06/identity/claims/role" or "role"
+    const roleClaim =
+      payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ?? payload["role"] ?? [];
+    if (typeof roleClaim === "string") return [roleClaim];
+    if (Array.isArray(roleClaim)) return roleClaim.filter((r): r is string => typeof r === "string");
+    return [];
+  } catch {
+    return [];
+  }
+}
+
