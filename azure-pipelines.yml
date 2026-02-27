@@ -5,71 +5,65 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
+  remote_path: "/home/ubuntu/voltage-renderrh"
+  s3_bucket: "deploy-voltage-renderrh"
+  s3_key: "deploy-package.tar.gz"
   package_name: "deploy-package.tar.gz"
   artifact_name: "drop"
-  package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
 
 steps:
   - task: Bash@3
-    displayName: "Compactar projeto para release"
+    displayName: 'Compactar projeto RENDER (WEB + API + AI + Integration)'
     inputs:
-      targetType: "inline"
+      targetType: 'inline'
       script: |
-        set -eo pipefail
-
-        echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
+        set -e
+        echo "Diretório atual: $(Build.SourcesDirectory)"
         cd "$(Build.SourcesDirectory)"
 
-        PACKAGE_PATH="$(package_path)"
-        PACKAGE_NAME="$(package_name)"
-
-        if [ -d "Voltage.RenderRH" ]; then
-          echo "Incluindo pasta Voltage.RenderRH no tar (estrutura preservada)"
-          tar -czf "$PACKAGE_PATH" \
-            --warning=no-file-changed \
-            --exclude='.git' \
-            --exclude='.vs' \
-            --exclude='.vscode' \
-            --exclude='.idea' \
-            --exclude='deploy-package.tar.gz' \
-            --exclude='*/bin' \
-            --exclude='*/obj' \
-            --exclude='*.log' \
-            --exclude='.env' \
-            --exclude='*/.venv' \
-            --exclude='*Liotecnica.Integration.RM.Schema.Tables/CV' \
-            --exclude='*Liotecnica.Integration.RM.Logs' \
-            Voltage.RenderRH
+        if [ -d "RENDER" ]; then
+          echo "Incluindo RENDER no tar"
+          tar -czf deploy-package.tar.gz RENDER
+        elif [ -d "Voltage.RenderRH" ]; then
+          echo "Incluindo Voltage.RenderRH no tar"
+          tar -czf deploy-package.tar.gz Voltage.RenderRH
         else
-          echo "Root: . (sem Voltage.RenderRH)"
-          tar -czf "$PACKAGE_PATH" \
-            --warning=no-file-changed \
-            --exclude='.git' \
-            --exclude='.vs' \
-            --exclude='.vscode' \
-            --exclude='.idea' \
-            --exclude='deploy-package.tar.gz' \
-            --exclude='bin' \
-            --exclude='obj' \
-            --exclude='*.log' \
-            --exclude='.env' \
-            -C . .
+          echo "Incluindo raiz no tar"
+          tar -czf deploy-package.tar.gz .
         fi
 
-        test -f "$PACKAGE_PATH" || (echo "ERRO: pacote não foi criado"; exit 1)
-        ls -lh "$PACKAGE_PATH"
-        echo "Pacote validado com sucesso"
+        if [ ! -f deploy-package.tar.gz ]; then
+          echo "ERRO: Arquivo não foi criado!"
+          exit 1
+        fi
+
+        echo "Arquivo gerado:"
+        ls -lh deploy-package.tar.gz
+
+        echo "Verificando RHPortal.Api..."
+        tar -tzf deploy-package.tar.gz | grep -qE "RHPortal\.Api" || { echo "❌ RHPortal.Api não encontrado"; exit 1; }
+        echo "✅ RHPortal.Api no pacote"
+
+        echo "Verificando RHPortal.Ai..."
+        tar -tzf deploy-package.tar.gz | grep -qE "RHPortal\.Ai" || { echo "❌ RHPortal.Ai não encontrado"; exit 1; }
+        echo "✅ RHPortal.Ai no pacote"
+
+        echo "Verificando LioTecnica.Web.Next..."
+        tar -tzf deploy-package.tar.gz | grep -qE "LioTecnica\.Web\.Next" || { echo "❌ LioTecnica.Web.Next não encontrado"; exit 1; }
+        echo "✅ LioTecnica.Web.Next no pacote"
+
+        echo "✅ Pacote criado e validado"
 
   - task: CopyFiles@2
-    displayName: "Organizar para artefato"
+    displayName: 'Organizar para o Artefato'
     inputs:
-      SourceFolder: "$(Agent.TempDirectory)"
-      Contents: "$(package_name)"
-      TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+      SourceFolder: '$(Build.SourcesDirectory)'
+      Contents: 'deploy-package.tar.gz'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)/drop'
 
   - task: PublishBuildArtifacts@1
-    displayName: "Publicar artefato"
+    displayName: 'Publicar artefato'
     inputs:
-      PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
-      ArtifactName: "$(artifact_name)"
-      publishLocation: "Container"
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)/drop'
+      ArtifactName: 'drop'
+      publishLocation: 'Container'
