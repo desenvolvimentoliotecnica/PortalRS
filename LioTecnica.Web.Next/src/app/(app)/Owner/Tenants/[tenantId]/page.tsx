@@ -1,6 +1,8 @@
 import TenantDetailScreen from "@/features/owner/TenantDetailScreen";
 import { requireMe } from "@/server/bff/requireMe";
 
+export const dynamic = "force-static";
+
 export default async function TenantDetailPage({
     params,
 }: {

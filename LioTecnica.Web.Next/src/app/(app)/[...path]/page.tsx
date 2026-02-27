@@ -4,6 +4,8 @@ import EmptyState from "@/components/feedback/EmptyState";
 import { Button } from "@/components/ui/button";
 import { requireMe } from "@/server/bff/requireMe";
 
+export const dynamic = "force-static";
+
 export default async function LegacyFallbackPage({
   params,
 }: {

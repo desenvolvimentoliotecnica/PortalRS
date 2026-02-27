@@ -2,6 +2,8 @@ import { Inbox } from "lucide-react";
 
 import EmptyState from "@/components/feedback/EmptyState";
 
+export const dynamic = "force-static";
+
 export default function NotificacoesPage() {
   return (
     <EmptyState
