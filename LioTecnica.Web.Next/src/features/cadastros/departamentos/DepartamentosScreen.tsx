@@ -16,7 +16,7 @@ import {
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 
-const BASE = "/app";
+
 
 interface DeptItem {
     id: string;
@@ -49,7 +49,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
         headers: { Accept: "application/json", ...(init?.headers || {}) },
         cache: "no-store",
     });
-    if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(t || `HTTP_${res.status}`); }
+    if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        const msg = `HTTP ${res.status}: ${t || res.statusText}`;
+        console.error(`[apiFetch] ${init?.method ?? "GET"} ${url} → ${msg}`);
+        throw new Error(msg);
+    }
     if (res.status === 204) return null as T;
     return (await res.json()) as T;
 }
@@ -81,8 +86,10 @@ export default function DepartamentosScreen() {
 
     const loadAreas = useCallback(async () => {
         try {
-            const payload = await fetchJson<{ items: AreaLookup[] }>(`/api/areas`);
-            setAreas(Array.isArray(payload?.items) ? payload.items : []);
+            const payload = await fetchJson<unknown>(`/api/areas`);
+            // AreasController returns flat array, not { items: [...] }
+            const items = Array.isArray(payload) ? (payload as AreaLookup[]) : Array.isArray((payload as Record<string, unknown>)?.items) ? ((payload as Record<string, unknown>).items as AreaLookup[]) : [];
+            setAreas(items);
         } catch { /* optional */ }
     }, []);
 
@@ -90,7 +97,7 @@ export default function DepartamentosScreen() {
         let alive = true;
         setLoading(true);
         Promise.all([syncList(), loadAreas()])
-            .catch(() => toast.error("Falha ao carregar departamentos."))
+            .catch((e) => { console.error("Departamentos – load error", e); toast.error(`Falha ao carregar departamentos: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, [syncList, loadAreas]);

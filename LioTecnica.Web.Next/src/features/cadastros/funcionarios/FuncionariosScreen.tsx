@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Search, Plus, RefreshCw, Pencil, Trash2, Eye, UserX, Users } from "lucide-react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, Eye } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 
-const BASE = "/app";
+
 
 /* ---------- types ---------- */
 interface FuncItem {
@@ -32,7 +32,6 @@ interface FuncItem {
     areaId?: string;
     cargo: string;
     cargoId?: string;
-    bloqueado?: boolean;
 }
 
 interface FuncDraft {
@@ -56,7 +55,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
         headers: { Accept: "application/json", ...(init?.headers || {}) },
         cache: "no-store",
     });
-    if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(t || `HTTP_${res.status}`); }
+    if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        const msg = `HTTP ${res.status}: ${t || res.statusText}`;
+        console.error(`[apiFetch] ${init?.method ?? "GET"} ${url} → ${msg}`);
+        throw new Error(msg);
+    }
     if (res.status === 204) return null as T;
     return (await res.json()) as T;
 }
@@ -86,7 +90,6 @@ export default function FuncionariosScreen() {
     const [saving, setSaving] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<FuncItem | null>(null);
     const [detailItem, setDetailItem] = useState<FuncItem | null>(null);
-    const [syncing, setSyncing] = useState(false);
 
     const syncList = useCallback(async () => {
         const payload = await fetchJson<{ items: FuncItem[] }>(`/api/funcionarios`);
@@ -95,12 +98,14 @@ export default function FuncionariosScreen() {
 
     const loadLookups = useCallback(async () => {
         try {
-            const [a, u, c] = await Promise.all([
-                fetchJson<{ items: LookupItem[] }>(`/api/areas`).catch(() => ({ items: [] })),
-                fetchJson<{ items: LookupItem[] }>(`/api/units`).catch(() => ({ items: [] })),
-                fetchJson<{ items: LookupItem[] }>(`/api/job-positions`).catch(() => ({ items: [] })),
+            const [aRaw, u, c] = await Promise.all([
+                fetchJson<unknown>(`/api/areas`).catch((e) => { console.warn("lookup areas", e); return [] as unknown; }),
+                fetchJson<{ items: LookupItem[] }>(`/api/units`).catch((e) => { console.warn("lookup units", e); return { items: [] as LookupItem[] }; }),
+                fetchJson<{ items: LookupItem[] }>(`/api/job-positions`).catch((e) => { console.warn("lookup cargos", e); return { items: [] as LookupItem[] }; }),
             ]);
-            setAreas(Array.isArray(a?.items) ? a.items : []);
+            // AreasController returns flat array, others return { items: [...] }
+            const aItems = Array.isArray(aRaw) ? (aRaw as LookupItem[]) : Array.isArray((aRaw as Record<string, unknown>)?.items) ? ((aRaw as Record<string, unknown>).items as LookupItem[]) : [];
+            setAreas(aItems);
             setUnidades(Array.isArray(u?.items) ? u.items : []);
             setCargos(Array.isArray(c?.items) ? c.items : []);
         } catch { /* optional lookups */ }
@@ -110,7 +115,7 @@ export default function FuncionariosScreen() {
         let alive = true;
         setLoading(true);
         Promise.all([syncList(), loadLookups()])
-            .catch(() => toast.error("Falha ao carregar funcionários."))
+            .catch((e) => { console.error("Funcionários – load error", e); toast.error(`Falha ao carregar funcionários: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, [syncList, loadLookups]);
@@ -201,25 +206,7 @@ export default function FuncionariosScreen() {
         } catch { toast.error("Falha ao excluir."); }
     }
 
-    /* Sincronizar Usuários — Razor button */
-    async function handleSync() {
-        setSyncing(true);
-        try {
-            await fetchJson(`/api/funcionarios/sync`, { method: "POST" });
-            toast.success("Sincronização concluída.");
-            await syncList();
-        } catch { toast.error("Falha ao sincronizar."); }
-        finally { setSyncing(false); }
-    }
 
-    /* Bloqueio toggle */
-    async function toggleBlock(item: FuncItem) {
-        try {
-            await fetchJson(`/api/funcionarios/${item.id}/block`, { method: "POST" });
-            toast.success(item.bloqueado ? "Desbloqueado." : "Bloqueado.");
-            await syncList();
-        } catch { toast.error("Falha ao alterar bloqueio."); }
-    }
 
     return (
         <section className="space-y-4">
@@ -227,9 +214,6 @@ export default function FuncionariosScreen() {
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-lg font-bold">Funcionários</h4>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
-                        <Users className="size-4" /><span className="hidden sm:inline ml-1">{syncing ? "Sincronizando…" : "Sincronizar usuários"}</span>
-                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => { setLoading(true); syncList().catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
                         <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
                     </Button>
@@ -301,7 +285,6 @@ export default function FuncionariosScreen() {
                                     <div className="flex items-center justify-end gap-1">
                                         <Button variant="ghost" size="icon-xs" title="Detalhes" onClick={() => setDetailItem(f)}><Eye /></Button>
                                         <Button variant="ghost" size="icon-xs" title="Editar" onClick={() => void openEdit(f)}><Pencil /></Button>
-                                        <Button variant="ghost" size="icon-xs" title={f.bloqueado ? "Desbloquear" : "Bloquear"} onClick={() => void toggleBlock(f)}><UserX /></Button>
                                         <Button variant="ghost" size="icon-xs" className="text-destructive" title="Excluir" onClick={() => setDeleteTarget(f)}><Trash2 /></Button>
                                     </div>
                                 </TableCell>

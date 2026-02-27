@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Folder, Mail } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
-const BASE = "/app";
+
 const DEFAULT_MIN_MATCH = 70;
 
 type Kpis = {
@@ -234,7 +234,7 @@ function OriginBadge({ origem }: { origem: string }) {
 
 function goToVagaDetail(vagaId: string) {
   if (!vagaId) return;
-  const url = new URL(`${BASE}/vagas`, window.location.origin);
+  const url = new URL(`/app/vagas`, window.location.origin);
   url.searchParams.set("vagaId", vagaId);
   url.searchParams.set("open", "detail");
   window.location.href = url.toString();
@@ -308,7 +308,7 @@ export default function DashboardScreen({
   }, []);
 
   useEffect(() => {
-    void fetchJson<unknown>(`${BASE}/api/lookup/enums`)
+    void fetchJson<unknown>(`/api/lookup/enums`)
       .then((data) => setEnums(mapEnumData(data)))
       .catch(() => {
         // silencioso: enums só melhoram os selects; tela não deve quebrar sem eles
