@@ -10,7 +10,7 @@ import {
 import type { BffMe } from "@/lib/schemas/bff";
 import { ApiCurrentUserSchema } from "@/lib/schemas/api";
 import { apiFetch } from "@/lib/api";
-import { getAccessToken, setTenantId, tryGetTenantIdFromJwt } from "@/lib/session";
+import { getAccessToken, setTenantId, tryGetTenantIdFromJwt, tryGetRolesFromJwt } from "@/lib/session";
 
 /* ------------------------------------------------------------------ */
 /*  Context                                                           */
@@ -53,8 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const fromJwt = tryGetTenantIdFromJwt(token);
                 if (fromJwt) setTenantId(fromJwt);
 
-                // Owner token does not map to /api/me (application user). Validate by hitting an owner endpoint.
-                if ((fromJwt ?? "").toLowerCase() === "owner") {
+                const roles = tryGetRolesFromJwt(token);
+                const isOwnerRole = roles.some((r) => r.toLowerCase() === "owner");
+                const tenantLower = (fromJwt ?? "").toLowerCase();
+
+                // Case 1: Pure Owner context (tenant claim = "owner")
+                if (isOwnerRole && tenantLower === "owner") {
                     const ownerPing = await apiFetch("/api/owner/tenants", { cache: "no-store" });
                     if (!ownerPing.ok) throw new Error(`OWNER_HTTP_${ownerPing.status}`);
 
@@ -75,6 +79,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     return;
                 }
 
+                // Case 2: Owner switched to a tenant (role=Owner, tenant=<real-tenant>)
+                // The Owner user doesn't exist in the tenant's Identity store,
+                // so /api/me would return 401. Build the context from the JWT.
+                if (isOwnerRole && tenantLower && tenantLower !== "owner") {
+                    const meMapped: BffMe = {
+                        isAuthenticated: true,
+                        tenantId: fromJwt!,
+                        displayName: "Owner",
+                        email: "",
+                        roles: ["Owner", "Admin"],
+                        isAdmin: true,
+                        isOwnerContext: false, // Inside a tenant now — show tenant menus
+                    };
+
+                    if (!cancelled) {
+                        setMe(meMapped);
+                        setLoading(false);
+                    }
+                    return;
+                }
+
+                // Case 3: Regular tenant user
                 const res = await apiFetch("/api/me", {
                     cache: "no-store",
                     redirect: "manual",

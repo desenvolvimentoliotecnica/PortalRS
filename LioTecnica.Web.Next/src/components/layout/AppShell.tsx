@@ -4,12 +4,19 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import type { BffNavItem } from "@/lib/schemas/bff";
 import { ApiMenuForCurrentUserSchema, type ApiMenuForCurrentUser } from "@/lib/schemas/api";
 
-export default function AppShell({ children }: { children: ReactNode }) {
+/* Owner-only synthetic menu items (not stored in the DB) */
+const OWNER_NAV_ITEMS: BffNavItem[] = [
+  { id: "__owner_tenants", label: "Tenants", href: "/Owner/Tenants", icon: "building2", openInNewTab: false, children: [] },
+  { id: "__owner_ia", label: "IA", href: "/Owner/IA", icon: "brain", openInNewTab: false, children: [] },
+];
+
+function AppShellInner({ children }: { children: ReactNode }) {
+  const { me } = useAuth();
   const [navItems, setNavItems] = useState<BffNavItem[]>([]);
 
   function buildTree(items: ApiMenuForCurrentUser[]): BffNavItem[] {
@@ -59,6 +66,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
+    // Owner context: show only Owner items (Tenants + IA), no tenant menus
+    if (me?.isOwnerContext) {
+      setNavItems([...OWNER_NAV_ITEMS]);
+      return;
+    }
+
+    // Regular tenant user: fetch menus from API
+    if (!me) return;
+
     (async () => {
       try {
         const res = await apiFetch("/api/menus/for-current-user", { cache: "no-store" });
@@ -78,24 +94,30 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [me]);
 
   return (
-    <AuthProvider>
-      <div className="min-h-dvh">
-        <div className="grid grid-cols-1 lg:grid-cols-[290px_1fr]">
-          <aside className="from-lt-primary to-lt-brand sticky top-0 hidden h-dvh border-r border-white/10 bg-gradient-to-b text-white lg:block">
-            <Sidebar items={navItems} />
-          </aside>
+    <div className="min-h-dvh">
+      <div className="grid grid-cols-1 lg:grid-cols-[290px_1fr]">
+        <aside className="from-lt-primary to-lt-brand sticky top-0 hidden h-dvh border-r border-white/10 bg-gradient-to-b text-white lg:block">
+          <Sidebar items={navItems} />
+        </aside>
 
-          <main className="min-w-0">
-            <header className="sticky top-0 z-20 border-b border-[var(--lt-border)] bg-[rgba(246,249,252,0.78)] backdrop-blur-[10px]">
-              <Topbar navItems={navItems} />
-            </header>
-            <div className="p-4 lg:p-6">{children}</div>
-          </main>
-        </div>
+        <main className="min-w-0">
+          <header className="sticky top-0 z-20 border-b border-[var(--lt-border)] bg-[rgba(246,249,252,0.78)] backdrop-blur-[10px]">
+            <Topbar navItems={navItems} />
+          </header>
+          <div className="p-4 lg:p-6">{children}</div>
+        </main>
       </div>
+    </div>
+  );
+}
+
+export default function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <AuthProvider>
+      <AppShellInner>{children}</AppShellInner>
     </AuthProvider>
   );
 }

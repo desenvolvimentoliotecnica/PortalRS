@@ -150,7 +150,7 @@ const CADASTROS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
   "/unidades", "/funcionarios", "/pessoas",
 ]);
-const HIDDEN_ROUTES = new Set(["/matching"]);
+const HIDDEN_ROUTES = new Set(["/matching", "/departamentos"]);
 
 function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
   if (!href || href === "#") {
@@ -395,20 +395,24 @@ export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
   }, [items]);
 
   const activeModule = useMemo<ModuleKey>(() => {
-    const norm = normalized.toLowerCase();
     for (const mod of MODULE_ORDER) {
       for (const item of grouped[mod]) {
         if (hasActiveDescendant(item, normalized)) return mod;
       }
     }
-    return "Recrutamento";
+    // Fallback: first module that has items
+    return MODULE_ORDER.find((m) => grouped[m].length > 0) ?? "Recrutamento";
   }, [grouped, normalized]);
+
+  // Force re-mount ModuleSections when the items fingerprint changes
+  // (e.g. Owner login → only Owner items; tenant switch → tenant menus).
+  const itemsKey = items.map((i) => i.id).join(",");
 
   return (
     <nav className="px-2 pb-4 pt-1">
       {MODULE_ORDER.map((mod) => (
         <ModuleSection
-          key={mod}
+          key={`${mod}-${itemsKey}`}
           label={mod}
           items={grouped[mod]}
           normalized={normalized}

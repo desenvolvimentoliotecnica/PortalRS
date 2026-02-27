@@ -225,7 +225,7 @@ export default function TopbarClient({
                 {/* My profile */}
                 <DropdownMenuItem disabled>
                   <User className="size-4 mr-2" />
-                  My profile
+                  Meu perfil
                 </DropdownMenuItem>
 
                 {/* Portal de Vagas */}
@@ -248,31 +248,19 @@ export default function TopbarClient({
 
                 <DropdownMenuSeparator />
 
-                {/* Language */}
+                {/* Idioma */}
                 <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                  Language
+                  Idioma
                 </DropdownMenuLabel>
                 <div className="px-2 pb-2">
                   <select
                     className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                    defaultValue="pt-BR"
+                    defaultValue={typeof window !== "undefined" ? localStorage.getItem("renderrh.locale") || "pt-BR" : "pt-BR"}
                     onChange={(e) => {
-                      const culture = e.target.value;
-                      const form = document.createElement("form");
-                      form.method = "POST";
-                      form.action = "/Culture/Set";
-                      const cultureInput = document.createElement("input");
-                      cultureInput.type = "hidden";
-                      cultureInput.name = "culture";
-                      cultureInput.value = culture;
-                      form.appendChild(cultureInput);
-                      const returnInput = document.createElement("input");
-                      returnInput.type = "hidden";
-                      returnInput.name = "returnUrl";
-                      returnInput.value = window.location.pathname;
-                      form.appendChild(returnInput);
-                      document.body.appendChild(form);
-                      form.submit();
+                      const locale = e.target.value;
+                      localStorage.setItem("renderrh.locale", locale);
+                      // Reload so the Accept-Language header picks up the new locale
+                      window.location.reload();
                     }}
                   >
                     <option value="pt-BR">Português (Brasil)</option>
@@ -282,14 +270,14 @@ export default function TopbarClient({
 
                 <DropdownMenuSeparator />
 
-                {/* Sign out */}
+                {/* Sair */}
                 <DropdownMenuItem
                   onClick={() => void logout()}
                   disabled={busy}
                   className="text-red-600 focus:text-red-700"
                 >
                   <LogOut className="size-4 mr-2" />
-                  Sign out
+                  Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
