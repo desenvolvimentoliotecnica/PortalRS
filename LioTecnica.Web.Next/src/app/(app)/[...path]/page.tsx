@@ -2,19 +2,18 @@ import Link from "next/link";
 
 import EmptyState from "@/components/feedback/EmptyState";
 import { Button } from "@/components/ui/button";
-import { requireMe } from "@/server/bff/requireMe";
+
+export function generateStaticParams() {
+  return [{ path: ["legacy"] }];
+}
 
 export default async function LegacyFallbackPage({
   params,
 }: {
-  params: { path: string[] };
+  params: Promise<{ path: string[] }>;
 }) {
-  const path = Array.isArray(params.path) ? params.path : [];
-  const nextPath = `/app/${path.join("/")}`;
-
-  // Enforce auth for any internal route.
-  await requireMe(nextPath);
-
+  const { path: pathParam } = await params;
+  const path = Array.isArray(pathParam) ? pathParam : [];
   return (
     <EmptyState
       title="Rota ainda não migrada"
