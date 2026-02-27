@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getBackendUrl } from "@/lib/getBackendUrl";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type HealthStatus = "healthy" | "degraded" | "unhealthy" | "unknown";
@@ -35,9 +36,7 @@ export default function LoginScreenRazor({
   const router = useRouter();
   const sp = useSearchParams();
 
-  // While Next runs with `basePath: "/app"`, browser requests must be prefixed with `/app`.
-  // This keeps the login functional when accessing Next directly at :3000.
-  const BASE = "/app";
+  const BASE = getBackendUrl();
 
   const [entraEnabled, setEntraEnabled] = useState(false);
   const entraError = error || sp.get("error") || "";

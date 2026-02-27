@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { getBackendUrl } from "@/lib/getBackendUrl";
 import type { MatchingCandidate, VagaDetail, VagaListItem } from "@/server/recrutamento/vagas.schema";
 
-const BASE = "/app";
+const BASE = getBackendUrl();
 
 type VagasPayload = unknown;
 
@@ -133,7 +134,7 @@ export default function VagasScreen() {
   }));
 
   async function syncList() {
-    const payload = await fetchJson<VagasPayload>(`${BASE}/api/vagas`);
+    const payload = await fetchJson<VagasPayload>(`${getBackendUrl()}/api/vagas`);
     const list = mapVagasPayload(payload);
     setRows(list);
 
@@ -176,7 +177,7 @@ export default function VagasScreen() {
   }, [area, q, rows, status]);
 
   async function ensureDetail(id: string) {
-    const res = await fetchJson<VagaDetail>(`${BASE}/api/vagas/${encodeURIComponent(id)}`);
+    const res = await fetchJson<VagaDetail>(`${getBackendUrl()}/api/vagas/${encodeURIComponent(id)}`);
     return res;
   }
 
@@ -282,7 +283,7 @@ export default function VagasScreen() {
     for (const v of vagas) {
       const rr = asRecord(v) ?? {};
       const payload = rr; // envia “como veio” (compatível com export do próprio sistema)
-      await fetchJson(`${BASE}/api/vagas`, {
+      await fetchJson(`${getBackendUrl()}/api/vagas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -318,14 +319,14 @@ export default function VagasScreen() {
 
     try {
       if (draft.id) {
-        await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(draft.id)}`, {
+        await fetchJson(`${getBackendUrl()}/api/vagas/${encodeURIComponent(draft.id)}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         toast.success("Vaga atualizada.");
       } else {
-        await fetchJson(`${BASE}/api/vagas`, {
+        await fetchJson(`${getBackendUrl()}/api/vagas`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -344,7 +345,7 @@ export default function VagasScreen() {
     const ok = confirm(`Excluir a vaga "${v?.titulo ?? ""}"?\n\nIsso remove também os requisitos.`);
     if (!ok) return;
     try {
-      await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await fetchJson(`${getBackendUrl()}/api/vagas/${encodeURIComponent(id)}`, { method: "DELETE" });
       toast.success("Vaga excluída.");
       await syncList();
     } catch {
@@ -360,7 +361,7 @@ export default function VagasScreen() {
       const baseTitle = pickString(r.titulo, "").trim();
       r.codigo = baseCode ? `${baseCode}-COPY`.slice(0, 40) : null;
       r.titulo = baseTitle ? `${baseTitle} (Cópia)`.slice(0, 160) : "Cópia";
-      await fetchJson(`${BASE}/api/vagas`, {
+      await fetchJson(`${getBackendUrl()}/api/vagas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(r),
@@ -379,7 +380,7 @@ export default function VagasScreen() {
       const r = asRecord(detail) ?? {};
       r.threshold = clamp(value, 0, 100);
       r.matchMinimoPercentual = clamp(value, 0, 100);
-      await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(selectedId)}`, {
+      await fetchJson(`${getBackendUrl()}/api/vagas/${encodeURIComponent(selectedId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(r),
@@ -400,7 +401,7 @@ export default function VagasScreen() {
     setMatching(null);
     try {
       const list = await fetchJson<MatchingCandidate[]>(
-        `${BASE}/api/vagas/${encodeURIComponent(selectedId)}/matching-candidates?take=20`,
+        `${getBackendUrl()}/api/vagas/${encodeURIComponent(selectedId)}/matching-candidates?take=20`,
       );
       setMatching(Array.isArray(list) ? list : []);
     } catch {
@@ -830,7 +831,7 @@ export default function VagasScreen() {
                     onClick={() => {
                       if (!selectedId || !detail) return;
                       setSavingDetail(true);
-                      fetchJson(`${BASE}/api/vagas/${encodeURIComponent(selectedId)}`, {
+                      fetchJson(`${getBackendUrl()}/api/vagas/${encodeURIComponent(selectedId)}`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(detail),

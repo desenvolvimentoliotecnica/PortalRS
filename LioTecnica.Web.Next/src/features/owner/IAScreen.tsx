@@ -30,8 +30,9 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { getBackendUrl } from "@/lib/getBackendUrl";
 
-const BASE = "/app/Owner/IA/_api";
+const BASE = `${getBackendUrl()}/Owner/IA/_api`;
 
 /* ─── Types ─── */
 

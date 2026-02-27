@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: "export",
 
   /**
    * We mount the Next app under `/app` to coexist with the ASP.NET MVC legacy

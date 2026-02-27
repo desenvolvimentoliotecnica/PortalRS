@@ -34,8 +34,9 @@ import {
 } from "@/components/ui/sheet";
 import type { BffNavItem } from "@/server/bff/navigation.schema";
 import type { BffMe } from "@/server/bff/schema";
+import { getBackendUrl } from "@/lib/getBackendUrl";
 
-const BASE = "/app";
+const BASE = getBackendUrl();
 
 export default function TopbarClient({
   navItems,
