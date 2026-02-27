@@ -150,7 +150,7 @@ const CADASTROS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
   "/unidades", "/funcionarios", "/pessoas",
 ]);
-const HIDDEN_ROUTES = new Set(["/matching"]);
+const HIDDEN_ROUTES = new Set(["/matching", "/departamentos"]);
 
 function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
   if (!href || href === "#") {

@@ -29,6 +29,11 @@ export async function apiFetch(
     if (!headers.has("Accept")) {
         headers.set("Accept", "application/json");
     }
+    if (!headers.has("Accept-Language")) {
+        let locale = "pt-BR";
+        try { locale = (typeof window !== "undefined" && localStorage.getItem("renderrh.locale")) || "pt-BR"; } catch { /* SSR */ }
+        headers.set("Accept-Language", locale);
+    }
 
     const token = getAccessToken();
     if (token && !headers.has("Authorization")) {
