@@ -8,7 +8,8 @@ namespace Liotecnica.Integration.RM;
 
 /// <summary>
 /// Envia o Funcionário do RM (SEMPRESAFUNCIONARIO / funcionario.json) para a API do Portal como Funcionario (api/funcionarios).
-/// SEMPRESAFUNCIONARIO tem NOME, EMAIL, CHAPA, CARGO, ATIVO (ativo/desligado). UnitId/AreaId/JobPositionId ficam nulos (resolução por código pode ser adicionada depois).
+/// SEMPRESAFUNCIONARIO tem NOME, EMAIL, CHAPA, CARGO, ATIVO (ativo/desligado).
+/// Se o RM disponibilizar códigos como CODFILIAL/CODSECAO na extração, o sync tenta resolver UnitId/AreaId via Code já cadastrado no Portal (api/units, api/areas).
 /// </summary>
 public sealed class PortalFuncionarioSyncService
 {
@@ -65,19 +66,42 @@ public sealed class PortalFuncionarioSyncService
             if (items is not null && items.Count > 0)
             {
                 var codeToRequisitoCategoriaId = await LoadRequisitoCategoriasByCodeAsync(ct);
+                var codeToUnitId = await LoadUnitsByCodeAsync(ct);
+                var codeToAreaId = await LoadAreasByCodeAsync(ct);
+
                 await SyncFuncionariosFromRowsAsync(items, (row) =>
                 {
                     var chapa = (row.Chapa ?? "").Trim();
                     var name = (row.Nome ?? "").Trim();
                     var email = (row.Email ?? "").Trim();
                     if (string.IsNullOrEmpty(email)) email = string.IsNullOrEmpty(chapa) ? null : $"{chapa}@rm.sync";
-                    if (string.IsNullOrEmpty(email)) return (null, null, null, null, null, null);
+                    if (string.IsNullOrEmpty(email)) return (null, null, null, null, null, null, null, null);
                     if (string.IsNullOrEmpty(name)) name = chapa ?? email;
                     var statusStr = IsAtivo(row.Ativo) ? "Active" : "Inactive";
                     var notes = string.IsNullOrEmpty(chapa) ? null : $"RM CHAPA={chapa}";
                     var funcaoCode = (row.Funcao ?? "").Trim();
                     var requisitoCategoriaId = string.IsNullOrEmpty(funcaoCode) ? null : (codeToRequisitoCategoriaId.TryGetValue(funcaoCode, out var id) ? id : (Guid?)null);
-                    return (name, email, Trunc(row.Telefone, 40), statusStr, notes, requisitoCategoriaId);
+
+                    var unitCode = NormalizeCode(GetFirstNonEmpty(
+                        GetAsCode(row.CodFilial),
+                        GetAsCode(row.CodFilialAlt),
+                        GetAsCode(row.CodEstabelecimento),
+                        GetAsCode(row.CodUnidade)));
+                    var areaCode = NormalizeCode(GetFirstNonEmpty(
+                        GetAsCode(row.CodSecao),
+                        GetAsCode(row.CodSecaoAlt),
+                        GetAsCode(row.CodDepartamento),
+                        GetAsCode(row.CodDepto)));
+
+                    Guid? unitId = null;
+                    if (!string.IsNullOrEmpty(unitCode) && codeToUnitId.TryGetValue(unitCode, out var uid))
+                        unitId = uid;
+
+                    Guid? areaId = null;
+                    if (!string.IsNullOrEmpty(areaCode) && codeToAreaId.TryGetValue(areaCode, out var aid))
+                        areaId = aid;
+
+                    return (name, email, Trunc(row.Telefone, 40), statusStr, notes, requisitoCategoriaId, unitId, areaId);
                 }, "SEMPRESAFUNCIONARIO", ct);
                 return;
             }
@@ -104,10 +128,11 @@ public sealed class PortalFuncionarioSyncService
     /// <summary>Sync a partir de linhas de pessoa.json (PPESSOA): um Funcionário por Pessoa.</summary>
     private async Task SyncFuncionariosFromPessoaRowsAsync(List<PessoaRowForFuncionario> rows, CancellationToken ct)
     {
-        var emailToId = await LoadExistingFuncionariosAsync(ct);
+        var emailToExisting = await LoadExistingFuncionariosAsync(ct);
         var attemptedThisBatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var created = 0;
         var skipped = 0;
+        var updated = 0;
         _logWriter.WriteLine($"Sync Funcionários (de Pessoas): enviando até {rows.Count} itens (PPESSOA -> api/funcionarios)");
 
         foreach (var row in rows)
@@ -121,7 +146,7 @@ public sealed class PortalFuncionarioSyncService
                     email = $"codigo{row.Codigo}@rm.sync";
                 var key = email.Trim().ToLowerInvariant();
                 if (string.IsNullOrEmpty(key)) continue;
-                if (emailToId.TryGetValue(key, out _)) { skipped++; continue; }
+                if (emailToExisting.TryGetValue(key, out _)) { skipped++; continue; }
                 if (attemptedThisBatch.Contains(key)) { skipped++; continue; }
                 attemptedThisBatch.Add(key);
 
@@ -146,7 +171,7 @@ public sealed class PortalFuncionarioSyncService
                     var f = await response.Content.ReadFromJsonAsync<FuncionarioResponse>(JsonOptions, ct);
                     if (f != null && !string.IsNullOrEmpty(f.Email))
                     {
-                        emailToId[f.Email.Trim().ToLowerInvariant()] = f.Id;
+                        emailToExisting[f.Email.Trim().ToLowerInvariant()] = new ExistingFuncionario(f.Id, null, null);
                         created++;
                     }
                 }
@@ -164,8 +189,8 @@ public sealed class PortalFuncionarioSyncService
             }
         }
 
-        _logWriter.WriteLine($"Sync Funcionários (de Pessoas): concluído. Criados: {created}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Funcionários (de Pessoas): criados={Created}, já existentes: {Skipped}", created, skipped);
+        _logWriter.WriteLine($"Sync Funcionários (de Pessoas): concluído. Criados: {created}, atualizados: {updated}, já existentes: {skipped}");
+        _logger.LogInformation("Sync Funcionários (de Pessoas): criados={Created}, atualizados={Updated}, já existentes: {Skipped}", created, updated, skipped);
     }
 
     private async Task<Dictionary<string, Guid>> LoadRequisitoCategoriasByCodeAsync(CancellationToken ct)
@@ -191,22 +216,59 @@ public sealed class PortalFuncionarioSyncService
 
     private async Task SyncFuncionariosFromRowsAsync<T>(
         List<T> items,
-        Func<T, (string? name, string? email, string? phone, string? statusStr, string? notes, Guid? requisitoCategoriaId)> mapRow,
+        Func<T, (string? name, string? email, string? phone, string? statusStr, string? notes, Guid? requisitoCategoriaId, Guid? unitId, Guid? areaId)> mapRow,
         string sourceName,
         CancellationToken ct)
     {
         _logWriter.WriteLine($"Sync Funcionários: enviando {items.Count} itens ({sourceName} -> api/funcionarios)");
-        var emailToId = await LoadExistingFuncionariosAsync(ct);
+        var emailToExisting = await LoadExistingFuncionariosAsync(ct);
         var created = 0;
         var skipped = 0;
+        var updated = 0;
         foreach (var row in items)
         {
             try
             {
-                var (name, email, phone, statusStr, notes, requisitoCategoriaId) = mapRow(row);
+                var (name, email, phone, statusStr, notes, requisitoCategoriaId, unitId, areaId) = mapRow(row);
                 if (string.IsNullOrEmpty(email)) continue;
                 var key = email.Trim().ToLowerInvariant();
-                if (emailToId.TryGetValue(key, out _)) { skipped++; continue; }
+                if (emailToExisting.TryGetValue(key, out var existing))
+                {
+                    // Se já existe, tenta preencher UnitId/AreaId caso estejam nulos no Portal e o RM tenha resolvido.
+                    var shouldUpdate =
+                        (existing.UnitId is null && unitId is not null) ||
+                        (existing.AreaId is null && areaId is not null);
+                    if (!shouldUpdate) { skipped++; continue; }
+
+                    var updateBody = new
+                    {
+                        name = (name ?? email).Length > 160 ? (name ?? email).Substring(0, 160) : (name ?? email),
+                        email = email.Length > 180 ? email.Substring(0, 180) : email,
+                        phone = phone,
+                        status = statusStr ?? "Active",
+                        headcount = 1,
+                        unitId = unitId ?? existing.UnitId,
+                        areaId = areaId ?? existing.AreaId,
+                        jobPositionId = (Guid?)null,
+                        requisitoCategoriaId = requisitoCategoriaId,
+                        notes = notes
+                    };
+
+                    var resp = await _portalClient.Http.PutAsJsonAsync($"api/funcionarios/{existing.Id}", updateBody, JsonOptions, ct);
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        emailToExisting[key] = existing with { UnitId = updateBody.unitId, AreaId = updateBody.areaId };
+                        updated++;
+                    }
+                    else
+                    {
+                        var msg = await resp.Content.ReadAsStringAsync(ct);
+                        _logWriter.WriteLine($"Sync Funcionários: ERRO {resp.StatusCode} no UPDATE para Email={email}: {msg}");
+                        _logger.LogWarning("PUT api/funcionarios/{Id} falhou para Email={Email}: {Status} {Msg}", existing.Id, email, resp.StatusCode, msg);
+                    }
+                    continue;
+                }
+
                 var body = new
                 {
                     name = (name ?? email).Length > 160 ? (name ?? email).Substring(0, 160) : (name ?? email),
@@ -214,8 +276,8 @@ public sealed class PortalFuncionarioSyncService
                     phone = phone,
                     status = statusStr ?? "Active",
                     headcount = 1,
-                    unitId = (Guid?)null,
-                    areaId = (Guid?)null,
+                    unitId = unitId,
+                    areaId = areaId,
                     jobPositionId = (Guid?)null,
                     requisitoCategoriaId = requisitoCategoriaId,
                     notes = notes,
@@ -227,7 +289,7 @@ public sealed class PortalFuncionarioSyncService
                     var f = await response.Content.ReadFromJsonAsync<FuncionarioResponse>(JsonOptions, ct);
                     if (f != null && !string.IsNullOrEmpty(f.Email))
                     {
-                        emailToId[f.Email.Trim().ToLowerInvariant()] = f.Id;
+                        emailToExisting[f.Email.Trim().ToLowerInvariant()] = new ExistingFuncionario(f.Id, f.UnitId, f.AreaId);
                         created++;
                     }
                 }
@@ -243,13 +305,13 @@ public sealed class PortalFuncionarioSyncService
                 _logger.LogWarning(ex, "Falha ao enviar funcionário; continuando.");
             }
         }
-        _logWriter.WriteLine($"Sync Funcionários: concluído. Criados: {created}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Funcionários: criados={Created}, já existentes: {Skipped}", created, skipped);
+        _logWriter.WriteLine($"Sync Funcionários: concluído. Criados: {created}, atualizados: {updated}, já existentes: {skipped}");
+        _logger.LogInformation("Sync Funcionários: criados={Created}, atualizados={Updated}, já existentes: {Skipped}", created, updated, skipped);
     }
 
-    private async Task<Dictionary<string, Guid>> LoadExistingFuncionariosAsync(CancellationToken ct)
+    private async Task<Dictionary<string, ExistingFuncionario>> LoadExistingFuncionariosAsync(CancellationToken ct)
     {
-        var map = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, ExistingFuncionario>(StringComparer.OrdinalIgnoreCase);
         try
         {
             var page = 1;
@@ -264,7 +326,7 @@ public sealed class PortalFuncionarioSyncService
                 {
                     var key = (f.Email ?? "").Trim().ToLowerInvariant();
                     if (!string.IsNullOrEmpty(key))
-                        map[key] = f.Id;
+                        map[key] = new ExistingFuncionario(f.Id, f.UnitId, f.AreaId);
                 }
                 if (page >= (paged.TotalPages ?? 1))
                     break;
@@ -275,6 +337,60 @@ public sealed class PortalFuncionarioSyncService
         {
             _logger.LogWarning(ex, "Falha ao carregar funcionários existentes do portal; assumindo nenhum.");
             _logWriter.WriteLine($"Sync Funcionários: falha ao carregar existentes - {ex.Message}");
+        }
+        return map;
+    }
+
+    private async Task<Dictionary<string, Guid>> LoadUnitsByCodeAsync(CancellationToken ct)
+    {
+        var map = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var page = 1;
+            const int pageSize = 500;
+            while (true)
+            {
+                var paged = await _portalClient.Http.GetFromJsonAsync<PagedResult<UnitGridRowResponse>>(
+                    $"api/units?page={page}&pageSize={pageSize}", JsonOptions, ct);
+                if (paged?.Items == null || paged.Items.Count == 0)
+                    break;
+                foreach (var u in paged.Items)
+                {
+                    var code = NormalizeCode(u.Code);
+                    if (!string.IsNullOrEmpty(code))
+                        map[code] = u.Id;
+                }
+                if (page >= (paged.TotalPages ?? 1))
+                    break;
+                page++;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao carregar units do portal; funcionário ficará sem UnitId quando não resolver.");
+            _logWriter.WriteLine($"Sync Funcionários: falha ao carregar units - {ex.Message}");
+        }
+        return map;
+    }
+
+    private async Task<Dictionary<string, Guid>> LoadAreasByCodeAsync(CancellationToken ct)
+    {
+        var map = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var list = await _portalClient.Http.GetFromJsonAsync<List<AreaItem>>("api/areas", JsonOptions, ct);
+            if (list != null)
+                foreach (var a in list)
+                {
+                    var code = NormalizeCode(a.Code);
+                    if (!string.IsNullOrEmpty(code))
+                        map[code] = a.Id;
+                }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao carregar áreas do portal; funcionário ficará sem AreaId quando não resolver.");
+            _logWriter.WriteLine($"Sync Funcionários: falha ao carregar áreas - {ex.Message}");
         }
         return map;
     }
@@ -317,6 +433,26 @@ public sealed class PortalFuncionarioSyncService
         public string? Ativo { get; set; }
         [JsonPropertyName("CODPESSOA")]
         public int? Codpessoa { get; set; }
+
+        // Campos opcionais (dependem do schema real do SEMPRESAFUNCIONARIO).
+        // Se existirem na extração, usamos para resolver Unit/Area por código.
+        [JsonPropertyName("CODFILIAL")]
+        public JsonElement CodFilial { get; set; }
+        [JsonPropertyName("CODFILIALFUNCIONARIO")]
+        public JsonElement CodFilialAlt { get; set; }
+        [JsonPropertyName("CODESTAB")]
+        public JsonElement CodEstabelecimento { get; set; }
+        [JsonPropertyName("CODUNIDADE")]
+        public JsonElement CodUnidade { get; set; }
+
+        [JsonPropertyName("CODSECAO")]
+        public JsonElement CodSecao { get; set; }
+        [JsonPropertyName("CODIGOSECAO")]
+        public JsonElement CodSecaoAlt { get; set; }
+        [JsonPropertyName("CODDEPARTAMENTO")]
+        public JsonElement CodDepartamento { get; set; }
+        [JsonPropertyName("CODDEPTO")]
+        public JsonElement CodDepto { get; set; }
     }
 
     /// <summary>Linha de pessoa.json (PPESSOA) usada para sync de Funcionários a partir de Pessoas.</summary>
@@ -345,4 +481,28 @@ public sealed class PortalFuncionarioSyncService
     private sealed record PagedResult<T>(List<T>? Items, int Page, int PageSize, int TotalItems, int? TotalPages);
 
     private sealed record RequisitoCategoriaItem(Guid Id, string Code, string Name);
+
+    private sealed record UnitGridRowResponse(Guid Id, string Name, string Code);
+
+    private sealed record AreaItem(Guid Id, string Code, string Name);
+
+    private sealed record ExistingFuncionario(Guid Id, Guid? UnitId, Guid? AreaId);
+
+    private static string? GetFirstNonEmpty(params string?[] values)
+    {
+        foreach (var v in values)
+            if (!string.IsNullOrWhiteSpace(v))
+                return v.Trim();
+        return null;
+    }
+
+    private static string? GetAsCode(JsonElement el)
+    {
+        if (el.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null) return null;
+        var s = el.ValueKind == JsonValueKind.String ? el.GetString() : el.ToString();
+        s = s?.Trim();
+        return string.IsNullOrEmpty(s) ? null : s;
+    }
+
+    private static string? NormalizeCode(string? code) => string.IsNullOrWhiteSpace(code) ? null : code.Trim();
 }

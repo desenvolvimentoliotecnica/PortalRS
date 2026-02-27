@@ -1,7 +1,11 @@
-import { requireMe } from "@/server/bff/requireMe";
-import VagasScreen from "@/features/recrutamento/vagas/VagasScreen";
+import { Suspense } from "react";
 
-export default async function VagasPage() {
-  await requireMe("/app/vagas");
-  return <VagasScreen />;
+import VagasClient from "./VagasClient";
+
+export default function VagasPage() {
+  return (
+    <Suspense fallback={null}>
+      <VagasClient />
+    </Suspense>
+  );
 }

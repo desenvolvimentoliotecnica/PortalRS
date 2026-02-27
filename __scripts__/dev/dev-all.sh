@@ -86,8 +86,10 @@ if [ -d "$NEXT_DIR" ]; then
   (
     cd "$NEXT_DIR"
     rm -f .next/dev/lock 2>/dev/null || true
-    pnpm install
-    LEGACY_ORIGIN=http://localhost:5051 PORT=3000 exec pnpm dev
+    if [ ! -d "node_modules" ]; then
+      pnpm install --silent
+    fi
+    WATCHPACK_POLLING=true LEGACY_ORIGIN=http://localhost:5051 DEV_API_ORIGIN=http://localhost:5056 PORT=3000 exec pnpm dev
   ) &
   NEXT_PID=$!
 fi

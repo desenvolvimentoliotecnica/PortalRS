@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import { toast } from "sonner";
+import PaginationBar from "@/components/pagination/PaginationBar";
+import { useClientPagination } from "@/hooks/useClientPagination";
+import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
 
@@ -51,14 +54,20 @@ function pickNumber(v: unknown, fallback: number) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function clampInt(v: unknown, min: number, max: number) {
+  const n = Math.trunc(pickNumber(v, min));
+  if (n < min) return min;
+  if (n > max) return max;
+  return n;
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.headers || {}),
     },
-    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {
@@ -140,6 +149,14 @@ function origemTag(o: InboxOrigem) {
   return "Upload";
 }
 
+function attachmentIcon(tipo?: string | null) {
+  const t = (tipo || "").toLowerCase();
+  if (t === "pdf") return "📄";
+  if (t === "doc" || t === "docx") return "📝";
+  if (t === "txt") return "📃";
+  return "📎";
+}
+
 export default function EntradaEmailPastaScreen({
   tenantId,
   initialVagas,
@@ -165,6 +182,22 @@ export default function EntradaEmailPastaScreen({
   const [detailOpen, setDetailOpen] = useState(false);
 
   const hubDebounceRef = useRef<number | null>(null);
+  const simTimerRef = useRef<number | null>(null);
+  const inboxRef = useRef(inbox);
+  const vagasRef = useRef(vagas);
+
+  useEffect(() => {
+    inboxRef.current = inbox;
+  }, [inbox]);
+
+  useEffect(() => {
+    vagasRef.current = vagas;
+  }, [vagas]);
+
+  function clearSimTimer() {
+    if (simTimerRef.current) window.clearInterval(simTimerRef.current);
+    simTimerRef.current = null;
+  }
 
   async function refreshAll(silent?: boolean) {
     try {
@@ -218,19 +251,52 @@ export default function EntradaEmailPastaScreen({
     };
   }, [tenantId]);
 
+  useEffect(() => {
+    return () => {
+      clearSimTimer();
+    };
+  }, []);
+
+  const vagaById = useMemo(() => {
+    return new Map(vagas.map((v) => [v.id, v]));
+  }, [vagas]);
+
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
     return inbox.filter((x) => {
       if (origem !== "all" && x.origem !== origem) return false;
       if (status !== "all" && x.status !== status) return false;
       if (!qq) return true;
-      const blob = [x.remetente, x.assunto, x.destinatario, ...(x.anexos?.map((a) => a.nome) ?? [])]
+      const vaga = x.vagaId ? vagaById.get(x.vagaId) : null;
+      const blob = [
+        x.remetente,
+        x.assunto,
+        x.destinatario,
+        vaga?.titulo,
+        vaga?.codigo,
+        ...(x.anexos?.map((a) => a.nome) ?? []),
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return blob.includes(qq);
     });
-  }, [inbox, origem, q, status]);
+  }, [inbox, origem, q, status, vagaById]);
+
+  const filteredSorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const ta = a.recebidoEm ? new Date(a.recebidoEm).getTime() : 0;
+      const tb = b.recebidoEm ? new Date(b.recebidoEm).getTime() : 0;
+      return tb - ta;
+    });
+  }, [filtered]);
+
+  /* pagination (client-side) */
+  const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filteredSorted.length, {
+    initialPageSize: 20,
+    resetDeps: [q, origem, status],
+  });
+  const pagedSorted = useMemo(() => filteredSorted.slice(slice.start, slice.end), [filteredSorted, slice.end, slice.start]);
 
   const kpis = useMemo(() => {
     const queue = inbox.filter((x) => x.status === "novo" || x.status === "processando").length;
@@ -283,6 +349,161 @@ export default function EntradaEmailPastaScreen({
     const mapped = mapInbox(saved);
     if (mapped) setInbox((list) => list.map((x) => (x.id === mapped.id ? mapped : x)));
     return mapped;
+  }
+
+  async function createInboxItem(payload: unknown) {
+    const saved = await fetchJson<unknown>(`${BASE}/EntradaEmailPasta/_api/inbox`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const mapped = mapInbox(saved);
+    if (mapped) {
+      setInbox((list) => [mapped, ...list]);
+      setSelectedId(mapped.id);
+    }
+    return mapped;
+  }
+
+  async function runProcess(itemId: string, force: boolean) {
+    const cur = inboxRef.current.find((x) => x.id === itemId);
+    if (!cur) return;
+
+    clearSimTimer();
+
+    let item: InboxItem = { ...cur };
+
+    const tentativasBase = item.processamento?.tentativas ?? 0;
+    if (force) {
+      item = {
+        ...item,
+        status: "novo",
+        processamento: {
+          pct: 0,
+          etapa: "Aguardando",
+          log: [],
+          tentativas: tentativasBase,
+          ultimoErro: null,
+        },
+      };
+    }
+
+    if (item.status === "processado") {
+      toast.error("Já está processado. Use Reprocessar se precisar.");
+      return;
+    }
+    if (item.status === "descartado") {
+      toast.error("Item descartado. Não é possível processar.");
+      return;
+    }
+
+    item = {
+      ...item,
+      status: "processando",
+      processamento: {
+        pct: item.processamento?.pct ?? 0,
+        etapa: item.processamento?.etapa ?? "Aguardando",
+        log: [...(item.processamento?.log ?? []), "Processamento iniciado."],
+        tentativas: (item.processamento?.tentativas ?? 0) + 1,
+        ultimoErro: null,
+      },
+    };
+
+    setInbox((list) => list.map((x) => (x.id === item.id ? item : x)));
+    try {
+      await saveInboxItem(item);
+    } catch {
+      toast.error("Falha ao iniciar processamento.");
+      return;
+    }
+
+    const steps: Array<{ pct: number; etapa: string; log: string }> = [
+      { pct: 15, etapa: "Validando anexos", log: "Anexos validados." },
+      { pct: 35, etapa: "Armazenando arquivo", log: "Arquivo armazenado (demo)." },
+      { pct: 60, etapa: "Extraindo texto", log: "Texto extraído (demo)." },
+      { pct: 85, etapa: "Normalizando conteúdo", log: "Normalização concluída." },
+      { pct: 100, etapa: "Concluído", log: "Processamento finalizado." },
+    ];
+
+    let idx = 0;
+    let busy = false;
+
+    simTimerRef.current = window.setInterval(() => {
+      if (busy) return;
+      busy = true;
+
+      const s = steps[idx++];
+      if (!s) {
+        clearSimTimer();
+        busy = false;
+        return;
+      }
+
+      const current = inboxRef.current.find((x) => x.id === itemId) ?? item;
+      item = {
+        ...current,
+        processamento: {
+          pct: s.pct,
+          etapa: s.etapa,
+          log: [...(current.processamento?.log ?? []), s.log],
+          tentativas: current.processamento?.tentativas ?? 1,
+          ultimoErro: current.processamento?.ultimoErro ?? null,
+        },
+      };
+
+      setInbox((list) => list.map((x) => (x.id === item.id ? item : x)));
+
+      void saveInboxItem(item)
+        .then(async () => {
+          if (s.pct !== 100) return;
+
+          const subj = (item.assunto || "").toLowerCase();
+          const remet = item.remetente || "";
+          const fail = subj.includes("senha") || remet.includes("carlos");
+
+          if (fail && (item.processamento?.tentativas ?? 0) < 3) {
+            const failed: InboxItem = {
+              ...item,
+              status: "falha",
+              processamento: {
+                pct: 100,
+                etapa: "Falha",
+                log: [...(item.processamento?.log ?? []), "Falha detectada: arquivo protegido/ inválido."],
+                tentativas: item.processamento?.tentativas ?? 1,
+                ultimoErro: "Falha na extração: documento protegido / inválido (demo).",
+              },
+            };
+            setInbox((list) => list.map((x) => (x.id === failed.id ? failed : x)));
+            await saveInboxItem(failed);
+            toast.error("Falha ao processar (demo).");
+            clearSimTimer();
+            return;
+          }
+
+          const done: InboxItem = {
+            ...item,
+            status: "processado",
+            processamento: {
+              pct: 100,
+              etapa: "Concluído",
+              log: item.processamento?.log ?? ["Processamento finalizado."],
+              tentativas: item.processamento?.tentativas ?? 1,
+              ultimoErro: null,
+            },
+            previewText: (item.previewText || "").trim() ? item.previewText : "Resumo (demo): experiência com excel, dashboards, comunicação e relatórios.",
+          };
+          setInbox((list) => list.map((x) => (x.id === done.id ? done : x)));
+          await saveInboxItem(done);
+          toast.success("Processamento concluído.");
+          clearSimTimer();
+        })
+        .catch(() => {
+          // mantém UI local; próximos ticks podem tentar salvar de novo.
+        })
+        .finally(() => {
+          busy = false;
+        });
+    }, 700);
   }
 
   async function createCandidateFromInbox(item: InboxItem) {
@@ -339,10 +560,9 @@ export default function EntradaEmailPastaScreen({
 
   async function addToTalentos(itemId: string) {
     try {
-      const res = await fetch(`${BASE}/EntradaEmailPasta/_api/inbox/${encodeURIComponent(itemId)}/add-to-talentos`, {
+      const res = await apiFetch(`${BASE}/EntradaEmailPasta/_api/inbox/${encodeURIComponent(itemId)}/add-to-talentos`, {
         method: "POST",
         headers: { Accept: "application/json" },
-        credentials: "same-origin",
       });
       if (!res.ok) {
         const err = (await res.json().catch(() => null)) as unknown;
@@ -422,7 +642,35 @@ export default function EntradaEmailPastaScreen({
               }}
             />
           </label>
-          <button className="btn-brand" type="button" onClick={() => toast.info("Simulação no Next: use upload manual + APIs do legado.")}>
+          <button
+            className="btn-brand"
+            type="button"
+            onClick={() => {
+              const vagaId = vagasRef.current[0]?.id ?? null;
+              const payload = {
+                origem: "email",
+                status: "novo",
+                recebidoEm: new Date().toISOString(),
+                remetente: "amostra@empresa.com",
+                assunto: "Currículo enviado",
+                destinatario: "rh@liotecnica.com.br",
+                vagaId,
+                anexos: [
+                  {
+                    nome: "Amostra_CV.pdf",
+                    tipo: "pdf",
+                    tamanhoKB: 220,
+                    hash: `sim-${Math.random().toString(16).slice(2, 8)}`,
+                  },
+                ],
+                processamento: { pct: 0, etapa: "Aguardando", log: ["Simulação de coleta."], tentativas: 0, ultimoErro: null },
+                previewText: "",
+              };
+              void createInboxItem(payload)
+                .then(() => toast.success("Item simulado criado."))
+                .catch(() => toast.error("Falha ao simular coleta."));
+            }}
+          >
             Simular coleta
           </button>
         </div>
@@ -524,9 +772,11 @@ export default function EntradaEmailPastaScreen({
           </div>
 
           <div className="mt-3 space-y-2">
-            {filtered.length ? (
-              filtered.map((x) => {
+            {filteredSorted.length ? (
+              pagedSorted.map((x) => {
                 const st = statusTag(x.status);
+                const pct = x.status === "processando" ? clampInt(x.processamento?.pct, 0, 100) : null;
+                const vaga = x.vagaId ? vagaById.get(x.vagaId) : null;
                 return (
                   <button
                     key={x.id}
@@ -542,14 +792,12 @@ export default function EntradaEmailPastaScreen({
                         <div className="flex flex-wrap items-center gap-2">
                           <span className={`status-tag ${st.cls}`}>{st.label}</span>
                           <span className="pill">{origemTag(x.origem)}</span>
-                          {x.vagaId ? (
-                            <span className="pill">
-                              Vaga:{" "}
-                              <strong className="ms-1">
-                                {vagas.find((v) => v.id === x.vagaId)?.codigo || "—"}
-                              </strong>
-                            </span>
-                          ) : null}
+                          <span className="pill">
+                            Vaga:{" "}
+                            <strong className="ms-1">
+                              {vaga ? (vaga.codigo ? `${vaga.titulo} (${vaga.codigo})` : vaga.titulo) : "não definida"}
+                            </strong>
+                          </span>
                         </div>
                         <div className="mt-1 font-extrabold truncate">{x.assunto || x.anexos?.[0]?.nome || "Entrada"}</div>
                         <div className="text-muted-foreground text-sm truncate">
@@ -559,23 +807,42 @@ export default function EntradaEmailPastaScreen({
                           <div className="mt-2 flex flex-wrap gap-2">
                             {x.anexos.slice(0, 4).map((a, idx) => (
                               <span key={idx} className="pill">
-                                {a.nome} <span className="mono text-muted-foreground">({pickNumber(a.tamanhoKB, 0)}KB)</span>
+                                {attachmentIcon(a.tipo)} {a.nome}{" "}
+                                <span className="mono text-muted-foreground">({pickNumber(a.tamanhoKB, 0)}KB)</span>
                               </span>
                             ))}
+                          </div>
+                        ) : null}
+                        {pct != null ? (
+                          <div className="mt-2">
+                            <div className="h-2 w-full rounded-full bg-[rgba(16,82,144,.12)]">
+                              <div
+                                className="h-2 rounded-full bg-[rgb(var(--lt-primary))] transition-[width] duration-300"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
                           </div>
                         ) : null}
                       </div>
                       <div className="text-muted-foreground text-xs text-right">
                         <div className="mono">{x.recebidoEm ? new Date(x.recebidoEm).toLocaleString("pt-BR") : "—"}</div>
-                        {x.processamento?.pct != null ? <div className="mt-1">{x.processamento.pct}%</div> : null}
+                        {pct != null ? <div className="mt-1">{pct}%</div> : null}
                       </div>
                     </div>
                   </button>
                 );
               })
             ) : (
-              <div className="text-muted-foreground text-sm py-6 text-center">Sem itens.</div>
+              <div className="text-muted-foreground text-sm py-6 text-center">Nenhum item encontrado com os filtros atuais.</div>
             )}
+
+            <PaginationBar
+              page={page}
+              pageSize={pageSize}
+              totalItems={filteredSorted.length}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         </div>
       </div>
@@ -588,7 +855,26 @@ export default function EntradaEmailPastaScreen({
                 <div className="mini-title mb-1">Detalhe da entrada</div>
                 <div className="text-lg font-extrabold">{selected.assunto || selected.anexos?.[0]?.nome || "Inbox"}</div>
                 <div className="text-muted-foreground text-sm">
-                  {selected.remetente || "—"} {selected.destinatario ? `• ${selected.destinatario}` : ""}
+                  {selected.remetente || "—"}
+                </div>
+                  <div className="text-muted-foreground text-sm">
+                    Destino: <span className="mono">{selected.destinatario || "—"}</span>
+                  </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className={`status-tag ${statusTag(selected.status).cls}`}>{statusTag(selected.status).label}</span>
+                  <span className="pill">Origem: {origemTag(selected.origem)}</span>
+                    <span className="pill">
+                      Recebido em:{" "}
+                      <strong className="ms-1 mono">
+                        {selected.recebidoEm ? new Date(selected.recebidoEm).toLocaleString("pt-BR") : "—"}
+                      </strong>
+                    </span>
+                  <span className="pill">
+                    Tentativas: <strong className="ms-1">{selected.processamento?.tentativas ?? 0}</strong>
+                  </span>
+                  <span className="pill">
+                    Anexos: <strong className="ms-1">{selected.anexos?.length ?? 0}</strong>
+                  </span>
                 </div>
               </div>
               <button className="btn-ghost px-3 py-2" type="button" onClick={() => setDetailOpen(false)}>
@@ -596,144 +882,228 @@ export default function EntradaEmailPastaScreen({
               </button>
             </div>
 
-            <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_360px]">
-              <div className="card-soft p-3" style={{ boxShadow: "none" }}>
-                <div className="fw-semibold mb-2">Preview</div>
-                <textarea
-                  className="form-control"
-                  rows={10}
-                  value={selected.previewText ?? ""}
-                  onChange={(e) => {
-                    const next = { ...selected, previewText: e.target.value };
-                    setInbox((list) => list.map((x) => (x.id === next.id ? next : x)));
-                  }}
-                />
-                <div className="mt-2 flex justify-end gap-2">
-                  <button
-                    className="btn-ghost"
-                    type="button"
-                    onClick={() => {
-                      const cur = inbox.find((x) => x.id === selected.id);
-                      if (!cur) return;
-                      void saveInboxItem(cur)
-                        .then(() => toast.success("Preview salvo."))
-                        .catch(() => toast.error("Falha ao salvar preview."));
-                    }}
-                  >
-                    Salvar preview
-                  </button>
-                </div>
-              </div>
+            {(() => {
+              const vaga = selected.vagaId ? vagaById.get(selected.vagaId) : null;
+              const pct = clampInt(selected.processamento?.pct, 0, 100);
+              const step = selected.processamento?.etapa || "—";
+              const log = selected.processamento?.log ?? [];
+              const ultimoErro = selected.processamento?.ultimoErro || "";
+              const hasAssigned = !!selected.vagaId;
+              const suggested = [...(selected.suggestedVagas ?? [])].map((s) => ({
+                ...s,
+                isAssigned: selected.vagaId === s.vagaId,
+              }));
+              suggested.sort((a, b) => {
+                if (a.isAssigned === b.isAssigned) return 0;
+                return a.isAssigned ? 1 : -1;
+              });
 
-              <div className="space-y-3">
-                <div className="card-soft p-3" style={{ boxShadow: "none" }}>
-                  <div className="fw-semibold mb-2">Ações</div>
-                  <div className="space-y-2">
-                    <label className="mini-title mb-1 block">Vaga</label>
-                    <select
-                      className="form-select"
-                      value={selected.vagaId ?? ""}
-                      onChange={(e) => {
-                        const next = { ...selected, vagaId: e.target.value || null };
-                        setInbox((list) => list.map((x) => (x.id === next.id ? next : x)));
-                      }}
-                    >
-                      <option value="">Selecione…</option>
-                      {vagas.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.codigo ? `${v.titulo} (${v.codigo})` : v.titulo}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      className="btn-ghost"
-                      type="button"
-                      onClick={() => {
-                        const first = vagas[0];
-                        if (!first) return;
-                        const next = { ...selected, vagaId: first.id };
-                        setInbox((list) => list.map((x) => (x.id === next.id ? next : x)));
-                        void saveInboxItem(next).then(() => toast.success("Vaga atribuída (demo)."));
-                      }}
-                    >
-                      Auto-atribuir (demo)
-                    </button>
-
-                    <button className="btn-brand" type="button" onClick={() => void createCandidateFromInbox(selected)}>
-                      Criar candidato
-                    </button>
-
-                    <button className="btn-ghost" type="button" onClick={() => void addToTalentos(selected.id)}>
-                      Adicionar ao Talentos
-                    </button>
-
-                    <button
-                      className="btn-ghost text-red-700"
-                      type="button"
-                      onClick={() => {
-                        if (!confirm("Descartar este item?")) return;
-                        const next: InboxItem = {
-                          ...selected,
-                          status: "descartado",
-                          processamento: {
-                            pct: 100,
-                            etapa: "Descartado",
-                            log: [...(selected.processamento?.log ?? []), "Item descartado manualmente."],
-                            tentativas: selected.processamento?.tentativas ?? 0,
-                            ultimoErro: selected.processamento?.ultimoErro ?? null,
-                          },
-                        };
-                        setInbox((list) => list.map((x) => (x.id === next.id ? next : x)));
-                        void saveInboxItem(next).then(() => toast.success("Item descartado."));
-                      }}
-                    >
-                      Descartar
-                    </button>
-                  </div>
-                </div>
-
-                {selected.suggestedVagas?.length ? (
-                  <div className="card-soft p-3" style={{ boxShadow: "none" }}>
-                    <div className="fw-semibold mb-2">Sugestões de vaga</div>
-                    <div className="space-y-2">
-                      {selected.suggestedVagas.slice(0, 8).map((s) => {
-                        const isAssigned = selected.vagaId === s.vagaId;
-                        const v = vagas.find((x) => x.id === s.vagaId);
-                        return (
-                          <div
-                            key={s.vagaId}
-                            className={`rounded-xl border border-[rgba(16,82,144,.14)] bg-white/55 p-2 ${isAssigned ? "ring-2 ring-emerald-400/40" : ""}`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="fw-semibold truncate">{v?.titulo || s.titulo || "Vaga"}</div>
-                                <div className="text-muted-foreground text-xs">
-                                  <span className="mono">{v?.codigo || ""}</span> • score{" "}
-                                  <span className="mono">{pickNumber(s.score, 0)}</span>
+              return (
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_360px]">
+                  <div className="space-y-3">
+                    <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                      <div className="fw-bold mb-2">Vagas sugeridas</div>
+                      {suggested.length ? (
+                        <div className="space-y-2">
+                          {suggested.slice(0, 12).map((s) => {
+                            const isAssigned = s.isAssigned;
+                            const vv = vagaById.get(s.vagaId);
+                            const disabled = !isAssigned && hasAssigned;
+                            return (
+                              <div
+                                key={s.vagaId}
+                                className={`rounded-2xl border border-[rgba(16,82,144,.14)] bg-white/55 p-3 ${
+                                  isAssigned ? "ring-2 ring-emerald-400/40" : ""
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="fw-semibold truncate">{vv?.titulo || s.titulo || "Vaga sugerida"}</div>
+                                    <div className="text-muted-foreground text-xs">
+                                      <span className="mono">{vv?.codigo || s.vagaId}</span> • score{" "}
+                                      <span className="mono">{pickNumber(s.score, 0)}</span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    className={isAssigned ? "btn-ghost px-3 py-2 text-red-700" : "btn-ghost px-3 py-2"}
+                                    type="button"
+                                    disabled={disabled}
+                                    title={disabled ? "Já existe uma vaga vinculada" : undefined}
+                                    onClick={() => {
+                                      const next: InboxItem = { ...selected, vagaId: isAssigned ? null : s.vagaId };
+                                      setInbox((list) => list.map((x) => (x.id === next.id ? next : x)));
+                                      void saveInboxItem(next)
+                                        .then(() => toast.success(isAssigned ? "Vaga desvinculada." : "Vaga vinculada."))
+                                        .catch(() => toast.error(isAssigned ? "Falha ao desvincular vaga." : "Falha ao vincular vaga."));
+                                    }}
+                                  >
+                                    {isAssigned ? "Desvincular" : "Vincular"}
+                                  </button>
                                 </div>
                               </div>
-                              <button
-                                className="btn-ghost px-3 py-2"
-                                type="button"
-                                disabled={isAssigned}
-                                onClick={() => {
-                                  const next = { ...selected, vagaId: s.vagaId };
-                                  setInbox((list) => list.map((x) => (x.id === next.id ? next : x)));
-                                  void saveInboxItem(next).then(() => toast.success("Vaga atribuída."));
-                                }}
-                              >
-                                {isAssigned ? "Atribuída" : "Atribuir"}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground text-sm">Sem sugestões ainda.</div>
+                      )}
+                    </div>
+
+                    <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                      <div className="fw-bold mb-2">Anexos</div>
+                      {selected.anexos?.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selected.anexos.map((a, idx) => (
+                            <span key={idx} className="pill">
+                              {attachmentIcon(a.tipo)} {a.nome}{" "}
+                              <span className="mono text-muted-foreground">({pickNumber(a.tamanhoKB, 0)}KB)</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground text-sm">Sem anexos</div>
+                      )}
+                    </div>
+
+                    <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                      <div className="fw-bold mb-2">Preview (texto extraído)</div>
+                      <textarea
+                        className="form-control"
+                        rows={8}
+                        value={selected.previewText ?? ""}
+                        onChange={(e) => {
+                          const next = { ...selected, previewText: e.target.value };
+                          setInbox((list) => list.map((x) => (x.id === next.id ? next : x)));
+                        }}
+                      />
+                      <div className="mt-2 flex flex-wrap justify-end gap-2">
+                        <button
+                          className="btn-ghost"
+                          type="button"
+                          onClick={() => {
+                            const cur = inboxRef.current.find((x) => x.id === selected.id);
+                            if (!cur) return;
+                            void saveInboxItem(cur)
+                              .then(() => toast.success("Preview salvo."))
+                              .catch(() => toast.error("Falha ao salvar preview."));
+                          }}
+                        >
+                          Salvar preview
+                        </button>
+                        <button
+                          className="btn-ghost"
+                          type="button"
+                          onClick={() => {
+                            const first = vagasRef.current[0];
+                            if (!first) return;
+                            const next = { ...selected, vagaId: first.id };
+                            setInbox((list) => list.map((x) => (x.id === next.id ? next : x)));
+                            void saveInboxItem(next).then(() => toast.success("Vaga atribuída (demo)."));
+                          }}
+                        >
+                          Auto-atribuir vaga (demo)
+                        </button>
+                      </div>
+
+                      {ultimoErro ? (
+                        <div className="mt-3 rounded-2xl border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-800">
+                          <div className="fw-semibold mb-1">Erro</div>
+                          <div className="mono">{ultimoErro}</div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
-                ) : null}
-              </div>
-            </div>
+
+                  <div className="space-y-3">
+                    <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                      <div className="fw-bold mb-2">Processamento</div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="mini-title">Etapa</div>
+                          <div className="text-sm text-muted-foreground">{step}</div>
+                        </div>
+                        <div className="fw-bold text-[rgb(var(--lt-primary))]">{pct}%</div>
+                      </div>
+                      <div className="mt-2 h-2 w-full rounded-full bg-[rgba(16,82,144,.12)]">
+                        <div className="h-2 rounded-full bg-[rgb(var(--lt-primary))]" style={{ width: `${pct}%` }} />
+                      </div>
+
+                      <div className="mt-3">
+                        <div className="fw-semibold">Logs</div>
+                        {log.length ? (
+                          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                            {log.slice(-12).map((l, idx) => (
+                              <li key={idx}>{l}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="mt-2 text-muted-foreground text-sm">Sem logs ainda.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                      <div className="fw-bold mb-2">Ações</div>
+
+                      <div className="space-y-2">
+                        <label className="mini-title mb-1 block">Vaga vinculada</label>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="pill">{vaga ? (vaga.codigo ? `${vaga.titulo} (${vaga.codigo})` : vaga.titulo) : "Vaga não definida"}</span>
+                          {selected.vagaId ? <span className="pill mono">{selected.vagaId}</span> : null}
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            className="btn-brand"
+                            type="button"
+                            onClick={() => void runProcess(selected.id, false)}
+                          >
+                            {selected.status === "processando" ? "Continuar" : "Processar"}
+                          </button>
+                          <button className="btn-ghost" type="button" onClick={() => void runProcess(selected.id, true)}>
+                            Reprocessar
+                          </button>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button className="btn-ghost" type="button" onClick={() => void addToTalentos(selected.id)}>
+                            Adicionar à base de talentos
+                          </button>
+                          <button className="btn-ghost" type="button" onClick={() => void createCandidateFromInbox(selected)}>
+                            Criar candidato
+                          </button>
+                        </div>
+
+                        <button
+                          className="btn-ghost text-red-700"
+                          type="button"
+                          onClick={() => {
+                            if (!confirm("Descartar este item?")) return;
+                            const next: InboxItem = {
+                              ...selected,
+                              status: "descartado",
+                              processamento: {
+                                pct: 100,
+                                etapa: "Descartado",
+                                log: [...(selected.processamento?.log ?? []), "Item descartado manualmente."],
+                                tentativas: selected.processamento?.tentativas ?? 0,
+                                ultimoErro: selected.processamento?.ultimoErro ?? null,
+                              },
+                            };
+                            setInbox((list) => list.map((x) => (x.id === next.id ? next : x)));
+                            void saveInboxItem(next)
+                              .then(() => toast.success("Item descartado."))
+                              .catch(() => toast.error("Falha ao descartar item."));
+                          }}
+                        >
+                          Descartar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       ) : null}

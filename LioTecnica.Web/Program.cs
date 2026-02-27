@@ -102,7 +102,8 @@ if (entraEnabled && !string.IsNullOrWhiteSpace(entraClientId))
         {
             OnTokenValidated = async context =>
             {
-                var tenantId = context.Properties.Items.TryGetValue("tenant", out var tenantValue)
+                var tenantId = context.Properties?.Items is not null &&
+                               context.Properties.Items.TryGetValue("tenant", out var tenantValue)
                     ? tenantValue
                     : null;
 

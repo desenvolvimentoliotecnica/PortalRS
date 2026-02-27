@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Edit, Key, Loader2, Plus, Search, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +19,7 @@ import {
 const BASE = "/app";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(url, { credentials: "same-origin", ...init });
+    const res = await apiFetch(url, { ...init });
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as Record<string, string>).error || `HTTP ${res.status}`);

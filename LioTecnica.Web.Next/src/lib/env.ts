@@ -1,11 +1,4 @@
-import { createEnv } from "@t3-oss/env-nextjs";
-import { z } from "zod";
-
-export const env = createEnv({
-  server: {
-    LEGACY_ORIGIN: z.string().url().optional(),
-  },
-  runtimeEnv: {
-    LEGACY_ORIGIN: process.env.LEGACY_ORIGIN,
-  },
-});
+// Client-safe env — no server-only dependencies.
+export const env = {
+  API_BASE: process.env.NEXT_PUBLIC_API_BASE ?? "",
+};

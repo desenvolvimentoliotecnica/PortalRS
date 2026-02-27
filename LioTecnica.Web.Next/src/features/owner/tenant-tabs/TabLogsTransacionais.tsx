@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Eye, Filter, Loader2, RotateCw } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,7 +84,7 @@ export default function TabLogsTransacionais({ tenantId }: { tenantId: string })
             if (from) params.set("from", new Date(from).toISOString());
             if (to) params.set("to", new Date(to).toISOString());
 
-            const res = await fetch(`${apiBase}/transactions?${params}`, { credentials: "same-origin" });
+            const res = await apiFetch(`${apiBase}/transactions?${params}`);
             if (!res.ok) throw new Error();
             const data: PagedResponse = await res.json();
             setItems(data.items || []);
@@ -102,7 +103,7 @@ export default function TabLogsTransacionais({ tenantId }: { tenantId: string })
             const params = new URLSearchParams({ top: "6" });
             if (from) params.set("from", new Date(from).toISOString());
             if (to) params.set("to", new Date(to).toISOString());
-            const res = await fetch(`${apiBase}/summary?${params}`, { credentials: "same-origin" });
+            const res = await apiFetch(`${apiBase}/summary?${params}`);
             if (res.ok) setSummary(await res.json());
         } catch { }
     }, [apiBase, from, to]);
@@ -111,7 +112,7 @@ export default function TabLogsTransacionais({ tenantId }: { tenantId: string })
 
     const openDetail = async (id: string) => {
         try {
-            const res = await fetch(`${apiBase}/transactions/${id}`, { credentials: "same-origin" });
+            const res = await apiFetch(`${apiBase}/transactions/${id}`);
             if (!res.ok) return;
             setDetail(await res.json());
             setDetailOpen(true);

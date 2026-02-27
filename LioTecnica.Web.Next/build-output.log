@@ -1,0 +1,23 @@
+
+> liotecnica-web-next@0.1.0 build C:\Users\davio\Documents\Projetos\Qualiit RenderRH\Voltage.RenderRH\LioTecnica.Web.Next
+> next build
+
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\davio\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\davio\Documents\Projetos\Qualiit RenderRH\Voltage.RenderRH\LioTecnica.Web.Next\pnpm-lock.yaml
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 7.4s
+  Running TypeScript ...
+  Collecting page data using 19 workers ...
+
+> Build error occurred
+Error: Page "/Owner/Tenants/[tenantId]" is missing "generateStaticParams()" so it cannot be used with "output: export" config.
+    at ignore-listed frames
+ ELIFECYCLE  Command failed with exit code 1.

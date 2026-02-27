@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "export",
   reactStrictMode: true,
 
   /**
@@ -9,37 +10,24 @@ const nextConfig: NextConfig = {
    */
   basePath: "/app",
 
-  turbopack: {
-    // Avoid Next picking unrelated lockfiles outside this project.
-    root: __dirname,
+  images: {
+    unoptimized: true, // Required for static export
   },
 
   async rewrites() {
-    const legacyOrigin = process.env.LEGACY_ORIGIN;
-    if (!legacyOrigin) return [];
+    // Dev-only proxy to avoid CORS when API runs on a different port.
+    // In production (S3/CloudFront) /api and /health are routed by the edge.
+    if (process.env.NODE_ENV !== "development") return [];
+
+    const apiOrigin = process.env.DEV_API_ORIGIN?.trim() || "http://localhost:5056";
 
     return [
-      // Minimal BFF surface consumed by SSR in the Next app.
-      { source: "/bff/:path*", destination: `${legacyOrigin}/bff/:path*` },
-
-      // Assets referenced by the legacy login page (same absolute paths).
-      { source: "/images/:path*", destination: `${legacyOrigin}/images/:path*` },
-
-      /**
-       * Recrutamento (legado) — proxiar APIs consumidas no browser.
-       * Com `basePath: "/app"`, requisições para `/app/api/*` chegam no Next como `/api/*`.
-       */
-      { source: "/api/:path*", destination: `${legacyOrigin}/api/:path*` },
-      { source: "/:module/_api/:path*", destination: `${legacyOrigin}/:module/_api/:path*` },
-      // Nested _api paths (e.g. /Owner/Tenants/_api/list, /Owner/Tenants/{id}/Config/Logs/_api/...)
-      { source: "/:a/:b/_api/:path*", destination: `${legacyOrigin}/:a/:b/_api/:path*` },
-      { source: "/:a/:b/:c/_api/:path*", destination: `${legacyOrigin}/:a/:b/:c/_api/:path*` },
-      { source: "/:a/:b/:c/:d/_api/:path*", destination: `${legacyOrigin}/:a/:b/:c/:d/_api/:path*` },
-      { source: "/:a/:b/:c/:d/:e/_api/:path*", destination: `${legacyOrigin}/:a/:b/:c/:d/:e/_api/:path*` },
-      { source: "/:a/:b/:c/:d/:e/:f/_api/:path*", destination: `${legacyOrigin}/:a/:b/:c/:d/:e/:f/_api/:path*` },
-
-      // SignalR hubs (EntradaEmailPasta).
-      { source: "/hubs/:path*", destination: `${legacyOrigin}/hubs/:path*` },
+      // API
+      { source: "/api/:path*", destination: `${apiOrigin}/api/:path*`, basePath: false },
+      // Health
+      { source: "/health", destination: `${apiOrigin}/health`, basePath: false },
+      // SignalR (when used)
+      { source: "/hubs/:path*", destination: `${apiOrigin}/hubs/:path*`, basePath: false },
     ];
   },
 };

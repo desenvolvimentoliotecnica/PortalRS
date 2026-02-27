@@ -1,8 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AgendasScreen from "@/features/recrutamento/agendas/AgendasScreen";
 
-export default async function AgendasPage() {
-  await requireMe("/app/agendas");
-  return <AgendasScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AgendasScreen />
+    </AuthGuard>
+  );
 }
-

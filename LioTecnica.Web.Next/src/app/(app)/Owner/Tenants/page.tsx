@@ -1,7 +1,12 @@
-import TenantsScreen from "@/features/owner/TenantsScreen";
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
 
-export default async function OwnerTenantsPage() {
-    await requireMe("/app/Owner/Tenants");
-    return <TenantsScreen />;
+import { AuthGuard } from "@/hooks/useAuth";
+import TenantsScreen from "@/features/owner/TenantsScreen";
+
+export default function Page() {
+  return (
+    <AuthGuard>
+      <TenantsScreen />
+    </AuthGuard>
+  );
 }

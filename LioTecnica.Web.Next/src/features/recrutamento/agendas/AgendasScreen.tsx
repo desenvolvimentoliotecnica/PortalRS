@@ -11,14 +11,23 @@ import type {
   EventDropArg,
 } from "@fullcalendar/core";
 import { toast } from "sonner";
+import {
+  Calendar,
+  ClipboardCheck,
+  MessageSquare,
+  Sparkles,
+  Users,
+  Video,
+} from "lucide-react";
 
 import styles from "./agendas.module.css";
 import {
   type AgendaEventApi,
   type AgendaType,
-  type CandidatoListItem,
-  type VagaListItem,
-} from "@/server/recrutamento/agendas.schema";
+  type AgendaCandidatoListItem as CandidatoListItem,
+  type AgendaVagaListItem as VagaListItem,
+} from "@/lib/schemas/recrutamento";
+import { apiFetch } from "@/lib/api";
 
 type Health = "idle" | "loading";
 
@@ -67,6 +76,13 @@ function parseLocalIsoInputValue(s: string) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function safeDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function statusLabel(s: string) {
   if (s === "confirmado") return "Confirmado";
   if (s === "pendente") return "Pendente";
@@ -74,15 +90,26 @@ function statusLabel(s: string) {
   return s || "—";
 }
 
+function agendaIcon(icon: unknown) {
+  const k = String(icon ?? "")
+    .trim()
+    .toLowerCase();
+  if (k === "bi-camera-video") return Video;
+  if (k === "bi-people") return Users;
+  if (k === "bi-stars") return Sparkles;
+  if (k === "bi-clipboard-check") return ClipboardCheck;
+  if (k === "bi-chat-dots") return MessageSquare;
+  return Calendar;
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.headers || {}),
     },
     cache: "no-store",
-    credentials: "same-origin",
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -106,6 +133,20 @@ function mapVagasPayload(payload: unknown): VagaListItem[] {
   return Array.isArray(items) ? (items as VagaListItem[]) : [];
 }
 
+function fmtTimeRange(start: Date | null, end: Date | null) {
+  if (!start) return "—";
+  const s = start.toLocaleString("pt-BR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  if (!end) return s;
+  const e = end.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${s} - ${e}`;
+}
+
 export default function AgendasScreen() {
   const calRef = useRef<FullCalendar | null>(null);
 
@@ -116,6 +157,7 @@ export default function AgendasScreen() {
   const [vagas, setVagas] = useState<VagaListItem[]>([]);
 
   const [viewMode, setViewMode] = useState<"timeGridWeek" | "timeGridDay">("timeGridWeek");
+  const [viewTitle, setViewTitle] = useState<string>("—");
 
   const [q, setQ] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
@@ -131,6 +173,17 @@ export default function AgendasScreen() {
     () => (selectedId ? events.find((e) => e.id === selectedId) ?? null : null),
     [events, selectedId],
   );
+
+  const selectedEventType = useMemo(() => {
+    const code = String(selectedEvent?.typeCode ?? "")
+      .trim()
+      .toLowerCase();
+    const byCode = code ? types.find((t) => String(t.code ?? "").trim().toLowerCase() === code) : null;
+    const label = String(selectedEvent?.typeLabel ?? "") || byCode?.label || selectedEvent?.typeCode || "—";
+    const icon = selectedEvent?.typeIcon ?? byCode?.icon ?? "bi-calendar";
+    const Icon = agendaIcon(icon);
+    return { label, Icon };
+  }, [selectedEvent?.typeCode, selectedEvent?.typeIcon, selectedEvent?.typeLabel, types]);
 
   const [form, setForm] = useState<EventForm>(() => ({
     title: "",
@@ -325,15 +378,14 @@ export default function AgendasScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      toast.success("Evento atualizado.");
     } else {
       await fetchJson(`${AGENDA_API_BASE}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      toast.success("Evento criado.");
     }
+    toast.success("Evento salvo.");
 
     await loadEventsForCurrentRange();
     setCreateOpen(false);
@@ -349,15 +401,35 @@ export default function AgendasScreen() {
   async function duplicatePlus7(id: string) {
     const ev = events.find((x) => x.id === id);
     if (!ev) return;
-    const s = parseLocalIsoInputValue(ev.startAtUtc) ?? new Date();
-    const e = parseLocalIsoInputValue(ev.endAtUtc ?? "") ?? new Date(s.getTime() + 60 * 60 * 1000);
+    const s = safeDate(ev.startAtUtc) ?? new Date();
+    const e = safeDate(ev.endAtUtc ?? "") ?? new Date(s.getTime() + 60 * 60 * 1000);
     const plus7s = new Date(s);
     plus7s.setDate(plus7s.getDate() + 7);
     const plus7e = new Date(e);
     plus7e.setDate(plus7e.getDate() + 7);
-    openCreate(plus7s, plus7e);
-    setForm((f) => ({ ...f, title: `${ev.title ?? "Evento"} (cópia)`, typeCode: ev.typeCode ?? f.typeCode }));
+
+    const payload = {
+      title: `${ev.title ?? "Evento"} (cópia)`,
+      startAtUtc: toLocalIsoInputValue(plus7s),
+      endAtUtc: toLocalIsoInputValue(plus7e),
+      allDay: false,
+      status: String(ev.status ?? "confirmado").toLowerCase(),
+      location: ev.location ?? "",
+      owner: ev.owner ?? "",
+      candidate: ev.candidate ?? "",
+      vagaTitle: ev.vagaTitle ?? "",
+      vagaCode: ev.vagaCode ?? "",
+      notes: ev.notes ?? "",
+      typeCode: ev.typeCode ?? types[0]?.code ?? "entrevista",
+    };
+    await fetchJson(`${AGENDA_API_BASE}/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    await loadEventsForCurrentRange();
     setViewOpen(false);
+    toast.success("Evento duplicado (+7 dias).");
   }
 
   async function onEventMove(arg: EventDropArg | EventResizeDoneArg) {
@@ -384,7 +456,6 @@ export default function AgendasScreen() {
       body: JSON.stringify(payload),
     });
     await loadEventsForCurrentRange();
-    toast.success("Evento atualizado.");
   }
 
   function exportJson() {
@@ -542,6 +613,8 @@ export default function AgendasScreen() {
               </button>
             </div>
 
+            <div className="text-[1.05rem] font-bold">{viewTitle || "—"}</div>
+
             <div className="flex items-center gap-2">
               <input
                 className="form-control w-[240px]"
@@ -624,6 +697,7 @@ export default function AgendasScreen() {
               }))}
               datesSet={(arg: DatesSetArg) => {
                 setActiveRange({ start: arg.start, end: arg.end });
+                setViewTitle(String(arg.view?.title ?? "—"));
                 void loadEventsForCurrentRange();
               }}
               select={(info: DateSelectArg) => {
@@ -634,10 +708,14 @@ export default function AgendasScreen() {
                 openView(info.event.id);
               }}
               eventDrop={(arg) => {
-                void onEventMove(arg).catch(() => toast.error("Falha ao atualizar evento."));
+                void onEventMove(arg)
+                  .then(() => toast.success("Evento movido."))
+                  .catch(() => toast.error("Falha ao atualizar evento."));
               }}
               eventResize={(arg) => {
-                void onEventMove(arg).catch(() => toast.error("Falha ao atualizar evento."));
+                void onEventMove(arg)
+                  .then(() => toast.success("Duração atualizada."))
+                  .catch(() => toast.error("Falha ao atualizar evento."));
               }}
             />
           </div>
@@ -685,7 +763,13 @@ export default function AgendasScreen() {
                         })}
                       </div>
                       <div className="mt-1 flex flex-wrap gap-1">
-                        <span className="badge-soft text-xs">{ev.typeCode ?? "—"}</span>
+                        <span className="badge-soft text-xs inline-flex items-center gap-1">
+                          {(() => {
+                            const Icon = agendaIcon(ev.typeIcon ?? "bi-calendar");
+                            return <Icon className="size-3.5" />;
+                          })()}
+                          {types.find((t) => t.code === ev.typeCode)?.label ?? ev.typeLabel ?? ev.typeCode ?? "—"}
+                        </span>
                         <span className="badge-soft text-xs">{statusLabel((ev.status ?? "").toLowerCase())}</span>
                         {ev.candidate ? <span className="badge-soft text-xs">{ev.candidate}</span> : null}
                       </div>
@@ -814,14 +898,15 @@ export default function AgendasScreen() {
               <div>
                 <div className="mini-title mb-1">Detalhes</div>
                 <div className="text-lg font-extrabold">{selectedEvent.title ?? "Evento"}</div>
-                <div className="text-muted-foreground text-sm">
-                  {new Date(selectedEvent.startAtUtc).toLocaleString("pt-BR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <span className="badge-soft">
+                    <selectedEventType.Icon className="size-4" />
+                    {selectedEventType.label}
+                  </span>
+                  <span className="badge-soft">{statusLabel(String(selectedEvent.status ?? "").toLowerCase())}</span>
+                </div>
+                <div className="text-muted-foreground mt-1 text-sm">
+                  {fmtTimeRange(safeDate(selectedEvent.startAtUtc), safeDate(selectedEvent.endAtUtc))}
                 </div>
               </div>
               <button className="btn-ghost px-3 py-2" type="button" onClick={() => setViewOpen(false)}>

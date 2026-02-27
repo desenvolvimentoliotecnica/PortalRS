@@ -21,8 +21,10 @@ cd "$NEXT_DIR"
 rm -f .next/dev/lock 2>/dev/null || true
 
 echo "▶ Instalando deps (se necessário)..."
-pnpm install
+if [ ! -d "node_modules" ]; then
+  pnpm install --silent
+fi
 
 echo "▶ Subindo Next em http://localhost:3000/app"
-LEGACY_ORIGIN="${LEGACY_ORIGIN:-http://localhost:5051}" PORT=3000 exec pnpm dev
+WATCHPACK_POLLING=true LEGACY_ORIGIN="${LEGACY_ORIGIN:-http://localhost:5051}" DEV_API_ORIGIN="${DEV_API_ORIGIN:-http://localhost:5056}" PORT=3000 exec pnpm dev
 

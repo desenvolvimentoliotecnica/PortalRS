@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import PaginationBar from "@/components/pagination/PaginationBar";
+import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
 
@@ -37,13 +39,12 @@ function pickNumber(v: unknown, fallback: number) {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.headers || {}),
     },
-    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {
@@ -284,8 +285,6 @@ export default function TalentosScreen({
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -403,27 +402,13 @@ export default function TalentosScreen({
           </table>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-muted-foreground text-sm">Total: <span className="mono">{totalCount}</span></div>
-          <div className="flex items-center gap-2">
-            <button className="btn-ghost px-3 py-2" type="button" disabled={page <= 1} onClick={() => void sync(page - 1, pageSize, q, origem)}>
-              ‹
-            </button>
-            <span className="pill">
-              <span className="mono">{page}</span>/<span className="mono">{totalPages}</span>
-            </span>
-            <button className="btn-ghost px-3 py-2" type="button" disabled={page >= totalPages} onClick={() => void sync(page + 1, pageSize, q, origem)}>
-              ›
-            </button>
-            <select className="form-select w-[130px]" value={pageSize} onChange={(e) => void sync(1, Number(e.target.value) || 20, q, origem)}>
-              {[10, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}/pág
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          totalItems={totalCount}
+          onPageChange={(p) => void sync(p, pageSize, q, origem)}
+          onPageSizeChange={(s) => void sync(1, s || 20, q, origem)}
+        />
       </div>
 
       {detailOpen && detail ? (

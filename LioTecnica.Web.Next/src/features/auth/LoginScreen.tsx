@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Building2, Mail, Lock, ArrowRight, Monitor } from "lucide-react";
+import { ApiLoginResponseSchema, ApiOwnerLoginResponseSchema } from "@/lib/schemas/api";
+import { setAccessToken, setTenantId } from "@/lib/session";
+import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -75,10 +78,10 @@ export default function LoginScreen({
   const router = useRouter();
   const sp = useSearchParams();
 
-  const BASE = "/app";
+  const BASE = "/app"; // basePath for UI routes/assets
 
   /* ─── Entra ID ─── */
-  const [entraEnabled, setEntraEnabled] = useState(false);
+  const [entraEnabled] = useState(false);
   const entraError = error || sp.get("error") || "";
 
   /* ─── Form State ─── */
@@ -101,23 +104,13 @@ export default function LoginScreen({
   const [dbStatus, setDbStatus] = useState<HealthStatus>("unknown");
 
   useEffect(() => {
-    let alive = true;
-    fetch(`${BASE}/bff/auth/config`, { headers: { Accept: "application/json" } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!alive) return;
-        setEntraEnabled(j?.entraEnabled === true);
-      })
-      .catch(() => { });
-    return () => {
-      alive = false;
-    };
+    // Entra ID config is private in RHPortal.Api; keep disabled on login screen for now.
   }, []);
 
   useEffect(() => {
     async function updateHealth() {
       try {
-        const res = await fetch(`${BASE}/api/health`, { headers: { Accept: "application/json" } });
+        const res = await apiFetch(`/health`, { headers: { Accept: "application/json" } });
         const data = (await res.json().catch(() => null)) as HealthCheckResponse | null;
         setApiStatus(normalizeStatus(data?.status));
         const checks = Array.isArray(data?.checks) ? data.checks : [];
@@ -149,24 +142,45 @@ export default function LoginScreen({
     setErrorMsg(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE}/bff/auth/login`, {
+      const t = (tenant || "").trim();
+      const isOwner = t.toLowerCase() === "owner";
+      const res = await apiFetch(isOwner ? `/api/owner/auth/login` : `/api/auth/login`, {
         method: "POST",
-        headers: { "content-type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          tenantId: tenant,
-          email,
-          password,
-          returnUrl: resolvedReturnUrl,
-        }),
+        headers: {
+          "content-type": "application/json",
+          Accept: "application/json",
+          ...(isOwner ? {} : { "X-Tenant-Id": t || "liotecnica" }),
+        },
+        body: JSON.stringify({ email, password }),
       });
 
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setErrorMsg(json?.message || "Falha ao autenticar. Verifique suas credenciais.");
+        setErrorMsg(json?.detail || json?.message || "Falha ao autenticar. Verifique suas credenciais.");
         return;
       }
 
-      const redirectUrl: string = json?.redirectUrl || resolvedReturnUrl || "/";
+      if (isOwner) {
+        const parsed = ApiOwnerLoginResponseSchema.safeParse(json);
+        if (!parsed.success) {
+          setErrorMsg("Resposta inválida da API no login (owner).");
+          return;
+        }
+        setAccessToken(parsed.data.accessToken);
+        setTenantId("owner");
+      } else {
+        const parsed = ApiLoginResponseSchema.safeParse(json);
+        if (!parsed.success) {
+          setErrorMsg("Resposta inválida da API no login.");
+          return;
+        }
+        setAccessToken(parsed.data.accessToken);
+        setTenantId(parsed.data.tenantId);
+      }
+
+      let redirectUrl: string = resolvedReturnUrl || "/dashboard";
+      if (redirectUrl.startsWith("/app/")) redirectUrl = redirectUrl.slice("/app".length);
+      if (!redirectUrl.startsWith("/")) redirectUrl = `/${redirectUrl}`;
       router.replace(redirectUrl);
       router.refresh();
     } finally {
@@ -181,10 +195,8 @@ export default function LoginScreen({
       window.alert("Informe o tenant para entrar com Microsoft.");
       return;
     }
-    const url = `${BASE}/bff/auth/entra-login?tenantId=${encodeURIComponent(t)}&returnUrl=${encodeURIComponent(
-      resolvedReturnUrl,
-    )}`;
-    window.location.href = url;
+    // Entra ID flow not wired for RHPortal.Api yet.
+    window.alert("Login Microsoft (Entra ID) ainda não configurado nesta versão.");
   }
 
   /* ─── Render ─── */

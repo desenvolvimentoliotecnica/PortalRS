@@ -9,12 +9,18 @@
   width: 100%;
   max-width: 100%;
   overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(16, 82, 144, 0.14);
+  background: rgba(255, 255, 255, 0.55);
+  padding: 6px;
+  box-sizing: border-box;
 }
 
 .calendarHost :global(.fc) {
   width: 100%;
   max-width: 100%;
   font-size: 0.92rem;
+  background: transparent;
 }
 
 .calendarHost :global(.fc-view-harness) {
@@ -65,9 +71,9 @@
 }
 
 .calendarHost :global(.fc .fc-scrollgrid) {
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid rgba(16, 82, 144, 0.14);
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
 }
 
 .calendarHost :global(.fc-theme-standard td),
@@ -96,5 +102,25 @@
 
 .calendarHost :global(.fc .fc-timegrid-now-indicator-arrow) {
   border-color: rgb(var(--lt-brand));
+}
+
+/* === body 100% largura (garante sync em scroll) === */
+.calendarHost :global(.fc .fc-scroller-harness),
+.calendarHost :global(.fc .fc-scroller-harness-liquid),
+.calendarHost :global(.fc .fc-scroller-harness-liquid > .fc-scroller),
+.calendarHost :global(.fc .fc-timegrid-body),
+.calendarHost :global(.fc .fc-timegrid-cols),
+.calendarHost :global(.fc .fc-timegrid-cols table),
+.calendarHost :global(.fc .fc-timegrid-slots table) {
+  width: 100% !important;
+}
+
+.calendarHost :global(.fc .fc-timegrid-body),
+.calendarHost :global(.fc .fc-timegrid-cols) {
+  min-width: 0 !important;
+}
+
+.calendarHost :global(.fc .fc-timegrid-cols) {
+  flex: 1 1 auto !important;
 }
 

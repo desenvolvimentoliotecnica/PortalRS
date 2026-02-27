@@ -1,5 +1,5 @@
 import Brand from "@/components/layout/Brand";
-import type { BffNavItem } from "@/server/bff/navigation.schema";
+import type { BffNavItem } from "@/lib/schemas/bff";
 import SidebarNavClient from "@/features/navigation/SidebarNavClient";
 
 export default function Sidebar({ items }: { items: BffNavItem[] }) {

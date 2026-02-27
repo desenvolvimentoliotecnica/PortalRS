@@ -32,10 +32,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import type { BffNavItem } from "@/server/bff/navigation.schema";
-import type { BffMe } from "@/server/bff/schema";
-
-const BASE = "/app";
+import type { BffNavItem } from "@/lib/schemas/bff";
+import type { BffMe } from "@/lib/schemas/bff";
+import { apiFetch } from "@/lib/api";
+import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
+import { clearSession, setAccessToken, setTenantId } from "@/lib/session";
 
 export default function TopbarClient({
   navItems,
@@ -52,10 +53,7 @@ export default function TopbarClient({
   async function logout() {
     setBusy(true);
     try {
-      await fetch(`${BASE}/bff/auth/logout`, {
-        method: "POST",
-        headers: { Accept: "application/json" },
-      });
+      clearSession();
       router.replace("/login");
       router.refresh();
     } catch {
@@ -68,7 +66,7 @@ export default function TopbarClient({
   async function switchToOwner() {
     setBusy(true);
     try {
-      const res = await fetch(`${BASE}/bff/auth/switch-tenant`, {
+      const res = await apiFetch(`/api/me/switch-tenant`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -76,16 +74,18 @@ export default function TopbarClient({
         },
         body: JSON.stringify({
           tenantId: "owner",
-          returnUrl: "/Owner/Tenants",
         }),
       });
-      const json = (await res.json().catch(() => null)) as {
-        redirectUrl?: string;
-        message?: string;
-      } | null;
-      if (!res.ok)
-        throw new Error(json?.message || "Falha ao trocar tenant.");
-      router.replace(json?.redirectUrl || "/Owner/Tenants");
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((json as any)?.detail || (json as any)?.message || "Falha ao trocar tenant.");
+
+      const parsed = ApiSwitchTenantResponseSchema.safeParse(json);
+      if (!parsed.success) throw new Error("Resposta inválida ao trocar tenant.");
+
+      setAccessToken(parsed.data.accessToken);
+      setTenantId(parsed.data.tenantId);
+
+      router.replace("/Owner/Tenants");
       router.refresh();
     } catch (e) {
       toast.error(
@@ -103,9 +103,10 @@ export default function TopbarClient({
     if (!ok) return;
     setBusy(true);
     try {
-      const res = await fetch(`${BASE}/api/owner/tenants/reset-dev`, {
+      const res = await apiFetch(`/api/ops/reset-database`, {
         method: "POST",
-        headers: { Accept: "application/json" },
+        headers: { "content-type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ reset: true, clean: false, reseed: true }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       toast.success("Base de dados resetada com sucesso.");
@@ -229,7 +230,7 @@ export default function TopbarClient({
 
                 {/* Portal de Vagas */}
                 <DropdownMenuItem asChild>
-                  <a href="/PortalVagas" target="_blank" rel="noopener">
+                  <a href={`${process.env.NEXT_PUBLIC_PORTAL_ORIGIN || ""}/PortalVagas`} target="_blank" rel="noopener">
                     <Globe className="size-4 mr-2" />
                     Portal de Vagas
                   </a>

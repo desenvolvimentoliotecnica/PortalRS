@@ -1,15 +1,11 @@
-import { headers } from "next/headers";
+import { Suspense } from "react";
 
-import { requireMe } from "@/server/bff/requireMe";
-import { legacyAbsoluteUrl } from "@/server/legacy/urls";
-import MatchingScreen from "@/features/recrutamento/matching/MatchingScreen";
+import MatchingClient from "./MatchingClient";
 
-export default async function MatchingPage() {
-  await requireMe("/app/matching");
-  const h = await headers();
-  const cookie = h.get("cookie") ?? "";
-  const vagasRes = await fetch(await legacyAbsoluteUrl("/api/vagas"), { headers: { cookie }, cache: "no-store" });
-  const initialVagas = vagasRes.ok ? ((await vagasRes.json()) as unknown) : [];
-  return <MatchingScreen initialVagas={initialVagas} />;
+export default function MatchingPage() {
+  return (
+    <Suspense fallback={null}>
+      <MatchingClient />
+    </Suspense>
+  );
 }
-

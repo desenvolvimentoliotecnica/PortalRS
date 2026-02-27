@@ -38,6 +38,9 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { apiFetch } from "@/lib/api";
+import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
+import { setAccessToken, setTenantId } from "@/lib/session";
 
 /* ─── Types ─── */
 
@@ -52,15 +55,30 @@ type TenantWithStatus = {
     migrationError: string | null;
 };
 
+type ApiTenantListItem = {
+    tenantId: string;
+    name: string;
+    isActive: boolean;
+    createdAtUtc: string;
+    updatedAtUtc: string;
+};
+
+type ApiTenantMigrationStatus = {
+    tenantId: string;
+    isUpToDate: boolean;
+    pendingCount: number;
+    pendingMigrationIds: string[];
+    errorMessage: string | null;
+};
+
 /* ─── API helpers ─── */
 
 const BASE = "/app";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
         ...init,
         headers: { Accept: "application/json", ...(init?.headers || {}) },
-        credentials: "same-origin",
         cache: "no-store",
     });
     if (!res.ok) {
@@ -138,10 +156,33 @@ export default function TenantsScreen() {
 
     /* ─── Fetch list ─── */
     async function syncList() {
-        const list = await fetchJson<TenantWithStatus[]>(
-            `${BASE}/Owner/Tenants/_api/list`,
-        );
-        setRows(Array.isArray(list) ? list : []);
+        const [tenants, statuses] = await Promise.all([
+            fetchJson<ApiTenantListItem[]>(`/api/owner/tenants`),
+            fetchJson<ApiTenantMigrationStatus[]>(`/api/owner/tenants/migrations/status`),
+        ]);
+
+        const statusByTenant = new Map<string, ApiTenantMigrationStatus>();
+        (Array.isArray(statuses) ? statuses : []).forEach((s) => {
+            const key = String(s?.tenantId ?? "").toLowerCase();
+            if (key) statusByTenant.set(key, s);
+        });
+
+        const merged: TenantWithStatus[] = (Array.isArray(tenants) ? tenants : []).map((t) => {
+            const key = String(t?.tenantId ?? "").toLowerCase();
+            const st = statusByTenant.get(key) ?? null;
+            return {
+                tenantId: String(t?.tenantId ?? ""),
+                name: String(t?.name ?? ""),
+                isActive: !!t?.isActive,
+                createdAtUtc: String(t?.createdAtUtc ?? ""),
+                updatedAtUtc: String(t?.updatedAtUtc ?? ""),
+                isUpToDate: st ? !!st.isUpToDate : null,
+                pendingCount: st ? Number(st.pendingCount ?? 0) : 0,
+                migrationError: st ? (st.errorMessage ?? null) : null,
+            };
+        });
+
+        setRows(merged);
     }
 
     useEffect(() => {
@@ -175,7 +216,7 @@ export default function TenantsScreen() {
         if (!newTenantId.trim() || !newName.trim()) return;
         setCreating(true);
         try {
-            await fetchJson(`${BASE}/Owner/Tenants/_api/create`, {
+            await fetchJson(`/api/owner/tenants`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ tenantId: newTenantId, name: newName }),
@@ -205,10 +246,7 @@ export default function TenantsScreen() {
         if (!ok) return;
         setBusy(tenantId);
         try {
-            await fetchJson(
-                `${BASE}/Owner/Tenants/_api/delete/${encodeURIComponent(tenantId)}`,
-                { method: "POST" },
-            );
+            await fetchJson(`/api/owner/tenants/${encodeURIComponent(tenantId)}`, { method: "DELETE" });
             toast.success(`Tenant "${tenantId}" desativado.`);
             await syncList();
         } catch (err) {
@@ -221,11 +259,11 @@ export default function TenantsScreen() {
     async function handleApplyMigrations(tenantId: string) {
         setBusy(tenantId);
         try {
-            const result = await fetchJson<{ message: string; appliedCount: number }>(
-                `${BASE}/Owner/Tenants/_api/migrations/apply/${encodeURIComponent(tenantId)}`,
+            const result = await fetchJson<{ appliedCount: number }>(
+                `/api/owner/tenants/${encodeURIComponent(tenantId)}/migrations/apply`,
                 { method: "POST" },
             );
-            toast.success(result.message);
+            toast.success(`Migrações aplicadas (${result?.appliedCount ?? 0}).`);
             await syncList();
         } catch (err) {
             toast.error(`Erro: ${(err as Error).message}`);
@@ -237,11 +275,11 @@ export default function TenantsScreen() {
     async function handleSeed(tenantId: string) {
         setBusy(tenantId);
         try {
-            const result = await fetchJson<{ message: string }>(
-                `${BASE}/Owner/Tenants/_api/seed/${encodeURIComponent(tenantId)}`,
+            const result = await fetchJson<{ message?: string }>(
+                `/api/owner/tenants/${encodeURIComponent(tenantId)}/seed`,
                 { method: "POST" },
             );
-            toast.success(result.message);
+            toast.success(result?.message || "Seed executado com sucesso.");
         } catch (err) {
             toast.error(`Erro: ${(err as Error).message}`);
         } finally {
@@ -252,10 +290,9 @@ export default function TenantsScreen() {
     async function handleAccessTenant(tenantId: string) {
         setBusy(tenantId);
         try {
-            const res = await fetch(`${BASE}/bff/auth/switch-tenant`, {
+            const res = await apiFetch(`/api/me/switch-tenant`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                credentials: "same-origin",
                 body: JSON.stringify({ tenantId }),
             });
             const json = await res.json().catch(() => null);
@@ -263,8 +300,16 @@ export default function TenantsScreen() {
                 toast.error(json?.message || "Falha ao acessar tenant.");
                 return;
             }
-            const redirect = json?.redirectUrl || "/dashboard";
-            window.location.href = redirect.startsWith("/app") ? redirect : `/app${redirect}`;
+            const parsed = ApiSwitchTenantResponseSchema.safeParse(json);
+            if (!parsed.success) {
+                toast.error("Resposta inválida ao acessar tenant.");
+                return;
+            }
+
+            setAccessToken(parsed.data.accessToken);
+            setTenantId(parsed.data.tenantId);
+
+            window.location.href = "/app/dashboard";
         } catch {
             toast.error("Erro ao acessar tenant.");
         } finally {
