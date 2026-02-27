@@ -4,8 +4,6 @@ import { requireMe } from "@/server/bff/requireMe";
 import { legacyAbsoluteUrl } from "@/server/legacy/urls";
 import TalentosScreen from "@/features/recrutamento/talentos/TalentosScreen";
 
-export const dynamic = "force-static";
-
 export default async function TalentosPage() {
   await requireMe("/app/talentos");
   const h = await headers();

@@ -4,8 +4,6 @@ import { requireMe } from "@/server/bff/requireMe";
 import { legacyAbsoluteUrl } from "@/server/legacy/urls";
 import EntradaEmailPastaScreen from "@/features/recrutamento/entradaemailpasta/EntradaEmailPastaScreen";
 
-export const dynamic = "force-static";
-
 export default async function EntradaEmailPastaPage() {
   const me = await requireMe("/app/entradaemailpasta");
   const h = await headers();

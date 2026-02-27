@@ -2,9 +2,8 @@ import { headers } from "next/headers";
 
 import { requireMe } from "@/server/bff/requireMe";
 import { legacyAbsoluteUrl } from "@/server/legacy/urls";
-import DashboardScreen from "@/features/dashboard/DashboardScreen";
 
-export const dynamic = "force-static";
+import DashboardScreen from "@/features/dashboard/DashboardScreen";
 
 export default async function DashboardPage() {
   await requireMe("/app/dashboard");

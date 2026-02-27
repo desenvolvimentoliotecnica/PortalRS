@@ -1,7 +1,5 @@
 import LoginScreen from "@/features/auth/LoginScreen";
 
-export const dynamic = "force-static";
-
 export default async function LoginPage({
   searchParams,
 }: {

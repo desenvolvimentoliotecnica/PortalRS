@@ -4,8 +4,6 @@ import { headers } from "next/headers";
 
 import { legacyAbsoluteUrl } from "@/server/legacy/urls";
 
-export const dynamic = "force-static";
-
 export default async function TriagemPage() {
   await requireMe("/app/triagem");
   const h = await headers();

@@ -4,8 +4,6 @@ import { requireMe } from "@/server/bff/requireMe";
 import { legacyAbsoluteUrl } from "@/server/legacy/urls";
 import MatchingScreen from "@/features/recrutamento/matching/MatchingScreen";
 
-export const dynamic = "force-static";
-
 export default async function MatchingPage() {
   await requireMe("/app/matching");
   const h = await headers();
