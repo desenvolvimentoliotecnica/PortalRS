@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import GamificacaoHistoricoScreen from "@/features/feedback/GamificacaoHistoricoScreen";
 
-export default async function GamificacaoHistoricoPage() {
-    await requireMe("/app/feedback/gamificacao/historico");
-    return <GamificacaoHistoricoScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <GamificacaoHistoricoScreen />
+    </AuthGuard>
+  );
 }

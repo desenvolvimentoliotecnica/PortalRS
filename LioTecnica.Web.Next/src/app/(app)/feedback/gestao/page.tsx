@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import GestaoScreen from "@/features/feedback/GestaoScreen";
 
-export default async function GestaoPage() {
-    await requireMe("/app/feedback/gestao");
-    return <GestaoScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <GestaoScreen />
+    </AuthGuard>
+  );
 }

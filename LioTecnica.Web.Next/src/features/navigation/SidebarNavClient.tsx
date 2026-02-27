@@ -47,7 +47,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { BffNavItem } from "@/server/bff/navigation.schema";
+import type { BffNavItem } from "@/lib/schemas/bff";
 
 /* ═══════════════════════════════════════════════════════════════════
    ICON MAP: Bootstrap Icon name → Lucide equivalent

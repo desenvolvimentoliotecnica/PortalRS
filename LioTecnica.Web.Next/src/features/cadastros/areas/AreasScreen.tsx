@@ -13,6 +13,7 @@ import {
     ChevronRight,
     ChevronDown,
 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,10 +84,9 @@ type AreaNode = AreaListItem & { children: AreaNode[] };
 /* ──────────────────────────── helpers ──────────────────────────── */
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
         ...init,
         headers: { Accept: "application/json", ...(init?.headers || {}) },
-        credentials: "same-origin",
         cache: "no-store",
     });
     if (!res.ok) {

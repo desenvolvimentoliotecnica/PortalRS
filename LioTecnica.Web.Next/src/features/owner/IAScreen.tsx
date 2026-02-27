@@ -30,6 +30,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { apiFetch as coreFetch } from "@/lib/api";
 
 const BASE = "/app/Owner/IA/_api";
 
@@ -80,8 +81,7 @@ interface UsageDetail {
 /* ─── Helpers ─── */
 
 async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T | null> {
-    const res = await fetch(url, {
-        credentials: "same-origin",
+    const res = await coreFetch(url, {
         headers: { "Content-Type": "application/json", ...((options.headers as Record<string, string>) || {}) },
         ...options,
     });

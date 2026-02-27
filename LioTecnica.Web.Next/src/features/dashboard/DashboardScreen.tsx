@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { toast } from "sonner";
 import { Folder, Mail } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
 const DEFAULT_MIN_MATCH = 70;
@@ -84,7 +85,7 @@ function formatDate(iso: string) {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store" });
+  const res = await apiFetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP_${res.status}`);
   if (res.status === 204) return null as T;
   return (await res.json()) as T;
@@ -240,20 +241,20 @@ function goToVagaDetail(vagaId: string) {
 }
 
 export default function DashboardScreen({
-  initialKpis,
-  initialFunil,
-  initialSeries,
-  initialVagas,
-  initialAreas,
-  initialTopMatches,
+  initialKpis = null,
+  initialFunil = null,
+  initialSeries = null,
+  initialVagas = null,
+  initialAreas = null,
+  initialTopMatches = null,
 }: {
-  initialKpis: unknown;
-  initialFunil: unknown;
-  initialSeries: unknown;
-  initialVagas: unknown;
-  initialAreas: unknown;
-  initialTopMatches: unknown;
-}) {
+  initialKpis?: unknown;
+  initialFunil?: unknown;
+  initialSeries?: unknown;
+  initialVagas?: unknown;
+  initialAreas?: unknown;
+  initialTopMatches?: unknown;
+} = {}) {
   const [kpis, setKpis] = useState<Kpis>(() => mapKpis(initialKpis));
   const [funil, setFunil] = useState<Funil>(() => mapFunil(initialFunil));
   const [series, setSeries] = useState<Series>(() => mapSeries(initialSeries));
@@ -280,6 +281,31 @@ export default function DashboardScreen({
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
+
+  // Auto-load data on mount when no initial props are provided (static export)
+  useEffect(() => {
+    if (initialKpis != null) return; // data was provided via SSR
+    void Promise.all([
+      fetchJson<unknown>(`${BASE}/Dashboard/_api/kpis`),
+      fetchJson<unknown>(`${BASE}/Dashboard/_api/funil`),
+      fetchJson<unknown>(`${BASE}/Dashboard/_api/recebidos-series?days=14`),
+      fetchJson<unknown>(`${BASE}/Dashboard/_api/vagas`),
+      fetchJson<unknown>(`${BASE}/Dashboard/_api/areas`),
+      fetchJson<unknown>(`${BASE}/Dashboard/_api/top-matches?minMatch=${DEFAULT_MIN_MATCH}&take=15`),
+    ])
+      .then(([k, f, s, v, a, t]) => {
+        setKpis(mapKpis(k));
+        setFunil(mapFunil(f));
+        setSeries(mapSeries(s));
+        setVagas(mapVagas(v));
+        setAreas(mapAreas(a));
+        setTopMatches(mapTopMatches(t));
+      })
+      .catch(() => {
+        // silent — dashboard will show zero values
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     void fetchJson<unknown>(`${BASE}/api/lookup/enums`)

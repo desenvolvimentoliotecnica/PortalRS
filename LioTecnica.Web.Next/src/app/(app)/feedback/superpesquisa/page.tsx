@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import SuperPesquisaScreen from "@/features/feedback/SuperPesquisaScreen";
 
-export default async function SuperPesquisaPage() {
-    await requireMe("/app/feedback/superpesquisa");
-    return <SuperPesquisaScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <SuperPesquisaScreen />
+    </AuthGuard>
+  );
 }

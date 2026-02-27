@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import type { Candidato, CandidatosPaged, Documento } from "@/server/recrutamento/candidatos.schema";
+import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
 import PaginationBar from "@/components/pagination/PaginationBar";
+import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
 
@@ -58,13 +59,12 @@ function enumText(enums: EnumsByKey | null, key: string, code: unknown, fallback
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.headers || {}),
     },
-    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {
@@ -225,7 +225,7 @@ export default function CandidatosScreen() {
   const detailCvText = pickString(detail?.cvText, "");
 
   async function loadEnums() {
-    const payload = await fetchJson<unknown>(`${BASE}/bff/lookups/enums`);
+    const payload = await fetchJson<unknown>(`${BASE}/api/lookup/enums`);
     const r = asRecord(payload) ?? {};
     setEnums(r as EnumsByKey);
   }
@@ -484,11 +484,11 @@ export default function CandidatosScreen() {
       cvText: pickString(c.cvText, "").trim() || null,
       lastMatch: lm
         ? {
-            score: typeof lm.score === "number" ? lm.score : pickNumber(lm.score, 0),
-            pass: typeof lm.pass === "boolean" ? lm.pass : null,
-            atUtc,
-            vagaId: pickString(lm.vagaId, "") || vagaId,
-          }
+          score: typeof lm.score === "number" ? lm.score : pickNumber(lm.score, 0),
+          pass: typeof lm.pass === "boolean" ? lm.pass : null,
+          atUtc,
+          vagaId: pickString(lm.vagaId, "") || vagaId,
+        }
         : null,
       applicationRecruiterUserId: pickString((c as Record<string, unknown>)?.applicationRecruiterUserId, "").trim() || null,
       applicationRecruiterUserName: pickString((c as Record<string, unknown>)?.applicationRecruiterUserName, "").trim() || null,
@@ -1304,10 +1304,10 @@ export default function CandidatosScreen() {
                         {(enumOptions(enums, "candidatoDocumentoTipo").length
                           ? enumOptions(enums, "candidatoDocumentoTipo")
                           : [
-                              { code: "curriculo", text: "Currículo" },
-                              { code: "documento", text: "Documento" },
-                              { code: "outros", text: "Outros" },
-                            ]
+                            { code: "curriculo", text: "Currículo" },
+                            { code: "documento", text: "Documento" },
+                            { code: "outros", text: "Outros" },
+                          ]
                         ).map((opt) => (
                           <option key={opt.code} value={opt.code}>
                             {opt.text}
@@ -1538,10 +1538,10 @@ function DocumentosBox({
           {(docTipoOptions.length
             ? docTipoOptions
             : [
-                { code: "curriculo", text: "Currículo" },
-                { code: "documento", text: "Documento" },
-                { code: "outros", text: "Outros" },
-              ]
+              { code: "curriculo", text: "Currículo" },
+              { code: "documento", text: "Documento" },
+              { code: "outros", text: "Outros" },
+            ]
           ).map((opt) => (
             <option key={opt.code} value={opt.code}>
               {opt.text}

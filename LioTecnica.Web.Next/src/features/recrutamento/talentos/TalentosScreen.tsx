@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import PaginationBar from "@/components/pagination/PaginationBar";
+import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
 
@@ -38,13 +39,12 @@ function pickNumber(v: unknown, fallback: number) {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.headers || {}),
     },
-    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {

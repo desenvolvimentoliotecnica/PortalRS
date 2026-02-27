@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import CandidatosScreen from "@/features/recrutamento/candidatos/CandidatosScreen";
 
-export default async function CandidatosPage() {
-  await requireMe("/app/candidatos");
-  return <CandidatosScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <CandidatosScreen />
+    </AuthGuard>
+  );
 }

@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AdminLocalizationScreen from "@/features/admin/localization/AdminLocalizationScreen";
 
-export default async function AdminLocalizationPage() {
-    await requireMe("/app/admin/localization");
-    return <AdminLocalizationScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AdminLocalizationScreen />
+    </AuthGuard>
+  );
 }

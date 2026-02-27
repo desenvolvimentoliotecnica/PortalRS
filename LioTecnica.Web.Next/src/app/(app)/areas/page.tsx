@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AreasScreen from "@/features/cadastros/areas/AreasScreen";
 
-export default async function AreasPage() {
-    await requireMe("/app/areas");
-    return <AreasScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AreasScreen />
+    </AuthGuard>
+  );
 }

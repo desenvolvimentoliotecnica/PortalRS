@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Eye, Filter, Loader2, RotateCw } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,7 +69,7 @@ export default function TabEmails({ tenantId }: { tenantId: string }) {
             const params = new URLSearchParams({ page: String(p), pageSize: "50" });
             if (scope) params.set("scope", scope);
             if (status) params.set("status", status);
-            const res = await fetch(`${apiBase}/messages?${params}`, { credentials: "same-origin" });
+            const res = await apiFetch(`${apiBase}/messages?${params}`);
             if (!res.ok) throw new Error();
             const data: PagedResponse = await res.json();
             setItems(data.items || []);
@@ -81,7 +82,7 @@ export default function TabEmails({ tenantId }: { tenantId: string }) {
 
     const loadSummary = useCallback(async () => {
         try {
-            const res = await fetch(`${apiBase}/summary`, { credentials: "same-origin" });
+            const res = await apiFetch(`${apiBase}/summary`);
             if (res.ok) setSummary(await res.json());
         } catch { }
     }, [apiBase]);
@@ -90,7 +91,7 @@ export default function TabEmails({ tenantId }: { tenantId: string }) {
 
     const openDetail = async (id: string) => {
         try {
-            const res = await fetch(`${apiBase}/messages/${id}`, { credentials: "same-origin" });
+            const res = await apiFetch(`${apiBase}/messages/${id}`);
             if (!res.ok) return;
             setDetail(await res.json());
             setDetailOpen(true);
@@ -100,7 +101,7 @@ export default function TabEmails({ tenantId }: { tenantId: string }) {
     const handleRetry = async (id: string) => {
         setRetrying(id);
         try {
-            const res = await fetch(`${apiBase}/messages/${id}/retry`, { method: "POST", credentials: "same-origin" });
+            const res = await apiFetch(`${apiBase}/messages/${id}/retry`, { method: "POST" });
             if (res.ok) {
                 toast.success("Email reenviado.");
                 loadEmails(page);

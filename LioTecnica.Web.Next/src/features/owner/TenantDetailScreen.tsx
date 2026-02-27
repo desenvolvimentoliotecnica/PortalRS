@@ -16,6 +16,9 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiFetch } from "@/lib/api";
+import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
+import { setAccessToken, setTenantId } from "@/lib/session";
 
 import TabUsuarios from "./tenant-tabs/TabUsuarios";
 import TabAcessos from "./tenant-tabs/TabAcessos";
@@ -53,15 +56,16 @@ interface TenantDetail {
     migrationStatus: MigrationStatus | null;
 }
 
+type ApiTenantMigrationStatus = MigrationStatus;
+
 /* ─── API ─── */
 
 const BASE = "/app";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
         ...init,
         headers: { Accept: "application/json", ...(init?.headers || {}) },
-        credentials: "same-origin",
         cache: "no-store",
     });
     if (!res.ok) {
@@ -104,10 +108,17 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
     const loadDetail = useCallback(async () => {
         setLoading(true);
         try {
-            const d = await fetchJson<TenantDetail>(
-                `${BASE}/Owner/Tenants/_api/detail/${encodeURIComponent(tenantId)}`,
-            );
-            setDetail(d);
+            const [tenant, statuses] = await Promise.all([
+                fetchJson<TenantInfo>(`/api/owner/tenants/${encodeURIComponent(tenantId)}`),
+                fetchJson<ApiTenantMigrationStatus[]>(`/api/owner/tenants/migrations/status`),
+            ]);
+
+            const status =
+                (Array.isArray(statuses) ? statuses : []).find(
+                    (s) => String(s?.tenantId ?? "").toLowerCase() === tenantId.toLowerCase(),
+                ) ?? null;
+
+            setDetail({ tenant, migrationStatus: status });
         } catch {
             toast.error("Falha ao carregar detalhes do tenant.");
         } finally {
@@ -122,11 +133,11 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
     async function handleApplyMigrations() {
         setBusy(true);
         try {
-            const result = await fetchJson<{ message: string; appliedCount: number }>(
-                `${BASE}/Owner/Tenants/_api/migrations/apply/${encodeURIComponent(tenantId)}`,
+            const result = await fetchJson<{ appliedCount: number }>(
+                `/api/owner/tenants/${encodeURIComponent(tenantId)}/migrations/apply`,
                 { method: "POST" },
             );
-            toast.success(result.message);
+            toast.success(`Migrações aplicadas (${result?.appliedCount ?? 0}).`);
             void loadDetail();
         } catch (err) {
             toast.error(`Erro: ${(err as Error).message}`);
@@ -138,11 +149,12 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
     async function handleSeed() {
         setBusy(true);
         try {
-            const result = await fetchJson<{ message: string }>(
-                `${BASE}/Owner/Tenants/_api/seed/${encodeURIComponent(tenantId)}`,
+            const result = await fetchJson<{ message?: string }>(
+                `/api/owner/tenants/${encodeURIComponent(tenantId)}/seed`,
                 { method: "POST" },
             );
-            toast.success(result.message);
+            toast.success(result?.message || "Seed executado com sucesso.");
+            void loadDetail();
         } catch (err) {
             toast.error(`Erro: ${(err as Error).message}`);
         } finally {
@@ -157,10 +169,7 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
         if (!ok) return;
         setBusy(true);
         try {
-            await fetchJson(
-                `${BASE}/Owner/Tenants/_api/delete/${encodeURIComponent(tenantId)}`,
-                { method: "POST" },
-            );
+            await fetchJson(`/api/owner/tenants/${encodeURIComponent(tenantId)}`, { method: "DELETE" });
             toast.success(`Tenant "${tenantId}" desativado.`);
             router.push("/Owner/Tenants");
         } catch (err) {
@@ -173,10 +182,9 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
     async function handleAccessTenant() {
         setBusy(true);
         try {
-            const res = await fetch(`${BASE}/bff/auth/switch-tenant`, {
+            const res = await apiFetch(`/api/me/switch-tenant`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                credentials: "same-origin",
                 body: JSON.stringify({ tenantId }),
             });
             const json = await res.json().catch(() => null);
@@ -184,8 +192,16 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
                 toast.error(json?.message || "Falha ao acessar tenant.");
                 return;
             }
-            const redirect = json?.redirectUrl || "/dashboard";
-            window.location.href = redirect.startsWith("/app") ? redirect : `/app${redirect}`;
+            const parsed = ApiSwitchTenantResponseSchema.safeParse(json);
+            if (!parsed.success) {
+                toast.error("Resposta inválida ao acessar tenant.");
+                return;
+            }
+
+            setAccessToken(parsed.data.accessToken);
+            setTenantId(parsed.data.tenantId);
+
+            window.location.href = "/app/dashboard";
         } catch {
             toast.error("Erro ao acessar tenant.");
         } finally {

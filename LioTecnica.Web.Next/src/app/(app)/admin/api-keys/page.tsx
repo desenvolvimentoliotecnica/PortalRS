@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AdminApiKeysScreen from "@/features/admin/api-keys/AdminApiKeysScreen";
 
-export default async function AdminApiKeysPage() {
-    await requireMe("/app/admin/api-keys");
-    return <AdminApiKeysScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AdminApiKeysScreen />
+    </AuthGuard>
+  );
 }

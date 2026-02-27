@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AdminLogsScreen from "@/features/admin/logs/AdminLogsScreen";
 
-export default async function AdminLogsPage() {
-    await requireMe("/app/admin/logs");
-    return <AdminLogsScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AdminLogsScreen />
+    </AuthGuard>
+  );
 }

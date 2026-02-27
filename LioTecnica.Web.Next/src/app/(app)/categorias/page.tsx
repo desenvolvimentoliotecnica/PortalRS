@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import CategoriasScreen from "@/features/cadastros/categorias/CategoriasScreen";
 
-export default async function CategoriasPage() {
-    await requireMe("/app/categorias");
-    return <CategoriasScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <CategoriasScreen />
+    </AuthGuard>
+  );
 }

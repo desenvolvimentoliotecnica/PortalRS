@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
 const REPORTS_API_BASE = `${BASE}/Relatorios/_api`;
@@ -77,13 +78,12 @@ function clamp(n: number, min: number, max: number) {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.headers || {}),
     },
-    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {

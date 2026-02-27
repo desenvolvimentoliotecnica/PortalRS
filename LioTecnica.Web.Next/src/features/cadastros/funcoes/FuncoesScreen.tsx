@@ -11,6 +11,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,10 +71,9 @@ function normalizeKey(raw: string | null | undefined) {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: { Accept: "application/json", ...(init?.headers || {}) },
-    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {

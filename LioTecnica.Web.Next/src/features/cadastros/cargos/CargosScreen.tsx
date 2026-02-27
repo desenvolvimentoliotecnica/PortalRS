@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
+import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
 
@@ -48,10 +49,9 @@ interface AreaLookup { id: string; name: string }
 
 /* ---------- helpers ---------- */
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
         ...init,
         headers: { Accept: "application/json", ...(init?.headers || {}) },
-        credentials: "same-origin",
         cache: "no-store",
     });
     if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(t || `HTTP_${res.status}`); }

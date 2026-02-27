@@ -1,8 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import FuncoesScreen from "@/features/cadastros/funcoes/FuncoesScreen";
 
-export default async function CadastroFuncoesPage() {
-  await requireMe("/app/cadastro/funcoes");
-  return <FuncoesScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <FuncoesScreen />
+    </AuthGuard>
+  );
 }
-

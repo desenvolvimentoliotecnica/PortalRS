@@ -1,8 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import PessoasScreen from "@/features/cadastros/pessoas/PessoasScreen";
 
-export default async function PessoasPage() {
-  await requireMe("/app/pessoas");
-  return <PessoasScreen />;
+export default function PessoasPage() {
+  return (
+    <AuthGuard>
+      <PessoasScreen />
+    </AuthGuard>
+  );
 }
-

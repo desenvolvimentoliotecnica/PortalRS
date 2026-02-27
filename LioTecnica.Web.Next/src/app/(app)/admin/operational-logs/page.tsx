@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AdminOperationalLogsScreen from "@/features/admin/operational-logs/AdminOperationalLogsScreen";
 
-export default async function AdminOperationalLogsPage() {
-    await requireMe("/app/admin/operational-logs");
-    return <AdminOperationalLogsScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AdminOperationalLogsScreen />
+    </AuthGuard>
+  );
 }

@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AdminMenusScreen from "@/features/admin/menus/AdminMenusScreen";
 
-export default async function AdminMenusPage() {
-    await requireMe("/app/admin/menus");
-    return <AdminMenusScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AdminMenusScreen />
+    </AuthGuard>
+  );
 }

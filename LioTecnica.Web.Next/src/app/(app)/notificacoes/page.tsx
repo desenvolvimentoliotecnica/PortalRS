@@ -1,13 +1,15 @@
-import { Inbox } from "lucide-react";
+"use client";
 
+import { AuthGuard } from "@/hooks/useAuth";
 import EmptyState from "@/components/feedback/EmptyState";
 
 export default function NotificacoesPage() {
   return (
-    <EmptyState
-      title="Notificações (em migração)"
-      description="Por enquanto, as notificações seguem no legado. Esta rota será migrada depois."
-      icon={<Inbox aria-hidden className="size-5" />}
-    />
+    <AuthGuard>
+      <EmptyState
+        title="Notificações"
+        description="A tela de notificações ainda não foi migrada."
+      />
+    </AuthGuard>
   );
 }

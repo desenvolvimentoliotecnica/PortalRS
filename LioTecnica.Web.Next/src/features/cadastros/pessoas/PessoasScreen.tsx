@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Search, RefreshCw, Pencil, UserX, Unlock } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,10 +94,9 @@ const ORIGEM_PESSOA_OPTIONS: { value: number; text: string }[] = [
 ];
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: { Accept: "application/json", ...(init?.headers || {}) },
-    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {

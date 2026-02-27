@@ -24,9 +24,10 @@ import styles from "./agendas.module.css";
 import {
   type AgendaEventApi,
   type AgendaType,
-  type CandidatoListItem,
-  type VagaListItem,
-} from "@/server/recrutamento/agendas.schema";
+  type AgendaCandidatoListItem as CandidatoListItem,
+  type AgendaVagaListItem as VagaListItem,
+} from "@/lib/schemas/recrutamento";
+import { apiFetch } from "@/lib/api";
 
 type Health = "idle" | "loading";
 
@@ -102,14 +103,13 @@ function agendaIcon(icon: unknown) {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.headers || {}),
     },
     cache: "no-store",
-    credentials: "same-origin",
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

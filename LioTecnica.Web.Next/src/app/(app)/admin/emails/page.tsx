@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AdminEmailsScreen from "@/features/admin/emails/AdminEmailsScreen";
 
-export default async function AdminEmailsPage() {
-    await requireMe("/app/admin/emails");
-    return <AdminEmailsScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AdminEmailsScreen />
+    </AuthGuard>
+  );
 }

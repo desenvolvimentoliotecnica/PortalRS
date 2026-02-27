@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import PesquisasScreen from "@/features/feedback/PesquisasScreen";
 
-export default async function PesquisasPage() {
-    await requireMe("/app/feedback/pesquisas");
-    return <PesquisasScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <PesquisasScreen />
+    </AuthGuard>
+  );
 }

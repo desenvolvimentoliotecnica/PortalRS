@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import MeusPlanosScreen from "@/features/feedback/MeusPlanosScreen";
 
-export default async function MeusPlanosPage() {
-    await requireMe("/app/feedback/meusplanos");
-    return <MeusPlanosScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <MeusPlanosScreen />
+    </AuthGuard>
+  );
 }

@@ -26,5 +26,5 @@ if [ ! -d "node_modules" ]; then
 fi
 
 echo "▶ Subindo Next em http://localhost:3000/app"
-WATCHPACK_POLLING=true LEGACY_ORIGIN="${LEGACY_ORIGIN:-http://localhost:5051}" PORT=3000 exec pnpm dev
+WATCHPACK_POLLING=true LEGACY_ORIGIN="${LEGACY_ORIGIN:-http://localhost:5051}" DEV_API_ORIGIN="${DEV_API_ORIGIN:-http://localhost:5056}" PORT=3000 exec pnpm dev
 

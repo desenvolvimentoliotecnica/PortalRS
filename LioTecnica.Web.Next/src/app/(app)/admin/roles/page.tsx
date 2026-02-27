@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AdminRolesScreen from "@/features/admin/roles/AdminRolesScreen";
 
-export default async function AdminRolesPage() {
-    await requireMe("/app/admin/roles");
-    return <AdminRolesScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AdminRolesScreen />
+    </AuthGuard>
+  );
 }

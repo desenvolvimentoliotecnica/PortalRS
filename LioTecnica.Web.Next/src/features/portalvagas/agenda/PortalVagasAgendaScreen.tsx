@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 type AgendaPreferences = {
   interviewMode: string;
@@ -79,11 +80,10 @@ function saveToStorage(model: AgendaModel) {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T | null }> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: { Accept: "application/json", ...(init?.headers || {}) },
     cache: "no-store",
-    credentials: "include",
   });
   const status = res.status;
   if (status === 204) return { ok: true, status, data: null };

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 /* ═══════════════════════════════════════════════════════════════════
    TYPES
    ═══════════════════════════════════════════════════════════════════ */
@@ -92,10 +93,9 @@ function initials(name: string) {
 }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: { Accept: "application/json", ...(init?.headers ?? {}) },
-    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {

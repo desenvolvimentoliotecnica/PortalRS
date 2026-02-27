@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import FuncionariosScreen from "@/features/cadastros/funcionarios/FuncionariosScreen";
 
-export default async function FuncionariosPage() {
-    await requireMe("/app/funcionarios");
-    return <FuncionariosScreen />;
+export default function FuncionariosPage() {
+    return (
+        <AuthGuard>
+            <FuncionariosScreen />
+        </AuthGuard>
+    );
 }

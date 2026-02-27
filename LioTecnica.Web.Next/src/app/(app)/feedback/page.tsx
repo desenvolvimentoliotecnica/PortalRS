@@ -1,7 +1,21 @@
-import { redirect } from "next/navigation";
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
 
-export default async function FeedbackIndexPage() {
-    await requireMe("/app/feedback");
-    redirect("/app/feedback/feedbacks");
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { AuthGuard } from "@/hooks/useAuth";
+
+function FeedbackRedirect() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace("/app/feedback/feedbacks");
+    }, [router]);
+    return null;
+}
+
+export default function FeedbackIndexPage() {
+    return (
+        <AuthGuard>
+            <FeedbackRedirect />
+        </AuthGuard>
+    );
 }

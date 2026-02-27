@@ -7,7 +7,10 @@ import {
     useState,
     type ReactNode,
 } from "react";
-import { BffMeSchema, type BffMe } from "@/server/bff/schema";
+import type { BffMe } from "@/lib/schemas/bff";
+import { ApiCurrentUserSchema } from "@/lib/schemas/api";
+import { apiFetch } from "@/lib/api";
+import { getAccessToken, setTenantId, tryGetTenantIdFromJwt } from "@/lib/session";
 
 /* ------------------------------------------------------------------ */
 /*  Context                                                           */
@@ -38,13 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         (async () => {
             try {
-                const res = await fetch("/app/bff/me", {
-                    credentials: "include",
-                    cache: "no-store",
-                    redirect: "manual",
-                });
-
-                if (!res.ok) {
+                const token = getAccessToken();
+                if (!token) {
                     if (!cancelled) {
                         setMe(null);
                         setLoading(false);
@@ -52,11 +50,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     return;
                 }
 
+                const fromJwt = tryGetTenantIdFromJwt(token);
+                if (fromJwt) setTenantId(fromJwt);
+
+                // Owner token does not map to /api/me (application user). Validate by hitting an owner endpoint.
+                if ((fromJwt ?? "").toLowerCase() === "owner") {
+                    const ownerPing = await apiFetch("/api/owner/tenants", { cache: "no-store" });
+                    if (!ownerPing.ok) throw new Error(`OWNER_HTTP_${ownerPing.status}`);
+
+                    const meMapped: BffMe = {
+                        isAuthenticated: true,
+                        tenantId: "owner",
+                        displayName: "Owner",
+                        email: "",
+                        roles: ["Owner"],
+                        isAdmin: true,
+                        isOwnerContext: true,
+                    };
+
+                    if (!cancelled) {
+                        setMe(meMapped);
+                        setLoading(false);
+                    }
+                    return;
+                }
+
+                const res = await apiFetch("/api/me", {
+                    cache: "no-store",
+                    redirect: "manual",
+                });
+
+                if (!res.ok) throw new Error(`HTTP_${res.status}`);
+
                 const json = await res.json();
-                const parsed = BffMeSchema.safeParse(json);
+                const parsed = ApiCurrentUserSchema.safeParse(json);
+                if (!parsed.success) throw new Error("INVALID_ME_PAYLOAD");
+
+                const meMapped: BffMe = {
+                    isAuthenticated: true,
+                    tenantId: parsed.data.tenantId,
+                    displayName: parsed.data.fullName,
+                    email: parsed.data.email,
+                    roles: parsed.data.roles,
+                    isAdmin: parsed.data.roles.some((r) => r.toLowerCase() === "admin"),
+                    isOwnerContext:
+                        parsed.data.tenantId.toLowerCase() === "owner" ||
+                        parsed.data.roles.some((r) => r.toLowerCase() === "owner"),
+                };
 
                 if (!cancelled) {
-                    setMe(parsed.success ? parsed.data : null);
+                    setMe(meMapped);
                     setLoading(false);
                 }
             } catch {

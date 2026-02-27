@@ -6,21 +6,70 @@ import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import { AuthProvider } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
-import type { BffNavItem } from "@/server/bff/navigation.schema";
+import type { BffNavItem } from "@/lib/schemas/bff";
+import { ApiMenuForCurrentUserSchema, type ApiMenuForCurrentUser } from "@/lib/schemas/api";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const [navItems, setNavItems] = useState<BffNavItem[]>([]);
+
+  function buildTree(items: ApiMenuForCurrentUser[]): BffNavItem[] {
+    const nodes = new Map<string, BffNavItem & { _order: number; _parentId: string | null }>();
+    for (const m of items) {
+      const id = (m.id ?? "").toString();
+      if (!id) continue;
+      nodes.set(id, {
+        id,
+        label: m.displayName ?? "",
+        href: m.route ?? "#",
+        icon: m.icon ?? null,
+        openInNewTab: !!m.openInNewTab,
+        children: [],
+        _order: m.order ?? 0,
+        _parentId: (m.parentId ?? null) as string | null,
+      });
+    }
+
+    const roots: Array<BffNavItem & { _order: number; _parentId: string | null }> = [];
+    for (const n of nodes.values()) {
+      if (n._parentId && nodes.has(n._parentId)) {
+        nodes.get(n._parentId)!.children.push(n);
+      } else {
+        roots.push(n);
+      }
+    }
+
+    function sortRec(list: Array<BffNavItem & { _order: number }>) {
+      list.sort((a, b) => a._order - b._order || a.label.localeCompare(b.label, "pt-BR"));
+      list.forEach((x) => sortRec(x.children as any));
+    }
+    sortRec(roots as any);
+
+    // Strip private fields
+    const strip = (n: any): BffNavItem => ({
+      id: n.id,
+      label: n.label,
+      href: n.href,
+      icon: n.icon ?? null,
+      openInNewTab: !!n.openInNewTab,
+      children: Array.isArray(n.children) ? n.children.map(strip) : [],
+    });
+    return roots.map(strip);
+  }
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        const res = await apiFetch("/app/bff/navigation");
-        if (res.ok) {
-          const json = await res.json();
-          if (!cancelled) setNavItems(json.items ?? []);
-        }
+        const res = await apiFetch("/api/menus/for-current-user", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        const raw = Array.isArray(json) ? json : [];
+        const parsed = raw
+          .map((x) => ApiMenuForCurrentUserSchema.safeParse(x))
+          .filter((r) => r.success)
+          .map((r) => r.data);
+        if (!cancelled) setNavItems(buildTree(parsed as any));
       } catch {
         // Navigation will render with empty items — non-blocking.
       }

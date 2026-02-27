@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import AdminEntraIdScreen from "@/features/admin/entra-id/AdminEntraIdScreen";
 
-export default async function AdminEntraIdPage() {
-    await requireMe("/app/admin/entra-id");
-    return <AdminEntraIdScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <AdminEntraIdScreen />
+    </AuthGuard>
+  );
 }

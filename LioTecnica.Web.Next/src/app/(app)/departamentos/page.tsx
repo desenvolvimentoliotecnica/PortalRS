@@ -1,8 +1,21 @@
-import { redirect } from "next/navigation";
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
 
-export default async function DepartamentosPage() {
-    await requireMe("/app/departamentos");
-    // Departamentos is disabled in the Razor app — redirects to Áreas
-    redirect("/areas");
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { AuthGuard } from "@/hooks/useAuth";
+
+function DepartamentosRedirect() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace("/app/areas");
+    }, [router]);
+    return null;
+}
+
+export default function DepartamentosPage() {
+    return (
+        <AuthGuard>
+            <DepartamentosRedirect />
+        </AuthGuard>
+    );
 }

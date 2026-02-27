@@ -1,7 +1,12 @@
-import IAScreen from "@/features/owner/IAScreen";
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
 
-export default async function OwnerIAPage() {
-    await requireMe("/app/Owner/IA");
-    return <IAScreen />;
+import { AuthGuard } from "@/hooks/useAuth";
+import IAScreen from "@/features/owner/IAScreen";
+
+export default function Page() {
+  return (
+    <AuthGuard>
+      <IAScreen />
+    </AuthGuard>
+  );
 }

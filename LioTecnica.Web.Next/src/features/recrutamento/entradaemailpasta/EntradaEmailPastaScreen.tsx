@@ -5,6 +5,7 @@ import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import { toast } from "sonner";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
+import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
 
@@ -61,13 +62,12 @@ function clampInt(v: unknown, min: number, max: number) {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(init?.headers || {}),
     },
-    credentials: "same-origin",
     cache: "no-store",
   });
   if (!res.ok) {
@@ -560,10 +560,9 @@ export default function EntradaEmailPastaScreen({
 
   async function addToTalentos(itemId: string) {
     try {
-      const res = await fetch(`${BASE}/EntradaEmailPasta/_api/inbox/${encodeURIComponent(itemId)}/add-to-talentos`, {
+      const res = await apiFetch(`${BASE}/EntradaEmailPasta/_api/inbox/${encodeURIComponent(itemId)}/add-to-talentos`, {
         method: "POST",
         headers: { Accept: "application/json" },
-        credentials: "same-origin",
       });
       if (!res.ok) {
         const err = (await res.json().catch(() => null)) as unknown;

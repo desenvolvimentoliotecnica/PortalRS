@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import UnidadesScreen from "@/features/cadastros/unidades/UnidadesScreen";
 
-export default async function UnidadesPage() {
-    await requireMe("/app/unidades");
-    return <UnidadesScreen />;
+export default function UnidadesPage() {
+    return (
+        <AuthGuard>
+            <UnidadesScreen />
+        </AuthGuard>
+    );
 }

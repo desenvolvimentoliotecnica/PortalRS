@@ -1,6 +1,6 @@
 "use client";
 
-import type { BffNavItem } from "@/server/bff/navigation.schema";
+import type { BffNavItem } from "@/lib/schemas/bff";
 import TopbarClient from "@/components/layout/TopbarClient";
 import { useAuth } from "@/hooks/useAuth";
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 const BASE = "/app";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(url, { credentials: "same-origin", ...init });
+    const res = await apiFetch(url, { ...init });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.status === 204 ? (null as T) : res.json();
 }

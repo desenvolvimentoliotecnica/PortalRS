@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ApiLoginResponseSchema } from "@/lib/schemas/api";
+import { setAccessToken, setTenantId } from "@/lib/session";
+import { apiFetch } from "@/lib/api";
 
 type HealthStatus = "healthy" | "degraded" | "unhealthy" | "unknown";
 
@@ -39,7 +42,7 @@ export default function LoginScreenRazor({
   // This keeps the login functional when accessing Next directly at :3000.
   const BASE = "/app";
 
-  const [entraEnabled, setEntraEnabled] = useState(false);
+  const [entraEnabled] = useState(false);
   const entraError = error || sp.get("error") || "";
 
   const [tenant, setTenant] = useState(tenantId ?? sp.get("tenantId") ?? "liotecnica");
@@ -59,22 +62,12 @@ export default function LoginScreenRazor({
   const [dbStatus, setDbStatus] = useState<HealthStatus>("unknown");
 
   useEffect(() => {
-    let alive = true;
-    fetch(`${BASE}/bff/auth/config`, { headers: { Accept: "application/json" } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!alive) return;
-        setEntraEnabled(j?.entraEnabled === true);
-      })
-      .catch(() => { });
-    return () => {
-      alive = false;
-    };
+    // Entra ID config é privado no RHPortal.Api; mantém oculto aqui.
   }, [BASE]);
 
   async function updateHealth() {
     try {
-      const res = await fetch(`${BASE}/api/health`, { headers: { Accept: "application/json" } });
+      const res = await apiFetch(`/health`, { headers: { Accept: "application/json" } });
       const data = (await res.json().catch(() => null)) as HealthCheckResponse | null;
       const api = normalizeStatus(data?.status);
       setApiStatus(api);
@@ -108,14 +101,17 @@ export default function LoginScreenRazor({
     setErrorMsg(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`${BASE}/bff/auth/login`, {
+      const t = (tenant || "").trim();
+      const res = await apiFetch(`/api/auth/login`, {
         method: "POST",
-        headers: { "content-type": "application/json", Accept: "application/json" },
+        headers: {
+          "content-type": "application/json",
+          Accept: "application/json",
+          "X-Tenant-Id": t || "liotecnica",
+        },
         body: JSON.stringify({
-          tenantId: tenant,
           email,
           password,
-          returnUrl: resolvedReturnUrl,
         }),
       });
 
@@ -125,7 +121,18 @@ export default function LoginScreenRazor({
         return;
       }
 
-      const redirectUrl: string = json?.redirectUrl || resolvedReturnUrl || "/";
+      const parsed = ApiLoginResponseSchema.safeParse(json);
+      if (!parsed.success) {
+        setErrorMsg("Resposta inválida da API no login.");
+        return;
+      }
+
+      setAccessToken(parsed.data.accessToken);
+      setTenantId(parsed.data.tenantId);
+
+      let redirectUrl: string = resolvedReturnUrl || "/dashboard";
+      if (redirectUrl.startsWith("/app/")) redirectUrl = redirectUrl.slice("/app".length);
+      if (!redirectUrl.startsWith("/")) redirectUrl = `/${redirectUrl}`;
       router.replace(redirectUrl);
       router.refresh();
     } finally {
@@ -139,10 +146,7 @@ export default function LoginScreenRazor({
       window.alert("Informe o tenant para entrar com Microsoft.");
       return;
     }
-    const url = `${BASE}/bff/auth/entra-login?tenantId=${encodeURIComponent(t)}&returnUrl=${encodeURIComponent(
-      resolvedReturnUrl,
-    )}`;
-    window.location.href = url;
+    window.alert("Login Microsoft (Entra ID) ainda não configurado nesta versão.");
   }
 
   const entraMessage =

@@ -1,7 +1,12 @@
-import { requireMe } from "@/server/bff/requireMe";
+"use client";
+
+import { AuthGuard } from "@/hooks/useAuth";
 import FeedbacksScreen from "@/features/feedback/FeedbacksScreen";
 
-export default async function FeedbacksPage() {
-    await requireMe("/app/feedback/feedbacks");
-    return <FeedbacksScreen />;
+export default function Page() {
+  return (
+    <AuthGuard>
+      <FeedbacksScreen />
+    </AuthGuard>
+  );
 }

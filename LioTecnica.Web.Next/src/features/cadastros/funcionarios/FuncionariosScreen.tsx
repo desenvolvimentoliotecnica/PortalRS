@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Search, Plus, RefreshCw, Pencil, Trash2, Eye, UserX, Users } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,10 +51,9 @@ interface LookupItem { id: string; name?: string; nome?: string }
 
 /* ---------- helpers ---------- */
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
         ...init,
         headers: { Accept: "application/json", ...(init?.headers || {}) },
-        credentials: "same-origin",
         cache: "no-store",
     });
     if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(t || `HTTP_${res.status}`); }
