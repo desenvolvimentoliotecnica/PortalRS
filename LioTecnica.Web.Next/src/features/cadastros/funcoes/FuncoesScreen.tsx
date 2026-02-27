@@ -34,7 +34,7 @@ import {
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 
-const BASE = "/app";
+
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -78,7 +78,9 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(t || `HTTP_${res.status}`);
+    const msg = `HTTP ${res.status}: ${t || res.statusText}`;
+    console.error(`[apiFetch] ${init?.method ?? "GET"} ${url} → ${msg}`);
+    throw new Error(msg);
   }
   if (res.status === 204) return null as T;
   return (await res.json()) as T;
@@ -203,11 +205,16 @@ export default function FuncoesScreen() {
 
   const syncAll = useCallback(async () => {
     const [funcoesPayload, vagasPayload] = await Promise.all([
-      fetchJson<{ items: unknown[] }>(`/api/requisito-categorias`),
-      fetchJson<unknown>(`${BASE}/api/vagas`),
+      fetchJson<unknown>(`/api/requisito-categorias`),
+      fetchJson<unknown>(`/api/vagas`),
     ]);
 
-    const funcoesRaw = Array.isArray(funcoesPayload?.items) ? funcoesPayload.items : [];
+    // RequisitoCategoriasController returns a flat array, not { items: [...] }
+    const funcoesRaw: unknown[] = Array.isArray(funcoesPayload)
+      ? (funcoesPayload as unknown[])
+      : Array.isArray((funcoesPayload as Record<string, unknown>)?.items)
+        ? ((funcoesPayload as Record<string, unknown>).items as unknown[])
+        : [];
     const funcoes = funcoesRaw.map(funcaoFromApi).filter(Boolean) as FuncaoRow[];
 
     const vagasList = Array.isArray(vagasPayload)
@@ -249,7 +256,7 @@ export default function FuncoesScreen() {
     let alive = true;
     setLoading(true);
     syncAll()
-      .catch(() => toast.error("Falha ao carregar funções."))
+      .catch((e) => { console.error("Funções – load error", e); toast.error(`Falha ao carregar funções: ${e instanceof Error ? e.message : "erro"}`); })
       .finally(() => {
         if (!alive) return;
         setLoading(false);
@@ -732,7 +739,7 @@ export default function FuncoesScreen() {
                             className="btn-ghost px-3 py-2"
                             type="button"
                             onClick={() => {
-                              window.location.href = `${BASE}/vagas?vagaId=${encodeURIComponent(vaga.id)}&open=detail`;
+                              window.location.href = `/app/vagas?vagaId=${encodeURIComponent(vaga.id)}&open=detail`;
                             }}
                             title="Abrir vaga"
                           >

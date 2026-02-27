@@ -37,8 +37,6 @@ import { cn } from "@/lib/utils";
 
 /* ──────────────────────────── consts & types ──────────────────────────── */
 
-const BASE = "/app";
-
 interface AreaListItem {
     id: string;
     code: string;
@@ -91,7 +89,9 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     });
     if (!res.ok) {
         const text = await res.text().catch(() => "");
-        throw new Error(text || `HTTP_${res.status}`);
+        const msg = `HTTP ${res.status}: ${text || res.statusText}`;
+        console.error(`[apiFetch] ${init?.method ?? "GET"} ${url} → ${msg}`);
+        throw new Error(msg);
     }
     if (res.status === 204) return null as T;
     return (await res.json()) as T;
@@ -260,10 +260,15 @@ export default function AreasScreen() {
 
     /* ── data loading ── */
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: AreaListItem[] }>(
+        const payload = await fetchJson<unknown>(
             `/api/areas`,
         );
-        const items = Array.isArray(payload?.items) ? payload.items : [];
+        // AreasController returns a flat array, not { items: [...] }
+        const items: AreaListItem[] = Array.isArray(payload)
+            ? (payload as AreaListItem[])
+            : Array.isArray((payload as Record<string, unknown>)?.items)
+                ? ((payload as Record<string, unknown>).items as AreaListItem[])
+                : [];
         setRows(items);
         setCollapsedKeys(new Set(collectNodeKeysWithChildren(buildAreaTree(items))));
     }, []);
@@ -271,7 +276,7 @@ export default function AreasScreen() {
     const loadFuncionarios = useCallback(async () => {
         try {
             const res = await fetchJson<LookupItem[]>(
-                `${BASE}/api/lookup/funcionarios`,
+                `/api/lookup/funcionarios`,
             );
             setFuncionarios(Array.isArray(res) ? res : []);
         } catch {
@@ -283,7 +288,7 @@ export default function AreasScreen() {
         let alive = true;
         setLoading(true);
         Promise.all([syncList(), loadFuncionarios()])
-            .catch(() => toast.error("Falha ao carregar áreas."))
+            .catch((e) => { console.error("Áreas – load error", e); toast.error(`Falha ao carregar áreas: ${e instanceof Error ? e.message : "erro desconhecido"}`); })
             .finally(() => {
                 if (!alive) return;
                 setLoading(false);

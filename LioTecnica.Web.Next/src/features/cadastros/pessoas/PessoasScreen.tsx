@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const BASE = "/app";
+
 
 type PessoaListItem = {
   id: string;
@@ -101,7 +101,9 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP_${res.status}`);
+    const msg = `HTTP ${res.status}: ${text || res.statusText}`;
+    console.error(`[apiFetch] ${init?.method ?? "GET"} ${url} → ${msg}`);
+    throw new Error(msg);
   }
   if (res.status === 204) return null as T;
   return (await res.json()) as T;
@@ -216,7 +218,7 @@ export default function PessoasScreen() {
     const qq = q.trim();
     if (qq) qs.set("q", qq);
 
-    const payload = await fetchJson<PessoasPagedResponse>(`${BASE}/api/pessoas?${qs.toString()}`);
+    const payload = await fetchJson<PessoasPagedResponse>(`/api/pessoas?${qs.toString()}`);
     const list = Array.isArray(payload?.items) ? payload.items : [];
 
     setItems(list);
@@ -240,7 +242,7 @@ export default function PessoasScreen() {
     let alive = true;
     setLoading(true);
     syncList()
-      .catch(() => toast.error("Falha ao carregar pessoas."))
+      .catch((e) => { console.error("Pessoas – load error", e); toast.error(`Falha ao carregar pessoas: ${e instanceof Error ? e.message : "erro"}`); })
       .finally(() => {
         if (!alive) return;
         setLoading(false);
@@ -259,7 +261,7 @@ export default function PessoasScreen() {
       qs.set("entityId", pessoaId);
       qs.set("page", "1");
       qs.set("pageSize", "50");
-      const payload = await fetchJson<EntityChangesResponse | unknown>(`${BASE}/api/audit/entity-changes?${qs.toString()}`);
+      const payload = await fetchJson<EntityChangesResponse | unknown>(`/api/audit/entity-changes?${qs.toString()}`);
       const r = (payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {}) as Record<string, unknown>;
       const list = Array.isArray(r.items) ? (r.items as EntityChangeListItem[]) : [];
       setHistoryItems(list);
@@ -278,7 +280,7 @@ export default function PessoasScreen() {
     setHistoryItems([]);
 
     try {
-      const p = await fetchJson<PessoaResponse>(`${BASE}/api/pessoas/${encodeURIComponent(id)}`);
+      const p = await fetchJson<PessoaResponse>(`/api/pessoas/${encodeURIComponent(id)}`);
       setDraft(p);
     } catch {
       toast.error("Falha ao carregar pessoa.");
@@ -320,7 +322,7 @@ export default function PessoasScreen() {
     }
     setSaving(true);
     try {
-      await fetchJson(`${BASE}/api/pessoas/${encodeURIComponent(id)}`, {
+      await fetchJson(`/api/pessoas/${encodeURIComponent(id)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -346,7 +348,7 @@ export default function PessoasScreen() {
     setBlocking(true);
     try {
       const motivo = blockMotivo.trim() || null;
-      await fetchJson(`${BASE}/api/bloqueio-pessoa/block/${encodeURIComponent(blockTarget.id)}`, {
+      await fetchJson(`/api/bloqueio-pessoa/block/${encodeURIComponent(blockTarget.id)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ motivo }),
@@ -367,7 +369,7 @@ export default function PessoasScreen() {
     if (!bloqueioId) return;
     if (!confirm(`Desbloquear "${item.nome ?? ""}"?`)) return;
     try {
-      await fetchJson(`${BASE}/api/bloqueio-pessoa/${encodeURIComponent(bloqueioId)}`, { method: "DELETE" });
+      await fetchJson(`/api/bloqueio-pessoa/${encodeURIComponent(bloqueioId)}`, { method: "DELETE" });
       toast.success("Pessoa desbloqueada.");
       await syncList();
     } catch (e) {
@@ -392,7 +394,7 @@ export default function PessoasScreen() {
     }
     setManualSaving(true);
     try {
-      await fetchJson(`${BASE}/api/bloqueio-pessoa`, {
+      await fetchJson(`/api/bloqueio-pessoa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nome, email, motivo }),

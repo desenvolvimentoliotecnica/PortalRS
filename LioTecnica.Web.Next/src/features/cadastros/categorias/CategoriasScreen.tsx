@@ -16,7 +16,7 @@ import {
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 
-const BASE = "/app";
+
 
 /* ---------- types ---------- */
 interface CategoriaItem {
@@ -47,7 +47,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
         headers: { Accept: "application/json", ...(init?.headers || {}) },
         cache: "no-store",
     });
-    if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(t || `HTTP_${res.status}`); }
+    if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        const msg = `HTTP ${res.status}: ${t || res.statusText}`;
+        console.error(`[apiFetch] ${init?.method ?? "GET"} ${url} → ${msg}`);
+        throw new Error(msg);
+    }
     if (res.status === 204) return null as T;
     return (await res.json()) as T;
 }
@@ -83,15 +88,21 @@ export default function CategoriasScreen() {
     const [detailItem, setDetailItem] = useState<CategoriaItem | null>(null);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: CategoriaItem[] }>(`/api/requisito-categorias`);
-        setRows(Array.isArray(payload?.items) ? payload.items : []);
+        const payload = await fetchJson<unknown>(`/api/requisito-categorias`);
+        // RequisitoCategoriasController returns a flat array, not { items: [...] }
+        const items: CategoriaItem[] = Array.isArray(payload)
+            ? (payload as CategoriaItem[])
+            : Array.isArray((payload as Record<string, unknown>)?.items)
+                ? ((payload as Record<string, unknown>).items as CategoriaItem[])
+                : [];
+        setRows(items);
     }, []);
 
     useEffect(() => {
         let alive = true;
         setLoading(true);
         syncList()
-            .catch(() => toast.error("Falha ao carregar funções."))
+            .catch((e) => { console.error("Categorias – load error", e); toast.error(`Falha ao carregar funções: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, [syncList]);

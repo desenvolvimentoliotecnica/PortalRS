@@ -16,7 +16,7 @@ import {
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 
-const BASE = "/app";
+
 
 /* ---------- types ---------- */
 interface UnidadeItem {
@@ -64,7 +64,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
         headers: { Accept: "application/json", ...(init?.headers || {}) },
         cache: "no-store",
     });
-    if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(t || `HTTP_${res.status}`); }
+    if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        const msg = `HTTP ${res.status}: ${t || res.statusText}`;
+        console.error(`[apiFetch] ${init?.method ?? "GET"} ${url} → ${msg}`);
+        throw new Error(msg);
+    }
     if (res.status === 204) return null as T;
     return (await res.json()) as T;
 }
@@ -107,7 +112,7 @@ export default function UnidadesScreen() {
         let alive = true;
         setLoading(true);
         syncList()
-            .catch(() => toast.error("Falha ao carregar unidades."))
+            .catch((e) => { console.error("Unidades – load error", e); toast.error(`Falha ao carregar unidades: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, [syncList]);
