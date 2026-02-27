@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-const BASE = "/app";
+import { getBackendUrl } from "@/lib/getBackendUrl";
+
+const BASE = getBackendUrl();
 
 type VagaOption = { id: string; label: string };
 

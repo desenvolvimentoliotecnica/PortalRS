@@ -14,8 +14,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { getBackendUrl } from "@/lib/getBackendUrl";
 
-const BASE = "/app";
+const BASE = getBackendUrl();
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, { credentials: "same-origin", ...init });

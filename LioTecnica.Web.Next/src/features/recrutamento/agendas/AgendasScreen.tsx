@@ -52,7 +52,9 @@ type ImportedAgendaEvent = {
   };
 };
 
-const BASE = "/app";
+import { getBackendUrl } from "@/lib/getBackendUrl";
+
+const BASE = getBackendUrl();
 const AGENDA_API_BASE = `${BASE}/Agendas/_api`;
 
 function toLocalIsoInputValue(d: Date) {

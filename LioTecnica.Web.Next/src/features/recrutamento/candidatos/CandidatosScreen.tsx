@@ -5,7 +5,9 @@ import { toast } from "sonner";
 
 import type { Candidato, CandidatosPaged, Documento } from "@/server/recrutamento/candidatos.schema";
 
-const BASE = "/app";
+import { getBackendUrl } from "@/lib/getBackendUrl";
+
+const BASE = getBackendUrl();
 
 type VagaOption = { id: string; label: string; code?: string | null };
 

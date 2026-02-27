@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import { toast } from "sonner";
 
-const BASE = "/app";
+import { getBackendUrl } from "@/lib/getBackendUrl";
+
+const BASE = getBackendUrl();
 
 type InboxStatus = "novo" | "processando" | "processado" | "falha" | "descartado";
 type InboxOrigem = "email" | "pasta" | "upload";
