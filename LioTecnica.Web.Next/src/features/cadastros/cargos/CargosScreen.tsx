@@ -82,13 +82,13 @@ export default function CargosScreen() {
     const [detailItem, setDetailItem] = useState<CargoItem | null>(null);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: CargoItem[] }>(`${BASE}/Cargos/_api`);
+        const payload = await fetchJson<{ items: CargoItem[] }>(`/api/job-positions`);
         setRows(Array.isArray(payload?.items) ? payload.items : []);
     }, []);
 
     const loadAreas = useCallback(async () => {
         try {
-            const payload = await fetchJson<{ items: AreaLookup[] }>(`${BASE}/Areas/_api`);
+            const payload = await fetchJson<{ items: AreaLookup[] }>(`/api/areas`);
             setAreas(Array.isArray(payload?.items) ? payload.items : []);
         } catch { /* optional */ }
     }, []);
@@ -134,7 +134,7 @@ export default function CargosScreen() {
 
     async function openEdit(item: CargoItem) {
         try {
-            const detail = await fetchJson<Record<string, unknown>>(`${BASE}/Cargos/_api/${item.id}`);
+            const detail = await fetchJson<Record<string, unknown>>(`/api/job-positions/${item.id}`);
             setDraft({
                 id: item.id,
                 code: String(detail?.code ?? detail?.Code ?? item.codigo ?? ""),
@@ -163,10 +163,10 @@ export default function CargosScreen() {
         };
         try {
             if (draft.id) {
-                await fetchJson(`${BASE}/Cargos/_api/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/job-positions/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Cargo atualizado.");
             } else {
-                await fetchJson(`${BASE}/Cargos/_api`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/job-positions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Cargo criado.");
             }
             setEditOpen(false);
@@ -178,7 +178,7 @@ export default function CargosScreen() {
     async function confirmDelete() {
         if (!deleteTarget) return;
         try {
-            await fetchJson(`${BASE}/Cargos/_api/${deleteTarget.id}`, { method: "DELETE" });
+            await fetchJson(`/api/job-positions/${deleteTarget.id}`, { method: "DELETE" });
             toast.success("Cargo excluído.");
             setDeleteTarget(null);
             await syncList();

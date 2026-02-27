@@ -54,7 +54,7 @@ const emptyForm = (): UserForm => ({
 });
 
 export default function TabUsuarios({ tenantId }: { tenantId: string }) {
-    const apiBase = `${BASE}/Owner/Tenants/${encodeURIComponent(tenantId)}/Users/_api`;
+    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/users`;
 
     const [users, setUsers] = useState<UserListItem[]>([]);
     const [loading, setLoading] = useState(true);

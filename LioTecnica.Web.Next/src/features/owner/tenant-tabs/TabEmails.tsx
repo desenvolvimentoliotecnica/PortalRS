@@ -47,7 +47,7 @@ interface PagedResponse {
 }
 
 export default function TabEmails({ tenantId }: { tenantId: string }) {
-    const apiBase = `${BASE}/Owner/Tenants/${encodeURIComponent(tenantId)}/Config/Emails/_api`;
+    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/config/emails`;
 
     const [items, setItems] = useState<EmailItem[]>([]);
     const [page, setPage] = useState(1);

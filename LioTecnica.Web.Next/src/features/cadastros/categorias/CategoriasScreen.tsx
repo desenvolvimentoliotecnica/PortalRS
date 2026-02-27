@@ -83,7 +83,7 @@ export default function CategoriasScreen() {
     const [detailItem, setDetailItem] = useState<CategoriaItem | null>(null);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: CategoriaItem[] }>(`${BASE}/Categorias/_api`);
+        const payload = await fetchJson<{ items: CategoriaItem[] }>(`/api/requisito-categorias`);
         setRows(Array.isArray(payload?.items) ? payload.items : []);
     }, []);
 
@@ -129,7 +129,7 @@ export default function CategoriasScreen() {
 
     async function openEdit(item: CategoriaItem) {
         try {
-            const detail = await fetchJson<Record<string, unknown>>(`${BASE}/Categorias/_api/${item.id}`);
+            const detail = await fetchJson<Record<string, unknown>>(`/api/requisito-categorias/${item.id}`);
             setDraft({
                 id: item.id,
                 code: String(detail?.code ?? detail?.Code ?? codigo(item)),
@@ -152,10 +152,10 @@ export default function CategoriasScreen() {
         };
         try {
             if (draft.id) {
-                await fetchJson(`${BASE}/Categorias/_api/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/requisito-categorias/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Função atualizada.");
             } else {
-                await fetchJson(`${BASE}/Categorias/_api`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson(`/api/requisito-categorias`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Função criada.");
             }
             setEditOpen(false);
@@ -167,7 +167,7 @@ export default function CategoriasScreen() {
     async function confirmDelete() {
         if (!deleteTarget) return;
         try {
-            await fetchJson(`${BASE}/Categorias/_api/${deleteTarget.id}`, { method: "DELETE" });
+            await fetchJson(`/api/requisito-categorias/${deleteTarget.id}`, { method: "DELETE" });
             toast.success("Função excluída.");
             setDeleteTarget(null);
             await syncList();

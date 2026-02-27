@@ -62,7 +62,7 @@ type ImportedAgendaEvent = {
 };
 
 const BASE = "/app";
-const AGENDA_API_BASE = `${BASE}/Agendas/_api`;
+const AGENDA_API_BASE = `/api/agenda`;
 
 function toLocalIsoInputValue(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");

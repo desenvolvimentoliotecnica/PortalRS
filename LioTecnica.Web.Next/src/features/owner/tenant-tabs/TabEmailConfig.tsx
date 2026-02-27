@@ -33,7 +33,7 @@ interface EmailConfig {
 }
 
 export default function TabEmailConfig({ tenantId }: { tenantId: string }) {
-    const apiBase = `${BASE}/Owner/Tenants/${encodeURIComponent(tenantId)}/Config/EmailConfig/_api`;
+    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/config/email-config`;
 
     const [cfg, setCfg] = useState<EmailConfig>({
         smtpHost: "", smtpPort: 587, smtpEnableSsl: true, smtpUserName: "", smtpHasPassword: false, smtpFromName: "", smtpFromAddress: "",

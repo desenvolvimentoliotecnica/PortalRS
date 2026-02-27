@@ -286,12 +286,12 @@ export default function DashboardScreen({
   useEffect(() => {
     if (initialKpis != null) return; // data was provided via SSR
     void Promise.all([
-      fetchJson<unknown>(`${BASE}/Dashboard/_api/kpis`),
-      fetchJson<unknown>(`${BASE}/Dashboard/_api/funil`),
-      fetchJson<unknown>(`${BASE}/Dashboard/_api/recebidos-series?days=14`),
-      fetchJson<unknown>(`${BASE}/Dashboard/_api/vagas`),
-      fetchJson<unknown>(`${BASE}/Dashboard/_api/areas`),
-      fetchJson<unknown>(`${BASE}/Dashboard/_api/top-matches?minMatch=${DEFAULT_MIN_MATCH}&take=15`),
+      fetchJson<unknown>(`/api/dashboard/kpis`),
+      fetchJson<unknown>(`/api/dashboard/funil`),
+      fetchJson<unknown>(`/api/dashboard/recebidos-series?days=14`),
+      fetchJson<unknown>(`/api/dashboard/vagas`),
+      fetchJson<unknown>(`/api/dashboard/areas`),
+      fetchJson<unknown>(`/api/dashboard/top-matches?minMatch=${DEFAULT_MIN_MATCH}&take=15`),
     ])
       .then(([k, f, s, v, a, t]) => {
         setKpis(mapKpis(k));
@@ -318,7 +318,7 @@ export default function DashboardScreen({
   useEffect(() => {
     if (!openVagasOpen) return;
     setOpenVagasLoading(true);
-    void fetchJson<unknown>(`${BASE}/Dashboard/_api/open-vagas?take=200`)
+    void fetchJson<unknown>(`/api/dashboard/open-vagas?take=200`)
       .then((rows) => setOpenVagas(mapOpenVagas(rows)))
       .catch(() => toast.error("Falha ao carregar vagas abertas."))
       .finally(() => setOpenVagasLoading(false));
@@ -375,11 +375,11 @@ export default function DashboardScreen({
   async function refreshAll() {
     try {
       const [k, f, s, v, a] = await Promise.all([
-        fetchJson<unknown>(`${BASE}/Dashboard/_api/kpis`),
-        fetchJson<unknown>(`${BASE}/Dashboard/_api/funil`),
-        fetchJson<unknown>(`${BASE}/Dashboard/_api/recebidos-series?days=14`),
-        fetchJson<unknown>(`${BASE}/Dashboard/_api/vagas`),
-        fetchJson<unknown>(`${BASE}/Dashboard/_api/areas`),
+        fetchJson<unknown>(`/api/dashboard/kpis`),
+        fetchJson<unknown>(`/api/dashboard/funil`),
+        fetchJson<unknown>(`/api/dashboard/recebidos-series?days=14`),
+        fetchJson<unknown>(`/api/dashboard/vagas`),
+        fetchJson<unknown>(`/api/dashboard/areas`),
       ]);
       setKpis(mapKpis(k));
       setFunil(mapFunil(f));
@@ -412,7 +412,7 @@ export default function DashboardScreen({
     if (nextFrom) params.set("from", new Date(`${nextFrom}T00:00:00Z`).toISOString());
     if (nextTo) params.set("to", new Date(`${nextTo}T23:59:59Z`).toISOString());
     try {
-      const rows = await fetchJson<unknown>(`${BASE}/Dashboard/_api/top-matches?${params.toString()}`);
+      const rows = await fetchJson<unknown>(`/api/dashboard/top-matches?${params.toString()}`);
       setTopMatches(mapTopMatches(rows));
       toast.success("Tabela atualizada.");
     } catch {

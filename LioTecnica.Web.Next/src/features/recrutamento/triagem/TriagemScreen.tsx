@@ -188,11 +188,11 @@ function mapCandidate(api: unknown): TriagemCandidate | null {
     createdAt: pickString(r.createdAtUtc ?? r.createdAt, "") || null,
     lastMatch: lm
       ? {
-          score: typeof lm.score === "number" ? lm.score : Number(lm.score),
-          pass: typeof lm.pass === "boolean" ? lm.pass : null,
-          at: pickString(lm.atUtc ?? lm.at, "") || null,
-          vagaId: pickString(lm.vagaId, "") || null,
-        }
+        score: typeof lm.score === "number" ? lm.score : Number(lm.score),
+        pass: typeof lm.pass === "boolean" ? lm.pass : null,
+        at: pickString(lm.atUtc ?? lm.at, "") || null,
+        vagaId: pickString(lm.vagaId, "") || null,
+      }
       : null,
     applicationRecruiterUserName: pickString(r.applicationRecruiterUserName, "") || null,
   };
@@ -267,11 +267,11 @@ function buildCandidatePayload(c: TriagemCandidate, patch?: Partial<TriagemCandi
     cvText: (next.cvText || "").trim() || null,
     lastMatch: next.lastMatch
       ? {
-          score: next.lastMatch.score ?? null,
-          pass: next.lastMatch.pass ?? null,
-          atUtc: next.lastMatch.at ?? null,
-          vagaId: next.lastMatch.vagaId ?? next.vagaId ?? null,
-        }
+        score: next.lastMatch.score ?? null,
+        pass: next.lastMatch.pass ?? null,
+        atUtc: next.lastMatch.at ?? null,
+        vagaId: next.lastMatch.vagaId ?? next.vagaId ?? null,
+      }
       : null,
     documentos: null,
     statusChange: patch?.statusChange ?? null,
@@ -349,7 +349,7 @@ export default function TriagemScreen({
     const detailList = await Promise.all(
       ids.map(async (id) => {
         try {
-          return await fetchJson<unknown>(`${BASE}/Triagem/_api/vagas/${encodeURIComponent(id)}`);
+          return await fetchJson<unknown>(`/api/triagem/vagas/${encodeURIComponent(id)}`);
         } catch {
           return null;
         }
@@ -370,8 +370,8 @@ export default function TriagemScreen({
     setLoading(true);
     try {
       const [vRaw, cRaw] = await Promise.all([
-        fetchJson<unknown>(`${BASE}/Triagem/_api/vagas`),
-        fetchJson<unknown>(`${BASE}/Triagem/_api/candidatos`),
+        fetchJson<unknown>(`/api/triagem/vagas`),
+        fetchJson<unknown>(`/api/triagem/candidatos`),
       ]);
       const vList = unpackListResponse(vRaw).map(mapVaga).filter(Boolean) as TriagemVaga[];
       const cList = unpackListResponse(cRaw).map(mapCandidate).filter(Boolean) as TriagemCandidate[];
@@ -446,7 +446,7 @@ export default function TriagemScreen({
 
   async function loadHistory(candId: string) {
     try {
-      const list = await fetchJson<unknown>(`${BASE}/Triagem/_api/candidatos/${encodeURIComponent(candId)}/status-history`);
+      const list = await fetchJson<unknown>(`/api/triagem/candidatos/${encodeURIComponent(candId)}/status-history`);
       const items = Array.isArray(list) ? (list as unknown[]) : [];
       setHistory((h) => ({
         ...h,
@@ -469,7 +469,7 @@ export default function TriagemScreen({
   }
 
   async function saveCandToApi(candId: string, payload: unknown) {
-    return await fetchJson<unknown>(`${BASE}/Triagem/_api/candidatos/${encodeURIComponent(candId)}`, {
+    return await fetchJson<unknown>(`/api/triagem/candidatos/${encodeURIComponent(candId)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -967,11 +967,11 @@ export default function TriagemScreen({
                   {(getEnumOptions("triagemDecisionAction").length
                     ? getEnumOptions("triagemDecisionAction").map((o) => ({ value: o.code, label: o.text }))
                     : [
-                        { value: "triagem", label: "Em triagem" },
-                        { value: "pendente", label: "Pendente" },
-                        { value: "aprovado", label: "Aprovado" },
-                        { value: "reprovado", label: "Reprovado" },
-                      ]
+                      { value: "triagem", label: "Em triagem" },
+                      { value: "pendente", label: "Pendente" },
+                      { value: "aprovado", label: "Aprovado" },
+                      { value: "reprovado", label: "Reprovado" },
+                    ]
                   ).map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}

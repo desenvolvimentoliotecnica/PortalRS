@@ -261,7 +261,7 @@ export default function AreasScreen() {
     /* ── data loading ── */
     const syncList = useCallback(async () => {
         const payload = await fetchJson<{ items: AreaListItem[] }>(
-            `${BASE}/Areas/_api`,
+            `/api/areas`,
         );
         const items = Array.isArray(payload?.items) ? payload.items : [];
         setRows(items);
@@ -397,7 +397,7 @@ export default function AreasScreen() {
     async function openEdit(area: AreaListItem) {
         try {
             const detail = await fetchJson<Record<string, unknown>>(
-                `${BASE}/Areas/_api/${area.id}`,
+                `/api/areas/${area.id}`,
             );
             setDraft({
                 id: area.id,
@@ -443,14 +443,14 @@ export default function AreasScreen() {
 
         try {
             if (draft.id) {
-                await fetchJson(`${BASE}/Areas/_api/${draft.id}`, {
+                await fetchJson(`/api/areas/${draft.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
                 });
                 toast.success("Área atualizada.");
             } else {
-                await fetchJson(`${BASE}/Areas/_api`, {
+                await fetchJson(`/api/areas`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
@@ -469,7 +469,7 @@ export default function AreasScreen() {
     async function confirmDelete() {
         if (!deleteTarget) return;
         try {
-            await fetchJson(`${BASE}/Areas/_api/${deleteTarget.id}`, {
+            await fetchJson(`/api/areas/${deleteTarget.id}`, {
                 method: "DELETE",
             });
             toast.success("Área excluída.");
@@ -486,7 +486,7 @@ export default function AreasScreen() {
         setDetailLoading(true);
         try {
             const detail = await fetchJson<Record<string, unknown>>(
-                `${BASE}/Areas/_api/${area.id}`,
+                `/api/areas/${area.id}`,
             );
             const vagas = Array.isArray(detail?.vagas ?? detail?.Vagas)
                 ? ((detail?.vagas ?? detail?.Vagas) as AreaVaga[])

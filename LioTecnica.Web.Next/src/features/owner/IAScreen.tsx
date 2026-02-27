@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/table";
 import { apiFetch as coreFetch } from "@/lib/api";
 
-const BASE = "/app/Owner/IA/_api";
+const BASE = "/api/owner/ai";
 
 /* ─── Types ─── */
 
