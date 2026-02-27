@@ -54,9 +54,8 @@ interface TenantDetail {
 }
 
 /* ─── API ─── */
-import { getBackendUrl } from "@/lib/getBackendUrl";
 
-const BASE = getBackendUrl();
+const BASE = "/app";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, {

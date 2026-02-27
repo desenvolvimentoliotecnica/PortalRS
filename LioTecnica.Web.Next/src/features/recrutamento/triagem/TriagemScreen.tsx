@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { getBackendUrl } from "@/lib/getBackendUrl";
+const BASE = "/app";
 
 type Stage = "triagem" | "pendente" | "aprovado" | "reprovado";
 
@@ -154,8 +154,8 @@ export default function TriagemScreen({
     setLoading(true);
     try {
       const [v, c] = await Promise.all([
-        fetchJson<unknown>(`${getBackendUrl()}/Triagem/_api/vagas`),
-        fetchJson<unknown>(`${getBackendUrl()}/Triagem/_api/candidatos`),
+        fetchJson<unknown>(`${BASE}/Triagem/_api/vagas`),
+        fetchJson<unknown>(`${BASE}/Triagem/_api/candidatos`),
       ]);
       setVagas((Array.isArray(v) ? v.map(mapVaga).filter(Boolean) : []) as TriagemVaga[]);
       setCands((Array.isArray(c) ? c.map(mapCandidate).filter(Boolean) : []) as TriagemCandidate[]);
@@ -187,7 +187,7 @@ export default function TriagemScreen({
 
   async function loadHistory(candId: string) {
     try {
-      const list = await fetchJson<unknown>(`${getBackendUrl()}/Triagem/_api/candidatos/${encodeURIComponent(candId)}/status-history`);
+      const list = await fetchJson<unknown>(`${BASE}/Triagem/_api/candidatos/${encodeURIComponent(candId)}/status-history`);
       const items = Array.isArray(list) ? (list as unknown[]) : [];
       setHistory((h) => ({ ...h, [candId]: items.map((x) => (asRecord(x) ?? {}) as StatusHistoryItem) }));
     } catch {
@@ -208,7 +208,7 @@ export default function TriagemScreen({
       statusChange: { reason: meta.reason || null, note: meta.note || null, source: meta.source || "triagem" },
     };
     try {
-      const saved = await fetchJson<unknown>(`${getBackendUrl()}/Triagem/_api/candidatos/${encodeURIComponent(candId)}`, {
+      const saved = await fetchJson<unknown>(`${BASE}/Triagem/_api/candidatos/${encodeURIComponent(candId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

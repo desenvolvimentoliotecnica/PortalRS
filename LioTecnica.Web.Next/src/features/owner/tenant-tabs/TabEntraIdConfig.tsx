@@ -7,9 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getBackendUrl } from "@/lib/getBackendUrl";
 
-const BASE = getBackendUrl();
+const BASE = "/app";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, { credentials: "same-origin", ...init });

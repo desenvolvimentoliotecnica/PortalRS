@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getBackendUrl } from "@/lib/getBackendUrl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Building2, Mail, Lock, ArrowRight, Monitor } from "lucide-react";
 
@@ -76,7 +75,7 @@ export default function LoginScreen({
   const router = useRouter();
   const sp = useSearchParams();
 
-  const BASE = getBackendUrl();
+  const BASE = "/app";
 
   /* ─── Entra ID ─── */
   const [entraEnabled, setEntraEnabled] = useState(false);

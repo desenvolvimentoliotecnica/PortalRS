@@ -13,9 +13,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { getBackendUrl } from "@/lib/getBackendUrl";
 
-const BASE = getBackendUrl();
+const BASE = "/app";
 
 interface LogItem {
     id: string;

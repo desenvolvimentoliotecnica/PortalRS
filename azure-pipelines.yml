@@ -8,35 +8,8 @@ variables:
   package_name: "deploy-package.tar.gz"
   artifact_name: "drop"
   package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
-  NEXT_PUBLIC_BACKEND_URL: $(BACKEND_URL)
 
 steps:
-  # ─── 1. Build Next.js para S3 ───
-  - task: NodeTool@0
-    displayName: "Instalar Node.js"
-    inputs:
-      versionSpec: "20.x"
-
-  - task: Bash@3
-    displayName: "Build Next.js (export estático para S3)"
-    inputs:
-      targetType: "inline"
-      script: |
-        set -eo pipefail
-        cd "$(Build.SourcesDirectory)"
-        if [ ! -d "LioTecnica.Web.Next" ]; then
-          echo "Pasta LioTecnica.Web.Next não encontrada. Pulando build Next."
-          exit 0
-        fi
-        cd LioTecnica.Web.Next
-        npm install -g pnpm
-        pnpm install --frozen-lockfile
-        pnpm build
-        test -d out || (echo "ERRO: pasta out/ não foi gerada"; exit 1)
-        echo "Build Next concluído. Tamanho da pasta out:"
-        du -sh out
-
-  # ─── 2. Compactar projeto para release ───
   - task: Bash@3
     displayName: "Compactar projeto para release"
     inputs:
@@ -87,27 +60,16 @@ steps:
         ls -lh "$PACKAGE_PATH"
         echo "Pacote validado com sucesso"
 
-  # ─── 3. Organizar artefato backend ───
   - task: CopyFiles@2
-    displayName: "Organizar para artefato backend"
+    displayName: "Organizar para artefato"
     inputs:
       SourceFolder: "$(Agent.TempDirectory)"
       Contents: "$(package_name)"
       TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
 
-  # ─── 4. Publicar artefato backend ───
   - task: PublishBuildArtifacts@1
-    displayName: "Publicar artefato backend"
+    displayName: "Publicar artefato"
     inputs:
       PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
       ArtifactName: "$(artifact_name)"
-      publishLocation: "Container"
-
-  # ─── 5. Publicar artefato front Next (para S3) ───
-  - task: PublishBuildArtifacts@1
-    condition: and(succeeded(), eq(variables['Agent.JobStatus'], 'Succeeded'))
-    displayName: "Publicar artefato front Next (S3)"
-    inputs:
-      PathtoPublish: "$(Build.SourcesDirectory)/LioTecnica.Web.Next/out"
-      ArtifactName: "front-next-s3"
       publishLocation: "Container"

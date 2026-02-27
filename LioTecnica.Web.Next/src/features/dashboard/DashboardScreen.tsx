@@ -4,9 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { toast } from "sonner";
 
-import { getBackendUrl } from "@/lib/getBackendUrl";
-
-const BASE = getBackendUrl();
+const BASE = "/app";
 
 type Kpis = {
   openVagas: number;
