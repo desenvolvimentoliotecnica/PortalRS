@@ -62,6 +62,10 @@ export async function apiFetch(
 
     if (res.status === 401) {
         clearSession();
+        // Redirect to login unless this IS a login/auth call (avoid loop)
+        if (typeof window !== "undefined" && !/\/api\/(auth|owner\/auth)\//i.test(path)) {
+            window.location.href = "/app/login";
+        }
     }
     return res;
 }
@@ -73,7 +77,7 @@ export async function apiJson<T>(
     const res = await apiFetch(path, init);
 
     if (res.status === 401) throw new Error("UNAUTHORIZED");
-    if (res.status >= 300 && res.status < 400) throw new Error("UNAUTHORIZED");
+    // 3xx redirects are not auth errors — removed erroneous throw
     if (!res.ok) throw new Error(`API_ERROR_${res.status}`);
 
     return (await res.json()) as T;

@@ -1,263 +1,167 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, RefreshCw, Eye, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
 } from "@/components/ui/table";
+import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
 /* ── Types ── */
-interface AuditListItem {
+interface AuditTransaction {
     id: string;
-    transactionId: string;
-    startedAt: string;
-    durationMs: number;
-    method: string | null;
-    path: string | null;
-    statusCode: number | null;
-    isSuccess: boolean;
     userName: string | null;
-    environmentNormalized: string | null;
-    deviceType: string;
+    action: string | null;
+    entityName: string | null;
+    timestamp: string;
+    details: string | null;
 }
-interface AuditListResponse {
-    items: AuditListItem[];
-    page: number;
-    pageSize: number;
-    totalItems: number;
-    totalPages: number;
-}
-interface SummaryItem { key: string; count: number; avgDurationMs: number; }
-interface StatusItem { statusCode: number; count: number; }
-interface AuditSummary { topRoutes: SummaryItem[]; topUsers: SummaryItem[]; statuses: StatusItem[]; }
 
-/* ── Helper ── */
-async function fetchJson<T>(url: string): Promise<T> {
-    const res = await apiFetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+interface AuditListResponse {
+    items: AuditTransaction[];
+    totalCount: number;
+}
+
+interface AuditDetail {
+    id: string;
+    userName: string | null;
+    action: string | null;
+    entityName: string | null;
+    entityId: string | null;
+    timestamp: string;
+    details: string | null;
+    changes: Record<string, { oldValue: string; newValue: string }>[];
+}
+
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+    const res = await apiFetch(url, { cache: "no-store", ...init });
+    if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error((body as any)?.detail || (body as any)?.error || `HTTP ${res.status}`);
+    }
     return res.json();
 }
 
-function fmtDate(iso: string) {
-    try { return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }); }
-    catch { return iso; }
-}
-
-function statusBadge(code: number | null, isSuccess: boolean) {
-    if (code === null) return <span className="badge bg-secondary">—</span>;
-    const cls = isSuccess ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800";
-    return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{code}</span>;
-}
-
 export default function AdminLogsScreen() {
-    const [q, setQ] = useState("");
-    const [statusFilter, setStatusFilter] = useState("");
-    const [methodFilter, setMethodFilter] = useState("nonget");
-    const [fromDate, setFromDate] = useState("");
-    const [toDate, setToDate] = useState("");
-    const [page, setPage] = useState(1);
-    const [data, setData] = useState<AuditListResponse | null>(null);
-    const [summary, setSummary] = useState<AuditSummary | null>(null);
+    const [transactions, setTransactions] = useState<AuditTransaction[]>([]);
+    const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [selected, setSelected] = useState<AuditListItem | null>(null);
+    const [q, setQ] = useState("");
+    const [page, setPage] = useState(1);
+    const [pageSize] = useState(20);
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
 
-    const loadData = useCallback(async () => {
+    // Detail
+    const [detail, setDetail] = useState<AuditDetail | null>(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
+
+    const loadLogs = useCallback(async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams();
-            params.set("page", String(page));
-            params.set("pageSize", "50");
-            if (q.trim()) params.set("search", q.trim());
-            if (statusFilter === "error") params.set("level", "error");
-            if (statusFilter === "success") params.set("level", "success");
-            if (methodFilter && methodFilter !== "nonget") params.set("method", methodFilter);
-            if (fromDate) params.set("from", new Date(fromDate).toISOString());
-            if (toDate) params.set("to", new Date(toDate).toISOString());
-
-            const [list, sum] = await Promise.all([
-                fetchJson<AuditListResponse>(`/api/audit?${params}`),
-                fetchJson<AuditSummary>("/api/audit/summary"),
-            ]);
-            setData(list);
-            setSummary(sum);
-        } catch (err) {
-            console.error("Failed to load audit logs", err);
+            const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+            if (q.trim()) params.set("q", q.trim());
+            if (dateFrom) params.set("from", dateFrom);
+            if (dateTo) params.set("to", dateTo);
+            const resp = await fetchJson<AuditListResponse>(`/Admin/Logs/_api/transactions?${params}`);
+            setTransactions(resp.items ?? []);
+            setTotal(resp.totalCount ?? 0);
+        } catch {
+            toast.error("Falha ao carregar logs.");
         } finally {
             setLoading(false);
         }
-    }, [q, statusFilter, methodFilter, fromDate, toDate, page]);
+    }, [page, pageSize, q, dateFrom, dateTo]);
 
-    useEffect(() => { void loadData(); }, [loadData]);
+    useEffect(() => { void loadLogs(); }, [loadLogs]);
 
-    const kpis = useMemo(() => {
-        const total = data?.totalItems ?? 0;
-        const failures = summary?.statuses?.filter(s => s.statusCode >= 400).reduce((a, c) => a + c.count, 0) ?? 0;
-        const uniqueUsers = summary?.topUsers?.length ?? 0;
-        const avgDuration = summary?.topRoutes?.length
-            ? Math.round(summary.topRoutes.reduce((a, c) => a + c.avgDurationMs, 0) / summary.topRoutes.length)
-            : 0;
-        return [
-            { label: "Transações", value: total.toLocaleString("pt-BR"), color: "text-primary", icon: "📊" },
-            { label: "Falhas", value: failures.toLocaleString("pt-BR"), color: "text-red-600", icon: "⚠️" },
-            { label: "Duração média", value: `${avgDuration} ms`, color: "text-sky-600", icon: "⏱" },
-            { label: "Usuários ativos", value: uniqueUsers.toLocaleString("pt-BR"), color: "text-emerald-600", icon: "👥" },
-        ];
-    }, [data, summary]);
+    async function viewDetail(id: string) {
+        setLoadingDetail(true);
+        try {
+            const d = await fetchJson<AuditDetail>(`/Admin/Logs/_api/transactions/${id}`);
+            setDetail(d);
+        } catch {
+            toast.error("Falha ao carregar detalhes.");
+        } finally {
+            setLoadingDetail(false);
+        }
+    }
 
-    const items = data?.items ?? [];
-
-    // Filter out GETs client-side when "nonget" selected (API may not support method filter)
-    const filtered = methodFilter === "nonget"
-        ? items.filter(i => (i.method ?? "").toUpperCase() !== "GET")
-        : items;
+    const totalPages = Math.ceil(total / pageSize);
 
     return (
         <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h4 className="text-lg font-bold">Logs Transacionais</h4>
-                    <div className="text-muted-foreground text-sm">Acompanhe requisições HTTP e mudanças no banco.</div>
+                    <div className="text-muted-foreground text-sm">Auditoria de operações do sistema.</div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
-                    {loading ? "Carregando..." : "Atualizar"}
-                </Button>
+                <Button variant="ghost" size="sm" onClick={() => void loadLogs()} disabled={loading}><RefreshCw className="size-4" /></Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {kpis.map((k) => (
-                    <div key={k.label} className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                        <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">{k.label}</div>
-                        <div className={`mt-1 text-2xl font-bold ${k.color}`}>{k.value}</div>
-                    </div>
-                ))}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Total de Registros</div>
+                    <div className="mt-1 text-2xl font-bold text-primary">{total}</div>
+                </div>
+                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Página</div>
+                    <div className="mt-1 text-2xl font-bold text-sky-600">{page} / {totalPages || 1}</div>
+                </div>
+                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Exibindo</div>
+                    <div className="mt-1 text-2xl font-bold text-emerald-600">{transactions.length}</div>
+                </div>
             </div>
 
-            {/* Summary cards */}
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="font-semibold">Rotas mais acessadas</div>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Top 6</span>
+            {/* Detail panel */}
+            {detail && (
+                <div className="card-soft rounded-xl border border-primary/30 bg-primary/5 p-4 backdrop-blur space-y-2">
+                    <div className="flex items-center justify-between"><div className="font-semibold">Detalhes da Transação</div><Button variant="ghost" size="sm" onClick={() => setDetail(null)}>✕</Button></div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div><span className="text-muted-foreground">Usuário:</span> {detail.userName || "—"}</div>
+                        <div><span className="text-muted-foreground">Ação:</span> {detail.action || "—"}</div>
+                        <div><span className="text-muted-foreground">Entidade:</span> {detail.entityName || "—"}</div>
+                        <div><span className="text-muted-foreground">ID Entidade:</span> <code className="text-xs">{detail.entityId || "—"}</code></div>
+                        <div><span className="text-muted-foreground">Data:</span> {new Date(detail.timestamp).toLocaleString("pt-BR")}</div>
                     </div>
-                    {summary?.topRoutes?.length ? (
-                        <div className="space-y-1">
-                            {summary.topRoutes.map((r) => (
-                                <div key={r.key} className="flex justify-between text-sm">
-                                    <code className="text-xs truncate max-w-[300px]">{r.key}</code>
-                                    <span className="text-muted-foreground whitespace-nowrap">{r.count}× · {r.avgDurationMs}ms</span>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center text-muted-foreground text-sm py-4">Nenhum dado disponível.</div>
-                    )}
+                    {detail.details && <div className="text-xs text-muted-foreground mt-2 bg-muted/30 rounded p-2 font-mono whitespace-pre-wrap">{detail.details}</div>}
                 </div>
-                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="font-semibold">Usuários mais ativos</div>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">Top 6</span>
-                    </div>
-                    {summary?.topUsers?.length ? (
-                        <div className="space-y-1">
-                            {summary.topUsers.map((u) => (
-                                <div key={u.key} className="flex justify-between text-sm">
-                                    <span className="truncate max-w-[200px]">{u.key}</span>
-                                    <span className="text-muted-foreground whitespace-nowrap">{u.count}× · {u.avgDurationMs}ms</span>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center text-muted-foreground text-sm py-4">Nenhum dado disponível.</div>
-                    )}
-                </div>
-            </div>
+            )}
 
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                 <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <div className="font-semibold">Transações recentes</div>
-                        <div className="text-muted-foreground text-sm">Clique em uma linha para ver detalhes.</div>
-                    </div>
+                    <div className="font-semibold">Transações</div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input className="w-[220px] pl-8" placeholder="rota, usuário, tx..." value={q} onChange={(e) => setQ(e.target.value)} />
-                        </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                            <option value="">Todos</option>
-                            <option value="success">Sucesso</option>
-                            <option value="error">Erro</option>
-                        </select>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
-                            <option value="nonget">Sem GET</option>
-                            <option value="">Todos</option>
-                            <option value="GET">Somente GET</option>
-                            <option value="POST">POST</option>
-                            <option value="PUT">PUT</option>
-                            <option value="PATCH">PATCH</option>
-                            <option value="DELETE">DELETE</option>
-                        </select>
-                        <Input className="w-[160px]" type="datetime-local" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                        <Input className="w-[160px]" type="datetime-local" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                        <div className="relative"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="w-[200px] pl-8" placeholder="buscar..." value={q} onChange={e => { setQ(e.target.value); setPage(1); }} /></div>
+                        <Input type="date" className="w-[150px]" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+                        <Input type="date" className="w-[150px]" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} />
                     </div>
                 </div>
-
                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Quando</TableHead>
-                            <TableHead>Método</TableHead>
-                            <TableHead>Rota</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Usuário</TableHead>
-                            <TableHead className="text-right">Duração</TableHead>
-                        </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Usuário</TableHead><TableHead>Ação</TableHead><TableHead>Entidade</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
                     <TableBody>
-                        {loading ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">Carregando...</TableCell>
+                        {loading ? (<TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
+                        ) : transactions.length === 0 ? (<TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhum log encontrado.</TableCell></TableRow>
+                        ) : (transactions.map(t => (
+                            <TableRow key={t.id}>
+                                <TableCell className="text-xs whitespace-nowrap">{new Date(t.timestamp).toLocaleString("pt-BR")}</TableCell>
+                                <TableCell className="font-medium">{t.userName || "—"}</TableCell>
+                                <TableCell><span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{t.action || "—"}</span></TableCell>
+                                <TableCell className="text-sm text-muted-foreground">{t.entityName || "—"}</TableCell>
+                                <TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => void viewDetail(t.id)}><Eye className="size-4" /></Button></TableCell>
                             </TableRow>
-                        ) : filtered.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                                    Nenhuma transação encontrada.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            filtered.map((item) => (
-                                <TableRow
-                                    key={item.id}
-                                    className="cursor-pointer hover:bg-muted/30"
-                                    onClick={() => setSelected(selected?.id === item.id ? null : item)}
-                                >
-                                    <TableCell className="whitespace-nowrap text-xs">{fmtDate(item.startedAt)}</TableCell>
-                                    <TableCell><code className="text-xs">{item.method}</code></TableCell>
-                                    <TableCell className="max-w-[300px] truncate text-xs"><code>{item.path}</code></TableCell>
-                                    <TableCell>{statusBadge(item.statusCode, item.isSuccess)}</TableCell>
-                                    <TableCell className="text-xs">{item.userName || "—"}</TableCell>
-                                    <TableCell className="text-right text-xs">{item.durationMs}ms</TableCell>
-                                </TableRow>
-                            ))
-                        )}
+                        )))}
                     </TableBody>
                 </Table>
-
-                {/* Pagination */}
-                {data && data.totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
-                        <span>Página {data.page} de {data.totalPages} ({data.totalItems} registros)</span>
-                        <div className="flex gap-1">
-                            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-                                <ChevronLeft className="size-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" disabled={page >= data.totalPages} onClick={() => setPage(p => p + 1)}>
-                                <ChevronRight className="size-4" />
-                            </Button>
-                        </div>
+                {totalPages > 1 && (
+                    <div className="mt-3 flex items-center justify-center gap-2">
+                        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</Button>
+                        <span className="text-sm text-muted-foreground">Página {page} de {totalPages}</span>
+                        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Próxima</Button>
                     </div>
                 )}
             </div>

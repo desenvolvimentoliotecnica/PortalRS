@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Trophy, Star, TrendingUp } from "lucide-react";
+import { RefreshCw, Trophy, Star, TrendingUp, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
 } from "@/components/ui/table";
 import { apiFetch } from "@/lib/api";
+import Link from "next/link";
 
 /* ── Types ── */
 interface LeaderboardEntry {
@@ -39,6 +40,7 @@ export default function GamificacaoScreen() {
     const [myBalance, setMyBalance] = useState<MyBalance | null>(null);
     const [loading, setLoading] = useState(true);
     const [q, setQ] = useState("");
+    const [roleFilter, setRoleFilter] = useState<"todos" | "colaborador" | "gestor">("todos");
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -58,9 +60,21 @@ export default function GamificacaoScreen() {
 
     useEffect(() => { void loadData(); }, [loadData]);
 
-    const filtered = q.trim()
-        ? leaderboard.filter(e => e.fullName?.toLowerCase().includes(q.toLowerCase()))
-        : leaderboard;
+    const filtered = (() => {
+        let list = leaderboard;
+        if (roleFilter !== "todos") {
+            list = list.filter((e) => {
+                const role = (e as unknown as { role?: string }).role;
+                if (!role) return true;
+                return role.toLowerCase().includes(roleFilter);
+            });
+        }
+        if (q.trim()) {
+            const lower = q.toLowerCase();
+            list = list.filter(e => e.fullName?.toLowerCase().includes(lower));
+        }
+        return list;
+    })();
 
     function medalIcon(rank: number) {
         if (rank === 1) return "🥇";
@@ -76,9 +90,16 @@ export default function GamificacaoScreen() {
                     <h4 className="text-lg font-bold">Gamificação — Ranking</h4>
                     <div className="text-muted-foreground text-sm">Ranking de RenderCoins acumulados pelos colaboradores.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
-                    <RefreshCw className="size-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Link href="/app/gamificacao-historico">
+                        <Button variant="outline" size="sm">
+                            <Clock className="size-4 mr-1" />Histórico
+                        </Button>
+                    </Link>
+                    <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                        <RefreshCw className="size-4" />
+                    </Button>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -96,11 +117,51 @@ export default function GamificacaoScreen() {
                 </div>
             </div>
 
+            {/* Scoring rules */}
+            <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                <div className="font-bold text-sm mb-2">Ação e valor em pontos</div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                    {[
+                        ["Enviar feedback", "+10 RC"],
+                        ["Receber feedback", "+5 RC"],
+                        ["Publicar celebração", "+8 RC"],
+                        ["Ser mencionado", "+3 RC"],
+                        ["Comentar em celebração", "+2 RC"],
+                        ["Responder pesquisa", "+5 RC"],
+                        ["Realizar reunião 1:1", "+10 RC"],
+                        ["Criar plano de desenvolvimento", "+15 RC"],
+                    ].map(([action, points]) => (
+                        <div key={action} className="flex justify-between py-1 border-b border-border/10">
+                            <span className="text-muted-foreground">{action}</span>
+                            <span className="font-semibold text-amber-600">{points}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <div className="relative flex-1 max-w-sm">
-                        <Input className="pl-3" placeholder="Busque pelo nome" value={q} onChange={(e) => setQ(e.target.value)} />
+                <div className="flex flex-wrap items-end justify-between gap-2 mb-2">
+                    <div>
+                        <div className="font-bold text-sm">Ranking completo</div>
+                        <div className="text-muted-foreground text-xs">Confira a pontuação do time abaixo.</div>
                     </div>
+                    <div className="text-right">
+                        <div className="text-muted-foreground text-xs">Total de RenderCoin</div>
+                        <div className="font-bold">{leaderboard.reduce((s, e) => s + (e.balance ?? 0), 0).toLocaleString("pt-BR")} RC</div>
+                    </div>
+                </div>
+                <Input className="mb-2" placeholder="Busque pelo nome" value={q} onChange={(e) => setQ(e.target.value)} />
+                <div className="flex gap-3 mb-3 text-sm">
+                    {(["todos", "colaborador", "gestor"] as const).map((f) => (
+                        <button
+                            key={f}
+                            type="button"
+                            className={`font-semibold transition-colors ${roleFilter === f ? "text-primary" : "text-muted-foreground hover:text-primary/70"}`}
+                            onClick={() => setRoleFilter(f)}
+                        >
+                            {f === "todos" ? "Todos" : f === "colaborador" ? "Colaboradores" : "Gestores"}
+                        </button>
+                    ))}
                 </div>
 
                 <Table>

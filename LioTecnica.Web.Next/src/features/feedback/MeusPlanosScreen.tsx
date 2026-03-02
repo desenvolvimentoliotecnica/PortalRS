@@ -44,6 +44,12 @@ export default function MeusPlanosScreen() {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
 
+    // Create form
+    const [showCreate, setShowCreate] = useState(false);
+    const [newTitle, setNewTitle] = useState("");
+    const [newDesc, setNewDesc] = useState("");
+    const [creating, setCreating] = useState(false);
+
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
@@ -72,6 +78,23 @@ export default function MeusPlanosScreen() {
         }
     }
 
+    async function handleCreate() {
+        if (!newTitle.trim()) { toast.error("Preencha o título do plano."); return; }
+        setCreating(true);
+        try {
+            await fetchJson("/api/feedback/plans", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: newTitle.trim(), description: newDesc.trim() || null }),
+            });
+            toast.success("Plano criado!");
+            setNewTitle(""); setNewDesc(""); setShowCreate(false);
+            void loadData();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Falha ao criar plano.");
+        } finally { setCreating(false); }
+    }
+
     return (
         <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -82,7 +105,23 @@ export default function MeusPlanosScreen() {
                 <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
+                <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
+                    <Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo Plano</span>
+                </Button>
             </div>
+
+            {showCreate && (
+                <div className="card-soft rounded-xl border border-primary/30 bg-card/60 p-4 backdrop-blur space-y-3">
+                    <div className="font-semibold">Novo Plano de Desenvolvimento</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <Input placeholder="Título do plano" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
+                        <Input placeholder="Descrição (opcional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
+                    </div>
+                    <Button onClick={() => void handleCreate()} disabled={creating}>
+                        {creating ? "Criando..." : "Criar Plano"}
+                    </Button>
+                </div>
+            )}
 
             {loading ? (
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-8 backdrop-blur text-center text-muted-foreground">

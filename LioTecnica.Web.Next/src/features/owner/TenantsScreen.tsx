@@ -388,7 +388,7 @@ export default function TenantsScreen() {
                                             </TableCell>
                                             <TableCell>
                                                 <Link
-                                                    href={`/Owner/Tenants/${encodeURIComponent(t.tenantId)}`}
+                                                    href={`/Owner/Tenants?id=${encodeURIComponent(t.tenantId)}`}
                                                     className="font-medium text-[rgb(var(--lt-brand))] hover:underline"
                                                 >
                                                     {t.name}
@@ -416,7 +416,7 @@ export default function TenantsScreen() {
                                                         size="sm"
                                                         asChild
                                                     >
-                                                        <Link href={`/Owner/Tenants/${encodeURIComponent(t.tenantId)}`}>
+                                                        <Link href={`/Owner/Tenants?id=${encodeURIComponent(t.tenantId)}`}>
                                                             <Info className="size-3.5" />
                                                             <span className="hidden sm:inline">Detalhes</span>
                                                         </Link>

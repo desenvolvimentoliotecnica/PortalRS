@@ -43,19 +43,28 @@ export default function PesquisasScreen() {
     const [data, setData] = useState<SurveyList | null>(null);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
     const [q, setQ] = useState("");
+
+    // Create form
+    const [showCreate, setShowCreate] = useState(false);
+    const [newTitle, setNewTitle] = useState("");
+    const [newType, setNewType] = useState("rapida");
+    const [newStart, setNewStart] = useState("");
+    const [newEnd, setNewEnd] = useState("");
+    const [creating, setCreating] = useState(false);
 
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await fetchJson<SurveyList>(`/api/feedback/surveys?page=${page}&pageSize=20`);
+            const result = await fetchJson<SurveyList>(`/api/feedback/surveys?page=${page}&pageSize=${pageSize}`);
             setData(result);
         } catch (err) {
             console.error("Failed to load surveys", err);
         } finally {
             setLoading(false);
         }
-    }, [page]);
+    }, [page, pageSize]);
 
     useEffect(() => { void loadData(); }, [loadData]);
 
@@ -63,7 +72,13 @@ export default function PesquisasScreen() {
     const filtered = q.trim()
         ? items.filter(s => s.title?.toLowerCase().includes(q.toLowerCase()))
         : items;
-    const totalPages = Math.ceil((data?.totalItems ?? 0) / 20);
+    const totalPages = Math.ceil((data?.totalItems ?? 0) / pageSize);
+
+    function statusBadge(s: SurveySummary) {
+        if (s.endAtUtc && new Date(s.endAtUtc) < new Date()) return <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-xs font-medium">Encerrada</span>;
+        if (s.startAtUtc && new Date(s.startAtUtc) <= new Date()) return <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-medium">Ativa</span>;
+        return <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-medium">Rascunho</span>;
+    }
 
     function typeBadge(type: string) {
         const lower = (type || "").toLowerCase();
@@ -72,6 +87,28 @@ export default function PesquisasScreen() {
         if (lower.includes("super"))
             return <span className="inline-flex items-center rounded-full bg-purple-100 text-purple-800 px-2 py-0.5 text-xs font-medium">Super</span>;
         return <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">{type || "—"}</span>;
+    }
+
+    async function handleCreate() {
+        if (!newTitle.trim()) { toast.error("Preencha o título."); return; }
+        setCreating(true);
+        try {
+            await fetchJson("/api/feedback/surveys", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: newTitle.trim(),
+                    type: newType,
+                    startAtUtc: newStart ? new Date(newStart).toISOString() : null,
+                    endAtUtc: newEnd ? new Date(newEnd).toISOString() : null,
+                }),
+            });
+            toast.success("Pesquisa criada!");
+            setNewTitle(""); setShowCreate(false);
+            void loadData();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Falha ao criar.");
+        } finally { setCreating(false); }
     }
 
     return (
@@ -84,7 +121,28 @@ export default function PesquisasScreen() {
                 <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
+                <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
+                    <Plus className="size-4" /><span className="hidden sm:inline ml-1">Nova Pesquisa</span>
+                </Button>
             </div>
+
+            {showCreate && (
+                <div className="card-soft rounded-xl border border-primary/30 bg-card/60 p-4 backdrop-blur space-y-3">
+                    <div className="font-semibold">Criar Pesquisa</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <Input placeholder="Título da pesquisa" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
+                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={newType} onChange={e => setNewType(e.target.value)}>
+                            <option value="rapida">Rápida</option>
+                            <option value="super">Super</option>
+                        </select>
+                        <Input type="datetime-local" placeholder="Início" value={newStart} onChange={e => setNewStart(e.target.value)} />
+                        <Input type="datetime-local" placeholder="Fim" value={newEnd} onChange={e => setNewEnd(e.target.value)} />
+                    </div>
+                    <Button onClick={() => void handleCreate()} disabled={creating}>
+                        {creating ? "Criando..." : "Criar"}
+                    </Button>
+                </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
@@ -98,8 +156,15 @@ export default function PesquisasScreen() {
             </div>
 
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <div className="relative flex-1 max-w-sm">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Exibindo</span>
+                        <select className="h-8 rounded-md border border-input bg-transparent px-1 text-sm" style={{ width: 60 }} value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+                            {[10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                        <span className="text-sm text-muted-foreground">resultados por página</span>
+                    </div>
+                    <div className="relative max-w-[250px]">
                         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input className="pl-8" placeholder="Filtrar..." value={q} onChange={(e) => setQ(e.target.value)} />
                     </div>
@@ -108,26 +173,34 @@ export default function PesquisasScreen() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Título</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Início</TableHead>
-                            <TableHead>Fim</TableHead>
+                            <TableHead>Pesquisa</TableHead>
+                            <TableHead>Data Criação</TableHead>
+                            <TableHead>Data Encerramento</TableHead>
+                            <TableHead>Departamentos</TableHead>
                             <TableHead className="text-right">Respostas</TableHead>
+                            <TableHead className="text-right">Média</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
                         ) : filtered.length === 0 ? (
-                            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhuma pesquisa encontrada.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nenhum registro encontrado</TableCell></TableRow>
                         ) : (
                             filtered.map((s) => (
                                 <TableRow key={s.id}>
                                     <TableCell className="font-medium flex items-center gap-2"><ClipboardList className="size-4 text-primary" /> {s.title}</TableCell>
-                                    <TableCell>{typeBadge(s.type)}</TableCell>
-                                    <TableCell className="text-xs whitespace-nowrap">{fmtDate(s.startAtUtc)}</TableCell>
+                                    <TableCell className="text-xs whitespace-nowrap">{fmtDate(s.createdAtUtc)}</TableCell>
                                     <TableCell className="text-xs whitespace-nowrap">{fmtDate(s.endAtUtc)}</TableCell>
+                                    <TableCell className="text-xs">—</TableCell>
                                     <TableCell className="text-right font-semibold">{s.responseCount}</TableCell>
+                                    <TableCell className="text-right text-xs">—</TableCell>
+                                    <TableCell>{statusBadge(s)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="sm" className="h-7 text-xs">Ver</Button>
+                                    </TableCell>
                                 </TableRow>
                             ))
                         )}
