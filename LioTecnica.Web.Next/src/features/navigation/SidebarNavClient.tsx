@@ -107,6 +107,7 @@ const ICONS: Record<string, LucideIcon> = {
    ROUTE MAP: Razor nested paths → flat Next.js routes
    ═══════════════════════════════════════════════════════════════════ */
 const ROUTE_MAP: Record<string, string> = {
+  // Cadastros
   "/cadastro/cargos": "/cargos",
   "/cadastro/unidades": "/unidades",
   "/cadastro/funcionarios": "/funcionarios",
@@ -114,6 +115,18 @@ const ROUTE_MAP: Record<string, string> = {
   "/cadastro/areas": "/areas",
   "/cadastro/departamentos": "/departamentos",
   "/cadastro/pessoas": "/pessoas",
+  "/cadastro/funcoes": "/cadastro/funcoes",
+  // Feedback sub-routes (Razor uses /Feedback/XYZ, Next.js uses /feedback/xyz)
+  "/candidatos/detalhes": "/candidatos/detalhes",
+  "/feedback/gamificacaohistorico": "/feedback/gamificacao/historico",
+  "/feedback/gamificacaoranking": "/feedback/gamificacao",
+  // Gestão sub-routes (Razor uses PascalCase, Next.js lowercase)
+  "/gestao/dashboard": "/gestao/dashboard",
+  "/gestao/humor": "/gestao/humor",
+  "/gestao/planosdesenvolvimento": "/gestao/planosdesenvolvimento",
+  "/gestao/resumoatividades": "/gestao/resumoatividades",
+  // Desempenho sub-routes
+  "/desempenho/minhasavaliacoes": "/desempenho",
   // Admin
   "/admin/users": "/admin/users",
   "/admin/roles": "/admin/roles",

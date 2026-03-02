@@ -44,6 +44,13 @@ export default function AdminUsersScreen() {
     const [newPassword, setNewPassword] = useState("");
     const [creating, setCreating] = useState(false);
 
+    // Edit form
+    const [editId, setEditId] = useState<string | null>(null);
+    const [editName, setEditName] = useState("");
+    const [editEmail, setEditEmail] = useState("");
+    const [editRoles, setEditRoles] = useState<string[]>([]);
+    const [saving, setSaving] = useState(false);
+
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
@@ -129,6 +136,50 @@ export default function AdminUsersScreen() {
         }
     }
 
+    function startEdit(u: UserListItem) {
+        setEditId(u.id);
+        setEditName(u.fullName);
+        setEditEmail(u.email);
+        setEditRoles([...(u.roles ?? [])]);
+        setShowCreate(false);
+    }
+
+    function cancelEdit() {
+        setEditId(null);
+    }
+
+    function toggleEditRole(role: string) {
+        setEditRoles(prev =>
+            prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role],
+        );
+    }
+
+    async function handleSaveEdit() {
+        if (!editId || !editName.trim() || !editEmail.trim()) {
+            toast.error("Nome e email são obrigatórios.");
+            return;
+        }
+        setSaving(true);
+        try {
+            await fetchJson(`/api/users/${editId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fullName: editName.trim(),
+                    email: editEmail.trim(),
+                    roles: editRoles,
+                }),
+            });
+            toast.success("Usuário atualizado!");
+            setEditId(null);
+            void loadData();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Falha ao salvar.");
+        } finally {
+            setSaving(false);
+        }
+    }
+
     const uniqueRoleNames = [...new Set(users.flatMap(u => u.roles ?? []))].sort();
 
     return (
@@ -168,6 +219,40 @@ export default function AdminUsersScreen() {
                     <Button onClick={() => void handleCreate()} disabled={creating}>
                         {creating ? "Criando..." : "Criar"}
                     </Button>
+                </div>
+            )}
+
+            {editId && (
+                <div className="card-soft rounded-xl border border-primary/30 bg-card/60 p-4 backdrop-blur space-y-3">
+                    <div className="font-semibold flex items-center gap-2">
+                        <Pencil className="size-4" /> Editar usuário
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <Input placeholder="Nome completo" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                        <Input placeholder="Email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                    </div>
+                    <div>
+                        <div className="text-sm font-medium mb-1">Perfis</div>
+                        <div className="flex flex-wrap gap-2">
+                            {roles.map((r) => (
+                                <label key={r.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={editRoles.includes(r.name)}
+                                        onChange={() => toggleEditRole(r.name)}
+                                        className="rounded"
+                                    />
+                                    {r.name}
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button onClick={() => void handleSaveEdit()} disabled={saving}>
+                            {saving ? "Salvando..." : "Salvar"}
+                        </Button>
+                        <Button variant="outline" onClick={cancelEdit}>Cancelar</Button>
+                    </div>
                 </div>
             )}
 
@@ -235,6 +320,9 @@ export default function AdminUsersScreen() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1">
+                                            <Button variant="ghost" size="sm" onClick={() => startEdit(u)} title="Editar">
+                                                <Pencil className="size-4" />
+                                            </Button>
                                             <Button variant="ghost" size="sm" onClick={() => void handleToggleStatus(u.id, !u.isActive)} title={u.isActive ? "Desativar" : "Ativar"}>
                                                 {u.isActive ? <ShieldOff className="size-4" /> : <ShieldCheck className="size-4" />}
                                             </Button>

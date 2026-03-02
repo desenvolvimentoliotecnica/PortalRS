@@ -7,126 +7,86 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
-/* ── Types (from LocalizationConfigController) ── */
 interface LocalizationConfig {
-    defaultCulture: string | null;
-    supportedCultures: string[];
-    timeZone: string | null;
+    defaultLanguage: string | null;
+    timezone: string | null;
+    dateFormat: string | null;
+    currency: string | null;
+    supportedLanguages: string[];
 }
+
+const EMPTY: LocalizationConfig = { defaultLanguage: "pt-BR", timezone: "America/Sao_Paulo", dateFormat: "dd/MM/yyyy", currency: "BRL", supportedLanguages: ["pt-BR", "en-US", "es-ES"] };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, { cache: "no-store", ...init });
-    if (!res.ok) {
-        if (res.status === 404) return null as T;
-        const body = await res.json().catch(() => null);
-        throw new Error((body as any)?.detail || `HTTP ${res.status}`);
-    }
+    if (!res.ok) { const b = await res.json().catch(() => null); throw new Error((b as any)?.detail || `HTTP ${res.status}`); }
     return res.json();
 }
 
 export default function AdminLocalizationScreen() {
-    const [config, setConfig] = useState<LocalizationConfig | null>(null);
+    const [config, setConfig] = useState<LocalizationConfig>(EMPTY);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    const [defaultCulture, setDefaultCulture] = useState("pt-BR");
-    const [supportedCultures, setSupportedCultures] = useState("pt-BR, en-US");
-    const [timeZone, setTimeZone] = useState("");
-
-    const loadConfig = useCallback(async () => {
+    const load = useCallback(async () => {
         setLoading(true);
-        try {
-            const data = await fetchJson<LocalizationConfig | null>("/api/localization-config");
-            setConfig(data);
-            if (data) {
-                setDefaultCulture(data.defaultCulture ?? "pt-BR");
-                setSupportedCultures(data.supportedCultures?.join(", ") ?? "pt-BR, en-US");
-                setTimeZone(data.timeZone ?? "");
-            }
-        } catch (err) {
-            console.error("Failed to load localization config", err);
-        } finally {
-            setLoading(false);
-        }
+        try { setConfig(await fetchJson<LocalizationConfig>("/api/admin/localization")); }
+        catch { /* may return default */ }
+        finally { setLoading(false); }
     }, []);
 
-    useEffect(() => { void loadConfig(); }, [loadConfig]);
+    useEffect(() => { void load(); }, [load]);
 
     async function handleSave() {
         setSaving(true);
         try {
-            const cultures = supportedCultures.split(",").map(c => c.trim()).filter(Boolean);
-            const updated = await fetchJson<LocalizationConfig>("/api/localization-config", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    defaultCulture: defaultCulture.trim(),
-                    supportedCultures: cultures,
-                    timeZone: timeZone.trim() || null,
-                }),
-            });
-            setConfig(updated);
-            toast.success("Configuração de localização salva com sucesso!");
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Falha ao salvar configuração.");
-        } finally {
-            setSaving(false);
-        }
+            const saved = await fetchJson<LocalizationConfig>("/api/admin/localization", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
+            setConfig(saved);
+            toast.success("Configuração de localização salva!");
+        } catch (err) { toast.error(err instanceof Error ? err.message : "Falha ao salvar."); }
+        finally { setSaving(false); }
     }
+
+    const upd = (key: keyof LocalizationConfig, val: string) => setConfig(prev => ({ ...prev, [key]: val }));
+
+    if (loading) return <div className="text-center text-muted-foreground py-8">Carregando...</div>;
 
     return (
         <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                    <h4 className="text-lg font-bold">Localização</h4>
-                    <div className="text-muted-foreground text-sm">Configure idioma padrão, culturas suportadas e fuso horário.</div>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadConfig()} disabled={loading}>
-                    <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
-                </Button>
+                <div><h4 className="text-lg font-bold">Localização</h4><div className="text-muted-foreground text-sm">Configure idioma, fuso horário e formato regional.</div></div>
+                <Button variant="ghost" size="sm" onClick={() => void load()}><RefreshCw className="size-4" /></Button>
             </div>
-
-            {loading ? (
-                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-8 backdrop-blur text-center text-muted-foreground">
-                    Carregando configuração...
-                </div>
-            ) : (
-                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-6 backdrop-blur space-y-4">
-                    <div className="flex items-center gap-3">
-                        <Globe className="size-6 text-primary" />
-                        <div>
-                            <div className="font-semibold">Configuração de Localização</div>
-                            <div className="text-sm text-muted-foreground">
-                                {config ? "Configuração existente. Edite os campos abaixo." : "Nenhuma configuração encontrada. Preencha para configurar."}
-                            </div>
-                        </div>
+            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur space-y-3">
+                <div className="flex items-center gap-2 font-semibold"><Globe className="size-5 text-primary" /> Configurações Regionais</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Idioma Padrão</label>
+                        <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={config.defaultLanguage ?? ""} onChange={e => upd("defaultLanguage", e.target.value)}>
+                            <option value="pt-BR">Português (Brasil)</option>
+                            <option value="en-US">English (US)</option>
+                            <option value="es-ES">Español</option>
+                        </select>
                     </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Cultura padrão</label>
-                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={defaultCulture} onChange={(e) => setDefaultCulture(e.target.value)}>
-                                <option value="pt-BR">Português (Brasil)</option>
-                                <option value="en-US">English (US)</option>
-                                <option value="es-ES">Español (España)</option>
-                            </select>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-sm font-medium">Fuso horário</label>
-                            <Input placeholder="ex: America/Sao_Paulo" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5 md:col-span-2">
-                            <label className="text-sm font-medium">Culturas suportadas (separadas por vírgula)</label>
-                            <Input placeholder="ex: pt-BR, en-US, es-ES" value={supportedCultures} onChange={(e) => setSupportedCultures(e.target.value)} />
-                        </div>
+                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Fuso Horário</label>
+                        <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={config.timezone ?? ""} onChange={e => upd("timezone", e.target.value)}>
+                            <option value="America/Sao_Paulo">America/São Paulo (UTC-3)</option>
+                            <option value="America/Manaus">America/Manaus (UTC-4)</option>
+                            <option value="America/Cuiaba">America/Cuiabá (UTC-4)</option>
+                            <option value="America/Fortaleza">America/Fortaleza (UTC-3)</option>
+                            <option value="UTC">UTC</option>
+                        </select>
                     </div>
-
-                    <Button onClick={() => void handleSave()} disabled={saving}>
-                        <Save className="size-4 mr-1" />
-                        {saving ? "Salvando..." : "Salvar configuração"}
-                    </Button>
+                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Formato de Data</label><Input value={config.dateFormat ?? ""} onChange={e => upd("dateFormat", e.target.value)} placeholder="dd/MM/yyyy" /></div>
+                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Moeda</label>
+                        <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={config.currency ?? ""} onChange={e => upd("currency", e.target.value)}>
+                            <option value="BRL">BRL (R$)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                        </select>
+                    </div>
                 </div>
-            )}
+            </div>
+            <div className="flex justify-end"><Button onClick={() => void handleSave()} disabled={saving} className="min-w-[150px]"><Save className="size-4 mr-1" />{saving ? "Salvando..." : "Salvar"}</Button></div>
         </section>
     );
 }

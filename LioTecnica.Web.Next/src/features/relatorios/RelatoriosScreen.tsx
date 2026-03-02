@@ -18,6 +18,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
+} from "@/components/ui/table";
 
 const BASE = "/app";
 const REPORTS_API_BASE = `/api/reports`;
@@ -359,7 +364,10 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
 
   const origemOptions = useMemo(() => {
     const list = enumOptions(enums, "origemFilterSimple");
-    if (list.length) return [{ code: "all", text: "Origem: todas" }, ...list];
+    if (list.length) {
+      const hasAll = list.some(x => normalizeEnumCode(x.code) === "all");
+      return hasAll ? list : [{ code: "all", text: "Origem: todas" }, ...list];
+    }
     return [
       { code: "all", text: "Origem: todas" },
       { code: "email", text: "Email" },
@@ -370,7 +378,10 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
 
   const statusOptions = useMemo(() => {
     const list = enumOptions(enums, "inboxStatusFilterSimple");
-    if (list.length) return [{ code: "all", text: "Status: todos" }, ...list];
+    if (list.length) {
+      const hasAll = list.some(x => normalizeEnumCode(x.code) === "all");
+      return hasAll ? list : [{ code: "all", text: "Status: todos" }, ...list];
+    }
     return [
       { code: "all", text: "Status: todos" },
       { code: "novo", text: "Novo" },
@@ -493,6 +504,7 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
   }
 
   useEffect(() => {
+    void loadCatalogAndVagas().catch(() => { /* silent */ });
     void loadCurrentReport().catch(() => {
       toast.error("Falha ao carregar relatório.");
       setData({ labels: [], values: [], headers: [], rows: [] });
@@ -515,284 +527,181 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
   }, [filters.period, filters.vaga, vagaAll]);
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-lg font-bold">Relatórios</h4>
-          <div className="text-muted-foreground text-sm">Relatórios operacionais e gerenciais</div>
+          <p className="text-muted-foreground text-sm">Relatórios operacionais e gerenciais</p>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            className="btn-ghost"
-            type="button"
-            onClick={() => {
-              setLoading(true);
-              void loadCatalogAndVagas()
-                .then(async () => {
-                  await loadCurrentReport();
-                  toast.success("Relatórios atualizados.");
-                })
-                .catch(() => toast.error("Falha ao atualizar relatórios."))
-                .finally(() => setLoading(false));
-            }}
-          >
-            <RefreshCcw className="size-4" />
-            <span className="ml-1">Atualizar</span>
-          </button>
-
-          <button
-            className="btn-ghost"
-            type="button"
-            onClick={() => {
-              try {
-                downloadCsv(reportId, data.headers, data.rows);
-                toast.success("Exportação iniciada.");
-              } catch {
-                toast.error("Falha ao exportar CSV.");
-              }
-            }}
-          >
-            <Download className="size-4" />
-            <span className="ml-1">Exportar CSV</span>
-          </button>
-
-          <button
-            className="btn-brand"
-            type="button"
-            onClick={() => {
-              void loadCurrentReport().catch(() => toast.error("Falha ao gerar relatório."));
-            }}
-          >
-            <PlayCircle className="size-4" />
-            <span className="ml-1">Gerar</span>
-          </button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => { setLoading(true); void loadCatalogAndVagas().then(async () => { await loadCurrentReport(); toast.success("Atualizado."); }).catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
+            <RefreshCcw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => { try { downloadCsv(reportId, data.headers, data.rows); toast.success("CSV exportado."); } catch { toast.error("Falha."); } }}>
+            <Download className="size-4" /><span className="hidden sm:inline ml-1">CSV</span>
+          </Button>
+          <Button size="sm" onClick={() => { void loadCurrentReport().catch(() => toast.error("Falha.")); }}>
+            <PlayCircle className="size-4" /><span className="ml-1">Gerar</span>
+          </Button>
         </div>
       </div>
 
-      {/* ── Two‑column layout: Catalog | Report ── */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[280px_1fr]">
-
-        {/* ── LEFT: Catálogo de relatórios ── */}
-        <div className="card-soft p-3 self-start">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <div className="fw-bold">Catálogo de relatórios</div>
-              <div className="text-muted-foreground text-sm">Selecione um relatório e configure filtros.</div>
-            </div>
-            {loading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : null}
+      {/* ── Filters (full-width above grid — matches Razor) ── */}
+      <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <div className="font-semibold text-sm">Filtros</div>
+            <div className="text-muted-foreground text-xs">Os filtros alteram a tabela/gráfico do relatório selecionado.</div>
           </div>
-          <hr className="my-3 divider" />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => { void loadCurrentReport().catch(() => toast.error("Falha.")); }}>
+              <Filter className="size-3.5 mr-1" />Aplicar
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { const next = { period: "30d", vaga: vagaAll || "all", origem: "all", status: "all", q: "" }; setFilters(next); void loadCurrentReport(next).catch(() => toast.error("Falha.")); }}>
+              Limpar
+            </Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Período</label>
+            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={filters.period} onChange={(e) => setFilters((p) => ({ ...p, period: e.target.value }))}>
+              {periodOptions.map((o) => <option key={o.code} value={o.code}>{o.text}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Vaga</label>
+            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={filters.vaga} onChange={(e) => setFilters((p) => ({ ...p, vaga: e.target.value }))}>
+              {vagaOptions.map((o) => <option key={`${o.kind}:${o.value}`} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Origem</label>
+            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={filters.origem} onChange={(e) => setFilters((p) => ({ ...p, origem: e.target.value }))}>
+              {origemOptions.map((o, i) => <option key={`origem-${i}`} value={o.code}>{o.text}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
+            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>
+              {statusOptions.map((o, i) => <option key={`status-${i}`} value={o.code}>{o.text}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Buscar</label>
+            <Input className="h-9" value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="Nome, email..." />
+          </div>
+        </div>
+      </div>
 
-          <div className="grid gap-2">
-            {(catalog.length ? catalog : [{ id: reportId, icon: "bar-chart", title: reportTitleById(reportId), desc: reportDescById(reportId), scope: "relatórios" }]).map(
-              (r) => {
-                const Icon = iconForCatalog(r.icon);
-                const active = r.id === reportId;
-                return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    className={active ? "tile active text-start" : "tile text-start"}
-                    onClick={() => {
-                      setReportId(r.id);
-                    }}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="iconbox">
-                        <Icon className="size-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="fw-bold truncate">{r.title}</div>
-                        <div className="text-muted-foreground text-sm truncate">{r.desc}</div>
-                      </div>
+      {/* ── Two-column: Catalog | Report ── */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[240px_1fr]">
+
+        {/* LEFT: Catálogo */}
+        <div className="rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur self-start">
+          <div className="font-semibold text-sm">Catálogo</div>
+          <div className="text-muted-foreground text-xs mb-2">Selecione um relatório.</div>
+          <div className="border-t border-border/20 my-2" />
+          <div className="grid gap-1">
+            {(catalog.length ? catalog : [{ id: reportId, icon: "bar-chart", title: reportTitleById(reportId), desc: reportDescById(reportId), scope: "relatórios" }]).map((r) => {
+              const Icon = iconForCatalog(r.icon);
+              const active = r.id === reportId;
+              return (
+                <button key={r.id} type="button" className={`w-full text-left rounded-lg px-2.5 py-2 transition-colors ${active ? "bg-primary/10 text-primary ring-1 ring-primary/20" : "hover:bg-muted/50"}`} onClick={() => setReportId(r.id)}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Icon className="size-3.5" />
                     </div>
-                  </button>
-                );
-              },
-            )}
+                    <div className="min-w-0">
+                      <div className="font-medium text-xs truncate">{r.title}</div>
+                      <div className="text-muted-foreground text-[11px] truncate">{r.desc}</div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* ── RIGHT: Report detail ── */}
-        <div className="space-y-3 min-w-0">
-          <div className="card-soft p-3">
-            {/* Report title + tags */}
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <div className="fw-bold text-base">{activeReport?.title || reportTitleById(reportId)}</div>
-                <div className="text-muted-foreground text-sm">{activeReport?.desc || reportDescById(reportId) || "Selecione um relatório no catálogo."}</div>
-              </div>
-              <div className="flex flex-wrap gap-2 justify-end">
-                <span className="tag">
-                  <Filter className="size-4" /> {activeReport?.scope || "escopo"}
-                </span>
-                <span className="tag ok">
-                  <Clock className="size-4" /> atual
-                </span>
-              </div>
+        {/* RIGHT: Report (single card) */}
+        <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur min-w-0 overflow-hidden">
+
+          {/* Title row */}
+          <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+            <div className="min-w-0">
+              <div className="font-bold truncate">{activeReport?.title || reportTitleById(reportId)}</div>
+              <div className="text-muted-foreground text-sm">{activeReport?.desc || reportDescById(reportId) || "Selecione um relatório."}</div>
             </div>
-
-            <hr className="my-3 divider" />
-
-            {/* ── Inline filters ── */}
-            <div className="flex flex-wrap items-end gap-2 mb-3">
-              <div className="min-w-[120px] flex-1">
-                <label className="form-label small">Período</label>
-                <select className="form-select" value={filters.period} onChange={(e) => setFilters((p) => ({ ...p, period: e.target.value }))}>
-                  {periodOptions.map((opt) => (
-                    <option key={opt.code} value={opt.code}>
-                      {opt.text}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="min-w-[160px] flex-[2]">
-                <label className="form-label small">Vaga</label>
-                <select className="form-select" value={filters.vaga} onChange={(e) => setFilters((p) => ({ ...p, vaga: e.target.value }))}>
-                  {vagaOptions.map((opt) => (
-                    <option key={`${opt.kind}:${opt.value}`} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="min-w-[120px] flex-1">
-                <label className="form-label small">Origem</label>
-                <select className="form-select" value={filters.origem} onChange={(e) => setFilters((p) => ({ ...p, origem: e.target.value }))}>
-                  {origemOptions.map((opt) => (
-                    <option key={opt.code} value={opt.code}>
-                      {opt.text}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="min-w-[120px] flex-1">
-                <label className="form-label small">Status</label>
-                <select className="form-select" value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>
-                  {statusOptions.map((opt) => (
-                    <option key={opt.code} value={opt.code}>
-                      {opt.text}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="min-w-[140px] flex-1">
-                <label className="form-label small">Buscar</label>
-                <input className="form-control" value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="Nome, email..." />
-              </div>
-
-              <div className="flex gap-2 shrink-0">
-                <button
-                  className="btn-brand px-3 py-2"
-                  type="button"
-                  onClick={() => {
-                    void loadCurrentReport().catch(() => toast.error("Falha ao aplicar filtros."));
-                  }}
-                >
-                  <Filter className="size-4" />
-                  <span className="ml-1">Aplicar</span>
-                </button>
-                <button
-                  className="btn-ghost px-3 py-2"
-                  type="button"
-                  onClick={() => {
-                    const next = { period: "30d", vaga: vagaAll || "all", origem: "all", status: "all", q: "" };
-                    setFilters(next);
-                    void loadCurrentReport(next).catch(() => toast.error("Falha ao limpar filtros."));
-                  }}
-                >
-                  <Clock className="size-4" />
-                  <span className="ml-1">Limpar</span>
-                </button>
-              </div>
+            <div className="flex gap-1.5 shrink-0">
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
+                <Filter className="size-3" />{activeReport?.scope || "escopo"}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[11px] font-medium">
+                <Clock className="size-3" />atual
+              </span>
             </div>
+          </div>
 
-            {/* ── Chart ── */}
-            <div className="chart-wrap mb-3 relative">
+          {/* Chart — constrained height */}
+          <div className="border-t border-border/20 pt-3 mb-3">
+            <div className="relative" style={{ height: 180 }}>
               <canvas ref={chartCanvasRef} style={{ width: "100%", height: "100%" }} />
-              {loading ? (
-                <div className="absolute inset-0 grid place-items-center bg-white/40 backdrop-blur-[2px] rounded-[18px]">
-                  <div className="badge-soft flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" />
-                    Carregando
-                  </div>
+              {loading && (
+                <div className="absolute inset-0 grid place-items-center bg-background/60 backdrop-blur-[2px] rounded-lg">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-4 animate-spin" />Carregando</div>
                 </div>
-              ) : null}
+              )}
             </div>
+          </div>
 
-            {/* ── Results table ── */}
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="mini-title">Resultados</div>
-              <div className="flex gap-2 flex-wrap">
-                <span className="pill">{data.rows.length} linhas</span>
-                <span className="pill">exportável</span>
+          {/* Results table */}
+          <div className="border-t border-border/20 pt-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+              <div className="font-semibold text-sm">Resultados</div>
+              <div className="flex gap-1.5">
+                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">{data.rows.length} linhas</span>
+                <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-medium">exportável</span>
               </div>
             </div>
-
-            <div className="table-responsive mt-2">
-              <table className="table">
-                <thead>
-                  <tr>
-                    {(data.headers.length ? data.headers : ["—"]).map((h, idx) => (
-                      <th key={`${idx}:${h}`} style={{ whiteSpace: "nowrap" }}>
-                        {h}
-                      </th>
+            <div className="overflow-x-auto max-h-[360px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {(data.headers.length ? data.headers : ["—"]).map((h, i) => (
+                      <TableHead key={`${i}:${h}`} className="whitespace-nowrap text-xs">{h}</TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {loading ? (
-                    <tr>
-                      <td colSpan={Math.max(1, data.headers.length)} className="text-center text-muted py-4">
-                        Carregando…
-                      </td>
-                    </tr>
+                    <TableRow><TableCell colSpan={Math.max(1, data.headers.length)} className="text-center text-muted-foreground py-6 text-sm">Carregando…</TableCell></TableRow>
                   ) : data.rows.length ? (
-                    data.rows.map((row, rIdx) => (
-                      <tr key={rIdx}>
-                        {row.map((cell, cIdx) => {
-                          if (cell == null) return <td key={cIdx} />;
-                          if (typeof cell === "string" || typeof cell === "number" || typeof cell === "boolean") return <td key={cIdx}>{String(cell)}</td>;
-                          const cls = (cell.className ?? "").trim();
-                          return (
-                            <td key={cIdx} className={cls || undefined}>
-                              {cell.text == null ? "" : String(cell.text)}
-                            </td>
-                          );
+                    data.rows.map((row, ri) => (
+                      <TableRow key={ri}>
+                        {row.map((cell, ci) => {
+                          if (cell == null) return <TableCell key={ci} />;
+                          if (typeof cell === "string" || typeof cell === "number" || typeof cell === "boolean") return <TableCell key={ci} className="text-sm">{String(cell)}</TableCell>;
+                          return <TableCell key={ci} className={`text-sm ${(cell.className ?? "").trim()}`}>{cell.text == null ? "" : String(cell.text)}</TableCell>;
                         })}
-                      </tr>
+                      </TableRow>
                     ))
                   ) : (
-                    <tr>
-                      <td colSpan={Math.max(1, data.headers.length)} className="text-center text-muted py-4">
-                        Nenhum registro atende o filtro atual.
-                      </td>
-                    </tr>
+                    <TableRow><TableCell colSpan={Math.max(1, data.headers.length)} className="text-center text-muted-foreground py-6 text-sm">Nenhum registro.</TableCell></TableRow>
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
-
-            <div className="text-muted-foreground text-sm mt-3">{hint}</div>
+            <div className="text-muted-foreground text-xs mt-2">{hint}</div>
           </div>
-
-          {catalog.length === 0 ? (
-            <div className="card-soft p-3">
-              <div className="flex items-center gap-2 text-sm">
-                <AlertTriangle className="size-4 text-amber-600" />
-                <span>Catálogo não carregou; usando fallback local.</span>
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
+
+      {catalog.length === 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 text-sm text-amber-700 flex items-center gap-2">
+          <AlertTriangle className="size-4" /><span>Catálogo não carregou; usando fallback local.</span>
+        </div>
+      )}
     </section>
   );
 }
-

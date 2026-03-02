@@ -1,22 +1,19 @@
 "use client";
 
-import { Telescope } from "lucide-react";
+import { Search } from "lucide-react";
 
 export default function SuperPesquisaScreen() {
     return (
         <section className="space-y-4">
-            {/* Header */}
             <div>
-                <h4 className="text-lg font-bold">Super pesquisa</h4>
-                <div className="text-muted-foreground text-sm">
-                    Placeholder — implementar super pesquisa.
-                </div>
+                <h4 className="text-lg font-bold">Super Pesquisa</h4>
+                <div className="text-muted-foreground text-sm">Pesquisas avançadas de engajamento e cultura organizacional.</div>
             </div>
-
-            <div className="card-soft p-3">
-                <div className="text-muted-foreground text-center py-8">
-                    <Telescope className="size-8 mx-auto mb-2 opacity-30" />
-                    Tela mínima criada para Super Pesquisa. Ajustes pendentes.
+            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-12 backdrop-blur text-center">
+                <Search className="size-12 text-muted-foreground/30 mx-auto mb-4" />
+                <div className="text-lg font-semibold text-muted-foreground">Em desenvolvimento</div>
+                <div className="text-sm text-muted-foreground/70 mt-1">
+                    A funcionalidade de Super Pesquisa será implementada em breve.
                 </div>
             </div>
         </section>

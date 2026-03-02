@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, Mail, Check, Plus, Pencil, Eye } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Search, Plus, RefreshCw, Pencil, Power, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,56 +11,59 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
 /* ── Types ── */
-interface EmailTemplateListItem {
+interface TemplateListItem {
     id: string;
     name: string;
-    version: number;
+    subject: string | null;
     isActive: boolean;
-    subjectTemplate: string;
-    createdAtUtc: string;
-    updatedAtUtc: string;
+    lastModified: string | null;
 }
 
-interface EmailTemplateDetail {
+interface TemplateDetail {
     id: string;
     name: string;
-    version: number;
+    subject: string;
+    body: string;
     isActive: boolean;
-    subjectTemplate: string;
-    bodyHtml: string;
-    createdAtUtc: string;
-    updatedAtUtc: string;
 }
+
+interface FormData {
+    name: string;
+    subject: string;
+    body: string;
+    isActive: boolean;
+}
+
+const EMPTY_FORM: FormData = { name: "", subject: "", body: "", isActive: true };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, { cache: "no-store", ...init });
     if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error((body as any)?.detail || (body as any)?.message || `HTTP ${res.status}`);
+        throw new Error((body as any)?.detail || (body as any)?.error || `HTTP ${res.status}`);
     }
     return res.json();
 }
 
-function fmtDate(iso: string) {
-    try { return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }); }
-    catch { return iso; }
-}
-
 export default function AdminEmailTemplatesScreen() {
-    const [templates, setTemplates] = useState<EmailTemplateListItem[]>([]);
+    const [templates, setTemplates] = useState<TemplateListItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [q, setQ] = useState("");
     const [includeInactive, setIncludeInactive] = useState(false);
-    const [selected, setSelected] = useState<EmailTemplateDetail | null>(null);
-    const [loadingDetail, setLoadingDetail] = useState(false);
+
+    // Form
+    const [showForm, setShowForm] = useState(false);
+    const [editId, setEditId] = useState<string | null>(null);
+    const [form, setForm] = useState<FormData>(EMPTY_FORM);
+    const [saving, setSaving] = useState(false);
 
     const loadTemplates = useCallback(async () => {
         setLoading(true);
         try {
-            const list = await fetchJson<EmailTemplateListItem[]>(`/api/email-templates?includeInactive=${includeInactive}`);
+            const list = await fetchJson<TemplateListItem[]>(`/Admin/EmailTemplates/_api/templates?includeInactive=${includeInactive}`);
             setTemplates(list);
-        } catch (err) {
-            console.error("Failed to load email templates", err);
-            toast.error("Falha ao carregar templates de email.");
+        } catch {
+            toast.error("Falha ao carregar templates.");
         } finally {
             setLoading(false);
         }
@@ -68,21 +71,54 @@ export default function AdminEmailTemplatesScreen() {
 
     useEffect(() => { void loadTemplates(); }, [loadTemplates]);
 
-    async function viewDetail(id: string) {
-        setLoadingDetail(true);
+    const filtered = useMemo(() => {
+        if (!q.trim()) return templates;
+        const lower = q.toLowerCase();
+        return templates.filter(t => t.name.toLowerCase().includes(lower) || (t.subject ?? "").toLowerCase().includes(lower));
+    }, [templates, q]);
+
+    function startCreate() { setEditId(null); setForm(EMPTY_FORM); setShowForm(true); }
+
+    async function startEdit(id: string) {
         try {
-            const detail = await fetchJson<EmailTemplateDetail>(`/api/email-templates/${id}`);
-            setSelected(detail);
+            const detail = await fetchJson<TemplateDetail>(`/Admin/EmailTemplates/_api/templates/${id}`);
+            setEditId(id);
+            setForm({ name: detail.name, subject: detail.subject, body: detail.body, isActive: detail.isActive });
+            setShowForm(true);
         } catch {
-            toast.error("Falha ao carregar detalhes do template.");
+            toast.error("Falha ao carregar template.");
+        }
+    }
+
+    async function handleSave() {
+        if (!form.name.trim()) { toast.error("Nome é obrigatório."); return; }
+        setSaving(true);
+        try {
+            if (editId) {
+                await fetchJson(`/Admin/EmailTemplates/_api/templates/${editId}`, {
+                    method: "PUT", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(form),
+                });
+                toast.success("Template atualizado!");
+            } else {
+                await fetchJson("/Admin/EmailTemplates/_api/templates", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(form),
+                });
+                toast.success("Template criado!");
+            }
+            setShowForm(false);
+            void loadTemplates();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Falha ao salvar.");
         } finally {
-            setLoadingDetail(false);
+            setSaving(false);
         }
     }
 
     async function handleSetActive(id: string) {
         try {
-            await apiFetch(`/api/email-templates/${id}/set-active`, { method: "POST" });
+            await fetchJson(`/Admin/EmailTemplates/_api/templates/${id}/set-active`, { method: "POST" });
             toast.success("Template ativado!");
             void loadTemplates();
         } catch {
@@ -90,102 +126,83 @@ export default function AdminEmailTemplatesScreen() {
         }
     }
 
-    const activeCount = templates.filter(t => t.isActive).length;
-    const uniqueNames = [...new Set(templates.map(t => t.name))].length;
+    const upd = (key: keyof FormData, val: string | boolean) => setForm(prev => ({ ...prev, [key]: val }));
 
     return (
         <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h4 className="text-lg font-bold">Templates de Email</h4>
-                    <div className="text-muted-foreground text-sm">Gerencie os templates de email do sistema.</div>
+                    <div className="text-muted-foreground text-sm">Gerencie os modelos de email do sistema.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} />
-                        Incluir inativos
-                    </label>
-                    <Button variant="ghost" size="sm" onClick={() => void loadTemplates()} disabled={loading}>
-                        <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
-                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => void loadTemplates()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                    <Button size="sm" onClick={startCreate}><Plus className="size-4 mr-1" />Novo template</Button>
                 </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Templates</div>
-                    <div className="mt-1 text-2xl font-bold text-primary">{uniqueNames}</div>
-                </div>
-                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Versões</div>
-                    <div className="mt-1 text-2xl font-bold text-sky-600">{templates.length}</div>
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Total</div>
+                    <div className="mt-1 text-2xl font-bold text-primary">{templates.length}</div>
                 </div>
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                     <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Ativos</div>
-                    <div className="mt-1 text-2xl font-bold text-emerald-600">{activeCount}</div>
+                    <div className="mt-1 text-2xl font-bold text-emerald-600">{templates.filter(t => t.isActive).length}</div>
+                </div>
+                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Inativos</div>
+                    <div className="mt-1 text-2xl font-bold text-zinc-500">{templates.filter(t => !t.isActive).length}</div>
                 </div>
             </div>
 
+            {showForm && (
+                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur space-y-3">
+                    <div className="font-semibold">{editId ? "Editar template" : "Novo template"}</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Nome *</label><Input value={form.name} onChange={e => upd("name", e.target.value)} /></div>
+                        <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Assunto</label><Input value={form.subject} onChange={e => upd("subject", e.target.value)} /></div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Corpo HTML</label>
+                        <textarea className="w-full min-h-[200px] rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono" value={form.body} onChange={e => upd("body", e.target.value)} />
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={e => upd("isActive", e.target.checked)} className="rounded border-input" /> Ativo</label>
+                    </div>
+                    <div className="flex gap-2"><Button onClick={() => void handleSave()} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button><Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button></div>
+                </div>
+            )}
+
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                    <div className="font-semibold">Templates</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="relative"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="w-[200px] pl-8" placeholder="buscar..." value={q} onChange={e => setQ(e.target.value)} /></div>
+                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeInactive} onChange={e => setIncludeInactive(e.target.checked)} className="rounded border-input" /> Incluir inativos</label>
+                    </div>
+                </div>
                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Nome</TableHead>
-                            <TableHead>Assunto</TableHead>
-                            <TableHead className="text-center">Versão</TableHead>
-                            <TableHead className="text-center">Status</TableHead>
-                            <TableHead>Atualizado</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Assunto</TableHead><TableHead className="text-center">Status</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
                     <TableBody>
-                        {loading ? (
-                            <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
-                        ) : templates.length === 0 ? (
-                            <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nenhum template encontrado.</TableCell></TableRow>
-                        ) : (
-                            templates.map((t) => (
-                                <TableRow key={t.id} className={!t.isActive ? "opacity-50" : ""}>
-                                    <TableCell className="font-medium flex items-center gap-2"><Mail className="size-4 text-primary" /> {t.name}</TableCell>
-                                    <TableCell className="text-sm max-w-[300px] truncate">{t.subjectTemplate}</TableCell>
-                                    <TableCell className="text-center">v{t.version}</TableCell>
-                                    <TableCell className="text-center">
-                                        {t.isActive
-                                            ? <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">Ativo</span>
-                                            : <span className="inline-flex items-center rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 text-xs font-medium">Inativo</span>
-                                        }
-                                    </TableCell>
-                                    <TableCell className="text-xs">{fmtDate(t.updatedAtUtc)}</TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button variant="ghost" size="sm" onClick={() => void viewDetail(t.id)} title="Visualizar">
-                                                <Eye className="size-4" />
-                                            </Button>
-                                            {!t.isActive && (
-                                                <Button variant="ghost" size="sm" className="text-emerald-600" onClick={() => void handleSetActive(t.id)} title="Ativar">
-                                                    <Check className="size-4" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
+                        {loading ? (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
+                        ) : filtered.length === 0 ? (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nenhum template encontrado.</TableCell></TableRow>
+                        ) : (filtered.map(t => (
+                            <TableRow key={t.id}>
+                                <TableCell className="font-medium"><div className="flex items-center gap-2"><Mail className="size-4 text-primary" />{t.name}</div></TableCell>
+                                <TableCell className="text-sm text-muted-foreground truncate max-w-[300px]">{t.subject || "—"}</TableCell>
+                                <TableCell className="text-center">{t.isActive ? <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">Ativo</span> : <span className="inline-flex items-center rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 text-xs font-medium">Inativo</span>}</TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                        <Button variant="ghost" size="sm" onClick={() => void startEdit(t.id)} title="Editar"><Pencil className="size-4" /></Button>
+                                        {!t.isActive && <Button variant="ghost" size="sm" onClick={() => void handleSetActive(t.id)} title="Ativar"><Power className="size-4 text-emerald-600" /></Button>}
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        )))}
                     </TableBody>
                 </Table>
             </div>
-
-            {/* Detail preview */}
-            {selected && (
-                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur space-y-3">
-                    <div className="flex items-center justify-between">
-                        <div className="font-semibold">Pré-visualização: {selected.name} (v{selected.version})</div>
-                        <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>✕ Fechar</Button>
-                    </div>
-                    <div className="text-sm"><strong>Assunto:</strong> {selected.subjectTemplate}</div>
-                    <div className="border rounded-lg p-4 bg-white dark:bg-zinc-900" dangerouslySetInnerHTML={{ __html: selected.bodyHtml }} />
-                </div>
-            )}
         </section>
     );
 }
