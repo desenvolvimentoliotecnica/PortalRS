@@ -1,5 +1,5 @@
 # Docker Compose para deploy em servidor (Render RH)
-# Uso: cp .env.example .env && edite .env com valores reais, depois: docker compose up -d
+# Uso: edite .env com valores reais, depois: docker compose up -d
 
 services:
   api:
