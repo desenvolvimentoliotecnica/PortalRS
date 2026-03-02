@@ -11,7 +11,10 @@
 # Arquivos de ambiente sensíveis
 .env
 .env.local
+.env.qa
+.env.prod
 **/.env
+!.env.example
 
 # Arquivos problemáticos no Windows
 nul

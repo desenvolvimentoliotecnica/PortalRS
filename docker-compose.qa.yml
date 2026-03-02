@@ -15,6 +15,18 @@ services:
       timeout: 10s
       retries: 5
 
+  web-next:
+    image: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/render-web-next:${IMAGE_TAG}"
+    container_name: voltage-renderrh-web-next
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   ai:
     image: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/render-ai:${IMAGE_TAG}"
     container_name: voltage-renderrh-ai
