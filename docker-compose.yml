@@ -1,3 +1,6 @@
+# Docker Compose para deploy em servidor (Render RH)
+# Uso: edite .env com valores reais, depois: docker compose up -d
+
 services:
   api:
     image: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/render-api:${IMAGE_TAG}"
@@ -7,8 +10,6 @@ services:
       - "5000:80"
     env_file:
       - .env
-    environment:
-      - Cors__AllowAny=true
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/health > /dev/null || exit 1"]
       interval: 30s
@@ -21,6 +22,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:80"
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/health > /dev/null || exit 1"]
       interval: 30s
