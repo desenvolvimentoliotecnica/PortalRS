@@ -285,7 +285,7 @@ function ScoreCircle({ score, size = 36 }: { score: number; size?: number }) {
    ═══════════════════════════════════════════════════════════════════ */
 
 export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialVagas: unknown; fixedVagaId?: string | null }) {
-  const vagas = useMemo(() => mapVagas(initialVagas).sort((a, b) => {
+  const initialVagaOptions = useMemo(() => mapVagas(initialVagas).sort((a, b) => {
     const ta = a.createdAtUtc ? new Date(a.createdAtUtc).getTime() : 0;
     const tb = b.createdAtUtc ? new Date(b.createdAtUtc).getTime() : 0;
     return tb - ta;
@@ -295,6 +295,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   const [vagaId, setVagaId] = useState("");
   const [tab, setTab] = useState<TabKey>("suggestions");
   const [q, setQ] = useState("");
+  const [vagas, setVagas] = useState<VagaOption[]>(initialVagaOptions);
   const [items, setItems] = useState<RankItem[]>([]);
   const [rankStatus, setRankStatus] = useState<RankingStatus>("idle");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -308,6 +309,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   const pollRef = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollDelayRef = useRef(1200);
+  const loadSuggestionsRef = useRef<(id: string, force?: boolean) => void>(() => {});
   const detailAbortRef = useRef<AbortController | null>(null);
 
   // Caches
@@ -336,6 +338,10 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   }, [items, q]);
 
   const selected = useMemo(() => selectedId ? items.find(x => x.id === selectedId) ?? null : null, [items, selectedId]);
+  const vagaOptions = useMemo(
+    () => (vagas.length ? vagas : initialVagaOptions),
+    [vagas, initialVagaOptions],
+  );
   const selectedOfficialPass = useMemo(
     () => !!selected && tab !== "rejected" && selected.score >= thresholdForList,
     [selected, tab, thresholdForList],
@@ -349,6 +355,21 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     const remainingMs = Math.max(0, expectedMs - elapsedMs);
     return { elapsedMs, expectedMs, progressPct, remainingMs };
   }, [processingNowMs, processingProgress]);
+
+  // ─── Load vaga detail ───
+  const loadVagaOptions = useCallback(async () => {
+    try {
+      const payload = await api<AnyRec>(`${BASE}/api/vagas`);
+      const mapped = mapVagas(payload).sort((a, b) => {
+        const ta = a.createdAtUtc ? new Date(a.createdAtUtc).getTime() : 0;
+        const tb = b.createdAtUtc ? new Date(b.createdAtUtc).getTime() : 0;
+        return tb - ta;
+      });
+      setVagas(mapped);
+    } catch {
+      // keep previous list
+    }
+  }, []);
 
   // ─── Load vaga detail ───
   const loadVagaDetail = useCallback(async (id: string) => {
@@ -405,7 +426,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         pollDelayRef.current = Math.min(4000, Math.round(delay * 1.2));
         pollTimerRef.current = setTimeout(() => {
           if (pollRef.current !== token) return;
-          loadSuggestions(id, true);
+          loadSuggestionsRef.current(id, true);
         }, delay);
       } else if (snap?.status === "failed") {
         const stale = mapItems(snap.staleItems);
@@ -429,6 +450,12 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
       toast.error(e instanceof Error ? e.message : "Falha ao carregar ranking.");
     }
   }, []);
+
+  useEffect(() => {
+    loadSuggestionsRef.current = (id: string, force = false) => {
+      void loadSuggestions(id, force);
+    };
+  }, [loadSuggestions]);
 
   // ─── Load rejected ───
   const loadRejected = useCallback(async (id: string, force = false) => {
@@ -629,6 +656,13 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     };
   }, []);
 
+  useEffect(() => {
+    // Quando entrar pelo menu (sem vagaId), carrega opções para seleção manual.
+    if (initialVagaOptions.length > 0) return;
+    const t = setTimeout(() => { void loadVagaOptions(); }, 0);
+    return () => clearTimeout(t);
+  }, [initialVagaOptions.length, loadVagaOptions]);
+
   // Tick visual de progresso durante processamento.
   useEffect(() => {
     if (rankStatus !== "processing") return;
@@ -642,14 +676,15 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   useEffect(() => {
     if (fixedVagaId && !didAutoSelect.current) {
       didAutoSelect.current = true;
-      void onSelectVaga(fixedVagaId, "suggestions");
+      const t = setTimeout(() => { void onSelectVaga(fixedVagaId, "suggestions"); }, 0);
+      return () => clearTimeout(t);
     }
   }, [fixedVagaId, onSelectVaga]);
 
   /* ═══════════ RENDER ═══════════ */
 
   // Find the selected vaga label for the header
-  const selectedVaga = vagas.find(v => v.id === vagaId);
+  const selectedVaga = vagaOptions.find(v => v.id === vagaId);
 
   return (
     <section className="space-y-4">
@@ -677,7 +712,32 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
       {/* Compact filter bar: search + tabs only */}
       <div className="card-soft p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <input className="form-control w-[260px]" placeholder="Buscar por nome ou email…" value={q} onChange={e => setQ(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="form-select w-[320px]"
+              value={vagaId}
+              onChange={(e) => {
+                const nextId = e.target.value;
+                if (!nextId) {
+                  setVagaId("");
+                  setItems([]);
+                  setSelectedId(null);
+                  setVagaDetail(null);
+                  setRankStatus("idle");
+                  return;
+                }
+                void onSelectVaga(nextId, tab);
+              }}
+            >
+              <option value="">Selecione uma vaga…</option>
+              {vagaOptions.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+            <input className="form-control w-[260px]" placeholder="Buscar por nome ou email…" value={q} onChange={e => setQ(e.target.value)} />
+          </div>
           <div className="flex overflow-hidden rounded-xl border border-[rgba(16,82,144,.14)] bg-white/60">
             <button type="button"
               className={`px-4 py-2 text-sm font-semibold transition ${tab === "suggestions" ? "bg-white/90 text-[var(--lt-primary,#105290)]" : "text-muted-foreground hover:bg-white/40"}`}
@@ -943,7 +1003,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
                       <div className="text-muted-foreground text-xs space-y-1">
                         <div><span className="font-mono">score = (peso_encontrado / peso_total) × 100</span></div>
                         <div>Penalidade: <span className="font-mono">-15 pontos</span> por obrigatório faltando (máx. <span className="font-mono">-40</span>).</div>
-                        <div>Critério: <span className="font-mono">score ≥ threshold</span> → "Dentro".</div>
+                        <div>Critério: <span className="font-mono">score ≥ threshold</span> → Dentro.</div>
                       </div>
                       <hr className="my-3 border-[rgba(16,82,144,.14)]" />
                       <div className="flex items-center justify-between text-sm">
