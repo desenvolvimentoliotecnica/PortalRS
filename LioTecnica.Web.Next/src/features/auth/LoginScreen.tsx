@@ -82,7 +82,7 @@ export default function LoginScreen({
   const BASE = "/app"; // basePath for UI routes/assets
 
   /* ─── Entra ID ─── */
-  const [entraEnabled] = useState(false);
+  const [entraEnabled, setEntraEnabled] = useState(false);
   const entraError = error || sp.get("error") || "";
 
   /* ─── Form State ─── */
@@ -105,7 +105,20 @@ export default function LoginScreen({
   const [dbStatus, setDbStatus] = useState<HealthStatus>("unknown");
 
   useEffect(() => {
-    // Entra ID config is private in RHPortal.Api; keep disabled on login screen for now.
+    let alive = true;
+    apiFetch("/bff/auth/config", { cache: "no-store" })
+      .then((res) => res.json().catch(() => null))
+      .then((data) => {
+        if (!alive) return;
+        setEntraEnabled(Boolean(data?.entraEnabled));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setEntraEnabled(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -196,8 +209,14 @@ export default function LoginScreen({
       toast.warning("Informe o tenant para entrar com Microsoft.");
       return;
     }
-    // Entra ID flow not wired for RHPortal.Api yet.
-    toast.info("Login Microsoft (Entra ID) ainda não configurado nesta versão.");
+    if (t.toLowerCase() === "owner") {
+      toast.warning("Login Microsoft não está disponível para o tenant owner.");
+      return;
+    }
+    const qp = new URLSearchParams();
+    qp.set("tenantId", t.toLowerCase());
+    qp.set("returnUrl", resolvedReturnUrl || "/dashboard");
+    window.location.href = `/bff/auth/entra-login?${qp.toString()}`;
   }
 
   /* ─── Render ─── */

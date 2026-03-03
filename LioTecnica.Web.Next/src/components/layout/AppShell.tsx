@@ -4,7 +4,9 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
+import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
 import type { BffNavItem } from "@/lib/schemas/bff";
 import { ApiMenuForCurrentUserSchema, type ApiMenuForCurrentUser } from "@/lib/schemas/api";
@@ -17,6 +19,7 @@ const OWNER_NAV_ITEMS: BffNavItem[] = [
 
 function AppShellInner({ children }: { children: ReactNode }) {
   const { me } = useAuth();
+  const { isCollapsed, setHovering } = useSidebar();
   const [navItems, setNavItems] = useState<BffNavItem[]>([]);
 
   function buildTree(items: ApiMenuForCurrentUser[]): BffNavItem[] {
@@ -60,7 +63,39 @@ function AppShellInner({ children }: { children: ReactNode }) {
       openInNewTab: !!n.openInNewTab,
       children: Array.isArray(n.children) ? n.children.map(strip) : [],
     });
-    return roots.map(strip);
+    const result = roots.map(strip);
+
+    // ── Fix orphan pesquisa items ─────────────────────────────────
+    // If Pesquisa Rápida / Super Pesquisa are root-level (no parent in DB),
+    // group them under a synthetic "Pesquisas" parent, matching the pattern
+    // used for Desenvolvimento, Gamificação, Gestão, and Desempenho.
+    const pesquisaRoutes = new Set(["/feedback/pesquisarapida", "/feedback/superpesquisa"]);
+    const orphanPesquisas = result.filter(
+      (n) => pesquisaRoutes.has(n.href.toLowerCase().replace(/\/+$/, "")),
+    );
+    if (orphanPesquisas.length > 0) {
+      // Only wrap if there's no existing "Pesquisas" parent already containing them
+      const alreadyGrouped = result.some(
+        (n) => n.children.some((c) => pesquisaRoutes.has(c.href.toLowerCase().replace(/\/+$/, ""))),
+      );
+      if (!alreadyGrouped) {
+        const pesquisasGroup: BffNavItem = {
+          id: "__pesquisas_group",
+          label: "Pesquisas",
+          href: "#",
+          icon: "bi-search",
+          openInNewTab: false,
+          children: orphanPesquisas,
+        };
+        // Remove orphans from root and insert group in their place
+        const firstIdx = result.findIndex((n) => orphanPesquisas.includes(n));
+        const filtered = result.filter((n) => !orphanPesquisas.includes(n));
+        filtered.splice(firstIdx, 0, pesquisasGroup);
+        return filtered;
+      }
+    }
+
+    return result;
   }
 
   useEffect(() => {
@@ -98,9 +133,20 @@ function AppShellInner({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh">
-      <div className="grid grid-cols-1 lg:grid-cols-[290px_1fr]">
-        <aside className="from-lt-primary to-lt-brand sticky top-0 hidden h-dvh border-r border-white/10 bg-gradient-to-b text-white lg:block">
-          <Sidebar items={navItems} />
+      <div
+        className={cn(
+          "grid grid-cols-1 transition-[grid-template-columns] duration-300 ease-out",
+          isCollapsed ? "lg:grid-cols-[72px_1fr]" : "lg:grid-cols-[290px_1fr]",
+        )}
+      >
+        <aside
+          className={cn(
+            "from-lt-primary to-lt-brand sticky top-0 hidden h-dvh border-r border-white/10 bg-gradient-to-b text-white lg:block z-10",
+          )}
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
+        >
+          <Sidebar items={navItems} collapsed={isCollapsed} />
         </aside>
 
         <main className="min-w-0">
@@ -117,7 +163,9 @@ function AppShellInner({ children }: { children: ReactNode }) {
 export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <SidebarProvider>
+        <AppShellInner>{children}</AppShellInner>
+      </SidebarProvider>
     </AuthProvider>
   );
 }

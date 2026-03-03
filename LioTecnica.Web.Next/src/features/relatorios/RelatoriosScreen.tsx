@@ -596,10 +596,10 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
       </div>
 
       {/* ── Two-column: Catalog | Report ── */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[240px_1fr]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(280px,320px)_1fr]">
 
         {/* LEFT: Catálogo */}
-        <div className="rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur self-start">
+        <div className="rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur self-start min-w-0 overflow-hidden">
           <div className="font-semibold text-sm">Catálogo</div>
           <div className="text-muted-foreground text-xs mb-2">Selecione um relatório.</div>
           <div className="border-t border-border/20 my-2" />
@@ -608,14 +608,14 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
               const Icon = iconForCatalog(r.icon);
               const active = r.id === reportId;
               return (
-                <button key={r.id} type="button" className={`w-full text-left rounded-lg px-2.5 py-2 transition-colors ${active ? "bg-primary/10 text-primary ring-1 ring-primary/20" : "hover:bg-muted/50"}`} onClick={() => setReportId(r.id)}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <button key={r.id} type="button" className={`w-full text-left rounded-lg px-2.5 py-2 transition-colors overflow-hidden ${active ? "bg-primary/10 text-primary ring-1 ring-primary/20" : "hover:bg-muted/50"}`} onClick={() => setReportId(r.id)}>
+                  <div className="flex items-start gap-2 min-w-0">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary mt-0.5">
                       <Icon className="size-3.5" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-xs truncate">{r.title}</div>
-                      <div className="text-muted-foreground text-[11px] truncate">{r.desc}</div>
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <div className="font-medium text-xs break-words line-clamp-2">{r.title}</div>
+                      <div className="text-muted-foreground text-[11px] break-words line-clamp-2 mt-0.5">{r.desc}</div>
                     </div>
                   </div>
                 </button>
@@ -629,9 +629,9 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
 
           {/* Title row */}
           <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
-            <div className="min-w-0">
-              <div className="font-bold truncate">{activeReport?.title || reportTitleById(reportId)}</div>
-              <div className="text-muted-foreground text-sm">{activeReport?.desc || reportDescById(reportId) || "Selecione um relatório."}</div>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <div className="font-bold break-words line-clamp-2">{activeReport?.title || reportTitleById(reportId)}</div>
+              <div className="text-muted-foreground text-sm break-words line-clamp-2">{activeReport?.desc || reportDescById(reportId) || "Selecione um relatório."}</div>
             </div>
             <div className="flex gap-1.5 shrink-0">
               <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">

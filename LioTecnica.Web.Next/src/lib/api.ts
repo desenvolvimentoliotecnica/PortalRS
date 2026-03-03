@@ -8,6 +8,84 @@
 import { env } from "@/lib/env";
 import { clearSession, getAccessToken, getTenantId, setTenantId, tryGetTenantIdFromJwt } from "@/lib/session";
 
+const PORTAL_CANDIDATE_STORAGE_PREFIX = "renderrh.portalCandidate.";
+
+function resolvePortalTenantId(headers: Headers): string | null {
+    if (headers.has("X-Tenant-Id")) return headers.get("X-Tenant-Id");
+    const sessionTenant = getTenantId();
+    if (sessionTenant) return sessionTenant;
+    if (typeof window !== "undefined") {
+        const qs = new URLSearchParams(window.location.search);
+        const tenant = (qs.get("tenantId") || qs.get("tenant") || "").trim();
+        if (tenant) return tenant;
+    }
+    return null;
+}
+
+function resolvePortalCandidateId(tenantId: string): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+        const raw = localStorage.getItem(`${PORTAL_CANDIDATE_STORAGE_PREFIX}${tenantId.toLowerCase()}`);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as { id?: string } | null;
+        return parsed?.id ? String(parsed.id) : null;
+    } catch {
+        return null;
+    }
+}
+
+function mapPortalCandidatePath(path: string, headers: Headers): string {
+    const normalized = path.startsWith("/app/PortalVagas/") ? path.slice("/app".length) : path;
+    if (!normalized.startsWith("/PortalVagas/")) return path;
+    if (normalized.startsWith("/PortalVagas/Auth/") || normalized.startsWith("/PortalVagas/Locations/") || normalized === "/PortalVagas/Context") {
+        return normalized;
+    }
+    const tenantId = resolvePortalTenantId(headers);
+    if (!tenantId) return path;
+    const candidateId = resolvePortalCandidateId(tenantId);
+    if (!candidateId) return path;
+    const base = `/api/public/portal-candidates/${encodeURIComponent(candidateId)}`;
+
+    const rules: Array<[RegExp, string]> = [
+        [/^\/PortalVagas\/Profile$/, ""],
+        [/^\/PortalVagas\/Profile\/Avatar$/, "/avatar"],
+        [/^\/PortalVagas\/Profile\/Curriculo$/, "/curriculos"],
+        [/^\/PortalVagas\/SkillsPortfolio$/, "/skills-portfolio"],
+        [/^\/PortalVagas\/SkillsPortfolio\/Skills$/, "/skills-portfolio/skills"],
+        [/^\/PortalVagas\/SkillsPortfolio\/Skills\/(.+)$/, "/skills-portfolio/skills/$1"],
+        [/^\/PortalVagas\/SkillsPortfolio\/Certifications$/, "/skills-portfolio/certifications"],
+        [/^\/PortalVagas\/SkillsPortfolio\/Certifications\/(.+)$/, "/skills-portfolio/certifications/$1"],
+        [/^\/PortalVagas\/Education$/, "/education"],
+        [/^\/PortalVagas\/Education\/Summary$/, "/education/summary"],
+        [/^\/PortalVagas\/Education\/Items$/, "/education/items"],
+        [/^\/PortalVagas\/Education\/Items\/(.+)$/, "/education/items/$1"],
+        [/^\/PortalVagas\/Preferences$/, "/preferences"],
+        [/^\/PortalVagas\/Lgpd$/, "/lgpd"],
+        [/^\/PortalVagas\/Lgpd\/Receipt$/, "/lgpd/receipt"],
+        [/^\/PortalVagas\/Notifications$/, "/notifications"],
+        [/^\/PortalVagas\/Documents$/, "/documents"],
+        [/^\/PortalVagas\/Documents\/(.+)$/, "/documents/$1"],
+        [/^\/PortalVagas\/ExperienceProjects$/, "/experience-projects"],
+        [/^\/PortalVagas\/Experiences$/, "/experiences"],
+        [/^\/PortalVagas\/Experiences\/(.+)$/, "/experiences/$1"],
+        [/^\/PortalVagas\/Projects$/, "/projects"],
+        [/^\/PortalVagas\/Projects\/(.+)$/, "/projects/$1"],
+        [/^\/PortalVagas\/References$/, "/references"],
+        [/^\/PortalVagas\/References\/(.+)$/, "/references/$1"],
+        [/^\/PortalVagas\/Accessibility$/, "/accessibility"],
+        [/^\/PortalVagas\/Agenda$/, "/agenda"],
+        [/^\/PortalVagas\/Agenda\/Blocks$/, "/agenda/blocks"],
+        [/^\/PortalVagas\/Agenda\/Blocks\/(.+)$/, "/agenda/blocks/$1"],
+    ];
+    for (const [regex, replaceTo] of rules) {
+        const match = normalized.match(regex);
+        if (!match) continue;
+        if (!replaceTo.includes("$1")) return `${base}${replaceTo}`;
+        return `${base}${replaceTo.replace("$1", encodeURIComponent(match[1]))}`;
+    }
+    return normalized;
+}
+
 function resolveUrl(path: string): string {
     // Accept absolute URLs as-is.
     if (/^https?:\/\//i.test(path)) return path;
@@ -53,7 +131,8 @@ export async function apiFetch(
         headers.set("X-Tenant-Id", tenantId);
     }
 
-    const url = resolveUrl(path);
+    const mappedPath = mapPortalCandidatePath(path, headers);
+    const url = resolveUrl(mappedPath);
 
     const res = await fetch(url, {
         ...init,

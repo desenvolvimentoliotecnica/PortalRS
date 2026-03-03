@@ -16,10 +16,11 @@ const nextConfig: NextConfig = {
 
   async rewrites() {
     // Dev-only proxy to avoid CORS when API runs on a different port.
-    // In production (S3/CloudFront) /api and /health are routed by the edge.
+    // In production, /api, /health and /bff are routed by reverse proxy/edge.
     if (process.env.NODE_ENV !== "development") return [];
 
     const apiOrigin = process.env.DEV_API_ORIGIN?.trim() || "http://localhost:5056";
+    const bffOrigin = process.env.DEV_BFF_ORIGIN?.trim() || process.env.LEGACY_ORIGIN?.trim() || "http://localhost:5051";
 
     return [
       // API
@@ -28,6 +29,8 @@ const nextConfig: NextConfig = {
       { source: "/health", destination: `${apiOrigin}/health`, basePath: false },
       // SignalR (when used)
       { source: "/hubs/:path*", destination: `${apiOrigin}/hubs/:path*`, basePath: false },
+      // Legacy BFF (login/entra/switch-tenant while migration is in progress)
+      { source: "/bff/:path*", destination: `${bffOrigin}/bff/:path*`, basePath: false },
     ];
   },
 };

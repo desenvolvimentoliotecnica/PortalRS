@@ -21,15 +21,19 @@ pnpm dev
 
 Abra `http://localhost:3000/app`.
 
-### Integrado ao legado (recomendado)
+### Integrado com API/BFF (recomendado)
 
-Defina o backend legado (onde o ASP.NET está rodando):
+Defina os origins de API e BFF no dev:
 
 ```bash
-LEGACY_ORIGIN=http://localhost:5000 pnpm dev
+DEV_API_ORIGIN=http://localhost:5056 DEV_BFF_ORIGIN=http://localhost:5051 pnpm dev
 ```
 
-Com isso, o Next consegue consumir `/bff/*` via rewrite (SSR) sem CORS no browser.
+Compatibilidade: `LEGACY_ORIGIN` ainda pode ser usado como fallback para `DEV_BFF_ORIGIN`.
+
+Com isso, o Next consegue consumir:
+- `/api/*` e `/health` via `DEV_API_ORIGIN`
+- `/bff/*` via `DEV_BFF_ORIGIN`
 
 ## Estrutura (alto nível)
 
@@ -51,6 +55,8 @@ Com isso, o Next consegue consumir `/bff/*` via rewrite (SSR) sem CORS no browse
 Em produção, o padrão mais seguro é um reverse proxy roteando:
 
 - `/app/*` → Next.js
+- `/api/*` e `/health` → RHPortal.Api
+- `/bff/*` (enquanto necessário) → legado ASP.NET
 - todo o resto → ASP.NET MVC (legado)
 
 Rollback é simplesmente desfazer o roteamento do `/app/*`.

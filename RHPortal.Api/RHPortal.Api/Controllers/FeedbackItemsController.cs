@@ -18,6 +18,7 @@ public sealed class FeedbackItemsController : ControllerBase
     public async Task<ActionResult<FeedbackItemResponse>> Create(
         [FromBody] FeedbackCreateRequest request,
         [FromServices] FeedbackService service,
+        [FromServices] AwardPointsService awardPoints,
         CancellationToken ct)
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -25,6 +26,18 @@ public sealed class FeedbackItemsController : ControllerBase
             return Unauthorized();
 
         var created = await service.CreateAsync(request, fromUserId, ct);
+        await awardPoints.AwardAsync(
+            fromUserId,
+            GamificationEventTypes.FeedbackSent,
+            sourceId: created.Id.ToString(),
+            reason: "Enviar feedback",
+            ct);
+        await awardPoints.AwardAsync(
+            created.ToUserId,
+            GamificationEventTypes.FeedbackReceived,
+            sourceId: created.Id.ToString(),
+            reason: "Receber feedback",
+            ct);
         return CreatedAtAction(nameof(ListMine), new { page = 1, pageSize = 20 }, created);
     }
 

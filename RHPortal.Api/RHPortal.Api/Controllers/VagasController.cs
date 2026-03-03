@@ -1,5 +1,6 @@
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.Vagas.Handlers;
 using RhPortal.Api.Contracts.Matching;
@@ -20,16 +21,19 @@ public sealed class VagasController : ControllerBase
     private readonly IRHPortalAiMatchClient? _aiMatchClient;
     private readonly ITenantContext _tenantContext;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<VagasController> _logger;
 
     public VagasController(
         ICurrentUserContext userContext,
         ITenantContext tenantContext,
         IServiceScopeFactory scopeFactory,
+        ILogger<VagasController> logger,
         IRHPortalAiMatchClient? aiMatchClient = null)
     {
         _userContext = userContext;
         _tenantContext = tenantContext;
         _scopeFactory = scopeFactory;
+        _logger = logger;
         _aiMatchClient = aiMatchClient;
     }
 
@@ -120,15 +124,23 @@ public sealed class VagasController : ControllerBase
         CancellationToken ct = default)
     {
         if (_aiMatchClient == null)
-            return StatusCode(503, new { message = "Serviço de matching por IA (RHPortal.Ai) não configurado. Configure o cliente e execute o RHPortal.Ai." });
+            return StatusCode(503, new { message = "Serviço de matching por IA (RhAi/RHPortal.Ai) não configurado. Configure o cliente e execute o RHPortal.Ai." });
 
-        var unifiedItems = await _aiMatchClient.RunUnifiedMatchingAsync(
-            id,
-            _tenantContext.TenantId ?? "",
-            minScore,
-            Math.Clamp(take, 10, 100),
-            ct
-        ).ConfigureAwait(false);
+        IReadOnlyList<MatchingCandidateItemResponse>? unifiedItems;
+        try
+        {
+            unifiedItems = await _aiMatchClient.RunUnifiedMatchingAsync(
+                id,
+                _tenantContext.TenantId ?? "",
+                minScore,
+                Math.Clamp(take, 10, 100),
+                ct
+            ).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            return StatusCode(503, new { message = "RHPortal.Ai indisponível ou falha ao calcular matching. Verifique se o serviço está rodando e se há embeddings para vaga, candidatos e talentos." });
+        }
 
         if (unifiedItems == null)
             return StatusCode(503, new { message = "RHPortal.Ai indisponível ou falha ao calcular matching. Verifique se o serviço está rodando e se há embeddings para vaga, candidatos e talentos." });
@@ -153,7 +165,18 @@ public sealed class VagasController : ControllerBase
         [FromQuery] int take = 20,
         CancellationToken ct = default)
     {
+        var startedAt = DateTimeOffset.UtcNow;
         var snapshot = await cacheService.GetOrStartAsync(id, take, ct);
+        _logger.LogInformation(
+            "Matching ranking snapshot. Tenant={TenantId} VagaId={VagaId} Take={Take} Status={Status} Items={Items} StaleItems={StaleItems} ElapsedMs={ElapsedMs}",
+            _tenantContext.TenantId,
+            id,
+            take,
+            snapshot.Status,
+            snapshot.Items.Count,
+            snapshot.StaleItems.Count,
+            (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds
+        );
 
         if (snapshot.Status == RhPortal.Api.Domain.Entities.UnifiedMatchingCacheStatus.Ready)
         {
@@ -161,6 +184,7 @@ public sealed class VagasController : ControllerBase
             {
                 status = "ready",
                 filtersHash = snapshot.FiltersHash,
+                startedAtUtc = snapshot.StartedAtUtc,
                 computedAtUtc = snapshot.ComputedAtUtc,
                 items = snapshot.Items
             });
@@ -257,12 +281,19 @@ public sealed class VagasController : ControllerBase
     {
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
             return Forbid();
-        var updated = await handler.HandleAsync(id, request ?? new UpdateVagaMatchingFiltrosRequest(null), ct);
-        if (updated is null)
-            return NotFound();
-        // Dispara recálculo unificado em background; a tela lê do cache.
-        _ = unifiedCache.InvalidateAndStartAsync(id, take: 20, ct: CancellationToken.None);
-        return Ok(updated);
+        try
+        {
+            var updated = await handler.HandleAsync(id, request ?? new UpdateVagaMatchingFiltrosRequest(null), ct);
+            if (updated is null)
+                return NotFound();
+            // Dispara recálculo unificado em background; a tela lê do cache.
+            _ = unifiedCache.InvalidateAndStartAsync(id, take: 20, ct: CancellationToken.None);
+            return Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     private async Task RecalcMatchingScoresInBackgroundAsync(Guid vagaId, string tenantId)

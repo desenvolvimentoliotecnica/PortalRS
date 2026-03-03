@@ -89,8 +89,10 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<DevelopmentPlan> DevelopmentPlans => Set<DevelopmentPlan>();
     public DbSet<DevelopmentPlanGoal> DevelopmentPlanGoals => Set<DevelopmentPlanGoal>();
     public DbSet<OneOnOneMeeting> OneOnOneMeetings => Set<OneOnOneMeeting>();
+    public DbSet<MoodEntry> MoodEntries => Set<MoodEntry>();
     public DbSet<RenderCoinBalance> RenderCoinBalances => Set<RenderCoinBalance>();
     public DbSet<RenderCoinTransaction> RenderCoinTransactions => Set<RenderCoinTransaction>();
+    public DbSet<GamificationDailyState> GamificationDailyStates => Set<GamificationDailyState>();
     public DbSet<Survey> Surveys => Set<Survey>();
     public DbSet<SurveyQuestion> SurveyQuestions => Set<SurveyQuestion>();
     public DbSet<SurveyOption> SurveyOptions => Set<SurveyOption>();
@@ -1536,6 +1538,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<MoodEntry>(b =>
+        {
+            b.ToTable("MoodEntries");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Mood).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Note).HasMaxLength(500);
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.UserId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<RenderCoinBalance>(b =>
         {
             b.ToTable("RenderCoinBalances");
@@ -1573,6 +1594,28 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.HasIndex(x => new { x.TenantId, x.UserId });
             b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasIndex(x => new { x.TenantId, x.UserId, x.SourceType, x.SourceId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<GamificationDailyState>(b =>
+        {
+            b.ToTable("GamificationDailyStates");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CurrentStreak).IsRequired();
+            b.Property(x => x.BestStreak).IsRequired();
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.UserId }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.LastCheckInDate });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1618,6 +1661,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.SubmittedAtUtc).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.SurveyId });
             b.HasIndex(x => new { x.TenantId, x.UserId });
+            b.HasIndex(x => new { x.TenantId, x.SurveyId, x.UserId }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -2192,6 +2236,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) receipt.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) receipt.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is GamificationDailyState gamificationDailyState)
+            {
+                if (entry.State == EntityState.Added) gamificationDailyState.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) gamificationDailyState.UpdatedAtUtc = now;
             }
         }
         return await base.SaveChangesAsync(cancellationToken);

@@ -13,5 +13,10 @@ public sealed record MatchingCandidateItemResponse(
     string? Source = null,
     int? ScoreFiltros = null,
     int? ScoreRequisitos = null,
-    string? Justificativa = null
+    string? Justificativa = null,
+    int? MandatoryTotal = null,
+    int? MissingMandatoryCount = null,
+    int? MandatoryCoverage = null,
+    int? HardPenalty = null,
+    string? RuleVersion = null
 );

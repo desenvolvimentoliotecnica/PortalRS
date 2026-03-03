@@ -112,7 +112,46 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSwaggerGen(c =>
 {
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "RHPortal API",
+        Version = "v1",
+        Description = "API do RH Portal — recrutamento, matching, feedback e gestão."
+    });
+
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Informe o token JWT: Bearer {token}"
+    });
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+
+    c.CustomSchemaIds(type => type.FullName?.Replace("+", ".") ?? type.Name);
+
+    c.MapType<DateOnly>(() => new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string", Format = "date" });
+    c.MapType<DateOnly?>(() => new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string", Format = "date", Nullable = true });
+    c.MapType<TimeOnly>(() => new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string", Format = "time" });
+    c.MapType<TimeOnly?>(() => new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string", Format = "time", Nullable = true });
+
     c.OperationFilter<TenantHeaderOperationFilter>();
+
     var xmlName = $"{typeof(Program).Assembly.GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlName);
     if (File.Exists(xmlPath))
@@ -310,6 +349,7 @@ builder.Services.AddScoped<FeedbackService>();
 builder.Services.AddScoped<DevelopmentPlanService>();
 builder.Services.AddScoped<OneOnOneService>();
 builder.Services.AddScoped<GamificationService>();
+builder.Services.AddScoped<AwardPointsService>();
 builder.Services.AddScoped<IPortalCandidateAuthService, PortalCandidateAuthService>();
 builder.Services.AddScoped<IPasswordHasher<Candidato>, PasswordHasher<Candidato>>();
 builder.Services.AddScoped<ILocalizationConfigService, LocalizationConfigService>();
@@ -357,6 +397,8 @@ builder.Services.AddScoped<IGetVagaByIdHandler, GetVagaByIdHandler>();
 builder.Services.AddScoped<ICreateVagaHandler, CreateVagaHandler>();
 builder.Services.AddScoped<IUpdateVagaHandler, UpdateVagaHandler>();
 builder.Services.AddScoped<IDeleteVagaHandler, DeleteVagaHandler>();
+builder.Services.AddScoped<IUpdateVagaMatchingFiltrosHandler, UpdateVagaMatchingFiltrosHandler>();
+builder.Services.AddScoped<ICandidatoVagaMatchingScoreService, CandidatoVagaMatchingScoreService>();
 
 // Candidatos
 builder.Services.AddScoped<IListCandidatosHandler, ListCandidatosHandler>();
@@ -381,10 +423,11 @@ var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocali
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    var opSorterProp = c.ConfigObject.GetType().GetProperty("OperationsSorter");
-    opSorterProp?.SetValue(c.ConfigObject, "alpha");
-    var tagsSorterProp = c.ConfigObject.GetType().GetProperty("TagsSorter");
-    tagsSorterProp?.SetValue(c.ConfigObject, "alpha");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "RHPortal API v1");
+    c.DocumentTitle = "RHPortal API — Swagger";
+    c.ConfigObject.AdditionalItems["operationsSorter"] = "alpha";
+    c.ConfigObject.AdditionalItems["tagsSorter"] = "alpha";
+    c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
 });
 
 app.UseExceptionHandler();

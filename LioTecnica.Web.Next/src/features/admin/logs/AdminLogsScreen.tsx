@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Search, RefreshCw, Eye, BarChart3 } from "lucide-react";
+import { Search, RefreshCw, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,26 +14,35 @@ import { apiFetch } from "@/lib/api";
 interface AuditTransaction {
     id: string;
     userName: string | null;
-    action: string | null;
+    method: string | null;
+    path: string | null;
     entityName: string | null;
     timestamp: string;
     details: string | null;
+    statusCode?: number | null;
+    isSuccess?: boolean;
+    durationMs?: number;
 }
 
 interface AuditListResponse {
     items: AuditTransaction[];
-    totalCount: number;
+    totalItems: number;
+    totalPages: number;
 }
 
 interface AuditDetail {
     id: string;
+    transactionId?: string | null;
     userName: string | null;
     action: string | null;
     entityName: string | null;
+    path?: string | null;
+    method?: string | null;
     entityId: string | null;
     timestamp: string;
     details: string | null;
-    changes: Record<string, { oldValue: string; newValue: string }>[];
+    entries?: Array<{ level: string; message: string; occurredAt: string }>;
+    exceptions?: Array<{ exceptionType: string; message: string; occurredAt: string }>;
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -63,12 +72,31 @@ export default function AdminLogsScreen() {
         setLoading(true);
         try {
             const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-            if (q.trim()) params.set("q", q.trim());
+            if (q.trim()) params.set("search", q.trim());
             if (dateFrom) params.set("from", dateFrom);
             if (dateTo) params.set("to", dateTo);
-            const resp = await fetchJson<AuditListResponse>(`/Admin/Logs/_api/transactions?${params}`);
+            const raw = await fetchJson<any>(`/api/logs/requests?${params}`);
+            const resp: AuditListResponse = {
+                items: Array.isArray(raw?.items)
+                    ? raw.items.map((it: any) => ({
+                        id: String(it.id),
+                        userName: it.userName ?? null,
+                        method: it.method ?? null,
+                        path: it.path ?? null,
+                        action: `${it.method ?? ""} ${it.path ?? ""}`.trim() || null,
+                        entityName: it.path ?? null,
+                        timestamp: String(it.startedAt ?? ""),
+                        details: null,
+                        statusCode: typeof it.statusCode === "number" ? it.statusCode : null,
+                        isSuccess: Boolean(it.isSuccess),
+                        durationMs: typeof it.durationMs === "number" ? it.durationMs : undefined,
+                    }))
+                    : [],
+                totalItems: Number(raw?.totalItems ?? 0),
+                totalPages: Number(raw?.totalPages ?? 1),
+            };
             setTransactions(resp.items ?? []);
-            setTotal(resp.totalCount ?? 0);
+            setTotal(resp.totalItems ?? 0);
         } catch {
             toast.error("Falha ao carregar logs.");
         } finally {
@@ -81,8 +109,21 @@ export default function AdminLogsScreen() {
     async function viewDetail(id: string) {
         setLoadingDetail(true);
         try {
-            const d = await fetchJson<AuditDetail>(`/Admin/Logs/_api/transactions/${id}`);
-            setDetail(d);
+            const raw = await fetchJson<any>(`/api/logs/requests/${id}`);
+            setDetail({
+                id: String(raw?.id ?? id),
+                transactionId: raw?.transactionId ?? null,
+                userName: raw?.userName ?? null,
+                action: `${raw?.method ?? ""} ${raw?.path ?? ""}`.trim() || null,
+                entityName: raw?.controller ?? raw?.path ?? null,
+                path: raw?.path ?? null,
+                method: raw?.method ?? null,
+                entityId: raw?.correlationId ?? null,
+                timestamp: String(raw?.startedAt ?? ""),
+                details: raw?.queryString ?? null,
+                entries: Array.isArray(raw?.entries) ? raw.entries : [],
+                exceptions: Array.isArray(raw?.exceptions) ? raw.exceptions : [],
+            });
         } catch {
             toast.error("Falha ao carregar detalhes.");
         } finally {
@@ -124,8 +165,8 @@ export default function AdminLogsScreen() {
                     <div className="grid grid-cols-2 gap-2 text-sm">
                         <div><span className="text-muted-foreground">Usuário:</span> {detail.userName || "—"}</div>
                         <div><span className="text-muted-foreground">Ação:</span> {detail.action || "—"}</div>
-                        <div><span className="text-muted-foreground">Entidade:</span> {detail.entityName || "—"}</div>
-                        <div><span className="text-muted-foreground">ID Entidade:</span> <code className="text-xs">{detail.entityId || "—"}</code></div>
+                        <div><span className="text-muted-foreground">Rota:</span> {detail.path || "—"}</div>
+                        <div><span className="text-muted-foreground">Transação:</span> <code className="text-xs">{detail.transactionId || detail.entityId || "—"}</code></div>
                         <div><span className="text-muted-foreground">Data:</span> {new Date(detail.timestamp).toLocaleString("pt-BR")}</div>
                     </div>
                     {detail.details && <div className="text-xs text-muted-foreground mt-2 bg-muted/30 rounded p-2 font-mono whitespace-pre-wrap">{detail.details}</div>}
@@ -142,7 +183,7 @@ export default function AdminLogsScreen() {
                     </div>
                 </div>
                 <Table>
-                    <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Usuário</TableHead><TableHead>Ação</TableHead><TableHead>Entidade</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Usuário</TableHead><TableHead>Ação</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
                     <TableBody>
                         {loading ? (<TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
                         ) : transactions.length === 0 ? (<TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhum log encontrado.</TableCell></TableRow>
@@ -151,7 +192,7 @@ export default function AdminLogsScreen() {
                                 <TableCell className="text-xs whitespace-nowrap">{new Date(t.timestamp).toLocaleString("pt-BR")}</TableCell>
                                 <TableCell className="font-medium">{t.userName || "—"}</TableCell>
                                 <TableCell><span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{t.action || "—"}</span></TableCell>
-                                <TableCell className="text-sm text-muted-foreground">{t.entityName || "—"}</TableCell>
+                                <TableCell className="text-sm text-muted-foreground">{t.statusCode ?? "—"}</TableCell>
                                 <TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => void viewDetail(t.id)}><Eye className="size-4" /></Button></TableCell>
                             </TableRow>
                         )))}

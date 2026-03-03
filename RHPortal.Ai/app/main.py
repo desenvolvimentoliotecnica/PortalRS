@@ -1,6 +1,6 @@
 """
 API FastAPI para matching por IA unificado.
-Pipeline: embeddings (OpenAI) → pré-filtro vetorial (pgvector) → LLM scoring (80% filtros, 20% requisitos).
+Pipeline: embeddings (OpenAI) → pré-filtro vetorial (pgvector) → LLM scoring (regra versionada).
 """
 from typing import Any
 import time
@@ -59,6 +59,7 @@ class MatchRequest(BaseModel):
     vaga_id: str = Field(..., description="ID da vaga (UUID)")
     tenant_id: str | None = Field(None, description="ID do tenant (opcional)")
     limit: int | None = Field(None, ge=10, le=100, description="Tamanho do ranking (10-100, default: 20)")
+    rule_version: str | None = Field(None, description="Versão da regra: v1_80_20 ou v2_65_35_strict")
 
 
 class MatchItem(BaseModel):
@@ -67,9 +68,14 @@ class MatchItem(BaseModel):
     email: str
     source: str = Field(..., description="'candidato' ou 'talento'")
     similaridade_vetorial: int = Field(..., ge=0, le=100, description="Score vetorial pré-filtro")
-    score_filtros: int = Field(..., ge=0, le=100, description="Score filtros (peso 80%)")
-    score_requisitos: int = Field(..., ge=0, le=100, description="Score requisitos (peso 20%)")
+    score_filtros: int = Field(..., ge=0, le=100, description="Score filtros")
+    score_requisitos: int = Field(..., ge=0, le=100, description="Score requisitos")
     score_final: int = Field(..., ge=0, le=100, description="Score final ponderado")
+    mandatory_total: int = Field(0, ge=0, description="Total de requisitos obrigatórios")
+    missing_mandatory_count: int = Field(0, ge=0, description="Obrigatórios não atendidos")
+    mandatory_coverage: int = Field(100, ge=0, le=100, description="Cobertura de obrigatórios (0-100)")
+    hard_penalty: int = Field(0, ge=0, description="Penalidade rígida aplicada ao score final")
+    rule_version: str = Field("v1_80_20", description="Versão da regra aplicada")
     justificativa: str = Field("", description="Justificativa da avaliação")
 
 
@@ -87,6 +93,7 @@ class EvaluateOneRequest(BaseModel):
     person_id: str = Field(..., description="ID do candidato ou talento (UUID)")
     source: str = Field(..., description="'candidato' ou 'talento'")
     tenant_id: str | None = Field(None, description="ID do tenant (opcional)")
+    rule_version: str | None = Field(None, description="Versão da regra: v1_80_20 ou v2_65_35_strict")
 
 
 class EvaluateOneResponse(BaseModel):
@@ -95,6 +102,11 @@ class EvaluateOneResponse(BaseModel):
     score_filtros: int = Field(..., ge=0, le=100)
     score_requisitos: int = Field(..., ge=0, le=100)
     score_final: int = Field(..., ge=0, le=100)
+    mandatory_total: int = Field(0, ge=0)
+    missing_mandatory_count: int = Field(0, ge=0)
+    mandatory_coverage: int = Field(100, ge=0, le=100)
+    hard_penalty: int = Field(0, ge=0)
+    rule_version: str = "v1_80_20"
     justificativa: str = ""
 
 
@@ -227,7 +239,7 @@ def run_matching_endpoint(req: MatchRequest, background_tasks: BackgroundTasks) 
     """
     Executa matching unificado completo para uma vaga:
     1. Pré-filtro vetorial (Candidatos + Talentos)
-    2. LLM scoring (80% filtros, 20% requisitos)
+    2. LLM scoring (regra v1/v2)
     3. Retorna ranking ordenado.
 
     Se o resultado for vazio (ex.: talentos ainda sem embedding), dispara em
@@ -247,6 +259,7 @@ def run_matching_endpoint(req: MatchRequest, background_tasks: BackgroundTasks) 
             req.vaga_id,
             req.tenant_id,
             top_n=ranking_size,
+            rule_version=req.rule_version,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no matching unificado: {e!s}")
@@ -300,6 +313,7 @@ def evaluate_one_endpoint(req: EvaluateOneRequest) -> EvaluateOneResponse:
             req.person_id,
             req.source,
             req.tenant_id,
+            rule_version=req.rule_version,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro na avaliação: {e!s}")

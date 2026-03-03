@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { loadAppsHistory, saveAppsHistory, type AppHistoryItem } from "@/features/portalvagas/appsStorage";
+import { usePortalVagasLocale } from "@/features/portalvagas/usePortalVagasLocale";
+import { t } from "@/features/portalvagas/strings";
 const STATUS_OPTIONS = ["Aplicado", "Triagem", "Entrevista", "Teste", "Proposta", "Aprovado", "Reprovado", "Desistiu"] as const;
 const STATUS_COLORS: Record<string, string> = {
   Aprovado: "bg-green-600 text-white",
@@ -20,6 +22,8 @@ function uuid() {
 }
 
 export default function PortalVagasAppsSection() {
+  const locale = usePortalVagasLocale();
+  const s = t(locale).apps;
   const [items, setItems] = useState<AppHistoryItem[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -35,6 +39,7 @@ export default function PortalVagasAppsSection() {
     link: "",
     notes: "",
     stages: { applied: true, screen: false, interview: false, test: false, offer: false },
+    timeline: [] as Array<{ at: string; label: string; text: string }>,
   });
 
   const refresh = useCallback(() => {
@@ -78,6 +83,7 @@ export default function PortalVagasAppsSection() {
         link: item.link || "",
         notes: item.notes || "",
         stages: { ...{ applied: false, screen: false, interview: false, test: false, offer: false }, ...item.stages },
+        timeline: Array.isArray(item.timeline) ? [...item.timeline] : [],
       });
     } else {
       setEditing(null);
@@ -90,6 +96,7 @@ export default function PortalVagasAppsSection() {
         link: "",
         notes: "",
         stages: { applied: true, screen: false, interview: false, test: false, offer: false },
+        timeline: [],
       });
     }
     setModalOpen(true);
@@ -120,7 +127,7 @@ export default function PortalVagasAppsSection() {
       link: form.link.trim(),
       notes: form.notes.trim(),
       stages: form.stages,
-      timeline: editing?.timeline ?? [],
+      timeline: form.timeline,
       createdAt: editing?.createdAt ?? now,
       updatedAt: now,
     };
@@ -160,33 +167,102 @@ export default function PortalVagasAppsSection() {
     refresh();
   }
 
+  function downloadAppsSummary() {
+    const lines: string[] = [];
+    lines.push(s.summaryHeader);
+    lines.push(s.summaryGenerated + " " + new Date().toLocaleString(locale === "en-US" ? "en-US" : "pt-BR"));
+    lines.push("");
+    if (filtered.length === 0) {
+      lines.push(s.noApps);
+    } else {
+      filtered.forEach((a) => {
+        lines.push(`- ${a.title || "—"} | ${a.company || "—"} | ${a.location || "—"} | ${a.status || "Aplicado"} | ${a.date || "—"}`);
+      });
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const dl = document.createElement("a");
+    dl.href = URL.createObjectURL(blob);
+    dl.download = locale === "en-US" ? "application-history-liotecnica.txt" : "historico-candidaturas-liotecnica.txt";
+    document.body.appendChild(dl);
+    dl.click();
+    URL.revokeObjectURL(dl.href);
+    dl.remove();
+    toast.success(s.downloadSuccess);
+  }
+
+  function importFromMyApps() {
+    const w = typeof window !== "undefined" ? (window as unknown as { myApps?: unknown[] }) : null;
+    const arr = w?.myApps;
+    if (!Array.isArray(arr) || arr.length === 0) {
+      toast.info("Nada para importar. O array myApps não foi encontrado (legado).");
+      return;
+    }
+    const now = new Date().toISOString();
+    const existing = loadAppsHistory();
+    const existingIds = new Set(existing.map((x) => x.id));
+    let added = 0;
+    for (const a of arr) {
+      const item = a as Record<string, unknown>;
+      const title = String(item?.title ?? item?.titulo ?? "").trim();
+      const company = String(item?.company ?? item?.empresa ?? "").trim();
+      if (!title && !company) continue;
+      const id = (item?.id ? String(item.id) : uuid()) as string;
+      if (existingIds.has(id)) continue;
+      existingIds.add(id);
+      existing.push({
+        id,
+        title: title || "Sem título",
+        company,
+        location: String(item?.location ?? item?.local ?? "").trim(),
+        date: String(item?.date ?? item?.data ?? new Date().toLocaleDateString("pt-BR")),
+        status: String(item?.status ?? "Aplicado"),
+        link: String(item?.link ?? "").trim(),
+        notes: String(item?.notes ?? item?.observacoes ?? "").trim(),
+        stages: { applied: true, screen: false, interview: false, test: false, offer: false },
+        timeline: Array.isArray(item?.timeline) ? (item.timeline as Array<{ at: string; label: string; text: string }>) : [],
+        createdAt: now,
+        updatedAt: now,
+      });
+      added++;
+    }
+    saveAppsHistory(existing);
+    toast.success(added > 0 ? `${added} candidatura(s) importada(s).` : "Nenhuma candidatura nova para importar.");
+    refresh();
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="mini-title">Histórico de Candidaturas & Etapas</h4>
-          <p className="text-muted-foreground text-sm">Acompanhe suas candidaturas (MVP: salvo neste navegador).</p>
+          <h4 className="mini-title">{s.title}</h4>
+          <p className="text-muted-foreground text-sm">{s.subtitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn-ghost text-sm" type="button" onClick={seed}>
-            Inserir exemplo
+            {s.insertExample}
+          </button>
+          <button className="btn-ghost text-sm" type="button" onClick={importFromMyApps}>
+            {s.importFromMyApps}
           </button>
           <button className="btn-brand text-sm" type="button" onClick={() => openModal()}>
-            Nova candidatura
+            {s.newApp}
+          </button>
+          <button className="btn-ghost text-sm" type="button" onClick={downloadAppsSummary}>
+            {s.downloadSummary}
           </button>
           <button className="btn-ghost text-sm text-red-600" type="button" onClick={clear}>
-            Limpar
+            {s.clear}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
         <div className="md:col-span-6">
-          <input className="form-control" placeholder="Buscar por vaga, empresa, local..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="form-control" placeholder={s.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="md:col-span-3">
           <select className="form-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="">Status (todos)</option>
+            <option value="">{s.statusAll}</option>
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
@@ -194,16 +270,16 @@ export default function PortalVagasAppsSection() {
         </div>
         <div className="md:col-span-3">
           <select className="form-select" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-            <option value="new">Mais recentes</option>
-            <option value="old">Mais antigas</option>
-            <option value="status">Por status</option>
+            <option value="new">{s.sortNew}</option>
+            <option value="old">{s.sortOld}</option>
+            <option value="status">{s.sortStatus}</option>
           </select>
         </div>
       </div>
 
       <div className="space-y-2">
         {filtered.length === 0 ? (
-          <p className="text-muted-foreground text-sm py-4">Nenhuma candidatura cadastrada.</p>
+          <p className="text-muted-foreground text-sm py-4">{s.noApps}</p>
         ) : (
           filtered.map((app) => (
             <div key={app.id} className="rounded-xl border border-border/60 bg-white/60 p-4">
@@ -231,6 +307,17 @@ export default function PortalVagasAppsSection() {
                       );
                     })}
                   </div>
+                  {Array.isArray(app.timeline) && app.timeline.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {app.timeline.map((ev, i) => (
+                        <div key={i} className="text-xs text-muted-foreground flex gap-2">
+                          <span className="font-medium">{ev.at}</span>
+                          {ev.label && <span>{ev.label}</span>}
+                          {ev.text && <span>— {ev.text}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {app.notes && <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{app.notes}</p>}
                   {app.link && (
                     <a className="mt-2 inline-block text-sm text-blue-600 hover:underline" href={app.link} target="_blank" rel="noopener noreferrer">
@@ -302,6 +389,22 @@ export default function PortalVagasAppsSection() {
               <div className="md:col-span-2">
                 <label className="text-xs text-muted-foreground">Notas / feedback</label>
                 <textarea className="form-control" rows={3} placeholder="Ex.: entrevista marcada para 02/02 às 10:00" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs text-muted-foreground">Timeline (eventos)</label>
+                <div className="space-y-2 mt-1">
+                  {form.timeline.map((ev, i) => (
+                    <div key={i} className="flex gap-2 items-center rounded border p-2 bg-white/50">
+                      <input className="form-control text-xs flex-1" placeholder="Data" value={ev.at} onChange={(e) => setForm((f) => ({ ...f, timeline: f.timeline.map((t, j) => j === i ? { ...t, at: e.target.value } : t) }))} />
+                      <input className="form-control text-xs flex-1" placeholder="Etapa" value={ev.label} onChange={(e) => setForm((f) => ({ ...f, timeline: f.timeline.map((t, j) => j === i ? { ...t, label: e.target.value } : t) }))} />
+                      <input className="form-control text-xs flex-1" placeholder="Detalhe" value={ev.text} onChange={(e) => setForm((f) => ({ ...f, timeline: f.timeline.map((t, j) => j === i ? { ...t, text: e.target.value } : t) }))} />
+                      <button type="button" className="btn-ghost px-1 py-0.5 text-red-600 text-xs" onClick={() => setForm((f) => ({ ...f, timeline: f.timeline.filter((_, j) => j !== i) }))}>×</button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn-ghost text-xs" onClick={() => setForm((f) => ({ ...f, timeline: [...f.timeline, { at: new Date().toLocaleDateString("pt-BR"), label: "", text: "" }] }))}>
+                    + Adicionar evento
+                  </button>
+                </div>
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">

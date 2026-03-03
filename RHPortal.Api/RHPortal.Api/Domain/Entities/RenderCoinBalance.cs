@@ -4,6 +4,7 @@ namespace RhPortal.Api.Domain.Entities;
 /// RENDERCOINZ balance per user per tenant.
 /// </summary>
 public sealed class RenderCoinBalance
+    : ITenantEntity
 {
     public string TenantId { get; set; } = default!;
     public Guid UserId { get; set; }

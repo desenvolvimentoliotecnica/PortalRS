@@ -39,8 +39,6 @@ import { apiFetch } from "@/lib/api";
 import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
 import { clearSession, setAccessToken, setTenantId } from "@/lib/session";
 
-const GLOBAL_SEARCH_EVENT = "renderrh:global-search";
-
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
@@ -81,19 +79,40 @@ function setNativeInputValue(el: HTMLInputElement, next: string) {
   else el.value = next;
 }
 
-function pushGlobalSearchToCurrentScreen(nextQuery: string) {
-  const candidates = Array.from(document.querySelectorAll("main input"))
+function collectSearchInputs() {
+  return Array.from(document.querySelectorAll("main input"))
     .filter((node): node is HTMLInputElement => node instanceof HTMLInputElement)
     .filter((el) => !el.dataset.topbarGlobalSearch)
     .filter((el) => !el.disabled && !el.readOnly && el.type !== "hidden")
     .filter(isLikelySearchInput);
+}
 
-  for (const el of candidates) {
-    if (el.value === nextQuery) continue;
-    setNativeInputValue(el, nextQuery);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-    el.dispatchEvent(new Event("change", { bubbles: true }));
-  }
+function resolveScreenSearchTarget(): HTMLInputElement | null {
+  const marked = document.querySelector("main input[data-global-search-target='true']");
+  if (marked instanceof HTMLInputElement) return marked;
+
+  const byId = document.querySelector("main input#fSearch");
+  if (byId instanceof HTMLInputElement) return byId;
+
+  const byCommonName = document.querySelector("main input[name='q'], main input#q");
+  if (byCommonName instanceof HTMLInputElement) return byCommonName;
+
+  const candidates = collectSearchInputs();
+  if (candidates.length === 1) return candidates[0]!;
+  return candidates[0] ?? null;
+}
+
+function pushGlobalSearchToCurrentScreen(nextQuery: string) {
+  const target = resolveScreenSearchTarget();
+  if (!target) return;
+  if (target.value === nextQuery) return;
+  setNativeInputValue(target, nextQuery);
+  target.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function readScreenSearchFromTarget() {
+  const target = resolveScreenSearchTarget();
+  return target?.value ?? "";
 }
 
 export default function TopbarClient({
@@ -108,12 +127,18 @@ export default function TopbarClient({
   const [busy, setBusy] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const globalSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const syncingSearchRef = useRef(false);
 
   /* ─── Actions ─── */
 
   async function logout() {
     setBusy(true);
     try {
+      try {
+        await apiFetch("/api/auth/logout", { method: "POST" });
+      } catch {
+        // Backend pode não ter logout; continua com limpeza local
+      }
       clearSession();
       router.replace("/login");
       router.refresh();
@@ -215,23 +240,38 @@ export default function TopbarClient({
 
   useEffect(() => {
     // Mantém comportamento do legado: busca global é contextual por tela.
-    setGlobalSearchQuery("");
+    setGlobalSearchQuery(readScreenSearchFromTarget());
   }, [pathname]);
 
   useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent(GLOBAL_SEARCH_EVENT, {
-        detail: { query: globalSearchQuery },
-      }),
-    );
+    syncingSearchRef.current = true;
     pushGlobalSearchToCurrentScreen(globalSearchQuery);
+    queueMicrotask(() => {
+      syncingSearchRef.current = false;
+    });
   }, [globalSearchQuery]);
+
+  useEffect(() => {
+    function onDocumentInput(ev: Event) {
+      if (syncingSearchRef.current) return;
+      const source = ev.target;
+      if (!(source instanceof HTMLInputElement)) return;
+      const target = resolveScreenSearchTarget();
+      if (!target || source !== target) return;
+      const next = source.value ?? "";
+      setGlobalSearchQuery((prev) => (prev === next ? prev : next));
+    }
+    document.addEventListener("input", onDocumentInput, true);
+    return () => {
+      document.removeEventListener("input", onDocumentInput, true);
+    };
+  }, [pathname]);
 
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-2.5 lg:px-6">
       {/* ─── Left side: hamburger + brand title ─── */}
       <div className="flex items-center gap-3 min-w-0">
-        {/* Mobile hamburger */}
+        {/* Mobile hamburger — abre Sheet */}
         <Sheet>
           <SheetTrigger asChild>
             <Button

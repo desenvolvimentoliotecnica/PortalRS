@@ -8,7 +8,8 @@ export default defineConfig({
   },
   webServer: {
     command: "pnpm dev",
-    url: "http://localhost:3000/app/healthz",
+    url: "http://localhost:3000/app/login",
     reuseExistingServer: !process.env.CI,
+    timeout: 60_000,
   },
 });

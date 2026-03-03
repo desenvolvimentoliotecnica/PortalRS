@@ -102,6 +102,13 @@ public sealed class PortalVagasController : Controller
         return "U";
     }
 
+[Authorize(AuthenticationSchemes = CandidateAuthDefaults.Scheme + "," + CookieAuthenticationDefaults.AuthenticationScheme)]
+    [HttpGet("/PortalVagas/Context")]
+    public IActionResult GetContext()
+    {
+        return Ok(BuildIndexViewModel(User));
+    }
+
     [AllowAnonymous]
     [HttpGet("/PortalVagas/Acesso")]
     public async Task<IActionResult> Access([FromQuery] string? tenantId = null, [FromQuery] string? returnUrl = null)

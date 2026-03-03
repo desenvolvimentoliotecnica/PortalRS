@@ -64,6 +64,12 @@ interface LeaderboardEntry {
     balance: number;
     rank: number;
 }
+interface GamificationRule {
+    eventType: string;
+    label: string;
+    points: number;
+    dailyCap: number | null;
+}
 
 const MOODS = [
     { key: "very_bad", icon: Angry, label: "Muito mal", color: "text-red-500" },
@@ -86,6 +92,7 @@ export default function FeedbackInicioScreen() {
     const [profile, setProfile] = useState<GamificationProfile | null>(null);
     const [dailyActivities, setDailyActivities] = useState<DailyActivity[]>([]);
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+    const [rules, setRules] = useState<GamificationRule[]>([]);
     const [selectedMood, setSelectedMood] = useState<string | null>(null);
     const [moodSubmitted, setMoodSubmitted] = useState(false);
 
@@ -99,6 +106,7 @@ export default function FeedbackInicioScreen() {
                 fetchJson<DailyActivity[]>("/api/feedback/gamification/daily-activities"),
                 fetchJson<{ items: LeaderboardEntry[] }>("/api/feedback/gamification/leaderboard?page=1&pageSize=5"),
             ]);
+            const rulesData = await fetchJson<GamificationRule[]>("/api/feedback/gamification/rules").catch(() => []);
 
             if (kpiData.status === "fulfilled") setKpis(kpiData.value);
             if (meetingsData.status === "fulfilled") {
@@ -111,6 +119,7 @@ export default function FeedbackInicioScreen() {
             }
             if (activitiesData.status === "fulfilled") setDailyActivities(activitiesData.value ?? []);
             if (lbData.status === "fulfilled") setLeaderboard(lbData.value.items ?? []);
+            setRules(rulesData ?? []);
         } catch {
             // silent — dashboard shows empty state
         } finally {
@@ -119,6 +128,15 @@ export default function FeedbackInicioScreen() {
     }, []);
 
     useEffect(() => { void loadData(); }, [loadData]);
+    useEffect(() => {
+        const onFocus = () => { void loadData(); };
+        window.addEventListener("focus", onFocus);
+        const id = window.setInterval(() => { void loadData(); }, 60000);
+        return () => {
+            window.removeEventListener("focus", onFocus);
+            window.clearInterval(id);
+        };
+    }, [loadData]);
 
     async function submitMood(mood: string) {
         setSelectedMood(mood);
@@ -401,16 +419,12 @@ export default function FeedbackInicioScreen() {
                     <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                         <div className="font-semibold text-sm mb-2">Pontos por ação</div>
                         <div className="space-y-1.5 text-xs">
-                            {[
-                                ["Enviar feedback", "+10 RC"],
-                                ["Publicar celebração", "+8 RC"],
-                                ["Realizar reunião 1:1", "+10 RC"],
-                                ["Criar plano desenv.", "+15 RC"],
-                                ["Responder pesquisa", "+5 RC"],
-                            ].map(([action, pts]) => (
-                                <div key={action} className="flex justify-between py-0.5 border-b border-border/10 last:border-0">
-                                    <span className="text-muted-foreground">{action}</span>
-                                    <span className="font-semibold text-amber-600">{pts}</span>
+                            {rules.slice(0, 6).map((rule) => (
+                                <div key={rule.eventType} className="flex justify-between py-0.5 border-b border-border/10 last:border-0">
+                                    <span className="text-muted-foreground">{rule.label}</span>
+                                    <span className="font-semibold text-amber-600">
+                                        +{rule.points.toLocaleString("pt-BR")} RC
+                                    </span>
                                 </div>
                             ))}
                         </div>

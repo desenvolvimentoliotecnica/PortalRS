@@ -101,6 +101,33 @@ export default function PortalVagasNotificationsSection() {
     }
   }
 
+  function buildPreview() {
+    const channels: string[] = [];
+    if (form.canalEmail) channels.push("E-mail");
+    if (form.canalWhatsapp) channels.push("WhatsApp");
+    if (form.canalSms) channels.push("SMS");
+    if (form.canalPush) channels.push("Push");
+
+    const types: string[] = [];
+    if (form.alertaNovasVagas) types.push("Vagas");
+    if (form.alertaAtualizacoes) types.push("Status");
+    if (form.alertaEntrevistas) types.push("Entrevistas");
+    if (form.alertaMensagens) types.push("Mensagens");
+    if (form.alertaDocumentos) types.push("Docs");
+    if (form.alertaLembretes) types.push("Lembretes");
+
+    const quiet =
+      form.silencioAtivo?.toLowerCase() === "sim"
+        ? `Silêncio: ${form.silencioInicio || "?"}-${form.silencioFim || "?"} (${form.silencioPrioridade || "Normal"})`
+        : "Sem silêncio";
+
+    return `${channels.join(", ") || "Nenhum canal"} | ${form.frequencia || "Sem frequência"} | ${types.join(", ") || "Sem alertas"} | ${quiet}`;
+  }
+
+  function testNotify() {
+    toast.info("Teste de notificação (MVP): sua configuração foi aplicada.");
+  }
+
   if (loading) return <div className="text-muted-foreground text-sm">Carregando notificações...</div>;
 
   return (
@@ -178,9 +205,17 @@ export default function PortalVagasNotificationsSection() {
           <input className="form-control" value={form.silencioFim} onChange={(e) => setForm((f) => ({ ...f, silencioFim: e.target.value }))} />
         </div>
       </div>
-      <button className="btn-brand" type="button" disabled={saving} onClick={() => void save()}>
-        {saving ? "Salvando..." : "Salvar notificações"}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-brand" type="button" disabled={saving} onClick={() => void save()}>
+          {saving ? "Salvando..." : "Salvar notificações"}
+        </button>
+        <button className="btn-ghost" type="button" onClick={testNotify}>
+          Testar
+        </button>
+      </div>
+      <div className="rounded-lg border border-border/60 bg-slate-50 p-3 text-sm text-muted-foreground">
+        <strong className="text-slate-700">Resumo:</strong> {buildPreview()}
+      </div>
     </div>
   );
 }

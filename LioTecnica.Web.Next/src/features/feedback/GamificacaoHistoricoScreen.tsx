@@ -7,12 +7,14 @@ import { apiFetch } from "@/lib/api";
 
 /* ── Types ── */
 interface MonthEntry {
-    month: string;
-    top3: { userId: string; fullName: string; total: number }[];
-    goalLine: number;
+    year: number;
+    month: number;
+    monthLabel: string;
+    top3: { userId: string; fullName: string; points: number }[];
+    goal: number;
 }
 interface HistoryResponse {
-    months: MonthEntry[];
+    items: MonthEntry[];
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -29,7 +31,7 @@ export default function GamificacaoHistoricoScreen() {
         setLoading(true);
         try {
             const result = await fetchJson<HistoryResponse>("/api/feedback/gamification/history?months=12&goal=5000");
-            setData(result.months ?? []);
+            setData(result.items ?? []);
         } catch (err) {
             console.error("Failed to load gamification history", err);
         } finally {
@@ -38,6 +40,15 @@ export default function GamificacaoHistoricoScreen() {
     }, []);
 
     useEffect(() => { void loadData(); }, [loadData]);
+    useEffect(() => {
+        const onFocus = () => { void loadData(); };
+        window.addEventListener("focus", onFocus);
+        const id = window.setInterval(() => { void loadData(); }, 90000);
+        return () => {
+            window.removeEventListener("focus", onFocus);
+            window.clearInterval(id);
+        };
+    }, [loadData]);
 
     return (
         <section className="space-y-4">
@@ -62,10 +73,10 @@ export default function GamificacaoHistoricoScreen() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {data.map((month) => (
-                        <div key={month.month} className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                        <div key={`${month.year}-${month.month}`} className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                             <div className="flex items-center justify-between mb-3">
-                                <div className="font-semibold flex items-center gap-2"><BarChart3 className="size-4 text-primary" /> {month.month}</div>
-                                <span className="text-xs text-muted-foreground">Meta: {month.goalLine?.toLocaleString("pt-BR")} RC</span>
+                                <div className="font-semibold flex items-center gap-2"><BarChart3 className="size-4 text-primary" /> {month.monthLabel}</div>
+                                <span className="text-xs text-muted-foreground">Meta: {month.goal?.toLocaleString("pt-BR")} RC</span>
                             </div>
                             {month.top3?.length > 0 ? (
                                 <div className="space-y-2">
@@ -77,7 +88,7 @@ export default function GamificacaoHistoricoScreen() {
                                                 </span>
                                                 <span className="text-sm truncate max-w-[150px]">{entry.fullName}</span>
                                             </div>
-                                            <span className="font-mono font-semibold text-sm">{entry.total?.toLocaleString("pt-BR")} RC</span>
+                                            <span className="font-mono font-semibold text-sm">{entry.points?.toLocaleString("pt-BR")} RC</span>
                                         </div>
                                     ))}
                                 </div>

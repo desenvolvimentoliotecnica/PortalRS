@@ -4,12 +4,14 @@ Motor de Matching Unificado: Vetorização (pgvector) + LLM (GPT-4o-mini).
 Pipeline:
 1. Pré-filtro vetorial → top N (Candidatos UNION Talentos)
 2. LLM avalia cada top N:
-   - score_filtros (0-100) × 0.80
-   - score_requisitos (0-100) × 0.20
-3. Persiste ranking em CandidatoVagaMatchingScore
+   - v1: score_filtros (0-100) × 0.80 + score_requisitos (0-100) × 0.20
+   - v2: score_filtros (0-100) × 0.65 + score_requisitos (0-100) × 0.35 + gates rígidos
+3. Retorna ranking ordenado (candidatos + talentos)
 """
 import json
+import os
 import time
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Optional
 
@@ -36,10 +38,29 @@ from app.embeddings import (
 from app.vector_search import search_all_by_similarity
 from app.filtros import parse_matching_filtros_raw, criteria_to_prompt_text
 
-# ─── Pesos fixos ────────────────────────────────────────────────────────────
+# ─── Regras de score ────────────────────────────────────────────────────────
 
-PESO_FILTROS = 0.80
-PESO_REQUISITOS = 0.20
+RULE_V1 = "v1_80_20"
+RULE_V2 = "v2_65_35_strict"
+
+SUPPORTED_RULES = {RULE_V1, RULE_V2}
+DEFAULT_RULE = os.getenv("MATCHING_RULE_VERSION", RULE_V1).strip() or RULE_V1
+
+PESO_FILTROS_V1 = 0.80
+PESO_REQUISITOS_V1 = 0.20
+
+PESO_FILTROS_V2 = 0.65
+PESO_REQUISITOS_V2 = 0.35
+
+PENALTY_PER_MISSING_MANDATORY_V2 = 20
+PENALTY_MAX_V2 = 60
+MANDATORY_CAP_IF_MISSING_V2 = 89
+MANDATORY_CAP_IF_COVERAGE_LT_70_V2 = 79
+MANDATORY_CAP_IF_COVERAGE_LT_50_V2 = 69
+
+MAX_LLM_WORKERS = max(1, min(12, int(os.getenv("MATCHING_MAX_LLM_WORKERS", "5"))))
+VECTOR_LIMIT_MULTIPLIER = max(2, min(6, int(os.getenv("MATCHING_VECTOR_LIMIT_MULTIPLIER", "3"))))
+VECTOR_LIMIT_MAX = max(30, int(os.getenv("MATCHING_VECTOR_LIMIT_MAX", "300")))
 
 
 # ─── Pipeline Principal ────────────────────────────────────────────────────
@@ -48,12 +69,13 @@ def run_unified_matching(
     vaga_id: str,
     tenant_id: str | None = None,
     top_n: int | None = None,
+    rule_version: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Executa matching completo para uma vaga:
     1. Garante que a vaga tem embedding
     2. Busca vetorial UNION (Candidatos + Talentos) → top N
-    3. LLM avalia cada top N → score final 80/20
+    3. LLM avalia cada top N → score final pela regra selecionada
     4. Retorna ranking ordenado por score_final
 
     Args:
@@ -69,6 +91,7 @@ def run_unified_matching(
 
     ranking_size = top_n or DEFAULT_RANKING_SIZE
     ranking_size = max(10, min(100, ranking_size))
+    normalized_rule = _normalize_rule(rule_version)
 
     # 1. Buscar dados completos da vaga
     vaga = get_vaga_perfil(vaga_id, tenant_id)
@@ -79,8 +102,8 @@ def run_unified_matching(
     _ensure_vaga_embedding(vaga_id, vaga, tenant_id)
 
     # 3. Pré-filtro vetorial → top N
-    # Buscamos 2x o ranking para ter margem (o LLM pode descartar alguns)
-    vector_limit = ranking_size * 2
+    # Usa multiplicador configurável para equilibrar recall e latência.
+    vector_limit = min(VECTOR_LIMIT_MAX, ranking_size * VECTOR_LIMIT_MULTIPLIER)
     vector_results = search_all_by_similarity(
         vaga_id, tenant_id, limit=vector_limit, min_score=0
     )
@@ -130,11 +153,16 @@ def run_unified_matching(
         if scores is None:
             return None
 
-        score_final = round(
-            scores["score_filtros"] * PESO_FILTROS
-            + scores["score_requisitos"] * PESO_REQUISITOS
+        mandatory_total, mandatory_missing = _estimate_mandatory_coverage(
+            profile_text, requisitos
         )
-        score_final = max(0, min(100, score_final))
+        score_meta = _compute_final_score(
+            scores["score_filtros"],
+            scores["score_requisitos"],
+            mandatory_total,
+            mandatory_missing,
+            normalized_rule,
+        )
 
         return {
             "person_id": person_id,
@@ -144,12 +172,17 @@ def run_unified_matching(
             "similaridade_vetorial": person["similaridade"],
             "score_filtros": scores["score_filtros"],
             "score_requisitos": scores["score_requisitos"],
-            "score_final": score_final,
+            "score_final": score_meta["score_final"],
             "justificativa": scores.get("justificativa", ""),
+            "mandatory_total": score_meta["mandatory_total"],
+            "missing_mandatory_count": score_meta["missing_mandatory_count"],
+            "mandatory_coverage": score_meta["mandatory_coverage"],
+            "hard_penalty": score_meta["hard_penalty"],
+            "rule_version": normalized_rule,
         }
 
-    # Paralelizar avaliação LLM com até 5 workers
-    max_workers = min(5, len(vector_results))
+    # Paralelizar avaliação LLM com limite configurável
+    max_workers = min(MAX_LLM_WORKERS, len(vector_results))
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(_evaluate_one_person, p): p for p in vector_results}
         for future in as_completed(futures):
@@ -162,7 +195,11 @@ def run_unified_matching(
                 print(f"Erro ao avaliar {person.get('person_id', '?')}: {e}")
 
     elapsed = time.time() - t0
-    print(f"[matching] LLM avaliou {len(ranked)}/{len(vector_results)} pessoas em {elapsed:.1f}s ({max_workers} workers)")
+    print(
+        f"[matching] tenant={tenant_id or '-'} vaga={vaga_id} rule={normalized_rule} "
+        f"ranking={ranking_size} vectorLimit={vector_limit} workers={max_workers} "
+        f"avaliados={len(ranked)}/{len(vector_results)} elapsed={elapsed:.1f}s"
+    )
 
     # Ordenar por score final e limitar ao ranking_size
     ranked.sort(key=lambda x: x["score_final"], reverse=True)
@@ -176,6 +213,7 @@ def evaluate_single_person(
     person_id: str,
     source: str,
     tenant_id: str | None = None,
+    rule_version: str | None = None,
 ) -> dict[str, Any] | None:
     """
     Avalia uma única pessoa contra uma vaga.
@@ -214,18 +252,29 @@ def evaluate_single_person(
     if scores is None:
         return None
 
-    score_final = round(
-        scores["score_filtros"] * PESO_FILTROS
-        + scores["score_requisitos"] * PESO_REQUISITOS
+    normalized_rule = _normalize_rule(rule_version)
+    mandatory_total, mandatory_missing = _estimate_mandatory_coverage(
+        profile_text, requisitos
     )
-    score_final = max(0, min(100, score_final))
+    score_meta = _compute_final_score(
+        scores["score_filtros"],
+        scores["score_requisitos"],
+        mandatory_total,
+        mandatory_missing,
+        normalized_rule,
+    )
 
     return {
         "person_id": person_id,
         "source": source,
         "score_filtros": scores["score_filtros"],
         "score_requisitos": scores["score_requisitos"],
-        "score_final": score_final,
+        "score_final": score_meta["score_final"],
+        "mandatory_total": score_meta["mandatory_total"],
+        "missing_mandatory_count": score_meta["missing_mandatory_count"],
+        "mandatory_coverage": score_meta["mandatory_coverage"],
+        "hard_penalty": score_meta["hard_penalty"],
+        "rule_version": normalized_rule,
         "justificativa": scores.get("justificativa", ""),
     }
 
@@ -321,6 +370,90 @@ def _build_requisitos_text(requisitos: list[dict[str, Any]]) -> str:
         lines.append(text)
 
     return "\n".join(lines) if lines else "Nenhum requisito técnico definido"
+
+
+def _normalize_text(value: str) -> str:
+    s = (value or "").strip().lower()
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+    return s
+
+
+def _normalize_rule(rule_version: str | None) -> str:
+    rv = (rule_version or DEFAULT_RULE).strip()
+    return rv if rv in SUPPORTED_RULES else RULE_V1
+
+
+def _extract_requisito_terms(requisito: dict[str, Any]) -> list[str]:
+    nome = (requisito.get("Nome") or "").strip()
+    syn_raw = (requisito.get("SinonimosRaw") or "").strip()
+    terms = [nome]
+    if syn_raw:
+        terms.extend([t.strip() for t in syn_raw.replace(";", ",").split(",") if t.strip()])
+    return [_normalize_text(t) for t in terms if t]
+
+
+def _estimate_mandatory_coverage(profile_text: str, requisitos: list[dict[str, Any]]) -> tuple[int, int]:
+    """
+    Heurística leve para cobertura de obrigatórios.
+    Usada apenas para gates de rigor na regra v2.
+    """
+    normalized_profile = _normalize_text(profile_text)
+    mandatory = [r for r in requisitos if bool(r.get("Obrigatorio"))]
+    total = len(mandatory)
+    if total == 0:
+        return 0, 0
+
+    missing = 0
+    for r in mandatory:
+        terms = _extract_requisito_terms(r)
+        found = any(term and term in normalized_profile for term in terms)
+        if not found:
+            missing += 1
+    return total, missing
+
+
+def _compute_final_score(
+    score_filtros: int,
+    score_requisitos: int,
+    mandatory_total: int,
+    mandatory_missing: int,
+    rule_version: str,
+) -> dict[str, int]:
+    sf = max(0, min(100, int(score_filtros)))
+    sr = max(0, min(100, int(score_requisitos)))
+    total = max(0, int(mandatory_total))
+    missing = max(0, min(total, int(mandatory_missing)))
+    coverage = 100 if total == 0 else round(((total - missing) / total) * 100)
+
+    if rule_version == RULE_V2:
+        base = round(sf * PESO_FILTROS_V2 + sr * PESO_REQUISITOS_V2)
+        hard_penalty = min(PENALTY_MAX_V2, missing * PENALTY_PER_MISSING_MANDATORY_V2)
+        score = max(0, min(100, base - hard_penalty))
+
+        # Gates rígidos para tornar score alto difícil quando há lacunas técnicas.
+        if missing > 0:
+            score = min(score, MANDATORY_CAP_IF_MISSING_V2)
+        if coverage < 70:
+            score = min(score, MANDATORY_CAP_IF_COVERAGE_LT_70_V2)
+        if coverage < 50:
+            score = min(score, MANDATORY_CAP_IF_COVERAGE_LT_50_V2)
+
+        # 100 só em aderência quase perfeita.
+        if not (missing == 0 and sf >= 95 and sr >= 95):
+            score = min(score, 99)
+    else:
+        base = round(sf * PESO_FILTROS_V1 + sr * PESO_REQUISITOS_V1)
+        hard_penalty = 0
+        score = max(0, min(100, base))
+
+    return {
+        "score_final": score,
+        "mandatory_total": total,
+        "missing_mandatory_count": missing,
+        "mandatory_coverage": coverage,
+        "hard_penalty": hard_penalty,
+    }
 
 
 def _build_vaga_context(

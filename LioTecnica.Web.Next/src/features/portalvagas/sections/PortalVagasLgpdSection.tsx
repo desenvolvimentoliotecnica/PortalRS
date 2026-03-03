@@ -84,6 +84,53 @@ export default function PortalVagasLgpdSection() {
     }
   }
 
+  function lgpdRequestAccess() {
+    toast.info("Solicitação de acesso registrada (MVP).");
+  }
+
+  function lgpdRequestCorrection() {
+    toast.info("Solicitação de correção registrada (MVP).");
+  }
+
+  function lgpdRequestDeletion() {
+    const ok = confirm("Solicitar exclusão dos dados? (MVP)");
+    if (!ok) return;
+    toast.success("Solicitação de exclusão registrada (MVP).");
+  }
+
+  async function lgpdRevokeConsent() {
+    const ok = confirm("Revogar todos os consentimentos?");
+    if (!ok) return;
+    setForm((f) => ({
+      ...f,
+      processarCandidatura: false,
+      permitirContato: false,
+      bancoTalentos: false,
+      dadosSensiveis: false,
+      comunicacoes: false,
+    }));
+    try {
+      const res = await apiFetch("/PortalVagas/Lgpd", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          processarCandidatura: false,
+          permitirContato: false,
+          bancoTalentos: false,
+          retencaoMeses: form.retencaoMeses ? Number(form.retencaoMeses) : null,
+          compartilhamento: form.compartilhamento || null,
+          dadosSensiveis: false,
+          comunicacoes: false,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Consentimentos revogados.");
+      void load();
+    } catch {
+      toast.error("Falha ao revogar consentimentos.");
+    }
+  }
+
   if (loading) return <div className="text-muted-foreground text-sm">Carregando LGPD...</div>;
 
   return (
@@ -124,6 +171,20 @@ export default function PortalVagasLgpdSection() {
         </button>
         <button className="btn-ghost" type="button" onClick={() => void loadReceipt()}>
           Gerar comprovante
+        </button>
+        <button className="btn-ghost" type="button" onClick={() => void lgpdRevokeConsent()}>
+          Revogar consentimento
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <button className="btn-ghost text-sm" type="button" onClick={lgpdRequestAccess}>
+          Solicitar acesso aos dados
+        </button>
+        <button className="btn-ghost text-sm" type="button" onClick={lgpdRequestCorrection}>
+          Solicitar correção
+        </button>
+        <button className="btn-ghost text-sm text-red-600" type="button" onClick={lgpdRequestDeletion}>
+          Solicitar exclusão
         </button>
       </div>
       {data?.consentidoEmUtc && (

@@ -12,6 +12,12 @@ public sealed class TalentoImportPdfInput
     public Guid? TalentoId { get; set; }
 }
 
+public sealed class TalentoCurriculoExtrairInput
+{
+    public IFormFile? Arquivo { get; set; }
+    public bool EnviarParaGpt { get; set; } = true;
+}
+
 /// <summary>
 /// Base de talentos — listagem e CRUD de talentos (pessoa na base de talentos).
 /// </summary>
@@ -145,11 +151,11 @@ public sealed class TalentosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TalentoCurriculoExtrairResponse>> UploadCurriculoEExtrair(
         [FromRoute] Guid id,
-        [FromForm] IFormFile? arquivo,
+        [FromForm] TalentoCurriculoExtrairInput input,
         [FromServices] ITalentoService service,
-        CancellationToken ct,
-        [FromForm] bool enviarParaGpt = true)
+        CancellationToken ct)
     {
+        var arquivo = input.Arquivo;
         if (arquivo is null || arquivo.Length == 0)
             return BadRequest(new { message = "Arquivo PDF é obrigatório." });
 
@@ -161,7 +167,7 @@ public sealed class TalentosController : ControllerBase
         try
         {
             await using var stream = arquivo.OpenReadStream();
-            var result = await service.UploadCurriculoEExtrairAsync(id, stream, fileName, enviarParaGpt, ct);
+            var result = await service.UploadCurriculoEExtrairAsync(id, stream, fileName, input.EnviarParaGpt, ct);
             return result is null ? NotFound() : Ok(result);
         }
         catch (InvalidOperationException ex)

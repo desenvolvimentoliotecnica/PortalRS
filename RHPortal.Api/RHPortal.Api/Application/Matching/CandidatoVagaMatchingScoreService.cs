@@ -72,6 +72,11 @@ public sealed class CandidatoVagaMatchingScoreService : ICandidatoVagaMatchingSc
                     null,
                     null,
                     null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
                     null))
             .ToListAsync(ct);
         return list;
