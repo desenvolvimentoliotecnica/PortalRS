@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { loadAppsHistory, saveAppsHistory, type AppHistoryItem } from "@/features/portalvagas/appsStorage";
 import { usePortalVagasLocale } from "@/features/portalvagas/usePortalVagasLocale";
 import { t } from "@/features/portalvagas/strings";
+import { confirmDialog } from "@/lib/confirm-dialog";
 const STATUS_OPTIONS = ["Aplicado", "Triagem", "Entrevista", "Teste", "Proposta", "Aprovado", "Reprovado", "Desistiu"] as const;
 const STATUS_COLORS: Record<string, string> = {
   Aprovado: "bg-green-600 text-white",
@@ -140,8 +141,8 @@ export default function PortalVagasAppsSection() {
     refresh();
   }
 
-  function remove(id: string) {
-    if (!confirm("Remover esta candidatura do histórico?")) return;
+  async function remove(id: string) {
+    if (!(await confirmDialog({ title: "Remover candidatura", description: "Remover esta candidatura do histórico?", confirmText: "Remover", destructive: true }))) return;
     const h = loadAppsHistory();
     saveAppsHistory(h.filter((x) => x.id !== id));
     toast.success("Removido.");
@@ -160,8 +161,8 @@ export default function PortalVagasAppsSection() {
     refresh();
   }
 
-  function clear() {
-    if (!confirm("Limpar todo o histórico de candidaturas?")) return;
+  async function clear() {
+    if (!(await confirmDialog({ title: "Limpar histórico", description: "Limpar todo o histórico de candidaturas?", confirmText: "Limpar", destructive: true }))) return;
     saveAppsHistory([]);
     toast.success("Histórico limpo.");
     refresh();

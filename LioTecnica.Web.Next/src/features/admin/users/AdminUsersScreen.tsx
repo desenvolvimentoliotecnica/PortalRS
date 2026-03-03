@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 /* ── Types ── */
 interface UserListItem {
@@ -126,7 +127,7 @@ export default function AdminUsersScreen() {
     }
 
     async function handleDelete(userId: string, name: string) {
-        if (!confirm(`Remover o usuário "${name}"? Esta ação não pode ser desfeita.`)) return;
+        if (!(await confirmDialog({ title: "Remover usuário", description: `Remover o usuário "${name}"? Esta ação não pode ser desfeita.`, confirmText: "Remover", destructive: true }))) return;
         try {
             await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
             toast.success(`Usuário "${name}" removido.`);

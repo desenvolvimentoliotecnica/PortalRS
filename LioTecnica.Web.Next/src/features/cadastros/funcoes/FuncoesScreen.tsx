@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -394,7 +395,11 @@ export default function FuncoesScreen() {
   }
 
   async function reloadWithConfirm() {
-    const ok = confirm("Recarregar dados da API?");
+    const ok = await confirmDialog({
+      title: "Recarregar dados",
+      description: "Recarregar dados da API?",
+      confirmText: "Recarregar",
+    });
     if (!ok) return;
     setLoading(true);
     try {

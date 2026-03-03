@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 /* ── Types ── */
 interface OneOnOneMeeting {
@@ -178,7 +179,7 @@ export default function Reunioes1a1Screen() {
     }
 
     async function handleDelete(id: string) {
-        if (!confirm("Tem certeza que deseja excluir?")) return;
+        if (!(await confirmDialog({ title: "Excluir reunião", description: "Tem certeza que deseja excluir?", confirmText: "Excluir", destructive: true }))) return;
         try {
             await apiFetch(`/api/feedback/one-on-one/${id}`, { method: "DELETE" });
             toast.success("Reunião excluída.");

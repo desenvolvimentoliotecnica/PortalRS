@@ -11,6 +11,7 @@ import {
     Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -163,7 +164,12 @@ function ConfigTab() {
     }
 
     async function deleteKey(id: string) {
-        if (!confirm("Excluir esta chave? Modelos vinculados a ela deixarão de funcionar até você vincular a outra chave.")) return;
+        if (!(await confirmDialog({
+            title: "Excluir chave",
+            description: "Excluir esta chave? Modelos vinculados a ela deixarão de funcionar até você vincular a outra chave.",
+            confirmText: "Excluir",
+            destructive: true,
+        }))) return;
         try {
             await apiFetch(`${BASE}/keys/${id}`, { method: "DELETE" });
             toast.success("Chave excluída.");
@@ -174,7 +180,7 @@ function ConfigTab() {
     }
 
     async function deleteModel(id: string) {
-        if (!confirm("Excluir este modelo?")) return;
+        if (!(await confirmDialog({ title: "Excluir modelo", description: "Excluir este modelo?", confirmText: "Excluir", destructive: true }))) return;
         try {
             await apiFetch(`${BASE}/models/${id}`, { method: "DELETE" });
             toast.success("Modelo excluído.");

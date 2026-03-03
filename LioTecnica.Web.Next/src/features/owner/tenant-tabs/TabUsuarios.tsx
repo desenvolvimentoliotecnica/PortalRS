@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Edit, Key, Loader2, Plus, Search, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -146,7 +147,7 @@ export default function TabUsuarios({ tenantId }: { tenantId: string }) {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Remover este usuário?")) return;
+        if (!(await confirmDialog({ title: "Remover usuário", description: "Remover este usuário?", confirmText: "Remover", destructive: true }))) return;
         try {
             await fetchJson(`${apiBase}/delete/${id}`, { method: "POST" });
             toast.success("Usuário removido.");

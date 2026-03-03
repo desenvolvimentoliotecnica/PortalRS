@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Search, RefreshCw, Pencil, UserX, Unlock } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -367,7 +368,7 @@ export default function PessoasScreen() {
   async function unblock(item: PessoaListItem) {
     const bloqueioId = (item.bloqueioId ?? "").trim();
     if (!bloqueioId) return;
-    if (!confirm(`Desbloquear "${item.nome ?? ""}"?`)) return;
+    if (!(await confirmDialog({ title: "Desbloquear pessoa", description: `Desbloquear "${item.nome ?? ""}"?`, confirmText: "Desbloquear" }))) return;
     try {
       await fetchJson(`/api/bloqueio-pessoa/${encodeURIComponent(bloqueioId)}`, { method: "DELETE" });
       toast.success("Pessoa desbloqueada.");

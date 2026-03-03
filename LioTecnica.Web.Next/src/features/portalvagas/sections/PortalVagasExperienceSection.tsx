@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import type { ExperienceDto, ProjectDto } from "./types";
 
 type ExperienceProjectsResponse = { experiences: ExperienceDto[]; projects: ProjectDto[] };
@@ -81,7 +82,7 @@ export default function PortalVagasExperienceSection() {
   }
 
   async function deleteExp(id: string) {
-    if (!confirm("Remover esta experiência?")) return;
+    if (!(await confirmDialog({ title: "Remover experiência", description: "Remover esta experiência?", confirmText: "Remover", destructive: true }))) return;
     setSaving(true);
     try {
       const res = await apiFetch(`/PortalVagas/Experiences/${id}`, { method: "DELETE" });
@@ -140,7 +141,7 @@ export default function PortalVagasExperienceSection() {
   }
 
   async function deleteProj(id: string) {
-    if (!confirm("Remover este projeto?")) return;
+    if (!(await confirmDialog({ title: "Remover projeto", description: "Remover este projeto?", confirmText: "Remover", destructive: true }))) return;
     setSaving(true);
     try {
       const res = await apiFetch(`/PortalVagas/Projects/${id}`, { method: "DELETE" });

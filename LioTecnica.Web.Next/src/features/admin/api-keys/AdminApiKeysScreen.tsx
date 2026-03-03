@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 interface ApiKey {
     id: string;
@@ -62,7 +63,7 @@ export default function AdminApiKeysScreen() {
     }
 
     async function handleDelete(id: string, name: string) {
-        if (!confirm(`Remover a API key "${name}"?`)) return;
+        if (!(await confirmDialog({ title: "Remover API Key", description: `Remover a API key "${name}"?`, confirmText: "Remover", destructive: true }))) return;
         try { await apiFetch(`/api/admin/api-keys/${id}`, { method: "DELETE" }); toast.success(`API key "${name}" removida.`); void load(); }
         catch { toast.error("Falha ao remover."); }
     }

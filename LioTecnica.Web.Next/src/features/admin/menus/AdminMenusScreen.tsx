@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 /* ── Types ── */
 interface MenuItem {
@@ -152,7 +153,7 @@ export default function AdminMenusScreen() {
     }
 
     async function handleDelete(id: string, name: string) {
-        if (!confirm(`Remover o menu "${name}"?`)) return;
+        if (!(await confirmDialog({ title: "Remover menu", description: `Remover o menu "${name}"?`, confirmText: "Remover", destructive: true }))) return;
         try {
             await apiFetch(`/api/menus/${id}`, { method: "DELETE" });
             toast.success(`Menu "${name}" removido.`);

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import type { CertificationDto, SkillDto, SkillsPortfolioResponse } from "./types";
 
 export default function PortalVagasSkillsSection() {
@@ -130,7 +131,7 @@ export default function PortalVagasSkillsSection() {
   }
 
   async function deleteSkill(id: string) {
-    if (!confirm("Remover esta competência?")) return;
+    if (!(await confirmDialog({ title: "Remover competência", description: "Remover esta competência?", confirmText: "Remover", destructive: true }))) return;
     setSaving(true);
     try {
       const res = await apiFetch(`/PortalVagas/SkillsPortfolio/Skills/${id}`, { method: "DELETE" });
@@ -189,7 +190,7 @@ export default function PortalVagasSkillsSection() {
   }
 
   async function deleteCert(id: string) {
-    if (!confirm("Remover esta certificação?")) return;
+    if (!(await confirmDialog({ title: "Remover certificação", description: "Remover esta certificação?", confirmText: "Remover", destructive: true }))) return;
     setSaving(true);
     try {
       const res = await apiFetch(`/PortalVagas/SkillsPortfolio/Certifications/${id}`, { method: "DELETE" });

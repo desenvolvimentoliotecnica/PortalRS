@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 type AgendaPreferences = {
   interviewMode: string;
@@ -356,7 +357,7 @@ export default function PortalVagasAgendaScreen() {
   }
 
   async function deleteBlock(id: string) {
-    if (!confirm("Remover este bloqueio?")) return;
+    if (!(await confirmDialog({ title: "Remover bloqueio", description: "Remover este bloqueio?", confirmText: "Remover", destructive: true }))) return;
     if (STORAGE_ENABLED) {
       setModel((m) => {
         const next = { ...m, blocks: (m.blocks || []).filter((b) => b.id !== id), updatedAt: nowIso() };
@@ -377,7 +378,7 @@ export default function PortalVagasAgendaScreen() {
   }
 
   async function resetAgenda() {
-    if (!confirm("Limpar esta aba?")) return;
+    if (!(await confirmDialog({ title: "Limpar agenda", description: "Limpar esta aba?", confirmText: "Limpar", destructive: true }))) return;
     if (STORAGE_ENABLED) {
       try {
         localStorage.removeItem(STORAGE_KEY);

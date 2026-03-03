@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import type { DocumentDto } from "./types";
 
 type DocumentsResponse = { items: DocumentDto[] };
@@ -94,7 +95,7 @@ export default function PortalVagasDocumentsSection() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Remover este documento?")) return;
+    if (!(await confirmDialog({ title: "Remover documento", description: "Remover este documento?", confirmText: "Remover", destructive: true }))) return;
     setSaving(true);
     try {
       const res = await apiFetch(`/PortalVagas/Documents/${id}`, { method: "DELETE" });

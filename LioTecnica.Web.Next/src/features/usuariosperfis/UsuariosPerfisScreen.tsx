@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 /* ── Types ── */
 interface User { id: string; fullName: string; email: string; isActive: boolean; roles: string[]; }
@@ -225,7 +226,7 @@ function RolesTab() {
     }
 
     async function handleDelete(id: string, name: string) {
-        if (!confirm(`Remover "${name}"?`)) return;
+        if (!(await confirmDialog({ title: "Remover perfil", description: `Remover "${name}"?`, confirmText: "Remover", destructive: true }))) return;
         try { await apiFetch(`/api/roles/${id}`, { method: "DELETE" }); toast.success("Removido."); void load(); }
         catch { toast.error("Falha."); }
     }
@@ -301,7 +302,7 @@ function MenusTab() {
     }
 
     async function handleDelete(id: string, name: string) {
-        if (!confirm(`Remover "${name}"?`)) return;
+        if (!(await confirmDialog({ title: "Remover menu", description: `Remover "${name}"?`, confirmText: "Remover", destructive: true }))) return;
         try { await apiFetch(`/api/menus/${id}`, { method: "DELETE" }); toast.success("Removido."); void load(); }
         catch { toast.error("Falha."); }
     }

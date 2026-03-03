@@ -2,15 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import type { MatchingCandidate, VagaDetail, VagaListItem } from "@/lib/schemas/recrutamento";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import VagaFormModal from "./VagaFormModal";
 
 const BASE = "/app";
+const MATCHING_LAST_VAGA_KEY = "renderrh.matching.lastVagaId";
 
 type VagasPayload = unknown;
 
@@ -85,7 +87,42 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+function parseApiErrorMessage(raw: string): string {
+  const text = (raw || "").trim();
+  if (!text) return "";
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const detail = typeof parsed.detail === "string" ? parsed.detail : "";
+    const title = typeof parsed.title === "string" ? parsed.title : "";
+    return detail || title || text;
+  } catch {
+    return text;
+  }
+}
+
+function isVagaDeleteRestrictedByCandidates(message: string): boolean {
+  const m = (message || "").toLowerCase();
+  return m.includes("fk_candidatos_vagas_vagaid") || (m.includes("violates restrict") && m.includes("candidatos"));
+}
+
+function mapCandidatosList(payload: unknown): Array<{ id: string; nome: string }> {
+  const arr = Array.isArray(payload)
+    ? payload
+    : Array.isArray(asRecord(payload)?.items)
+      ? (asRecord(payload)?.items as unknown[])
+      : [];
+  return arr
+    .map((x) => {
+      const r = asRecord(x) ?? {};
+      const id = pickString(r.id, "").trim();
+      if (!id) return null;
+      return { id, nome: pickString(r.nome, "Candidato").trim() || "Candidato" };
+    })
+    .filter(Boolean) as Array<{ id: string; nome: string }>;
+}
+
 export default function VagasScreen() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const deeplinkHandled = useRef(false);
 
@@ -257,18 +294,78 @@ export default function VagasScreen() {
 
   async function deleteVaga(id: string) {
     const v = rows.find((x) => x.id === id);
-    const ok = confirm(`Excluir a vaga "${v?.titulo ?? ""}"?\n\nIsso remove também os requisitos.`);
-    if (!ok) return;
+    const vagaNome = (v?.titulo ?? "").trim();
+    if (vagaNome) {
+      const typed = prompt(
+        `Para confirmar a exclusão, digite o nome exato da vaga:\n\n${vagaNome}`,
+        "",
+      );
+      if (typed == null) return;
+      if (typed.trim() !== vagaNome) {
+        toast.error("Nome da vaga não confere. Exclusão cancelada.");
+        return;
+      }
+    } else {
+      const ok = await confirmDialog({
+        title: "Excluir vaga",
+        description: `Excluir a vaga sem título (ID: ${id})?`,
+        confirmText: "Excluir",
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+
     try {
       await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setRows((prev) => prev.filter((x) => x.id !== id));
       toast.success("Vaga excluída.");
-      await syncList();
-    } catch {
-      toast.error("Falha ao excluir vaga.");
+      await syncList().catch(() => null);
+    } catch (e) {
+      const msg = e instanceof Error ? parseApiErrorMessage(e.message) : "";
+      if (isVagaDeleteRestrictedByCandidates(msg)) {
+        const vinculadosPayload = await fetchJson<unknown>(
+          `${BASE}/api/candidatos?vagaId=${encodeURIComponent(id)}&pageSize=1000`,
+        ).catch(() => null);
+        const vinculados = mapCandidatosList(vinculadosPayload);
+        const proceed = await confirmDialog({
+          title: "Excluir vaga e candidatos vinculados",
+          description: `Existem ${vinculados.length || "vários"} candidatos vinculados. Deseja excluir todos os candidatos vinculados e, em seguida, excluir a vaga? Essa ação não pode ser desfeita.`,
+          confirmText: "Excluir tudo",
+          destructive: true,
+        });
+        if (!proceed) return;
+
+        let failed = 0;
+        for (const c of vinculados) {
+          try {
+            await fetchJson(`${BASE}/api/candidatos/${encodeURIComponent(c.id)}`, { method: "DELETE" });
+          } catch {
+            failed += 1;
+          }
+        }
+        if (failed > 0) {
+          toast.error(`Falha ao excluir ${failed} candidato(s). A vaga não foi removida.`);
+          return;
+        }
+
+        await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(id)}`, { method: "DELETE" });
+        setRows((prev) => prev.filter((x) => x.id !== id));
+        toast.success("Vaga e candidatos vinculados excluídos.");
+        await syncList().catch(() => null);
+        return;
+      }
+      toast.error(msg || "Falha ao excluir vaga.");
     }
   }
 
   async function duplicateVaga(id: string) {
+    const v = rows.find((x) => x.id === id);
+    const ok = await confirmDialog({
+      title: "Duplicar vaga",
+      description: `Duplicar a vaga "${v?.titulo ?? ""}"?`,
+      confirmText: "Duplicar",
+    });
+    if (!ok) return;
     try {
       const d = await ensureDetail(id);
       const r = asRecord(d) ?? {};
@@ -283,8 +380,8 @@ export default function VagasScreen() {
       });
       toast.success("Vaga duplicada.");
       await syncList();
-    } catch {
-      toast.error("Falha ao duplicar vaga.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao duplicar vaga.");
     }
   }
 
@@ -455,7 +552,17 @@ export default function VagasScreen() {
                           className="btn-ghost px-3 py-2 me-1"
                           type="button"
                           onClick={() => {
-                            window.location.href = `/app/matching?vagaId=${encodeURIComponent(v.id)}`;
+                            if (!v.id) {
+                              toast.error("Vaga inválida para abrir matching.");
+                              return;
+                            }
+                            try {
+                              sessionStorage.setItem(MATCHING_LAST_VAGA_KEY, v.id);
+                              localStorage.setItem(MATCHING_LAST_VAGA_KEY, v.id);
+                            } catch {
+                              // ignore storage errors
+                            }
+                            router.push(`/matching?vagaId=${encodeURIComponent(v.id)}`);
                           }}
                           title="Ver matching"
                         >

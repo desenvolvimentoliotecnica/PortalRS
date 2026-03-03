@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 const STORAGE_KEY = "liotec_portal_rh_tests_v1";
 
@@ -72,8 +73,8 @@ export default function PortalVagasTestsSection() {
     toast.success(`${list[idx].name} concluído. Resultado: ${score}%`);
   }
 
-  function resetAll() {
-    if (!confirm("Reiniciar todos os testes? Os resultados serão perdidos.")) return;
+  async function resetAll() {
+    if (!(await confirmDialog({ title: "Reiniciar testes", description: "Reiniciar todos os testes? Os resultados serão perdidos.", confirmText: "Reiniciar", destructive: true }))) return;
     saveTests(DEFAULT_TESTS.map((t) => ({ ...t, status: "Não iniciado", lastDone: null, score: null })));
     refresh();
     toast.success("Testes reiniciados.");
