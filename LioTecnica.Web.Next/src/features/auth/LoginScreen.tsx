@@ -123,17 +123,30 @@ export default function LoginScreen({
 
   useEffect(() => {
     async function updateHealth() {
-      try {
-        const res = await apiFetch(`/health`, { headers: { Accept: "application/json" } });
-        const data = (await res.json().catch(() => null)) as HealthCheckResponse | null;
-        setApiStatus(normalizeStatus(data?.status));
-        const checks = Array.isArray(data?.checks) ? data.checks : [];
-        const dbCheck = checks.find((c) => String(c?.name ?? "").toLowerCase() === "database");
-        setDbStatus(normalizeStatus(dbCheck?.status));
-      } catch {
-        setApiStatus("unhealthy");
-        setDbStatus("unhealthy");
+      const endpoints = ["/api/health", "/health"];
+      for (const endpoint of endpoints) {
+        try {
+          const res = await apiFetch(endpoint, { headers: { Accept: "application/json" }, cache: "no-store" });
+          const data = (await res.json().catch(() => null)) as HealthCheckResponse | null;
+          if (!data) continue;
+
+          // API "up" = endpoint respondeu (mesmo se algum health check específico estiver degradado).
+          setApiStatus("healthy");
+          const checks = Array.isArray(data.checks) ? data.checks : [];
+          const dbCheck = checks.find((c) => {
+            const name = String(c?.name ?? "").toLowerCase();
+            return name === "database_master";
+          }) ?? checks.find((c) => String(c?.name ?? "").toLowerCase() === "database");
+          setDbStatus(normalizeStatus(dbCheck?.status));
+          return;
+        } catch {
+          // tenta o próximo endpoint
+        }
       }
+
+      // Evita falso "vermelho" quando o endpoint de health não está exposto neste ambiente.
+      setApiStatus("unknown");
+      setDbStatus("unknown");
     }
     updateHealth();
     const t = window.setInterval(updateHealth, 30_000);
