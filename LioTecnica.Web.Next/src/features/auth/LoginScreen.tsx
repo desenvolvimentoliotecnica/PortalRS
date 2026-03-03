@@ -124,24 +124,44 @@ export default function LoginScreen({
   useEffect(() => {
     async function updateHealth() {
       const endpoints = ["/api/health", "/health"];
+      let fallbackStatus: { api: HealthStatus; db: HealthStatus } | null = null;
       for (const endpoint of endpoints) {
         try {
           const res = await apiFetch(endpoint, { headers: { Accept: "application/json" }, cache: "no-store" });
           const data = (await res.json().catch(() => null)) as HealthCheckResponse | null;
           if (!data) continue;
 
-          // API "up" = endpoint respondeu (mesmo se algum health check específico estiver degradado).
-          setApiStatus("healthy");
+          const overall = normalizeStatus(data.status);
           const checks = Array.isArray(data.checks) ? data.checks : [];
           const dbCheck = checks.find((c) => {
             const name = String(c?.name ?? "").toLowerCase();
             return name === "database_master";
           }) ?? checks.find((c) => String(c?.name ?? "").toLowerCase() === "database");
-          setDbStatus(normalizeStatus(dbCheck?.status));
-          return;
+          const db = dbCheck
+            ? normalizeStatus(dbCheck.status)
+            : (overall !== "unknown" ? overall : "unknown");
+
+          if (res.ok) {
+            // API "up" = endpoint respondeu com sucesso.
+            setApiStatus("healthy");
+            setDbStatus(db);
+            return;
+          }
+
+          // Guarda status de fallback e tenta o próximo endpoint antes de concluir.
+          fallbackStatus = {
+            api: overall === "unknown" ? "unhealthy" : overall,
+            db,
+          };
         } catch {
           // tenta o próximo endpoint
         }
+      }
+
+      if (fallbackStatus) {
+        setApiStatus(fallbackStatus.api);
+        setDbStatus(fallbackStatus.db);
+        return;
       }
 
       // Evita falso "vermelho" quando o endpoint de health não está exposto neste ambiente.
