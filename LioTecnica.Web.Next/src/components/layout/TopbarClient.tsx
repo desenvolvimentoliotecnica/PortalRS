@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 import Sidebar from "@/components/layout/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -125,6 +126,8 @@ export default function TopbarClient({
   const router = useRouter();
   const pathname = usePathname();
   const [busy, setBusy] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [locale, setLocale] = useState("pt-BR");
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const globalSearchInputRef = useRef<HTMLInputElement | null>(null);
   const syncingSearchRef = useRef(false);
@@ -186,9 +189,12 @@ export default function TopbarClient({
   }
 
   async function resetDb() {
-    const ok = confirm(
-      "⚠️ Resetar base de dados (DEV)?\n\nIsso apaga todos os dados e recria o banco. Tem certeza?",
-    );
+    const ok = await confirmDialog({
+      title: "Resetar base de dados (DEV)",
+      description: "Isso apaga todos os dados e recria o banco. Tem certeza?",
+      confirmText: "Resetar",
+      destructive: true,
+    });
     if (!ok) return;
     setBusy(true);
     try {
@@ -216,6 +222,15 @@ export default function TopbarClient({
     (me as Record<string, unknown>)?.roles?.toString().includes("Owner");
 
   const displayLabel = isOwner ? "Owner" : me?.tenantId ?? "—";
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      setLocale(localStorage.getItem("renderrh.locale") || "pt-BR");
+    } catch {
+      setLocale("pt-BR");
+    }
+  }, []);
 
   useEffect(() => {
     function onHotkey(ev: KeyboardEvent) {
@@ -272,26 +287,33 @@ export default function TopbarClient({
       {/* ─── Left side: hamburger + brand title ─── */}
       <div className="flex items-center gap-3 min-w-0">
         {/* Mobile hamburger — abre Sheet */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button
-              className="lg:hidden"
-              size="icon"
-              variant="ghost"
-            >
-              <Menu aria-hidden className="size-5 text-lt-primary" />
-              <span className="sr-only">Abrir menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent className="p-0" side="left">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Menu</SheetTitle>
-            </SheetHeader>
-            <div className="from-lt-primary to-lt-brand h-dvh bg-gradient-to-b text-white">
-              <Sidebar items={navItems} />
-            </div>
-          </SheetContent>
-        </Sheet>
+        {mounted ? (
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                className="lg:hidden"
+                size="icon"
+                variant="ghost"
+              >
+                <Menu aria-hidden className="size-5 text-lt-primary" />
+                <span className="sr-only">Abrir menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="p-0" side="left">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Menu</SheetTitle>
+              </SheetHeader>
+              <div className="from-lt-primary to-lt-brand h-dvh bg-gradient-to-b text-white">
+                <Sidebar items={navItems} />
+              </div>
+            </SheetContent>
+          </Sheet>
+        ) : (
+          <Button className="lg:hidden" size="icon" variant="ghost" disabled>
+            <Menu aria-hidden className="size-5 text-lt-primary" />
+            <span className="sr-only">Abrir menu</span>
+          </Button>
+        )}
 
         {/* Brand title — matches Razor "Devcraft Studio • Portal RH" */}
         <span className="text-sm font-semibold text-lt-primary tracking-wide whitespace-nowrap hidden sm:inline">
@@ -412,10 +434,16 @@ export default function TopbarClient({
                 <div className="px-2 pb-2">
                   <select
                     className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
-                    defaultValue={typeof window !== "undefined" ? localStorage.getItem("renderrh.locale") || "pt-BR" : "pt-BR"}
+                    value={locale}
+                    disabled={!mounted}
                     onChange={(e) => {
                       const locale = e.target.value;
-                      localStorage.setItem("renderrh.locale", locale);
+                      setLocale(locale);
+                      try {
+                        localStorage.setItem("renderrh.locale", locale);
+                      } catch {
+                        // ignore write errors
+                      }
                       // Reload so the Accept-Language header picks up the new locale
                       window.location.reload();
                     }}

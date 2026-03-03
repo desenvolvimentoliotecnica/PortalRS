@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 const BASE = "/app";
 
@@ -550,7 +551,12 @@ export default function CandidatosScreen() {
 
   async function sendToBloqueio(id: string) {
     const c = items.find((x) => x.id === id);
-    if (!confirm(`Enviar "${c?.nome ?? ""}" para Bloqueio de pessoa (blacklist)?`)) return;
+    if (!(await confirmDialog({
+      title: "Enviar para Bloqueio de pessoa",
+      description: `Enviar "${c?.nome ?? ""}" para Bloqueio de pessoa (blacklist)?`,
+      confirmText: "Enviar",
+      destructive: true,
+    }))) return;
     try {
       await fetchJson(`${BASE}/api/bloqueio-pessoa/from-candidato/${encodeURIComponent(id)}`, { method: "POST" });
       toast.success("Pessoa enviada para Bloqueio de pessoa.");
@@ -588,7 +594,12 @@ export default function CandidatosScreen() {
 
   async function deleteCandidate(id: string) {
     const c = items.find((x) => x.id === id);
-    if (!confirm(`Excluir o candidato "${c?.nome ?? ""}"?`)) return;
+    if (!(await confirmDialog({
+      title: "Excluir candidato",
+      description: `Excluir o candidato "${c?.nome ?? ""}"?`,
+      confirmText: "Excluir",
+      destructive: true,
+    }))) return;
     try {
       await fetchJson(`${BASE}/api/candidatos/${encodeURIComponent(id)}`, { method: "DELETE" });
       toast.success("Candidato excluído.");
@@ -1637,8 +1648,8 @@ function DocumentosBox({
                   <button
                     className="btn-ghost px-3 py-2 text-red-600"
                     type="button"
-                    onClick={() => {
-                      if (!confirm("Excluir documento?")) return;
+                    onClick={async () => {
+                      if (!(await confirmDialog({ title: "Excluir documento", description: "Excluir documento?", confirmText: "Excluir", destructive: true }))) return;
                       void deleteDocumento(candidato.id, d.id)
                         .then(() => {
                           onDeleted(d.id);

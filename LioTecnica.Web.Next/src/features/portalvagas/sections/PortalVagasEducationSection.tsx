@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import type { EducationItem, EducationResponse } from "./types";
 
 export default function PortalVagasEducationSection() {
@@ -109,7 +110,7 @@ export default function PortalVagasEducationSection() {
   }
 
   async function deleteItem(id: string) {
-    if (!confirm("Remover esta formação?")) return;
+    if (!(await confirmDialog({ title: "Remover formação", description: "Remover esta formação?", confirmText: "Remover", destructive: true }))) return;
     setSaving(true);
     try {
       const res = await apiFetch(`/PortalVagas/Education/Items/${id}`, { method: "DELETE" });

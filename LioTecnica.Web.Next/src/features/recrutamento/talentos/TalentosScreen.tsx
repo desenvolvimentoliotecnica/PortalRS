@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 const BASE = "/app";
 
@@ -219,7 +220,7 @@ export default function TalentosScreen({
   }
 
   async function deleteTalent(id: string, nome?: string | null) {
-    if (!confirm(`Eliminar talento "${nome ?? ""}"?`)) return;
+    if (!(await confirmDialog({ title: "Eliminar talento", description: `Eliminar talento "${nome ?? ""}"?`, confirmText: "Eliminar", destructive: true }))) return;
     try {
       await fetchJson(`/api/talentos/${encodeURIComponent(id)}`, { method: "DELETE" });
       toast.success("Talento eliminado.");

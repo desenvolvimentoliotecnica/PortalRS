@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 /* ── Types ── */
 interface DevelopmentPlan {
@@ -68,7 +69,7 @@ export default function MeusPlanosScreen() {
     const totalPages = Math.ceil((data?.totalItems ?? 0) / 20);
 
     async function handleDelete(id: string) {
-        if (!confirm("Excluir este plano?")) return;
+        if (!(await confirmDialog({ title: "Excluir plano", description: "Excluir este plano?", confirmText: "Excluir", destructive: true }))) return;
         try {
             await apiFetch(`/api/feedback/plans/${id}`, { method: "DELETE" });
             toast.success("Plano removido.");

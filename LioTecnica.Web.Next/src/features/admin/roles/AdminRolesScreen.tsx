@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 /* ── Types ── */
 interface RoleListItem {
@@ -146,7 +147,7 @@ export default function AdminRolesScreen() {
     }
 
     async function handleDelete(id: string, name: string) {
-        if (!confirm(`Remover o perfil "${name}"?`)) return;
+        if (!(await confirmDialog({ title: "Remover perfil", description: `Remover o perfil "${name}"?`, confirmText: "Remover", destructive: true }))) return;
         try {
             await apiFetch(`/api/roles/${id}`, { method: "DELETE" });
             toast.success(`Perfil "${name}" removido.`);

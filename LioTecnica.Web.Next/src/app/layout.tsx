@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
 import ThemeProvider from "@/components/providers/ThemeProvider";
+import ConfirmDialogProvider from "@/components/providers/ConfirmDialogProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,7 +30,7 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider>
-          {children}
+          <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
           <Toaster />
         </ThemeProvider>
       </body>

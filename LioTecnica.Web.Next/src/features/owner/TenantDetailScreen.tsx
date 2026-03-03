@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -163,9 +164,12 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
     }
 
     async function handleDelete() {
-        const ok = confirm(
-            `Tem certeza que deseja eliminar o tenant "${tenantId}"?\n\nO tenant ficará inativo e os usuários não poderão acessá-lo.`,
-        );
+        const ok = await confirmDialog({
+            title: "Eliminar tenant",
+            description: `Tem certeza que deseja eliminar o tenant "${tenantId}"? O tenant ficará inativo e os usuários não poderão acessá-lo.`,
+            confirmText: "Eliminar",
+            destructive: true,
+        });
         if (!ok) return;
         setBusy(true);
         try {

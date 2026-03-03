@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 interface BlockedPerson {
     id: string;
@@ -73,7 +74,7 @@ export default function BloqueioPessoaScreen() {
     }
 
     async function handleUnblock(id: string, nome: string) {
-        if (!confirm(`Desbloquear "${nome}"?`)) return;
+        if (!(await confirmDialog({ title: "Desbloquear pessoa", description: `Desbloquear "${nome}"?`, confirmText: "Desbloquear" }))) return;
         try {
             await apiFetch(`/api/bloqueio-pessoa/${id}`, { method: "DELETE" });
             toast.success(`"${nome}" desbloqueado.`);

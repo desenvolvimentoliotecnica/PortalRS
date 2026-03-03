@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import type { ReferenceDto } from "./types";
 
 type ReferencesResponse = { items: ReferenceDto[] };
@@ -52,7 +53,10 @@ export default function PortalVagasReferencesSection() {
       return;
     }
     if (form.podeContatar) {
-      const ok = confirm("Confirma contato imediato desta referência?");
+      const ok = await confirmDialog({
+        title: "Confirmar contato imediato",
+        description: "Confirma contato imediato desta referência?",
+      });
       if (!ok) return;
     }
     setSaving(true);
@@ -89,7 +93,10 @@ export default function PortalVagasReferencesSection() {
       return;
     }
     if (form.podeContatar) {
-      const ok = confirm("Confirma contato imediato desta referência?");
+      const ok = await confirmDialog({
+        title: "Confirmar contato imediato",
+        description: "Confirma contato imediato desta referência?",
+      });
       if (!ok) return;
     }
     setSaving(true);
@@ -121,7 +128,7 @@ export default function PortalVagasReferencesSection() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Remover esta referência?")) return;
+    if (!(await confirmDialog({ title: "Remover referência", description: "Remover esta referência?", confirmText: "Remover", destructive: true }))) return;
     setSaving(true);
     try {
       const res = await apiFetch(`/PortalVagas/References/${id}`, { method: "DELETE" });

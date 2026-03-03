@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import type { LgpdResponse } from "./types";
 
 export default function PortalVagasLgpdSection() {
@@ -92,14 +93,24 @@ export default function PortalVagasLgpdSection() {
     toast.info("Solicitação de correção registrada (MVP).");
   }
 
-  function lgpdRequestDeletion() {
-    const ok = confirm("Solicitar exclusão dos dados? (MVP)");
+  async function lgpdRequestDeletion() {
+    const ok = await confirmDialog({
+      title: "Solicitar exclusão",
+      description: "Solicitar exclusão dos dados? (MVP)",
+      confirmText: "Solicitar",
+      destructive: true,
+    });
     if (!ok) return;
     toast.success("Solicitação de exclusão registrada (MVP).");
   }
 
   async function lgpdRevokeConsent() {
-    const ok = confirm("Revogar todos os consentimentos?");
+    const ok = await confirmDialog({
+      title: "Revogar consentimentos",
+      description: "Revogar todos os consentimentos?",
+      confirmText: "Revogar",
+      destructive: true,
+    });
     if (!ok) return;
     setForm((f) => ({
       ...f,

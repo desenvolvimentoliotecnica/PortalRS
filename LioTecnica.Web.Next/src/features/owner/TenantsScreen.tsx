@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import {
     Building2,
     Plus,
@@ -240,9 +241,12 @@ export default function TenantsScreen() {
     }
 
     async function handleDelete(tenantId: string) {
-        const ok = confirm(
-            `Tem certeza que deseja eliminar o tenant "${tenantId}"?\n\nO tenant ficará inativo e os usuários não poderão acessá-lo.`,
-        );
+        const ok = await confirmDialog({
+            title: "Eliminar tenant",
+            description: `Tem certeza que deseja eliminar o tenant "${tenantId}"? O tenant ficará inativo e os usuários não poderão acessá-lo.`,
+            confirmText: "Eliminar",
+            destructive: true,
+        });
         if (!ok) return;
         setBusy(tenantId);
         try {

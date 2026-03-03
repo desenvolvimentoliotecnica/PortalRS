@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ApiLoginResponseSchema } from "@/lib/schemas/api";
 import { setAccessToken, setTenantId } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 
 type HealthStatus = "healthy" | "degraded" | "unhealthy" | "unknown";
 
@@ -160,7 +161,6 @@ export default function LoginScreenRazor({
       if (redirectUrl.startsWith("/app/")) redirectUrl = redirectUrl.slice("/app".length);
       if (!redirectUrl.startsWith("/")) redirectUrl = `/${redirectUrl}`;
       router.replace(redirectUrl);
-      router.refresh();
     } finally {
       setSubmitting(false);
     }
@@ -169,10 +169,10 @@ export default function LoginScreenRazor({
   async function onEntra() {
     const t = (tenant || "").trim();
     if (!t) {
-      window.alert("Informe o tenant para entrar com Microsoft.");
+      toast.warning("Informe o tenant para entrar com Microsoft.");
       return;
     }
-    window.alert("Login Microsoft (Entra ID) ainda não configurado nesta versão.");
+    toast.info("Login Microsoft (Entra ID) ainda não configurado nesta versão.");
   }
 
   const entraMessage =

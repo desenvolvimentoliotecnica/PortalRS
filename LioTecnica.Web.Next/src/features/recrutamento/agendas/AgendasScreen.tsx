@@ -11,6 +11,7 @@ import type {
   EventDropArg,
 } from "@fullcalendar/core";
 import { toast } from "sonner";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import {
   Calendar,
   ClipboardCheck,
@@ -948,8 +949,8 @@ export default function AgendasScreen() {
               <button
                 className="btn-ghost"
                 type="button"
-                onClick={() => {
-                  if (!confirm("Excluir este evento?")) return;
+                onClick={async () => {
+                  if (!(await confirmDialog({ title: "Excluir evento", description: "Excluir este evento?", confirmText: "Excluir", destructive: true }))) return;
                   void deleteEvent(selectedEvent.id).catch(() => toast.error("Falha ao excluir evento."));
                 }}
               >

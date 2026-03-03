@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 const BASE = "/app";
 
@@ -1076,8 +1077,8 @@ export default function EntradaEmailPastaScreen({
                         <button
                           className="btn-ghost text-red-700"
                           type="button"
-                          onClick={() => {
-                            if (!confirm("Descartar este item?")) return;
+                          onClick={async () => {
+                            if (!(await confirmDialog({ title: "Descartar item", description: "Descartar este item?", confirmText: "Descartar", destructive: true }))) return;
                             const next: InboxItem = {
                               ...selected,
                               status: "descartado",
