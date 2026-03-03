@@ -14,6 +14,7 @@ import { apiFetch } from "@/lib/api";
 interface AuditTransaction {
     id: string;
     userName: string | null;
+    action?: string | null;
     method: string | null;
     path: string | null;
     entityName: string | null;
