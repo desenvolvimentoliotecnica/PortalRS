@@ -1,12 +1,12 @@
 "use client";
 
 import { Suspense } from "react";
-import PortalVagasScreen from "@/features/portalvagas/PortalVagasScreen";
+import PortalVagasAccessScreen from "@/features/portalvagas/PortalVagasAccessScreen";
 
-export default function PortalVagasPage() {
+export default function PortalVagasAcessoPage() {
   return (
     <Suspense fallback={<div className="p-4 text-muted-foreground">Carregando...</div>}>
-      <PortalVagasScreen />
+      <PortalVagasAccessScreen />
     </Suspense>
   );
 }

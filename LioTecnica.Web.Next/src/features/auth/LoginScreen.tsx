@@ -6,6 +6,7 @@ import { Eye, EyeOff, Loader2, Building2, Mail, Lock, ArrowRight, Monitor } from
 import { ApiLoginResponseSchema, ApiOwnerLoginResponseSchema } from "@/lib/schemas/api";
 import { setAccessToken, setTenantId } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -192,11 +193,11 @@ export default function LoginScreen({
   function onEntra() {
     const t = (tenant || "").trim();
     if (!t) {
-      window.alert("Informe o tenant para entrar com Microsoft.");
+      toast.warning("Informe o tenant para entrar com Microsoft.");
       return;
     }
     // Entra ID flow not wired for RHPortal.Api yet.
-    window.alert("Login Microsoft (Entra ID) ainda não configurado nesta versão.");
+    toast.info("Login Microsoft (Entra ID) ainda não configurado nesta versão.");
   }
 
   /* ─── Render ─── */

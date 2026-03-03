@@ -121,30 +121,29 @@ No legado, o **PortalVagas** é um fluxo completo com cookie próprio (`Candidat
 
 | Rota legado | Descrição | Next | Status |
 |-------------|-----------|------|--------|
-| `/PortalVagas` | Index (lista de vagas ou redirect) | `/PortalVagas` | ⚠️ Ver abaixo |
-| `/PortalVagas/Acesso` | Login/registro candidato | — | ❌ **Falta** |
-| `/PortalVagas/Profile` | Perfil do candidato | — | ❌ **Falta** |
-| `/PortalVagas/SkillsPortfolio` | Skills e certificações | — | ❌ **Falta** |
-| `/PortalVagas/Education` | Formação | — | ❌ **Falta** |
-| `/PortalVagas/Preferences` | Preferências | — | ❌ **Falta** |
-| `/PortalVagas/Lgpd` | LGPD | — | ❌ **Falta** |
-| `/PortalVagas/Agenda` | Agenda/disponibilidade | — | Parcial (veja abaixo) |
-| `/PortalVagas/Notifications` | Notificações | — | ❌ **Falta** |
-| `/PortalVagas/Documents` | Documentos | — | ❌ **Falta** |
-| `/PortalVagas/ExperienceProjects` | Experiência e projetos | — | ❌ **Falta** |
-| `/PortalVagas/References` | Referências | — | ❌ **Falta** |
-| `/PortalVagas/Accessibility` | Acessibilidade | — | ❌ **Falta** |
+| `/PortalVagas` | Index (lista de vagas, catálogo, candidatura) | `/app/PortalVagas` | ✅ |
+| `/PortalVagas/Acesso` | Login/registro candidato | `/app/PortalVagas/Acesso` | ✅ |
+| `/PortalVagas/Profile` | Perfil do candidato | Modal no PortalVagas | ✅ |
+| `/PortalVagas/SkillsPortfolio` | Skills e certificações | Aba no modal perfil | ✅ |
+| `/PortalVagas/Education` | Formação | Aba no modal perfil | ✅ |
+| `/PortalVagas/Preferences` | Preferências | Aba no modal perfil | ✅ |
+| `/PortalVagas/Lgpd` | LGPD | Aba no modal perfil | ✅ |
+| `/PortalVagas/Agenda` | Agenda/disponibilidade | Aba principal + seção | ✅ |
+| `/PortalVagas/Notifications` | Notificações | Aba no modal perfil | ✅ |
+| `/PortalVagas/Documents` | Documentos | Aba no modal perfil | ✅ |
+| `/PortalVagas/ExperienceProjects` | Experiência e projetos | Aba no modal perfil | ✅ |
+| `/PortalVagas/References` | Referências | Aba no modal perfil | ✅ |
+| `/PortalVagas/Accessibility` | Acessibilidade | Aba no modal perfil | ✅ |
+| Histórico candidaturas (TabApps) | localStorage | Aba no modal perfil | ✅ |
+| Testes de RH (TabTests) | localStorage | Aba no modal perfil | ✅ |
 
 No Next hoje:
 
-- Existe apenas **uma** página: `PortalVagas/page.tsx` → `PortalVagasAgendaScreen` (agenda).
-- Não há rotas para Acesso, Profile, SkillsPortfolio, Education, Preferences, Lgpd, Notifications, Documents, ExperienceProjects, References, Accessibility.
+- **PortalVagas** (`/app/PortalVagas`): catálogo de vagas, filtros, candidatura, modal de perfil com 12 seções.
+- **PortalVagas/Acesso** (`/app/PortalVagas/Acesso`): login e registro com UFs/cidades dinâmicos.
+- **Modal de perfil**: Perfil, Competências, Formação, Preferências, LGPD, Notificações, Documentos, Experiência, Referências, Acessibilidade, Candidaturas (histórico), Testes RH.
 
-**Conclusão:** O Portal do Candidato no Next está **muito incompleto**. Para ficar igual ao legado é necessário:
-
-1. Autenticação do candidato (Acesso, logout, cookie/session).
-2. Todas as telas acima como rotas ou abas equivalentes ao legado.
-3. Layout e navegação do portal (menu/abas) alinhados ao Razor.
+**Conclusão:** O Portal do Candidato no Next está **completo** com paridade funcional ao legado Razor.
 
 ---
 
@@ -196,7 +195,7 @@ No legado várias coisas são feitas em **modais** ou **telas de edição**. No 
 ## 8. Checklist de conclusão da migração
 
 - [ ] Rota `Owner/Tenants/[tenantId]` criada e funcionando.
-- [ ] PortalVagas: Acesso (login/registro), Profile, SkillsPortfolio, Education, Preferences, Lgpd, Agenda, Notifications, Documents, ExperienceProjects, References, Accessibility.
+- [x] PortalVagas: Acesso (login/registro), Profile, SkillsPortfolio, Education, Preferences, Lgpd, Agenda, Notifications, Documents, ExperienceProjects, References, Accessibility, Histórico candidaturas, Testes RH.
 - [ ] Candidatos: tela ou modal de detalhes do candidato.
 - [ ] Login (cookie/session + Entra ID se aplicável) e logout iguais ao legado.
 - [ ] Admin: edição de Roles, Users e Menus equivalente ao legado.

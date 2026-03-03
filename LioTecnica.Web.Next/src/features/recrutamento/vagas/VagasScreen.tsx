@@ -8,32 +8,13 @@ import type { MatchingCandidate, VagaDetail, VagaListItem } from "@/lib/schemas/
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
+import VagaFormModal from "./VagaFormModal";
 
 const BASE = "/app";
 
 type VagasPayload = unknown;
 
 type DetailTab = "resumo" | "requisitos" | "candidatos";
-
-type ReqDraft = {
-  nome: string;
-  peso: number;
-  obrigatorio: boolean;
-};
-
-type VagaDraft = {
-  id?: string;
-  titulo: string;
-  codigo: string;
-  area: string;
-  modalidade: string;
-  cidade: string;
-  uf: string;
-  status: string;
-  descricao: string;
-  threshold: number;
-  requisitos: ReqDraft[];
-};
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -125,18 +106,7 @@ export default function VagasScreen() {
   const [savingDetail, setSavingDetail] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
-  const [draft, setDraft] = useState<VagaDraft>(() => ({
-    titulo: "",
-    codigo: "",
-    area: "",
-    modalidade: "presencial",
-    cidade: "",
-    uf: "",
-    status: "aberta",
-    descricao: "",
-    threshold: 70,
-    requisitos: [],
-  }));
+  const [editId, setEditId] = useState<string | null>(null);
 
   async function syncList() {
     const payload = await fetchJson<VagasPayload>(`${BASE}/api/vagas`);
@@ -207,11 +177,18 @@ export default function VagasScreen() {
     }
   }
 
-  // Deep-link support: /app/vagas?vagaId=...&open=detail
+  // Deep-link support:
+  // - /app/vagas?vagaId=...&open=detail
+  // - /app/vagas?open=create&titulo=...&area=...&status=...&keywords=a,b,c
   useEffect(() => {
     if (deeplinkHandled.current) return;
     const open = searchParams.get("open");
     const vagaId = searchParams.get("vagaId");
+    if ((open === "create" || open === "new") && !vagaId) {
+      openNew();
+      deeplinkHandled.current = true;
+      return;
+    }
     if (open === "detail" && vagaId) {
       deeplinkHandled.current = true;
       void openDetails(vagaId);
@@ -219,57 +196,13 @@ export default function VagasScreen() {
   }, [openDetails, searchParams]);
 
   function openNew() {
-    setDraft({
-      id: undefined,
-      titulo: "",
-      codigo: "",
-      area: "",
-      modalidade: "presencial",
-      cidade: "",
-      uf: "",
-      status: "aberta",
-      descricao: "",
-      threshold: 70,
-      requisitos: [],
-    });
+    setEditId(null);
     setEditOpen(true);
   }
 
-  async function openEdit(id: string) {
-    try {
-      const d = await ensureDetail(id);
-      const r = asRecord(d) ?? {};
-      const reqsRaw = Array.isArray(r.requisitos) ? r.requisitos : [];
-      const reqs: ReqDraft[] = reqsRaw
-        .map((x) => {
-          const rr = asRecord(x) ?? {};
-          const nome = pickString(rr.nome ?? rr.termo ?? rr.titulo ?? rr.texto, "").trim();
-          if (!nome) return null;
-          return {
-            nome,
-            peso: clamp(pickNumber(rr.peso, 1), 0, 10),
-            obrigatorio: !!(rr.obrigatorio ?? rr.required ?? rr.obrigatoria),
-          };
-        })
-        .filter(Boolean) as ReqDraft[];
-
-      setDraft({
-        id,
-        titulo: pickString(r.titulo, ""),
-        codigo: pickString(r.codigo, ""),
-        area: pickString(r.area, ""),
-        modalidade: pickString(r.modalidade, "presencial"),
-        cidade: pickString(r.cidade, ""),
-        uf: pickString(r.uf, ""),
-        status: pickString(r.status, "aberta"),
-        descricao: pickString(r.descricao, ""),
-        threshold: clamp(pickNumber(r.threshold ?? r.matchMinimoPercentual, 70), 0, 100),
-        requisitos: reqs,
-      });
-      setEditOpen(true);
-    } catch {
-      toast.error("Falha ao abrir edição.");
-    }
+  function openEdit(id: string) {
+    setEditId(id);
+    setEditOpen(true);
   }
 
   function exportJson() {
@@ -316,51 +249,10 @@ export default function VagasScreen() {
     await syncList();
   }
 
-  async function saveDraft() {
-    const payload: Record<string, unknown> = {
-      titulo: draft.titulo.trim(),
-      codigo: draft.codigo.trim() || null,
-      area: draft.area.trim() || null,
-      modalidade: draft.modalidade.trim() || null,
-      cidade: draft.cidade.trim() || null,
-      uf: draft.uf.trim() || null,
-      status: draft.status.trim() || null,
-      descricao: draft.descricao.trim() || null,
-      threshold: clamp(draft.threshold, 0, 100),
-      matchMinimoPercentual: clamp(draft.threshold, 0, 100),
-      requisitos: draft.requisitos
-        .filter((r) => r.nome.trim())
-        .map((r, idx) => ({
-          ordem: idx + 1,
-          categoria: "geral",
-          nome: r.nome.trim(),
-          termo: r.nome.trim(),
-          peso: String(clamp(r.peso, 0, 10)),
-          obrigatorio: !!r.obrigatorio,
-        })),
-    };
-
-    try {
-      if (draft.id) {
-        await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(draft.id)}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        toast.success("Vaga atualizada.");
-      } else {
-        await fetchJson(`${BASE}/api/vagas`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        toast.success("Vaga criada.");
-      }
-      setEditOpen(false);
-      await syncList();
-    } catch {
-      toast.error("Falha ao salvar vaga.");
-    }
+  async function handleFormSaved() {
+    setEditOpen(false);
+    setEditId(null);
+    await syncList();
   }
 
   async function deleteVaga(id: string) {
@@ -937,186 +829,12 @@ export default function VagasScreen() {
         </div>
       ) : null}
 
-      {editOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="card-soft w-full max-w-4xl p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="mini-title mb-1">{draft.id ? "Editar vaga" : "Nova vaga"}</p>
-                <div className="text-lg font-extrabold">{draft.id ? "Atualizar" : "Cadastrar"}</div>
-              </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setEditOpen(false)}>
-                Fechar
-              </button>
-            </div>
-
-            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
-              <div className="md:col-span-8">
-                <label className="mini-title mb-1 block">Título</label>
-                <input className="form-control" value={draft.titulo} onChange={(e) => setDraft({ ...draft, titulo: e.target.value })} />
-              </div>
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Código</label>
-                <input className="form-control" value={draft.codigo} onChange={(e) => setDraft({ ...draft, codigo: e.target.value })} />
-              </div>
-
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Área</label>
-                <input className="form-control" value={draft.area} onChange={(e) => setDraft({ ...draft, area: e.target.value })} />
-              </div>
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Modalidade</label>
-                <select className="form-select" value={draft.modalidade} onChange={(e) => setDraft({ ...draft, modalidade: e.target.value })}>
-                  <option value="presencial">Presencial</option>
-                  <option value="hibrido">Híbrido</option>
-                  <option value="remoto">Remoto</option>
-                </select>
-              </div>
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Status</label>
-                <select className="form-select" value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
-                  <option value="aberta">Aberta</option>
-                  <option value="rascunho">Rascunho</option>
-                  <option value="pausada">Pausada</option>
-                  <option value="fechada">Fechada</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Cidade</label>
-                <input className="form-control" value={draft.cidade} onChange={(e) => setDraft({ ...draft, cidade: e.target.value })} />
-              </div>
-              <div className="md:col-span-2">
-                <label className="mini-title mb-1 block">UF</label>
-                <input className="form-control" value={draft.uf} onChange={(e) => setDraft({ ...draft, uf: e.target.value })} />
-              </div>
-              <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Match mínimo</label>
-                <input
-                  className="form-control"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={draft.threshold}
-                  onChange={(e) => setDraft({ ...draft, threshold: clamp(Number(e.target.value), 0, 100) })}
-                />
-              </div>
-
-              <div className="md:col-span-12">
-                <label className="mini-title mb-1 block">Descrição</label>
-                <textarea className="form-control" rows={4} value={draft.descricao} onChange={(e) => setDraft({ ...draft, descricao: e.target.value })} />
-              </div>
-
-              <div className="md:col-span-12">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="fw-semibold">Requisitos (simples)</div>
-                  <button
-                    className="btn-ghost"
-                    type="button"
-                    onClick={() =>
-                      setDraft((d) => ({ ...d, requisitos: [...d.requisitos, { nome: "", peso: 1, obrigatorio: false }] }))
-                    }
-                  >
-                    + Adicionar
-                  </button>
-                </div>
-
-                <div className="table-responsive">
-                  <table className="table mb-0">
-                    <thead>
-                      <tr>
-                        <th>Nome</th>
-                        <th style={{ width: 120 }}>Peso</th>
-                        <th style={{ width: 160 }}>Obrigatório</th>
-                        <th style={{ width: 120 }} className="text-end">
-                          Ações
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {draft.requisitos.length ? (
-                        draft.requisitos.map((r, idx) => (
-                          <tr key={idx}>
-                            <td>
-                              <input
-                                className="form-control"
-                                value={r.nome}
-                                onChange={(e) =>
-                                  setDraft((d) => {
-                                    const next = d.requisitos.slice();
-                                    next[idx] = { ...next[idx], nome: e.target.value };
-                                    return { ...d, requisitos: next };
-                                  })
-                                }
-                              />
-                            </td>
-                            <td>
-                              <input
-                                className="form-control"
-                                type="number"
-                                min={0}
-                                max={10}
-                                value={r.peso}
-                                onChange={(e) =>
-                                  setDraft((d) => {
-                                    const next = d.requisitos.slice();
-                                    next[idx] = { ...next[idx], peso: clamp(Number(e.target.value), 0, 10) };
-                                    return { ...d, requisitos: next };
-                                  })
-                                }
-                              />
-                            </td>
-                            <td>
-                              <label className="inline-flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={r.obrigatorio}
-                                  onChange={(e) =>
-                                    setDraft((d) => {
-                                      const next = d.requisitos.slice();
-                                      next[idx] = { ...next[idx], obrigatorio: e.target.checked };
-                                      return { ...d, requisitos: next };
-                                    })
-                                  }
-                                />
-                                <span className="text-sm">Obrigatório</span>
-                              </label>
-                            </td>
-                            <td className="text-end">
-                              <button
-                                className="btn-ghost text-red-600"
-                                type="button"
-                                onClick={() => setDraft((d) => ({ ...d, requisitos: d.requisitos.filter((_, i) => i !== idx) }))}
-                              >
-                                Remover
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={4} className="text-center text-muted py-4">
-                            Sem requisitos.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setEditOpen(false)}>
-                Cancelar
-              </button>
-              <button className="btn-brand" type="button" onClick={() => void saveDraft()}>
-                Salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <VagaFormModal
+        open={editOpen}
+        editId={editId}
+        onClose={() => { setEditOpen(false); setEditId(null); }}
+        onSaved={() => void handleFormSaved()}
+      />
     </section>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import { AuthGuard } from "@/hooks/useAuth";
-import DesempenhoScreen from "@/features/desempenho/DesempenhoScreen";
+import DesempenhoMinhasAvaliacoesScreen from "@/features/feedback/desempenho/DesempenhoMinhasAvaliacoesScreen";
 
 export default function Page() {
     return (
         <AuthGuard>
-            <DesempenhoScreen />
+            <DesempenhoMinhasAvaliacoesScreen />
         </AuthGuard>
     );
 }

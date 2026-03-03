@@ -240,6 +240,31 @@ function goToVagaDetail(vagaId: string) {
   window.location.href = url.toString();
 }
 
+function goToCreateVaga(payload?: {
+  titulo?: string;
+  area?: string;
+  status?: string;
+  keywords?: string;
+}) {
+  const url = new URL(`/app/vagas`, window.location.origin);
+  url.searchParams.set("open", "create");
+  if (payload?.titulo?.trim()) url.searchParams.set("titulo", payload.titulo.trim());
+  if (payload?.area?.trim()) url.searchParams.set("area", payload.area.trim());
+  if (payload?.status?.trim()) url.searchParams.set("status", payload.status.trim());
+  if (payload?.keywords?.trim()) url.searchParams.set("keywords", payload.keywords.trim());
+  window.location.href = url.toString();
+}
+
+function goToUploadCv() {
+  window.location.href = "/app/entradaemailpasta";
+}
+
+function goToExecutarMatch(vagaId?: string) {
+  const url = new URL("/app/matching", window.location.origin);
+  if (vagaId && vagaId !== "all") url.searchParams.set("vagaId", vagaId);
+  window.location.href = url.toString();
+}
+
 export default function DashboardScreen({
   initialKpis = null,
   initialFunil = null,
@@ -535,7 +560,7 @@ export default function DashboardScreen({
             <button className="btn-ghost" type="button">
               Exportar
             </button>
-            <button className="btn-brand" type="button" onClick={() => setQuickOpen(true)}>
+            <button className="btn-brand" type="button" onClick={() => goToCreateVaga()}>
               Nova vaga
             </button>
           </div>
@@ -749,34 +774,34 @@ export default function DashboardScreen({
                     className="btn-brand w-full"
                     type="button"
                     onClick={() => {
-                      window.alert("Use a tela de Vagas para criar uma nova vaga.");
+                      const quickAreaName = areas.find((a) => a.id === quickArea)?.nome ?? "";
+                      goToCreateVaga({
+                        titulo: quickTitle,
+                        area: quickAreaName,
+                        status: quickStatus,
+                        keywords: quickKeywords,
+                      });
                     }}
                   >
-                    Salvar
+                    Criar vaga
                   </button>
                 </div>
               </div>
 
               <div className="card-soft p-3">
-                <div className="fw-semibold mb-2">Entrada de currículos</div>
+                <div className="fw-semibold mb-2">Upload CV</div>
                 <div className="flex flex-col gap-2">
-                  <button className="btn-ghost" type="button">
-                    Conectar caixa de e-mail
-                  </button>
-                  <button className="btn-ghost" type="button">
-                    Configurar pasta monitorada
-                  </button>
-                  <button className="btn-ghost" type="button">
-                    Rodar processamento agora
+                  <button className="btn-brand" type="button" onClick={goToUploadCv}>
+                    Abrir entrada de currículos
                   </button>
                 </div>
               </div>
 
               <div className="card-soft p-3">
-                <div className="fw-semibold mb-2">Motor de match</div>
+                <div className="fw-semibold mb-2">Executar match</div>
                 <div className="text-muted-foreground text-sm mb-2">Ajustes: pesos, obrigatórios e sinônimos por vaga.</div>
-                <button className="btn-brand w-full" type="button" onClick={() => toast.info("Em breve: configurações do matching.")}>
-                  Abrir configurações
+                <button className="btn-brand w-full" type="button" onClick={() => goToExecutarMatch(vagaId)}>
+                  Abrir matching
                 </button>
               </div>
             </div>
