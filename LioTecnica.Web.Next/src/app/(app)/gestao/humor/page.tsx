@@ -1,12 +1,12 @@
 "use client";
 
 import { AuthGuard } from "@/hooks/useAuth";
-import GestaoModuleScreen from "@/features/gestao/GestaoModuleScreen";
+import GestaoHumorScreen from "@/features/feedback/gestao/GestaoHumorScreen";
 
 export default function Page() {
     return (
         <AuthGuard>
-            <GestaoModuleScreen initialTab="humor" />
+            <GestaoHumorScreen />
         </AuthGuard>
     );
 }

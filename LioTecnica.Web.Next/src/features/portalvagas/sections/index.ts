@@ -1,0 +1,11 @@
+export { default as PortalVagasSkillsSection } from "./PortalVagasSkillsSection";
+export { default as PortalVagasEducationSection } from "./PortalVagasEducationSection";
+export { default as PortalVagasPreferencesSection } from "./PortalVagasPreferencesSection";
+export { default as PortalVagasLgpdSection } from "./PortalVagasLgpdSection";
+export { default as PortalVagasNotificationsSection } from "./PortalVagasNotificationsSection";
+export { default as PortalVagasDocumentsSection } from "./PortalVagasDocumentsSection";
+export { default as PortalVagasExperienceSection } from "./PortalVagasExperienceSection";
+export { default as PortalVagasReferencesSection } from "./PortalVagasReferencesSection";
+export { default as PortalVagasAccessibilitySection } from "./PortalVagasAccessibilitySection";
+export { default as PortalVagasAppsSection } from "./PortalVagasAppsSection";
+export { default as PortalVagasTestsSection } from "./PortalVagasTestsSection";

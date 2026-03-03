@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   Building2,
@@ -8,11 +8,12 @@ import {
   Globe,
   LogOut,
   Menu,
+  Search,
   TriangleAlert,
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import Sidebar from "@/components/layout/Sidebar";
@@ -38,6 +39,63 @@ import { apiFetch } from "@/lib/api";
 import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
 import { clearSession, setAccessToken, setTenantId } from "@/lib/session";
 
+const GLOBAL_SEARCH_EVENT = "renderrh:global-search";
+
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+function isLikelySearchInput(el: HTMLInputElement): boolean {
+  const placeholder = (el.placeholder ?? "").trim().toLowerCase();
+  const idOrName = `${el.id} ${el.name}`.toLowerCase();
+  const marker = `${idOrName} ${placeholder} ${el.getAttribute("aria-label") ?? ""}`.toLowerCase();
+  const looksLikeFreeTextFilter =
+    (placeholder.includes(",") || placeholder.includes(" ou ")) &&
+    (placeholder.includes("nome") ||
+      placeholder.includes("email") ||
+      placeholder.includes("codigo") ||
+      placeholder.includes("código") ||
+      placeholder.includes("rota") ||
+      placeholder.includes("assunto") ||
+      placeholder.includes("arquivo") ||
+      placeholder.includes("vaga"));
+
+  return (
+    el.type === "search" ||
+    marker.includes("search") ||
+    marker.includes("buscar") ||
+    marker.includes("filtrar") ||
+    marker.includes("pesquisar") ||
+    marker.includes("fsearch") ||
+    marker.includes("gsearch") ||
+    idOrName.split(/\s+/).includes("q") ||
+    looksLikeFreeTextFilter
+  );
+}
+
+function setNativeInputValue(el: HTMLInputElement, next: string) {
+  const proto = Object.getPrototypeOf(el) as HTMLInputElement;
+  const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+  const setter = descriptor?.set;
+  if (setter) setter.call(el, next);
+  else el.value = next;
+}
+
+function pushGlobalSearchToCurrentScreen(nextQuery: string) {
+  const candidates = Array.from(document.querySelectorAll("main input"))
+    .filter((node): node is HTMLInputElement => node instanceof HTMLInputElement)
+    .filter((el) => !el.dataset.topbarGlobalSearch)
+    .filter((el) => !el.disabled && !el.readOnly && el.type !== "hidden")
+    .filter(isLikelySearchInput);
+
+  for (const el of candidates) {
+    if (el.value === nextQuery) continue;
+    setNativeInputValue(el, nextQuery);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
+
 export default function TopbarClient({
   navItems,
   me,
@@ -46,7 +104,10 @@ export default function TopbarClient({
   me: BffMe | null;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [busy, setBusy] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const globalSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   /* ─── Actions ─── */
 
@@ -77,7 +138,10 @@ export default function TopbarClient({
         }),
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok) throw new Error((json as any)?.detail || (json as any)?.message || "Falha ao trocar tenant.");
+      const err = asRecord(json);
+      const detail = typeof err?.detail === "string" ? err.detail : "";
+      const message = typeof err?.message === "string" ? err.message : "";
+      if (!res.ok) throw new Error(detail || message || "Falha ao trocar tenant.");
 
       const parsed = ApiSwitchTenantResponseSchema.safeParse(json);
       if (!parsed.success) throw new Error("Resposta inválida ao trocar tenant.");
@@ -128,8 +192,43 @@ export default function TopbarClient({
 
   const displayLabel = isOwner ? "Owner" : me?.tenantId ?? "—";
 
+  useEffect(() => {
+    function onHotkey(ev: KeyboardEvent) {
+      const target = ev.target as HTMLElement | null;
+      const tag = (target?.tagName || "").toLowerCase();
+      const isTypingField =
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select" ||
+        !!target?.closest("[contenteditable='true']");
+      if (isTypingField) return;
+
+      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
+        ev.preventDefault();
+        globalSearchInputRef.current?.focus();
+        globalSearchInputRef.current?.select();
+      }
+    }
+    window.addEventListener("keydown", onHotkey);
+    return () => window.removeEventListener("keydown", onHotkey);
+  }, []);
+
+  useEffect(() => {
+    // Mantém comportamento do legado: busca global é contextual por tela.
+    setGlobalSearchQuery("");
+  }, [pathname]);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(GLOBAL_SEARCH_EVENT, {
+        detail: { query: globalSearchQuery },
+      }),
+    );
+    pushGlobalSearchToCurrentScreen(globalSearchQuery);
+  }, [globalSearchQuery]);
+
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-2.5 lg:px-6">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 lg:px-6">
       {/* ─── Left side: hamburger + brand title ─── */}
       <div className="flex items-center gap-3 min-w-0">
         {/* Mobile hamburger */}
@@ -158,6 +257,24 @@ export default function TopbarClient({
         <span className="text-sm font-semibold text-lt-primary tracking-wide whitespace-nowrap hidden sm:inline">
           Devcraft Studio • Portal RH
         </span>
+      </div>
+
+      {/* ─── Center: global search (legacy behavior) ─── */}
+      <div className="min-w-0 flex-1 max-w-xl">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-lt-primary/60" />
+          <input
+            ref={globalSearchInputRef}
+            data-topbar-global-search="true"
+            value={globalSearchQuery}
+            onChange={(e) => setGlobalSearchQuery(e.target.value)}
+            placeholder="Buscar..."
+            className="h-9 w-full rounded-md border border-lt-primary/20 bg-white/85 pl-9 pr-16 text-sm outline-none transition-[color,box-shadow] focus-visible:border-lt-primary/45 focus-visible:ring-2 focus-visible:ring-lt-primary/20"
+          />
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-lt-primary/25 px-1.5 py-0.5 text-[11px] leading-none text-lt-primary/70">
+            Ctrl + K
+          </span>
+        </div>
       </div>
 
       {/* ─── Right side: notifications + user dropdown ─── */}
@@ -284,6 +401,7 @@ export default function TopbarClient({
           </>
         )}
       </div>
+
     </div>
   );
 }
