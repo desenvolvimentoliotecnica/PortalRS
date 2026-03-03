@@ -16,26 +16,41 @@ import {
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 
+/* ------------------------------------------------------------------ */
+/*  Types – match the RHPortal.Api contracts                           */
+/* ------------------------------------------------------------------ */
 
-
-/* ---------- types ---------- */
-interface UnidadeItem {
+/** Matches UnitGridRowResponse from the API (PagedResult<UnitGridRowResponse>) */
+interface UnitGridRow {
     id: string;
-    codigo?: string;
-    nome: string;
-    status?: string;
-    headcount?: number;
-    email?: string;
-    telefone?: string;
-    tipo?: string;
-    cidade?: string;
-    uf?: string;
-    cep?: string;
-    endereco?: string;
-    bairro?: string;
-    cnpj?: string;
-    razaoSocial?: string;
-    inscricaoEstadual?: string;
+    name: string;
+    code: string;
+    status: number | string;  // API sends enum int (1=Active, 2=Inactive) or string
+    headcount: number;
+    email: string | null;
+    phone: string | null;
+    type: string | null;
+    city: string | null;
+    uf: string | null;
+    addressLine: string | null;
+    neighborhood: string | null;
+    zipCode: string | null;
+    responsibleName: string | null;
+    notes: string | null;
+}
+
+/** Matches UnitResponse from the API (GET by id, POST, PUT) */
+interface UnitDetail extends UnitGridRow {
+    createdAtUtc?: string;
+    updatedAtUtc?: string;
+}
+
+interface PagedResponse<T> {
+    items: T[];
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
 }
 
 interface UnidadeDraft {
@@ -46,18 +61,20 @@ interface UnidadeDraft {
     headcount: string;
     email: string;
     phone: string;
-    tipo: string;
+    type: string;
     city: string;
-    state: string;
-    zip: string;
-    address: string;
+    uf: string;
+    zipCode: string;
+    addressLine: string;
     neighborhood: string;
-    cnpj: string;
-    companyName: string;
-    stateRegistration: string;
+    responsibleName: string;
+    notes: string;
 }
 
-/* ---------- helpers ---------- */
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, {
         ...init,
@@ -66,7 +83,19 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     });
     if (!res.ok) {
         const t = await res.text().catch(() => "");
-        const msg = `HTTP ${res.status}: ${t || res.statusText}`;
+        let msg = `HTTP ${res.status}: ${t || res.statusText}`;
+        // Try to extract structured error
+        try {
+            const j = JSON.parse(t);
+            if (j?.message) msg = j.message;
+            else if (j?.detail) msg = j.detail;
+            else if (j?.errors) {
+                const parts = Object.entries(j.errors).flatMap(([k, v]) =>
+                    Array.isArray(v) ? v.map((m: string) => `${k}: ${m}`) : [`${k}: ${v}`]
+                );
+                if (parts.length) msg = parts.join("; ");
+            }
+        } catch { /* not JSON */ }
         console.error(`[apiFetch] ${init?.method ?? "GET"} ${url} → ${msg}`);
         throw new Error(msg);
     }
@@ -74,9 +103,19 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     return (await res.json()) as T;
 }
 
-function statusBadge(s: string | null | undefined) {
-    const st = (s ?? "").toLowerCase();
-    if (st === "ativo" || st === "active")
+/** Maps API status (int enum or string) to display label */
+function mapStatus(s: number | string | null | undefined): "ativo" | "inativo" {
+    if (typeof s === "number") return s === 1 ? "ativo" : "inativo";
+    if (typeof s === "string") {
+        const lower = s.toLowerCase();
+        if (lower === "active" || lower === "ativo" || lower === "1") return "ativo";
+    }
+    return "inativo";
+}
+
+function statusBadge(s: number | string | null | undefined) {
+    const st = mapStatus(s);
+    if (st === "ativo")
         return <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Ativo</span>;
     return <span className="inline-flex items-center rounded-full bg-zinc-400/15 px-2.5 py-0.5 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Inativo</span>;
 }
@@ -86,25 +125,28 @@ function initials(name: string): string {
 }
 
 const emptyDraft: UnidadeDraft = {
-    code: "", name: "", status: "ativo", headcount: "0",
-    email: "", phone: "", tipo: "", city: "", state: "", zip: "",
-    address: "", neighborhood: "", cnpj: "", companyName: "", stateRegistration: "",
+    code: "", name: "", status: "Active", headcount: "0",
+    email: "", phone: "", type: "", city: "", uf: "", zipCode: "",
+    addressLine: "", neighborhood: "", responsibleName: "", notes: "",
 };
 
-/* ---------- component ---------- */
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
+
 export default function UnidadesScreen() {
     const [loading, setLoading] = useState(true);
-    const [rows, setRows] = useState<UnidadeItem[]>([]);
+    const [rows, setRows] = useState<UnitGridRow[]>([]);
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [editOpen, setEditOpen] = useState(false);
     const [draft, setDraft] = useState<UnidadeDraft>({ ...emptyDraft });
     const [saving, setSaving] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState<UnidadeItem | null>(null);
-    const [detailItem, setDetailItem] = useState<UnidadeItem | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<UnitGridRow | null>(null);
+    const [detailItem, setDetailItem] = useState<UnitGridRow | null>(null);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: UnidadeItem[] }>(`/api/units`);
+        const payload = await fetchJson<PagedResponse<UnitGridRow>>("/api/units");
         setRows(Array.isArray(payload?.items) ? payload.items : []);
     }, []);
 
@@ -120,11 +162,11 @@ export default function UnidadesScreen() {
     const filtered = useMemo(() => {
         const qq = q.trim().toLowerCase();
         return rows.filter((u) => {
-            const st = (u.status ?? "").toLowerCase();
-            if (statusFilter === "ativo" && st !== "ativo" && st !== "active") return false;
-            if (statusFilter === "inativo" && st !== "inativo" && st !== "inactive") return false;
+            const st = mapStatus(u.status);
+            if (statusFilter === "ativo" && st !== "ativo") return false;
+            if (statusFilter === "inativo" && st !== "inativo") return false;
             if (!qq) return true;
-            return [u.nome, u.codigo, u.cidade, u.email, u.tipo].filter(Boolean).join(" ").toLowerCase().includes(qq);
+            return [u.name, u.code, u.city, u.email, u.type].filter(Boolean).join(" ").toLowerCase().includes(qq);
         });
     }, [q, rows, statusFilter]);
 
@@ -135,10 +177,10 @@ export default function UnidadesScreen() {
     });
     const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.end, slice.start]);
 
-    /* KPIs — Razor: Unidades, Ativas, Headcount, Vagas abertas */
+    /* KPIs */
     const kpis = useMemo(() => {
         const total = rows.length;
-        const active = rows.filter((u) => ["ativo", "active"].includes((u.status ?? "").toLowerCase())).length;
+        const active = rows.filter((u) => mapStatus(u.status) === "ativo").length;
         const headcount = rows.reduce((s, u) => s + (u.headcount ?? 0), 0);
         return { total, active, headcount };
     }, [rows]);
@@ -146,26 +188,25 @@ export default function UnidadesScreen() {
     /* CRUD */
     function openNew() { setDraft({ ...emptyDraft }); setEditOpen(true); }
 
-    async function openEdit(item: UnidadeItem) {
+    async function openEdit(item: UnitGridRow) {
         try {
-            const d = await fetchJson<Record<string, unknown>>(`/api/units/${item.id}`);
+            const d = await fetchJson<UnitDetail>(`/api/units/${item.id}`);
             setDraft({
                 id: item.id,
-                code: String(d?.code ?? d?.Code ?? d?.codigo ?? item.codigo ?? ""),
-                name: String(d?.name ?? d?.Name ?? d?.nome ?? item.nome ?? ""),
-                status: String(d?.status ?? d?.Status ?? item.status ?? "ativo"),
-                headcount: String(d?.headcount ?? d?.Headcount ?? item.headcount ?? "0"),
-                email: String(d?.email ?? d?.Email ?? item.email ?? ""),
-                phone: String(d?.telefone ?? d?.Telefone ?? d?.phone ?? item.telefone ?? ""),
-                tipo: String(d?.tipo ?? d?.Tipo ?? item.tipo ?? ""),
-                city: String(d?.cidade ?? d?.Cidade ?? d?.city ?? item.cidade ?? ""),
-                state: String(d?.uf ?? d?.UF ?? d?.state ?? item.uf ?? ""),
-                zip: String(d?.cep ?? d?.CEP ?? d?.zip ?? item.cep ?? ""),
-                address: String(d?.endereco ?? d?.Endereco ?? d?.address ?? item.endereco ?? ""),
-                neighborhood: String(d?.bairro ?? d?.Bairro ?? item.bairro ?? ""),
-                cnpj: String(d?.cnpj ?? d?.CNPJ ?? item.cnpj ?? ""),
-                companyName: String(d?.razaoSocial ?? d?.RazaoSocial ?? item.razaoSocial ?? ""),
-                stateRegistration: String(d?.inscricaoEstadual ?? d?.InscricaoEstadual ?? item.inscricaoEstadual ?? ""),
+                code: d?.code ?? item.code ?? "",
+                name: d?.name ?? item.name ?? "",
+                status: typeof d?.status === "number" ? (d.status === 1 ? "Active" : "Inactive") : String(d?.status ?? "Active"),
+                headcount: String(d?.headcount ?? item.headcount ?? 0),
+                email: d?.email ?? item.email ?? "",
+                phone: d?.phone ?? item.phone ?? "",
+                type: d?.type ?? item.type ?? "",
+                city: d?.city ?? item.city ?? "",
+                uf: d?.uf ?? item.uf ?? "",
+                zipCode: d?.zipCode ?? item.zipCode ?? "",
+                addressLine: d?.addressLine ?? item.addressLine ?? "",
+                neighborhood: d?.neighborhood ?? item.neighborhood ?? "",
+                responsibleName: d?.responsibleName ?? item.responsibleName ?? "",
+                notes: d?.notes ?? item.notes ?? "",
             });
             setEditOpen(true);
         } catch { toast.error("Falha ao carregar dados."); }
@@ -173,35 +214,37 @@ export default function UnidadesScreen() {
 
     async function saveDraft() {
         if (!draft.name.trim()) { toast.error("Nome é obrigatório."); return; }
+        if (!draft.code.trim()) { toast.error("Código é obrigatório."); return; }
         setSaving(true);
+
         const payload = {
-            code: draft.code.trim() || null,
+            code: draft.code.trim(),
             name: draft.name.trim(),
-            status: draft.status.toLowerCase() === "inativo" ? "Inactive" : "Active",
+            status: draft.status.toLowerCase() === "inactive" ? "Inactive" : "Active",
             headcount: parseInt(draft.headcount, 10) || 0,
             email: draft.email.trim() || null,
-            telefone: draft.phone.trim() || null,
-            tipo: draft.tipo.trim() || null,
-            cidade: draft.city.trim() || null,
-            uf: draft.state.trim() || null,
-            cep: draft.zip.trim() || null,
-            endereco: draft.address.trim() || null,
-            bairro: draft.neighborhood.trim() || null,
-            cnpj: draft.cnpj.trim() || null,
-            razaoSocial: draft.companyName.trim() || null,
-            inscricaoEstadual: draft.stateRegistration.trim() || null,
+            phone: draft.phone.trim() || null,
+            type: draft.type.trim() || null,
+            city: draft.city.trim() || null,
+            uf: draft.uf.trim() || null,
+            zipCode: draft.zipCode.trim() || null,
+            addressLine: draft.addressLine.trim() || null,
+            neighborhood: draft.neighborhood.trim() || null,
+            responsibleName: draft.responsibleName.trim() || null,
+            notes: draft.notes.trim() || null,
         };
+
         try {
             if (draft.id) {
                 await fetchJson(`/api/units/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Unidade atualizada.");
             } else {
-                await fetchJson(`/api/units`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                await fetchJson("/api/units", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Unidade criada.");
             }
             setEditOpen(false);
             await syncList();
-        } catch { toast.error("Falha ao salvar."); }
+        } catch (err) { toast.error(err instanceof Error ? err.message : "Falha ao salvar."); }
         finally { setSaving(false); }
     }
 
@@ -217,7 +260,7 @@ export default function UnidadesScreen() {
 
     return (
         <section className="space-y-4">
-            {/* Header — Razor: title + Exportar + Atualizar + Nova unidade */}
+            {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-lg font-bold">Unidades e filiais</h4>
                 <div className="flex flex-wrap items-center gap-2">
@@ -263,7 +306,6 @@ export default function UnidadesScreen() {
                     </div>
                 </div>
 
-                {/* Razor columns: Unidade (initials+name+code), Status, Headcount, Contato, Tipo, Ações */}
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -283,11 +325,11 @@ export default function UnidadesScreen() {
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                                            {initials(u.nome)}
+                                            {initials(u.name)}
                                         </span>
                                         <div>
-                                            <div className="font-semibold">{u.nome}</div>
-                                            <div className="text-muted-foreground text-xs font-mono">{u.codigo || "—"}</div>
+                                            <div className="font-semibold">{u.name}</div>
+                                            <div className="text-muted-foreground text-xs font-mono">{u.code || "—"}</div>
                                         </div>
                                     </div>
                                 </TableCell>
@@ -295,10 +337,10 @@ export default function UnidadesScreen() {
                                 <TableCell className="font-mono font-medium">{u.headcount ?? 0}</TableCell>
                                 <TableCell>
                                     <div className="text-sm">{u.email || "—"}</div>
-                                    <div className="text-xs text-muted-foreground">{u.telefone || ""}</div>
+                                    <div className="text-xs text-muted-foreground">{u.phone || ""}</div>
                                 </TableCell>
                                 <TableCell>
-                                    <span className="inline-flex items-center rounded-full border bg-muted/40 px-2.5 py-0.5 text-xs font-medium">{u.tipo || "—"}</span>
+                                    <span className="inline-flex items-center rounded-full border bg-muted/40 px-2.5 py-0.5 text-xs font-medium">{u.type || "—"}</span>
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-1">
@@ -322,7 +364,7 @@ export default function UnidadesScreen() {
                 />
             </div>
 
-            {/* Edit/Create Dialog — all 15 fields from Razor */}
+            {/* Edit/Create Dialog */}
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
                 <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
@@ -330,27 +372,26 @@ export default function UnidadesScreen() {
                         <DialogDescription>Cadastre dados da unidade.</DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Código</label><Input value={draft.code} onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))} /></div>
+                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Código *</label><Input value={draft.code} onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))} /></div>
                         <div className="sm:col-span-2"><label className="mb-1 block text-xs font-medium text-muted-foreground">Nome *</label><Input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} /></div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
                             <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}>
-                                <option value="ativo">Ativo</option>
-                                <option value="inativo">Inativo</option>
+                                <option value="Active">Ativo</option>
+                                <option value="Inactive">Inativo</option>
                             </select>
                         </div>
                         <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Headcount</label><Input type="number" value={draft.headcount} onChange={(e) => setDraft((d) => ({ ...d, headcount: e.target.value }))} /></div>
-                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Tipo</label><Input placeholder="Matriz, Filial..." value={draft.tipo} onChange={(e) => setDraft((d) => ({ ...d, tipo: e.target.value }))} /></div>
+                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Tipo</label><Input placeholder="Matriz, Filial..." value={draft.type} onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))} /></div>
                         <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Email</label><Input value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} /></div>
                         <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Telefone</label><Input value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} /></div>
-                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">CNPJ</label><Input value={draft.cnpj} onChange={(e) => setDraft((d) => ({ ...d, cnpj: e.target.value }))} /></div>
-                        <div className="sm:col-span-2"><label className="mb-1 block text-xs font-medium text-muted-foreground">Razão Social</label><Input value={draft.companyName} onChange={(e) => setDraft((d) => ({ ...d, companyName: e.target.value }))} /></div>
-                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Inscrição Estadual</label><Input value={draft.stateRegistration} onChange={(e) => setDraft((d) => ({ ...d, stateRegistration: e.target.value }))} /></div>
-                        <div className="sm:col-span-2"><label className="mb-1 block text-xs font-medium text-muted-foreground">Endereço</label><Input value={draft.address} onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))} /></div>
+                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Responsável</label><Input value={draft.responsibleName} onChange={(e) => setDraft((d) => ({ ...d, responsibleName: e.target.value }))} /></div>
+                        <div className="sm:col-span-2"><label className="mb-1 block text-xs font-medium text-muted-foreground">Endereço</label><Input value={draft.addressLine} onChange={(e) => setDraft((d) => ({ ...d, addressLine: e.target.value }))} /></div>
                         <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Bairro</label><Input value={draft.neighborhood} onChange={(e) => setDraft((d) => ({ ...d, neighborhood: e.target.value }))} /></div>
                         <div><label className="mb-1 block text-xs font-medium text-muted-foreground">Cidade</label><Input value={draft.city} onChange={(e) => setDraft((d) => ({ ...d, city: e.target.value }))} /></div>
-                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">UF</label><Input value={draft.state} onChange={(e) => setDraft((d) => ({ ...d, state: e.target.value }))} /></div>
-                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">CEP</label><Input value={draft.zip} onChange={(e) => setDraft((d) => ({ ...d, zip: e.target.value }))} /></div>
+                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">UF</label><Input maxLength={2} value={draft.uf} onChange={(e) => setDraft((d) => ({ ...d, uf: e.target.value }))} /></div>
+                        <div><label className="mb-1 block text-xs font-medium text-muted-foreground">CEP</label><Input value={draft.zipCode} onChange={(e) => setDraft((d) => ({ ...d, zipCode: e.target.value }))} /></div>
+                        <div className="sm:col-span-3"><label className="mb-1 block text-xs font-medium text-muted-foreground">Observações</label><Input value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} /></div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
@@ -363,16 +404,18 @@ export default function UnidadesScreen() {
             <Dialog open={!!detailItem} onOpenChange={(open) => !open && setDetailItem(null)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Detalhes — {detailItem?.nome}</DialogTitle>
+                        <DialogTitle>Detalhes — {detailItem?.name}</DialogTitle>
                         <DialogDescription>Funcionários e vagas desta unidade.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2 text-sm">
-                        <div><span className="font-medium">Código:</span> {detailItem?.codigo || "—"}</div>
+                        <div><span className="font-medium">Código:</span> {detailItem?.code || "—"}</div>
                         <div><span className="font-medium">Status:</span> {detailItem ? statusBadge(detailItem.status) : ""}</div>
                         <div><span className="font-medium">Headcount:</span> {detailItem?.headcount ?? 0}</div>
-                        <div><span className="font-medium">Tipo:</span> {detailItem?.tipo || "—"}</div>
-                        <div><span className="font-medium">Contato:</span> {detailItem?.email || "—"} / {detailItem?.telefone || "—"}</div>
-                        <div><span className="font-medium">Local:</span> {[detailItem?.cidade, detailItem?.uf].filter(Boolean).join(" - ") || "—"}</div>
+                        <div><span className="font-medium">Tipo:</span> {detailItem?.type || "—"}</div>
+                        <div><span className="font-medium">Contato:</span> {detailItem?.email || "—"} / {detailItem?.phone || "—"}</div>
+                        <div><span className="font-medium">Responsável:</span> {detailItem?.responsibleName || "—"}</div>
+                        <div><span className="font-medium">Local:</span> {[detailItem?.city, detailItem?.uf].filter(Boolean).join(" - ") || "—"}</div>
+                        <div><span className="font-medium">Endereço:</span> {detailItem?.addressLine || "—"}</div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDetailItem(null)}>Fechar</Button>
@@ -385,7 +428,7 @@ export default function UnidadesScreen() {
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Confirmar exclusão</DialogTitle>
-                        <DialogDescription>Excluir a unidade <strong>&quot;{deleteTarget?.nome}&quot;</strong>?</DialogDescription>
+                        <DialogDescription>Excluir a unidade <strong>&quot;{deleteTarget?.name}&quot;</strong>?</DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>

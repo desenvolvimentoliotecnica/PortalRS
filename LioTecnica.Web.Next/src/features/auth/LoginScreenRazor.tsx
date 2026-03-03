@@ -161,7 +161,6 @@ export default function LoginScreenRazor({
       if (redirectUrl.startsWith("/app/")) redirectUrl = redirectUrl.slice("/app".length);
       if (!redirectUrl.startsWith("/")) redirectUrl = `/${redirectUrl}`;
       router.replace(redirectUrl);
-      router.refresh();
     } finally {
       setSubmitting(false);
     }
