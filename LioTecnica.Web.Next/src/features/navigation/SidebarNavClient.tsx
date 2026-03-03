@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
@@ -118,8 +118,17 @@ const ROUTE_MAP: Record<string, string> = {
   "/cadastro/funcoes": "/cadastro/funcoes",
   // Feedback sub-routes (Razor uses /Feedback/XYZ, Next.js uses /feedback/xyz)
   "/candidatos/detalhes": "/candidatos/detalhes",
+  "/feedback/celebracao": "/feedback/celebracao",
+  "/feedback/enviar": "/feedback/enviar",
+  "/feedback/feedbacks": "/feedback/feedbacks",
+  "/feedback/gamificacao": "/feedback/gamificacao",
   "/feedback/gamificacaohistorico": "/feedback/gamificacao/historico",
-  "/feedback/gamificacaoranking": "/feedback/gamificacao",
+  "/feedback/gestao": "/feedback/gestao",
+  "/feedback/meusplanos": "/feedback/meusplanos",
+  "/feedback/pesquisarapida": "/feedback/pesquisarapida",
+  "/feedback/pesquisas": "/feedback/pesquisas",
+  "/feedback/reunioes1a1": "/feedback/reunioes1a1",
+  "/feedback/superpesquisa": "/feedback/superpesquisa",
   // Gestão sub-routes (Razor uses PascalCase, Next.js lowercase)
   "/gestao/dashboard": "/gestao/dashboard",
   "/gestao/humor": "/gestao/humor",
@@ -144,6 +153,9 @@ const ROUTE_MAP: Record<string, string> = {
 
 function normalizeHref(raw: string): string {
   if (!raw || raw === "#") return "#";
+  // /Owner/Tenants/{tenantId} -> /Owner/Tenants?id={tenantId} (compat com static export)
+  const ownerTenantMatch = raw.match(/^\/Owner\/Tenants\/([^/?#]+)\/?$/i);
+  if (ownerTenantMatch) return `/Owner/Tenants?id=${encodeURIComponent(ownerTenantMatch[1])}`;
   if (raw.startsWith("/Owner") || raw.startsWith("/owner")) return raw;
   const lower = raw.toLowerCase().replace(/\/+$/, "");
   return ROUTE_MAP[lower] ?? lower;
@@ -190,12 +202,12 @@ function isRouteHidden(href: string): boolean {
   return HIDDEN_ROUTES.has(href.replace(/\/+$/, "").toLowerCase());
 }
 
-/** Check if a normalized pathname matches a given href */
+/** Check if a normalized pathname matches a given href — apenas correspondência exata para evitar múltiplos itens selecionados */
 function isActive(normalized: string, href: string): boolean {
-  const n = normalized.toLowerCase();
+  const n = normalized.toLowerCase().replace(/\/+$/, "") || "/";
   const h = href.toLowerCase().replace(/\/+$/, "");
   if (h === "#" || h === "") return false;
-  return n === h || (h.length > 1 && n.startsWith(`${h}/`));
+  return n === h;
 }
 
 /** Check if any item or its children are active */
@@ -229,10 +241,12 @@ function NavLeaf({
   item,
   normalized,
   indent = false,
+  collapsed = false,
 }: {
   item: BffNavItem;
   normalized: string;
   indent?: boolean;
+  collapsed?: boolean;
 }) {
   const href = normalizeHref(item.href || "#");
   const active = isActive(normalized, href);
@@ -244,12 +258,14 @@ function NavLeaf({
   return (
     <li>
       <Link
+        title={collapsed ? item.label : undefined}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-3 py-2 text-[0.88rem] leading-snug text-white/80",
+          "group flex items-center rounded-xl text-[0.88rem] leading-snug text-white/80",
           "border border-transparent transition-all duration-200",
           "hover:bg-white/10 hover:border-white/12 hover:text-white",
           active && "bg-white/[.16] border-white/[.22] text-white font-medium",
-          indent && "ml-5 text-[0.82rem] py-1.5",
+          collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2",
+          indent && !collapsed && "ml-5 text-[0.82rem] py-1.5",
         )}
         href={href}
         rel={rel}
@@ -259,11 +275,11 @@ function NavLeaf({
           aria-hidden
           className={cn(
             "shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100",
-            indent ? "size-[18px]" : "size-5",
+            collapsed ? "size-5" : indent ? "size-[18px]" : "size-5",
             active && "opacity-100",
           )}
         />
-        <span className="truncate">{item.label}</span>
+        {!collapsed && <span className="truncate">{item.label}</span>}
       </Link>
     </li>
   );
@@ -272,15 +288,73 @@ function NavLeaf({
 /* ═══════════════════════════════════════════════════════════════════
    NAV GROUP — item with children (sub-accordion)
    ═══════════════════════════════════════════════════════════════════ */
-function NavGroup({ item, normalized }: { item: BffNavItem; normalized: string }) {
+function NavGroup({
+  item,
+  normalized,
+  collapsed = false,
+  openGroups,
+  onGroupOpenChange,
+}: {
+  item: BffNavItem;
+  normalized: string;
+  collapsed?: boolean;
+  openGroups?: Record<string, boolean>;
+  onGroupOpenChange?: (id: string, open: boolean) => void;
+}) {
   const hasActive = hasActiveDescendant(item, normalized);
-  const [open, setOpen] = useState(hasActive);
   const iconKey = (item.icon ?? "").toLowerCase();
   const Icon = ICONS[iconKey] ?? DEFAULT_ICON;
 
   const visibleChildren = (item.children ?? []).filter((c) => !isRouteHidden(c.href));
   if (visibleChildren.length === 0) {
-    return <NavLeaf item={item} normalized={normalized} />;
+    return <NavLeaf item={item} normalized={normalized} collapsed={collapsed} />;
+  }
+
+  const isOpen = openGroups?.[item.id] ?? hasActive;
+
+  const handleToggle = () => {
+    onGroupOpenChange?.(item.id, !isOpen);
+  };
+
+  if (collapsed) {
+    if (!isOpen) {
+      const firstChild = visibleChildren[0]!;
+      const firstHref = normalizeHref(firstChild.href || "#");
+      return (
+        <li>
+          <Link
+            title={item.label}
+            href={firstHref}
+            className={cn(
+              "group flex justify-center rounded-xl p-2.5 text-white/80",
+              "border border-transparent transition-all duration-200",
+              "hover:bg-white/10 hover:border-white/12 hover:text-white",
+              hasActive && "bg-white/[.16] border-white/[.22] text-white",
+            )}
+          >
+            <Icon aria-hidden className="size-5 shrink-0 opacity-80 group-hover:opacity-100" />
+          </Link>
+        </li>
+      );
+    }
+    return (
+      <>
+        {visibleChildren.map((c) =>
+          c.children?.length ? (
+            <NavGroup
+              key={c.id}
+              item={c}
+              normalized={normalized}
+              collapsed
+              openGroups={openGroups}
+              onGroupOpenChange={onGroupOpenChange}
+            />
+          ) : (
+            <NavLeaf key={c.id} item={c} normalized={normalized} collapsed />
+          ),
+        )}
+      </>
+    );
   }
 
   return (
@@ -291,9 +365,9 @@ function NavGroup({ item, normalized }: { item: BffNavItem; normalized: string }
           "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[0.88rem] leading-snug text-white/80",
           "border border-transparent transition-all duration-200",
           "hover:bg-white/10 hover:border-white/12 hover:text-white",
-          open && "text-white/95",
+          isOpen && "text-white/95",
         )}
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
       >
         <Icon aria-hidden className="size-5 shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100" />
         <span className="truncate flex-1 text-left">{item.label}</span>
@@ -301,15 +375,15 @@ function NavGroup({ item, normalized }: { item: BffNavItem; normalized: string }
           aria-hidden
           className={cn(
             "size-3.5 shrink-0 opacity-60 transition-transform duration-250",
-            open && "rotate-90",
+            isOpen && "rotate-90",
           )}
         />
       </button>
-      <Collapsible open={open}>
+      <Collapsible open={isOpen}>
         <ul className="mt-0.5 space-y-0.5">
           {visibleChildren.map((c) =>
             c.children?.length ? (
-              <NavGroup key={c.id} item={c} normalized={normalized} />
+              <NavGroup key={c.id} item={c} normalized={normalized} openGroups={openGroups} onGroupOpenChange={onGroupOpenChange} />
             ) : (
               <NavLeaf key={c.id} item={c} normalized={normalized} indent />
             ),
@@ -323,12 +397,32 @@ function NavGroup({ item, normalized }: { item: BffNavItem; normalized: string }
 /* ═══════════════════════════════════════════════════════════════════
    NAV ITEM — dispatcher: leaf or group
    ═══════════════════════════════════════════════════════════════════ */
-function NavItem({ item, normalized }: { item: BffNavItem; normalized: string }) {
+function NavItem({
+  item,
+  normalized,
+  collapsed = false,
+  openGroups,
+  onGroupOpenChange,
+}: {
+  item: BffNavItem;
+  normalized: string;
+  collapsed?: boolean;
+  openGroups?: Record<string, boolean>;
+  onGroupOpenChange?: (id: string, open: boolean) => void;
+}) {
   const visibleChildren = (item.children ?? []).filter((c) => !isRouteHidden(c.href));
   if (visibleChildren.length > 0) {
-    return <NavGroup item={item} normalized={normalized} />;
+    return (
+      <NavGroup
+        item={item}
+        normalized={normalized}
+        collapsed={collapsed}
+        openGroups={openGroups}
+        onGroupOpenChange={onGroupOpenChange}
+      />
+    );
   }
-  return <NavLeaf item={item} normalized={normalized} />;
+  return <NavLeaf item={item} normalized={normalized} collapsed={collapsed} />;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -338,16 +432,43 @@ function ModuleSection({
   label,
   items,
   normalized,
-  defaultOpen,
+  moduleOpen,
+  onModuleOpenChange,
+  collapsed = false,
+  openGroups,
+  onGroupOpenChange,
 }: {
   label: string;
   items: BffNavItem[];
   normalized: string;
-  defaultOpen: boolean;
+  moduleOpen: boolean;
+  onModuleOpenChange: (open: boolean) => void;
+  collapsed?: boolean;
+  openGroups?: Record<string, boolean>;
+  onGroupOpenChange?: (id: string, open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-
   if (items.length === 0) return null;
+
+  if (collapsed) {
+    // Regra primordial: quando retraído, exibir APENAS os itens do grupo da aba atual
+    if (!moduleOpen) return null;
+    return (
+      <div className="mt-1">
+        <ul className="space-y-0.5 pb-1">
+          {items.map((item) => (
+            <NavItem
+              key={item.id}
+              item={item}
+              normalized={normalized}
+              collapsed
+              openGroups={openGroups}
+              onGroupOpenChange={onGroupOpenChange}
+            />
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-1">
@@ -359,23 +480,29 @@ function ModuleSection({
           "text-[0.72rem] font-bold tracking-[0.16em] text-white/85 uppercase",
           "transition-colors duration-200 hover:bg-white/[.08] hover:text-white",
         )}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => onModuleOpenChange(!moduleOpen)}
       >
         <span>{label}</span>
         <ChevronRight
           aria-hidden
           className={cn(
             "size-3.5 opacity-60 transition-transform duration-250",
-            open && "rotate-90",
+            moduleOpen && "rotate-90",
           )}
         />
       </button>
 
       {/* Module body */}
-      <Collapsible open={open}>
+      <Collapsible open={moduleOpen}>
         <ul className="space-y-0.5 pb-1">
           {items.map((item) => (
-            <NavItem key={item.id} item={item} normalized={normalized} />
+            <NavItem
+              key={item.id}
+              item={item}
+              normalized={normalized}
+              openGroups={openGroups}
+              onGroupOpenChange={onGroupOpenChange}
+            />
           ))}
         </ul>
       </Collapsible>
@@ -383,10 +510,25 @@ function ModuleSection({
   );
 }
 
+function collectOpenGroups(items: BffNavItem[], normalized: string): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  function walk(list: BffNavItem[]) {
+    for (const item of list) {
+      const visibleChildren = (item.children ?? []).filter((c) => !isRouteHidden(c.href));
+      if (visibleChildren.length > 0) {
+        out[item.id] = hasActiveDescendant(item, normalized);
+        walk(visibleChildren);
+      }
+    }
+  }
+  walk(items);
+  return out;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    SIDEBAR NAV — main export
    ═══════════════════════════════════════════════════════════════════ */
-export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
+export default function SidebarNavClient({ items, collapsed = false }: { items: BffNavItem[]; collapsed?: boolean }) {
   const pathname = usePathname();
   const normalized = pathname.replace(/^\/app(?=\/|$)/, "") || "/";
 
@@ -413,23 +555,63 @@ export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
         if (hasActiveDescendant(item, normalized)) return mod;
       }
     }
-    // Fallback: first module that has items
     return MODULE_ORDER.find((m) => grouped[m].length > 0) ?? "Recrutamento";
   }, [grouped, normalized]);
 
-  // Force re-mount ModuleSections when the items fingerprint changes
-  // (e.g. Owner login → only Owner items; tenant switch → tenant menus).
+  const initialOpenGroups = useMemo(() => collectOpenGroups(items, normalized), [items, normalized]);
+
+  const [openModules, setOpenModules] = useState<Record<ModuleKey, boolean>>(() => {
+    const o: Record<ModuleKey, boolean> = {} as Record<ModuleKey, boolean>;
+    for (const mod of MODULE_ORDER) {
+      o[mod] = mod === activeModule;
+    }
+    return o;
+  });
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(initialOpenGroups);
+  const prevCollapsed = useRef(collapsed);
+
+  useEffect(() => {
+    setOpenModules((p) => ({ ...p, [activeModule]: true }));
+    setOpenGroups((prev) => ({ ...initialOpenGroups, ...prev }));
+  }, [normalized, activeModule, initialOpenGroups]);
+
+  // Ao voltar com o mouse (expandir após retrair): fechar outras tabs e deixar só a da aba atual
+  useEffect(() => {
+    if (prevCollapsed.current && !collapsed) {
+      const next: Record<ModuleKey, boolean> = {} as Record<ModuleKey, boolean>;
+      for (const mod of MODULE_ORDER) {
+        next[mod] = mod === activeModule;
+      }
+      setOpenModules(next);
+      setOpenGroups(initialOpenGroups);
+    }
+    prevCollapsed.current = collapsed;
+  }, [collapsed, activeModule, initialOpenGroups]);
+
+  const handleModuleOpenChange = useCallback((mod: ModuleKey) => (open: boolean) => {
+    setOpenModules((p) => ({ ...p, [mod]: open }));
+  }, []);
+
+  const handleGroupOpenChange = useCallback((id: string, open: boolean) => {
+    setOpenGroups((p) => ({ ...p, [id]: open }));
+  }, []);
+
   const itemsKey = items.map((i) => i.id).join(",");
 
   return (
-    <nav className="px-2 pb-4 pt-1">
+    <nav className={cn("pb-4 pt-1", collapsed ? "px-1" : "px-2")}>
       {MODULE_ORDER.map((mod) => (
         <ModuleSection
           key={`${mod}-${itemsKey}`}
           label={mod}
           items={grouped[mod]}
           normalized={normalized}
-          defaultOpen={mod === activeModule}
+          moduleOpen={collapsed ? mod === activeModule : (openModules[mod] ?? mod === activeModule)}
+          onModuleOpenChange={handleModuleOpenChange(mod)}
+          collapsed={collapsed}
+          openGroups={openGroups}
+          onGroupOpenChange={handleGroupOpenChange}
         />
       ))}
     </nav>

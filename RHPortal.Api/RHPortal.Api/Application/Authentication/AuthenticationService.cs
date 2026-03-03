@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RhPortal.Api.Contracts.Authentication;
+using RhPortal.Api.Application.Feedback;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Security;
@@ -22,6 +23,7 @@ public sealed class AuthenticationService
     private readonly ITenantContext _tenantContext;
     private readonly JwtOptions _jwtOptions;
     private readonly IEntraTokenValidator _entraTokenValidator;
+    private readonly AwardPointsService _awardPointsService;
     private const string EntraDefaultRole = "Operacional";
 
     public AuthenticationService(
@@ -30,7 +32,8 @@ public sealed class AuthenticationService
         AppDbContext db,
         ITenantContext tenantContext,
         IOptions<JwtOptions> jwtOptions,
-        IEntraTokenValidator entraTokenValidator)
+        IEntraTokenValidator entraTokenValidator,
+        AwardPointsService awardPointsService)
     {
         _userManager = userManager;
         _roleManager = roleManager;
@@ -38,6 +41,7 @@ public sealed class AuthenticationService
         _tenantContext = tenantContext;
         _jwtOptions = jwtOptions.Value;
         _entraTokenValidator = entraTokenValidator;
+        _awardPointsService = awardPointsService;
     }
 
     public async Task<LoginResponse?> LoginAsync(LoginRequest request, CancellationToken ct)
@@ -68,6 +72,12 @@ public sealed class AuthenticationService
         var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
         var token = CreateJwtToken(user, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
         var areaId = user.Funcionario?.AreaId;
+        await _awardPointsService.AwardAsync(
+            user.Id,
+            GamificationEventTypes.DailyLogin,
+            sourceId: null,
+            reason: "Login diário",
+            ct);
 
         return new LoginResponse(
             AccessToken: token,
@@ -185,6 +195,12 @@ public sealed class AuthenticationService
         var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
         var token = CreateJwtToken(userWithFuncionario, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
         var areaId = userWithFuncionario.Funcionario?.AreaId;
+        await _awardPointsService.AwardAsync(
+            user.Id,
+            GamificationEventTypes.DailyLogin,
+            sourceId: null,
+            reason: "Login diário",
+            ct);
 
         return new LoginResponse(
             AccessToken: token,

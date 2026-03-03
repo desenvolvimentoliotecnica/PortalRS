@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.Feedback;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Security;
@@ -73,20 +74,29 @@ public sealed class SurveysController : ControllerBase
 
     [RequirePermission("feedback.pesquisas.respond")]
     [HttpPost("{id:guid}/responses")]
-    public async Task<IActionResult> SubmitResponse([FromServices] AppDbContext db, Guid id, [FromBody] SurveyResponseRequest request, CancellationToken ct = default)
+    public async Task<IActionResult> SubmitResponse(
+        [FromServices] AppDbContext db,
+        [FromServices] AwardPointsService awardPoints,
+        Guid id,
+        [FromBody] SurveyResponseRequest request,
+        CancellationToken ct = default)
     {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
         var survey = await db.Surveys.Include(s => s.Questions).FirstOrDefaultAsync(s => s.Id == id, ct);
         if (survey == null) return NotFound();
 
         // prevent duplicate responses by same user for same survey
-        var already = await db.SurveyResponses.AnyAsync(r => r.SurveyId == id && r.UserId == request.UserId, ct);
+        var already = await db.SurveyResponses.AnyAsync(r => r.SurveyId == id && r.UserId == userId, ct);
         if (already) return BadRequest("User already responded");
 
         var resp = new SurveyResponse
         {
             Id = Guid.NewGuid(),
             SurveyId = id,
-            UserId = request.UserId,
+            UserId = userId,
             SubmittedAtUtc = DateTimeOffset.UtcNow
         };
 
@@ -102,48 +112,21 @@ public sealed class SurveysController : ControllerBase
         }
 
         db.SurveyResponses.Add(resp);
-
-        // award points for Rapid or Super survey types (500)
+        await db.SaveChangesAsync(ct);
         var t = survey.Type ?? "";
         if (!string.IsNullOrWhiteSpace(t))
         {
             var lower = t.ToLowerInvariant();
             if (lower.Contains("rapida") || lower.Contains("rápida") || lower.Contains("super"))
             {
-                const decimal amount = 500m;
-                // add transaction
-                db.RenderCoinTransactions.Add(new RenderCoinTransaction
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = request.UserId,
-                    Amount = amount,
-                    Reason = $"Responder {survey.Type}",
-                    SourceType = "survey",
-                    SourceId = survey.Id.ToString(),
-                    CreatedAtUtc = DateTimeOffset.UtcNow
-                });
-
-                // update or create balance
-                var balance = await db.RenderCoinBalances.FirstOrDefaultAsync(b => b.UserId == request.UserId, ct);
-                if (balance == null)
-                {
-                    db.RenderCoinBalances.Add(new RenderCoinBalance
-                    {
-                        UserId = request.UserId,
-                        Balance = amount,
-                        UpdatedAtUtc = DateTimeOffset.UtcNow
-                    });
-                }
-                else
-                {
-                    balance.Balance += amount;
-                    balance.UpdatedAtUtc = DateTimeOffset.UtcNow;
-                    db.RenderCoinBalances.Update(balance);
-                }
+                await awardPoints.AwardAsync(
+                    userId,
+                    GamificationEventTypes.SurveyAnswered,
+                    sourceId: $"{survey.Id}:{userId}",
+                    reason: $"Responder {survey.Type}",
+                    ct);
             }
         }
-
-        await db.SaveChangesAsync(ct);
         return NoContent();
     }
 }

@@ -17,12 +17,19 @@ public sealed class DevelopmentPlansController : ControllerBase
     public async Task<ActionResult<DevelopmentPlanResponse>> Create(
         [FromBody] DevelopmentPlanCreateRequest request,
         [FromServices] DevelopmentPlanService service,
+        [FromServices] AwardPointsService awardPoints,
         CancellationToken ct)
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized();
         var created = await service.CreateAsync(request, userId, ct);
+        await awardPoints.AwardAsync(
+            userId,
+            GamificationEventTypes.DevelopmentPlanCreated,
+            sourceId: created.Id.ToString(),
+            reason: "Criar plano de desenvolvimento",
+            ct);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 

@@ -2,8 +2,10 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Contracts.Matching;
+using RhPortal.Api.Infrastructure.Configuration;
 
 namespace RhPortal.Api.Infrastructure.Ai;
 
@@ -15,12 +17,17 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
 {
     private readonly HttpClient _http;
     private readonly ILogger<RHPortalAiMatchClient> _logger;
+    private readonly RhAiOptions _rhAiOptions;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
-    public RHPortalAiMatchClient(HttpClient http, ILogger<RHPortalAiMatchClient> logger)
+    public RHPortalAiMatchClient(
+        HttpClient http,
+        ILogger<RHPortalAiMatchClient> logger,
+        IOptions<RhAiOptions> rhAiOptions)
     {
         _http = http;
         _logger = logger;
+        _rhAiOptions = rhAiOptions.Value;
     }
 
     // ─── Matching Unificado (v2) ─────────────────────────────────────────
@@ -37,6 +44,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
             vaga_id = vagaId.ToString(),
             tenant_id = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId.Trim(),
             limit = Math.Clamp(take, 10, 100),
+            rule_version = _rhAiOptions.ResolveRuleVersion(tenantId),
         };
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -71,6 +79,21 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
                 var scoreRequisitos = item.TryGetProperty("score_requisitos", out var sr) ? sr.GetInt32() : 0;
                 var source = item.TryGetProperty("source", out var src) ? src.GetString() ?? "candidato" : "candidato";
                 var justificativa = item.TryGetProperty("justificativa", out var j) ? j.GetString() ?? "" : "";
+                int? mandatoryTotal = null;
+                if (item.TryGetProperty("mandatory_total", out var mt) && mt.ValueKind == JsonValueKind.Number)
+                    mandatoryTotal = mt.GetInt32();
+                int? missingMandatory = null;
+                if (item.TryGetProperty("missing_mandatory_count", out var mm) && mm.ValueKind == JsonValueKind.Number)
+                    missingMandatory = mm.GetInt32();
+                int? mandatoryCoverage = null;
+                if (item.TryGetProperty("mandatory_coverage", out var mc) && mc.ValueKind == JsonValueKind.Number)
+                    mandatoryCoverage = mc.GetInt32();
+                int? hardPenalty = null;
+                if (item.TryGetProperty("hard_penalty", out var hp) && hp.ValueKind == JsonValueKind.Number)
+                    hardPenalty = hp.GetInt32();
+                var ruleVersion = item.TryGetProperty("rule_version", out var rv) && rv.ValueKind == JsonValueKind.String
+                    ? rv.GetString()
+                    : null;
 
                 if (scoreFinal < minScore)
                     continue;
@@ -85,7 +108,12 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
                     Source: source,
                     ScoreFiltros: scoreFiltros,
                     ScoreRequisitos: scoreRequisitos,
-                    Justificativa: justificativa
+                    Justificativa: justificativa,
+                    MandatoryTotal: mandatoryTotal,
+                    MissingMandatoryCount: missingMandatory,
+                    MandatoryCoverage: mandatoryCoverage,
+                    HardPenalty: hardPenalty,
+                    RuleVersion: ruleVersion
                 ));
             }
 
@@ -113,6 +141,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
             person_id = personId.ToString(),
             source = string.IsNullOrWhiteSpace(source) ? "candidato" : source.Trim().ToLowerInvariant(),
             tenant_id = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId.Trim(),
+            rule_version = _rhAiOptions.ResolveRuleVersion(tenantId),
         };
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");

@@ -20,6 +20,7 @@ public sealed class CelebrationsController : ControllerBase
     public async Task<ActionResult<CelebrationPostResponse>> Create(
         [FromBody] CelebrationCreateRequest request,
         [FromServices] CelebrationService service,
+        [FromServices] AwardPointsService awardPoints,
         [FromServices] NotificationPublisher publisher,
         [FromServices] ITenantContext tenantContext,
         CancellationToken ct)
@@ -29,6 +30,12 @@ public sealed class CelebrationsController : ControllerBase
             return Unauthorized();
 
         var created = await service.CreateAsync(request, authorId, ct);
+        await awardPoints.AwardAsync(
+            authorId,
+            GamificationEventTypes.CelebrationPost,
+            sourceId: created.Id.ToString(),
+            reason: "Publicar celebração",
+            ct);
 
         var mentionedUserIds = (created.Mentions ?? Array.Empty<CelebrationMentionResponse>())
             .Select(x => x.UserId)
@@ -38,6 +45,15 @@ public sealed class CelebrationsController : ControllerBase
 
         if (mentionedUserIds.Count > 0)
         {
+            foreach (var mentionedUserId in mentionedUserIds)
+            {
+                await awardPoints.AwardAsync(
+                    mentionedUserId,
+                    GamificationEventTypes.CelebrationMentioned,
+                    sourceId: $"{created.Id}:{mentionedUserId}",
+                    reason: "Ser mencionado em celebração",
+                    ct);
+            }
             await publisher.PublishToUsersAsync(
                 tenantContext.TenantId ?? "",
                 mentionedUserIds,
@@ -110,6 +126,7 @@ public sealed class CelebrationsController : ControllerBase
         Guid postId,
         [FromBody] CelebrationCommentCreateRequest request,
         [FromServices] CelebrationService service,
+        [FromServices] AwardPointsService awardPoints,
         [FromServices] NotificationPublisher publisher,
         [FromServices] ITenantContext tenantContext,
         CancellationToken ct)
@@ -121,6 +138,12 @@ public sealed class CelebrationsController : ControllerBase
         var created = await service.CreateCommentAsync(postId, request, authorId, ct);
         if (created is null)
             return NotFound();
+        await awardPoints.AwardAsync(
+            authorId,
+            GamificationEventTypes.CelebrationComment,
+            sourceId: created.Id.ToString(),
+            reason: "Comentar em celebração",
+            ct);
 
         var mentionedUserIds = (created.Mentions ?? Array.Empty<CelebrationCommentMentionResponse>())
             .Select(x => x.UserId)
@@ -130,6 +153,15 @@ public sealed class CelebrationsController : ControllerBase
 
         if (mentionedUserIds.Count > 0)
         {
+            foreach (var mentionedUserId in mentionedUserIds)
+            {
+                await awardPoints.AwardAsync(
+                    mentionedUserId,
+                    GamificationEventTypes.CelebrationMentioned,
+                    sourceId: $"{created.Id}:{mentionedUserId}",
+                    reason: "Ser mencionado em comentário",
+                    ct);
+            }
             await publisher.PublishToUsersAsync(
                 tenantContext.TenantId ?? "",
                 mentionedUserIds,

@@ -9,25 +9,27 @@ import { apiFetch } from "@/lib/api";
 
 /* ── Types ── */
 interface EmailConfig {
+    provider: string;
     smtpHost: string | null;
     smtpPort: number;
-    smtpUser: string | null;
+    smtpUserName: string | null;
     smtpPassword: string | null;
-    smtpUseSsl: boolean;
-    smtpFromEmail: string | null;
+    smtpEnableSsl: boolean;
+    smtpFromAddress: string | null;
     smtpFromName: string | null;
     imapHost: string | null;
     imapPort: number;
-    imapUser: string | null;
+    imapUserName: string | null;
     imapPassword: string | null;
-    imapUseSsl: boolean;
-    imapFolder: string | null;
+    imapEnableSsl: boolean;
+    imapFolder?: string | null;
 }
 
 const EMPTY: EmailConfig = {
-    smtpHost: "", smtpPort: 587, smtpUser: "", smtpPassword: "", smtpUseSsl: true,
-    smtpFromEmail: "", smtpFromName: "",
-    imapHost: "", imapPort: 993, imapUser: "", imapPassword: "", imapUseSsl: true, imapFolder: "INBOX",
+    provider: "smtp",
+    smtpHost: "", smtpPort: 587, smtpUserName: "", smtpPassword: "", smtpEnableSsl: true,
+    smtpFromAddress: "", smtpFromName: "",
+    imapHost: "", imapPort: 993, imapUserName: "", imapPassword: "", imapEnableSsl: true, imapFolder: "INBOX",
 };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -49,8 +51,8 @@ export default function AdminEmailConfigScreen() {
     const loadConfig = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await fetchJson<EmailConfig>("/Admin/EmailConfig/_api/config");
-            setConfig(data);
+            const data = await fetchJson<EmailConfig>("/api/email-config");
+            setConfig((prev) => ({ ...prev, ...data, smtpPassword: "", imapPassword: "" }));
         } catch {
             toast.error("Falha ao carregar configuração de email.");
         } finally {
@@ -63,7 +65,7 @@ export default function AdminEmailConfigScreen() {
     async function handleSave() {
         setSaving(true);
         try {
-            const saved = await fetchJson<EmailConfig>("/Admin/EmailConfig/_api/config", {
+            const saved = await fetchJson<EmailConfig>("/api/email-config", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(config),
@@ -80,10 +82,18 @@ export default function AdminEmailConfigScreen() {
     async function testSmtp() {
         setTestingSmtp(true);
         try {
-            await fetchJson("/Admin/EmailConfig/_api/test-smtp", {
+            await fetchJson("/api/email-config/test-smtp", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(config),
+                body: JSON.stringify({
+                    smtpHost: config.smtpHost,
+                    smtpPort: config.smtpPort,
+                    smtpEnableSsl: config.smtpEnableSsl,
+                    smtpUserName: config.smtpUserName,
+                    smtpPassword: config.smtpPassword,
+                    fromAddress: config.smtpFromAddress,
+                    fromName: config.smtpFromName,
+                }),
             });
             toast.success("SMTP OK! Conexão bem-sucedida.");
         } catch (err) {
@@ -96,10 +106,16 @@ export default function AdminEmailConfigScreen() {
     async function testImap() {
         setTestingImap(true);
         try {
-            await fetchJson("/Admin/EmailConfig/_api/test-imap", {
+            await fetchJson("/api/email-config/test-imap", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(config),
+                body: JSON.stringify({
+                    imapHost: config.imapHost,
+                    imapPort: config.imapPort,
+                    imapEnableSsl: config.imapEnableSsl,
+                    imapUserName: config.imapUserName,
+                    imapPassword: config.imapPassword,
+                }),
             });
             toast.success("IMAP OK! Conexão bem-sucedida.");
         } catch (err) {
@@ -130,13 +146,13 @@ export default function AdminEmailConfigScreen() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Host</label><Input value={config.smtpHost ?? ""} onChange={e => upd("smtpHost", e.target.value)} placeholder="smtp.exemplo.com" /></div>
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Porta</label><Input type="number" value={config.smtpPort} onChange={e => upd("smtpPort", parseInt(e.target.value) || 0)} /></div>
-                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Usuário</label><Input value={config.smtpUser ?? ""} onChange={e => upd("smtpUser", e.target.value)} /></div>
+                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Usuário</label><Input value={config.smtpUserName ?? ""} onChange={e => upd("smtpUserName", e.target.value)} /></div>
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Senha</label><Input type="password" value={config.smtpPassword ?? ""} onChange={e => upd("smtpPassword", e.target.value)} /></div>
-                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Email Remetente</label><Input value={config.smtpFromEmail ?? ""} onChange={e => upd("smtpFromEmail", e.target.value)} /></div>
+                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Email Remetente</label><Input value={config.smtpFromAddress ?? ""} onChange={e => upd("smtpFromAddress", e.target.value)} /></div>
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Nome Remetente</label><Input value={config.smtpFromName ?? ""} onChange={e => upd("smtpFromName", e.target.value)} /></div>
                 </div>
                 <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={config.smtpUseSsl} onChange={e => upd("smtpUseSsl", e.target.checked)} className="rounded border-input" /> Usar SSL</label>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={config.smtpEnableSsl} onChange={e => upd("smtpEnableSsl", e.target.checked)} className="rounded border-input" /> Usar SSL</label>
                     <Button variant="outline" size="sm" onClick={() => void testSmtp()} disabled={testingSmtp}><TestTube className="size-4 mr-1" />{testingSmtp ? "Testando..." : "Testar SMTP"}</Button>
                 </div>
             </div>
@@ -147,12 +163,11 @@ export default function AdminEmailConfigScreen() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Host</label><Input value={config.imapHost ?? ""} onChange={e => upd("imapHost", e.target.value)} placeholder="imap.exemplo.com" /></div>
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Porta</label><Input type="number" value={config.imapPort} onChange={e => upd("imapPort", parseInt(e.target.value) || 0)} /></div>
-                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Usuário</label><Input value={config.imapUser ?? ""} onChange={e => upd("imapUser", e.target.value)} /></div>
+                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Usuário</label><Input value={config.imapUserName ?? ""} onChange={e => upd("imapUserName", e.target.value)} /></div>
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Senha</label><Input type="password" value={config.imapPassword ?? ""} onChange={e => upd("imapPassword", e.target.value)} /></div>
-                    <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Pasta</label><Input value={config.imapFolder ?? ""} onChange={e => upd("imapFolder", e.target.value)} placeholder="INBOX" /></div>
                 </div>
                 <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={config.imapUseSsl} onChange={e => upd("imapUseSsl", e.target.checked)} className="rounded border-input" /> Usar SSL</label>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={config.imapEnableSsl} onChange={e => upd("imapEnableSsl", e.target.checked)} className="rounded border-input" /> Usar SSL</label>
                     <Button variant="outline" size="sm" onClick={() => void testImap()} disabled={testingImap}><TestTube className="size-4 mr-1" />{testingImap ? "Testando..." : "Testar IMAP"}</Button>
                 </div>
             </div>

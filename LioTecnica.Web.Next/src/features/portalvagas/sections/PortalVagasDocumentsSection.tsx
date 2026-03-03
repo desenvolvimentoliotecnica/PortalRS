@@ -12,6 +12,9 @@ export default function PortalVagasDocumentsSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<DocumentDto | null>(null);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [sort, setSort] = useState<"new" | "old" | "name" | "type">("new");
   const [form, setForm] = useState({ tipo: "", nome: "", link: "", data: "", observacoes: "", fileName: "" });
 
   const load = useCallback(async () => {
@@ -105,16 +108,58 @@ export default function PortalVagasDocumentsSection() {
     }
   }
 
+  const filtered = items
+    .filter((d) => {
+      if (typeFilter && d.tipo !== typeFilter) return false;
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
+      return `${d.tipo} ${d.nome} ${d.observacoes || ""}`.toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      if (sort === "new") return String(b.createdAtUtc || "").localeCompare(String(a.createdAtUtc || ""));
+      if (sort === "old") return String(a.createdAtUtc || "").localeCompare(String(b.createdAtUtc || ""));
+      if (sort === "name") return (a.nome || "").localeCompare(b.nome || "", "pt-BR");
+      return (a.tipo || "").localeCompare(b.tipo || "", "pt-BR");
+    });
+
   if (loading) return <div className="text-muted-foreground text-sm">Carregando documentos...</div>;
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
+        <div className="md:col-span-6">
+          <input
+            className="form-control"
+            placeholder="Buscar por nome/tipo..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="md:col-span-3">
+          <select className="form-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="">Filtrar por tipo (todos)</option>
+            {Array.from(new Set(items.map((d) => d.tipo).filter(Boolean))).map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="md:col-span-3">
+          <select className="form-select" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+            <option value="new">Mais recentes</option>
+            <option value="old">Mais antigos</option>
+            <option value="name">Nome (A-Z)</option>
+            <option value="type">Tipo</option>
+          </select>
+        </div>
+      </div>
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <input className="form-control" placeholder="Tipo *" value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))} />
         <input className="form-control" placeholder="Nome *" value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
         <input className="form-control md:col-span-2" placeholder="Link" value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
         <input className="form-control" placeholder="Data" value={form.data} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} />
-        <input className="form-control" placeholder="Arquivo" value={form.fileName} onChange={(e) => setForm((f) => ({ ...f, fileName: e.target.value }))} />
+        <input className="form-control" type="file" onChange={(e) => setForm((f) => ({ ...f, fileName: e.target.files?.[0]?.name || "" }))} />
         <div className="md:col-span-2">
           <textarea className="form-control" rows={2} placeholder="Observações" value={form.observacoes} onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))} />
         </div>
@@ -130,7 +175,7 @@ export default function PortalVagasDocumentsSection() {
         )}
       </div>
       <ul className="space-y-1">
-        {items.map((d) => (
+        {filtered.map((d) => (
           <li key={d.id} className="flex items-center justify-between rounded border border-border/60 px-2 py-1 text-sm">
             <span>{d.tipo} • {d.nome}</span>
             <div className="flex gap-1">

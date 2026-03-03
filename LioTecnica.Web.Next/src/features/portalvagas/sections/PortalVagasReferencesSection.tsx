@@ -47,6 +47,14 @@ export default function PortalVagasReferencesSection() {
       toast.error("Preencha o nome.");
       return;
     }
+    if (!form.contato.trim()) {
+      toast.error("Informe pelo menos um contato (e-mail/telefone).");
+      return;
+    }
+    if (form.podeContatar) {
+      const ok = confirm("Confirma contato imediato desta referência?");
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       const res = await apiFetch("/PortalVagas/References", {
@@ -76,6 +84,14 @@ export default function PortalVagasReferencesSection() {
 
   async function update() {
     if (!editing) return;
+    if (!form.contato.trim()) {
+      toast.error("Informe pelo menos um contato (e-mail/telefone).");
+      return;
+    }
+    if (form.podeContatar) {
+      const ok = confirm("Confirma contato imediato desta referência?");
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       const res = await apiFetch(`/PortalVagas/References/${editing.id}`, {

@@ -1,10 +1,12 @@
 using System.Net.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Moq;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Contracts.Matching;
 using RhPortal.Api.Infrastructure.Tenancy;
-using RHPortal.Api.Controllers;
+using RhPortal.Api.Controllers;
 using Xunit;
 
 namespace RhPortal.Api.Tests.Controllers;
@@ -25,11 +27,13 @@ public sealed class VagasControllerGetMatching503Tests
         tenantContext.Setup(x => x.TenantId).Returns(tenantId);
 
         var scopeFactory = new Mock<IServiceScopeFactory>();
+        var logger = new Mock<ILogger<VagasController>>();
 
         return new VagasController(
             userContext.Object,
             tenantContext.Object,
             scopeFactory.Object,
+            logger.Object,
             aiMatchClient
         );
     }

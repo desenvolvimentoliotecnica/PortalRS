@@ -3284,6 +3284,68 @@ namespace RHPortal.Api.Migrations
                     b.ToTable("Funcionarios", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.GamificationDailyState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("BestStreak")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CelebrationCommentsToday")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CelebrationPostsToday")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CurrentStreak")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DevelopmentPlansCreatedToday")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("FeedbackSentToday")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("LastActivityDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("LastCheckInDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("OneOnOneCompletedToday")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SurveyAnsweredToday")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "LastCheckInDate");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("GamificationDailyStates", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.InboxAnexo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3559,6 +3621,41 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("TenantId", "Route");
 
                     b.ToTable("Menus", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.MoodEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Mood")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "UserId", "CreatedAtUtc");
+
+                    b.ToTable("MoodEntries", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Notification", b =>
@@ -3902,6 +3999,9 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("TenantId", "CreatedAtUtc");
 
                     b.HasIndex("TenantId", "UserId");
+
+                    b.HasIndex("TenantId", "UserId", "SourceType", "SourceId")
+                        .IsUnique();
 
                     b.ToTable("RenderCoinTransactions", (string)null);
                 });
@@ -5703,6 +5803,17 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.GamificationDailyState", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.InboxAnexo", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.InboxItem", "InboxItem")
@@ -5740,6 +5851,17 @@ namespace RHPortal.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Area");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.MoodEntry", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Notification", b =>

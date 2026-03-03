@@ -110,5 +110,31 @@ if [ $max -le 0 ]; then
   echo "▶ Aviso: timeout aguardando API. Portal vai subir mesmo assim."
 fi
 
+# Abre Next.js no browser (Swagger já abre sozinho ao subir a API)
+open_url() {
+  if command -v xdg-open &>/dev/null; then xdg-open "$1"
+  elif command -v open &>/dev/null; then open "$1"
+  elif command -v start &>/dev/null; then start "$1"
+  elif command -v cmd.exe &>/dev/null; then cmd.exe /c start "" "$1"
+  fi
+}
+
+# Aguarda o Next.js ficar pronto (porta 3000) antes de abrir
+echo "▶ Aguardando Next.js em http://localhost:3000 (máx. 60s)..."
+nmax=60
+while [ $nmax -gt 0 ]; do
+  if curl -sf -o /dev/null "http://localhost:3000/app" 2>/dev/null; then
+    echo "▶ Next.js pronto."
+    break
+  fi
+  sleep 2
+  nmax=$((nmax - 2))
+done
+if [ $nmax -le 0 ]; then
+  echo "▶ Aviso: timeout aguardando Next.js. Abrindo mesmo assim."
+fi
+echo "▶ Abrindo Next.js:  http://localhost:3000/app"
+open_url "http://localhost:3000/app" 2>/dev/null &
+
 echo "▶ Subindo Portal em foreground (Ctrl+C encerra todos)..."
 "$SCRIPT_DIR/dev-portal.sh"

@@ -30,6 +30,11 @@ interface RankItem {
   scoreFiltros?: number;
   scoreRequisitos?: number;
   justificativa?: string;
+  mandatoryTotal?: number;
+  missingMandatoryCount?: number;
+  mandatoryCoverage?: number;
+  hardPenalty?: number;
+  ruleVersion?: string;
 }
 
 interface VagaDetail {
@@ -54,6 +59,7 @@ interface CandidatoFull {
   id: string;
   nome: string;
   email: string;
+  source?: string;
   cvText?: string;
   resumoProfissional?: string;
   documentos?: { nome?: string; fileName?: string; url?: string; link?: string }[];
@@ -73,6 +79,11 @@ interface MatchResult {
 type TabKey = "suggestions" | "rejected";
 type RankingStatus = "idle" | "loading" | "ready" | "processing" | "failed";
 
+interface ProcessingProgressState {
+  startedAtMs: number;
+  expectedTotalMs: number;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════════════ */
@@ -86,6 +97,57 @@ function pn(v: unknown, fb = 0): number {
 }
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
+}
+function formatDuration(ms: number) {
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return min > 0 ? `${min}m ${sec.toString().padStart(2, "0")}s` : `${sec}s`;
+}
+
+function timingStorageKey(vagaId: string) {
+  return `matching_timing_${vagaId}`;
+}
+
+function readExpectedTotalMs(vagaId: string) {
+  if (!vagaId || typeof window === "undefined") return 45000;
+  try {
+    const raw = window.localStorage.getItem(timingStorageKey(vagaId));
+    const arr = raw ? (JSON.parse(raw) as number[]) : [];
+    const valid = arr.filter((x) => Number.isFinite(x) && x >= 5000 && x <= 300000);
+    if (!valid.length) return 45000;
+    const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
+    return clamp(Math.round(avg), 8000, 120000);
+  } catch {
+    return 45000;
+  }
+}
+
+function saveObservedDurationMs(vagaId: string, durationMs: number) {
+  if (!vagaId || typeof window === "undefined") return;
+  if (!Number.isFinite(durationMs) || durationMs < 1000 || durationMs > 300000) return;
+  try {
+    const key = timingStorageKey(vagaId);
+    const raw = window.localStorage.getItem(key);
+    const arr = raw ? (JSON.parse(raw) as number[]) : [];
+    const next = [...arr.filter((x) => Number.isFinite(x)), durationMs].slice(-8);
+    window.localStorage.setItem(key, JSON.stringify(next));
+  } catch {
+    // ignore local storage failures
+  }
+}
+function parsePeso(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return clamp(v, 0, 10);
+  const s = pk(v).trim().toLowerCase();
+  if (!s) return 0;
+  const parsed = Number(s.replace(",", "."));
+  if (Number.isFinite(parsed)) return clamp(parsed, 0, 10);
+  if (s === "um") return 1;
+  if (s === "dois") return 2;
+  if (s === "tres" || s === "três") return 3;
+  if (s === "quatro") return 4;
+  if (s === "cinco") return 5;
+  return 0;
 }
 function initials(name: string) {
   const p = name.trim().split(/\s+/).filter(Boolean);
@@ -104,7 +166,16 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
       try { return (await res.json()) as T; } catch { /* ignore */ }
     }
     const txt = await res.text().catch(() => "");
-    throw new Error(txt || `HTTP_${res.status}`);
+    let msg = txt;
+    if (txt) {
+      try {
+        const parsed = JSON.parse(txt) as AnyRec;
+        msg = pk(parsed?.message, txt);
+      } catch {
+        msg = txt;
+      }
+    }
+    throw new Error(msg || `HTTP_${res.status}`);
   }
   if (res.status === 204) return null as T;
   return (await res.json()) as T;
@@ -136,6 +207,11 @@ function mapRankItem(x: AnyRec): RankItem {
     scoreFiltros: pn(x.scoreFiltros),
     scoreRequisitos: pn(x.scoreRequisitos),
     justificativa: pk(x.justificativa),
+    mandatoryTotal: pn(x.mandatoryTotal),
+    missingMandatoryCount: pn(x.missingMandatoryCount),
+    mandatoryCoverage: pn(x.mandatoryCoverage, 100),
+    hardPenalty: pn(x.hardPenalty),
+    ruleVersion: pk(x.ruleVersion),
   };
 }
 
@@ -145,13 +221,18 @@ function mapVagaDetail(d: AnyRec): VagaDetail {
     id: pk(d.id),
     titulo: pk(d.titulo),
     codigo: pk(d.codigo),
-    threshold: clamp(pn(d.threshold ?? d.matchingThreshold), 0, 100),
+    threshold: clamp(pn(d.threshold ?? d.matchingThreshold ?? d.matchMinimoPercentual), 0, 100),
     requisitos: reqs.map((r: AnyRec) => ({
-      id: pk(r.id ?? r.termo),
-      termo: pk(r.termo),
-      peso: clamp(pn(r.peso), 0, 10),
+      id: pk(r.id ?? r.nome ?? r.termo),
+      termo: pk(r.termo ?? r.nome),
+      peso: parsePeso(r.peso),
       obrigatorio: !!r.obrigatorio,
-      sinonimos: Array.isArray(r.sinonimos) ? r.sinonimos.map(String) : [],
+      sinonimos: Array.isArray(r.sinonimos)
+        ? r.sinonimos.map(String)
+        : pk(r.sinonimosRaw)
+            .split(/[;,]/)
+            .map((x) => x.trim())
+            .filter(Boolean),
     })),
     matchingFiltrosRaw: d.matchingFiltrosRaw ?? null,
     matchingFiltrosOriginaisRaw: d.matchingFiltrosOriginaisRaw ?? null,
@@ -204,7 +285,7 @@ function ScoreCircle({ score, size = 36 }: { score: number; size?: number }) {
    ═══════════════════════════════════════════════════════════════════ */
 
 export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialVagas: unknown; fixedVagaId?: string | null }) {
-  const vagas = useMemo(() => mapVagas(initialVagas).sort((a, b) => {
+  const initialVagaOptions = useMemo(() => mapVagas(initialVagas).sort((a, b) => {
     const ta = a.createdAtUtc ? new Date(a.createdAtUtc).getTime() : 0;
     const tb = b.createdAtUtc ? new Date(b.createdAtUtc).getTime() : 0;
     return tb - ta;
@@ -214,6 +295,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   const [vagaId, setVagaId] = useState("");
   const [tab, setTab] = useState<TabKey>("suggestions");
   const [q, setQ] = useState("");
+  const [vagas, setVagas] = useState<VagaOption[]>(initialVagaOptions);
   const [items, setItems] = useState<RankItem[]>([]);
   const [rankStatus, setRankStatus] = useState<RankingStatus>("idle");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -221,23 +303,32 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   const [candidatoFull, setCandidatoFull] = useState<CandidatoFull | null>(null);
   const [cvText, setCvText] = useState("");
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState<ProcessingProgressState | null>(null);
+  const [processingNowMs, setProcessingNowMs] = useState(() => Date.now());
 
   const pollRef = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollDelayRef = useRef(1200);
+  const loadSuggestionsRef = useRef<(id: string, force?: boolean) => void>(() => {});
+  const detailAbortRef = useRef<AbortController | null>(null);
 
   // Caches
   const sugCacheRef = useRef<RankItem[] | null>(null);
   const rejCacheRef = useRef<RankItem[] | null>(null);
+  const detailCacheRef = useRef<Map<string, CandidatoFull>>(new Map());
 
   // Stats
+  const thresholdForList = useMemo(
+    () => clamp(pn(vagaDetail?.threshold, 70), 0, 100),
+    [vagaDetail?.threshold],
+  );
   const stats = useMemo(() => {
     const total = items.length;
-    const inside = items.filter(x => x.pass).length;
+    const inside = tab === "rejected" ? 0 : items.filter((x) => x.score >= thresholdForList).length;
     const fail = total - inside;
     const avg = total ? Math.round(items.reduce((a, b) => a + b.score, 0) / total) : 0;
     return { total, inside, fail, avg };
-  }, [items]);
+  }, [items, tab, thresholdForList]);
 
   // Filtered
   const filtered = useMemo(() => {
@@ -247,6 +338,38 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   }, [items, q]);
 
   const selected = useMemo(() => selectedId ? items.find(x => x.id === selectedId) ?? null : null, [items, selectedId]);
+  const vagaOptions = useMemo(
+    () => (vagas.length ? vagas : initialVagaOptions),
+    [vagas, initialVagaOptions],
+  );
+  const selectedOfficialPass = useMemo(
+    () => !!selected && tab !== "rejected" && selected.score >= thresholdForList,
+    [selected, tab, thresholdForList],
+  );
+
+  const processingComputed = useMemo(() => {
+    if (!processingProgress) return null;
+    const elapsedMs = Math.max(0, processingNowMs - processingProgress.startedAtMs);
+    const expectedMs = Math.max(8000, processingProgress.expectedTotalMs);
+    const progressPct = clamp(Math.round((elapsedMs / expectedMs) * 100), 5, 95);
+    const remainingMs = Math.max(0, expectedMs - elapsedMs);
+    return { elapsedMs, expectedMs, progressPct, remainingMs };
+  }, [processingNowMs, processingProgress]);
+
+  // ─── Load vaga detail ───
+  const loadVagaOptions = useCallback(async () => {
+    try {
+      const payload = await api<AnyRec>(`${BASE}/api/vagas`);
+      const mapped = mapVagas(payload).sort((a, b) => {
+        const ta = a.createdAtUtc ? new Date(a.createdAtUtc).getTime() : 0;
+        const tb = b.createdAtUtc ? new Date(b.createdAtUtc).getTime() : 0;
+        return tb - ta;
+      });
+      setVagas(mapped);
+    } catch {
+      // keep previous list
+    }
+  }, []);
 
   // ─── Load vaga detail ───
   const loadVagaDetail = useCallback(async (id: string) => {
@@ -281,21 +404,35 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         setItems(mapped);
         setRankStatus("ready");
         setSelectedId(mapped[0]?.id ?? null);
-        pollDelayRef.current = 1200;
+        const startedAtMs = Date.parse(pk(snap.startedAtUtc));
+        const computedAtMs = Date.parse(pk(snap.computedAtUtc));
+        if (Number.isFinite(startedAtMs) && Number.isFinite(computedAtMs) && computedAtMs > startedAtMs) {
+          saveObservedDurationMs(id, computedAtMs - startedAtMs);
+        }
+        setProcessingProgress(null);
+        pollDelayRef.current = 800;
       } else if (snap?.status === "processing") {
         const stale = mapItems(snap.staleItems);
         if (stale.length) { sugCacheRef.current = stale; setItems(stale); setSelectedId(stale[0]?.id ?? null); }
         setRankStatus("processing");
+        const startedAtMs = Date.parse(pk(snap.startedAtUtc));
+        const expectedMs = readExpectedTotalMs(id);
+        setProcessingNowMs(Date.now());
+        setProcessingProgress({
+          startedAtMs: Number.isFinite(startedAtMs) ? startedAtMs : Date.now(),
+          expectedTotalMs: expectedMs,
+        });
         const delay = pollDelayRef.current;
-        pollDelayRef.current = Math.min(10000, Math.round(delay * 1.35));
+        pollDelayRef.current = Math.min(4000, Math.round(delay * 1.2));
         pollTimerRef.current = setTimeout(() => {
           if (pollRef.current !== token) return;
-          loadSuggestions(id, true);
+          loadSuggestionsRef.current(id, true);
         }, delay);
       } else if (snap?.status === "failed") {
         const stale = mapItems(snap.staleItems);
         if (stale.length) { sugCacheRef.current = stale; setItems(stale); setSelectedId(stale[0]?.id ?? null); }
         setRankStatus("failed");
+        setProcessingProgress(null);
         toast.error(pk(snap.lastError, "Falha ao carregar ranking."));
       } else {
         // Try to parse as array (simple response)
@@ -304,13 +441,21 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         setItems(mapped);
         setRankStatus(mapped.length ? "ready" : "failed");
         setSelectedId(mapped[0]?.id ?? null);
+        setProcessingProgress(null);
       }
     } catch (e) {
       if (token !== pollRef.current) return;
       setRankStatus("failed");
+      setProcessingProgress(null);
       toast.error(e instanceof Error ? e.message : "Falha ao carregar ranking.");
     }
   }, []);
+
+  useEffect(() => {
+    loadSuggestionsRef.current = (id: string, force = false) => {
+      void loadSuggestions(id, force);
+    };
+  }, [loadSuggestions]);
 
   // ─── Load rejected ───
   const loadRejected = useCallback(async (id: string, force = false) => {
@@ -346,6 +491,9 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     setCandidatoFull(null);
     setItems([]);
     setRankStatus("idle");
+    setProcessingProgress(null);
+    detailCacheRef.current.clear();
+    if (detailAbortRef.current) detailAbortRef.current.abort();
     if (!id) return;
     await loadVagaDetail(id);
     if (nextTab === "rejected") await loadRejected(id);
@@ -355,21 +503,60 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   // ─── Select candidate ───
   const onSelectCandidate = useCallback(async (id: string) => {
     setSelectedId(id);
-    setCandidatoFull(null);
+    const row = items.find((x) => x.id === id) ?? null;
+    if (!row) return;
+
+    const cached = detailCacheRef.current.get(id);
+    if (cached) {
+      setCandidatoFull(cached);
+      setCvText(cached.cvText ?? "");
+      return;
+    }
+
+    // Preenche instantaneamente com dados já disponíveis da linha para reduzir sensação de lentidão.
+    setCandidatoFull({
+      id: row.id,
+      nome: row.nome,
+      email: row.email,
+      source: row.source,
+      cvText: "",
+      resumoProfissional: "",
+      documentos: [],
+      updatedAt: "",
+    });
+    setCvText("");
+
     try {
-      const data = await api<AnyRec>(`${BASE}/api/candidatos/${encodeURIComponent(id)}`);
-      if (data) {
-        const full: CandidatoFull = {
-          id: pk(data.id), nome: pk(data.nome), email: pk(data.email),
-          cvText: pk(data.cvText), resumoProfissional: pk(data.resumoProfissional),
-          documentos: Array.isArray(data.documentos) ? data.documentos : [],
-          updatedAt: pk(data.updatedAt ?? data.updatedAtUtc),
-        };
-        setCandidatoFull(full);
-        setCvText(full.cvText ?? "");
+      if (detailAbortRef.current) detailAbortRef.current.abort();
+      const controller = new AbortController();
+      detailAbortRef.current = controller;
+
+      let data: AnyRec | null = null;
+      if (row.source === "talento") {
+        data = await api<AnyRec>(`${BASE}/api/talentos/${encodeURIComponent(id)}`, { signal: controller.signal });
+      } else {
+        data = await api<AnyRec>(`${BASE}/api/candidatos/${encodeURIComponent(id)}`, { signal: controller.signal });
       }
-    } catch { /* keep displaying summary from rank item */ }
-  }, []);
+
+      if (controller.signal.aborted || !data) return;
+
+      const full: CandidatoFull = {
+        id: pk(data.id),
+        nome: pk(data.nome, row.nome),
+        email: pk(data.email, row.email),
+        source: row.source,
+        cvText: pk(data.cvText),
+        resumoProfissional: pk(data.resumoProfissional),
+        documentos: Array.isArray(data.documentos) ? data.documentos : [],
+        updatedAt: pk(data.updatedAt ?? data.updatedAtUtc),
+      };
+      detailCacheRef.current.set(id, full);
+      setCandidatoFull(full);
+      setCvText(full.cvText ?? "");
+    } catch {
+      // mantém os dados rápidos da linha se falhar
+    }
+  }, [items]);
 
   // ─── Actions ───
   async function recalcSelected() {
@@ -421,18 +608,32 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
 
   async function saveFiltros(raw: string | null) {
     if (!vagaId) return;
+    const payloadRaw = (raw ?? "").trim();
+    if (!payloadRaw) {
+      toast.error("Preencha ao menos 1 filtro de matching antes de salvar.");
+      return;
+    }
     try {
       const data = await api<AnyRec>(`${BASE}/api/vagas/${encodeURIComponent(vagaId)}/matching-filtros`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchingFiltrosRaw: raw }),
+        body: JSON.stringify({ matchingFiltrosRaw: payloadRaw }),
       });
       if (data) setVagaDetail(mapVagaDetail(data));
       toast.success("Filtros salvos.");
       setShowFilterModal(false);
       sugCacheRef.current = null;
+      detailCacheRef.current.clear();
+      setRankStatus("processing");
+      setProcessingNowMs(Date.now());
+      setProcessingProgress({
+        startedAtMs: Date.now(),
+        expectedTotalMs: readExpectedTotalMs(vagaId),
+      });
       await loadSuggestions(vagaId, true);
-    } catch { toast.error("Falha ao salvar filtros."); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao salvar filtros.");
+    }
   }
 
   async function revertFiltros() {
@@ -449,22 +650,41 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
 
   // Cleanup polling on unmount
   useEffect(() => {
-    return () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); };
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      if (detailAbortRef.current) detailAbortRef.current.abort();
+    };
   }, []);
 
-  // Auto-select vaga when fixedVagaId is provided (navigated from Vagas screen)
+  useEffect(() => {
+    // Quando entrar pelo menu (sem vagaId), carrega opções para seleção manual.
+    if (initialVagaOptions.length > 0) return;
+    const t = setTimeout(() => { void loadVagaOptions(); }, 0);
+    return () => clearTimeout(t);
+  }, [initialVagaOptions.length, loadVagaOptions]);
+
+  // Tick visual de progresso durante processamento.
+  useEffect(() => {
+    if (rankStatus !== "processing") return;
+    const timer = setInterval(() => setProcessingNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [rankStatus]);
+
+  // Auto-select vaga when fixedVagaId is provided (navigated from Vagas screen).
+  // Do not depend on the initial vagas list, since this route may open with no preloaded options.
   const didAutoSelect = useRef(false);
   useEffect(() => {
-    if (fixedVagaId && vagas.length > 0 && !didAutoSelect.current) {
+    if (fixedVagaId && !didAutoSelect.current) {
       didAutoSelect.current = true;
-      void onSelectVaga(fixedVagaId, "suggestions");
+      const t = setTimeout(() => { void onSelectVaga(fixedVagaId, "suggestions"); }, 0);
+      return () => clearTimeout(t);
     }
-  }, [fixedVagaId, vagas, onSelectVaga]);
+  }, [fixedVagaId, onSelectVaga]);
 
   /* ═══════════ RENDER ═══════════ */
 
   // Find the selected vaga label for the header
-  const selectedVaga = vagas.find(v => v.id === vagaId);
+  const selectedVaga = vagaOptions.find(v => v.id === vagaId);
 
   return (
     <section className="space-y-4">
@@ -492,7 +712,32 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
       {/* Compact filter bar: search + tabs only */}
       <div className="card-soft p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <input className="form-control w-[260px]" placeholder="Buscar por nome ou email…" value={q} onChange={e => setQ(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="form-select w-[320px]"
+              value={vagaId}
+              onChange={(e) => {
+                const nextId = e.target.value;
+                if (!nextId) {
+                  setVagaId("");
+                  setItems([]);
+                  setSelectedId(null);
+                  setVagaDetail(null);
+                  setRankStatus("idle");
+                  return;
+                }
+                void onSelectVaga(nextId, tab);
+              }}
+            >
+              <option value="">Selecione uma vaga…</option>
+              {vagaOptions.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+            <input className="form-control w-[260px]" placeholder="Buscar por nome ou email…" value={q} onChange={e => setQ(e.target.value)} />
+          </div>
           <div className="flex overflow-hidden rounded-xl border border-[rgba(16,82,144,.14)] bg-white/60">
             <button type="button"
               className={`px-4 py-2 text-sm font-semibold transition ${tab === "suggestions" ? "bg-white/90 text-[var(--lt-primary,#105290)]" : "text-muted-foreground hover:bg-white/40"}`}
@@ -526,8 +771,24 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
 
         {/* Status banners */}
         {rankStatus === "processing" && (
-          <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-            🔄 Atualizando ranking em segundo plano…
+          <div className="mb-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[12px] text-blue-700">
+            <div className="flex flex-wrap items-center justify-between gap-1">
+              <span className="font-medium">🔄 Atualizando ranking…</span>
+              {processingComputed && (
+                <span className="text-[11px] font-semibold">
+                  {processingComputed.progressPct}% • decorrido {formatDuration(processingComputed.elapsedMs)} • falta ~{formatDuration(processingComputed.remainingMs)}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                style={{ width: `${processingComputed?.progressPct ?? 8}%` }}
+              />
+            </div>
+            <div className="mt-1 text-[10px] text-blue-600/85">
+              ETA pela média real dos últimos recálculos desta vaga.
+            </div>
           </div>
         )}
         {rankStatus === "failed" && items.length > 0 && (
@@ -583,9 +844,19 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
                         </td>
                         <td className="py-2.5 pr-2 text-muted-foreground text-xs">{r.email || "—"}</td>
                         <td className="py-2.5 pr-2 text-center">
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${r.pass ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                            {r.pass ? "Dentro" : "Abaixo"}
-                          </span>
+                          {tab === "rejected" ? (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700">
+                              Reprovado
+                            </span>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                r.score >= thresholdForList ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              {r.score >= thresholdForList ? "Dentro" : "Abaixo"}
+                            </span>
+                          )}
                         </td>
                         <td className="py-2.5 pr-2 text-right">
                           <div className="flex items-center justify-end gap-1">
@@ -645,15 +916,15 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
                   <>
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${matchResult.pass ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                          {matchResult.score}% • {matchResult.pass ? "Dentro" : "Abaixo"}
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${selectedOfficialPass ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                          {selected.score}% • {selectedOfficialPass ? "Dentro" : "Abaixo"}
                         </span>
                         <div className="text-muted-foreground text-xs mt-1">Mínimo: <span className="font-mono font-semibold">{matchResult.threshold}%</span></div>
                       </div>
-                      <div className="text-2xl font-bold" style={{ color: "var(--lt-primary, #105290)" }}>{matchResult.score}%</div>
+                      <div className="text-2xl font-bold" style={{ color: "var(--lt-primary, #105290)" }}>{selected.score}%</div>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-2">
-                      <div className="bg-[var(--lt-primary,#105290)] h-2 rounded-full transition-all" style={{ width: `${matchResult.score}%` }} />
+                      <div className="bg-[var(--lt-primary,#105290)] h-2 rounded-full transition-all" style={{ width: `${selected.score}%` }} />
                     </div>
 
                     {/* Badges */}
@@ -665,8 +936,31 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
                           <span className="badge-soft text-xs">📋 Requisitos: <strong className="ml-1">{vagaDetail.requisitos.length}</strong></span>
                           <span className="badge-soft text-xs">✅ Encontrados: <strong className="ml-1">{matchResult.hits.length}</strong></span>
                           <span className="badge-soft text-xs">⚠ Obrig. faltando: <strong className="ml-1">{matchResult.missMandatory.length}</strong></span>
+                          {selected.ruleVersion ? <span className="badge-soft text-xs">🧠 Regra: <strong className="ml-1">{selected.ruleVersion}</strong></span> : null}
                         </>
                       )}
+                    </div>
+
+                    {/* Official IA breakdown */}
+                    <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                      <div className="font-bold mb-2">Composição oficial do score (IA)</div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="text-muted-foreground">Score filtros</div>
+                        <div className="text-right font-semibold">{Math.round(selected.scoreFiltros ?? 0)}%</div>
+                        <div className="text-muted-foreground">Score requisitos</div>
+                        <div className="text-right font-semibold">{Math.round(selected.scoreRequisitos ?? 0)}%</div>
+                        <div className="text-muted-foreground">Cobertura obrigatórios</div>
+                        <div className="text-right font-semibold">{Math.round(selected.mandatoryCoverage ?? 100)}%</div>
+                        <div className="text-muted-foreground">Obrigatórios faltando</div>
+                        <div className="text-right font-semibold">{Math.round(selected.missingMandatoryCount ?? 0)}</div>
+                        <div className="text-muted-foreground">Penalidade rígida</div>
+                        <div className="text-right font-semibold">-{Math.round(selected.hardPenalty ?? 0)}</div>
+                      </div>
+                      {selected.justificativa ? (
+                        <div className="text-muted-foreground text-xs mt-2">
+                          <span className="font-semibold">Justificativa IA:</span> {selected.justificativa}
+                        </div>
+                      ) : null}
                     </div>
 
                     {/* Requirements detail */}
@@ -705,11 +999,11 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
 
                     {/* Calculation explanation */}
                     <div className="card-soft p-3" style={{ boxShadow: "none" }}>
-                      <div className="font-bold mb-2">Explicação do cálculo</div>
+                      <div className="font-bold mb-2">Simulação local por texto (apoio)</div>
                       <div className="text-muted-foreground text-xs space-y-1">
                         <div><span className="font-mono">score = (peso_encontrado / peso_total) × 100</span></div>
                         <div>Penalidade: <span className="font-mono">-15 pontos</span> por obrigatório faltando (máx. <span className="font-mono">-40</span>).</div>
-                        <div>Critério: <span className="font-mono">score ≥ threshold</span> → "Dentro".</div>
+                        <div>Critério: <span className="font-mono">score ≥ threshold</span> → Dentro.</div>
                       </div>
                       <hr className="my-3 border-[rgba(16,82,144,.14)]" />
                       <div className="flex items-center justify-between text-sm">
@@ -792,6 +1086,28 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
    ═══════════════════════════════════════════════════════════════════ */
 
 const UF_LIST = ["AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"];
+const MODALIDADE_OPTIONS = [
+  { code: "Presencial", label: "Presencial" },
+  { code: "Remoto", label: "Remoto" },
+  { code: "Hibrido", label: "Híbrido" },
+];
+const SENIORIDADE_OPTIONS = ["Junior", "Pleno", "Senior", "Especialista"];
+const ESCOLARIDADE_OPTIONS = ["Fundamental", "Medio", "Tecnico", "Superior", "PosGraduacao"];
+const TEMPO_EXP_OPTIONS = [
+  { code: "0", label: "Sem experiência" },
+  { code: "0-1", label: "0 a 1 ano" },
+  { code: "1-3", label: "1 a 3 anos" },
+  { code: "3-5", label: "3 a 5 anos" },
+  { code: "5+", label: "5 ou mais anos" },
+];
+
+function normalizeToken(v: string) {
+  return v
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
 
 function FilterModal({ vagaDetail, onClose, onSave }: { vagaDetail: VagaDetail; onClose: () => void; onSave: (raw: string | null) => void }) {
   const parsed = useMemo(() => parseMatchingFiltrosRaw(vagaDetail.matchingFiltrosRaw ?? ""), [vagaDetail]);
@@ -814,14 +1130,16 @@ function FilterModal({ vagaDetail, onClose, onSave }: { vagaDetail: VagaDetail; 
 
   function buildRaw(): string | null {
     const parts: string[] = [];
-    if (modalidade) parts.push(`Modalidade: ${modalidade}`);
+    const modalidadeLabel = MODALIDADE_OPTIONS.find((x) => x.code === modalidade)?.label ?? modalidade;
+    const tempoExpLabel = TEMPO_EXP_OPTIONS.find((x) => x.code === tempoExp)?.label ?? tempoExp;
+    if (modalidade) parts.push(`Modalidade: ${modalidadeLabel}`);
     if (senioridade) parts.push(`Senioridade: ${senioridade}`);
     if (escolaridade) parts.push(`Escolaridade: ${escolaridade}`);
     if (formacaoArea) parts.push(`Formacao: ${formacaoArea}`);
     if (cidade) parts.push(`Cidade: ${cidade}`);
     if (uf) parts.push(`UF: ${uf}`);
-    if (tempoExp) parts.push(`TempoExperiencia: ${tempoExp}`);
-    if (sexo) parts.push(`Sexo: ${sexo === "M" ? "Masculino" : sexo === "F" ? "Feminino" : "Outro"}`);
+    if (tempoExp) parts.push(`TempoExperiencia: ${tempoExpLabel}`);
+    if (sexo) parts.push(`Sexo: ${sexo === "M" ? "Masculino" : sexo === "F" ? "Feminino" : "Outro / Não informar"}`);
     if (pcd) parts.push(`PCD: ${pcd === "S" ? "Sim" : "Nao"}`);
     if (idadeMin) parts.push(`IdadeMin: ${idadeMin}`);
     if (idadeMax) parts.push(`IdadeMax: ${idadeMax}`);
@@ -846,13 +1164,13 @@ function FilterModal({ vagaDetail, onClose, onSave }: { vagaDetail: VagaDetail; 
           <div className="font-semibold text-sm">Regras de matching por IA</div>
           <div className="text-muted-foreground text-xs mb-4">Preencha os critérios do candidato ideal. Esses dados serão usados como contexto para o matching (e para a IA).</div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div><label className="text-xs text-muted-foreground">Modalidade</label><select className={sel} value={modalidade} onChange={e => setModalidade(e.target.value)}><option value="">Qualquer</option><option value="Presencial">Presencial</option><option value="Remoto">Remoto</option><option value="Hibrido">Híbrido</option></select></div>
-            <div><label className="text-xs text-muted-foreground">Senioridade</label><select className={sel} value={senioridade} onChange={e => setSenioridade(e.target.value)}><option value="">Qualquer</option><option value="Junior">Júnior</option><option value="Pleno">Pleno</option><option value="Senior">Sênior</option><option value="Especialista">Especialista</option></select></div>
-            <div><label className="text-xs text-muted-foreground">Escolaridade</label><select className={sel} value={escolaridade} onChange={e => setEscolaridade(e.target.value)}><option value="">Qualquer</option><option value="Fundamental">Fundamental</option><option value="Medio">Médio</option><option value="Tecnico">Técnico</option><option value="Superior">Superior</option><option value="PosGraduacao">Pós-graduação</option></select></div>
+            <div><label className="text-xs text-muted-foreground">Modalidade</label><select className={sel} value={modalidade} onChange={e => setModalidade(e.target.value)}><option value="">Qualquer</option>{MODALIDADE_OPTIONS.map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}</select></div>
+            <div><label className="text-xs text-muted-foreground">Senioridade</label><select className={sel} value={senioridade} onChange={e => setSenioridade(e.target.value)}><option value="">Qualquer</option>{SENIORIDADE_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select></div>
+            <div><label className="text-xs text-muted-foreground">Escolaridade</label><select className={sel} value={escolaridade} onChange={e => setEscolaridade(e.target.value)}><option value="">Qualquer</option>{ESCOLARIDADE_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select></div>
             <div><label className="text-xs text-muted-foreground">Formação (área)</label><input className={inp} value={formacaoArea} onChange={e => setFormacaoArea(e.target.value)} placeholder="Ex.: Engenharia" /></div>
             <div><label className="text-xs text-muted-foreground">Cidade</label><input className={inp} value={cidade} onChange={e => setCidade(e.target.value)} placeholder="Ex.: São Paulo" /></div>
             <div><label className="text-xs text-muted-foreground">UF</label><select className={sel} value={uf} onChange={e => setUf(e.target.value)}><option value="">Qualquer</option>{UF_LIST.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
-            <div><label className="text-xs text-muted-foreground">Tempo de experiência</label><select className={sel} value={tempoExp} onChange={e => setTempoExp(e.target.value)}><option value="">Qualquer</option><option value="0">Sem experiência</option><option value="0-1">0 a 1 ano</option><option value="1-3">1 a 3 anos</option><option value="3-5">3 a 5 anos</option><option value="5+">5 ou mais anos</option></select></div>
+            <div><label className="text-xs text-muted-foreground">Tempo de experiência</label><select className={sel} value={tempoExp} onChange={e => setTempoExp(e.target.value)}><option value="">Qualquer</option>{TEMPO_EXP_OPTIONS.map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}</select></div>
             <div><label className="text-xs text-muted-foreground">Sexo</label><select className={sel} value={sexo} onChange={e => setSexo(e.target.value)}><option value="">Qualquer</option><option value="M">Masculino</option><option value="F">Feminino</option><option value="O">Outro</option></select></div>
             <div><label className="text-xs text-muted-foreground">PCD</label><select className={sel} value={pcd} onChange={e => setPcd(e.target.value)}><option value="">Qualquer</option><option value="S">Sim (preferência PCD)</option><option value="N">Não</option></select></div>
             <div><label className="text-xs text-muted-foreground">Idade min.</label><input type="number" className={inp} value={idadeMin} onChange={e => setIdadeMin(e.target.value)} min={14} max={100} placeholder="-" /></div>
@@ -896,23 +1214,69 @@ function parseMatchingFiltrosRaw(raw: string): ParsedFiltros {
     requerCnh: false, cnhCategoria: "", habilidades: "", observacoes: "",
   };
   if (!raw?.trim()) return out;
-  const parts = raw.split(/\s*\.\s*/).filter(Boolean);
-  const re = /^(Modalidade|Senioridade|Escolaridade|Forma[cç]ao|Cidade|UF|TempoExperiencia|Sexo|PCD|IdadeMin|IdadeMax|RequerCNH|CategoriaCNH|Habilidades|Observac[oõ]es)\s*:\s*(.+)$/i;
-  const obs: string[] = [];
-  for (const part of parts) {
-    const m = part.match(re);
-    if (!m) { obs.push(part); continue; }
-    const label = m[1].toLowerCase().replace(/[çõ]/g, c => c === "ç" ? "c" : "o");
-    const val = m[2].trim();
-    if (label === "modalidade") out.modalidade = val;
-    else if (label === "senioridade") out.senioridade = val;
-    else if (label === "escolaridade") out.escolaridade = val;
+  const full = raw.trim();
+  const keyRe = /(Modalidade|Senioridade|Escolaridade|Forma[cç]ao|Cidade|UF|TempoExperiencia|Sexo|PCD|IdadeMin|IdadeMax|RequerCNH|CategoriaCNH|Habilidades|Observac[oõ]es)\s*:/gi;
+  const matches: Array<{ label: string; value: string }> = [];
+  const found = Array.from(full.matchAll(keyRe));
+  for (let i = 0; i < found.length; i++) {
+    const curr = found[i];
+    const next = found[i + 1];
+    const label = curr[1] ?? "";
+    const start = (curr.index ?? 0) + curr[0].length;
+    const end = next?.index ?? full.length;
+    const value = full.slice(start, end).replace(/^\s*[\.\-]?\s*/, "").replace(/\s*[\.\-]?\s*$/, "").trim();
+    matches.push({ label, value });
+  }
+
+  if (!matches.length) {
+    out.observacoes = full;
+    return out;
+  }
+
+  for (const part of matches) {
+    const label = part.label.toLowerCase().replace(/[çõ]/g, (c) => (c === "ç" ? "c" : "o"));
+    const val = part.value.trim();
+    if (label === "modalidade") {
+      const nv = normalizeToken(val);
+      if (nv === "presencial") out.modalidade = "Presencial";
+      else if (nv === "remoto") out.modalidade = "Remoto";
+      else if (nv === "hibrido" || nv === "hibrida") out.modalidade = "Hibrido";
+      else out.modalidade = val;
+    }
+    else if (label === "senioridade") {
+      const nv = normalizeToken(val);
+      if (nv === "junior") out.senioridade = "Junior";
+      else if (nv === "pleno") out.senioridade = "Pleno";
+      else if (nv === "senior") out.senioridade = "Senior";
+      else if (nv === "especialista") out.senioridade = "Especialista";
+      else out.senioridade = val;
+    }
+    else if (label === "escolaridade") {
+      const nv = normalizeToken(val);
+      if (nv === "fundamental") out.escolaridade = "Fundamental";
+      else if (nv === "medio") out.escolaridade = "Medio";
+      else if (nv === "tecnico") out.escolaridade = "Tecnico";
+      else if (nv === "superior") out.escolaridade = "Superior";
+      else if (nv === "pos-graduacao" || nv === "pos graduacao") out.escolaridade = "PosGraduacao";
+      else out.escolaridade = val;
+    }
     else if (label === "formacao") out.formacaoArea = val;
     else if (label === "cidade") out.cidade = val;
     else if (label === "uf") out.uf = val;
-    else if (label === "tempoexperiencia") out.tempoExp = val;
-    else if (label === "sexo") out.sexo = val === "Masculino" ? "M" : val === "Feminino" ? "F" : "O";
-    else if (label === "pcd") out.pcd = val === "Sim" ? "S" : "N";
+    else if (label === "tempoexperiencia") {
+      const nv = normalizeToken(val);
+      if (nv === "sem experiencia") out.tempoExp = "0";
+      else if (nv === "0 a 1 ano") out.tempoExp = "0-1";
+      else if (nv === "1 a 3 anos") out.tempoExp = "1-3";
+      else if (nv === "3 a 5 anos") out.tempoExp = "3-5";
+      else if (nv === "5 ou mais anos") out.tempoExp = "5+";
+      else out.tempoExp = val;
+    }
+    else if (label === "sexo") {
+      const nv = normalizeToken(val);
+      out.sexo = nv === "masculino" ? "M" : nv === "feminino" ? "F" : "O";
+    }
+    else if (label === "pcd") out.pcd = normalizeToken(val).startsWith("sim") ? "S" : "N";
     else if (label === "idademin") out.idadeMin = val;
     else if (label === "idademax") out.idadeMax = val;
     else if (label === "requercnh") out.requerCnh = val === "Sim";
@@ -920,6 +1284,5 @@ function parseMatchingFiltrosRaw(raw: string): ParsedFiltros {
     else if (label === "habilidades") out.habilidades = val;
     else if (label === "observacoes") out.observacoes = val;
   }
-  if (obs.length) out.observacoes = [out.observacoes, ...obs].filter(Boolean).join(". ");
   return out;
 }

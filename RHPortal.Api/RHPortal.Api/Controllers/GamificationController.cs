@@ -39,6 +39,46 @@ public sealed class GamificationController : ControllerBase
     }
 
     [RequirePermission("feedback.gamificacao.view")]
+    [HttpGet("my-profile")]
+    [ProducesResponseType(typeof(GamificationProfileResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<GamificationProfileResponse>> GetMyProfile(
+        [FromServices] GamificationService service,
+        CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+        var result = await service.GetMyProfileAsync(userId, ct);
+        return Ok(result);
+    }
+
+    [RequirePermission("feedback.gamificacao.view")]
+    [HttpGet("daily-activities")]
+    [ProducesResponseType(typeof(IReadOnlyList<DailyActivityResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<IReadOnlyList<DailyActivityResponse>>> GetDailyActivities(
+        [FromServices] GamificationService service,
+        CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+        var result = await service.GetDailyActivitiesAsync(userId, ct);
+        return Ok(result);
+    }
+
+    [RequirePermission("feedback.gamificacao.view")]
+    [HttpGet("rules")]
+    [ProducesResponseType(typeof(IReadOnlyList<GamificationRuleResponse>), StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<GamificationRuleResponse>> GetRules(
+        [FromServices] GamificationService service)
+    {
+        var result = service.GetRules();
+        return Ok(result);
+    }
+
+    [RequirePermission("feedback.gamificacao.view")]
     [HttpGet("history")]
     [ProducesResponseType(typeof(MonthlyTop3HistoryResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<MonthlyTop3HistoryResponse>> GetHistory(

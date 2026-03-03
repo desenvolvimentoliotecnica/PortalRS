@@ -147,6 +147,7 @@ public sealed class VagaService : IVagaService
 
     public async Task<VagaResponse> CreateAsync(VagaCreateRequest request, CancellationToken ct)
     {
+        EnsureMatchingFiltrosRequired(request.MatchingFiltrosRaw, "create");
         await EnsureAreaAsync(request.AreaId, ct);
         if (request.DepartmentId.HasValue && request.DepartmentId.Value != Guid.Empty)
             await EnsureDepartmentAsync(request.DepartmentId.Value, ct);
@@ -327,6 +328,7 @@ public sealed class VagaService : IVagaService
 
     public async Task<VagaResponse?> UpdateMatchingFiltrosAsync(Guid id, string? matchingFiltrosRaw, CancellationToken ct)
     {
+        EnsureMatchingFiltrosRequired(matchingFiltrosRaw, "update");
         var entity = await _db.Vagas.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
         EnsureTenantOwnership(entity);
@@ -348,6 +350,12 @@ public sealed class VagaService : IVagaService
     }
 
     private static string Norm(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : s.Trim();
+
+    private static void EnsureMatchingFiltrosRequired(string? matchingFiltrosRaw, string operation)
+    {
+        if (!string.IsNullOrWhiteSpace(matchingFiltrosRaw)) return;
+        throw new InvalidOperationException($"MatchingFiltrosRaw é obrigatório na operação de {operation}.");
+    }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
     {

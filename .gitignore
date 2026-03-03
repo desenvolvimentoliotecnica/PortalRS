@@ -21,3 +21,7 @@
 nul
 **/nul
 Liotecnica.Integration.RM.Logs/extraction.log
+
+# Python bytecode/cache
+**/__pycache__/
+*.pyc

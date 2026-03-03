@@ -6,6 +6,7 @@ namespace RhPortal.Api.Domain.Entities;
 /// RENDERCOINZ transaction (credit/debit) for a user.
 /// </summary>
 public sealed class RenderCoinTransaction
+    : ITenantEntity
 {
     public Guid Id { get; set; }
     public string TenantId { get; set; } = default!;

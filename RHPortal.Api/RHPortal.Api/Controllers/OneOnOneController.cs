@@ -17,12 +17,19 @@ public sealed class OneOnOneController : ControllerBase
     public async Task<ActionResult<OneOnOneMeetingResponse>> Create(
         [FromBody] OneOnOneCreateRequest request,
         [FromServices] OneOnOneService service,
+        [FromServices] AwardPointsService awardPoints,
         CancellationToken ct)
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdClaim, out var userId))
             return Unauthorized();
         var created = await service.CreateAsync(request, userId, ct);
+        await awardPoints.AwardAsync(
+            userId,
+            GamificationEventTypes.OneOnOneCompleted,
+            sourceId: created.Id.ToString(),
+            reason: "Realizar reunião 1:1",
+            ct);
         return CreatedAtAction(nameof(List), new { page = 1, pageSize = 20 }, created);
     }
 

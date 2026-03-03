@@ -15,6 +15,7 @@ interface TemplateListItem {
     id: string;
     name: string;
     subject: string | null;
+    version?: number;
     isActive: boolean;
     lastModified: string | null;
 }
@@ -60,8 +61,17 @@ export default function AdminEmailTemplatesScreen() {
     const loadTemplates = useCallback(async () => {
         setLoading(true);
         try {
-            const list = await fetchJson<TemplateListItem[]>(`/Admin/EmailTemplates/_api/templates?includeInactive=${includeInactive}`);
-            setTemplates(list);
+            const list = await fetchJson<any[]>(`/api/email-templates?includeInactive=${includeInactive}`);
+            setTemplates(
+                (Array.isArray(list) ? list : []).map((x) => ({
+                    id: String(x.id),
+                    name: String(x.name ?? ""),
+                    subject: x.subjectTemplate ?? null,
+                    version: typeof x.version === "number" ? x.version : undefined,
+                    isActive: Boolean(x.isActive),
+                    lastModified: String(x.updatedAtUtc ?? x.createdAtUtc ?? ""),
+                })),
+            );
         } catch {
             toast.error("Falha ao carregar templates.");
         } finally {
@@ -81,7 +91,14 @@ export default function AdminEmailTemplatesScreen() {
 
     async function startEdit(id: string) {
         try {
-            const detail = await fetchJson<TemplateDetail>(`/Admin/EmailTemplates/_api/templates/${id}`);
+            const raw = await fetchJson<any>(`/api/email-templates/${id}`);
+            const detail: TemplateDetail = {
+                id: String(raw?.id ?? id),
+                name: String(raw?.name ?? ""),
+                subject: String(raw?.subjectTemplate ?? ""),
+                body: String(raw?.bodyHtml ?? ""),
+                isActive: Boolean(raw?.isActive),
+            };
             setEditId(id);
             setForm({ name: detail.name, subject: detail.subject, body: detail.body, isActive: detail.isActive });
             setShowForm(true);
@@ -95,15 +112,15 @@ export default function AdminEmailTemplatesScreen() {
         setSaving(true);
         try {
             if (editId) {
-                await fetchJson(`/Admin/EmailTemplates/_api/templates/${editId}`, {
+                await fetchJson(`/api/email-templates/${editId}`, {
                     method: "PUT", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(form),
+                    body: JSON.stringify({ subjectTemplate: form.subject, bodyHtml: form.body }),
                 });
                 toast.success("Template atualizado!");
             } else {
-                await fetchJson("/Admin/EmailTemplates/_api/templates", {
+                await fetchJson("/api/email-templates", {
                     method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(form),
+                    body: JSON.stringify({ name: form.name, subjectTemplate: form.subject, bodyHtml: form.body }),
                 });
                 toast.success("Template criado!");
             }
@@ -118,7 +135,7 @@ export default function AdminEmailTemplatesScreen() {
 
     async function handleSetActive(id: string) {
         try {
-            await fetchJson(`/Admin/EmailTemplates/_api/templates/${id}/set-active`, { method: "POST" });
+            await fetchJson(`/api/email-templates/${id}/set-active`, { method: "POST" });
             toast.success("Template ativado!");
             void loadTemplates();
         } catch {

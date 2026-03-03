@@ -12,8 +12,8 @@ import { apiFetch } from "@/lib/api";
 
 /* ── Types ── */
 interface User { id: string; fullName: string; email: string; isActive: boolean; roles: string[]; }
-interface Role { id: string; name: string; description: string | null; isSystem: boolean; isActive: boolean; userCount: number; }
-interface Menu { id: string; displayName: string; route: string | null; icon: string | null; parentId: string | null; order: number; isActive: boolean; permissionKey: string | null; }
+interface Role { id: string; name: string; description: string | null; isSystem?: boolean; isActive: boolean; userCount?: number; visibilityScope?: number; vagasDataScope?: number; accessMode?: number; }
+interface Menu { id: string; displayName: string; route: string | null; icon: string | null; parentId: string | null; order: number; isActive: boolean; permissionKey: string | null; openInNewTab?: boolean; }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, { cache: "no-store", ...init });
@@ -70,7 +70,7 @@ function UsersTab() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [u, r] = await Promise.all([fetchJson<User[]>("/UsuariosPerfis/_api/users"), fetchJson<Role[]>("/UsuariosPerfis/_api/roles")]);
+            const [u, r] = await Promise.all([fetchJson<User[]>("/api/users"), fetchJson<Role[]>("/api/roles")]);
             setUsers(u); setRoles(r);
         } catch { toast.error("Falha ao carregar usuários."); }
         finally { setLoading(false); }
@@ -84,7 +84,11 @@ function UsersTab() {
         if (!newName.trim() || !newEmail.trim() || !newPassword.trim()) { toast.error("Preencha todos os campos."); return; }
         setCreating(true);
         try {
-            await fetchJson("/UsuariosPerfis/_api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fullName: newName.trim(), email: newEmail.trim(), password: newPassword }) });
+            await fetchJson("/api/users", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fullName: newName.trim(), email: newEmail.trim(), password: newPassword, isActive: true, roleIds: [] }),
+            });
             toast.success("Usuário criado!"); setNewName(""); setNewEmail(""); setNewPassword(""); setShowCreate(false); void load();
         } catch (err) { toast.error(err instanceof Error ? err.message : "Falha ao criar."); }
         finally { setCreating(false); }
@@ -92,7 +96,7 @@ function UsersTab() {
 
     async function handleToggleStatus(id: string, active: boolean) {
         try {
-            await fetchJson(`/UsuariosPerfis/_api/users/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: active }) });
+            await fetchJson(`/api/users/${id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: active }) });
             toast.success(active ? "Ativado." : "Desativado."); void load();
         } catch { toast.error("Falha ao alterar status."); }
     }
@@ -101,7 +105,7 @@ function UsersTab() {
         const pwd = prompt("Nova senha:");
         if (!pwd) return;
         try {
-            await fetchJson(`/UsuariosPerfis/_api/users/${id}/password`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPassword: pwd }) });
+            await fetchJson(`/api/users/${id}/password`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPassword: pwd }) });
             toast.success("Senha alterada!");
         } catch { toast.error("Falha ao alterar senha."); }
     }
@@ -121,7 +125,7 @@ function UsersTab() {
         if (!assignUserId) return;
         setSavingRoles(true);
         try {
-            await fetchJson(`/UsuariosPerfis/_api/users/${assignUserId}/roles`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roleIds: Array.from(userRoleIds) }) });
+            await fetchJson(`/api/users/${assignUserId}/roles`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roleIds: Array.from(userRoleIds) }) });
             toast.success("Perfis atualizados!"); setAssignUserId(null); void load();
         } catch { toast.error("Falha ao salvar perfis."); }
         finally { setSavingRoles(false); }
@@ -198,7 +202,7 @@ function RolesTab() {
 
     const load = useCallback(async () => {
         setLoading(true);
-        try { setRoles(await fetchJson<Role[]>("/UsuariosPerfis/_api/roles")); }
+        try { setRoles(await fetchJson<Role[]>("/api/roles")); }
         catch { toast.error("Falha ao carregar perfis."); }
         finally { setLoading(false); }
     }, []);
@@ -212,8 +216,9 @@ function RolesTab() {
         setSaving(true);
         try {
             const payload = { name: formName.trim(), description: formDesc.trim() || null };
-            if (editId) { await fetchJson(`/UsuariosPerfis/_api/roles/${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); toast.success("Perfil atualizado!"); }
-            else { await fetchJson("/UsuariosPerfis/_api/roles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); toast.success("Perfil criado!"); }
+            const enrichedPayload = { ...payload, isActive: true, visibilityScope: 0, vagasDataScope: 0, accessMode: 0 };
+            if (editId) { await fetchJson(`/api/roles/${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(enrichedPayload) }); toast.success("Perfil atualizado!"); }
+            else { await fetchJson("/api/roles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(enrichedPayload) }); toast.success("Perfil criado!"); }
             setShowForm(false); void load();
         } catch (err) { toast.error(err instanceof Error ? err.message : "Falha."); }
         finally { setSaving(false); }
@@ -221,7 +226,7 @@ function RolesTab() {
 
     async function handleDelete(id: string, name: string) {
         if (!confirm(`Remover "${name}"?`)) return;
-        try { await apiFetch(`/UsuariosPerfis/_api/roles/${id}`, { method: "DELETE" }); toast.success("Removido."); void load(); }
+        try { await apiFetch(`/api/roles/${id}`, { method: "DELETE" }); toast.success("Removido."); void load(); }
         catch { toast.error("Falha."); }
     }
 
@@ -272,7 +277,7 @@ function MenusTab() {
 
     const load = useCallback(async () => {
         setLoading(true);
-        try { setMenus(await fetchJson<Menu[]>("/UsuariosPerfis/_api/menus")); }
+        try { setMenus(await fetchJson<Menu[]>("/api/menus")); }
         catch { toast.error("Falha ao carregar menus."); }
         finally { setLoading(false); }
     }, []);
@@ -287,9 +292,9 @@ function MenusTab() {
         if (!formName.trim() || !formPerm.trim()) { toast.error("Nome e permissão são obrigatórios."); return; }
         setSaving(true);
         try {
-            const payload = { displayName: formName.trim(), route: formRoute.trim(), icon: formIcon.trim(), order: formOrder, parentId: formParent || null, permissionKey: formPerm.trim(), isActive: formActive };
-            if (editId) { await fetchJson(`/UsuariosPerfis/_api/menus/${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); toast.success("Menu atualizado!"); }
-            else { await fetchJson("/UsuariosPerfis/_api/menus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); toast.success("Menu criado!"); }
+            const payload = { displayName: formName.trim(), route: formRoute.trim() || "/", icon: formIcon.trim(), order: formOrder, parentId: formParent || null, permissionKey: formPerm.trim(), isActive: formActive, openInNewTab: false };
+            if (editId) { await fetchJson(`/api/menus/${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); toast.success("Menu atualizado!"); }
+            else { await fetchJson("/api/menus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); toast.success("Menu criado!"); }
             setShowForm(false); void load();
         } catch (err) { toast.error(err instanceof Error ? err.message : "Falha."); }
         finally { setSaving(false); }
@@ -297,7 +302,7 @@ function MenusTab() {
 
     async function handleDelete(id: string, name: string) {
         if (!confirm(`Remover "${name}"?`)) return;
-        try { await apiFetch(`/UsuariosPerfis/_api/menus/${id}`, { method: "DELETE" }); toast.success("Removido."); void load(); }
+        try { await apiFetch(`/api/menus/${id}`, { method: "DELETE" }); toast.success("Removido."); void load(); }
         catch { toast.error("Falha."); }
     }
 

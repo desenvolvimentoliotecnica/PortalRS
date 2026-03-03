@@ -5,8 +5,10 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RhPortal.Api.Contracts.Matching;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -21,17 +23,20 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
     private readonly ITenantContext _tenantContext;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<VagaUnifiedMatchingCacheService> _logger;
+    private readonly RhAiOptions _rhAiOptions;
 
     public VagaUnifiedMatchingCacheService(
         AppDbContext db,
         ITenantContext tenantContext,
         IServiceScopeFactory scopeFactory,
-        ILogger<VagaUnifiedMatchingCacheService> logger)
+        ILogger<VagaUnifiedMatchingCacheService> logger,
+        IOptions<RhAiOptions> rhAiOptions)
     {
         _db = db;
         _tenantContext = tenantContext;
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _rhAiOptions = rhAiOptions.Value;
     }
 
     public Task<VagaUnifiedMatchingRankingSnapshot> GetOrStartAsync(Guid vagaId, int take = 20, CancellationToken ct = default)
@@ -47,6 +52,7 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
         CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId ?? string.Empty;
+        var ruleVersion = _rhAiOptions.ResolveRuleVersion(tenantId);
         var now = DateTimeOffset.UtcNow;
         var safeTake = Math.Clamp(take, 10, 100);
 
@@ -69,7 +75,7 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
             );
         }
 
-        var desiredHash = ComputeFiltersHash(vaga.MatchingFiltrosRaw);
+        var desiredHash = ComputeFiltersHash(vaga.MatchingFiltrosRaw, ruleVersion);
         var cache = await _db.VagaUnifiedMatchingCaches
             .AsTracking()
             .FirstOrDefaultAsync(x => x.VagaId == vagaId, ct);
@@ -96,7 +102,7 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
             _db.VagaUnifiedMatchingCaches.Add(cache);
             await _db.SaveChangesAsync(ct);
 
-            StartBackgroundRecompute(vagaId, tenantId, desiredHash, safeTake);
+            StartBackgroundRecompute(vagaId, tenantId, desiredHash, safeTake, ruleVersion);
             return new VagaUnifiedMatchingRankingSnapshot(
                 Status: UnifiedMatchingCacheStatus.Processing,
                 FiltersHash: desiredHash,
@@ -144,7 +150,7 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
             cache.LastError = null;
             await _db.SaveChangesAsync(ct);
 
-            StartBackgroundRecompute(vagaId, tenantId, desiredHash, safeTake);
+            StartBackgroundRecompute(vagaId, tenantId, desiredHash, safeTake, ruleVersion);
         }
         else
         {
@@ -176,12 +182,13 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
         );
     }
 
-    private void StartBackgroundRecompute(Guid vagaId, string tenantId, string filtersHash, int take)
+    private void StartBackgroundRecompute(Guid vagaId, string tenantId, string filtersHash, int take, string ruleVersion)
     {
         _ = Task.Run(async () =>
         {
             try
             {
+                var startedAt = DateTimeOffset.UtcNow;
                 using var scope = _scopeFactory.CreateScope();
                 var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
                 if (!string.IsNullOrWhiteSpace(tenantId))
@@ -229,6 +236,16 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
                 cache.LastError = null;
 
                 await db.SaveChangesAsync(CancellationToken.None).ConfigureAwait(false);
+                var elapsed = DateTimeOffset.UtcNow - startedAt;
+                _logger.LogInformation(
+                    "Unified matching recompute ready. Tenant={TenantId} VagaId={VagaId} Rule={RuleVersion} Take={Take} Items={Items} ElapsedMs={ElapsedMs}",
+                    tenantId,
+                    vagaId,
+                    ruleVersion,
+                    take,
+                    unified.Count,
+                    (long)elapsed.TotalMilliseconds
+                );
             }
             catch (Exception ex)
             {
@@ -278,9 +295,9 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
         }
     }
 
-    private static string ComputeFiltersHash(string? raw)
+    private static string ComputeFiltersHash(string? raw, string? ruleVersion)
     {
-        var normalized = NormalizeFiltersText(raw);
+        var normalized = $"{NormalizeFiltersText(raw)}|rule:{(ruleVersion ?? string.Empty).Trim()}";
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(normalized));
         return Convert.ToHexString(bytes).ToLowerInvariant();

@@ -26,7 +26,13 @@ interface LeaderboardResponse {
 interface MyBalance {
     userId: string;
     balance: number;
-    lastTransactionDate: string | null;
+    updatedAtUtc: string;
+}
+interface GamificationRule {
+    eventType: string;
+    label: string;
+    points: number;
+    dailyCap: number | null;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -38,6 +44,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 export default function GamificacaoScreen() {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [myBalance, setMyBalance] = useState<MyBalance | null>(null);
+    const [rules, setRules] = useState<GamificationRule[]>([]);
     const [loading, setLoading] = useState(true);
     const [q, setQ] = useState("");
     const [roleFilter, setRoleFilter] = useState<"todos" | "colaborador" | "gestor">("todos");
@@ -51,6 +58,8 @@ export default function GamificacaoScreen() {
             ]);
             setLeaderboard(lb.items ?? []);
             setMyBalance(balance);
+            const rulesData = await fetchJson<GamificationRule[]>("/api/feedback/gamification/rules").catch(() => []);
+            setRules(rulesData ?? []);
         } catch (err) {
             console.error("Failed to load gamification", err);
         } finally {
@@ -59,6 +68,15 @@ export default function GamificacaoScreen() {
     }, []);
 
     useEffect(() => { void loadData(); }, [loadData]);
+    useEffect(() => {
+        const onFocus = () => { void loadData(); };
+        window.addEventListener("focus", onFocus);
+        const id = window.setInterval(() => { void loadData(); }, 60000);
+        return () => {
+            window.removeEventListener("focus", onFocus);
+            window.clearInterval(id);
+        };
+    }, [loadData]);
 
     const filtered = (() => {
         let list = leaderboard;
@@ -91,7 +109,7 @@ export default function GamificacaoScreen() {
                     <div className="text-muted-foreground text-sm">Ranking de RenderCoins acumulados pelos colaboradores.</div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Link href="/app/gamificacao-historico">
+                    <Link href="/feedback/gamificacao/historico">
                         <Button variant="outline" size="sm">
                             <Clock className="size-4 mr-1" />Histórico
                         </Button>
@@ -121,19 +139,13 @@ export default function GamificacaoScreen() {
             <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                 <div className="font-bold text-sm mb-2">Ação e valor em pontos</div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                    {[
-                        ["Enviar feedback", "+10 RC"],
-                        ["Receber feedback", "+5 RC"],
-                        ["Publicar celebração", "+8 RC"],
-                        ["Ser mencionado", "+3 RC"],
-                        ["Comentar em celebração", "+2 RC"],
-                        ["Responder pesquisa", "+5 RC"],
-                        ["Realizar reunião 1:1", "+10 RC"],
-                        ["Criar plano de desenvolvimento", "+15 RC"],
-                    ].map(([action, points]) => (
-                        <div key={action} className="flex justify-between py-1 border-b border-border/10">
-                            <span className="text-muted-foreground">{action}</span>
-                            <span className="font-semibold text-amber-600">{points}</span>
+                    {rules.map((rule) => (
+                        <div key={rule.eventType} className="flex justify-between py-1 border-b border-border/10">
+                            <span className="text-muted-foreground">{rule.label}</span>
+                            <span className="font-semibold text-amber-600">
+                                +{rule.points.toLocaleString("pt-BR")} RC
+                                {rule.dailyCap ? ` (máx ${rule.dailyCap}/dia)` : ""}
+                            </span>
                         </div>
                     ))}
                 </div>

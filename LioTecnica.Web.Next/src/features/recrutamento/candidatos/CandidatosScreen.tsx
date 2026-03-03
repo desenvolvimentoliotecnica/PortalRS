@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
@@ -993,9 +994,16 @@ export default function CandidatosScreen() {
                 </div>
               </div>
 
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setDetailOpen(false)}>
-                Fechar
-              </button>
+              <div className="flex items-center gap-2">
+                {detail?.id ? (
+                  <Link href={`/candidatos/detalhes?id=${encodeURIComponent(detail.id)}`} className="btn-ghost px-3 py-2" onClick={() => setDetailOpen(false)}>
+                    Abrir em página
+                  </Link>
+                ) : null}
+                <button className="btn-ghost px-3 py-2" type="button" onClick={() => setDetailOpen(false)}>
+                  Fechar
+                </button>
+              </div>
             </div>
 
             {!detail ? (

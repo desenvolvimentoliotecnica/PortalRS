@@ -144,6 +144,9 @@
   <data name="Seed.Menu.Relatorios" xml:space="preserve">
     <value>Reports</value>
   </data>
+  <data name="Seed.Menu.FeedbackInicio" xml:space="preserve">
+    <value>Home</value>
+  </data>
   <data name="Seed.Menu.Celebracao" xml:space="preserve">
     <value>Celebration</value>
   </data>

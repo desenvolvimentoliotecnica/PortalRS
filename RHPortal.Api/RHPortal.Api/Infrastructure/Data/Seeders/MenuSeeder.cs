@@ -103,53 +103,31 @@ public static class MenuSeeder
         if (cadastroUpdated)
             await db.SaveChangesAsync(ct);
 
-        // Remover item duplicado/deprecado da sidebar:
-        // "Meus planos de desenvolvimento" (/Feedback/MeusPlanos) -> já existe "Gestao dos Planos de Desenvolvimento" (/Gestao/PlanosDesenvolvimento).
-        var meusPlanosMenu = await db.Menus.FirstOrDefaultAsync(
-            x => x.PermissionKey == "feedback.myplans.view" || x.Route == "/Feedback/MeusPlanos",
-            ct);
-        if (meusPlanosMenu != null)
+        // ── Reparent orphan children ──────────────────────────────────────
+        // Items that existed in the DB before their parent group was created
+        // still have ParentId = null.  Fix them by matching the descriptors.
+        var reparented = false;
+        foreach (var d in GetDefaultMenuDescriptors())
         {
-            await db.RoleMenus
-                .Where(x => x.MenuId == meusPlanosMenu.Id)
-                .ExecuteDeleteAsync(ct);
-            db.Menus.Remove(meusPlanosMenu);
-            await db.SaveChangesAsync(ct);
-            // Rebuild menuByKey so removed menu won't be assigned to roles below.
-            menuByKey = await db.Menus.ToDictionaryAsync(x => x.PermissionKey, x => x, ct);
+            if (d.ParentPermissionKey == null) continue;
+
+            var parentMenu = await db.Menus.FirstOrDefaultAsync(
+                x => x.PermissionKey == d.ParentPermissionKey, ct);
+            if (parentMenu == null) continue;
+
+            var childMenu = await db.Menus.FirstOrDefaultAsync(
+                x => x.PermissionKey == d.PermissionKey, ct);
+            if (childMenu == null) continue;
+            if (childMenu.ParentId == parentMenu.Id) continue;
+
+            childMenu.ParentId = parentMenu.Id;
+            reparented = true;
         }
-
-        // Remover menus de Desempenho (não implementar agora / não exibir na sidebar)
-        // - Grupo: "Desempenho" (permissionKey: desempenho)
-        // - Item: "Minhas Avaliações" (permissionKey: desempenho.minhasavaliacoes)
-        var desempenhoMenuIds = await db.Menus
-            .Where(x =>
-                x.PermissionKey == "desempenho"
-                || x.PermissionKey == "desempenho.minhasavaliacoes"
-                || x.Route == "/Desempenho/MinhasAvaliacoes")
-            .Select(x => x.Id)
-            .ToListAsync(ct);
-
-        if (desempenhoMenuIds.Count > 0)
-        {
-            // Remove RoleMenus primeiro (FK)
-            await db.RoleMenus
-                .Where(x => desempenhoMenuIds.Contains(x.MenuId))
-                .ExecuteDeleteAsync(ct);
-
-            // Remove menus (e filhos, se existirem)
-            var toRemove = await db.Menus
-                .Where(x => desempenhoMenuIds.Contains(x.Id)
-                            || (x.ParentId.HasValue && desempenhoMenuIds.Contains(x.ParentId.Value)))
-                .ToListAsync(ct);
-
-            db.Menus.RemoveRange(toRemove);
+        if (reparented)
             await db.SaveChangesAsync(ct);
 
-            // Rebuild menuByKey so removed menus won't be assigned to roles below.
-            menuByKey = await db.Menus.ToDictionaryAsync(x => x.PermissionKey, x => x, ct);
-        }
-
+        // Rebuild menuByKey for the role assignment below
+        menuByKey = await db.Menus.ToDictionaryAsync(x => x.PermissionKey, x => x, ct);
 
 
 
@@ -196,6 +174,9 @@ public static class MenuSeeder
         // Início
         ("/Dashboard", "bi-speedometer2", 1, "dashboard.view", false, "Seed.Menu.Dashboard", null),
 
+        // Início do módulo Feedback
+        ("/Feedback", "bi-house", 4, "feedback.inicio.view", false, "Seed.Menu.FeedbackInicio", null),
+
         // Celebrações
         ("/Feedback/Celebracao", "bi-balloon-heart", 5, "feedback.celebracao.view", false, "Seed.Menu.Celebracao", null),
 
@@ -222,9 +203,9 @@ public static class MenuSeeder
         ("/Gestao/Humor", "bi-emoji-smile", 43, "gestao.humor", false, "Seed.Menu.GestaoHumor", "feedback.gestao.view"),
         ("/Gestao/ResumoAtividades", "bi-activity", 44, "gestao.resumo", false, "Seed.Menu.GestaoResumo", "feedback.gestao.view"),
 
-        // Desempenho (ocultar por enquanto)
-        // ("#", "bi-bar-chart", 50, "desempenho", false, "Seed.Menu.Desempenho", null),
-        // ("/Desempenho/MinhasAvaliacoes", "bi-card-checklist", 51, "desempenho.minhasavaliacoes", false, "Seed.Menu.MinhasAvaliacoes", "desempenho"),
+        // Desempenho (grupo + item)
+        ("#", "bi-bar-chart", 50, "desempenho", false, "Seed.Menu.Desempenho", null),
+        ("/Desempenho/MinhasAvaliacoes", "bi-journal-check", 51, "desempenho.minhasavaliacoes", false, "Seed.Menu.MinhasAvaliacoes", "desempenho"),
 
         // Outros menus existentes (mantidos)
         ("/Agendas", "bi-calendar-event", 2, "agenda.view", false, "Seed.Menu.Agenda", null),
