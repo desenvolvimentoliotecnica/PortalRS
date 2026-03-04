@@ -78,6 +78,7 @@ public sealed class PortalCategoriaSyncService
         var codeToId = await LoadExistingCategoriasAsync(ct);
 
         var created = 0;
+        var updated = 0;
         var skipped = 0;
         foreach (var row in items)
         {
@@ -85,12 +86,6 @@ public sealed class PortalCategoriaSyncService
             {
                 var code = NormalizeCode(row.Codigo);
                 if (string.IsNullOrEmpty(code)) continue;
-
-                if (codeToId.TryGetValue(code, out _))
-                {
-                    skipped++;
-                    continue;
-                }
 
                 var name = (row.Nome ?? code).Trim();
                 if (name.Length > 120) name = name.Substring(0, 120);
@@ -106,10 +101,24 @@ public sealed class PortalCategoriaSyncService
                     IsActive: isActive
                 );
 
-                var response = await _portalClient.Http.PostAsJsonAsync("api/requisito-categorias", body, JsonOptions, ct);
-                if (response.IsSuccessStatusCode)
+                if (codeToId.TryGetValue(code, out var existingId))
                 {
-                    var cat = await response.Content.ReadFromJsonAsync<RequisitoCategoriaResponse>(JsonOptions, ct);
+                    var response = await _portalClient.Http.PutAsJsonAsync($"api/requisito-categorias/{existingId}", body, JsonOptions, ct);
+                    if (response.IsSuccessStatusCode)
+                        updated++;
+                    else
+                    {
+                        var msg = await response.Content.ReadAsStringAsync(ct);
+                        _logWriter.WriteLine($"Sync Funções: ERRO PUT {response.StatusCode} para Code={code}: {msg}");
+                        _logger.LogWarning("PUT api/requisito-categorias/{Id} falhou para Code={Code}: {Status} {Msg}", existingId, code, response.StatusCode, msg);
+                    }
+                    continue;
+                }
+
+                var postResponse = await _portalClient.Http.PostAsJsonAsync("api/requisito-categorias", body, JsonOptions, ct);
+                if (postResponse.IsSuccessStatusCode)
+                {
+                    var cat = await postResponse.Content.ReadFromJsonAsync<RequisitoCategoriaResponse>(JsonOptions, ct);
                     if (cat != null && !string.IsNullOrEmpty(code))
                     {
                         codeToId[code] = cat.Id;
@@ -118,9 +127,9 @@ public sealed class PortalCategoriaSyncService
                 }
                 else
                 {
-                    var msg = await response.Content.ReadAsStringAsync(ct);
-                    _logWriter.WriteLine($"Sync Funções: ERRO {response.StatusCode} para Code={code}: {msg}");
-                    _logger.LogWarning("POST api/requisito-categorias falhou para Code={Code}: {Status} {Msg}", code, response.StatusCode, msg);
+                    var msg = await postResponse.Content.ReadAsStringAsync(ct);
+                    _logWriter.WriteLine($"Sync Funções: ERRO {postResponse.StatusCode} para Code={code}: {msg}");
+                    _logger.LogWarning("POST api/requisito-categorias falhou para Code={Code}: {Status} {Msg}", code, postResponse.StatusCode, msg);
                 }
             }
             catch (Exception ex)
@@ -130,8 +139,8 @@ public sealed class PortalCategoriaSyncService
             }
         }
 
-        _logWriter.WriteLine($"Sync Funções: concluído. Criadas: {created}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Funções: criadas={Created}, já existentes: {Skipped}", created, skipped);
+        _logWriter.WriteLine($"Sync Funções: concluído. Criadas: {created}, atualizadas: {updated}, já existentes: {skipped}");
+        _logger.LogInformation("Sync Funções: criadas={Created}, atualizadas: {Updated}, já existentes: {Skipped}", created, updated, skipped);
     }
 
     private async Task<Dictionary<string, Guid>> LoadExistingCategoriasAsync(CancellationToken ct)

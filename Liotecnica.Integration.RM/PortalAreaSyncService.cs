@@ -79,6 +79,7 @@ public sealed class PortalAreaSyncService
         var codeToId = await LoadExistingAreasAsync(ct);
 
         var created = 0;
+        var updated = 0;
         var skipped = 0;
         foreach (var row in ordered)
         {
@@ -87,12 +88,6 @@ public sealed class PortalAreaSyncService
                 var code = NormalizeCode(row.Codigo);
                 var parentCode = NormalizeCode(row.CodigoPai);
                 if (string.IsNullOrEmpty(code)) continue;
-
-                if (codeToId.TryGetValue(code, out _))
-                {
-                    skipped++;
-                    continue;
-                }
 
                 Guid? parentId = null;
                 if (!string.IsNullOrEmpty(parentCode) && codeToId.TryGetValue(parentCode, out var pid))
@@ -110,10 +105,24 @@ public sealed class PortalAreaSyncService
                     OwnerFuncionarioId: null
                 );
 
-                var response = await _portalClient.Http.PostAsJsonAsync("api/areas", body, JsonOptions, ct);
-                if (response.IsSuccessStatusCode)
+                if (codeToId.TryGetValue(code, out var existingId))
                 {
-                    var area = await response.Content.ReadFromJsonAsync<AreaResponse>(JsonOptions, ct);
+                    var response = await _portalClient.Http.PutAsJsonAsync($"api/areas/{existingId}", body, JsonOptions, ct);
+                    if (response.IsSuccessStatusCode)
+                        updated++;
+                    else
+                    {
+                        var msg = await response.Content.ReadAsStringAsync(ct);
+                        _logWriter.WriteLine($"Sync Áreas: ERRO PUT {response.StatusCode} para Code={code}: {msg}");
+                        _logger.LogWarning("PUT api/areas/{Id} falhou para Code={Code}: {Status} {Msg}", existingId, code, response.StatusCode, msg);
+                    }
+                    continue;
+                }
+
+                var postResponse = await _portalClient.Http.PostAsJsonAsync("api/areas", body, JsonOptions, ct);
+                if (postResponse.IsSuccessStatusCode)
+                {
+                    var area = await postResponse.Content.ReadFromJsonAsync<AreaResponse>(JsonOptions, ct);
                     if (area != null && !string.IsNullOrEmpty(code))
                     {
                         codeToId[code] = area.Id;
@@ -122,9 +131,9 @@ public sealed class PortalAreaSyncService
                 }
                 else
                 {
-                    var msg = await response.Content.ReadAsStringAsync(ct);
-                    _logWriter.WriteLine($"Sync Áreas: ERRO {response.StatusCode} para Code={code}: {msg}");
-                    _logger.LogWarning("POST api/areas falhou para Code={Code}: {Status} {Msg}", code, response.StatusCode, msg);
+                    var msg = await postResponse.Content.ReadAsStringAsync(ct);
+                    _logWriter.WriteLine($"Sync Áreas: ERRO {postResponse.StatusCode} para Code={code}: {msg}");
+                    _logger.LogWarning("POST api/areas falhou para Code={Code}: {Status} {Msg}", code, postResponse.StatusCode, msg);
                 }
             }
             catch (Exception ex)
@@ -134,8 +143,8 @@ public sealed class PortalAreaSyncService
             }
         }
 
-        _logWriter.WriteLine($"Sync Áreas: concluído. Criadas: {created}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Áreas: criadas={Created}, já existentes={Skipped}", created, skipped);
+        _logWriter.WriteLine($"Sync Áreas: concluído. Criadas: {created}, atualizadas: {updated}, já existentes: {skipped}");
+        _logger.LogInformation("Sync Áreas: criadas={Created}, atualizadas={Updated}, já existentes={Skipped}", created, updated, skipped);
     }
 
     private async Task<Dictionary<string, Guid>> LoadExistingAreasAsync(CancellationToken ct)

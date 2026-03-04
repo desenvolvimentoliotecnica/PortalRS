@@ -78,6 +78,7 @@ public sealed class PortalPessoaSyncService
         var attemptedThisBatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var created = 0;
+        var updated = 0;
         var skipped = 0;
         foreach (var row in items)
         {
@@ -91,18 +92,6 @@ public sealed class PortalPessoaSyncService
                     email = $"codigo{row.Codigo}@rm.sync";
                 var key = email.Trim().ToLowerInvariant();
                 if (string.IsNullOrEmpty(key)) continue;
-
-                if (emailToId.TryGetValue(key, out _))
-                {
-                    skipped++;
-                    continue;
-                }
-                if (attemptedThisBatch.Contains(key))
-                {
-                    skipped++;
-                    continue;
-                }
-                attemptedThisBatch.Add(key);
 
                 // API usa JsonStringEnumConverter: enviar origem como string "Funcionario"
                 var body = new
@@ -127,10 +116,30 @@ public sealed class PortalPessoaSyncService
                     origem = "Funcionario"
                 };
 
-                var response = await _portalClient.Http.PostAsJsonAsync("api/pessoas", body, JsonOptions, ct);
-                if (response.IsSuccessStatusCode)
+                if (emailToId.TryGetValue(key, out var existingId))
                 {
-                    var p = await response.Content.ReadFromJsonAsync<PessoaResponse>(JsonOptions, ct);
+                    var response = await _portalClient.Http.PutAsJsonAsync($"api/pessoas/{existingId}", body, JsonOptions, ct);
+                    if (response.IsSuccessStatusCode)
+                        updated++;
+                    else
+                    {
+                        var msg = await response.Content.ReadAsStringAsync(ct);
+                        _logWriter.WriteLine($"Sync Pessoas: ERRO PUT {response.StatusCode} para Email={email}: {msg}");
+                        _logger.LogWarning("PUT api/pessoas/{Id} falhou para Email={Email}: {Status} {Msg}", existingId, email, response.StatusCode, msg);
+                    }
+                    continue;
+                }
+                if (attemptedThisBatch.Contains(key))
+                {
+                    skipped++;
+                    continue;
+                }
+                attemptedThisBatch.Add(key);
+
+                var postResponse = await _portalClient.Http.PostAsJsonAsync("api/pessoas", body, JsonOptions, ct);
+                if (postResponse.IsSuccessStatusCode)
+                {
+                    var p = await postResponse.Content.ReadFromJsonAsync<PessoaResponse>(JsonOptions, ct);
                     if (p != null && !string.IsNullOrEmpty(p.Email))
                     {
                         emailToId[p.Email.Trim().ToLowerInvariant()] = p.Id;
@@ -139,9 +148,9 @@ public sealed class PortalPessoaSyncService
                 }
                 else
                 {
-                    var msg = await response.Content.ReadAsStringAsync(ct);
-                    _logWriter.WriteLine($"Sync Pessoas: ERRO {response.StatusCode} para Email={email}: {msg}");
-                    _logger.LogWarning("POST api/pessoas falhou para Email={Email}: {Status} {Msg}", email, response.StatusCode, msg);
+                    var msg = await postResponse.Content.ReadAsStringAsync(ct);
+                    _logWriter.WriteLine($"Sync Pessoas: ERRO {postResponse.StatusCode} para Email={email}: {msg}");
+                    _logger.LogWarning("POST api/pessoas falhou para Email={Email}: {Status} {Msg}", email, postResponse.StatusCode, msg);
                 }
             }
             catch (Exception ex)
@@ -151,8 +160,8 @@ public sealed class PortalPessoaSyncService
             }
         }
 
-        _logWriter.WriteLine($"Sync Pessoas: concluído. Criadas: {created}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Pessoas: criadas={Created}, já existentes: {Skipped}", created, skipped);
+        _logWriter.WriteLine($"Sync Pessoas: concluído. Criadas: {created}, atualizadas: {updated}, já existentes: {skipped}");
+        _logger.LogInformation("Sync Pessoas: criadas={Created}, atualizadas: {Updated}, já existentes: {Skipped}", created, updated, skipped);
     }
 
     private async Task<Dictionary<string, Guid>> LoadExistingPessoasAsync(CancellationToken ct)
