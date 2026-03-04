@@ -264,11 +264,16 @@ export default function AreasScreen() {
             `/api/areas`,
         );
         // AreasController returns a flat array, not { items: [...] }
-        const items: AreaListItem[] = Array.isArray(payload)
-            ? (payload as AreaListItem[])
+        const raw = Array.isArray(payload)
+            ? (payload as Record<string, unknown>[])
             : Array.isArray((payload as Record<string, unknown>)?.items)
-                ? ((payload as Record<string, unknown>).items as AreaListItem[])
+                ? ((payload as Record<string, unknown>).items as Record<string, unknown>[])
                 : [];
+        // API returns isActive (boolean) — map to status string for the UI
+        const items: AreaListItem[] = raw.map((a) => ({
+            ...(a as unknown as AreaListItem),
+            status: a.isActive === false ? "Inativo" : "Ativo",
+        }));
         setRows(items);
         setCollapsedKeys(new Set(collectNodeKeysWithChildren(buildAreaTree(items))));
     }, []);
@@ -435,14 +440,13 @@ export default function AreasScreen() {
             return;
         }
         setSaving(true);
-        const apiStatus =
-            draft.status.toLowerCase() === "inativo" ? "Inactive" : "Active";
+        const isActive = draft.status.toLowerCase() !== "inativo";
         const payload: Record<string, unknown> = {
             code: draft.code.trim() || null,
             name: draft.name.trim(),
             parentId: draft.parentId || null,
             ownerFuncionarioId: draft.ownerFuncionarioId || null,
-            status: apiStatus,
+            isActive,
             description: draft.description.trim() || null,
         };
 

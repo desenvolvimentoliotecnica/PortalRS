@@ -48,11 +48,19 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+function mapVagaItem(raw: unknown): VagaListItem {
+  const r = asRecord(raw) ?? {};
+  return {
+    ...(r as unknown as VagaListItem),
+    area: String(r.areaName ?? r.area ?? ""),
+  };
+}
+
 function mapVagasPayload(payload: VagasPayload): VagaListItem[] {
-  if (Array.isArray(payload)) return payload as VagaListItem[];
+  if (Array.isArray(payload)) return (payload as unknown[]).map(mapVagaItem);
   const r = asRecord(payload);
   const items = r?.items;
-  if (Array.isArray(items)) return items as VagaListItem[];
+  if (Array.isArray(items)) return (items as unknown[]).map(mapVagaItem);
   return [];
 }
 

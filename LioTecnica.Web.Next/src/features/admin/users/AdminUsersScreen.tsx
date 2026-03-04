@@ -33,6 +33,8 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 export default function AdminUsersScreen() {
     const [users, setUsers] = useState<UserListItem[]>([]);
     const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+    const [units, setUnits] = useState<{ id: string; name: string; code: string }[]>([]);
+    const [funcionarios, setFuncionarios] = useState<{ id: string; name: string; email: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
@@ -43,6 +45,10 @@ export default function AdminUsersScreen() {
     const [newName, setNewName] = useState("");
     const [newEmail, setNewEmail] = useState("");
     const [newPassword, setNewPassword] = useState("");
+    const [newRoleIds, setNewRoleIds] = useState<string[]>([]);
+    const [newIsActive, setNewIsActive] = useState(true);
+    const [newFuncionarioId, setNewFuncionarioId] = useState<string | null>(null);
+    const [newUnitIds, setNewUnitIds] = useState<string[]>([]);
     const [creating, setCreating] = useState(false);
 
     // Edit form
@@ -55,12 +61,16 @@ export default function AdminUsersScreen() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [u, r] = await Promise.all([
+            const [u, r, unitsRes, funcRes] = await Promise.all([
                 fetchJson<UserListItem[]>("/api/users"),
                 fetchJson<{ id: string; name: string }[]>("/api/roles"),
+                fetchJson<{ items: { id: string; name: string; code: string }[] }>("/api/units?page=1&pageSize=500").catch(() => ({ items: [] })),
+                fetchJson<{ items: { id: string; name: string; email: string }[] }>("/api/funcionarios?page=1&pageSize=500").catch(() => ({ items: [] })),
             ]);
             setUsers(u);
             setRoles(r);
+            setUnits(unitsRes?.items ?? []);
+            setFuncionarios(funcRes?.items ?? []);
         } catch (err) {
             console.error("Failed to load users", err);
             toast.error("Falha ao carregar usuários.");
@@ -95,21 +105,47 @@ export default function AdminUsersScreen() {
             toast.error("Preencha nome, email e senha.");
             return;
         }
+        if (newPassword.length < 8) {
+            toast.error("A senha deve ter no mínimo 8 caracteres.");
+            return;
+        }
         setCreating(true);
         try {
             await fetchJson("/api/users", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fullName: newName.trim(), email: newEmail.trim(), password: newPassword }),
+                body: JSON.stringify({
+                    fullName: newName.trim(),
+                    email: newEmail.trim(),
+                    password: newPassword,
+                    isActive: newIsActive,
+                    roleIds: newRoleIds,
+                    unitIds: newUnitIds.length > 0 ? newUnitIds : null,
+                    funcionarioId: newFuncionarioId || null,
+                }),
             });
             toast.success("Usuário criado com sucesso!");
-            setNewName(""); setNewEmail(""); setNewPassword(""); setShowCreate(false);
+            setNewName(""); setNewEmail(""); setNewPassword(""); setNewRoleIds([]);
+            setNewIsActive(true); setNewFuncionarioId(null); setNewUnitIds([]);
+            setShowCreate(false);
             void loadData();
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Falha ao criar usuário.");
         } finally {
             setCreating(false);
         }
+    }
+
+    function toggleNewRole(roleId: string) {
+        setNewRoleIds((prev) =>
+            prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId],
+        );
+    }
+
+    function toggleNewUnit(unitId: string) {
+        setNewUnitIds((prev) =>
+            prev.includes(unitId) ? prev.filter((id) => id !== unitId) : [...prev, unitId],
+        );
     }
 
     async function handleToggleStatus(userId: string, activate: boolean) {
@@ -215,8 +251,72 @@ export default function AdminUsersScreen() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                         <Input placeholder="Nome completo" value={newName} onChange={(e) => setNewName(e.target.value)} />
                         <Input placeholder="Email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
-                        <Input placeholder="Senha" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                        <Input placeholder="Senha (mín. 8 caracteres)" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
                     </div>
+                    <div>
+                        <div className="text-sm font-medium mb-1">Status</div>
+                        <select
+                            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm w-full max-w-[200px]"
+                            value={newIsActive ? "true" : "false"}
+                            onChange={(e) => setNewIsActive(e.target.value === "true")}
+                        >
+                            <option value="true">Ativo</option>
+                            <option value="false">Inativo</option>
+                        </select>
+                    </div>
+                    {roles.length > 0 && (
+                        <div>
+                            <div className="text-sm font-medium mb-1">Perfis</div>
+                            <div className="flex flex-wrap gap-2">
+                                {roles.map((r) => (
+                                    <label key={r.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={newRoleIds.includes(r.id)}
+                                            onChange={() => toggleNewRole(r.id)}
+                                            className="rounded"
+                                        />
+                                        {r.name}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {funcionarios.length > 0 && (
+                        <div>
+                            <div className="text-sm font-medium mb-1">Funcionário (opcional)</div>
+                            <select
+                                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm w-full max-w-md"
+                                value={newFuncionarioId ?? ""}
+                                onChange={(e) => setNewFuncionarioId(e.target.value || null)}
+                            >
+                                <option value="">— Nenhum —</option>
+                                {funcionarios.map((f) => (
+                                    <option key={f.id} value={f.id}>{f.name} — {f.email || ""}</option>
+                                ))}
+                            </select>
+                            <p className="text-muted-foreground text-xs mt-1">Vincule o usuário a um funcionário existente (ex.: para perfil Gestor).</p>
+                        </div>
+                    )}
+                    {units.length > 0 && (
+                        <div>
+                            <div className="text-sm font-medium mb-1">Unidades de acesso</div>
+                            <p className="text-muted-foreground text-xs mb-2">Unidades às quais o usuário tem acesso. Marque as que deseja liberar.</p>
+                            <div className="flex flex-wrap gap-3">
+                                {units.map((unit) => (
+                                    <label key={unit.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={newUnitIds.includes(unit.id)}
+                                            onChange={() => toggleNewUnit(unit.id)}
+                                            className="rounded"
+                                        />
+                                        {unit.name} {unit.code ? `(${unit.code})` : ""}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     <Button onClick={() => void handleCreate()} disabled={creating}>
                         {creating ? "Criando..." : "Criar"}
                     </Button>

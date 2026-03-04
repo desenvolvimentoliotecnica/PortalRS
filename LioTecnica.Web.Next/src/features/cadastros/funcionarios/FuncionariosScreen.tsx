@@ -92,8 +92,24 @@ export default function FuncionariosScreen() {
     const [detailItem, setDetailItem] = useState<FuncItem | null>(null);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: FuncItem[] }>(`/api/funcionarios`);
-        setRows(Array.isArray(payload?.items) ? payload.items : []);
+        const payload = await fetchJson<{ items: Record<string, unknown>[] }>(`/api/funcionarios`);
+        // API returns: id, name, email, phone, status, headcount, unitId, unitName, areaId, areaName, jobPositionId, jobPositionName, ...
+        // Frontend expects: id, nome, email, telefone, status, headcount, unidadeId, unidade, areaId, area, cargoId, cargo
+        const mapped: FuncItem[] = (Array.isArray(payload?.items) ? payload.items : []).map((i) => ({
+            id: String(i.id ?? ""),
+            nome: String(i.name ?? ""),
+            email: String(i.email ?? ""),
+            telefone: i.phone ? String(i.phone) : undefined,
+            status: String(i.status ?? ""),
+            headcount: typeof i.headcount === "number" ? i.headcount : 0,
+            unidade: String(i.unitName ?? ""),
+            unidadeId: i.unitId ? String(i.unitId) : undefined,
+            area: String(i.areaName ?? ""),
+            areaId: i.areaId ? String(i.areaId) : undefined,
+            cargo: String(i.jobPositionName ?? ""),
+            cargoId: i.jobPositionId ? String(i.jobPositionId) : undefined,
+        }));
+        setRows(mapped);
     }, []);
 
     const loadLookups = useCallback(async () => {
