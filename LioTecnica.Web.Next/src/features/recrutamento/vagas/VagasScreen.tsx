@@ -8,6 +8,7 @@ import type { MatchingCandidate, VagaDetail, VagaListItem } from "@/lib/schemas/
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
+import { getScreenCache, setScreenCache } from "@/lib/screenCache";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import VagaFormModal from "./VagaFormModal";
 
@@ -157,6 +158,7 @@ export default function VagasScreen() {
     const payload = await fetchJson<VagasPayload>(`${BASE}/api/vagas`);
     const list = mapVagasPayload(payload);
     setRows(list);
+    setScreenCache("/vagas", list);
 
     const areaSet = new Set<string>();
     for (const v of list) {
@@ -168,7 +170,18 @@ export default function VagasScreen() {
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    const cached = getScreenCache<VagaListItem[]>("/vagas");
+    if (cached) {
+      setRows(cached);
+      const areaSet = new Set<string>();
+      for (const v of cached) {
+        const a = (v.area ?? "").trim();
+        if (a) areaSet.add(a);
+      }
+      setAreas(Array.from(areaSet).sort((a, b) => a.localeCompare(b, "pt-BR")));
+    } else {
+      setLoading(true);
+    }
     syncList()
       .catch(() => toast.error("Falha ao carregar vagas."))
       .finally(() => {

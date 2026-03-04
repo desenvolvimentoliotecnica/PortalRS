@@ -102,6 +102,19 @@ function AppShellInner({ children }: { children: ReactNode }) {
     // Regular tenant user: fetch menus from API
     if (!me) return;
 
+    // ── Instant render from sessionStorage cache ──
+    const CACHE_KEY = "renderrh.nav.menus";
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as ApiMenuForCurrentUser[];
+        if (Array.isArray(parsed) && parsed.length > 0 && !cancelled) {
+          setNavItems(buildTree(parsed));
+        }
+      }
+    } catch { /* ignore corrupt cache */ }
+
+    // ── Background refresh (stale-while-revalidate) ──
     (async () => {
       try {
         const res = await apiFetch("/api/menus/for-current-user", { cache: "no-store" });
@@ -109,12 +122,15 @@ function AppShellInner({ children }: { children: ReactNode }) {
         const json = await res.json();
         const raw = Array.isArray(json) ? json : [];
         const parsed = raw
-          .map((x) => ApiMenuForCurrentUserSchema.safeParse(x))
-          .filter((r) => r.success)
+          .map((x: unknown) => ApiMenuForCurrentUserSchema.safeParse(x))
+          .filter((r): r is { success: true; data: ApiMenuForCurrentUser } => r.success)
           .map((r) => r.data);
-        if (!cancelled) setNavItems(buildTree(parsed as any));
+        if (!cancelled) {
+          setNavItems(buildTree(parsed as any));
+          try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(parsed)); } catch { }
+        }
       } catch {
-        // Navigation will render with empty items — non-blocking.
+        // Navigation will render with cached items — non-blocking.
       }
     })();
 

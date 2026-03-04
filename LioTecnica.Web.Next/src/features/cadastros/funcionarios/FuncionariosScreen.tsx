@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Search, Plus, RefreshCw, Pencil, Trash2, Eye } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { getScreenCache, setScreenCache } from "@/lib/screenCache";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,8 +94,6 @@ export default function FuncionariosScreen() {
 
     const syncList = useCallback(async () => {
         const payload = await fetchJson<{ items: Record<string, unknown>[] }>(`/api/funcionarios`);
-        // API returns: id, name, email, phone, status, headcount, unitId, unitName, areaId, areaName, jobPositionId, jobPositionName, ...
-        // Frontend expects: id, nome, email, telefone, status, headcount, unidadeId, unidade, areaId, area, cargoId, cargo
         const mapped: FuncItem[] = (Array.isArray(payload?.items) ? payload.items : []).map((i) => ({
             id: String(i.id ?? ""),
             nome: String(i.name ?? ""),
@@ -110,6 +109,7 @@ export default function FuncionariosScreen() {
             cargoId: i.jobPositionId ? String(i.jobPositionId) : undefined,
         }));
         setRows(mapped);
+        setScreenCache("/funcionarios", mapped);
     }, []);
 
     const loadLookups = useCallback(async () => {
@@ -119,7 +119,6 @@ export default function FuncionariosScreen() {
                 fetchJson<{ items: LookupItem[] }>(`/api/units`).catch((e) => { console.warn("lookup units", e); return { items: [] as LookupItem[] }; }),
                 fetchJson<{ items: LookupItem[] }>(`/api/job-positions`).catch((e) => { console.warn("lookup cargos", e); return { items: [] as LookupItem[] }; }),
             ]);
-            // AreasController returns flat array, others return { items: [...] }
             const aItems = Array.isArray(aRaw) ? (aRaw as LookupItem[]) : Array.isArray((aRaw as Record<string, unknown>)?.items) ? ((aRaw as Record<string, unknown>).items as LookupItem[]) : [];
             setAreas(aItems);
             setUnidades(Array.isArray(u?.items) ? u.items : []);
@@ -129,7 +128,12 @@ export default function FuncionariosScreen() {
 
     useEffect(() => {
         let alive = true;
-        setLoading(true);
+        const cached = getScreenCache<FuncItem[]>("/funcionarios");
+        if (cached) {
+            setRows(cached);
+        } else {
+            setLoading(true);
+        }
         Promise.all([syncList(), loadLookups()])
             .catch((e) => { console.error("Funcionários – load error", e); toast.error(`Falha ao carregar funcionários: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });

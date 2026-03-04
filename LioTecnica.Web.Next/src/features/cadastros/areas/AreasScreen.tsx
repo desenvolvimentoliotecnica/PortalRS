@@ -14,6 +14,7 @@ import {
     ChevronDown,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { getScreenCache, setScreenCache } from "@/lib/screenCache";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -259,49 +260,53 @@ export default function AreasScreen() {
     const [deleteTarget, setDeleteTarget] = useState<AreaListItem | null>(null);
 
     /* ── data loading ── */
-    const syncList = useCallback(async () => {
-        const payload = await fetchJson<unknown>(
-            `/api/areas`,
-        );
-        // AreasController returns a flat array, not { items: [...] }
+    const parseAreasPayload = useCallback((payload: unknown): AreaListItem[] => {
         const raw = Array.isArray(payload)
             ? (payload as Record<string, unknown>[])
             : Array.isArray((payload as Record<string, unknown>)?.items)
                 ? ((payload as Record<string, unknown>).items as Record<string, unknown>[])
                 : [];
-        // API returns isActive (boolean) — map to status string for the UI
-        const items: AreaListItem[] = raw.map((a) => ({
+        return raw.map((a) => ({
             ...(a as unknown as AreaListItem),
             status: a.isActive === false ? "Inativo" : "Ativo",
         }));
+    }, []);
+
+    const syncList = useCallback(async () => {
+        const payload = await fetchJson<unknown>(`/api/areas`);
+        const items = parseAreasPayload(payload);
         setRows(items);
         setCollapsedKeys(new Set(collectNodeKeysWithChildren(buildAreaTree(items))));
-    }, []);
+        setScreenCache("/areas", payload);
+    }, [parseAreasPayload]);
 
     const loadFuncionarios = useCallback(async () => {
         try {
-            const res = await fetchJson<LookupItem[]>(
-                `/api/lookup/funcionarios`,
-            );
+            const res = await fetchJson<LookupItem[]>(`/api/lookup/funcionarios`);
             setFuncionarios(Array.isArray(res) ? res : []);
-        } catch {
-            /* optional lookup, ignore errors */
-        }
+        } catch { /* optional lookup, ignore errors */ }
     }, []);
 
     useEffect(() => {
         let alive = true;
-        setLoading(true);
+        // ── Instant render from cache ──
+        const cached = getScreenCache<unknown>("/areas");
+        if (cached) {
+            const items = parseAreasPayload(cached);
+            setRows(items);
+            setCollapsedKeys(new Set(collectNodeKeysWithChildren(buildAreaTree(items))));
+        } else {
+            setLoading(true);
+        }
+        // ── Background refresh ──
         Promise.all([syncList(), loadFuncionarios()])
             .catch((e) => { console.error("Áreas – load error", e); toast.error(`Falha ao carregar áreas: ${e instanceof Error ? e.message : "erro desconhecido"}`); })
             .finally(() => {
                 if (!alive) return;
                 setLoading(false);
             });
-        return () => {
-            alive = false;
-        };
-    }, [syncList, loadFuncionarios]);
+        return () => { alive = false; };
+    }, [syncList, loadFuncionarios, parseAreasPayload]);
 
     const rowsById = useMemo(() => {
         const m = new Map<string, AreaListItem>();
