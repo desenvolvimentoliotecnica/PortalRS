@@ -86,6 +86,7 @@ public sealed class PortalCargoSyncService
         var codeToId = await LoadExistingCargosByCodeAsync(ct);
 
         var created = 0;
+        var updated = 0;
         var skipped = 0;
         foreach (var row in items)
         {
@@ -96,12 +97,6 @@ public sealed class PortalCargoSyncService
 
                 // API exige código com prefixo "CAR-" e mínimo 6 caracteres
                 var code = ToPortalJobCode(rawCode);
-
-                if (codeToId.ContainsKey(code))
-                {
-                    skipped++;
-                    continue;
-                }
 
                 var name = (row.Nome ?? code).Trim();
                 if (name.Length > 160) name = name.Substring(0, 160);
@@ -121,10 +116,24 @@ public sealed class PortalCargoSyncService
                     description
                 };
 
-                var response = await _portalClient.Http.PostAsJsonAsync("api/job-positions", body, JsonOptions, ct);
-                if (response.IsSuccessStatusCode)
+                if (codeToId.TryGetValue(code, out var existingId))
                 {
-                    var resp = await response.Content.ReadFromJsonAsync<JobPositionResponse>(JsonOptions, ct);
+                    var response = await _portalClient.Http.PutAsJsonAsync($"api/job-positions/{existingId}", body, JsonOptions, ct);
+                    if (response.IsSuccessStatusCode)
+                        updated++;
+                    else
+                    {
+                        var msg = await response.Content.ReadAsStringAsync(ct);
+                        _logWriter.WriteLine($"Sync Cargos: ERRO PUT {response.StatusCode} para Code={code}: {msg}");
+                        _logger.LogWarning("PUT api/job-positions/{Id} falhou para Code={Code}: {Status} {Msg}", existingId, code, response.StatusCode, msg);
+                    }
+                    continue;
+                }
+
+                var postResponse = await _portalClient.Http.PostAsJsonAsync("api/job-positions", body, JsonOptions, ct);
+                if (postResponse.IsSuccessStatusCode)
+                {
+                    var resp = await postResponse.Content.ReadFromJsonAsync<JobPositionResponse>(JsonOptions, ct);
                     if (resp != null && !string.IsNullOrEmpty(code))
                     {
                         codeToId[code] = resp.Id;
@@ -133,9 +142,9 @@ public sealed class PortalCargoSyncService
                 }
                 else
                 {
-                    var msg = await response.Content.ReadAsStringAsync(ct);
-                    _logWriter.WriteLine($"Sync Cargos: ERRO {response.StatusCode} para Code={code}: {msg}");
-                    _logger.LogWarning("POST api/job-positions falhou para Code={Code}: {Status} {Msg}", code, response.StatusCode, msg);
+                    var msg = await postResponse.Content.ReadAsStringAsync(ct);
+                    _logWriter.WriteLine($"Sync Cargos: ERRO {postResponse.StatusCode} para Code={code}: {msg}");
+                    _logger.LogWarning("POST api/job-positions falhou para Code={Code}: {Status} {Msg}", code, postResponse.StatusCode, msg);
                 }
             }
             catch (Exception ex)
@@ -145,8 +154,8 @@ public sealed class PortalCargoSyncService
             }
         }
 
-        _logWriter.WriteLine($"Sync Cargos: concluído. Criados: {created}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Cargos: criados={Created}, já existentes: {Skipped}", created, skipped);
+        _logWriter.WriteLine($"Sync Cargos: concluído. Criados: {created}, atualizados: {updated}, já existentes: {skipped}");
+        _logger.LogInformation("Sync Cargos: criados={Created}, atualizados: {Updated}, já existentes: {Skipped}", created, updated, skipped);
     }
 
     private async Task<Guid> GetFirstAreaIdAsync(CancellationToken ct)

@@ -89,16 +89,15 @@ public sealed class PortalUnitSyncService
         var codeToId = await LoadExistingUnitsAsync(ct);
 
         var created = 0;
+        var updated = 0;
         var skipped = 0;
         foreach (var row in items)
         {
             try
             {
-                UnitCreateRequest body;
-                if (row.TryGetProperty("CODFILIAL", out _))
-                    body = MapGfilialToUnit(row);
-                else
-                    body = MapLunidadeToUnit(row);
+                UnitCreateRequest? body = row.TryGetProperty("CODFILIAL", out _)
+                    ? MapGfilialToUnit(row)
+                    : MapLunidadeToUnit(row);
 
                 if (body == null)
                     continue;
@@ -106,16 +105,24 @@ public sealed class PortalUnitSyncService
                 var code = NormalizeCode(body.Code);
                 if (string.IsNullOrEmpty(code)) continue;
 
-                if (codeToId.TryGetValue(code, out _))
+                if (codeToId.TryGetValue(code, out var existingId))
                 {
-                    skipped++;
+                    var response = await _portalClient.Http.PutAsJsonAsync($"api/units/{existingId}", body, JsonOptions, ct);
+                    if (response.IsSuccessStatusCode)
+                        updated++;
+                    else
+                    {
+                        var msg = await response.Content.ReadAsStringAsync(ct);
+                        _logWriter.WriteLine($"Sync Unidades: ERRO PUT {response.StatusCode} para Code={code}: {msg}");
+                        _logger.LogWarning("PUT api/units/{Id} falhou para Code={Code}: {Status} {Msg}", existingId, code, response.StatusCode, msg);
+                    }
                     continue;
                 }
 
-                var response = await _portalClient.Http.PostAsJsonAsync("api/units", body, JsonOptions, ct);
-                if (response.IsSuccessStatusCode)
+                var postResponse = await _portalClient.Http.PostAsJsonAsync("api/units", body, JsonOptions, ct);
+                if (postResponse.IsSuccessStatusCode)
                 {
-                    var unit = await response.Content.ReadFromJsonAsync<UnitResponse>(JsonOptions, ct);
+                    var unit = await postResponse.Content.ReadFromJsonAsync<UnitResponse>(JsonOptions, ct);
                     if (unit != null && !string.IsNullOrEmpty(unit.Code))
                     {
                         codeToId[unit.Code] = unit.Id;
@@ -124,9 +131,9 @@ public sealed class PortalUnitSyncService
                 }
                 else
                 {
-                    var msg = await response.Content.ReadAsStringAsync(ct);
-                    _logWriter.WriteLine($"Sync Unidades: ERRO {response.StatusCode} para Code={code}: {msg}");
-                    _logger.LogWarning("POST api/units falhou para Code={Code}: {Status} {Msg}", code, response.StatusCode, msg);
+                    var msg = await postResponse.Content.ReadAsStringAsync(ct);
+                    _logWriter.WriteLine($"Sync Unidades: ERRO {postResponse.StatusCode} para Code={code}: {msg}");
+                    _logger.LogWarning("POST api/units falhou para Code={Code}: {Status} {Msg}", code, postResponse.StatusCode, msg);
                 }
             }
             catch (Exception ex)
@@ -136,8 +143,8 @@ public sealed class PortalUnitSyncService
             }
         }
 
-        _logWriter.WriteLine($"Sync Unidades: concluído. Criadas: {created}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Unidades: criadas={Created}, já existentes: {Skipped}", created, skipped);
+        _logWriter.WriteLine($"Sync Unidades: concluído. Criadas: {created}, atualizadas: {updated}, já existentes: {skipped}");
+        _logger.LogInformation("Sync Unidades: criadas={Created}, atualizadas={Updated}, já existentes: {Skipped}", created, updated, skipped);
     }
 
     private async Task<Dictionary<string, Guid>> LoadExistingUnitsAsync(CancellationToken ct)

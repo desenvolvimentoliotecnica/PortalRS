@@ -234,12 +234,7 @@ public sealed class PortalFuncionarioSyncService
                 var key = email.Trim().ToLowerInvariant();
                 if (emailToExisting.TryGetValue(key, out var existing))
                 {
-                    // Se já existe, tenta preencher UnitId/AreaId caso estejam nulos no Portal e o RM tenha resolvido.
-                    var shouldUpdate =
-                        (existing.UnitId is null && unitId is not null) ||
-                        (existing.AreaId is null && areaId is not null);
-                    if (!shouldUpdate) { skipped++; continue; }
-
+                    // Sempre atualiza existente com payload completo do RM (preenche vazios e alinha status).
                     var updateBody = new
                     {
                         name = (name ?? email).Length > 160 ? (name ?? email).Substring(0, 160) : (name ?? email),
