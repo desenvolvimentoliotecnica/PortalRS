@@ -32,7 +32,7 @@ interface ApiKeyCreateResponse extends ApiKeyResponse {
     key: string;
 }
 
-const API_KEYS_ENDPOINT = "/api/api-keys";
+const API_KEYS_ENDPOINT = "/api/admin/api-keys";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */

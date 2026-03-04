@@ -12,7 +12,7 @@ namespace RhPortal.Api.Controllers;
 [ApiController]
 [Authorize]
 [RequirePermission("api-keys.manage")]
-[Route("api/api-keys")]
+[Route("api/admin/api-keys")]
 public sealed class ApiKeysController : ControllerBase
 {
     private readonly IApiKeyService _service;
