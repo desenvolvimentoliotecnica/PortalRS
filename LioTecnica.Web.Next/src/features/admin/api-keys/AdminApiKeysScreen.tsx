@@ -32,6 +32,8 @@ interface ApiKeyCreateResponse extends ApiKeyResponse {
     key: string;
 }
 
+const API_KEYS_ENDPOINT = "/api/api-keys";
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -72,7 +74,7 @@ export default function AdminApiKeysScreen() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            setKeys(await fetchJson<ApiKeyResponse[]>("/api/api-keys"));
+            setKeys(await fetchJson<ApiKeyResponse[]>(API_KEYS_ENDPOINT));
         } catch {
             toast.error("Falha ao carregar chaves de API.");
         } finally {
@@ -95,7 +97,7 @@ export default function AdminApiKeysScreen() {
 
         setSaving(true);
         try {
-            const result = await fetchJson<ApiKeyCreateResponse>("/api/api-keys", {
+            const result = await fetchJson<ApiKeyCreateResponse>(API_KEYS_ENDPOINT, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -129,7 +131,7 @@ export default function AdminApiKeysScreen() {
         if (!ok) return;
 
         try {
-            await apiFetch(`/api/api-keys/${id}`, { method: "DELETE" });
+            await apiFetch(`${API_KEYS_ENDPOINT}/${id}`, { method: "DELETE" });
             toast.success("Chave revogada.");
             void load();
         } catch {
