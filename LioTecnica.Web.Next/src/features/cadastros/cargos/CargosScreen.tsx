@@ -87,8 +87,21 @@ export default function CargosScreen() {
     const [detailItem, setDetailItem] = useState<CargoItem | null>(null);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: CargoItem[] }>(`/api/job-positions`);
-        setRows(Array.isArray(payload?.items) ? payload.items : []);
+        const payload = await fetchJson<{ items: Record<string, unknown>[] }>(`/api/job-positions`);
+        // API returns: id, name, code, areaName, areaId, seniority, funcionariosCount, status
+        // Frontend expects: id, nome, codigo, area, areaId, senioridade, funcionarios, status
+        const mapped: CargoItem[] = (Array.isArray(payload?.items) ? payload.items : []).map((i) => ({
+            id: String(i.id ?? ""),
+            codigo: String(i.code ?? ""),
+            nome: String(i.name ?? ""),
+            area: String(i.areaName ?? ""),
+            areaId: i.areaId ? String(i.areaId) : undefined,
+            senioridade: String(i.seniority ?? ""),
+            funcionarios: typeof i.funcionariosCount === "number" ? i.funcionariosCount : 0,
+            status: String(i.status ?? ""),
+            description: i.description ? String(i.description) : undefined,
+        }));
+        setRows(mapped);
     }, []);
 
     const loadAreas = useCallback(async () => {

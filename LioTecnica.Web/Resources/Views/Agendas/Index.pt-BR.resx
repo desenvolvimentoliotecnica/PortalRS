@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -15,7 +15,7 @@
 
   <!-- ====== Layout / Títulos ====== -->
   <data name="Page_Title" xml:space="preserve">
-    <value>Portal RH • Devcraft Studio — Agenda</value>
+    <value>Portal RH — Agenda</value>
   </data>
   <data name="Sidebar_Subtitle" xml:space="preserve">
     <value>Agenda • Entrevistas • Eventos</value>

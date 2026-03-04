@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Portal RH (Next)",
-  description: "Nova UI do Portal RH em Next.js (migração incremental).",
+  title: "Portal RH",
+  description: "Portal RH",
 };
 
 export default function RootLayout({
