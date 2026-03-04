@@ -48,6 +48,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import type { BffNavItem } from "@/lib/schemas/bff";
+import { prefetchScreenData } from "@/lib/screenCache";
 
 /* ═══════════════════════════════════════════════════════════════════
    ICON MAP: Bootstrap Icon name → Lucide equivalent
@@ -266,6 +267,7 @@ function NavLeaf({
         href={href}
         rel={rel}
         target={target}
+        onMouseEnter={() => void prefetchScreenData(href)}
       >
         <Icon
           aria-hidden

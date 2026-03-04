@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Search, Plus, RefreshCw, Pencil, Trash2, Eye } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { getScreenCache, setScreenCache } from "@/lib/screenCache";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,12 +148,19 @@ export default function UnidadesScreen() {
 
     const syncList = useCallback(async () => {
         const payload = await fetchJson<PagedResponse<UnitGridRow>>("/api/units");
-        setRows(Array.isArray(payload?.items) ? payload.items : []);
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        setRows(items);
+        setScreenCache("/unidades", items);
     }, []);
 
     useEffect(() => {
         let alive = true;
-        setLoading(true);
+        const cached = getScreenCache<UnitGridRow[]>("/unidades");
+        if (cached) {
+            setRows(cached);
+        } else {
+            setLoading(true);
+        }
         syncList()
             .catch((e) => { console.error("Unidades – load error", e); toast.error(`Falha ao carregar unidades: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });

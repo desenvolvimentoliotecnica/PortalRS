@@ -15,6 +15,7 @@ import {
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
+import { getScreenCache, setScreenCache } from "@/lib/screenCache";
 
 
 
@@ -88,8 +89,6 @@ export default function CargosScreen() {
 
     const syncList = useCallback(async () => {
         const payload = await fetchJson<{ items: Record<string, unknown>[] }>(`/api/job-positions`);
-        // API returns: id, name, code, areaName, areaId, seniority, funcionariosCount, status
-        // Frontend expects: id, nome, codigo, area, areaId, senioridade, funcionarios, status
         const mapped: CargoItem[] = (Array.isArray(payload?.items) ? payload.items : []).map((i) => ({
             id: String(i.id ?? ""),
             codigo: String(i.code ?? ""),
@@ -102,12 +101,12 @@ export default function CargosScreen() {
             description: i.description ? String(i.description) : undefined,
         }));
         setRows(mapped);
+        setScreenCache("/cargos", mapped);
     }, []);
 
     const loadAreas = useCallback(async () => {
         try {
             const payload = await fetchJson<unknown>(`/api/areas`);
-            // AreasController returns flat array, not { items: [...] }
             const items = Array.isArray(payload) ? (payload as AreaLookup[]) : Array.isArray((payload as Record<string, unknown>)?.items) ? ((payload as Record<string, unknown>).items as AreaLookup[]) : [];
             setAreas(items);
         } catch { /* optional */ }
@@ -115,7 +114,12 @@ export default function CargosScreen() {
 
     useEffect(() => {
         let alive = true;
-        setLoading(true);
+        const cached = getScreenCache<CargoItem[]>("/cargos");
+        if (cached) {
+            setRows(cached);
+        } else {
+            setLoading(true);
+        }
         Promise.all([syncList(), loadAreas()])
             .catch((e) => { console.error("Cargos – load error", e); toast.error(`Falha ao carregar cargos: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });
