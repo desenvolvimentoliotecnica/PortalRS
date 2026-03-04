@@ -49,8 +49,30 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function formatDate(iso: string | null | undefined): string {
-    if (!iso) return "—";
-    return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    if (iso == null || typeof iso !== "string" || iso === "") return "—";
+    try {
+        return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    } catch {
+        return "—";
+    }
+}
+
+/** Normaliza item da API para evitar undefined e diferenças de casing (PascalCase vs camelCase). */
+function normalizeKey(raw: unknown): ApiKeyResponse | null {
+    if (raw == null || typeof raw !== "object") return null;
+    const o = raw as Record<string, unknown>;
+    const id = o.id ?? o.Id;
+    const name = o.name ?? o.Name;
+    if (id == null && name == null) return null;
+    const desc = o.description ?? o.Description;
+    return {
+        id: String(id ?? ""),
+        name: String(name ?? ""),
+        description: desc != null && typeof desc === "string" ? desc : null,
+        isActive: Boolean(o.isActive ?? o.IsActive),
+        createdAtUtc: typeof (o.createdAtUtc ?? o.CreatedAtUtc) === "string" ? (o.createdAtUtc ?? o.CreatedAtUtc) as string : "",
+        lastUsedAtUtc: typeof (o.lastUsedAtUtc ?? o.LastUsedAtUtc) === "string" ? (o.lastUsedAtUtc ?? o.LastUsedAtUtc) as string : null,
+    };
 }
 
 /* ------------------------------------------------------------------ */
@@ -74,7 +96,11 @@ export default function AdminApiKeysScreen() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            setKeys(await fetchJson<ApiKeyResponse[]>(API_KEYS_ENDPOINT));
+            const raw = await fetchJson<unknown>(API_KEYS_ENDPOINT);
+            const list = Array.isArray(raw)
+                ? raw.map(normalizeKey).filter((k): k is ApiKeyResponse => k != null)
+                : [];
+            setKeys(list);
         } catch {
             toast.error("Falha ao carregar chaves de API.");
         } finally {
@@ -97,7 +123,7 @@ export default function AdminApiKeysScreen() {
 
         setSaving(true);
         try {
-            const result = await fetchJson<ApiKeyCreateResponse>(API_KEYS_ENDPOINT, {
+            const result = await fetchJson<Record<string, unknown>>(API_KEYS_ENDPOINT, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -106,9 +132,11 @@ export default function AdminApiKeysScreen() {
                 }),
             });
 
-            if (result?.key) {
+            const rawKey = result?.key ?? result?.Key;
+            const keyValue = typeof rawKey === "string" ? rawKey : null;
+            if (keyValue) {
                 setShowCreateForm(false);
-                setCreatedKey(result.key);
+                setCreatedKey(keyValue);
                 void load();
             } else {
                 toast.error("Chave criada, mas valor não retornado.");
@@ -217,12 +245,12 @@ export default function AdminApiKeysScreen() {
                             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
                         ) : keys.length === 0 ? (
                             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nenhuma chave cadastrada.</TableCell></TableRow>
-                        ) : keys.map(k => (
-                            <TableRow key={k.id}>
+                        ) : keys.map((k, idx) => (
+                            <TableRow key={k.id || `row-${idx}`}>
                                 <TableCell className="font-medium">
-                                    <div className="flex items-center gap-2"><Key className="size-4 text-primary" />{k.name}</div>
+                                    <div className="flex items-center gap-2"><Key className="size-4 text-primary" />{k.name || "—"}</div>
                                 </TableCell>
-                                <TableCell className="text-muted-foreground text-sm">{k.description || "—"}</TableCell>
+                                <TableCell className="text-muted-foreground text-sm">{k.description ?? "—"}</TableCell>
                                 <TableCell className="text-center">
                                     {k.isActive
                                         ? <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">Ativa</span>
@@ -233,7 +261,7 @@ export default function AdminApiKeysScreen() {
                                 <TableCell className="text-xs">{formatDate(k.lastUsedAtUtc)}</TableCell>
                                 <TableCell className="text-right">
                                     {k.isActive ? (
-                                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleRevoke(k.id, k.name)}>
+                                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleRevoke(k.id ?? "", k.name ?? "")}>
                                             <Trash2 className="size-4 mr-1" />Revogar
                                         </Button>
                                     ) : "—"}
