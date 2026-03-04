@@ -82,10 +82,10 @@ public sealed class PortalVagaSyncService
         }
 
         var (areaId, departmentId) = await GetDefaultAreaAndDepartmentAsync(ct);
-        if (areaId == Guid.Empty || departmentId == Guid.Empty)
+        if (areaId == Guid.Empty)
         {
-            _logWriter.WriteLine("Sync Vagas: é necessário uma Área e um Departamento já cadastrados no Portal (sincronize áreas antes ou configure RmSync.VagaDefaultAreaCode e VagaDefaultDepartmentCode); pulando.");
-            _logger.LogWarning("Sync Vagas: Área ou Departamento não encontrados no Portal; pulando.");
+            _logWriter.WriteLine("Sync Vagas: é necessário uma Área já cadastrada no Portal (sincronize áreas antes ou configure RmSync.VagaDefaultAreaCode); pulando.");
+            _logger.LogWarning("Sync Vagas: Área não encontrada no Portal; pulando.");
             return;
         }
 
@@ -110,7 +110,7 @@ public sealed class PortalVagaSyncService
                 if (string.IsNullOrWhiteSpace(codigo)) codigo = titulo.Length > 40 ? titulo.Substring(0, 40) : titulo;
                 if (codigo.Length > 40) codigo = codigo.Substring(0, 40);
 
-                var payload = BuildVagaPayload(titulo, codigo, areaId, departmentId, row);
+                var payload = BuildVagaPayload(titulo, codigo, areaId, departmentId == Guid.Empty ? null : (Guid?)departmentId, row);
 
                 if (codigoToId.TryGetValue(codigo, out var existingId))
                 {
@@ -157,7 +157,7 @@ public sealed class PortalVagaSyncService
         _logger.LogInformation("Sync Vagas: criadas={Created}, atualizadas={Updated}, ignoradas={Skipped}", created, updated, skipped);
     }
 
-    private static object BuildVagaPayload(string titulo, string codigo, Guid areaId, Guid departmentId, JsonElement row)
+    private static object BuildVagaPayload(string titulo, string codigo, Guid areaId, Guid? departmentId, JsonElement row)
     {
         var observacao = GetString(row, "OBSERVACAO");
         var dataAbertura = GetDateTime(row, "DATAABERTURA");
