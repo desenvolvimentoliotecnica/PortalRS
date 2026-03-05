@@ -64,7 +64,7 @@
                             <option value="">— Nenhum —</option>
                             @foreach (var f in Model.Funcionarios.OrderBy(x => x.Name))
                             {
-                                <option value="@f.Id" selected="@(Model.User.FuncionarioId == f.Id)">@f.Name — @(f.Email ?? "")</option>
+                                <option value="@f.Id" selected="@(Model.User.FuncionarioId == f.Id ? "selected" : null)">@f.Name — @(f.Email ?? "")</option>
                             }
                         </select>
                         <span class="text-muted small">Vincule o usuário a um funcionário existente. Ao criar usuário, um funcionário é criado automaticamente se não escolher.</span>

@@ -115,7 +115,7 @@ export default function CargosScreen() {
     useEffect(() => {
         let alive = true;
         const cached = getScreenCache<CargoItem[]>("/cargos");
-        if (cached) {
+        if (cached && Array.isArray(cached)) {
             setRows(cached);
         } else {
             setLoading(true);

@@ -444,7 +444,7 @@ app.UseMiddleware<RequestLogMiddleware>();
 app.UseMiddleware<ExceptionLoggingMiddleware>();
 app.UseMiddleware<AuditMiddleware>();
 
-app.MapHealthChecks("/health", new HealthCheckOptions
+var healthOptions = new HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>
     {
@@ -461,7 +461,9 @@ app.MapHealthChecks("/health", new HealthCheckOptions
         };
         await context.Response.WriteAsync(JsonSerializer.Serialize(payload));
     }
-}).AllowAnonymous();
+};
+app.MapHealthChecks("/health", healthOptions).AllowAnonymous();
+app.MapHealthChecks("/api/health", healthOptions).AllowAnonymous();
 
 app.MapControllers();
 // SignalR hub usado pela Inbox para push em tempo real.

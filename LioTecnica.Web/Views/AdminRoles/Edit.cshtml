@@ -36,23 +36,23 @@
                     <div class="col-md-4">
                         <label class="form-label" for="VisibilityScope">Visão na estrutura</label>
                         <select class="form-select" id="VisibilityScope" name="VisibilityScope">
-                            <option value="0" selected="@(Model.VisibilityScope == 0)">Completa</option>
-                            <option value="1" selected="@(Model.VisibilityScope == 1)">Restrita (área/recrutador)</option>
+                            <option value="0" selected="@(Model.VisibilityScope == 0 ? "selected" : null)">Completa</option>
+                            <option value="1" selected="@(Model.VisibilityScope == 1 ? "selected" : null)">Restrita (área/recrutador)</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="VagasDataScope">Escopo de vagas</label>
                         <select class="form-select" id="VagasDataScope" name="VagasDataScope">
-                            <option value="0" selected="@(Model.VagasDataScope == 0)">Todas</option>
-                            <option value="1" selected="@(Model.VagasDataScope == 1)">Por área</option>
-                            <option value="2" selected="@(Model.VagasDataScope == 2)">Por recrutador</option>
+                            <option value="0" selected="@(Model.VagasDataScope == 0 ? "selected" : null)">Todas</option>
+                            <option value="1" selected="@(Model.VagasDataScope == 1 ? "selected" : null)">Por área</option>
+                            <option value="2" selected="@(Model.VagasDataScope == 2 ? "selected" : null)">Por recrutador</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="AccessMode">Modo de acesso</label>
                         <select class="form-select" id="AccessMode" name="AccessMode">
-                            <option value="0" selected="@(Model.AccessMode == 0)">Completo</option>
-                            <option value="1" selected="@(Model.AccessMode == 1)">Somente leitura</option>
+                            <option value="0" selected="@(Model.AccessMode == 0 ? "selected" : null)">Completo</option>
+                            <option value="1" selected="@(Model.AccessMode == 1 ? "selected" : null)">Somente leitura</option>
                         </select>
                     </div>
                 </div>
