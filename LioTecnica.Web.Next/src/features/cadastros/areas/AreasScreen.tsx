@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
     Search,
@@ -381,6 +381,36 @@ export default function AreasScreen() {
         });
     }, [collapsedKeys, matchFiltered, rows]);
 
+    type TreeRow = (typeof visibleTreeRows)[number];
+    type Segment =
+        | { type: "single"; row: TreeRow }
+        | { type: "group"; parent: TreeRow; children: TreeRow[] };
+
+    const segments = useMemo((): Segment[] => {
+        const out: Segment[] = [];
+        const list = visibleTreeRows;
+        let i = 0;
+        while (i < list.length) {
+            const row = list[i];
+            if (row.depth === 0 && (!row.hasChildren || row.isCollapsed)) {
+                out.push({ type: "single", row });
+                i += 1;
+            } else if (row.depth === 0 && row.hasChildren && !row.isCollapsed) {
+                const parent = row;
+                const children: TreeRow[] = [];
+                i += 1;
+                while (i < list.length && list[i].depth >= 1) {
+                    children.push(list[i]);
+                    i += 1;
+                }
+                out.push({ type: "group", parent, children });
+            } else {
+                i += 1;
+            }
+        }
+        return out;
+    }, [visibleTreeRows]);
+
     const hintText = useMemo(() => {
         if (loading) return "Carregando…";
         return visibleTreeRows.length
@@ -513,6 +543,100 @@ export default function AreasScreen() {
         }
     }
 
+    function renderAreaRowCells({ area: a, depth, hasChildren, isCollapsed }: TreeRow) {
+        return (
+            <>
+                <TableCell>
+                    <div className="flex items-center">
+                        <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            title="Expandir/colapsar"
+                            aria-label="Expandir/colapsar"
+                            className={cn(
+                                "mr-1",
+                                !hasChildren && "invisible pointer-events-none",
+                            )}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const k = keyOf(a.id);
+                                if (!k) return;
+                                setCollapsedKeys((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(k)) next.delete(k);
+                                    else next.add(k);
+                                    return next;
+                                });
+                            }}
+                        >
+                            {hasChildren ? (
+                                isCollapsed ? (
+                                    <ChevronRight />
+                                ) : (
+                                    <ChevronDown />
+                                )
+                            ) : null}
+                        </Button>
+                        <div
+                            className="min-w-0"
+                            style={{ paddingLeft: `${(depth || 0) * 2}rem` }}
+                        >
+                            <div className="font-semibold">{a.name}</div>
+                            <div className="text-muted-foreground text-xs font-mono">
+                                {a.code || "—"}
+                            </div>
+                        </div>
+                    </div>
+                </TableCell>
+                <TableCell className="text-sm">
+                    {getParentDisplay(a)}
+                </TableCell>
+                <TableCell className="text-sm">
+                    {a.ownerName || "—"}
+                </TableCell>
+                <TableCell>{statusBadge(a.status)}</TableCell>
+                <TableCell>
+                    <span className="font-mono text-sm">
+                        {a.vacanciesOpen ?? 0}/{a.vacanciesTotal ?? 0}
+                    </span>
+                </TableCell>
+                <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
+                    {a.description || "—"}
+                </TableCell>
+                <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            title="Detalhes"
+                            onClick={() => void openDetail(a)}
+                        >
+                            <Eye />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            title="Editar"
+                            onClick={() => void openEdit(a)}
+                        >
+                            <Pencil />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            className="text-destructive"
+                            title="Excluir"
+                            onClick={() => setDeleteTarget(a)}
+                        >
+                            <Trash2 />
+                        </Button>
+                    </div>
+                </TableCell>
+            </>
+        );
+    }
+
     /* ──────────────────────────── render ──────────────────────────── */
     return (
         <section className="space-y-4">
@@ -628,99 +752,51 @@ export default function AreasScreen() {
                                     Carregando…
                                 </TableCell>
                             </TableRow>
-                        ) : visibleTreeRows.length ? (
-                            visibleTreeRows.map(({ area: a, depth, hasChildren, isCollapsed }) => (
-                                <TableRow key={a.id}>
-                                    <TableCell>
-                                        <div className="flex items-center">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon-xs"
-                                                title="Expandir/colapsar"
-                                                aria-label="Expandir/colapsar"
-                                                className={cn(
-                                                    "mr-1",
-                                                    !hasChildren && "invisible pointer-events-none",
-                                                )}
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    const k = keyOf(a.id);
-                                                    if (!k) return;
-                                                    setCollapsedKeys((prev) => {
-                                                        const next = new Set(prev);
-                                                        if (next.has(k)) next.delete(k);
-                                                        else next.add(k);
-                                                        return next;
-                                                    });
-                                                }}
+                        ) : segments.length ? (
+                            segments.map((seg) =>
+                                seg.type === "single" ? (
+                                    <TableRow key={seg.row.area.id}>
+                                        {renderAreaRowCells(seg.row)}
+                                    </TableRow>
+                                ) : (
+                                    <Fragment key={seg.parent.area.id}>
+                                        <TableRow>
+                                            {renderAreaRowCells(seg.parent)}
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={7}
+                                                className="p-0 align-top"
                                             >
-                                                {hasChildren ? (
-                                                    isCollapsed ? (
-                                                        <ChevronRight />
-                                                    ) : (
-                                                        <ChevronDown />
-                                                    )
-                                                ) : null}
-                                            </Button>
-
-                                            <div
-                                                className="min-w-0"
-                                                style={{ paddingLeft: `${(depth || 0) * 2}rem` }}
-                                            >
-                                                <div className="font-semibold">{a.name}</div>
-                                                <div className="text-muted-foreground text-xs font-mono">
-                                                    {a.code || "—"}
+                                                <div
+                                                    key={seg.parent.area.id}
+                                                    className="mx-2 mb-2 overflow-hidden rounded-lg border border-border/60 bg-muted/20 shadow-sm animate-in fade-in slide-in-from-top-1 duration-200"
+                                                >
+                                                    <Table>
+                                                        <TableBody>
+                                                            {seg.children.map(
+                                                                (child) => (
+                                                                    <TableRow
+                                                                        key={
+                                                                            child
+                                                                                .area
+                                                                                .id
+                                                                        }
+                                                                    >
+                                                                        {renderAreaRowCells(
+                                                                            child,
+                                                                        )}
+                                                                    </TableRow>
+                                                                ),
+                                                            )}
+                                                        </TableBody>
+                                                    </Table>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {getParentDisplay(a)}
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {a.ownerName || "—"}
-                                    </TableCell>
-                                    <TableCell>{statusBadge(a.status)}</TableCell>
-                                    <TableCell>
-                                        <span className="font-mono text-sm">
-                                            {a.vacanciesOpen ?? 0}/{a.vacanciesTotal ?? 0}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
-                                        {a.description || "—"}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon-xs"
-                                                title="Detalhes"
-                                                onClick={() => void openDetail(a)}
-                                            >
-                                                <Eye />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon-xs"
-                                                title="Editar"
-                                                onClick={() => void openEdit(a)}
-                                            >
-                                                <Pencil />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon-xs"
-                                                className="text-destructive"
-                                                title="Excluir"
-                                                onClick={() => setDeleteTarget(a)}
-                                            >
-                                                <Trash2 />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
+                                            </TableCell>
+                                        </TableRow>
+                                    </Fragment>
+                                ),
+                            )
                         ) : (
                             <TableRow>
                                 <TableCell

@@ -156,7 +156,7 @@ export default function UnidadesScreen() {
     useEffect(() => {
         let alive = true;
         const cached = getScreenCache<UnitGridRow[]>("/unidades");
-        if (cached) {
+        if (cached && Array.isArray(cached)) {
             setRows(cached);
         } else {
             setLoading(true);
