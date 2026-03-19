@@ -98,6 +98,8 @@ public sealed class PortalCandidateProfileUpdateInput
 
     [Required, MaxLength(2)]
     public string Uf { get; set; } = string.Empty;
+
+    public bool? TrabalhandoAtualmente { get; set; }
 }
 
 public sealed record PortalCandidateDocumentoSummary(
@@ -116,7 +118,8 @@ public sealed record PortalCandidateProfileResponse(
     string? LinkedinUrl,
     string? ResumoProfissional,
     string? AvatarUrl,
-    PortalCandidateDocumentoSummary? Curriculo
+    PortalCandidateDocumentoSummary? Curriculo,
+    bool? TrabalhandoAtualmente
 );
 
 public sealed record PortalCandidateProfileUpdateRequest(
@@ -125,7 +128,8 @@ public sealed record PortalCandidateProfileUpdateRequest(
     [Required, MaxLength(120)] string Cidade,
     [Required, MaxLength(2)] string Uf,
     [MaxLength(260)] string? LinkedinUrl,
-    [MaxLength(2000)] string? ResumoProfissional
+    [MaxLength(2000)] string? ResumoProfissional,
+    bool? TrabalhandoAtualmente
 );
 
 public sealed record PortalCandidateAvatarResponse(

@@ -207,7 +207,7 @@ public sealed class PessoaService : IPessoaService
             {
                 Id = Guid.NewGuid(),
                 TenantId = _tenantContext.TenantId,
-                Origem = request.Origem,
+                Origem = request!.Origem,
                 Nome = (request.Nome ?? string.Empty).Trim(),
                 Email = NormalizeEmail(request.Email),
                 Fone = TrimToMax(request.Fone, 40),
@@ -296,7 +296,7 @@ public sealed class PessoaService : IPessoaService
 
         if (existing is not null)
         {
-            if (!string.IsNullOrWhiteSpace(nome)) existing.Nome = TrimToMax(nome, 160);
+            if (!string.IsNullOrWhiteSpace(nome)) existing.Nome = TrimToMax(nome, 160)!;
             if (fone != null) existing.Fone = TrimToMax(fone, 40);
             if (cidade != null) existing.Cidade = TrimToMax(cidade, 120);
             if (uf != null) existing.Uf = TrimToMax(uf, 2);

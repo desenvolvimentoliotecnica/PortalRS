@@ -72,7 +72,8 @@ public sealed class PortalCandidatesController : ControllerBase
             candidate.LinkedinUrl,
             candidate.ResumoProfissional,
             string.IsNullOrWhiteSpace(candidate.AvatarFileName) ? null : BuildAvatarUrl(candidate.Id),
-            curriculo
+            curriculo,
+            candidate.TrabalhandoAtualmente
         ));
     }
 
@@ -105,6 +106,7 @@ public sealed class PortalCandidatesController : ControllerBase
         candidate.Uf = NormalizeUfRequired(request.Uf);
         candidate.LinkedinUrl = NormalizeOptional(request.LinkedinUrl);
         candidate.ResumoProfissional = NormalizeOptional(request.ResumoProfissional);
+        candidate.TrabalhandoAtualmente = request.TrabalhandoAtualmente;
 
         await db.SaveChangesAsync(ct);
 
@@ -127,7 +129,8 @@ public sealed class PortalCandidatesController : ControllerBase
             candidate.LinkedinUrl,
             candidate.ResumoProfissional,
             string.IsNullOrWhiteSpace(candidate.AvatarFileName) ? null : BuildAvatarUrl(candidate.Id),
-            curriculo
+            curriculo,
+            candidate.TrabalhandoAtualmente
         ));
     }
 

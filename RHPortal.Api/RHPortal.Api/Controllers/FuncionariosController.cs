@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
+using RhPortal.Api.Application.Funcionarios;
 using RhPortal.Api.Application.Funcionarios.Handlers;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Funcionarios;
@@ -94,6 +95,19 @@ public sealed class FuncionariosController : ControllerBase
         {
             return Conflict(new { message = ex.Message });
         }
+    }
+
+    [HttpPut("{id:guid}/hierarquia")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateHierarquia(
+        [FromRoute] Guid id,
+        [FromBody] FuncionarioHierarquiaRequest request,
+        [FromServices] IFuncionarioService service,
+        CancellationToken ct)
+    {
+        var ok = await service.UpdateHierarquiaAsync(id, request.GestorDiretoId, request.NivelHierarquicoId, ct);
+        return ok ? NoContent() : NotFound();
     }
 
     [HttpDelete("{id:guid}")]

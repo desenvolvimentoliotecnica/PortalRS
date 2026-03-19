@@ -8,6 +8,10 @@
 import { env } from "@/lib/env";
 import { clearSession, getAccessToken, getTenantId, setTenantId, tryGetTenantIdFromJwt } from "@/lib/session";
 
+// Guard: prevents multiple concurrent 401 responses from triggering redundant
+// clearSession() calls and parallel redirects to the login page.
+let _redirecting401 = false;
+
 const PORTAL_CANDIDATE_STORAGE_PREFIX = "renderrh.portalCandidate.";
 
 function resolvePortalTenantId(headers: Headers): string | null {
@@ -102,7 +106,15 @@ function resolveUrl(path: string): string {
 export async function apiFetch(
     path: string,
     init: RequestInit = {},
+    timeoutMs = 15_000,
 ): Promise<Response> {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), timeoutMs);
+    const abortSignalCtor = AbortSignal as unknown as { any?: (signals: AbortSignal[]) => AbortSignal };
+    const signal = init.signal
+        ? abortSignalCtor.any?.([init.signal as AbortSignal, controller.signal]) ?? controller.signal
+        : controller.signal;
+
     const headers = new Headers(init.headers);
     if (!headers.has("Accept")) {
         headers.set("Accept", "application/json");
@@ -131,19 +143,32 @@ export async function apiFetch(
         headers.set("X-Tenant-Id", tenantId);
     }
 
+    // Correlação de requests entre Next.js → C# API → Python AI
+    if (!headers.has("X-Request-ID")) {
+        headers.set("X-Request-ID", crypto.randomUUID());
+    }
+
     const mappedPath = mapPortalCandidatePath(path, headers);
     const url = resolveUrl(mappedPath);
 
-    const res = await fetch(url, {
-        ...init,
-        headers,
-    });
+    let res: Response;
+    try {
+        res = await fetch(url, { ...init, headers, signal });
+    } catch (e) {
+        clearTimeout(tid);
+        if ((e as Error).name === "AbortError")
+            throw new Error("Requisição expirou — verifique sua conexão");
+        throw e;
+    }
+    clearTimeout(tid);
 
-    if (res.status === 401) {
+    if (res.status === 401 && !_redirecting401) {
+        _redirecting401 = true;
         clearSession();
         // Redirect to login unless this IS a login/auth call (avoid loop)
         if (typeof window !== "undefined" && !/\/api\/(auth|owner\/auth)\//i.test(path)) {
-            window.location.href = "/app/login";
+            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/app/login?returnUrl=${returnUrl}`;
         }
     }
     return res;

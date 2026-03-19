@@ -19,6 +19,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 
 from app.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL, DEFAULT_RANKING_SIZE
+from app.log import matching as log
 from app.db import (
     get_vaga_perfil,
     get_candidato_perfil,
@@ -192,14 +193,20 @@ def run_unified_matching(
                     ranked.append(result)
             except Exception as e:
                 person = futures[future]
-                print(f"Erro ao avaliar {person.get('person_id', '?')}: {e}")
+                log.error("eval_person_failed", extra={"ctx": {"person_id": person.get("person_id", "?"), "error": str(e)}})
 
     elapsed = time.time() - t0
-    print(
-        f"[matching] tenant={tenant_id or '-'} vaga={vaga_id} rule={normalized_rule} "
-        f"ranking={ranking_size} vectorLimit={vector_limit} workers={max_workers} "
-        f"avaliados={len(ranked)}/{len(vector_results)} elapsed={elapsed:.1f}s"
-    )
+    log.info("matching_done", extra={"ctx": {
+        "tenant": tenant_id or "-",
+        "vaga": vaga_id,
+        "rule": normalized_rule,
+        "ranking_size": ranking_size,
+        "vector_limit": vector_limit,
+        "workers": max_workers,
+        "avaliados": len(ranked),
+        "total_vetorial": len(vector_results),
+        "elapsed_s": round(elapsed, 1),
+    }})
 
     # Ordenar por score final e limitar ao ranking_size
     ranked.sort(key=lambda x: x["score_final"], reverse=True)
@@ -319,7 +326,7 @@ def ensure_person_embedding(
             return save_talento_embedding(person_id, emb, tenant_id)
         return False
     except Exception as e:
-        print(f"Erro ao gerar embedding para {source} {person_id}: {e}")
+        log.error("embedding_gen_failed", extra={"ctx": {"source": source, "person_id": person_id, "error": str(e)}})
         return False
 
 
@@ -553,5 +560,5 @@ Responda APENAS com um JSON válido (sem markdown, sem comentários):
             "justificativa": justif,
         }
     except Exception as e:
-        print(f"Erro na avaliação LLM: {e}")
+        log.error("llm_eval_failed", extra={"ctx": {"error": str(e)}})
         return None

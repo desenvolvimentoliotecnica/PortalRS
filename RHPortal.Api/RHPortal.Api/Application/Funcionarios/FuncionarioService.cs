@@ -16,6 +16,7 @@ public interface IFuncionarioService
     Task<FuncionarioResponse?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<FuncionarioResponse> CreateAsync(FuncionarioCreateRequest request, CancellationToken ct);
     Task<FuncionarioResponse?> UpdateAsync(Guid id, FuncionarioUpdateRequest request, CancellationToken ct);
+    Task<bool> UpdateHierarquiaAsync(Guid id, Guid? gestorDiretoId, Guid? nivelHierarquicoId, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
 }
 
@@ -45,7 +46,9 @@ public sealed class FuncionarioService : IFuncionarioService
             .Include(x => x.Unit)
             .Include(x => x.Area)
             .Include(x => x.JobPosition)
-            .Include(x => x.RequisitoCategoria);
+            .Include(x => x.RequisitoCategoria)
+            .Include(x => x.GestorDireto)
+            .Include(x => x.NivelHierarquico);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -121,7 +124,11 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.JobPositionId,
                 x.JobPosition != null ? x.JobPosition.Name : null,
                 x.RequisitoCategoriaId,
-                x.RequisitoCategoria != null ? x.RequisitoCategoria.Name : null
+                x.RequisitoCategoria != null ? x.RequisitoCategoria.Name : null,
+                x.GestorDiretoId,
+                x.GestorDireto != null ? x.GestorDireto.Name : null,
+                x.NivelHierarquicoId,
+                x.NivelHierarquico != null ? x.NivelHierarquico.Nome : null
             ))
             .ToListAsync(ct);
 
@@ -253,6 +260,19 @@ public sealed class FuncionarioService : IFuncionarioService
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<bool> UpdateHierarquiaAsync(Guid id, Guid? gestorDiretoId, Guid? nivelHierarquicoId, CancellationToken ct)
+    {
+        var entity = await _db.Funcionarios.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return false;
+
+        entity.GestorDiretoId = gestorDiretoId;
+        entity.NivelHierarquicoId = nivelHierarquicoId;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)

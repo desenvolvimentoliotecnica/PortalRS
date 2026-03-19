@@ -78,7 +78,23 @@ if [ -d "$INTEGRATION_DIR" ]; then
   INTEGRATION_PID=$!
 fi
 
-# --- Next.js: sobe o frontend novo em background (porta 3000)
+# Espera a API ficar pronta (health em localhost:5056) antes de subir o Portal e o Next.js
+echo "▶ Aguardando API em http://localhost:5056 (máx. 120s)..."
+max=120
+url="http://localhost:5056/health"
+while [ $max -gt 0 ]; do
+  if curl -sf -o /dev/null "$url" 2>/dev/null; then
+    echo "▶ API pronta."
+    break
+  fi
+  sleep 3
+  max=$((max - 3))
+done
+if [ $max -le 0 ]; then
+  echo "▶ Aviso: timeout aguardando API. Continuando mesmo assim..."
+fi
+
+# --- Next.js: sobe DEPOIS da API (porta 3000)
 NEXT_DIR="$ROOT/LioTecnica.Web.Next"
 NEXT_PID=""
 if [ -d "$NEXT_DIR" ]; then
@@ -89,25 +105,13 @@ if [ -d "$NEXT_DIR" ]; then
     if [ ! -d "node_modules" ]; then
       pnpm install --silent
     fi
-    WATCHPACK_POLLING=true LEGACY_ORIGIN=http://localhost:5051 DEV_API_ORIGIN=http://localhost:5056 PORT=3000 exec pnpm dev
+    NODE_OPTIONS="--max-old-space-size=2048" \
+    LEGACY_ORIGIN=http://localhost:5051 \
+    DEV_API_ORIGIN=http://localhost:5056 \
+    PORT=3000 \
+    exec pnpm dev
   ) &
   NEXT_PID=$!
-fi
-
-# Espera a API ficar pronta (health em localhost:5056) antes de subir o Portal
-echo "▶ Aguardando API em http://localhost:5056 (máx. 90s)..."
-max=90
-url="http://localhost:5056/health"
-while [ $max -gt 0 ]; do
-  if curl -sf -o /dev/null "$url" 2>/dev/null; then
-    echo "▶ API pronta."
-    break
-  fi
-  sleep 2
-  max=$((max - 2))
-done
-if [ $max -le 0 ]; then
-  echo "▶ Aviso: timeout aguardando API. Portal vai subir mesmo assim."
 fi
 
 # Abre Next.js no browser (Swagger já abre sozinho ao subir a API)
@@ -120,15 +124,15 @@ open_url() {
 }
 
 # Aguarda o Next.js ficar pronto (porta 3000) antes de abrir
-echo "▶ Aguardando Next.js em http://localhost:3000 (máx. 60s)..."
-nmax=60
+echo "▶ Aguardando Next.js em http://localhost:3000 (máx. 90s)..."
+nmax=90
 while [ $nmax -gt 0 ]; do
   if curl -sf -o /dev/null "http://localhost:3000/app" 2>/dev/null; then
     echo "▶ Next.js pronto."
     break
   fi
-  sleep 2
-  nmax=$((nmax - 2))
+  sleep 3
+  nmax=$((nmax - 3))
 done
 if [ $nmax -le 0 ]; then
   echo "▶ Aviso: timeout aguardando Next.js. Abrindo mesmo assim."

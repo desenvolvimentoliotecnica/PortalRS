@@ -55,19 +55,12 @@ public sealed class OwnerController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<TenantListItemResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<TenantListItemResponse>>> ListTenants(CancellationToken ct)
     {
-        try
-        {
-            var list = await _masterDb.Tenants
-                .AsNoTracking()
-                .OrderBy(t => t.TenantId)
-                .Select(t => new TenantListItemResponse(t.TenantId, t.Name, t.IsActive, t.CreatedAtUtc, t.UpdatedAtUtc))
-                .ToListAsync(ct);
-            return Ok(list);
-        }
-        catch (Exception ex)
-        {
-            throw;
-        }
+        var list = await _masterDb.Tenants
+            .AsNoTracking()
+            .OrderBy(t => t.TenantId)
+            .Select(t => new TenantListItemResponse(t.TenantId, t.Name, t.IsActive, t.CreatedAtUtc, t.UpdatedAtUtc))
+            .ToListAsync(ct);
+        return Ok(list);
     }
 
     [HttpGet("tenants/{tenantId}")]

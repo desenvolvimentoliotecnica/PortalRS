@@ -35,6 +35,18 @@ public sealed class Funcionario : ITenantEntity
     public Guid? RequisitoCategoriaId { get; set; }
     public RequisitoCategoria? RequisitoCategoria { get; set; }
 
+    // ── Sprint 2: Hierarquia ──
+
+    /// <summary>Nível hierárquico do funcionário (configurável pelo Admin).</summary>
+    public Guid? NivelHierarquicoId { get; set; }
+    public NivelHierarquico? NivelHierarquico { get; set; }
+
+    /// <summary>Gestor direto (superior imediato) — self-reference.</summary>
+    public Guid? GestorDiretoId { get; set; }
+    public Funcionario? GestorDireto { get; set; }
+
+    public string? AvatarFileName { get; set; }
+
     public string? Notes { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }

@@ -86,8 +86,9 @@ export default function Reunioes1a1Screen() {
             const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
             const result = await fetchJson<OneOnOneList>(`/api/feedback/one-on-one?${qs}`);
             setData(result);
-        } catch (err) {
-            console.error("Failed to load meetings", err);
+        } catch {
+            // API may not exist yet — show empty state
+            setData({ items: [], totalItems: 0, page: 1, pageSize });
         } finally {
             setLoading(false);
         }
@@ -288,8 +289,8 @@ export default function Reunioes1a1Screen() {
                                         <TableCell className="text-xs whitespace-nowrap">{fmtDate(m.scheduledAt)}</TableCell>
                                         <TableCell>
                                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${m.status === "finalizada" ? "bg-emerald-100 text-emerald-700" :
-                                                    m.status === "atrasada" ? "bg-red-100 text-red-700" :
-                                                        "bg-blue-100 text-blue-700"
+                                                m.status === "atrasada" ? "bg-red-100 text-red-700" :
+                                                    "bg-blue-100 text-blue-700"
                                                 }`}>
                                                 {m.status || "agendada"}
                                             </span>

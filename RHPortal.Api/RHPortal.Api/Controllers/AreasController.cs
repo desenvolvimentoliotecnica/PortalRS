@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Areas;
 using RhPortal.Api.Infrastructure.Data;
@@ -26,6 +27,7 @@ public sealed class AreasController : ControllerBase
     /// </summary>
     /// <param name="parentId">Opcional. Se informado, retorna apenas as áreas cujo ParentId é este valor.</param>
     [HttpGet]
+    [OutputCache(PolicyName = "lookup")]
     [ProducesResponseType(typeof(List<AreaResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<AreaResponse>>> List(
         [FromQuery] Guid? parentId,

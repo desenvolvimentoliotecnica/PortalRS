@@ -1,5 +1,6 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Check, X, Clock, RotateCcw, Mail, MessageCircle, Linkedin } from "lucide-react";
 import { type RankItem, type VagaDetail, type CandidatoFull, type MatchResult, type TabKey, calcMatch, initials } from "./matchingHelpers";
 
 function ScoreRing({ score, size = 52 }: { score: number; size?: number }) {
@@ -29,65 +30,94 @@ interface Props {
     onRestore: () => void;
     onPending: () => void;
     onSaveCv: () => void;
+    onUpdateObs?: (obs: string) => void;
 }
 
-export default function CandidateDetailModal({ item, candidatoFull, vagaDetail, tab, threshold, cvText, onCvTextChange, onClose, onRecalc, onApprove, onReject, onRestore, onPending, onSaveCv }: Props) {
+export default function CandidateDetailModal({ item, candidatoFull, vagaDetail, tab, threshold, cvText, onCvTextChange, onClose, onRecalc, onApprove, onReject, onRestore, onPending, onSaveCv, onUpdateObs }: Props) {
     const matchResult: MatchResult | null = useMemo(() => {
         if (!vagaDetail || !candidatoFull) return null;
         return calcMatch(candidatoFull.cvText ?? "", vagaDetail.requisitos, vagaDetail.threshold);
     }, [vagaDetail, candidatoFull]);
 
+    const [obsLocal, setObsLocal] = useState(item.obs || "");
+
     const pass = item.score >= threshold;
     const displayName = (candidatoFull?.nome || item.nome || "—").trim() || "—";
     const displayEmail = (candidatoFull?.email || item.email || "").trim();
+    const cidadeUf = [candidatoFull?.cidade || item.cidade, candidatoFull?.uf || item.uf].filter(Boolean).join("/");
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}
-                style={{ animation: "modalIn .22s ease-out" }}>
+            <div className="bg-background rounded-2xl border border-border shadow-2xl max-w-2xl w-full mx-4 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
-                <div className="sticky top-0 z-10 bg-[rgb(var(--lt-primary))] text-white px-6 py-5 rounded-t-2xl">
-                    <button type="button" className="absolute top-3 right-4 text-white/70 hover:text-white text-xl transition" onClick={onClose}>✕</button>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white/20 text-white font-bold text-lg shrink-0">
+                <div className="sticky top-0 z-10 bg-card border-b border-border px-6 py-4 rounded-t-2xl">
+                    <button type="button" className="absolute top-3 right-4 p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors" onClick={onClose}><X className="size-4" /></button>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-primary/10 text-primary font-bold text-sm shrink-0">
                             {initials(displayName)}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="text-xl font-extrabold leading-tight break-words">{displayName}</div>
-                            <div className="text-white/90 text-sm break-all">{displayEmail}</div>
-                            {candidatoFull?.updatedAt && <div className="text-white/60 text-xs mt-0.5">Atualizado: {new Date(candidatoFull.updatedAt).toLocaleString("pt-BR")}</div>}
+                            <div className="text-base font-semibold leading-tight break-words">{displayName}</div>
+                            <div className="text-muted-foreground text-sm break-all">{displayEmail}</div>
                         </div>
-                        <ScoreRing score={item.score} size={60} />
+                        <ScoreRing score={item.score} size={52} />
                     </div>
-                    <div className="flex items-center gap-2 mt-3">
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${pass ? "bg-green-400/30 text-green-100" : "bg-amber-400/30 text-amber-100"}`}>
-                            {item.score}% • {pass ? "Dentro" : "Abaixo"}
+                    <div className="flex items-center gap-2 mt-2.5">
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${pass ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                            {item.score}% • {pass ? "Dentro do corte" : "Abaixo do corte"}
                         </span>
-                        {item.source && <span className={`rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${item.source === "talento" ? "bg-sky-400/30 text-sky-100" : "bg-white/20 text-white/90"}`}>{item.source === "talento" ? "Talento" : "Candidato"}</span>}
-                        <span className="text-white/60 text-xs ml-auto">Mínimo: {threshold}%</span>
+                        {item.source && <span className="rounded-full px-2 py-0.5 text-[0.65rem] font-medium border border-border bg-muted text-muted-foreground">{item.source === "talento" ? "Talento" : "Candidato"}</span>}
+                        <span className="text-muted-foreground text-xs ml-auto">Mínimo: {threshold}%</span>
                     </div>
                 </div>
 
                 <div className="px-6 py-5 space-y-5">
                     {/* Actions */}
                     <div className="flex flex-wrap gap-2">
-                        <button className="btn-brand text-sm py-2 px-4 rounded-xl" type="button" onClick={onRecalc}>🔄 Recalcular</button>
+                        <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-border bg-muted hover:bg-muted/80 text-foreground font-medium transition-colors" type="button" onClick={onRecalc}>Recalcular IA</button>
                         {tab === "suggestions" && <>
-                            <button className="text-sm py-2 px-4 rounded-xl bg-green-600 text-white hover:bg-green-700 transition font-semibold" type="button" onClick={onApprove}>✅ Aprovar</button>
-                            <button className="text-sm py-2 px-4 rounded-xl bg-red-500 text-white hover:bg-red-600 transition font-semibold" type="button" onClick={onReject}>✕ Reprovar</button>
-                            <button className="text-sm py-2 px-4 rounded-xl bg-yellow-500 text-white hover:bg-yellow-600 transition font-semibold" type="button" onClick={onPending}>⏳ Pendente</button>
+                            <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium transition-colors" type="button" onClick={onApprove}><Check className="size-3.5" /> Aprovar</button>
+                            <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-medium transition-colors" type="button" onClick={onReject}><X className="size-3.5" /> Reprovar</button>
+                            <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-medium transition-colors" type="button" onClick={onPending}><Clock className="size-3.5" /> Pendente</button>
                         </>}
                         {tab === "approved" && <>
-                            <button className="text-sm py-2 px-4 rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition font-semibold" type="button" onClick={onRestore}>↩ Triagem</button>
-                            <button className="text-sm py-2 px-4 rounded-xl bg-red-500 text-white hover:bg-red-600 transition font-semibold" type="button" onClick={onReject}>✕ Reprovar</button>
+                            <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-border bg-muted hover:bg-muted/80 text-foreground font-medium transition-colors" type="button" onClick={onRestore}><RotateCcw className="size-3.5" /> Triagem</button>
+                            <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-medium transition-colors" type="button" onClick={onReject}><X className="size-3.5" /> Reprovar</button>
                         </>}
-                        {tab === "rejected" && <button className="text-sm py-2 px-4 rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition font-semibold" type="button" onClick={onRestore}>↩ Voltar p/ Triagem</button>}
+                        {tab === "rejected" && <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-border bg-muted hover:bg-muted/80 text-foreground font-medium transition-colors" type="button" onClick={onRestore}><RotateCcw className="size-3.5" /> Voltar p/ Triagem</button>}
                         {tab === "pending" && <>
-                            <button className="text-sm py-2 px-4 rounded-xl bg-green-600 text-white hover:bg-green-700 transition font-semibold" type="button" onClick={onApprove}>✅ Aprovar</button>
-                            <button className="text-sm py-2 px-4 rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition font-semibold" type="button" onClick={onRestore}>↩ Triagem</button>
-                            <button className="text-sm py-2 px-4 rounded-xl bg-red-500 text-white hover:bg-red-600 transition font-semibold" type="button" onClick={onReject}>✕ Reprovar</button>
+                            <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium transition-colors" type="button" onClick={onApprove}><Check className="size-3.5" /> Aprovar</button>
+                            <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-border bg-muted hover:bg-muted/80 text-foreground font-medium transition-colors" type="button" onClick={onRestore}><RotateCcw className="size-3.5" /> Triagem</button>
+                            <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-medium transition-colors" type="button" onClick={onReject}><X className="size-3.5" /> Reprovar</button>
                         </>}
+                    </div>
+
+                    {/* Candidate Info */}
+                    <div className="rounded-xl border border-border/60 bg-slate-50/50 p-4 grid grid-cols-2 gap-3 text-sm">
+                        {cidadeUf && <div><span className="text-muted-foreground text-xs block">Cidade/UF</span><span className="font-medium">{cidadeUf}</span></div>}
+                        <div>
+                            <span className="text-muted-foreground text-xs block">Trabalhando?</span>
+                            <span className="font-medium">{(candidatoFull?.trabalhando ?? item.trabalhando) === true ? "Sim" : (candidatoFull?.trabalhando ?? item.trabalhando) === false ? "Não" : "—"}</span>
+                        </div>
+                        {item.source && <div><span className="text-muted-foreground text-xs block">Fonte</span><span className="font-medium">{item.source === "talento" ? "Talento" : "Candidato"}</span></div>}
+                        <div>
+                            <span className="text-muted-foreground text-xs block">Contato direto</span>
+                            <div className="flex gap-2 mt-0.5">
+                                {displayEmail && <a href={`mailto:${displayEmail}`} className="inline-flex items-center gap-1 text-sm hover:underline text-blue-600" title="Email"><Mail className="size-3.5" /> Email</a>}
+                                {(candidatoFull?.fone || item.fone) && <a href={`https://wa.me/${(candidatoFull?.fone || item.fone || "").replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm hover:underline text-green-600" title="WhatsApp"><MessageCircle className="size-3.5" /> WhatsApp</a>}
+                                {(candidatoFull?.linkedinUrl || item.linkedinUrl) && <a href={candidatoFull?.linkedinUrl || item.linkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm hover:underline text-blue-700" title="LinkedIn"><Linkedin className="size-3.5" /> LinkedIn</a>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Observação */}
+                    <div>
+                        <div className="font-bold text-sm mb-1">Observação</div>
+                        <textarea className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={2} value={obsLocal} onChange={e => setObsLocal(e.target.value)} placeholder="Adicionar observação sobre o candidato..." />
+                        {onUpdateObs && obsLocal !== (item.obs || "") && (
+                            <button className="text-xs mt-1 text-muted-foreground hover:text-foreground transition-colors" type="button" onClick={() => onUpdateObs(obsLocal)}>Salvar observação</button>
+                        )}
                     </div>
 
                     {/* Score breakdown */}
@@ -116,7 +146,7 @@ export default function CandidateDetailModal({ item, candidatoFull, vagaDetail, 
                                     return (
                                         <div key={r.id} className={`rounded-lg border p-2.5 text-sm flex items-center justify-between gap-2 ${isHit ? "border-green-200 bg-green-50" : isMiss ? "border-red-200 bg-red-50" : "border-gray-200 bg-gray-50"}`}>
                                             <div>
-                                                <span className="font-semibold">{isHit ? "✅" : isMiss ? "❌" : "➖"} {r.termo}</span>
+                                                <span className="font-semibold">{r.termo}</span>
                                                 <span className="text-muted-foreground text-xs ml-2">Peso: {r.peso} • {r.obrigatorio ? <span className="text-red-600 font-semibold">obrigatório</span> : "desejável"}</span>
                                             </div>
                                             <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${isHit ? "bg-green-200 text-green-800" : isMiss ? "bg-red-200 text-red-800" : "bg-gray-200 text-gray-600"}`}>{isHit ? "OK" : isMiss ? "Faltando" : "Não achou"}</span>
@@ -150,8 +180,8 @@ export default function CandidateDetailModal({ item, candidatoFull, vagaDetail, 
                     {/* CV text */}
                     <div>
                         <div className="font-bold text-sm mb-1">Texto do CV</div>
-                        <textarea className="form-control w-full text-sm" rows={5} value={cvText} onChange={e => onCvTextChange(e.target.value)} />
-                        <button className="btn-ghost text-xs mt-1" type="button" onClick={onSaveCv}>💾 Salvar texto do CV</button>
+                        <textarea className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={5} value={cvText} onChange={e => onCvTextChange(e.target.value)} />
+                        <button className="text-xs mt-1 text-muted-foreground hover:text-foreground transition-colors" type="button" onClick={onSaveCv}>Salvar texto do CV</button>
                     </div>
                 </div>
             </div>

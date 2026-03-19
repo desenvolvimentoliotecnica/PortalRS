@@ -210,14 +210,6 @@ public sealed class TalentoService : ITalentoService
                 if (similar.Value.Talento != null)
                 {
                     // #region agent log
-                    try
-                    {
-                        var fc = request.Formacao?.Count ?? 0;
-                        var ec = request.Experiencias?.Count ?? 0;
-                        var line = System.Text.Json.JsonSerializer.Serialize(new { hypothesisId = "H2", location = "TalentoService.CreateAsync", message = "409 returning existing talent without applying profile", data = new { email = request.Email, existingTalentoId = similar.Value.Talento.Id, formacaoCount = fc, experienciasCount = ec }, timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), sessionId = "debug-session" }) + "\n";
-                        await System.IO.File.AppendAllTextAsync("/Users/victoralves/Projects/Voltage.RenderRH/.cursor/debug.log", line, ct);
-                    }
-                    catch { /* ignore */ }
                     // #endregion
                     var summary = new SimilarPessoaSummary(similar.Value.Talento.Id, similar.Value.Pessoa.Nome, similar.Value.Pessoa.Email, similar.Value.Pessoa.Fone);
                     return new CreateTalentoResult(null, true, similar.Value.Talento.Id, summary);
@@ -484,9 +476,8 @@ public sealed class TalentoService : ITalentoService
                 .Include(x => x.Experiencias)
                 .Include(x => x.Treinamentos)
                 .Include(x => x.Formacao)
-                .FirstOrDefaultAsync(x => x.Id == talentoId.Value, ct);
-            if (entity is null)
-                throw new InvalidOperationException("Talento não encontrado.");
+                .FirstOrDefaultAsync(x => x.Id == talentoId.Value, ct)
+                ?? throw new InvalidOperationException("Talento não encontrado.");
         }
         else
         {
@@ -652,10 +643,10 @@ public sealed class TalentoService : ITalentoService
             if (entity.Experiencias is null) await _db.Entry(entity).Collection(x => x.Experiencias).LoadAsync(ct);
             if (entity.Treinamentos is null) await _db.Entry(entity).Collection(x => x.Treinamentos).LoadAsync(ct);
             if (entity.Formacao is null) await _db.Entry(entity).Collection(x => x.Formacao).LoadAsync(ct);
-            _db.TalentoCompetencias.RemoveRange(entity.Competencias);
-            _db.TalentoExperiencias.RemoveRange(entity.Experiencias);
-            _db.TalentoTreinamentos.RemoveRange(entity.Treinamentos);
-            _db.TalentoFormacoes.RemoveRange(entity.Formacao);
+            _db.TalentoCompetencias.RemoveRange(entity.Competencias!);
+            _db.TalentoExperiencias.RemoveRange(entity.Experiencias!);
+            _db.TalentoTreinamentos.RemoveRange(entity.Treinamentos!);
+            _db.TalentoFormacoes.RemoveRange(entity.Formacao!);
             entity.Competencias.Clear();
             entity.Experiencias.Clear();
             entity.Treinamentos.Clear();
@@ -744,9 +735,8 @@ public sealed class TalentoService : ITalentoService
                 .Include(x => x.Experiencias)
                 .Include(x => x.Treinamentos)
                 .Include(x => x.Formacao)
-                .FirstOrDefaultAsync(x => x.Id == talentoId.Value, ct);
-            if (entity is null)
-                throw new InvalidOperationException("Talento não encontrado.");
+                .FirstOrDefaultAsync(x => x.Id == talentoId.Value, ct)
+                ?? throw new InvalidOperationException("Talento não encontrado.");
         }
         else
         {
@@ -1258,12 +1248,12 @@ public sealed class TalentoService : ITalentoService
 
         if (existingTalento is not null)
         {
-            var pessoa = await _pessoaService.GetOrCreateByEmailAsync(email, nome, fone, cidade, uf, linkedinUrl, resumoProfissional, obs, MapToOrigemPessoa(origem), ct);
+            var pessoa = await _pessoaService.GetOrCreateByEmailAsync(email!, nome, fone, cidade, uf, linkedinUrl, resumoProfissional, obs, MapToOrigemPessoa(origem), ct);
             existingTalento.Pessoa = pessoa;
             return (existingTalento, false);
         }
 
-        var pessoaNew = await _pessoaService.GetOrCreateByEmailAsync(email, nome, fone, cidade, uf, linkedinUrl, resumoProfissional, obs, MapToOrigemPessoa(origem), ct);
+        var pessoaNew = await _pessoaService.GetOrCreateByEmailAsync(email!, nome, fone, cidade, uf, linkedinUrl, resumoProfissional, obs, MapToOrigemPessoa(origem), ct);
 
         var talento = await _db.Talentos
             .AsTracking()

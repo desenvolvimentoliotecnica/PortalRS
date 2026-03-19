@@ -6,11 +6,13 @@ Gera "texto canônico" rico a partir de TODOS os dados disponíveis
 para maximizar a densidade semântica dos embeddings.
 """
 from typing import Any, Optional
-import psycopg2
-from pgvector.psycopg2 import register_vector
+
 from langchain_openai import OpenAIEmbeddings
 
 from app.config import DATABASE_URL, OPENAI_API_KEY, EMBEDDING_MODEL, get_database_url
+from app.database_pool import pgvector_conn
+from app.log import embeddings as log
+from app.retry import openai_retry
 from app.vector_search import ensure_pgvector_extension
 
 
@@ -296,221 +298,155 @@ def _enum_to_text(enum_name: str, value: Any) -> str:
 
 # ─── Geração de Embeddings ─────────────────────────────────────────────────
 
+@openai_retry
+def _embed_text(text: str) -> list[float]:
+    """Gera embedding via OpenAI com retry automático."""
+    return get_embeddings_model().embed_query(text)
+
+
 def generate_vaga_embedding(vaga: dict[str, Any]) -> list[float]:
     """Gera embedding para uma vaga. Retorna vetor de 1536 dimensões."""
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY não configurada")
-
-    embeddings = get_embeddings_model()
     text = _build_vaga_text_for_embedding(vaga)
-    return embeddings.embed_query(text)
+    return _embed_text(text)
 
 
 def generate_candidato_embedding(candidato: dict[str, Any]) -> list[float]:
     """Gera embedding para um candidato. Retorna vetor de 1536 dimensões."""
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY não configurada")
-
-    embeddings = get_embeddings_model()
     text = _build_candidato_text_for_embedding(candidato)
-    return embeddings.embed_query(text)
+    return _embed_text(text)
 
 
 def generate_talento_embedding(talento: dict[str, Any]) -> list[float]:
     """Gera embedding para um talento. Retorna vetor de 1536 dimensões."""
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY não configurada")
-
-    embeddings = get_embeddings_model()
     text = _build_talento_text_for_embedding(talento)
-    return embeddings.embed_query(text)
+    return _embed_text(text)
 
 
 # ─── Salvar Embeddings no Banco ────────────────────────────────────────────
 
 def save_vaga_embedding(vaga_id: str, embedding: list[float], tenant_id: Optional[str] = None) -> bool:
-    """Salva embedding de uma vaga no banco de dados (usa banco do tenant se tenant_id informado)."""
-    url = get_database_url(tenant_id) if tenant_id else DATABASE_URL
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
+    """Salva embedding de uma vaga no banco de dados."""
+    tid = tenant_id or None
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
-        register_vector(conn)
-
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE "Vagas"
-                SET embedding = %s::vector,
-                    embedding_generated_at_utc = NOW()
-                WHERE "Id" = %s
-                """,
-                (embedding, vaga_id)
-            )
-            conn.commit()
-
-        conn.close()
-        print(f"Embedding da vaga {vaga_id} salvo em {url}")
+        with pgvector_conn(tid) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE "Vagas"
+                    SET embedding = %s::vector,
+                        embedding_generated_at_utc = NOW()
+                    WHERE "Id" = %s
+                    """,
+                    (embedding, vaga_id)
+                )
+                conn.commit()
+        log.info("embedding_saved", extra={"ctx": {"entity": "vaga", "id": vaga_id}})
         return True
     except Exception as e:
-        print(f"Erro ao salvar embedding da vaga {vaga_id}: {e}")
+        log.error("embedding_save_failed", extra={"ctx": {"entity": "vaga", "id": vaga_id, "error": str(e)}})
         return False
 
 
 def save_candidato_embedding(candidato_id: str, embedding: list[float], tenant_id: Optional[str] = None) -> bool:
-    """Salva embedding de um candidato no banco de dados (usa banco do tenant se tenant_id informado)."""
-    url = get_database_url(tenant_id) if tenant_id else DATABASE_URL
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
+    """Salva embedding de um candidato no banco de dados."""
+    tid = tenant_id or None
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
-        register_vector(conn)
-
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE "Candidatos"
-                SET embedding = %s::vector,
-                    embedding_generated_at_utc = NOW()
-                WHERE "Id" = %s
-                """,
-                (embedding, candidato_id)
-            )
-            conn.commit()
-
-        conn.close()
-        print(f"Embedding do candidato {candidato_id} salvo em {url}")
+        with pgvector_conn(tid) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE "Candidatos"
+                    SET embedding = %s::vector,
+                        embedding_generated_at_utc = NOW()
+                    WHERE "Id" = %s
+                    """,
+                    (embedding, candidato_id)
+                )
+                conn.commit()
+        log.info("embedding_saved", extra={"ctx": {"entity": "candidato", "id": candidato_id}})
         return True
     except Exception as e:
-        print(f"Erro ao salvar embedding do candidato {candidato_id}: {e}")
+        log.error("embedding_save_failed", extra={"ctx": {"entity": "candidato", "id": candidato_id, "error": str(e)}})
         return False
 
 
 def save_talento_embedding(talento_id: str, embedding: list[float], tenant_id: Optional[str] = None) -> bool:
-    """Salva embedding de um talento no banco de dados (usa banco do tenant se tenant_id informado)."""
-    url = get_database_url(tenant_id) if tenant_id else DATABASE_URL
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
+    """Salva embedding de um talento no banco de dados."""
+    tid = tenant_id or None
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
-        register_vector(conn)
-
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE "Talentos" 
-                SET "Embedding" = %s::vector,
-                    "EmbeddingGeneratedAtUtc" = NOW()
-                WHERE "Id" = %s
-                """,
-                (embedding, talento_id)
-            )
-            conn.commit()
-
-        conn.close()
-        print(f"Embedding do talento {talento_id} salvo em {url}")
+        with pgvector_conn(tid) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE "Talentos"
+                    SET "Embedding" = %s::vector,
+                        "EmbeddingGeneratedAtUtc" = NOW()
+                    WHERE "Id" = %s
+                    """,
+                    (embedding, talento_id)
+                )
+                conn.commit()
+        log.info("embedding_saved", extra={"ctx": {"entity": "talento", "id": talento_id}})
         return True
     except Exception as e:
-        print(f"Erro ao salvar embedding do talento {talento_id}: {e}")
+        log.error("embedding_save_failed", extra={"ctx": {"entity": "talento", "id": talento_id, "error": str(e)}})
         return False
 
 
 # ─── Buscar Embeddings ─────────────────────────────────────────────────────
 
 def get_vaga_embedding(vaga_id: str, tenant_id: Optional[str] = None) -> Optional[list[float]]:
-    """Busca embedding de uma vaga no banco (usa banco do tenant se tenant_id informado)."""
-    url = get_database_url(tenant_id) if tenant_id else DATABASE_URL
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
+    """Busca embedding de uma vaga no banco."""
+    tid = tenant_id or None
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
-        register_vector(conn)
-
-        with conn.cursor() as cur:
-            cur.execute(
-                'SELECT embedding FROM "Vagas" WHERE "Id" = %s',
-                (vaga_id,)
-            )
-            row = cur.fetchone()
-
-        conn.close()
+        with pgvector_conn(tid) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'SELECT embedding FROM "Vagas" WHERE "Id" = %s',
+                    (vaga_id,)
+                )
+                row = cur.fetchone()
         return row[0] if row and row[0] is not None else None
     except Exception as e:
-        print(f"Erro ao buscar embedding da vaga {vaga_id}: {e}")
+        log.error("embedding_get_failed", extra={"ctx": {"entity": "vaga", "id": vaga_id, "error": str(e)}})
         return None
 
 
 def get_candidato_embedding(candidato_id: str, tenant_id: Optional[str] = None) -> Optional[list[float]]:
-    """Busca embedding de um candidato no banco (usa banco do tenant se tenant_id informado)."""
-    url = get_database_url(tenant_id) if tenant_id else DATABASE_URL
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
+    """Busca embedding de um candidato no banco."""
+    tid = tenant_id or None
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
-        register_vector(conn)
-
-        with conn.cursor() as cur:
-            cur.execute(
-                'SELECT embedding FROM "Candidatos" WHERE "Id" = %s',
-                (candidato_id,)
-            )
-            row = cur.fetchone()
-
-        conn.close()
+        with pgvector_conn(tid) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'SELECT embedding FROM "Candidatos" WHERE "Id" = %s',
+                    (candidato_id,)
+                )
+                row = cur.fetchone()
         return row[0] if row and row[0] is not None else None
     except Exception as e:
-        print(f"Erro ao buscar embedding do candidato {candidato_id}: {e}")
+        log.error("embedding_get_failed", extra={"ctx": {"entity": "candidato", "id": candidato_id, "error": str(e)}})
         return None
 
 
 def get_talento_embedding(talento_id: str, tenant_id: Optional[str] = None) -> Optional[list[float]]:
-    """Busca embedding de um talento no banco (usa banco do tenant se tenant_id informado)."""
-    url = get_database_url(tenant_id) if tenant_id else DATABASE_URL
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
+    """Busca embedding de um talento no banco."""
+    tid = tenant_id or None
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
-        register_vector(conn)
-
-        with conn.cursor() as cur:
-            cur.execute(
-                'SELECT "Embedding" FROM "Talentos" WHERE "Id" = %s',
-                (talento_id,)
-            )
-            row = cur.fetchone()
-
-        conn.close()
+        with pgvector_conn(tid) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'SELECT "Embedding" FROM "Talentos" WHERE "Id" = %s',
+                    (talento_id,)
+                )
+                row = cur.fetchone()
         return row[0] if row and row[0] is not None else None
     except Exception as e:
-        print(f"Erro ao buscar embedding do talento {talento_id}: {e}")
+        log.error("embedding_get_failed", extra={"ctx": {"entity": "talento", "id": talento_id, "error": str(e)}})
         return None

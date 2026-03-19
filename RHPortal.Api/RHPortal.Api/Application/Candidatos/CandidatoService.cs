@@ -136,8 +136,11 @@ public sealed class CandidatoService : ICandidatoService
                 c.Fone,
                 c.Cidade,
                 c.Uf,
+                c.LinkedinUrl,
                 c.Fonte,
                 c.Status,
+                c.TrabalhandoAtualmente,
+                c.PretensaoSalarial,
                 c.VagaId,
                 c.Vaga != null ? c.Vaga.Codigo : null,
                 c.Vaga != null ? c.Vaga.Titulo : null,
@@ -187,8 +190,11 @@ public sealed class CandidatoService : ICandidatoService
             existing.Fone = TrimToMax(request.Fone, 40);
             existing.Cidade = TrimToMax(request.Cidade, 120);
             existing.Uf = NormalizeUf(request.Uf);
+            existing.LinkedinUrl = TrimToMax(request.LinkedinUrl, 260);
             existing.Fonte = request.Fonte;
             existing.Status = CandidateStatus.Triagem;
+            existing.TrabalhandoAtualmente = request.TrabalhandoAtualmente;
+            existing.PretensaoSalarial = request.PretensaoSalarial;
             existing.VagaId = request.VagaId;
             existing.TalentoId = request.TalentoId;
             existing.Obs = TrimToMax(request.Obs, 2000);
@@ -231,8 +237,11 @@ public sealed class CandidatoService : ICandidatoService
             Fone = TrimToMax(request.Fone, 40),
             Cidade = TrimToMax(request.Cidade, 120),
             Uf = NormalizeUf(request.Uf),
+            LinkedinUrl = TrimToMax(request.LinkedinUrl, 260),
             Fonte = request.Fonte,
             Status = CandidateStatus.Triagem,
+            TrabalhandoAtualmente = request.TrabalhandoAtualmente,
+            PretensaoSalarial = request.PretensaoSalarial,
             VagaId = request.VagaId,
             TalentoId = request.TalentoId,
             Obs = TrimToMax(request.Obs, 2000),
@@ -280,8 +289,11 @@ public sealed class CandidatoService : ICandidatoService
         entity.Fone = TrimToMax(request.Fone, 40);
         entity.Cidade = TrimToMax(request.Cidade, 120);
         entity.Uf = NormalizeUf(request.Uf);
+        entity.LinkedinUrl = TrimToMax(request.LinkedinUrl, 260);
         entity.Fonte = request.Fonte;
         entity.Status = request.Status;
+        entity.TrabalhandoAtualmente = request.TrabalhandoAtualmente;
+        entity.PretensaoSalarial = request.PretensaoSalarial;
         entity.VagaId = request.VagaId;
         entity.Obs = TrimToMax(request.Obs, 2000);
         entity.CvText = TrimOrNull(request.CvText);
@@ -601,8 +613,11 @@ public sealed class CandidatoService : ICandidatoService
             c.Fone,
             c.Cidade,
             c.Uf,
+            c.LinkedinUrl,
             c.Fonte,
             c.Status,
+            c.TrabalhandoAtualmente,
+            c.PretensaoSalarial,
             c.VagaId,
             c.Vaga != null ? c.Vaga.Codigo : null,
             c.Vaga != null ? c.Vaga.Titulo : null,

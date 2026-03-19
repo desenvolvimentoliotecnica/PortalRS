@@ -104,7 +104,7 @@ export default function EnviarFeedbackScreen() {
     }
 
     return (
-        <section className="space-y-4 max-w-2xl mx-auto">
+        <section className="space-y-4">
             <div>
                 <h4 className="text-lg font-bold">Enviar Feedback</h4>
                 <p className="text-muted-foreground text-sm">Selecione um colaborador para enviar um feedback sobre desempenho</p>
@@ -120,8 +120,8 @@ export default function EnviarFeedbackScreen() {
                         onChange={(e) => setToUserId(e.target.value)}
                     >
                         <option value="">Selecione um colaborador</option>
-                        {users.map((u) => (
-                            <option key={u.userId} value={u.userId}>{u.fullName} ({u.email})</option>
+                        {users.map((u, idx) => (
+                            <option key={`${u.userId}-${idx}`} value={u.userId}>{u.fullName} ({u.email})</option>
                         ))}
                     </select>
                 </div>

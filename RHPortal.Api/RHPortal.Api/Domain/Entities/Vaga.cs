@@ -18,6 +18,9 @@ namespace RHPortal.Api.Domain.Entities
         [Required, StringLength(160)]
         public string Titulo { get; set; } = string.Empty;  // vagaTitulo *
 
+        [StringLength(200)]
+        public string? NomeEngessado { get; set; }           // nome interno/fixo (não editável após publicação)
+
         public Guid? DepartmentId { get; set; }         // vagaDepartmentId (opcional)
         public Department? Department { get; set; }     // navigation
 

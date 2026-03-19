@@ -68,6 +68,7 @@ type Profile = {
   linkedinUrl?: string;
   resumoProfissional?: string;
   avatarUrl?: string;
+  trabalhandoAtualmente?: boolean | null;
 };
 
 type Tab = "vagas" | "agenda";
@@ -357,6 +358,7 @@ export default function PortalVagasScreen() {
         linkedinUrl: data.linkedinUrl || "",
         resumoProfissional: data.resumoProfissional || "",
         avatarUrl: data.avatarUrl || "",
+        trabalhandoAtualmente: (data as Record<string, unknown>).trabalhandoAtualmente as boolean | null | undefined,
       });
     } catch {
       toast.error("Falha ao carregar perfil.");
@@ -377,6 +379,7 @@ export default function PortalVagasScreen() {
           uf: (profile.uf || "").toUpperCase(),
           linkedinUrl: profile.linkedinUrl || "",
           resumoProfissional: profile.resumoProfissional || "",
+          trabalhandoAtualmente: profile.trabalhandoAtualmente ?? null,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -850,6 +853,16 @@ export default function PortalVagasScreen() {
                         <div className="md:col-span-12">
                           <label className="mini-title mb-1 block">LinkedIn</label>
                           <input className="form-control" value={profile.linkedinUrl || ""} onChange={(e) => setProfile((p) => ({ ...p, linkedinUrl: e.target.value }))} />
+                        </div>
+                        <div className="md:col-span-12">
+                          <label className="inline-flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={profile.trabalhandoAtualmente === true}
+                              onChange={(e) => setProfile((p) => ({ ...p, trabalhandoAtualmente: e.target.checked }))}
+                            />
+                            <span className="text-sm">Está trabalhando atualmente</span>
+                          </label>
                         </div>
                         <div className="md:col-span-12">
                           <label className="mini-title mb-1 block">Resumo profissional</label>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Building2, Mail, Lock, ArrowRight, Monitor } from "lucide-react";
 import { ApiLoginResponseSchema, ApiOwnerLoginResponseSchema } from "@/lib/schemas/api";
-import { setAccessToken, setTenantId } from "@/lib/session";
+import { setAccessToken, setTenantId, getAccessToken, tryGetRolesFromJwt, tryGetTenantIdFromJwt } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -225,7 +225,16 @@ export default function LoginScreen({
         setTenantId(parsed.data.tenantId);
       }
 
-      let redirectUrl: string = resolvedReturnUrl || "/dashboard";
+      // Determinar redirect com base no JWT recebido (não no campo digitado)
+      const savedToken = getAccessToken();
+      const isOwnerJwt = savedToken
+        ? tryGetTenantIdFromJwt(savedToken)?.toLowerCase() === "owner" ||
+          tryGetRolesFromJwt(savedToken).some((r) => r.toLowerCase() === "owner")
+        : false;
+
+      let redirectUrl: string = (isOwner || isOwnerJwt)
+        ? (returnUrl || sp.get("returnUrl") || "/Owner/Tenants")
+        : (resolvedReturnUrl || "/dashboard");
       if (redirectUrl.startsWith("/app/")) redirectUrl = redirectUrl.slice("/app".length);
       if (!redirectUrl.startsWith("/")) redirectUrl = `/${redirectUrl}`;
       router.replace(redirectUrl);

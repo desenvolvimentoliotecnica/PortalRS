@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using RhPortal.Api.Application.JobPositions.Handlers;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.JobPositions;
@@ -16,6 +17,7 @@ public sealed class JobPositionsController : ControllerBase
     /// Lista cargos com paginação e filtros.
     /// </summary>
     [HttpGet]
+    [OutputCache(PolicyName = "lookup")]
     [ProducesResponseType(typeof(PagedResult<JobPositionGridRowResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<JobPositionGridRowResponse>>> List(
         [FromQuery] JobPositionListQuery query,

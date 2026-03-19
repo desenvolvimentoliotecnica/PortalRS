@@ -20,6 +20,13 @@ public sealed class JobPosition : ITenantEntity
     public string? Type { get; set; }              // "Operacional, Liderança..."
     public string? Description { get; set; }       // "Resumo do escopo"
 
+    /// <summary>Descrição editável pelo RH para publicação de vaga. Pode ser diferente do Description interno.</summary>
+    public string? DescricaoPublicacao { get; set; }
+
+    /// <summary>Nível hierárquico do cargo (Diretor, Gerente, Analista etc.). Opcional.</summary>
+    public Guid? NivelHierarquicoId { get; set; }
+    public NivelHierarquico? NivelHierarquico { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

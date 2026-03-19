@@ -6,10 +6,11 @@ TalentoCompetencias, TalentoExperiencias, TalentoFormacoes.
 import os
 from typing import Any
 
-import psycopg2
 from psycopg2.extras import RealDictCursor
 
-from app.config import DATABASE_URL, TENANT_ID, get_database_url
+from app.config import TENANT_ID
+from app.database_pool import db_conn as _db_conn
+from app.log import db as log
 
 # Evita libpq ler PGPASSWORD etc. do ambiente (Windows).
 for _k in ("PGPASSWORD", "PGUSER", "PGDATABASE", "PGHOST", "PGPORT"):
@@ -19,10 +20,8 @@ os.environ["PGCLIENTENCODING"] = "UTF8"
 
 
 def _conn(tenant_id: str | None = None):
-    url = get_database_url(tenant_id)
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-    return psycopg2.connect(url)
+    """Alias de compatibilidade — retorna context manager do pool."""
+    return _db_conn(tenant_id)
 
 
 # ─── Vaga ───────────────────────────────────────────────────────────────────
@@ -268,3 +267,63 @@ def get_vagas_abertas_ids(tenant_id: str | None = None) -> list[str]:
                 (tid, tid or ""),
             )
             return [str(row[0]) for row in cur.fetchall()]
+
+
+# ─── Documentos PDF (Gemini v2) ────────────────────────────────────────────
+
+def get_candidato_pdf_url(candidato_id: str, tenant_id: str | None = None) -> str | None:
+    """
+    Busca a URL do primeiro documento PDF do candidato (CV).
+    Procura por Tipo = 0 (CV) ou qualquer documento com ContentType PDF.
+    """
+    tid = tenant_id or TENANT_ID
+    try:
+        with _conn(tid) as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT "Url", "StorageFileName", "NomeArquivo", "ContentType"
+                    FROM "CandidatoDocumentos"
+                    WHERE "CandidatoId" = %s
+                      AND ("ContentType" ILIKE '%%pdf%%' OR "NomeArquivo" ILIKE '%%.pdf')
+                    ORDER BY "Tipo", "CreatedAtUtc" DESC
+                    LIMIT 1
+                    """,
+                    (candidato_id,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return None
+                return row.get("Url") or row.get("StorageFileName") or None
+    except Exception as e:
+        log.error("get_pdf_failed", extra={"ctx": {"entity": "candidato", "id": candidato_id, "error": str(e)}})
+        return None
+
+
+def get_talento_pdf_url(talento_id: str, tenant_id: str | None = None) -> str | None:
+    """
+    Busca URL/path do primeiro documento PDF do talento (CV).
+    """
+    tid = tenant_id or TENANT_ID
+    try:
+        with _conn(tid) as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    """
+                    SELECT "StorageFileName", "NomeArquivo", "ContentType"
+                    FROM "TalentoDocumentos"
+                    WHERE "TalentoId" = %s
+                      AND ("ContentType" ILIKE '%%pdf%%' OR "NomeArquivo" ILIKE '%%.pdf')
+                    ORDER BY "CreatedAtUtc" DESC
+                    LIMIT 1
+                    """,
+                    (talento_id,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return None
+                return row.get("StorageFileName") or None
+    except Exception as e:
+        log.error("get_pdf_failed", extra={"ctx": {"entity": "talento", "id": talento_id, "error": str(e)}})
+        return None
+

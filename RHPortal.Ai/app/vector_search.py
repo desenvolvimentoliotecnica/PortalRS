@@ -4,10 +4,10 @@ Usa distância de cosseno para encontrar candidatos e talentos similares a uma v
 Faz UNION entre tabelas Candidatos e Talentos para busca unificada.
 """
 from typing import Any, Optional
-import psycopg2
-from pgvector.psycopg2 import register_vector
 
-from app.config import DATABASE_URL, TENANT_ID, get_database_url
+from app.config import TENANT_ID
+from app.database_pool import db_conn, pgvector_conn
+from app.log import db as log
 
 
 def ensure_pgvector_extension(conn) -> None:
@@ -65,127 +65,98 @@ def search_all_by_similarity(
     """
     Busca UNIFICADA: candidatos + talentos por similaridade vetorial com uma vaga.
     Retorna top N com campo `source` ("candidato" | "talento").
-
-    Args:
-        vaga_id: ID da vaga para usar como referência
-        tenant_id: ID do tenant (opcional)
-        limit: Máximo de resultados (padrão: 40, configurável por tenant)
-        min_score: Score mínimo (0-100, padrão: 0)
-
-    Returns:
-        Lista de dicts com person_id, nome, email, similaridade (0-100), source
     """
-    url = get_database_url(tenant_id or TENANT_ID)
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
     tid = tenant_id or TENANT_ID
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
-        register_vector(conn)
+        with pgvector_conn(tid) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'SELECT embedding FROM "Vagas" WHERE "Id" = %s',
+                    (vaga_id,)
+                )
+                row = cur.fetchone()
 
-        with conn.cursor() as cur:
-            # Busca embedding da vaga (coluna minúscula em Vagas/Candidatos; PascalCase em Talentos)
-            cur.execute(
-                'SELECT embedding FROM "Vagas" WHERE "Id" = %s',
-                (vaga_id,)
-            )
-            row = cur.fetchone()
+                if not row or row[0] is None:
+                    return []
 
-            if not row or row[0] is None:
-                return []
+                vaga_embedding = row[0]
 
-            vaga_embedding = row[0]
+                if tid:
+                    query = """
+                        WITH all_people AS (
+                            SELECT
+                                c."Id" AS person_id,
+                                c."Nome" AS nome,
+                                c."Email" AS email,
+                                (1 - (c.embedding <=> %s::vector)) * 100 AS similaridade,
+                                'candidato' AS source
+                            FROM "Candidatos" c
+                            WHERE c."TenantId" = %s
+                              AND c.embedding IS NOT NULL
+                              AND c."Status" != 3
 
-            # Query UNION: Candidatos + Talentos
-            # Ordena por similaridade de cosseno combinada
-            if tid:
-                query = """
-                    WITH all_people AS (
-                        -- Candidatos com embedding (Exclui Reprovados = 3)
-                        SELECT
-                            c."Id" AS person_id,
-                            c."Nome" AS nome,
-                            c."Email" AS email,
-                            (1 - (c.embedding <=> %s::vector)) * 100 AS similaridade,
-                            'candidato' AS source
-                        FROM "Candidatos" c
-                        WHERE c."TenantId" = %s 
-                          AND c.embedding IS NOT NULL
-                          AND c."Status" != 3
+                            UNION ALL
 
-                        UNION ALL
-
-                        -- Talentos com embedding (via Pessoa para dados pessoais)
-                        SELECT
-                            t."Id" AS person_id,
-                            p."Nome" AS nome,
-                            p."Email" AS email,
-                            (1 - (t."Embedding" <=> %s::vector)) * 100 AS similaridade,
-                            'talento' AS source
-                        FROM "Talentos" t
-                        JOIN "Pessoas" p ON p."Id" = t."PessoaId" AND p."TenantId" = t."TenantId"
-                        WHERE t."TenantId" = %s AND t."Embedding" IS NOT NULL
-                        -- Exclui talentos que já têm candidatura (evita duplicata)
-                        AND NOT EXISTS (
-                            SELECT 1 FROM "Candidatos" cx
-                            WHERE cx."TalentoId" = t."Id"
-                            -- Basta existir o registro de candidato para ocultar o talento
+                            SELECT
+                                t."Id" AS person_id,
+                                p."Nome" AS nome,
+                                p."Email" AS email,
+                                (1 - (t."Embedding" <=> %s::vector)) * 100 AS similaridade,
+                                'talento' AS source
+                            FROM "Talentos" t
+                            JOIN "Pessoas" p ON p."Id" = t."PessoaId" AND p."TenantId" = t."TenantId"
+                            WHERE t."TenantId" = %s AND t."Embedding" IS NOT NULL
+                            AND NOT EXISTS (
+                                SELECT 1 FROM "Candidatos" cx
+                                WHERE cx."TalentoId" = t."Id"
+                            )
                         )
-                    )
-                    SELECT person_id, nome, email, similaridade, source
-                    FROM all_people
-                    WHERE similaridade >= %s
-                    ORDER BY similaridade DESC
-                    LIMIT %s
-                """
-                params = [vaga_embedding, tid, vaga_embedding, tid, min_score, limit]
-            else:
-                query = """
-                    WITH all_people AS (
-                        SELECT
-                            c."Id" AS person_id,
-                            c."Nome" AS nome,
-                            c."Email" AS email,
-                            (1 - (c.embedding <=> %s::vector)) * 100 AS similaridade,
-                            'candidato' AS source
-                        FROM "Candidatos" c
-                        WHERE c.embedding IS NOT NULL
-                          AND c."Status" != 3
+                        SELECT person_id, nome, email, similaridade, source
+                        FROM all_people
+                        WHERE similaridade >= %s
+                        ORDER BY similaridade DESC
+                        LIMIT %s
+                    """
+                    params = [vaga_embedding, tid, vaga_embedding, tid, min_score, limit]
+                else:
+                    query = """
+                        WITH all_people AS (
+                            SELECT
+                                c."Id" AS person_id,
+                                c."Nome" AS nome,
+                                c."Email" AS email,
+                                (1 - (c.embedding <=> %s::vector)) * 100 AS similaridade,
+                                'candidato' AS source
+                            FROM "Candidatos" c
+                            WHERE c.embedding IS NOT NULL
+                              AND c."Status" != 3
 
-                        UNION ALL
+                            UNION ALL
 
-                        SELECT
-                            t."Id" AS person_id,
-                            p."Nome" AS nome,
-                            p."Email" AS email,
-                            (1 - (t."Embedding" <=> %s::vector)) * 100 AS similaridade,
-                            'talento' AS source
-                        FROM "Talentos" t
-                        JOIN "Pessoas" p ON p."Id" = t."PessoaId"
-                        WHERE t."Embedding" IS NOT NULL
-                        AND NOT EXISTS (
-                            SELECT 1 FROM "Candidatos" cx
-                            WHERE cx."TalentoId" = t."Id"
-                            -- Basta existir o registro de candidato para ocultar o talento
+                            SELECT
+                                t."Id" AS person_id,
+                                p."Nome" AS nome,
+                                p."Email" AS email,
+                                (1 - (t."Embedding" <=> %s::vector)) * 100 AS similaridade,
+                                'talento' AS source
+                            FROM "Talentos" t
+                            JOIN "Pessoas" p ON p."Id" = t."PessoaId"
+                            WHERE t."Embedding" IS NOT NULL
+                            AND NOT EXISTS (
+                                SELECT 1 FROM "Candidatos" cx
+                                WHERE cx."TalentoId" = t."Id"
+                            )
                         )
-                    )
-                    SELECT person_id, nome, email, similaridade, source
-                    FROM all_people
-                    WHERE similaridade >= %s
-                    ORDER BY similaridade DESC
-                    LIMIT %s
-                """
-                params = [vaga_embedding, vaga_embedding, min_score, limit]
+                        SELECT person_id, nome, email, similaridade, source
+                        FROM all_people
+                        WHERE similaridade >= %s
+                        ORDER BY similaridade DESC
+                        LIMIT %s
+                    """
+                    params = [vaga_embedding, vaga_embedding, min_score, limit]
 
-            cur.execute(query, params)
-            rows = cur.fetchall()
-
-        conn.close()
+                cur.execute(query, params)
+                rows = cur.fetchall()
 
         results = []
         for row in rows:
@@ -201,7 +172,7 @@ def search_all_by_similarity(
         return results
 
     except Exception as e:
-        print(f"Erro na busca vetorial unificada para vaga {vaga_id}: {e}")
+        log.error("vector_search_unified_failed", extra={"ctx": {"vaga_id": vaga_id, "error": str(e)}})
         return []
 
 
@@ -215,53 +186,41 @@ def search_candidates_by_similarity(
     Busca candidatos por similaridade vetorial com uma vaga.
     (Mantida para retrocompatibilidade)
     """
-    url = get_database_url(tenant_id or TENANT_ID)
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
     tid = tenant_id or TENANT_ID
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
-        register_vector(conn)
+        with pgvector_conn(tid) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'SELECT embedding FROM "Vagas" WHERE "Id" = %s',
+                    (vaga_id,)
+                )
+                row = cur.fetchone()
 
-        with conn.cursor() as cur:
-            cur.execute(
-                'SELECT embedding FROM "Vagas" WHERE "Id" = %s',
-                (vaga_id,)
-            )
-            row = cur.fetchone()
+                if not row or row[0] is None:
+                    return []
 
-            if not row or row[0] is None:
-                return []
+                vaga_embedding = row[0]
 
-            vaga_embedding = row[0]
+                where_clause = 'WHERE c."TenantId" = %s AND c.embedding IS NOT NULL' if tid else 'WHERE c.embedding IS NOT NULL'
+                params = [vaga_embedding]
+                if tid:
+                    params.append(tid)
+                params.extend([vaga_embedding, limit])
 
-            where_clause = 'WHERE c."TenantId" = %s AND c.embedding IS NOT NULL' if tid else 'WHERE c.embedding IS NOT NULL'
-            params = [vaga_embedding]
-            if tid:
-                params.append(tid)
-            params.extend([vaga_embedding, limit])
+                query = f"""
+                    SELECT
+                        c."Id",
+                        c."Nome",
+                        c."Email",
+                        (1 - (c.embedding <=> %s::vector)) * 100 AS similaridade
+                    FROM "Candidatos" c
+                    {where_clause}
+                    ORDER BY c.embedding <=> %s::vector
+                    LIMIT %s
+                """
 
-            query = f"""
-                SELECT 
-                    c."Id",
-                    c."Nome",
-                    c."Email",
-                    (1 - (c.embedding <=> %s::vector)) * 100 AS similaridade
-                FROM "Candidatos" c
-                {where_clause}
-                ORDER BY c.embedding <=> %s::vector
-                LIMIT %s
-            """
-
-            cur.execute(query, params)
-            rows = cur.fetchall()
-
-        conn.close()
+                cur.execute(query, params)
+                rows = cur.fetchall()
 
         results = []
         for row in rows:
@@ -277,7 +236,7 @@ def search_candidates_by_similarity(
         return results
 
     except Exception as e:
-        print(f"Erro na busca vetorial para vaga {vaga_id}: {e}")
+        log.error("vector_search_candidatos_failed", extra={"ctx": {"vaga_id": vaga_id, "error": str(e)}})
         return []
 
 
@@ -286,53 +245,40 @@ def get_similarity_score(vaga_id: str, candidato_id: str, tenant_id: Optional[st
     Calcula score de similaridade entre uma vaga e um candidato específico.
     Returns: Score 0-100 ou None se não houver embeddings
     """
-    url = get_database_url(tenant_id or TENANT_ID)
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
+    tid = tenant_id or TENANT_ID
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
-        register_vector(conn)
+        with pgvector_conn(tid) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        v.embedding AS vaga_emb,
+                        c.embedding AS candidato_emb
+                    FROM "Vagas" v
+                    CROSS JOIN "Candidatos" c
+                    WHERE v."Id" = %s AND c."Id" = %s
+                    """,
+                    (vaga_id, candidato_id)
+                )
+                row = cur.fetchone()
 
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT 
-                    v.embedding AS vaga_emb,
-                    c.embedding AS candidato_emb
-                FROM "Vagas" v
-                CROSS JOIN "Candidatos" c
-                WHERE v."Id" = %s AND c."Id" = %s
-                """,
-                (vaga_id, candidato_id)
-            )
-            row = cur.fetchone()
+                if not row or row[0] is None or row[1] is None:
+                    return None
 
-            if not row or row[0] is None or row[1] is None:
-                return None
+                vaga_emb = row[0]
+                candidato_emb = row[1]
 
-            vaga_emb = row[0]
-            candidato_emb = row[1]
-
-            cur.execute(
-                """
-                SELECT %s::vector <=> %s::vector AS distance
-                """,
-                (vaga_emb, candidato_emb)
-            )
-            distance = cur.fetchone()[0]
-
-        conn.close()
+                cur.execute(
+                    "SELECT %s::vector <=> %s::vector AS distance",
+                    (vaga_emb, candidato_emb)
+                )
+                distance = cur.fetchone()[0]
 
         similarity = (1 - float(distance)) * 100
         return max(0, min(100, int(similarity)))
 
     except Exception as e:
-        print(f"Erro ao calcular similaridade {vaga_id} x {candidato_id}: {e}")
+        log.error("similarity_score_failed", extra={"ctx": {"vaga_id": vaga_id, "candidato_id": candidato_id, "error": str(e)}})
         return None
 
 
@@ -341,37 +287,27 @@ def count_people_with_embeddings(tenant_id: Optional[str] = None) -> dict[str, i
     Conta quantos candidatos e talentos têm embeddings gerados.
     Retorna dict com 'candidatos' e 'talentos'.
     """
-    url = get_database_url(tenant_id or TENANT_ID)
-    if not url:
-        raise ValueError("DATABASE_URL não configurada")
-
     tid = tenant_id or TENANT_ID
     try:
-        try:
-            conn = psycopg2.connect(url.encode("utf-8"))
-        except TypeError:
-            conn = psycopg2.connect(url)
-        ensure_pgvector_extension(conn)
+        with db_conn(tid) as conn:
+            with conn.cursor() as cur:
+                where = 'WHERE "TenantId" = %s AND' if tid else 'WHERE'
+                params = [tid] if tid else []
 
-        with conn.cursor() as cur:
-            where = 'WHERE "TenantId" = %s AND' if tid else 'WHERE'
-            params = [tid] if tid else []
+                cur.execute(
+                    f'SELECT COUNT(*) FROM "Candidatos" {where} embedding IS NOT NULL',
+                    params
+                )
+                count_cand = cur.fetchone()[0]
 
-            cur.execute(
-                f'SELECT COUNT(*) FROM "Candidatos" {where} embedding IS NOT NULL',
-                params
-            )
-            count_cand = cur.fetchone()[0]
+                cur.execute(
+                    f'SELECT COUNT(*) FROM "Talentos" {where} "Embedding" IS NOT NULL',
+                    params
+                )
+                count_tal = cur.fetchone()[0]
 
-            cur.execute(
-                f'SELECT COUNT(*) FROM "Talentos" {where} "Embedding" IS NOT NULL',
-                params
-            )
-            count_tal = cur.fetchone()[0]
-
-        conn.close()
         return {"candidatos": count_cand, "talentos": count_tal}
 
     except Exception as e:
-        print(f"Erro ao contar embeddings: {e}")
+        log.error("count_embeddings_failed", extra={"ctx": {"tenant_id": tid, "error": str(e)}})
         return {"candidatos": 0, "talentos": 0}

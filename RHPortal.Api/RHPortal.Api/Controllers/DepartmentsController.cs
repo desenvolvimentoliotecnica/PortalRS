@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using RhPortal.Api.Application.Departments.Handlers;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Departments;
@@ -16,6 +17,7 @@ public sealed class DepartmentsController : ControllerBase
     /// Lista departamentos com paginação e filtros.
     /// </summary>
     [HttpGet]
+    [OutputCache(PolicyName = "lookup")]
     [ProducesResponseType(typeof(PagedResult<DepartmentGridRowResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<DepartmentGridRowResponse>>> List(
         [FromQuery] DepartmentListQuery query,

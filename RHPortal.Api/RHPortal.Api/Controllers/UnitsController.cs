@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using RhPortal.Api.Application.Units.Handlers;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Units;
@@ -17,6 +18,7 @@ public sealed class UnitsController : ControllerBase
     /// Lista unidades com paginação e filtros.
     /// </summary>
     [HttpGet]
+    [OutputCache(PolicyName = "lookup")]
     [ProducesResponseType(typeof(PagedResult<UnitGridRowResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<UnitGridRowResponse>>> List(
         [FromQuery] UnitListQuery query,

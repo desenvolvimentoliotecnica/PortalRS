@@ -86,7 +86,7 @@ async function searchVagas(q: string): Promise<SearchResult[]> {
             label: str(v.title ?? v.titulo ?? v.nome) || "Vaga sem título",
             sublabel: str(v.status) || str(v.code ?? v.codigo) || undefined,
             category: "vagas" as const,
-            href: "/app/recrutamento/vagas",
+            href: "/vagas",
         }));
 }
 
@@ -98,7 +98,7 @@ async function searchCandidatos(q: string): Promise<SearchResult[]> {
         label: str(c.fullName ?? c.nome ?? c.name) || "Candidato",
         sublabel: str(c.email) || undefined,
         category: "candidatos" as const,
-        href: "/app/recrutamento/candidatos",
+        href: "/candidatos",
     }));
 }
 

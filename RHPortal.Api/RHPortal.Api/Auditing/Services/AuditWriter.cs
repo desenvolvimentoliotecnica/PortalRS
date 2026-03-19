@@ -110,7 +110,7 @@ public sealed class AuditWriter
             .UseNpgsql(conn)
             .Options;
         var tenantContext = new TenantContext(_localizer);
-        tenantContext.SetTenantId(tenantId);
+        if (tenantId is not null) tenantContext.SetTenantId(tenantId);
         return new AppDbContext(options, tenantContext);
     }
 

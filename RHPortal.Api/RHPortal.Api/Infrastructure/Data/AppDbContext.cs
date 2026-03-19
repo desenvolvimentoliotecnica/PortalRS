@@ -45,6 +45,21 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<TalentoDocumento> TalentoDocumentos => Set<TalentoDocumento>();
     public DbSet<TalentoCvImportJob> TalentoCvImportJobs => Set<TalentoCvImportJob>();
     public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
+    public DbSet<SolicitacaoVaga> SolicitacoesVaga => Set<SolicitacaoVaga>();
+    public DbSet<Dependente> Dependentes => Set<Dependente>();
+    public DbSet<DocumentoColaborador> DocumentosColaborador => Set<DocumentoColaborador>();
+    public DbSet<PreAdmissao> PreAdmissoes => Set<PreAdmissao>();
+    public DbSet<PreAdmissaoDocumento> PreAdmissaoDocumentos => Set<PreAdmissaoDocumento>();
+    public DbSet<FaixaSalarial> FaixasSalariais => Set<FaixaSalarial>();
+    public DbSet<NivelHierarquico> NiveisHierarquicos => Set<NivelHierarquico>();
+    public DbSet<ProjetoVaga> ProjetosVaga => Set<ProjetoVaga>();
+    public DbSet<ProjetoCandidato> ProjetoCandidatos => Set<ProjetoCandidato>();
+    public DbSet<FaseProcesso> FasesProcesso => Set<FaseProcesso>();
+    public DbSet<CampoPersonalizadoVaga> CamposPersonalizadosVaga => Set<CampoPersonalizadoVaga>();
+    public DbSet<LogComunicacao> LogsComunicacao => Set<LogComunicacao>();
+    public DbSet<AprovacaoFaixaSalarial> AprovacoesFaixaSalarial => Set<AprovacaoFaixaSalarial>();
+    public DbSet<PermissaoNivelVaga> PermissoesNivelVaga => Set<PermissaoNivelVaga>();
+    public DbSet<RegraAprovacaoVaga> RegrasAprovacaoVaga => Set<RegraAprovacaoVaga>();
     public DbSet<Vaga> Vagas => Set<Vaga>();
     public DbSet<VagaBeneficio> VagaBeneficios => Set<VagaBeneficio>();
     public DbSet<VagaRequisito> VagaRequisitos => Set<VagaRequisito>();
@@ -568,7 +583,274 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.RequisitoCategoriaId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Sprint 2: Hierarquia
+            b.HasOne(x => x.NivelHierarquico)
+                .WithMany()
+                .HasForeignKey(x => x.NivelHierarquicoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.GestorDireto)
+                .WithMany()
+                .HasForeignKey(x => x.GestorDiretoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             b.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SolicitacaoVaga>(b =>
+        {
+            b.ToTable("SolicitacoesVaga");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Titulo).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Justificativa).HasMaxLength(2000);
+            b.Property(x => x.ObservacaoAprovador).HasMaxLength(2000);
+            b.Property(x => x.QtdPosicoes);
+
+            b.HasOne(x => x.Solicitante)
+                .WithMany()
+                .HasForeignKey(x => x.SolicitanteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.Aprovador)
+                .WithMany()
+                .HasForeignKey(x => x.AprovadorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.JobPosition)
+                .WithMany()
+                .HasForeignKey(x => x.JobPositionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.Area)
+                .WithMany()
+                .HasForeignKey(x => x.AreaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.Unit)
+                .WithMany()
+                .HasForeignKey(x => x.UnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Sprint 1: Substituído
+            b.HasOne(x => x.SubstituidoFuncionario)
+                .WithMany()
+                .HasForeignKey(x => x.SubstituidoFuncionarioId)
+                .OnDelete(DeleteBehavior.SetNull);
+            b.Property(x => x.SubstituidoNome).HasMaxLength(160);
+
+            // Sprint 2: Cadeia de aprovação
+            b.HasOne(x => x.Aprovador1)
+                .WithMany()
+                .HasForeignKey(x => x.Aprovador1Id)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.Aprovador2)
+                .WithMany()
+                .HasForeignKey(x => x.Aprovador2Id)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.SolicitanteId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // DEPENDENTES
+        modelBuilder.Entity<Dependente>(b =>
+        {
+            b.ToTable("Dependentes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NomeCompleto).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Cpf).HasMaxLength(14);
+            b.HasOne(x => x.Funcionario).WithMany().HasForeignKey(x => x.FuncionarioId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.FuncionarioId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // DOCUMENTOS COLABORADOR
+        modelBuilder.Entity<DocumentoColaborador>(b =>
+        {
+            b.ToTable("DocumentosColaborador");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NomeArquivo).HasMaxLength(260).IsRequired();
+            b.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
+            b.Property(x => x.StoragePath).HasMaxLength(500).IsRequired();
+            b.Property(x => x.ObservacaoRh).HasMaxLength(500);
+            b.HasOne(x => x.Funcionario).WithMany().HasForeignKey(x => x.FuncionarioId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.FuncionarioId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // PRÉ-ADMISSÃO
+        modelBuilder.Entity<PreAdmissao>(b =>
+        {
+            b.ToTable("PreAdmissoes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Cpf).HasMaxLength(14);
+            b.Property(x => x.Email).HasMaxLength(180);
+            b.Property(x => x.Salario).HasColumnType("decimal(18,2)");
+            b.HasOne(x => x.Candidato).WithMany().HasForeignKey(x => x.CandidatoId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.RevisadoPor).WithMany().HasForeignKey(x => x.RevisadoPorId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne(x => x.AprovadoPor).WithMany().HasForeignKey(x => x.AprovadoPorId).OnDelete(DeleteBehavior.NoAction);
+            b.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.Area).WithMany().HasForeignKey(x => x.AreaId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.JobPosition).WithMany().HasForeignKey(x => x.JobPositionId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.RequisitoCategoria).WithMany().HasForeignKey(x => x.RequisitoCategoriaId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.Cpf });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // PRÉ-ADMISSÃO DOCUMENTOS
+        modelBuilder.Entity<PreAdmissaoDocumento>(b =>
+        {
+            b.ToTable("PreAdmissaoDocumentos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NomeArquivo).HasMaxLength(260).IsRequired();
+            b.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
+            b.Property(x => x.StoragePath).HasMaxLength(500).IsRequired();
+            b.Property(x => x.ObservacaoRh).HasMaxLength(500);
+            b.HasOne(x => x.PreAdmissao).WithMany(p => p.Documentos).HasForeignKey(x => x.PreAdmissaoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.PreAdmissaoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // FAIXAS SALARIAIS
+        modelBuilder.Entity<FaixaSalarial>(b =>
+        {
+            b.ToTable("FaixasSalariais");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.EstabelecimentoCodigo).HasMaxLength(10);
+            b.Property(x => x.SalarioMinimo).HasColumnType("decimal(18,2)");
+            b.Property(x => x.SalarioMaximo).HasColumnType("decimal(18,2)");
+            b.HasOne(x => x.JobPosition).WithMany().HasForeignKey(x => x.JobPositionId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.TenantId, x.JobPositionId, x.EstabelecimentoCodigo });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // NÍVEIS HIERÁRQUICOS
+        modelBuilder.Entity<NivelHierarquico>(b =>
+        {
+            b.ToTable("NiveisHierarquicos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(120).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.Ordem });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // PROJETOS DE VAGA (Sprint 3)
+        modelBuilder.Entity<ProjetoVaga>(b =>
+        {
+            b.ToTable("ProjetosVaga");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(240);
+            b.HasOne(x => x.Vaga).WithMany().HasForeignKey(x => x.VagaId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.VagaId, x.Numero }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<ProjetoCandidato>(b =>
+        {
+            b.ToTable("ProjetoCandidatos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Observacoes).HasMaxLength(2000);
+            b.HasOne(x => x.Projeto).WithMany().HasForeignKey(x => x.ProjetoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Candidato).WithMany().HasForeignKey(x => x.CandidatoId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.FaseAtual).WithMany().HasForeignKey(x => x.FaseAtualId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.TenantId, x.ProjetoId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // FASES DO PROCESSO (Sprint 4)
+        modelBuilder.Entity<FaseProcesso>(b =>
+        {
+            b.ToTable("FasesProcesso");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+            b.HasOne(x => x.Projeto).WithMany().HasForeignKey(x => x.ProjetoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.ProjetoId, x.Ordem });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // CAMPOS PERSONALIZADOS DE VAGA (Sprint 5)
+        modelBuilder.Entity<CampoPersonalizadoVaga>(b =>
+        {
+            b.ToTable("CamposPersonalizadosVaga");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Label).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Opcoes).HasMaxLength(1000);
+            b.HasOne(x => x.Vaga).WithMany().HasForeignKey(x => x.VagaId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.VagaId, x.Ordem });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // LOG DE COMUNICAÇÃO (Sprint 6)
+        modelBuilder.Entity<LogComunicacao>(b =>
+        {
+            b.ToTable("LogsComunicacao");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Assunto).HasMaxLength(200);
+            b.Property(x => x.Mensagem).HasMaxLength(4000);
+            b.Property(x => x.Destinatario).HasMaxLength(200);
+            b.Property(x => x.UsuarioNome).HasMaxLength(120);
+            b.HasOne(x => x.Candidato).WithMany().HasForeignKey(x => x.CandidatoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Projeto).WithMany().HasForeignKey(x => x.ProjetoId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId, x.DataUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // APROVAÇÃO FAIXA SALARIAL (Gap Fix)
+        modelBuilder.Entity<AprovacaoFaixaSalarial>(b =>
+        {
+            b.ToTable("AprovacoesFaixaSalarial");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Justificativa).HasMaxLength(1000);
+            b.Property(x => x.ObservacaoAprovador).HasMaxLength(500);
+            b.Property(x => x.ValorProposto).HasPrecision(18, 2);
+            b.HasOne(x => x.FaixaSalarial).WithMany().HasForeignKey(x => x.FaixaSalarialId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Solicitante).WithMany().HasForeignKey(x => x.SolicitanteId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.Aprovador).WithMany().HasForeignKey(x => x.AprovadorId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // PERMISSAO NIVEL VAGA
+        modelBuilder.Entity<PermissaoNivelVaga>(b =>
+        {
+            b.ToTable("PermissoesNivelVaga");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasOne(x => x.NivelHierarquico).WithMany().HasForeignKey(x => x.NivelHierarquicoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.NivelHierarquicoId, x.RoleId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // REGRA APROVACAO VAGA
+        modelBuilder.Entity<RegraAprovacaoVaga>(b =>
+        {
+            b.ToTable("RegrasAprovacaoVaga");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasOne(x => x.SolicitanteRole).WithMany().HasForeignKey(x => x.SolicitanteRoleId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.Aprovador1).WithMany().HasForeignKey(x => x.Aprovador1FuncionarioId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Aprovador2).WithMany().HasForeignKey(x => x.Aprovador2FuncionarioId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.TenantId, x.SolicitanteRoleId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

@@ -63,6 +63,13 @@ async function fetchJson<T>(url: string): Promise<T> {
     return (await res.json()) as T;
 }
 
+/* ── Helpers ── */
+
+/** Normaliza score para 0-100 independente de o backend retornar 0-1 ou 0-100 */
+function normalizeScore(v: number): number {
+    return Math.round(v > 1 ? v : v * 100);
+}
+
 /* ── Component ── */
 
 type Tab = "resumo" | "cv" | "docs" | "match";
@@ -287,20 +294,20 @@ export default function CandidatoDetalhesScreen() {
                                             <div className="text-muted-foreground text-sm">baseado em pesos e palavras-chave</div>
                                         </div>
                                         <div className="text-2xl font-bold" style={{ color: "rgb(var(--lt-primary))" }}>
-                                            {(match.score * 100).toFixed(0)}%
+                                            {normalizeScore(match.score)}%
                                         </div>
                                     </div>
                                     <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
                                         <div
                                             className="h-full rounded-full transition-all"
                                             style={{
-                                                width: `${Math.min(100, match.score * 100)}%`,
+                                                width: `${Math.min(100, normalizeScore(match.score))}%`,
                                                 background: "rgb(var(--lt-primary))",
                                             }}
                                         />
                                     </div>
                                     <div className="text-muted-foreground text-sm">
-                                        Match mínimo: <strong>{(match.threshold * 100).toFixed(0)}%</strong>
+                                        Match mínimo: <strong>{normalizeScore(match.threshold)}%</strong>
                                         {" · "}Encontrados: <strong>{match.hitsCount}</strong>
                                         {" · "}Obrig. faltando: <strong>{match.missCount}</strong>
                                     </div>

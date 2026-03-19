@@ -58,6 +58,15 @@ public sealed class RequestLogMiddleware : IMiddleware
             ?? Guid.NewGuid().ToString("N");
         var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault()
             ?? Activity.Current?.Id;
+
+        // Propaga X-Request-ID do cliente (Next.js → API → Response) para correlação end-to-end
+        var requestId = context.Request.Headers["X-Request-ID"].FirstOrDefault()
+            ?? Guid.NewGuid().ToString("N")[..8];
+        context.Response.OnStarting(() => {
+            if (!context.Response.Headers.ContainsKey("X-Request-ID"))
+                context.Response.Headers["X-Request-ID"] = requestId;
+            return Task.CompletedTask;
+        });
         var traceId = Activity.Current?.TraceId.ToString();
 
         var (envName, envNormalized) = EnvironmentResolver.Resolve(_env);

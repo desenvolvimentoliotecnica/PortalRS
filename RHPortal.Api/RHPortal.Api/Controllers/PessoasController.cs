@@ -66,7 +66,7 @@ public sealed class PessoasController : ControllerBase
         }
         catch { /* no-op */ }
         // #endregion
-        var result = await service.CreateAsync(request, ct);
+        var result = await service.CreateAsync(request!, ct);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 

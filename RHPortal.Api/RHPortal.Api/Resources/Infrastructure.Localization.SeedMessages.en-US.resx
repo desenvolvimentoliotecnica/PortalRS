@@ -123,6 +123,12 @@
   <data name="Seed.Menu.Vagas" xml:space="preserve">
     <value>Jobs</value>
   </data>
+  <data name="Seed.Menu.SolicitacoesVaga" xml:space="preserve">
+    <value>Job Requests</value>
+  </data>
+  <data name="Seed.Menu.Aprovacoes" xml:space="preserve">
+    <value>Approvals</value>
+  </data>
   <data name="Seed.Menu.Candidatos" xml:space="preserve">
     <value>Candidates</value>
   </data>
@@ -137,6 +143,15 @@
   </data>
   <data name="Seed.Menu.PortalVagas" xml:space="preserve">
     <value>Job Portal</value>
+  </data>
+  <data name="Seed.Menu.Rodadas" xml:space="preserve">
+    <value>Selection Rounds</value>
+  </data>
+  <data name="Seed.Menu.ProcessoSeletivo" xml:space="preserve">
+    <value>Selection Process</value>
+  </data>
+  <data name="Seed.Menu.Admissao" xml:space="preserve">
+    <value>Onboarding</value>
   </data>
   <data name="Seed.Menu.Entrada" xml:space="preserve">
     <value>Inbox (Email/Folder)</value>
@@ -266,6 +281,15 @@
   </data>
   <data name="Seed.Menu.Idioma" xml:space="preserve">
     <value>Language</value>
+  </data>
+  <data name="Seed.Menu.GestoresHierarquia" xml:space="preserve">
+    <value>Managers / Hierarchy</value>
+  </data>
+  <data name="Seed.Menu.RegrasAprovacao" xml:space="preserve">
+    <value>Approval Rules</value>
+  </data>
+  <data name="Seed.Menu.NiveisHierarquicos" xml:space="preserve">
+    <value>Hierarchy Levels</value>
   </data>
   <data name="Seed.AgendaTypeInterview" xml:space="preserve">
     <value>Interview</value>

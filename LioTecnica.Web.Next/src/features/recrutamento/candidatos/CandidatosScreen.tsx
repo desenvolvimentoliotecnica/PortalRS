@@ -136,6 +136,21 @@ function formatFileSize(bytes: unknown) {
   return `${gb.toFixed(2)} GB`;
 }
 
+function normalizeErrorMessage(error: unknown) {
+  if (error instanceof Error) return normalizeText(error.message);
+  return normalizeText(String(error ?? ""));
+}
+
+function isEmptyCandidatesError(error: unknown) {
+  const message = normalizeErrorMessage(error);
+  return (
+    message.includes("http 404") ||
+    message.includes("not found") ||
+    message.includes("nao encontrado") ||
+    message.includes("nenhum candidato")
+  );
+}
+
 type MatchResult = {
   score: number;
   pass: boolean;
@@ -226,6 +241,12 @@ export default function CandidatosScreen() {
   const detailVagaId = pickString(detail?.vagaId, "").trim();
   const detailCvText = pickString(detail?.cvText, "");
 
+  function applyEmptyCandidatesState() {
+    setItems([]);
+    setTotal(0);
+    setPage(1);
+  }
+
   async function loadEnums() {
     const payload = await fetchJson<unknown>(`${BASE}/api/lookup/enums`);
     const r = asRecord(payload) ?? {};
@@ -262,12 +283,21 @@ export default function CandidatosScreen() {
       if (code) qs.append("statuses", code);
     }
     if (vagaId) qs.append("vagaIds", vagaId);
-    const payload = await fetchJson<CandidatosPaged | unknown>(`${BASE}/api/candidatos?${qs.toString()}`);
-    const mapped = mapCandidatosPayload(payload);
-    setItems(mapped.items);
-    setTotal(mapped.total);
-    setPage(mapped.page);
-    setPageSize(mapped.pageSize);
+    try {
+      const payload = await fetchJson<CandidatosPaged | unknown>(`${BASE}/api/candidatos?${qs.toString()}`);
+      const mapped = mapCandidatosPayload(payload);
+      setItems(mapped.items);
+      setTotal(mapped.total);
+      setPage(mapped.page);
+      setPageSize(mapped.pageSize);
+    } catch (error) {
+      if (isEmptyCandidatesError(error)) {
+        applyEmptyCandidatesState();
+        return;
+      }
+      toast.error("Não foi possível carregar os candidatos.");
+      applyEmptyCandidatesState();
+    }
   }
 
   useEffect(() => {
@@ -473,16 +503,21 @@ export default function CandidatosScreen() {
     const atUtc = pickString(lm?.atUtc ?? lm?.at, "").trim() || null;
     const vagaId = pickString(c.vagaId, "").trim() || null;
 
+    const cr = c as Record<string, unknown>;
+
     return {
       nome: pickString(c.nome, "").trim(),
       email: pickString(c.email, "").trim(),
       fone: pickString(c.fone, "").trim() || null,
       cidade: pickString(c.cidade, "").trim() || null,
       uf: pickString(c.uf, "").trim().toUpperCase().slice(0, 2) || null,
+      linkedinUrl: c.linkedinUrl?.trim() || null,
       fonte: toApiFonte(c.fonte),
       status: toApiStatus(c.status),
+      trabalhandoAtualmente: c.trabalhandoAtualmente ?? null,
+      pretensaoSalarial: c.pretensaoSalarial ?? null,
       vagaId,
-      obs: pickString((c as Record<string, unknown>)?.obs, "").trim() || null,
+      obs: pickString(cr?.obs, "").trim() || null,
       cvText: pickString(c.cvText, "").trim() || null,
       lastMatch: lm
         ? {
@@ -492,8 +527,8 @@ export default function CandidatosScreen() {
           vagaId: pickString(lm.vagaId, "") || vagaId,
         }
         : null,
-      applicationRecruiterUserId: pickString((c as Record<string, unknown>)?.applicationRecruiterUserId, "").trim() || null,
-      applicationRecruiterUserName: pickString((c as Record<string, unknown>)?.applicationRecruiterUserName, "").trim() || null,
+      applicationRecruiterUserId: pickString(cr?.applicationRecruiterUserId, "").trim() || null,
+      applicationRecruiterUserName: pickString(cr?.applicationRecruiterUserName, "").trim() || null,
       documentos: null,
     };
   }
@@ -709,7 +744,7 @@ export default function CandidatosScreen() {
           treinamentos: Array.isArray((s as Record<string, unknown>)?.treinamentos) ? (s as Record<string, unknown>)?.treinamentos : null,
           formacao: Array.isArray((s as Record<string, unknown>)?.formacao) ? (s as Record<string, unknown>)?.formacao : null,
         };
-        await fetchJson(`/api/talentos/${encodeURIComponent(talentoId)}`, {
+        await fetchJson(`${BASE}/api/talentos/${encodeURIComponent(talentoId)}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(talentPayload),
@@ -856,7 +891,9 @@ export default function CandidatosScreen() {
                 setVagaId("");
                 setPage(1);
                 setLoading(true);
-                sync().finally(() => setLoading(false));
+                sync()
+                  .catch(() => toast.error("Falha ao limpar filtros."))
+                  .finally(() => setLoading(false));
               }}
             >
               Limpar
@@ -1290,6 +1327,55 @@ export default function CandidatosScreen() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="md:col-span-8">
+                <label className="mini-title mb-1 block">LinkedIn URL</label>
+                <input
+                  className="form-control"
+                  type="url"
+                  placeholder="https://linkedin.com/in/..."
+                  value={draft.linkedinUrl ?? ""}
+                  onChange={(e) => setDraft({ ...draft, linkedinUrl: e.target.value || null })}
+                />
+              </div>
+              <div className="md:col-span-4 flex flex-col justify-end">
+                <label className="mini-title mb-1 block">Trabalhando atualmente?</label>
+                <select
+                  className="form-select"
+                  value={
+                    draft.trabalhandoAtualmente === true ? "sim"
+                    : draft.trabalhandoAtualmente === false ? "nao"
+                    : ""
+                  }
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      trabalhandoAtualmente:
+                        e.target.value === "sim" ? true : e.target.value === "nao" ? false : null,
+                    })
+                  }
+                >
+                  <option value="">Não informado</option>
+                  <option value="sim">Sim</option>
+                  <option value="nao">Não</option>
+                </select>
+              </div>
+              <div className="md:col-span-4">
+                <label className="mini-title mb-1 block">Pretensão salarial (R$)</label>
+                <input
+                  className="form-control"
+                  type="number"
+                  min={0}
+                  step={100}
+                  placeholder="Ex: 5000"
+                  value={draft.pretensaoSalarial != null ? String(draft.pretensaoSalarial) : ""}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      pretensaoSalarial: e.target.value !== "" ? parseFloat(e.target.value) : null,
+                    })
+                  }
+                />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Vaga</label>

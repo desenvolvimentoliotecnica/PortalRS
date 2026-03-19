@@ -101,6 +101,7 @@ public static class VagaSeeder
 
         var existingSet = existingCodes
             .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var seed = randomSeed ?? 42;
