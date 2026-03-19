@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Search, Check, X, Clock, ClipboardList, Eye, Mail, MessageCircle, Linkedin, ArrowLeft, SlidersHorizontal, RotateCcw, FolderOpen } from "lucide-react";
 import {
   type AnyRec, type VagaOption, type RankItem, type VagaDetail, type CandidatoFull, type TabKey,
   BASE, pk, pn, clamp, initials, formatDuration,
@@ -25,13 +26,14 @@ function ScoreCircle({ score, size = 40 }: { score: number; size?: number }) {
   );
 }
 
-/* ── CSS injection for modal anim ── */
-const STYLE_ID = "matching-modal-keyframes";
-function ensureStyles() {
-  if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
-  const s = document.createElement("style"); s.id = STYLE_ID;
-  s.textContent = `@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}`;
-  document.head.appendChild(s);
+function FlowStageCard({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
+      <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Fluxo</div>
+      <div className="mt-2 text-sm font-semibold text-foreground">{title}</div>
+      <div className="mt-1 text-xs leading-5 text-muted-foreground">{description}</div>
+    </div>
+  );
 }
 
 type RankingStatus = "idle" | "loading" | "ready" | "processing" | "failed";
@@ -59,7 +61,6 @@ function readClientVagaId(): string {
    ════════════════════════════════════════════════════════════════════════ */
 
 export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialVagas: unknown; fixedVagaId?: string | null }) {
-  useEffect(ensureStyles, []);
 
   const initialVagaOptions = useMemo(() => mapVagas(initialVagas).sort((a, b) => {
     const ta = a.createdAtUtc ? new Date(a.createdAtUtc).getTime() : 0;
@@ -83,6 +84,13 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [processingProgress, setProcessingProgress] = useState<ProcessingProgress | null>(null);
   const [processingNowMs, setProcessingNowMs] = useState(() => Date.now());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editingObsId, setEditingObsId] = useState<string | null>(null);
+  const [editingObsText, setEditingObsText] = useState("");
+  const [showProjetoModal, setShowProjetoModal] = useState(false);
+  const [projetos, setProjetos] = useState<{ id: string; numero: number; descricao: string | null; status: number }[]>([]);
+  const [newProjetoDesc, setNewProjetoDesc] = useState("");
 
   const pollRef = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -179,7 +187,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     try {
       const data = await api<AnyRec>(`${BASE}/api/candidatos?vagaId=${encodeURIComponent(id)}&status=Reprovado&pageSize=100`);
       const arr = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-      const mapped: RankItem[] = arr.map((x: AnyRec) => { const cid = pk(x.id); if (!cid) return null; const lm = x.lastMatch ?? {}; return { id: cid, nome: pk(x.nome), email: pk(x.email), score: clamp(pn(lm.score), 0, 100), pass: false, source: "candidato" } as RankItem; }).filter(Boolean) as RankItem[];
+      const mapped: RankItem[] = arr.map((x: AnyRec) => { const cid = pk(x.id); if (!cid) return null; const lm = x.lastMatch ?? {}; return { id: cid, nome: pk(x.nome), email: pk(x.email), score: clamp(pn(lm.score), 0, 100), pass: false, source: "candidato", obs: pk(x.obs), trabalhando: x.trabalhandoAtualmente ?? null, linkedinUrl: pk(x.linkedinUrl), fone: pk(x.fone), cidade: pk(x.cidade), uf: pk(x.uf) } as RankItem; }).filter(Boolean) as RankItem[];
       rejCacheRef.current = mapped; setItems(mapped); setRankStatus("ready"); setSelectedId(null);
     } catch { setRankStatus("failed"); toast.error("Falha ao carregar reprovados."); }
   }, []);
@@ -190,7 +198,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     try {
       const data = await api<AnyRec>(`${BASE}/api/candidatos?vagaId=${encodeURIComponent(id)}&status=Aprovado&pageSize=100`);
       const arr = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-      const mapped: RankItem[] = arr.map((x: AnyRec) => { const cid = pk(x.id); if (!cid) return null; const lm = x.lastMatch ?? {}; return { id: cid, nome: pk(x.nome), email: pk(x.email), score: clamp(pn(lm.score), 0, 100), pass: true, source: "candidato" } as RankItem; }).filter(Boolean) as RankItem[];
+      const mapped: RankItem[] = arr.map((x: AnyRec) => { const cid = pk(x.id); if (!cid) return null; const lm = x.lastMatch ?? {}; return { id: cid, nome: pk(x.nome), email: pk(x.email), score: clamp(pn(lm.score), 0, 100), pass: true, source: "candidato", obs: pk(x.obs), trabalhando: x.trabalhandoAtualmente ?? null, linkedinUrl: pk(x.linkedinUrl), fone: pk(x.fone), cidade: pk(x.cidade), uf: pk(x.uf) } as RankItem; }).filter(Boolean) as RankItem[];
       appCacheRef.current = mapped; setItems(mapped); setRankStatus("ready"); setSelectedId(null);
     } catch { setRankStatus("failed"); toast.error("Falha ao carregar aprovados."); }
   }, []);
@@ -201,7 +209,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     try {
       const data = await api<AnyRec>(`${BASE}/api/candidatos?vagaId=${encodeURIComponent(id)}&status=Pendente&pageSize=100`);
       const arr = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-      const mapped: RankItem[] = arr.map((x: AnyRec) => { const cid = pk(x.id); if (!cid) return null; const lm = x.lastMatch ?? {}; return { id: cid, nome: pk(x.nome), email: pk(x.email), score: clamp(pn(lm.score), 0, 100), pass: false, source: "candidato", obs: pk(x.obs) } as RankItem; }).filter(Boolean) as RankItem[];
+      const mapped: RankItem[] = arr.map((x: AnyRec) => { const cid = pk(x.id); if (!cid) return null; const lm = x.lastMatch ?? {}; return { id: cid, nome: pk(x.nome), email: pk(x.email), score: clamp(pn(lm.score), 0, 100), pass: false, source: "candidato", obs: pk(x.obs), trabalhando: x.trabalhandoAtualmente ?? null, linkedinUrl: pk(x.linkedinUrl), fone: pk(x.fone), cidade: pk(x.cidade), uf: pk(x.uf) } as RankItem; }).filter(Boolean) as RankItem[];
       pendCacheRef.current = mapped; setItems(mapped); setRankStatus("ready"); setSelectedId(null);
     } catch { setRankStatus("failed"); toast.error("Falha ao carregar pendentes."); }
   }, []);
@@ -233,7 +241,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         ? await api<AnyRec>(`${BASE}/api/talentos/${encodeURIComponent(id)}`, { signal: controller.signal })
         : await api<AnyRec>(`${BASE}/api/candidatos/${encodeURIComponent(id)}`, { signal: controller.signal });
       if (controller.signal.aborted || !data) return;
-      const full: CandidatoFull = { id: pk(data.id), nome: pk(data.nome, row.nome), email: pk(data.email, row.email), source: row.source, cvText: pk(data.cvText), resumoProfissional: pk(data.resumoProfissional), documentos: Array.isArray(data.documentos) ? data.documentos : [], updatedAt: pk(data.updatedAt ?? data.updatedAtUtc) };
+      const full: CandidatoFull = { id: pk(data.id), nome: pk(data.nome, row.nome), email: pk(data.email, row.email), source: row.source, cvText: pk(data.cvText), resumoProfissional: pk(data.resumoProfissional), documentos: Array.isArray(data.documentos) ? data.documentos : [], updatedAt: pk(data.updatedAt ?? data.updatedAtUtc), linkedinUrl: pk(data.linkedinUrl), fone: pk(data.fone), trabalhando: data.trabalhandoAtualmente ?? null, pretensaoSalarial: pk(data.pretensaoSalarial), cidade: pk(data.cidade), uf: pk(data.uf) };
       detailCacheRef.current.set(id, full); setCandidatoFull(full); setCvText(full.cvText ?? "");
     } catch { /* keep row data */ }
   }, [items]);
@@ -244,81 +252,95 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     try { await api(`${BASE}/api/matching/recalculate?candidatoId=${selectedId}&vagaId=${vagaId}`, { method: "POST" }); toast.success("Recalcular solicitado."); sugCacheRef.current = null; await loadSuggestions(vagaId, true); } catch { toast.error("Falha ao recalcular."); }
   }
 
+  function statusToTabKey(status: string): TabKey {
+    if (status === "Aprovado") return "approved";
+    if (status === "Reprovado") return "rejected";
+    if (status === "Pendente") return "pending";
+    return "suggestions";
+  }
+
+  async function persistStatusChange(id: string, source: string | undefined, newStatus: string, obs?: string) {
+    if (!vagaId) return;
+
+    const row = items.find((x) => x.id === id) ?? null;
+    if (source === "talento") {
+      await api(`${BASE}/api/candidatos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          talentoId: id,
+          vagaId,
+          status: newStatus,
+          nome: row?.nome ?? "Talento",
+          email: row?.email ?? "",
+          fonte: "Site",
+          obs: obs ?? null,
+        }),
+      });
+      return;
+    }
+
+    const cand = await api<AnyRec>(`${BASE}/api/candidatos/${id}`);
+    if (!cand) throw new Error("Candidato não encontrado.");
+
+    const updateBody = {
+      nome: pk(cand.nome, row?.nome ?? ""),
+      email: pk(cand.email, row?.email ?? ""),
+      fone: cand.fone ?? null,
+      cidade: cand.cidade ?? null,
+      uf: cand.uf ?? null,
+      fonte: cand.fonte ?? "Site",
+      status: newStatus,
+      vagaId: cand.vagaId ?? vagaId,
+      obs: obs ?? cand.obs ?? null,
+      cvText: cand.cvText ?? null,
+      lastMatch: cand.lastMatch ?? null,
+      documentos: cand.documentos?.map((d: AnyRec) => ({
+        tipo: d.tipo,
+        nomeArquivo: d.nomeArquivo ?? d.fileName ?? "",
+        contentType: d.contentType ?? null,
+        descricao: d.descricao ?? null,
+        tamanhoBytes: d.tamanhoBytes ?? null,
+        url: d.url ?? null,
+      })) ?? [],
+      talentoId: cand.talentoId ?? null,
+    };
+
+    await api(`${BASE}/api/candidatos/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updateBody),
+    });
+  }
+
   async function changeStatus(id: string, source: string | undefined, newStatus: string, obs?: string) {
     if (!vagaId) return;
-    const row = items.find((x) => x.id === id) ?? null;
-    const targetTab: TabKey = newStatus === "Aprovado" ? "approved" : newStatus === "Reprovado" ? "rejected" : newStatus === "Pendente" ? "pending" : "suggestions";
-    const targetPass = targetTab === "approved" ? true : targetTab === "rejected" ? false : (row?.score ?? 0) >= thresholdForList;
+    const targetTab = statusToTabKey(newStatus);
+    const msgs: Record<string, string> = {
+      Aprovado: "Candidato aprovado.",
+      Reprovado: "Candidato reprovado.",
+      Pendente: "Candidato movido para pendentes.",
+      Triagem: "Candidato movido para triagem.",
+    };
 
-    // Optimistic update: remove from ALL caches
-    const removeById = (list: RankItem[] | null) => list === null ? null : list.filter((x) => x.id !== id);
-
-    // Get the target cache ref
-    const targetCacheRef = targetTab === "approved" ? appCacheRef : targetTab === "rejected" ? rejCacheRef : targetTab === "pending" ? pendCacheRef : sugCacheRef;
-    // Check if target tab was never loaded BEFORE we touch caches
-    const wasNeverLoaded = targetCacheRef.current === null;
-
-    sugCacheRef.current = removeById(sugCacheRef.current);
-    rejCacheRef.current = removeById(rejCacheRef.current);
-    appCacheRef.current = removeById(appCacheRef.current);
-    pendCacheRef.current = removeById(pendCacheRef.current);
-
-    // If target cache was never loaded, pre-load it from API first
-    if (wasNeverLoaded && targetTab !== "suggestions") {
-      try {
-        const statusParam = newStatus;
-        const data = await api<AnyRec>(`${BASE}/api/candidatos?vagaId=${encodeURIComponent(vagaId)}&status=${statusParam}&pageSize=100`);
-        const arr = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-        const mapped: RankItem[] = arr.map((x: AnyRec) => { const cid = pk(x.id); if (!cid) return null; const lm = x.lastMatch ?? {}; return { id: cid, nome: pk(x.nome), email: pk(x.email), score: clamp(pn(lm.score), 0, 100), pass: targetPass, source: "candidato", obs: pk(x.obs) } as RankItem; }).filter(Boolean) as RankItem[];
-        targetCacheRef.current = mapped.filter((x) => x.id !== id); // ensure no duplicate of moved item
-      } catch { targetCacheRef.current = []; }
-    }
-
-    // Add the moved item to the top of the target cache
-    if (row) {
-      const moved: RankItem = { ...row, pass: targetPass };
-      targetCacheRef.current = [moved, ...(targetCacheRef.current ?? [])];
-    }
-
-    // Switch to target tab instantly, highlight the moved card
-    setTab(targetTab);
-    setSelectedId(null);
-    setCandidatoFull(null);
-    setRankStatus("ready");
-    setHighlightId(id);
-    setItems(targetCacheRef.current ?? []);
-    // Clear highlight after a moment
-    setTimeout(() => setHighlightId(null), 2000);
-
-    // Fire API in background
     try {
-      if (source === "talento") {
-        const item = row;
-        void api(`${BASE}/api/candidatos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ talentoId: id, vagaId, status: newStatus, nome: item?.nome ?? "Talento", email: item?.email ?? "", fonte: "Site", obs: obs ?? null }) });
-      } else {
-        const cand = await api<AnyRec>(`${BASE}/api/candidatos/${id}`);
-        if (cand) {
-          const updateBody = {
-            nome: pk(cand.nome, row?.nome ?? ""),
-            email: pk(cand.email, row?.email ?? ""),
-            fone: cand.fone ?? null,
-            cidade: cand.cidade ?? null,
-            uf: cand.uf ?? null,
-            fonte: cand.fonte ?? "Site",
-            status: newStatus,
-            vagaId: cand.vagaId ?? vagaId,
-            obs: obs ?? cand.obs ?? null,
-            cvText: cand.cvText ?? null,
-            lastMatch: cand.lastMatch ?? null,
-            documentos: cand.documentos?.map((d: AnyRec) => ({ tipo: d.tipo, nomeArquivo: d.nomeArquivo ?? d.fileName ?? "", contentType: d.contentType ?? null, descricao: d.descricao ?? null, tamanhoBytes: d.tamanhoBytes ?? null, url: d.url ?? null })) ?? [],
-            talentoId: cand.talentoId ?? null,
-          };
-          void api(`${BASE}/api/candidatos/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updateBody) });
-        }
-      }
-      const msgs: Record<string, string> = { Aprovado: "Aprovado.", Reprovado: "Reprovado.", Pendente: "Movido para pendentes.", Triagem: "Movido para triagem." };
+      await persistStatusChange(id, source, newStatus, obs);
+      sugCacheRef.current = null;
+      rejCacheRef.current = null;
+      appCacheRef.current = null;
+      pendCacheRef.current = null;
+      detailCacheRef.current.delete(id);
+      setTab(targetTab);
+      setSelectedId(null);
+      setSelectedIds(new Set());
+      setCandidatoFull(null);
+      setHighlightId(id);
+      setTimeout(() => setHighlightId(null), 2000);
+      await onSelectVaga(vagaId, targetTab);
       toast.success(msgs[newStatus] ?? "Status atualizado.");
-    } catch (e) { toast.error("Erro: " + (e instanceof Error ? e.message : String(e))); }
+    } catch (e) {
+      toast.error("Erro ao mover candidato: " + (e instanceof Error ? e.message : String(e)));
+    }
   }
 
   function tabToStatus(t: TabKey): "Aprovado" | "Reprovado" | "Pendente" | "Triagem" {
@@ -344,6 +366,57 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     if (!source && !row) return;
     // Stay on current tab — the card just disappears from here
     await changeStatus(id, source, tabToStatus(targetTab));
+  }
+
+  // ─── Inline obs save ───
+  async function saveObs(candidateId: string, newObs: string) {
+    try {
+      const cand = await api<AnyRec>(`${BASE}/api/candidatos/${candidateId}`);
+      if (cand) {
+        cand.obs = newObs;
+        await api(`${BASE}/api/candidatos/${candidateId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cand) });
+        // Update local items
+        setItems(prev => prev.map(r => r.id === candidateId ? { ...r, obs: newObs } : r));
+        // Update caches
+        const updateCache = (cache: RankItem[] | null) => cache?.map(r => r.id === candidateId ? { ...r, obs: newObs } : r) ?? null;
+        sugCacheRef.current = updateCache(sugCacheRef.current);
+        rejCacheRef.current = updateCache(rejCacheRef.current);
+        appCacheRef.current = updateCache(appCacheRef.current);
+        pendCacheRef.current = updateCache(pendCacheRef.current);
+        toast.success("Observação salva.");
+      }
+    } catch { toast.error("Falha ao salvar observação."); }
+  }
+
+  // ─── Projetos helpers ───
+  async function loadProjetos() {
+    if (!vagaId) return;
+    try {
+      const data = await api<{ id: string; numero: number; descricao: string | null; status: number }[]>(`${BASE}/api/vagas/${encodeURIComponent(vagaId)}/projetos`);
+      setProjetos(Array.isArray(data) ? data : []);
+    } catch { setProjetos([]); }
+  }
+
+  async function sendToProjeto(projetoId: string) {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) { toast.error("Selecione ao menos 1 candidato."); return; }
+    let ok = 0, fail = 0;
+    for (const cid of ids) {
+      try {
+        await api(`${BASE}/api/projetos/${encodeURIComponent(projetoId)}/candidatos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ candidatoId: cid, observacoes: null }) });
+        ok++;
+      } catch { fail++; }
+    }
+    toast.success(`${ok} candidato(s) enviado(s).${fail ? ` ${fail} erro(s).` : ""}`);
+    setShowProjetoModal(false); setSelectedIds(new Set());
+  }
+
+  async function createAndSend() {
+    if (!vagaId) return;
+    try {
+      const created = await api<{ id: string }>(`${BASE}/api/vagas/${encodeURIComponent(vagaId)}/projetos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ descricao: newProjetoDesc.trim() || null }) });
+      if (created?.id) await sendToProjeto(created.id);
+    } catch { toast.error("Falha ao criar projeto."); }
   }
 
   async function saveCvText() {
@@ -398,30 +471,124 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   }, [fixedVagaId, onSelectVaga]);
 
   /* ═══════════ RENDER ═══════════ */
-  const TABS: { key: TabKey; label: string; icon: string }[] = [
-    { key: "suggestions", label: "Triagem", icon: "📋" },
-    { key: "approved", label: "Aprovados", icon: "✅" },
-    { key: "rejected", label: "Reprovados", icon: "❌" },
-    { key: "pending", label: "Pendentes", icon: "⏳" },
+  const TABS: { key: TabKey; label: string }[] = [
+    { key: "suggestions", label: "Triagem IA" },
+    { key: "approved", label: "Aprovados" },
+    { key: "rejected", label: "Reprovados" },
+    { key: "pending", label: "Pendentes" },
   ];
+
+  const tabCountMap: Partial<Record<TabKey, number>> = {
+    suggestions: sugCacheRef.current?.length ?? (tab === "suggestions" ? items.length : undefined),
+    approved: appCacheRef.current?.length ?? (tab === "approved" ? items.length : undefined),
+    rejected: rejCacheRef.current?.length ?? (tab === "rejected" ? items.length : undefined),
+    pending: pendCacheRef.current?.length ?? (tab === "pending" ? items.length : undefined),
+  };
+
+  // Filtered items for search
+  const normalizedQuery = searchQuery.toLowerCase().trim();
+  const filteredItems = normalizedQuery
+    ? items.filter(r => (r.nome ?? "").toLowerCase().includes(normalizedQuery) || (r.email ?? "").toLowerCase().includes(normalizedQuery))
+    : items;
+
+  // KPI computations
+  const kpiTotal = items.length;
+  const kpiAvgScore = kpiTotal > 0 ? Math.round(items.reduce((s, r) => s + r.score, 0) / kpiTotal) : 0;
+  const kpiAboveThreshold = items.filter(r => r.score >= thresholdForList).length;
+  const kpiBelowThreshold = kpiTotal - kpiAboveThreshold;
+
+  // Batch selection helpers
+  const allVisibleSelected = filteredItems.length > 0 && filteredItems.every(r => selectedIds.has(r.id));
+  function toggleSelectAll() {
+    if (allVisibleSelected) { setSelectedIds(new Set()); }
+    else { setSelectedIds(new Set(filteredItems.map(r => r.id))); }
+  }
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  }
+  async function batchAction(status: string) {
+    if (!vagaId) return;
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    let success = 0;
+    let failed = 0;
+
+    for (const id of ids) {
+      const row = items.find(r => r.id === id);
+      if (!row) continue;
+      try {
+        await persistStatusChange(id, row.source, status);
+        detailCacheRef.current.delete(id);
+        success++;
+      } catch {
+        failed++;
+      }
+    }
+
+    sugCacheRef.current = null;
+    rejCacheRef.current = null;
+    appCacheRef.current = null;
+    pendCacheRef.current = null;
+    setSelectedIds(new Set());
+
+    if (success > 0) {
+      const targetTab = statusToTabKey(status);
+      setTab(targetTab);
+      await onSelectVaga(vagaId, targetTab);
+    }
+
+    if (success > 0) {
+      toast.success(failed > 0
+        ? `${success} candidato(s) movido(s). ${failed} falharam.`
+        : `${success} candidato(s) atualizados.`);
+    } else if (failed > 0) {
+      toast.error("Não foi possível atualizar os candidatos selecionados.");
+    }
+  }
 
   return (
     <section className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h4 className="text-lg font-bold">
-            Matching{vagaDetail?.titulo ? ` — ${vagaDetail.titulo}` : ""}
-          </h4>
-          <div className="text-muted-foreground text-sm">Pontuação automática por IA.</div>
+          <div className="mb-2 inline-flex rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Etapa de seleção
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Matching de Candidatos</h1>
+          {vagaDetail?.titulo
+            ? <p className="text-muted-foreground text-sm mt-0.5">Vaga: <span className="font-medium text-foreground">{vagaDetail.titulo}</span> · priorize quem segue para rodadas e processo seletivo.</p>
+            : <p className="text-muted-foreground text-sm mt-0.5">Pontuação, triagem e decisão automática antes das rodadas de seleção.</p>
+          }
         </div>
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <Link className="btn-ghost text-sm" href="/vagas">← Voltar para vagas</Link>
+          <Link className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors" href="/vagas">
+            <ArrowLeft className="size-3.5" /> Voltar para vagas
+          </Link>
+          {vagaId && (
+            <>
+              <Link
+                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                href={`/candidatos?vagaId=${encodeURIComponent(vagaId)}`}
+              >
+                <ClipboardList className="size-3.5" /> Candidatos
+              </Link>
+              <Link
+                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                href={`/gestao/projetos?vagaId=${encodeURIComponent(vagaId)}`}
+              >
+                <FolderOpen className="size-3.5" /> Rodadas
+              </Link>
+            </>
+          )}
           {vagaId && vagaDetail && (
-            <button className="btn-ghost text-sm" type="button" onClick={() => setShowFilterModal(true)}>✏️ Filtros IA</button>
+            <button className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted" type="button" onClick={() => setShowFilterModal(true)}>
+              <SlidersHorizontal className="size-3.5" /> Filtros IA
+            </button>
           )}
           {vagaId && vagaDetail && vagaDetail.matchingFiltrosOriginaisRaw != null && vagaDetail.matchingFiltrosOriginaisRaw !== (vagaDetail.matchingFiltrosRaw ?? "") && (
-            <button className="btn-ghost text-sm" type="button" onClick={() => void revertFiltros()}>↩ Reverter filtros</button>
+            <button className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted" type="button" onClick={() => void revertFiltros()}>
+              <RotateCcw className="size-3.5" /> Reverter filtros
+            </button>
           )}
         </div>
       </div>
@@ -432,41 +599,118 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         </div>
       ) : null}
 
-      <div className="grid grid-cols-4 rounded-xl overflow-hidden border border-[rgba(16,82,144,.12)] bg-white">
-        {TABS.map(t => (
-          <button key={t.key} type="button"
-            className={`py-3 text-sm font-semibold transition-all text-center focus-visible:outline-none ${tab === t.key ? "bg-[rgb(var(--lt-primary))] text-white hover:bg-[rgb(var(--lt-primary))] active:bg-[rgb(var(--lt-primary))]" : "text-slate-700 hover:bg-slate-50 active:bg-slate-100"} ${dropTargetTab === t.key ? "ring-2 ring-inset ring-emerald-400" : ""}`}
-            onDragOver={(e) => {
-              const hasPayload = e.dataTransfer.types.includes("text/plain");
-              if (!hasPayload || t.key === tab) return;
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
-              setDropTargetTab(t.key);
-            }}
-            onDragLeave={() => {
-              if (dropTargetTab === t.key) setDropTargetTab(null);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const droppedId = (e.dataTransfer.getData("text/plain") || "").trim();
-              const droppedSource = (e.dataTransfer.getData("application/x-renderrh-source") || "").trim() || undefined;
-              void handleDropToTab(t.key, droppedId, droppedSource);
-            }}
-            onClick={() => {
-              // During drag, mouseup over tab can trigger click; ignore this.
-              if (draggingId) return;
-              setTab(t.key);
-              if (vagaId) void onSelectVaga(vagaId, t.key);
-            }}>
-            {t.icon} {t.label}
-          </button>
-        ))}
+      {vagaId && (
+        <div className="grid gap-3 md:grid-cols-3">
+          <FlowStageCard
+            title="Triagem com IA"
+            description="Use esta tela para ranquear candidatos, registrar pendências e decidir quem segue no funil."
+          />
+          <FlowStageCard
+            title="Rodadas de seleção"
+            description="Os aprovados daqui seguem para rodadas, onde você organiza os grupos por vaga."
+          />
+          <FlowStageCard
+            title="Processo e admissão"
+            description="Depois da rodada, acompanhe fases, entrevistas e finalize a contratação pela pré-admissão."
+          />
+        </div>
+      )}
+
+      {/* KPI Cards */}
+      {vagaId && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total na aba</div>
+            <div className="text-2xl font-bold mt-1">{kpiTotal}</div>
+          </div>
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Acima do corte</div>
+            <div className="text-2xl font-bold mt-1 text-green-600">{kpiAboveThreshold}</div>
+          </div>
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Abaixo do corte</div>
+            <div className="text-2xl font-bold mt-1 text-amber-600">{kpiBelowThreshold}</div>
+          </div>
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Score médio</div>
+            <div className="text-2xl font-bold mt-1">{kpiAvgScore}%</div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs as filter pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        {TABS.map(t => {
+          const count = tabCountMap[t.key];
+          return (
+            <button key={t.key} type="button"
+              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-all border ${tab === t.key ? "bg-[rgb(var(--lt-primary))] text-white border-[rgb(var(--lt-primary))]" : "bg-card text-slate-700 border-border/60 hover:bg-slate-50"} ${dropTargetTab === t.key ? "ring-2 ring-emerald-400" : ""}`}
+              onDragOver={(e) => {
+                const hasPayload = e.dataTransfer.types.includes("text/plain");
+                if (!hasPayload || t.key === tab) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                setDropTargetTab(t.key);
+              }}
+              onDragLeave={() => { if (dropTargetTab === t.key) setDropTargetTab(null); }}
+              onDrop={(e) => {
+                e.preventDefault(); e.stopPropagation();
+                const droppedId = (e.dataTransfer.getData("text/plain") || "").trim();
+                const droppedSource = (e.dataTransfer.getData("application/x-renderrh-source") || "").trim() || undefined;
+                void handleDropToTab(t.key, droppedId, droppedSource);
+              }}
+              onClick={() => {
+                if (draggingId) return;
+                setTab(t.key); setSelectedIds(new Set()); setSearchQuery("");
+                if (vagaId) void onSelectVaga(vagaId, t.key);
+              }}>
+              {t.label}
+              {count !== undefined && (
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${tab === t.key ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {vagaId && items.length > 0 && (
-        <div className="text-xs text-muted-foreground">
-          Arraste um candidato para uma aba para mover rápido entre status.
+      {/* Search + batch actions */}
+      {vagaId && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <input
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 pl-9 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              placeholder="Buscar por nome ou e-mail…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          {selectedIds.size > 0 && (
+            <div className="flex gap-1.5">
+              {(tab === "suggestions" || tab === "pending") && (
+                <button className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 font-semibold transition-colors" type="button" onClick={() => void batchAction("Aprovado")}>
+                  <Check className="size-3" /> Aprovar {selectedIds.size}
+                </button>
+              )}
+              {(tab === "suggestions" || tab === "pending" || tab === "approved") && (
+                <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md bg-red-50 text-red-700 hover:bg-red-100 font-semibold transition-colors" type="button" onClick={() => void batchAction("Reprovado")}>
+                  <X className="size-3" /> Reprovar {selectedIds.size}
+                </button>
+              )}
+              {(tab === "rejected" || tab === "approved") && (
+                <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 font-semibold transition-colors" type="button" onClick={() => void batchAction("Triagem")}>
+                  <RotateCcw className="size-3" /> Triagem {selectedIds.size}
+                </button>
+              )}
+              {tab === "approved" && (
+                <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold transition-colors" type="button" onClick={() => { void loadProjetos(); setShowProjetoModal(true); }}>
+                  <FolderOpen className="size-3" /> Enviar para Rodada ({selectedIds.size})
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -474,7 +718,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
       {rankStatus === "processing" && (
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium">🔄 Atualizando ranking…</span>
+            <span className="font-medium">Atualizando ranking…</span>
             {processingComputed && <span className="text-xs font-semibold">{processingComputed.progressPct}% • {formatDuration(processingComputed.elapsedMs)} • ~{formatDuration(processingComputed.remainingMs)}</span>}
           </div>
           <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
@@ -483,74 +727,157 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         </div>
       )}
       {rankStatus === "failed" && items.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">⚠ Falha ao atualizar. Exibindo último resultado disponível.</div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">Falha ao atualizar. Exibindo último resultado disponível.</div>
       )}
 
-      {/* Cards grid */}
+      {/* Table */}
       {rankStatus === "loading" && items.length === 0 ? (
-        <div className="text-muted-foreground text-sm py-12 text-center">Carregando…</div>
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm py-16 text-center">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <div className="size-10 rounded-full border-2 border-current border-t-transparent animate-spin opacity-30" />
+            <p className="text-sm mt-2">Carregando candidatos…</p>
+          </div>
+        </div>
       ) : items.length === 0 && vagaId ? (
-        <div className="text-muted-foreground text-center py-12">
-          {tab === "rejected" ? "Nenhum reprovado." : tab === "approved" ? "Nenhum aprovado." : "Nenhuma sugestão encontrada."}
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm py-16 text-center">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <ClipboardList className="size-10 opacity-20" />
+            <p className="text-sm font-medium mt-1">
+              {tab === "rejected" ? "Nenhum candidato reprovado ainda." : tab === "approved" ? "Nenhum candidato aprovado ainda." : tab === "pending" ? "Nenhum candidato pendente." : "Nenhuma sugestão de matching encontrada."}
+            </p>
+            <p className="text-xs opacity-60">
+              {tab === "suggestions" ? "Verifique os filtros de IA ou aguarde o ranking ser processado." : "Os candidatos aparecerão aqui quando movidos para esta etapa."}
+            </p>
+          </div>
+        </div>
+      ) : filteredItems.length === 0 && searchQuery ? (
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm py-10 text-center">
+          <p className="text-muted-foreground text-sm">Nenhum resultado para &ldquo;{searchQuery}&rdquo;.</p>
+          <button className="text-[rgb(var(--lt-primary))] underline text-sm mt-1" type="button" onClick={() => setSearchQuery("")}>Limpar busca</button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {items.map(r => {
-            const isPass = r.score >= thresholdForList;
-            return (
-              <div key={r.id}
-                className={`group relative rounded-2xl border bg-white p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-[rgb(var(--lt-primary))] ${draggingId === r.id ? "opacity-60 scale-[0.99]" : ""} ${highlightId === r.id ? "ring-2 ring-emerald-400 border-emerald-300 shadow-md" : "border-gray-200"}`}
-                draggable
-                onDragStart={(e) => {
-                  setDraggingId(r.id);
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", r.id);
-                  e.dataTransfer.setData("application/x-renderrh-source", r.source ?? "");
-                }}
-                onDragEnd={() => {
-                  setDraggingId(null);
-                  setDropTargetTab(null);
-                }}
-                onClick={() => void onSelectCandidate(r.id)}>
-                <div className="flex items-start gap-3">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[rgb(var(--lt-primary))] text-white font-bold text-xs shrink-0">
-                    {initials(r.nome)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-sm truncate">{r.nome || "—"}</div>
-                    <div className="text-muted-foreground text-xs truncate">{r.email || "—"}</div>
-                  </div>
-                  <ScoreCircle score={r.score} />
-                </div>
-
-                <div className="flex items-center gap-2 mt-3">
-                  {r.source && <span className={`rounded-full px-2 py-0.5 text-[0.6rem] font-semibold ${r.source === "talento" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-700"}`}>{r.source === "talento" ? "Talento" : "Candidato"}</span>}
-                  {tab !== "rejected" && <span className={`rounded-full px-2 py-0.5 text-[0.6rem] font-semibold ${isPass ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{isPass ? "Dentro" : "Abaixo"}</span>}
-                  {tab === "rejected" && <span className="rounded-full px-2 py-0.5 text-[0.6rem] font-semibold bg-red-100 text-red-700">Reprovado</span>}
-                  {tab === "approved" && <span className="rounded-full px-2 py-0.5 text-[0.6rem] font-semibold bg-green-100 text-green-700">Aprovado</span>}
-                </div>
-
-                {/* Inline actions */}
-                <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2 border-t border-[rgba(16,82,144,.06)]">
-                  {tab === "suggestions" && <>
-                    <button className="text-xs py-1 px-2.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition font-semibold" type="button" onClick={e => { e.stopPropagation(); void changeStatus(r.id, r.source, "Aprovado"); }}>✅ Aprovar</button>
-                    <button className="text-xs py-1 px-2.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition font-semibold" type="button" onClick={e => { e.stopPropagation(); void changeStatus(r.id, r.source, "Reprovado"); }}>✕ Reprovar</button>
-                    <button className="text-xs py-1 px-2.5 rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition font-semibold" type="button" onClick={e => { e.stopPropagation(); promptPendente(r.id, r.source); }}>⏳ Pendente</button>
-                  </>}
-                  {tab === "approved" && <>
-                    <button className="text-xs py-1 px-2.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition font-semibold" type="button" onClick={e => { e.stopPropagation(); void changeStatus(r.id, r.source, "Triagem"); }}>↩ Triagem</button>
-                    <button className="text-xs py-1 px-2.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition font-semibold" type="button" onClick={e => { e.stopPropagation(); void changeStatus(r.id, r.source, "Reprovado"); }}>✕ Reprovar</button>
-                  </>}
-                  {tab === "rejected" && <button className="text-xs py-1 px-2.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition font-semibold" type="button" onClick={e => { e.stopPropagation(); void changeStatus(r.id, r.source, "Triagem"); }}>↩ Voltar p/ Triagem</button>}
-                  {tab === "pending" && <>
-                    <button className="text-xs py-1 px-2.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition font-semibold" type="button" onClick={e => { e.stopPropagation(); void changeStatus(r.id, r.source, "Aprovado"); }}>✅ Aprovar</button>
-                    <button className="text-xs py-1 px-2.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition font-semibold" type="button" onClick={e => { e.stopPropagation(); void changeStatus(r.id, r.source, "Triagem"); }}>↩ Triagem</button>
-                    <button className="text-xs py-1 px-2.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition font-semibold" type="button" onClick={e => { e.stopPropagation(); void changeStatus(r.id, r.source, "Reprovado"); }}>✕ Reprovar</button>
-                  </>}
-                </div>
-              </div>
-            );
-          })}
+        <div className="rounded-xl border border-border/50 overflow-hidden bg-card shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/40 bg-slate-50/80">
+                  <th className="w-10 px-3 py-2.5">
+                    <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="cursor-pointer" />
+                  </th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider">Nome</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-16">Score</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Observação</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-24 hidden md:table-cell">Trab.?</th>
+                  <th className="text-left px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-28 hidden md:table-cell">Cidade/UF</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-24">Contato</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-20">Status</th>
+                  <th className="text-right px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-36">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map(r => {
+                  const isPass = r.score >= thresholdForList;
+                  const cidadeUf = [r.cidade, r.uf].filter(Boolean).join("/") || "—";
+                  const isEditingObs = editingObsId === r.id;
+                  return (
+                    <tr key={r.id}
+                      className={`border-b border-border/20 transition-colors hover:bg-slate-50/60 cursor-pointer ${highlightId === r.id ? "bg-emerald-50" : ""}`}
+                      draggable
+                      onDragStart={(e) => { setDraggingId(r.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", r.id); e.dataTransfer.setData("application/x-renderrh-source", r.source ?? ""); }}
+                      onDragEnd={() => { setDraggingId(null); setDropTargetTab(null); }}
+                      onClick={() => void onSelectCandidate(r.id)}>
+                      <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} className="cursor-pointer" />
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[rgb(var(--lt-primary))] text-white font-bold text-[0.6rem] shrink-0">{initials(r.nome)}</div>
+                          <div className="min-w-0">
+                            <span className="font-medium truncate block max-w-[180px]">{r.nome || "—"}</span>
+                            <span className="text-[0.65rem] text-muted-foreground truncate block max-w-[180px]">{r.email || ""}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-center"><ScoreCircle score={r.score} size={32} /></td>
+                      {/* Obs inline-edit */}
+                      <td className="px-3 py-2 hidden lg:table-cell" onClick={e => e.stopPropagation()}>
+                        {isEditingObs ? (
+                          <input
+                            className="flex h-7 w-full rounded border border-input bg-background px-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            autoFocus
+                            value={editingObsText}
+                            onChange={e => setEditingObsText(e.target.value)}
+                            onBlur={() => { void saveObs(r.id, editingObsText); setEditingObsId(null); }}
+                            onKeyDown={e => { if (e.key === "Enter") { void saveObs(r.id, editingObsText); setEditingObsId(null); } if (e.key === "Escape") setEditingObsId(null); }}
+                          />
+                        ) : (
+                          <span
+                            className="text-xs text-muted-foreground cursor-text hover:text-foreground truncate block max-w-[200px]"
+                            title={r.obs || "Clique para adicionar obs"}
+                            onClick={() => { setEditingObsId(r.id); setEditingObsText(r.obs || ""); }}
+                          >
+                            {r.obs || <span className="italic text-slate-300">+ obs</span>}
+                          </span>
+                        )}
+                      </td>
+                      {/* Trabalhando */}
+                      <td className="px-3 py-2 text-center hidden md:table-cell">
+                        {r.trabalhando === true ? <span className="inline-flex rounded-full px-2 py-0.5 text-[0.6rem] font-semibold bg-blue-100 text-blue-700">Sim</span>
+                          : r.trabalhando === false ? <span className="inline-flex rounded-full px-2 py-0.5 text-[0.6rem] font-semibold bg-slate-100 text-slate-600">Não</span>
+                            : <span className="text-slate-300">—</span>}
+                      </td>
+                      {/* Cidade/UF */}
+                      <td className="px-3 py-2 text-xs text-muted-foreground hidden md:table-cell truncate max-w-[120px]">{cidadeUf}</td>
+                      {/* Contato */}
+                      <td className="px-3 py-2 text-center" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
+                          {r.email && <a href={`mailto:${r.email}`} title={`Email: ${r.email}`} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-slate-100 transition-colors" onClick={e => e.stopPropagation()}><Mail className="size-3.5" /></a>}
+                          {r.fone && <a href={`https://wa.me/${r.fone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" title={`WhatsApp: ${r.fone}`} className="p-1 rounded text-muted-foreground hover:text-green-700 hover:bg-green-50 transition-colors" onClick={e => e.stopPropagation()}><MessageCircle className="size-3.5" /></a>}
+                          {r.linkedinUrl && <a href={r.linkedinUrl} target="_blank" rel="noopener noreferrer" title="LinkedIn" className="p-1 rounded text-muted-foreground hover:text-blue-700 hover:bg-blue-50 transition-colors" onClick={e => e.stopPropagation()}><Linkedin className="size-3.5" /></a>}
+                        </div>
+                      </td>
+                      {/* Status */}
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[0.6rem] font-semibold ${tab === "approved" ? "bg-green-100 text-green-700" :
+                          tab === "rejected" ? "bg-red-100 text-red-700" :
+                            tab === "pending" ? "bg-yellow-100 text-yellow-700" :
+                              isPass ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                          }`}>
+                          {tab === "approved" ? "Aprovado" : tab === "rejected" ? "Reprovado" : tab === "pending" ? "Pendente" : isPass ? "Dentro" : "Abaixo"}
+                        </span>
+                      </td>
+                      {/* Ações */}
+                      <td className="px-3 py-2 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {tab === "suggestions" && <>
+                            <button className="p-1 rounded hover:bg-green-100 text-green-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Aprovado")} title="Aprovar"><Check className="size-3.5" /></button>
+                            <button className="p-1 rounded hover:bg-red-100 text-red-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Reprovado")} title="Reprovar"><X className="size-3.5" /></button>
+                            <button className="p-1 rounded hover:bg-yellow-100 text-yellow-700 transition-colors" type="button" onClick={() => promptPendente(r.id, r.source)} title="Pendente"><Clock className="size-3.5" /></button>
+                          </>}
+                          {tab === "approved" && <>
+                            <button className="p-1 rounded hover:bg-amber-100 text-amber-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Triagem")} title="Mover para Triagem"><RotateCcw className="size-3.5" /></button>
+                            <button className="p-1 rounded hover:bg-red-100 text-red-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Reprovado")} title="Reprovar"><X className="size-3.5" /></button>
+                          </>}
+                          {tab === "rejected" && <button className="p-1 rounded hover:bg-amber-100 text-amber-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Triagem")} title="Mover para Triagem"><RotateCcw className="size-3.5" /></button>}
+                          {tab === "pending" && <>
+                            <button className="p-1 rounded hover:bg-green-100 text-green-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Aprovado")} title="Aprovar"><Check className="size-3.5" /></button>
+                            <button className="p-1 rounded hover:bg-amber-100 text-amber-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Triagem")} title="Mover para Triagem"><RotateCcw className="size-3.5" /></button>
+                            <button className="p-1 rounded hover:bg-red-100 text-red-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Reprovado")} title="Reprovar"><X className="size-3.5" /></button>
+                          </>}
+                          <button className="p-1 rounded hover:bg-slate-100 text-slate-600 transition-colors" type="button" onClick={() => void onSelectCandidate(r.id)} title="Ver detalhes"><Eye className="size-3.5" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* Footer totals */}
+          <div className="px-4 py-2.5 border-t border-border/40 bg-muted/30 flex items-center justify-between text-xs text-muted-foreground">
+            <span>{filteredItems.length} de {items.length} candidato(s){searchQuery ? " (filtrado)" : ""}</span>
+            <span>Score médio: <strong className="text-foreground">{kpiAvgScore}%</strong> • Corte: <strong className="text-foreground">{thresholdForList}%</strong></span>
+          </div>
         </div>
       )}
 
@@ -571,11 +898,42 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
           onRestore={() => void changeStatus(selected.id, selected.source, "Triagem")}
           onPending={() => promptPendente(selected.id, selected.source)}
           onSaveCv={() => void saveCvText()}
+          onUpdateObs={(obs) => void saveObs(selected.id, obs)}
         />
       )}
 
       {/* Filter Modal */}
       {showFilterModal && vagaDetail && <FilterModal vagaDetail={vagaDetail} onClose={() => setShowFilterModal(false)} onSave={raw => void saveFiltros(raw)} />}
+
+      {/* Projeto Modal */}
+      {showProjetoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowProjetoModal(false)}>
+          <div className="bg-background rounded-2xl border border-border shadow-xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold">Enviar para Rodada</h3>
+            <p className="text-sm text-muted-foreground">{selectedIds.size} candidato(s) selecionado(s)</p>
+
+            {projetos.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase">Rodadas abertas</div>
+                {projetos.filter(p => p.status === 0).map(p => (
+                  <button key={p.id} type="button" className="w-full text-left rounded-lg border border-border/60 px-3 py-2.5 text-sm hover:bg-slate-50 transition-colors" onClick={() => void sendToProjeto(p.id)}>
+                    <span className="font-medium">Rodada {p.numero}</span>
+                    {p.descricao && <span className="text-muted-foreground ml-1">— {p.descricao}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="border-t border-border/40 pt-3 space-y-2">
+              <div className="text-xs font-semibold text-muted-foreground uppercase">Criar nova rodada</div>
+              <input className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Descrição (opcional)" value={newProjetoDesc} onChange={e => setNewProjetoDesc(e.target.value)} />
+              <button className="w-full rounded-md bg-primary text-primary-foreground text-sm py-2 px-4 font-medium hover:bg-primary/90 transition-colors" type="button" onClick={() => void createAndSend()}>Criar rodada e enviar</button>
+            </div>
+
+            <button className="w-full rounded-md text-sm py-2 px-4 font-medium text-muted-foreground hover:bg-muted transition-colors" type="button" onClick={() => setShowProjetoModal(false)}>Cancelar</button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

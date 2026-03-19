@@ -7,8 +7,7 @@ import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
-
-const BASE = "/app";
+import { env } from "@/lib/env";
 
 type InboxStatus = "novo" | "processando" | "processado" | "falha" | "descartado";
 type InboxOrigem = "email" | "pasta" | "upload";
@@ -219,7 +218,11 @@ export default function EntradaEmailPastaScreen({
 
   useEffect(() => {
     // SignalR: atualiza a fila automaticamente.
-    const url = `${BASE}/hubs/inbox?tenantId=${encodeURIComponent(tenantId)}`;
+    // Delay the start so React Strict Mode's first mount-unmount cycle
+    // cancels the timer before the connection is ever initiated.
+    let cancelled = false;
+    const apiBase = (env.API_BASE || "").replace(/\/+$/, "");
+    const url = `${apiBase}/hubs/inbox?tenantId=${encodeURIComponent(tenantId)}`;
     const conn = new HubConnectionBuilder()
       .withUrl(url)
       .withAutomaticReconnect([0, 2000, 5000, 10000])
@@ -227,6 +230,7 @@ export default function EntradaEmailPastaScreen({
       .build();
 
     const onAny = () => {
+      if (cancelled) return;
       // debounce leve
       if (hubDebounceRef.current) window.clearTimeout(hubDebounceRef.current);
       hubDebounceRef.current = window.setTimeout(() => {
@@ -240,13 +244,14 @@ export default function EntradaEmailPastaScreen({
     conn.on("inbox.failed", onAny);
     conn.on("inbox.deleted", onAny);
 
-    void conn.start().then(
-      () => {
-      },
-      () => { },
-    );
+    const startTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      void conn.start().catch(() => { /* connection may fail silently */ });
+    }, 150);
 
     return () => {
+      cancelled = true;
+      window.clearTimeout(startTimer);
       if (hubDebounceRef.current) window.clearTimeout(hubDebounceRef.current);
       void conn.stop().catch(() => { });
     };

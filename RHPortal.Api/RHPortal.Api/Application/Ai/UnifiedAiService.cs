@@ -78,7 +78,7 @@ public sealed class UnifiedAiService : IUnifiedAiService
                 aiModelIdForUsage = model.Id;
         }
 
-        var (content, cost) = await _provider.InvokeAsync(decryptedKey!, providerName, modelIdToUse, request.Payload, ct);
+        var (content, cost) = await _provider.InvokeAsync(decryptedKey!, providerName, modelIdToUse!, request.Payload, ct);
 
         if (!fromConfig && aiModelIdForUsage.HasValue && !string.IsNullOrEmpty(content))
         {

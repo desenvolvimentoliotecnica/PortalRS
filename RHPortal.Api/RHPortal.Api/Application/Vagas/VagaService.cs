@@ -30,12 +30,14 @@ public sealed class VagaService : IVagaService
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly IRHPortalAiMatchClient? _aiMatchClient;
     private readonly IVagaUnifiedMatchingCacheService? _unifiedMatchingCache;
+    private readonly ICurrentUserContext _currentUser; // Added
 
     public VagaService(
         AppDbContext db,
         ITenantContext tenantContext,
         ILogger<VagaService> logger,
         IStringLocalizer<ServiceMessages> localizer,
+        ICurrentUserContext currentUser, // Added
         IRHPortalAiMatchClient? aiMatchClient = null,
         IVagaUnifiedMatchingCacheService? unifiedMatchingCache = null)
     {
@@ -43,6 +45,7 @@ public sealed class VagaService : IVagaService
         _tenantContext = tenantContext;
         _logger = logger;
         _localizer = localizer;
+        _currentUser = currentUser; // Added
         _aiMatchClient = aiMatchClient;
         _unifiedMatchingCache = unifiedMatchingCache;
     }
@@ -50,6 +53,9 @@ public sealed class VagaService : IVagaService
     public async Task<IReadOnlyList<VagaListItemResponse>> ListAsync(VagaListQuery query, CancellationToken ct)
     {
         IQueryable<Vaga> q = _db.Vagas.AsNoTracking();
+
+    // ── Sprint P1: VagasDataScope enforcement ──
+    q = ApplyVagasDataScopeFilter(q);
 
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
@@ -147,7 +153,10 @@ public sealed class VagaService : IVagaService
 
     public async Task<VagaResponse> CreateAsync(VagaCreateRequest request, CancellationToken ct)
     {
-        EnsureMatchingFiltrosRequired(request.MatchingFiltrosRaw, "create");
+        // Sprint P1: ReadOnly guard
+        if (_currentUser.IsReadOnly)
+            throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível criar vagas.");
+        // MatchingFiltrosRaw é opcional na criação (ex.: vaga auto-criada por solicitação aprovada)
         await EnsureAreaAsync(request.AreaId, ct);
         if (request.DepartmentId.HasValue && request.DepartmentId.Value != Guid.Empty)
             await EnsureDepartmentAsync(request.DepartmentId.Value, ct);
@@ -180,6 +189,7 @@ public sealed class VagaService : IVagaService
             OrcamentoAprovado = request.OrcamentoAprovado,
             GestorRequisitante = TrimOrNull(request.GestorRequisitante),
             RecrutadorResponsavel = TrimOrNull(request.RecrutadorResponsavel),
+            RecrutadorResponsavelUserId = ResolveRecrutadorResponsavelUserId(null),
             Prioridade = request.Prioridade,
             ResumoPitch = TrimOrNull(request.ResumoPitch),
             TagsResponsabilidadesRaw = TrimOrNull(request.TagsResponsabilidadesRaw),
@@ -240,6 +250,7 @@ public sealed class VagaService : IVagaService
             DisponibilidadeParaViagens = request.DisponibilidadeParaViagens,
             ChecagemAntecedentes = request.ChecagemAntecedentes,
             SlaDiasMetaFechamento = request.SlaDiasMetaFechamento,
+            NomeEngessado = TrimOrNull(request.NomeEngessado),
             Beneficios = BuildBeneficios(request.Beneficios),
             Requisitos = BuildRequisitos(request.Requisitos),
             Etapas = BuildEtapas(request.Etapas),
@@ -260,6 +271,10 @@ public sealed class VagaService : IVagaService
 
     public async Task<VagaResponse?> UpdateAsync(Guid id, VagaUpdateRequest request, CancellationToken ct)
     {
+        // Sprint P1: ReadOnly guard
+        if (_currentUser.IsReadOnly)
+            throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível editar vagas.");
+
         var entity = await _db.Vagas.IgnoreQueryFilters()
             .Include(x => x.Beneficios)
             .Include(x => x.Requisitos)
@@ -359,6 +374,10 @@ public sealed class VagaService : IVagaService
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
     {
+        // Sprint P1: ReadOnly guard
+        if (_currentUser.IsReadOnly)
+            throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível excluir vagas.");
+
         var entity = await _db.Vagas.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
@@ -458,6 +477,7 @@ public sealed class VagaService : IVagaService
             v.ExigeCnh,
             v.DisponibilidadeParaViagens,
             v.ChecagemAntecedentes,
+            v.NomeEngessado,
             v.Beneficios.OrderBy(x => x.Ordem).Select(MapBeneficio).ToList(),
             v.Requisitos.OrderBy(x => x.Ordem).Select(MapRequisito).ToList(),
             v.Etapas.OrderBy(x => x.Ordem).Select(MapEtapa).ToList(),
@@ -691,6 +711,14 @@ public sealed class VagaService : IVagaService
     private static string? TrimOrNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private Guid? ResolveRecrutadorResponsavelUserId(Guid? currentValue)
+    {
+        if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador && _currentUser.UserId.HasValue)
+            return _currentUser.UserId.Value;
+
+        return currentValue;
+    }
+
     private void ApplyUpdate(Vaga entity, VagaUpdateRequest request)
     {
         entity.Codigo = TrimOrNull(request.Codigo);
@@ -719,6 +747,7 @@ public sealed class VagaService : IVagaService
         entity.OrcamentoAprovado = request.OrcamentoAprovado;
         entity.GestorRequisitante = TrimOrNull(request.GestorRequisitante);
         entity.RecrutadorResponsavel = TrimOrNull(request.RecrutadorResponsavel);
+        entity.RecrutadorResponsavelUserId = ResolveRecrutadorResponsavelUserId(entity.RecrutadorResponsavelUserId);
         entity.Prioridade = request.Prioridade;
         entity.ResumoPitch = TrimOrNull(request.ResumoPitch);
         entity.TagsResponsabilidadesRaw = TrimOrNull(request.TagsResponsabilidadesRaw);
@@ -779,6 +808,7 @@ public sealed class VagaService : IVagaService
         entity.DisponibilidadeParaViagens = request.DisponibilidadeParaViagens;
         entity.ChecagemAntecedentes = request.ChecagemAntecedentes;
         entity.SlaDiasMetaFechamento = request.SlaDiasMetaFechamento;
+        entity.NomeEngessado = TrimOrNull(request.NomeEngessado);
     }
 
     private void EnsureTenantOwnership(Vaga entity)
@@ -886,5 +916,25 @@ public sealed class VagaService : IVagaService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         return items.Length == 0 ? Array.Empty<string>() : items;
+    }
+
+    // ── Sprint P1: VagasDataScope enforcement ──
+
+    private IQueryable<Vaga> ApplyVagasDataScopeFilter(IQueryable<Vaga> query)
+    {
+        // Admin sees everything
+        if (_currentUser.IsAdmin)
+            return query;
+
+        return _currentUser.VagasDataScope switch
+        {
+            VagasDataScope.ByArea when _currentUser.AreaId.HasValue =>
+                query.Where(v => v.AreaId == _currentUser.AreaId.Value),
+
+            VagasDataScope.ByRecrutador when _currentUser.UserId.HasValue =>
+                query.Where(v => v.RecrutadorResponsavelUserId == _currentUser.UserId.Value),
+
+            _ => query // All or no area/userId resolved
+        };
     }
 }

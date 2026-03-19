@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 from urllib.parse import quote, unquote, urlparse, urlunparse
 
@@ -111,6 +112,17 @@ def get_db_connect_kwargs() -> dict | None:
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 TENANT_ID = os.getenv("TENANT_ID", "").strip()
+
+# --- Validação de startup (fail-fast) ---
+_REQUIRED_VARS = {"OPENAI_API_KEY": OPENAI_API_KEY, "DATABASE_URL": DATABASE_URL}
+_missing = [k for k, v in _REQUIRED_VARS.items() if not v]
+if _missing:
+    print(
+        f"[FATAL] Variáveis de ambiente obrigatórias ausentes: {_missing}. "
+        "Configure o arquivo .env ou injete via variáveis de ambiente.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 # Modelo para embeddings (bom custo/qualidade)
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")

@@ -57,6 +57,12 @@ public sealed record FuncionarioUpdateRequest(
     [MaxLength(1000)] string? Notes
 );
 
+/// <summary>Request para atualizar apenas o gestor direto e nível hierárquico de um funcionário.</summary>
+public sealed record FuncionarioHierarquiaRequest(
+    Guid? GestorDiretoId,
+    Guid? NivelHierarquicoId
+);
+
 public sealed record FuncionarioResponse(
     Guid Id,
     string Name,

@@ -6,10 +6,10 @@ export type AnyRec = Record<string, any>;
 export const BASE = "/app";
 
 export interface VagaOption { id: string; titulo: string; codigo: string; label: string; createdAtUtc?: string; }
-export interface RankItem { id: string; nome: string; email: string; score: number; pass: boolean; source?: string; obs?: string; scoreFiltros?: number; scoreRequisitos?: number; justificativa?: string; mandatoryTotal?: number; missingMandatoryCount?: number; mandatoryCoverage?: number; hardPenalty?: number; ruleVersion?: string; }
+export interface RankItem { id: string; nome: string; email: string; score: number; pass: boolean; source?: string; obs?: string; scoreFiltros?: number; scoreRequisitos?: number; justificativa?: string; mandatoryTotal?: number; missingMandatoryCount?: number; mandatoryCoverage?: number; hardPenalty?: number; ruleVersion?: string; trabalhando?: boolean | null; pretensaoSalarial?: string; linkedinUrl?: string; fone?: string; cidade?: string; uf?: string; }
 export interface VagaDetail { id: string; titulo: string; codigo: string; threshold: number; requisitos: Requisito[]; matchingFiltrosRaw?: string | null; matchingFiltrosOriginaisRaw?: string | null; }
 export interface Requisito { id: string; termo: string; peso: number; obrigatorio: boolean; sinonimos: string[]; }
-export interface CandidatoFull { id: string; nome: string; email: string; source?: string; cvText?: string; resumoProfissional?: string; documentos?: { nome?: string; fileName?: string; url?: string; link?: string }[]; updatedAt?: string; }
+export interface CandidatoFull { id: string; nome: string; email: string; source?: string; cvText?: string; resumoProfissional?: string; documentos?: { nome?: string; fileName?: string; url?: string; link?: string }[]; updatedAt?: string; linkedinUrl?: string; fone?: string; trabalhando?: boolean | null; pretensaoSalarial?: string; cidade?: string; uf?: string; }
 export interface MatchResult { score: number; pass: boolean; hits: Requisito[]; missMandatory: Requisito[]; totalPeso: number; hitPeso: number; threshold: number; }
 export type TabKey = "suggestions" | "approved" | "rejected" | "pending";
 
@@ -56,7 +56,7 @@ export function mapVagas(raw: unknown): VagaOption[] {
 }
 
 export function mapRankItem(x: AnyRec): RankItem {
-    return { id: pk(x.candidatoId ?? x.id), nome: pk(x.nome), email: pk(x.email), score: clamp(pn(x.score), 0, 100), pass: typeof x.pass === "boolean" ? x.pass : pn(x.score) >= 70, source: pk(x.source, "candidato"), scoreFiltros: pn(x.scoreFiltros), scoreRequisitos: pn(x.scoreRequisitos), justificativa: pk(x.justificativa), mandatoryTotal: pn(x.mandatoryTotal), missingMandatoryCount: pn(x.missingMandatoryCount), mandatoryCoverage: pn(x.mandatoryCoverage, 100), hardPenalty: pn(x.hardPenalty), ruleVersion: pk(x.ruleVersion) };
+    return { id: pk(x.candidatoId ?? x.id), nome: pk(x.nome), email: pk(x.email), score: clamp(pn(x.score), 0, 100), pass: typeof x.pass === "boolean" ? x.pass : pn(x.score) >= 70, source: pk(x.source, "candidato"), obs: pk(x.obs), scoreFiltros: pn(x.scoreFiltros), scoreRequisitos: pn(x.scoreRequisitos), justificativa: pk(x.justificativa), mandatoryTotal: pn(x.mandatoryTotal), missingMandatoryCount: pn(x.missingMandatoryCount), mandatoryCoverage: pn(x.mandatoryCoverage, 100), hardPenalty: pn(x.hardPenalty), ruleVersion: pk(x.ruleVersion), trabalhando: x.trabalhando ?? x.trabalhandoAtualmente ?? null, pretensaoSalarial: pk(x.pretensaoSalarial), linkedinUrl: pk(x.linkedinUrl), fone: pk(x.fone), cidade: pk(x.cidade), uf: pk(x.uf) };
 }
 
 export function mapVagaDetail(d: AnyRec): VagaDetail {

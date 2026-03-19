@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Search, CheckSquare, XCircle, Save, RefreshCw } from "lucide-react";
+import {
+    Search, CheckSquare, XCircle, Save, RefreshCw,
+    LayoutDashboard, Briefcase, Users, Calendar, BarChart3,
+    Shield, Settings, MessageSquare, ChevronDown, ChevronRight, Eye
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { ADMIN_RECRUITMENT_ROUTE_PATTERNS } from "@/features/navigation/recruitmentNavigation";
 import { apiFetch } from "@/lib/api";
 
 /* ── Types ── */
@@ -29,6 +34,52 @@ interface RoleMenuAssignment {
     permissionKey: string;
 }
 
+/* ── Module grouping ── */
+const MODULE_CONFIG: { key: string; label: string; icon: typeof LayoutDashboard; routes: string[]; color: string }[] = [
+    {
+        key: "recrutamento", label: "Recrutamento", icon: Briefcase, color: "text-blue-600",
+        routes: [...ADMIN_RECRUITMENT_ROUTE_PATTERNS],
+    },
+    {
+        key: "operacional", label: "Operacional", icon: Calendar, color: "text-amber-600",
+        routes: ["/agendas", "/entradaemailpasta", "/gestao/batida-ponto", "/gestao/comissoes"],
+    },
+    {
+        key: "gestao", label: "Gestão de Pessoas", icon: Users, color: "text-green-600",
+        routes: ["/gestao/dashboard", "/gestao/humor", "/gestao/planosdesenvolvimento", "/gestao/resumoatividades"],
+    },
+    {
+        key: "feedback", label: "Feedback", icon: MessageSquare, color: "text-purple-600",
+        routes: ["/feedback", "/feedback/pesquisas", "/feedback/celebracao", "/feedback/enviar", "/feedback/feedbacks", "/feedback/gamificacao", "/feedback/meusplanos", "/feedback/pesquisarapida", "/feedback/reunioes1a1", "/feedback/superpesquisa", "/desempenho"],
+    },
+    {
+        key: "cadastros", label: "Cadastros", icon: LayoutDashboard, color: "text-cyan-600",
+        routes: ["/cadastro/", "/cargos", "/unidades", "/funcionarios", "/categorias", "/areas", "/departamentos", "/pessoas", "/colaborador/dependentes"],
+    },
+    {
+        key: "relatorios", label: "Relatórios", icon: BarChart3, color: "text-orange-600",
+        routes: ["/relatorios"],
+    },
+    {
+        key: "admin", label: "Admin", icon: Shield, color: "text-red-600",
+        routes: ["/admin"],
+    },
+    {
+        key: "outros", label: "Outros", icon: Settings, color: "text-gray-500",
+        routes: [],
+    },
+];
+
+function getModuleKey(route: string | null): string {
+    if (!route) return "outros";
+    const r = route.toLowerCase();
+    for (const mod of MODULE_CONFIG) {
+        if (mod.key === "outros") continue;
+        if (mod.routes.some(prefix => r.includes(prefix))) return mod.key;
+    }
+    return "outros";
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, { cache: "no-store", ...init });
     if (!res.ok) {
@@ -49,6 +100,8 @@ export default function AdminAccessesScreen() {
     const [saving, setSaving] = useState(false);
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [collapsedModules, setCollapsedModules] = useState<Set<string>>(new Set());
+    const [showPreview, setShowPreview] = useState(false);
 
     const loadBase = useCallback(async () => {
         setLoading(true);
@@ -106,6 +159,31 @@ export default function AdminAccessesScreen() {
         setSelectedPermissions(new Set());
     }
 
+    // Module group toggle
+    function toggleModule(moduleKey: string) {
+        const moduleMenus = groupedMenus[moduleKey] ?? [];
+        const allSelected = moduleMenus.every(m => selectedPermissions.has(m.permissionKey!));
+        setSelectedPermissions(prev => {
+            const next = new Set(prev);
+            for (const m of moduleMenus) {
+                if (m.permissionKey) {
+                    if (allSelected) next.delete(m.permissionKey);
+                    else next.add(m.permissionKey);
+                }
+            }
+            return next;
+        });
+    }
+
+    function toggleCollapse(moduleKey: string) {
+        setCollapsedModules(prev => {
+            const next = new Set(prev);
+            if (next.has(moduleKey)) next.delete(moduleKey);
+            else next.add(moduleKey);
+            return next;
+        });
+    }
+
     async function handleSave() {
         if (!roleId) { toast.error("Selecione um perfil."); return; }
         setSaving(true);
@@ -133,20 +211,42 @@ export default function AdminAccessesScreen() {
         menus.filter(m => m.permissionKey).map(m => m.permissionKey!),
         [menus]);
 
-    const filteredMenus = useMemo(() => {
-        let list = menus.filter(m => m.permissionKey);
-        if (q.trim()) {
-            const lower = q.toLowerCase();
-            list = list.filter(m =>
-                m.displayName.toLowerCase().includes(lower) ||
-                (m.permissionKey ?? "").toLowerCase().includes(lower) ||
-                (m.route ?? "").toLowerCase().includes(lower)
-            );
+    // Group menus by module
+    const groupedMenus = useMemo(() => {
+        const groups: Record<string, MenuOption[]> = {};
+        for (const mod of MODULE_CONFIG) groups[mod.key] = [];
+        for (const m of menus) {
+            if (!m.permissionKey) continue;
+            const key = getModuleKey(m.route);
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(m);
         }
-        if (statusFilter === "selected") list = list.filter(m => selectedPermissions.has(m.permissionKey!));
-        if (statusFilter === "unselected") list = list.filter(m => !selectedPermissions.has(m.permissionKey!));
-        return list.sort((a, b) => a.order - b.order);
-    }, [menus, q, statusFilter, selectedPermissions]);
+        // Sort within each group
+        for (const key of Object.keys(groups)) {
+            groups[key].sort((a, b) => a.order - b.order);
+        }
+        return groups;
+    }, [menus]);
+
+    // Apply search + status filter per module
+    const filteredGroupedMenus = useMemo(() => {
+        const result: Record<string, MenuOption[]> = {};
+        for (const [key, items] of Object.entries(groupedMenus)) {
+            let list = items;
+            if (q.trim()) {
+                const lower = q.toLowerCase();
+                list = list.filter(m =>
+                    m.displayName.toLowerCase().includes(lower) ||
+                    (m.permissionKey ?? "").toLowerCase().includes(lower) ||
+                    (m.route ?? "").toLowerCase().includes(lower)
+                );
+            }
+            if (statusFilter === "selected") list = list.filter(m => selectedPermissions.has(m.permissionKey!));
+            if (statusFilter === "unselected") list = list.filter(m => !selectedPermissions.has(m.permissionKey!));
+            if (list.length > 0) result[key] = list;
+        }
+        return result;
+    }, [groupedMenus, q, statusFilter, selectedPermissions]);
 
     const hasChanges = useMemo(() => {
         const original = new Set(assignments.map(a => a.permissionKey));
@@ -157,12 +257,18 @@ export default function AdminAccessesScreen() {
 
     const selectedRole = roles.find(r => r.id === roleId);
 
+    // Preview: menus the user would see
+    const previewMenus = useMemo(() =>
+        menus.filter(m => m.permissionKey && selectedPermissions.has(m.permissionKey))
+            .sort((a, b) => a.order - b.order),
+        [menus, selectedPermissions]);
+
     return (
         <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h4 className="text-lg font-bold">Controle de Acessos</h4>
-                    <div className="text-muted-foreground text-sm">Atribua menus e permissões para um perfil.</div>
+                    <div className="text-muted-foreground text-sm">Atribua menus e permissões para um perfil, organizados por módulo.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     {roleId && (
@@ -172,6 +278,9 @@ export default function AdminAccessesScreen() {
                             </Button>
                             <Button variant="ghost" size="sm" onClick={clearAll}>
                                 <XCircle className="size-4" /><span className="hidden sm:inline ml-1">Limpar</span>
+                            </Button>
+                            <Button variant={showPreview ? "default" : "outline"} size="sm" onClick={() => setShowPreview(p => !p)}>
+                                <Eye className="size-4 mr-1" />Preview
                             </Button>
                         </>
                     )}
@@ -192,8 +301,8 @@ export default function AdminAccessesScreen() {
                     <div className="mt-1 text-2xl font-bold text-primary">{roles.length}</div>
                 </div>
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Custom</div>
-                    <div className="mt-1 text-2xl font-bold text-amber-600">{roles.filter(r => !r.isSystem).length}</div>
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Módulos</div>
+                    <div className="mt-1 text-2xl font-bold text-amber-600">{Object.keys(filteredGroupedMenus).length}</div>
                 </div>
             </div>
 
@@ -228,69 +337,126 @@ export default function AdminAccessesScreen() {
                 </div>
             </div>
 
-            {/* Permission grid */}
-            {!roleId ? (
-                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-8 backdrop-blur text-center text-muted-foreground">
-                    Selecione um perfil para carregar as permissões.
-                </div>
-            ) : loadingAssignments ? (
-                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-8 backdrop-blur text-center text-muted-foreground">
-                    Carregando permissões...
-                </div>
-            ) : (
-                <>
-                    <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                        <div className="mb-3 flex items-center justify-between">
-                            <div className="font-semibold">
-                                Permissões de <span className="text-primary">{selectedRole?.name}</span>
-                            </div>
-                            {hasChanges && (
-                                <span className="text-xs text-amber-600 font-medium">● Alterações não salvas</span>
-                            )}
+            {/* Main content area */}
+            <div className={`grid gap-4 ${showPreview ? "grid-cols-1 lg:grid-cols-[1fr_280px]" : ""}`}>
+                {/* Permission grid by module */}
+                <div className="space-y-3">
+                    {!roleId ? (
+                        <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-8 backdrop-blur text-center text-muted-foreground">
+                            Selecione um perfil para carregar as permissões.
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {filteredMenus.map((m) => {
-                                const checked = selectedPermissions.has(m.permissionKey!);
+                    ) : loadingAssignments ? (
+                        <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-8 backdrop-blur text-center text-muted-foreground">
+                            Carregando permissões...
+                        </div>
+                    ) : (
+                        <>
+                            {MODULE_CONFIG.filter(mod => filteredGroupedMenus[mod.key]).map(mod => {
+                                const items = filteredGroupedMenus[mod.key];
+                                const allModSelected = items.every(m => selectedPermissions.has(m.permissionKey!));
+                                const someModSelected = items.some(m => selectedPermissions.has(m.permissionKey!));
+                                const isCollapsed = collapsedModules.has(mod.key);
+                                const Icon = mod.icon;
+
                                 return (
-                                    <label
-                                        key={m.id}
-                                        className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${checked ? "bg-primary/5 border-primary/30" : "border-border/40 hover:bg-muted/30"}`}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={checked}
-                                            onChange={() => togglePermission(m.permissionKey!)}
-                                            className="mt-0.5 rounded border-input"
-                                        />
-                                        <div className="min-w-0 flex-1">
-                                            <div className="font-medium text-sm truncate">
-                                                {m.parentId && <span className="text-muted-foreground mr-1">└</span>}
-                                                {m.displayName}
+                                    <div key={mod.key} className="card-soft rounded-xl border border-border/40 bg-card/60 backdrop-blur overflow-hidden">
+                                        {/* Module Header */}
+                                        <div
+                                            className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                                            onClick={() => toggleCollapse(mod.key)}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                {isCollapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                                                <Icon className={`size-4 ${mod.color}`} />
+                                                <span className="font-semibold text-sm">{mod.label}</span>
+                                                <span className="text-xs text-muted-foreground ml-1">
+                                                    ({items.filter(m => selectedPermissions.has(m.permissionKey!)).length}/{items.length})
+                                                </span>
                                             </div>
-                                            <div className="text-xs text-muted-foreground truncate">
-                                                <code>{m.permissionKey}</code>
-                                            </div>
-                                            {m.route && (
-                                                <div className="text-xs text-muted-foreground/60 truncate">{m.route}</div>
-                                            )}
+                                            <Button
+                                                variant={allModSelected ? "default" : someModSelected ? "secondary" : "outline"}
+                                                size="sm"
+                                                className="text-xs h-7"
+                                                onClick={(e) => { e.stopPropagation(); toggleModule(mod.key); }}
+                                            >
+                                                {allModSelected ? "Desmarcar Módulo" : "Selecionar Módulo"}
+                                            </Button>
                                         </div>
-                                    </label>
+
+                                        {/* Module Items */}
+                                        {!isCollapsed && (
+                                            <div className="px-4 pb-4">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                    {items.map((m) => {
+                                                        const checked = selectedPermissions.has(m.permissionKey!);
+                                                        return (
+                                                            <label
+                                                                key={m.id}
+                                                                className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${checked ? "bg-primary/5 border-primary/30" : "border-border/40 hover:bg-muted/30"}`}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={() => togglePermission(m.permissionKey!)}
+                                                                    className="mt-0.5 rounded border-input"
+                                                                />
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="font-medium text-sm truncate">
+                                                                        {m.displayName}
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground truncate">
+                                                                        <code>{m.permissionKey}</code>
+                                                                    </div>
+                                                                </div>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 );
                             })}
-                        </div>
-                        {filteredMenus.length === 0 && (
-                            <div className="text-center text-muted-foreground py-6">Nenhuma permissão encontrada.</div>
-                        )}
-                    </div>
 
-                    <div className="flex justify-end">
-                        <Button onClick={() => void handleSave()} disabled={saving || !hasChanges} className="min-w-[150px]">
-                            <Save className="size-4 mr-1" />
-                            {saving ? "Salvando..." : "Salvar Permissões"}
-                        </Button>
+                            <div className="flex justify-end">
+                                <Button onClick={() => void handleSave()} disabled={saving || !hasChanges} className="min-w-[150px]">
+                                    <Save className="size-4 mr-1" />
+                                    {saving ? "Salvando..." : "Salvar Permissões"}
+                                </Button>
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Sidebar Preview */}
+                {showPreview && roleId && !loadingAssignments && (
+                    <div className="card-soft rounded-xl border border-border/40 bg-card/60 backdrop-blur p-4 h-fit sticky top-4">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Eye className="size-4 text-muted-foreground" />
+                            <span className="text-sm font-semibold">Preview da Sidebar</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mb-2">
+                            Como <span className="font-medium text-primary">{selectedRole?.name}</span> verá:
+                        </div>
+                        <div className="space-y-1 max-h-[60vh] overflow-y-auto">
+                            {previewMenus.length === 0 ? (
+                                <div className="text-xs text-muted-foreground py-4 text-center">Nenhum menu selecionado</div>
+                            ) : previewMenus.map(m => (
+                                <div
+                                    key={m.id}
+                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/30 transition-colors"
+                                >
+                                    <div className="size-1.5 rounded-full bg-primary/50" />
+                                    <span className="truncate">{m.displayName}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-3 pt-2 border-t border-border/30 text-xs text-muted-foreground text-center">
+                            {previewMenus.length} itens visíveis
+                        </div>
                     </div>
-                </>
-            )}
+                )}
+            </div>
         </section>
     );
 }

@@ -290,17 +290,19 @@ export default function TopbarClient({
                   )}
 
                   {/* My profile */}
-                  <DropdownMenuItem disabled>
-                    <User className="size-4 mr-2" />
-                    Meu perfil
+                  <DropdownMenuItem asChild>
+                    <Link href="/colaborador/perfil">
+                      <User className="size-4 mr-2" />
+                      Meu perfil
+                    </Link>
                   </DropdownMenuItem>
 
                   {/* Portal de Vagas */}
                   <DropdownMenuItem asChild>
-                    <a href={`${process.env.NEXT_PUBLIC_PORTAL_ORIGIN || ""}/PortalVagas`} target="_blank" rel="noopener">
+                    <Link href="/PortalVagas">
                       <Globe className="size-4 mr-2" />
                       Portal de Vagas
-                    </a>
+                    </Link>
                   </DropdownMenuItem>
 
                   {/* Resetar base (DEV) */}

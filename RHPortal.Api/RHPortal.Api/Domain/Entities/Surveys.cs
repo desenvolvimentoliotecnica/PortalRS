@@ -7,7 +7,7 @@ namespace RhPortal.Api.Domain.Entities;
 public sealed class Survey : ITenantEntity
 {
     public Guid Id { get; set; }
-    public string? TenantId { get; set; }
+    public string TenantId { get; set; } = null!;
     public string Title { get; set; } = null!;
     public string? Type { get; set; } // e.g. Rapida, Super, Engajamento
     public DateTimeOffset? StartAtUtc { get; set; }
@@ -24,7 +24,7 @@ public sealed class Survey : ITenantEntity
 public sealed class SurveyQuestion : ITenantEntity
 {
     public Guid Id { get; set; }
-    public string? TenantId { get; set; }
+    public string TenantId { get; set; } = null!;
     public Guid SurveyId { get; set; }
     public Survey? Survey { get; set; }
     public string Text { get; set; } = null!;
@@ -36,7 +36,7 @@ public sealed class SurveyQuestion : ITenantEntity
 public sealed class SurveyOption : ITenantEntity
 {
     public Guid Id { get; set; }
-    public string? TenantId { get; set; }
+    public string TenantId { get; set; } = null!;
     public Guid QuestionId { get; set; }
     public SurveyQuestion? Question { get; set; }
     public string Text { get; set; } = null!;
@@ -46,7 +46,7 @@ public sealed class SurveyOption : ITenantEntity
 public sealed class SurveyResponse : ITenantEntity
 {
     public Guid Id { get; set; }
-    public string? TenantId { get; set; }
+    public string TenantId { get; set; } = null!;
     public Guid SurveyId { get; set; }
     public Survey? Survey { get; set; }
     public Guid UserId { get; set; }
@@ -57,7 +57,7 @@ public sealed class SurveyResponse : ITenantEntity
 public sealed class SurveyAnswer : ITenantEntity
 {
     public Guid Id { get; set; }
-    public string? TenantId { get; set; }
+    public string TenantId { get; set; } = null!;
     public Guid ResponseId { get; set; }
     public SurveyResponse? Response { get; set; }
     public Guid QuestionId { get; set; }

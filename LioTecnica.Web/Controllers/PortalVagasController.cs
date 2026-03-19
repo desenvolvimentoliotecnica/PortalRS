@@ -190,7 +190,8 @@ public sealed class PortalVagasController : Controller
             input.Cidade.Trim(),
             input.Uf.Trim().ToUpperInvariant(),
             string.IsNullOrWhiteSpace(input.LinkedinUrl) ? null : input.LinkedinUrl.Trim(),
-            string.IsNullOrWhiteSpace(input.ResumoProfissional) ? null : input.ResumoProfissional.Trim());
+            string.IsNullOrWhiteSpace(input.ResumoProfissional) ? null : input.ResumoProfissional.Trim(),
+            input.TrabalhandoAtualmente);
 
         var result = await _portalCandidatesApi.UpdateProfileAsync(tenantId, candidateId, request, ct);
         if (!result.Success || result.Data is null)

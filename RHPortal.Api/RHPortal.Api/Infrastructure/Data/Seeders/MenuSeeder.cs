@@ -29,15 +29,27 @@ public static class MenuSeeder
         var updated = false;
         foreach (var menu in menus)
         {
-            if (string.IsNullOrWhiteSpace(menu.DisplayNameKey))
+            if (!menuByKey.TryGetValue(menu.PermissionKey, out var existing))
                 continue;
 
-            if (menuByKey.TryGetValue(menu.PermissionKey, out var existing)
-                && string.IsNullOrWhiteSpace(existing.DisplayNameKey))
-            {
-                existing.DisplayNameKey = menu.DisplayNameKey;
-                updated = true;
-            }
+            var displayChanged = existing.DisplayNameKey != menu.DisplayNameKey || existing.DisplayName != menu.DisplayName;
+            var structureChanged = existing.Route != menu.Route
+                || existing.Icon != menu.Icon
+                || existing.Order != menu.Order
+                || existing.OpenInNewTab != menu.OpenInNewTab
+                || existing.IsActive != menu.IsActive;
+
+            if (!displayChanged && !structureChanged)
+                continue;
+
+            existing.DisplayNameKey = menu.DisplayNameKey;
+            existing.DisplayName = menu.DisplayName;
+            existing.Route = menu.Route;
+            existing.Icon = menu.Icon;
+            existing.Order = menu.Order;
+            existing.OpenInNewTab = menu.OpenInNewTab;
+            existing.IsActive = menu.IsActive;
+            updated = true;
         }
 
         if (updated)
@@ -210,10 +222,16 @@ public static class MenuSeeder
         // Outros menus existentes (mantidos)
         ("/Agendas", "bi-calendar-event", 2, "agenda.view", false, "Seed.Menu.Agenda", null),
         ("/Vagas", "bi-briefcase", 3, "vagas.view", false, "Seed.Menu.Vagas", null),
-        ("/Candidatos", "bi-people", 4, "candidatos.view", false, "Seed.Menu.Candidatos", null),
-        ("/Talentos", "bi-person-plus", 6, "talentos.view", false, "Seed.Menu.Talentos", null),
-        ("/Triagem", "bi-funnel", 7, "triagem.view", false, "Seed.Menu.Triagem", null),
-        ("/Matching", "bi-stars", 8, "matching.view", false, "Seed.Menu.Matching", null),
+        ("/Gestao/Solicitacoes", "clipboardlist", 4, "solicitacoes-vaga.view", false, "Seed.Menu.SolicitacoesVaga", null),
+        ("/Gestao/Aprovacoes", "listchecks", 5, "aprovacoes-vaga.view", false, "Seed.Menu.Aprovacoes", null),
+        ("/PortalVagas", "globe", 6, "portalvagas.view", false, "Seed.Menu.PortalVagas", null),
+        ("/Talentos", "bi-person-plus", 7, "talentos.view", false, "Seed.Menu.Talentos", null),
+        ("/Candidatos", "bi-people", 8, "candidatos.view", false, "Seed.Menu.Candidatos", null),
+        ("/Matching", "bi-stars", 9, "matching.view", false, "Seed.Menu.Matching", null),
+        ("/Gestao/Projetos", "clipboardlist", 10, "projetos.view", false, "Seed.Menu.Rodadas", null),
+        ("/Gestao/Processo-Seletivo", "listchecks", 11, "processo-seletivo.view", false, "Seed.Menu.ProcessoSeletivo", null),
+        ("/Triagem", "bi-funnel", 12, "triagem.view", false, "Seed.Menu.Triagem", null),
+        ("/Admissao", "usercheck", 13, "admissao.view", false, "Seed.Menu.Admissao", null),
         ("/EntradaEmailPasta", "bi-inbox", 60, "entrada.view", false, "Seed.Menu.Entrada", null),
         ("/Relatorios", "bi-graph-up", 70, "relatorios.view", false, "Seed.Menu.Relatorios", null),
         ("/Departamentos", "bi-diagram-2", 80, "departments.view", false, "Seed.Menu.Departamentos", null),
@@ -234,7 +252,10 @@ public static class MenuSeeder
         ("/Admin/EmailConfig", "bi-gear", 98, "email-config.manage", false, "Seed.Menu.ConfigEmail", null),
         ("/Admin/EntraIdConfig", "bi-microsoft", 99, "entra-config.manage", false, "Seed.Menu.ConfigEntraId", null),
         ("/Admin/ApiKeys", "bi-key-fill", 100, "api-keys.manage", false, "Seed.Menu.ApiKeys", null),
-        ("/Admin/LocalizationConfig", "bi-translate", 101, "localization-config.manage", false, "Seed.Menu.Idioma", null)
+        ("/Admin/LocalizationConfig", "bi-translate", 101, "localization-config.manage", false, "Seed.Menu.Idioma", null),
+        ("/Admin/Gestores", "bi-people", 102, "admin.gestores.manage", false, "Seed.Menu.GestoresHierarquia", null),
+        ("/Admin/RegrasAprovacaoVaga", "bi-check2-square", 103, "admin.regras-aprovacao.manage", false, "Seed.Menu.RegrasAprovacao", null),
+        ("/Admin/Hierarquia", "bi-diagram-2", 104, "admin.hierarquia.manage", false, "Seed.Menu.NiveisHierarquicos", null)
     ];
 
     private static List<Menu> BuildDefaultMenus(IStringLocalizer<SeedMessages> localizer)

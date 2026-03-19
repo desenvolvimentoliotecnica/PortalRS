@@ -9,7 +9,6 @@ using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Contracts.Portal;
-using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Notifications;
@@ -127,8 +126,11 @@ public sealed class PublicCandidaturasController : ControllerBase
                     existing.Fone,
                     existing.Cidade,
                     existing.Uf,
+                    existing.LinkedinUrl,
                     existing.Fonte,
                     existing.Status,
+                    existing.TrabalhandoAtualmente,
+                    existing.PretensaoSalarial,
                     existing.VagaId,
                     existing.Vaga?.Codigo,
                     existing.Vaga?.Titulo,
@@ -179,9 +181,12 @@ public sealed class PublicCandidaturasController : ControllerBase
                     request.Fone,
                     cidade,
                     uf,
+                    null,                   // LinkedinUrl
                     CandidateOrigin.Site,
                     CandidateStatus.Novo,
                     request.VagaId,
+                    null,                   // TrabalhandoAtualmente
+                    null,                   // PretensaoSalarial
                     obs,
                     null,
                     null,

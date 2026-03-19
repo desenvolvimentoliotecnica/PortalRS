@@ -85,6 +85,7 @@ type VagaDraft = {
   descricaoPublica: string;
   lgpdConsentimento: boolean; lgpdCompartilhamento: boolean; lgpdRetencao: boolean; lgpdRetencaoMeses: string;
   exigeCnh: boolean; disponibilidadeViagens: boolean; checagemAntecedentes: boolean;
+  nomeEngessado: string;
 };
 
 function emptyDraft(): VagaDraft {
@@ -125,6 +126,7 @@ function emptyDraft(): VagaDraft {
     descricaoPublica: "",
     lgpdConsentimento: false, lgpdCompartilhamento: false, lgpdRetencao: false, lgpdRetencaoMeses: "",
     exigeCnh: false, disponibilidadeViagens: false, checagemAntecedentes: false,
+    nomeEngessado: "",
   };
 }
 
@@ -145,6 +147,65 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 function asRec(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+/* ── CandidatosTab ────────────────────────────────────────────────────── */
+
+type CandidatoItem = { id: string; nome: string; email?: string; status?: string; score?: number };
+
+function CandidatosTab({ vagaId }: { vagaId: string }) {
+  const [loading, setLoading] = useState(true);
+  const [candidatos, setCandidatos] = useState<CandidatoItem[]>([]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchJson<unknown>(`${BASE}/api/candidatos?vagaId=${encodeURIComponent(vagaId)}&pageSize=200`)
+      .then((data) => {
+        const arr = Array.isArray(data) ? data
+          : Array.isArray(asRec(data)?.items) ? (asRec(data)?.items as unknown[]) : [];
+        setCandidatos(arr.map((x) => {
+          const r = asRec(x) ?? {};
+          return {
+            id: String(r.id ?? ""),
+            nome: String(r.nome ?? "Candidato"),
+            email: r.email ? String(r.email) : undefined,
+            status: r.status ? String(r.status) : undefined,
+            score: typeof r.score === "number" ? r.score : undefined,
+          };
+        }).filter((c) => c.id));
+      })
+      .catch(() => setCandidatos([]))
+      .finally(() => setLoading(false));
+  }, [vagaId]);
+
+  if (loading) return (
+    <div className="space-y-2">
+      {[1, 2, 3].map((i) => <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" />)}
+    </div>
+  );
+
+  if (candidatos.length === 0) return (
+    <div className="rounded-xl border border-border/50 bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+      Nenhum candidato cadastrado para esta vaga.
+    </div>
+  );
+
+  return (
+    <div className="rounded-xl border border-border/50 overflow-hidden">
+      {candidatos.map((c) => (
+        <div key={c.id} className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 last:border-0 hover:bg-muted/40 text-sm">
+          <div>
+            <div className="font-medium">{c.nome}</div>
+            {c.email && <div className="text-xs text-muted-foreground">{c.email}</div>}
+          </div>
+          <div className="flex items-center gap-2">
+            {c.score != null && <span className="text-xs font-mono text-muted-foreground">{c.score}%</span>}
+            {c.status && <span className="rounded-full px-2 py-0.5 text-xs bg-muted border border-border text-muted-foreground">{c.status}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function enumOpts(data: EnumData, key: string, placeholder?: string): EnumOption[] {
@@ -304,6 +365,7 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     exigeCnh: d.exigeCnh,
     disponibilidadeParaViagens: d.disponibilidadeViagens,
     checagemAntecedentes: d.checagemAntecedentes,
+    nomeEngessado: emptyToNull(d.nomeEngessado),
     beneficios: d.beneficios.filter((b) => b.tipo).map((b, i) => ({
       ordem: i + 1, tipo: b.tipo, valor: b.valor ? Number(b.valor.replace(",", ".")) || null : null,
       recorrencia: b.recorrencia || "mensal", obrigatorio: b.obrigatorio, observacoes: emptyToNull(b.obs),
@@ -415,10 +477,10 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
     setCopySearch("");
 
     void Promise.all([
-      fetchJson<unknown>(`${BASE}/api/lookup/enums`),
-      fetchJson<unknown>(`${BASE}/api/lookup/areas`),
+      fetchJson<unknown>(`${BASE}/api/lookup/enums`).catch(() => null),
+      fetchJson<unknown>(`${BASE}/api/lookup/areas`).catch(() => []),
       fetchJson<unknown>(`${BASE}/api/lookup/departments`).catch(() => []),
-      fetchJson<unknown>(`${BASE}/api/vagas`),
+      fetchJson<unknown>(`${BASE}/api/vagas`).catch(() => []),
     ]).then(([enumsRaw, areasRaw, deptsRaw, vagasRaw]) => {
       const eData: EnumData = {};
       if (enumsRaw && typeof enumsRaw === "object") {
@@ -515,6 +577,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
         lgpdRetencaoMeses: v.lgpdRetencaoMeses != null ? String(v.lgpdRetencaoMeses) : "",
         exigeCnh: pickBool(v.exigeCnh), disponibilidadeViagens: pickBool(v.disponibilidadeParaViagens),
         checagemAntecedentes: pickBool(v.checagemAntecedentes),
+        nomeEngessado: pick(v.nomeEngessado),
       });
     } catch { toast.error("Falha ao carregar dados da vaga."); }
   }
@@ -610,6 +673,16 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
               <div className="col-span-12 mt-1"><div className="fw-semibold">Identificação e contexto</div></div>
               <Field label="Código" span="col-span-12 md:col-span-4"><input className="form-control" placeholder="Ex.: MKT-JR-001" value={draft.codigo} onChange={(e) => set("codigo", e.target.value)} /></Field>
               <Field label="Título" required span="col-span-12 md:col-span-8"><input className="form-control" placeholder="Ex.: Analista de Marketing Jr" value={draft.titulo} onChange={(e) => set("titulo", e.target.value)} /></Field>
+              <Field label="Nome Interno (Engessado)" span="col-span-12 md:col-span-8">
+                <input
+                  className="form-control"
+                  placeholder="Ex.: Analista de TI Sênior"
+                  value={draft.nomeEngessado}
+                  onChange={(e) => set("nomeEngessado", e.target.value)}
+                  maxLength={200}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Nome fixo para uso interno (referência de cargo).</p>
+              </Field>
               <Field label="Departamento"><EnumSelect value={draft.departmentId} onChange={(v) => set("departmentId", v)} options={depts.map((d) => ({ code: d.id, text: d.name }))} placeholder="Selecionar departamento" /></Field>
               <Field label="Área/Time"><EnumSelect value={draft.areaTime} onChange={(v) => set("areaTime", v)} options={enumOpts(enums, "vagaAreaTime", "Selecionar")} /></Field>
               <Field label="Área" required><EnumSelect value={draft.areaId} onChange={(v) => set("areaId", v)} options={areas.map((a) => ({ code: a.id, text: a.name }))} placeholder="Selecionar área" /></Field>
@@ -865,10 +938,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
           {/* ── Candidatos ───────────────────────────────────────── */}
           {tab === "candidatos" && (
             <div className="mt-2">
-              {draft.id ? (
-                <div className="text-muted-foreground text-sm">A lista de candidatos vinculados está disponível na tela de Vagas → Detalhes → aba Candidatos.</div>
+              {!draft.id ? (
+                <div className="rounded-xl border border-border/50 bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+                  Salve a vaga primeiro para ver candidatos vinculados.
+                </div>
               ) : (
-                <div className="text-muted-foreground text-sm">Salve a vaga primeiro para vincular candidatos.</div>
+                <CandidatosTab vagaId={draft.id} />
               )}
             </div>
           )}
@@ -876,8 +951,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 p-4 border-t border-black/10 shrink-0">
-          <button className="btn-ghost" type="button" onClick={onClose}>Cancelar</button>
-          <button className="btn-brand" type="button" disabled={saving} onClick={() => void handleSave()}>
+          <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors" type="button" onClick={onClose}>Cancelar</button>
+          <button className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:pointer-events-none" type="button" disabled={saving} onClick={() => void handleSave()}>
             {saving ? "Salvando..." : "Salvar vaga"}
           </button>
         </div>

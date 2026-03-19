@@ -30,7 +30,13 @@ function safeRemove(key: string) {
 
 export function getAccessToken(): string | null {
   const v = safeGet(ACCESS_TOKEN_KEY);
-  return v && v.trim() ? v : null;
+  if (!v?.trim()) return null;
+  // Evict expired tokens proactively so callers never get stale credentials.
+  if (isJwtExpired(v)) {
+    safeRemove(ACCESS_TOKEN_KEY);
+    return null;
+  }
+  return v;
 }
 
 export function setAccessToken(token: string) {
@@ -68,6 +74,20 @@ function base64UrlDecode(input: string): string {
   const base64 = (input + pad).replace(/-/g, "+").replace(/_/g, "/");
   // atob expects base64, but may throw
   return atob(base64);
+}
+
+/** Returns true if the JWT has an `exp` claim and it is in the past. */
+function isJwtExpired(token: string): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return true;
+    const payload = JSON.parse(base64UrlDecode(parts[1])) as Record<string, unknown>;
+    const exp = payload.exp;
+    if (typeof exp !== "number") return false; // no exp claim → treat as valid
+    return Date.now() / 1000 > exp;
+  } catch {
+    return true; // malformed token → treat as expired
+  }
 }
 
 export function tryGetTenantIdFromJwt(token: string): string | null {

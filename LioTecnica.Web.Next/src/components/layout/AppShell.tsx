@@ -4,9 +4,10 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
+import { buildTenantExtraNavItems, collectNavRouteKeys, NAV_MENU_CACHE_KEY, toNavRouteKey } from "@/features/navigation/recruitmentNavigation";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
-import type { BffNavItem } from "@/lib/schemas/bff";
+import type { BffMe, BffNavItem } from "@/lib/schemas/bff";
 import { ApiMenuForCurrentUserSchema, type ApiMenuForCurrentUser } from "@/lib/schemas/api";
 
 /* Owner-only synthetic menu items (not stored in the DB) */
@@ -14,6 +15,12 @@ const OWNER_NAV_ITEMS: BffNavItem[] = [
   { id: "__owner_tenants", label: "Tenants", href: "/Owner/Tenants", icon: "building2", openInNewTab: false, children: [] },
   { id: "__owner_ia", label: "IA", href: "/Owner/IA", icon: "brain", openInNewTab: false, children: [] },
 ];
+
+function mergeTenantExtras(tree: BffNavItem[], me: BffMe): BffNavItem[] {
+  const existingKeys = collectNavRouteKeys(tree);
+  const extras = buildTenantExtraNavItems(me).filter((item) => !existingKeys.has(toNavRouteKey(item.href)));
+  return [...tree, ...extras];
+}
 
 function AppShellInner({ children }: { children: ReactNode }) {
   const { me } = useAuth();
@@ -103,13 +110,14 @@ function AppShellInner({ children }: { children: ReactNode }) {
     if (!me) return;
 
     // ── Instant render from sessionStorage cache ──
-    const CACHE_KEY = "renderrh.nav.menus";
+    const CACHE_KEY = NAV_MENU_CACHE_KEY;
     try {
       const cached = sessionStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached) as ApiMenuForCurrentUser[];
         if (Array.isArray(parsed) && parsed.length > 0 && !cancelled) {
-          setNavItems(buildTree(parsed));
+          const tree = buildTree(parsed);
+          setNavItems(mergeTenantExtras(tree, me));
         }
       }
     } catch { /* ignore corrupt cache */ }
@@ -126,7 +134,8 @@ function AppShellInner({ children }: { children: ReactNode }) {
           .filter((r): r is { success: true; data: ApiMenuForCurrentUser } => r.success)
           .map((r) => r.data);
         if (!cancelled) {
-          setNavItems(buildTree(parsed as any));
+          const tree = buildTree(parsed as any);
+          setNavItems(mergeTenantExtras(tree, me));
           try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(parsed)); } catch { }
         }
       } catch {

@@ -1,8 +1,10 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export",
-  reactStrictMode: true,
+  // StrictMode em dev causa double-render de todos os componentes (consumo extra de RAM/CPU).
+  // Reabilite antes de build de produção para pegar efeitos colaterais.
+  reactStrictMode: process.env.NODE_ENV === "production",
 
   /**
    * We mount the Next app under `/app` to coexist with the ASP.NET MVC legacy
@@ -10,8 +12,34 @@ const nextConfig: NextConfig = {
    */
   basePath: "/app",
 
+  /**
+   * Pin Turbopack's workspace root to THIS directory so it doesn't pick up
+   * a stray package-lock.json higher in the filesystem (e.g. C:\Users\davio).
+   * Without this, the first request to any route may return 404 while
+   * Turbopack resolves modules from the wrong root.
+   */
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
+
   images: {
-    unoptimized: true, // Required for static export
+    unoptimized: false,
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 3600,
+  },
+
+  compress: true,
+
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-tabs",
+      "@tanstack/react-query",
+    ],
   },
 
   async rewrites() {

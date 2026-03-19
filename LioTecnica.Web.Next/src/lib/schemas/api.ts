@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const scopeValueSchema = z.union([z.number().int(), z.string()]);
+
 export const ApiLoginResponseSchema = z.object({
   accessToken: z.string(),
   accessTokenExpirationMinutes: z.number().int().nonnegative(),
@@ -11,8 +13,8 @@ export const ApiLoginResponseSchema = z.object({
   permissions: z.array(z.string()),
   funcionarioId: z.string().nullable().optional(),
   areaId: z.string().nullable().optional(),
-  visibilityScope: z.number().int().optional(),
-  vagasDataScope: z.number().int().optional(),
+  visibilityScope: scopeValueSchema.optional(),
+  vagasDataScope: scopeValueSchema.optional(),
   isReadOnly: z.boolean().optional(),
 });
 
@@ -38,8 +40,8 @@ export const ApiCurrentUserSchema = z.object({
   permissions: z.array(z.string()),
   funcionarioId: z.string().nullable().optional(),
   areaId: z.string().nullable().optional(),
-  visibilityScope: z.number().int().optional(),
-  vagasDataScope: z.number().int().optional(),
+  visibilityScope: scopeValueSchema.optional(),
+  vagasDataScope: scopeValueSchema.optional(),
   isReadOnly: z.boolean().optional(),
 });
 

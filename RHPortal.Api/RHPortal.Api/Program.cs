@@ -1,8 +1,12 @@
+using System.IO.Compression;
 using System.Security.Claims;
 using System.Text;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -23,6 +27,15 @@ using RhPortal.Api.Application.JobPositions;
 using RhPortal.Api.Application.JobPositions.Handlers;
 using RhPortal.Api.Application.Funcionarios;
 using RhPortal.Api.Application.Funcionarios.Handlers;
+using RhPortal.Api.Application.SolicitacoesVaga;
+using RhPortal.Api.Application.Hierarquia;
+using RhPortal.Api.Application.ProjetosVaga;
+using RhPortal.Api.Application.FasesProcesso;
+using RhPortal.Api.Application.CamposPersonalizados;
+using RhPortal.Api.Application.Comunicacao;
+using RhPortal.Api.Application.AprovacoesFaixa;
+using RhPortal.Api.Application.Colaborador;
+using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Application.Menus;
 using RhPortal.Api.Application.Portal;
 using RhPortal.Api.Application.Roles;
@@ -67,6 +80,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<DevelopmentExceptionDetailHandler>();
+
+// Response Compression (Brotli + Gzip)
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat([
+        "application/json", "text/json", "application/problem+json"
+    ]);
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Optimal);
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
@@ -91,6 +117,27 @@ builder.Services
 });
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddMemoryCache();
+builder.Services.AddOutputCache(options =>
+{
+    options.AddPolicy("lookup", b => b
+        .Expire(TimeSpan.FromMinutes(5))
+        .VaryByValue(ctx => new KeyValuePair<string, string>(
+            "tenant", ctx.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "")));
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }
+        ));
+    options.OnRejected = async (ctx, ct) =>
+    {
+        ctx.HttpContext.Response.StatusCode = 429;
+        await ctx.HttpContext.Response.WriteAsJsonAsync(new { error = "Too Many Requests" }, ct);
+    };
+});
 builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
 builder.Services.AddCors(options =>
@@ -208,17 +255,25 @@ builder.Services.AddHostedService<EmailDispatchWorker>();
 builder.Services.AddHostedService<CvImportWorker>();
 
 // PostgreSQL + EF Core
-builder.Services.AddDbContext<MasterDbContext>(options =>
+builder.Services.AddDbContextPool<MasterDbContext>(options =>
 {
     var conn = builder.Configuration.GetConnectionString("Master")
         ?? builder.Configuration.GetConnectionString("Default");
-    options.UseNpgsql(conn);
-});
+    options.UseNpgsql(conn, npgsql =>
+    {
+        npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
+        npgsql.CommandTimeout(30);
+    });
+}, poolSize: 32);
 builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 {
     var resolver = sp.GetRequiredService<ITenantConnectionResolver>();
     var conn = resolver.GetConnectionString();
-    options.UseNpgsql(conn);
+    options.UseNpgsql(conn, npgsql =>
+    {
+        npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
+        npgsql.CommandTimeout(30);
+    });
     options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
 });
 
@@ -246,20 +301,26 @@ var rhAiBaseUrl = builder.Configuration[$"{RhAiOptions.SectionName}:BaseUrl"]?.T
 if (!string.IsNullOrEmpty(rhAiBaseUrl))
 {
     var baseUri = new Uri(rhAiBaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
-    builder.Services.AddHttpClient<IRHPortalAiMatchClient, RHPortalAiMatchClient>(client =>
-    {
-        client.BaseAddress = baseUri;
-        client.Timeout = TimeSpan.FromSeconds(180);
-    });
+    builder.Services
+        .AddHttpClient<IRHPortalAiMatchClient, RHPortalAiMatchClient>(client =>
+        {
+            client.BaseAddress = baseUri;
+            client.Timeout = TimeSpan.FromSeconds(180);
+        })
+        .AddStandardResilienceHandler(options =>
+        {
+            options.Retry.MaxRetryAttempts = 3;
+            options.Retry.Delay = TimeSpan.FromSeconds(2);
+            options.CircuitBreaker.FailureRatio = 0.5;
+            options.CircuitBreaker.MinimumThroughput = 5;
+            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(120);
+        });
 }
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
 if (jwtOptions is null || string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
-{
-    using var tempProvider = builder.Services.BuildServiceProvider();
-    var localizer = tempProvider.GetRequiredService<IStringLocalizer<InfrastructureMessages>>();
-    throw new InvalidOperationException(localizer["InfrastructureErrors.JwtSettingsRequired"]);
-}
+    throw new InvalidOperationException("[FATAL] Configuração JWT ausente. Defina 'Jwt:Secret' no appsettings ou variáveis de ambiente antes de iniciar a aplicação.");
 
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
@@ -335,6 +396,16 @@ builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
+builder.Services.AddScoped<ISolicitacaoVagaService, SolicitacaoVagaService>();
+builder.Services.AddScoped<INivelHierarquicoService, NivelHierarquicoService>();
+builder.Services.AddScoped<IProjetoVagaService, ProjetoVagaService>();
+builder.Services.AddScoped<IFaseProcessoService, FaseProcessoService>();
+builder.Services.AddScoped<ICampoPersonalizadoService, CampoPersonalizadoService>();
+builder.Services.AddScoped<IComunicacaoService, ComunicacaoService>();
+builder.Services.AddScoped<IAprovacaoFaixaService, AprovacaoFaixaService>();
+builder.Services.AddScoped<IRegraAprovacaoVagaService, RegraAprovacaoVagaService>();
+builder.Services.AddScoped<IColaboradorService, ColaboradorService>();
+builder.Services.AddScoped<IPreAdmissaoService, PreAdmissaoService>();
 builder.Services.AddScoped<IVagaService, VagaService>();
 builder.Services.AddScoped<ICandidatoService, CandidatoService>();
 builder.Services.AddScoped<IPessoaService, PessoaService>();
@@ -419,27 +490,32 @@ if (runMigrateOnly)
 
 var localizationOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>();
 
-// Swagger enabled always (for QA/staging debugging; disable in prod via reverse proxy if needed)
-app.UseSwagger();
-app.UseSwaggerUI(c =>
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "RHPortal API v1");
-    c.DocumentTitle = "RHPortal API — Swagger";
-    c.ConfigObject.AdditionalItems["operationsSorter"] = "alpha";
-    c.ConfigObject.AdditionalItems["tagsSorter"] = "alpha";
-    c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "RHPortal API v1");
+        c.DocumentTitle = "RHPortal API — Swagger";
+        c.ConfigObject.AdditionalItems["operationsSorter"] = "alpha";
+        c.ConfigObject.AdditionalItems["tagsSorter"] = "alpha";
+        c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
+    });
+}
 
 app.UseExceptionHandler();
+app.UseResponseCompression();
 
 app.UseHttpsRedirection();
 
 app.UseCors("WebApp");
+app.UseRateLimiter();
 app.UseMiddleware<TenantMiddleware>();
 app.UseRequestLocalization(localizationOptions.Value);
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseOutputCache();
 app.UseMiddleware<RequestLogMiddleware>();
 app.UseMiddleware<ExceptionLoggingMiddleware>();
 app.UseMiddleware<AuditMiddleware>();

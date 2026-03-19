@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -15,7 +16,8 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/dashboard")]
-public sealed class DashboardController : ControllerBase
+[Authorize]
+public sealed class DashboardController(ILogger<DashboardController> logger) : ControllerBase
 {
     /// <summary>
     /// Indicadores principais do dashboard (vagas abertas, candidatos do dia, pendentes e aprovados).
@@ -47,7 +49,9 @@ public sealed class DashboardController : ControllerBase
         }
         catch (PostgresException ex) when (ex.SqlState == "42703")
         {
-            // Coluna DataAbertura (ou outra de SLA) ainda não existe no banco do tenant; aplicar migrações pendentes.
+            // Coluna de SLA ainda não existe no schema do tenant — migração pendente.
+            logger.LogError(ex, "Dashboard KPIs: coluna ausente no schema (SqlState {SqlState}, coluna {Column}). Aplique as migrações pendentes no tenant.",
+                ex.SqlState, ex.ColumnName ?? "desconhecida");
             vagasForaSla = 0;
         }
 

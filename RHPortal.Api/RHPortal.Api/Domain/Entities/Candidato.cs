@@ -38,6 +38,12 @@ public sealed class Candidato : ITenantEntity
     public CandidateOrigin Fonte { get; set; } = CandidateOrigin.Email;
     public CandidateStatus Status { get; set; } = CandidateStatus.Novo;
 
+    /// <summary>Se o candidato está trabalhando atualmente.</summary>
+    public bool? TrabalhandoAtualmente { get; set; }
+
+    /// <summary>Pretensão salarial do candidato (em R$).</summary>
+    public decimal? PretensaoSalarial { get; set; }
+
     public Guid? VagaId { get; set; }
     public RHPortal.Api.Domain.Entities.Vaga? Vaga { get; set; }
 

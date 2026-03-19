@@ -156,7 +156,7 @@ export default function CelebracaoScreen() {
     }
 
     return (
-        <section className="space-y-4 max-w-3xl mx-auto">
+        <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h4 className="text-lg font-bold">Celebração 🎉</h4>

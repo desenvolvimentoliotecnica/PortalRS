@@ -14,8 +14,11 @@ import {
   Building,
   Building2,
   Calendar,
+  CheckSquare,
   ChevronRight,
+  ClipboardList,
   Clock,
+  FileUp,
   Filter,
   Gauge,
   Globe,
@@ -41,6 +44,7 @@ import {
   Tags,
   TrendingUp,
   Trophy,
+  UserCheck,
   UserPlus,
   Users,
   UserX,
@@ -49,6 +53,13 @@ import {
 import { cn } from "@/lib/utils";
 import type { BffNavItem } from "@/lib/schemas/bff";
 import { prefetchScreenData } from "@/lib/screenCache";
+import {
+  RECRUITMENT_HUB_ROUTE_KEYS,
+  RECRUITMENT_ROUTE_KEYS,
+  RECRUITMENT_ROUTE_LABELS,
+  RECRUITMENT_SELECTION_ROUTE_KEYS,
+  toNavRouteKey,
+} from "@/features/navigation/recruitmentNavigation";
 
 /* ═══════════════════════════════════════════════════════════════════
    ICON MAP: Bootstrap Icon name → Lucide equivalent
@@ -64,6 +75,7 @@ const ICONS: Record<string, LucideIcon> = {
   "bi-funnel": Filter,
   "bi-stars": Sparkles,
   "bi-inbox": Inbox,
+  "bi-globe": Globe,
   // Feedback
   "bi-balloon-heart": Heart,
   "bi-house": Home,
@@ -96,12 +108,19 @@ const ICONS: Record<string, LucideIcon> = {
   "bi-gear": Settings,
   "bi-microsoft": Globe,
   "bi-translate": Languages,
+  "bi-check2-square": CheckSquare,
   "bi-bar-chart": BarChart3,
   // Fallback plain names
   brain: Brain,
   building2: Building2,
   briefcase: Briefcase,
+  globe: Globe,
   layoutdashboard: LayoutDashboard,
+  // New features
+  fileup: FileUp,
+  clipboardlist: ClipboardList,
+  listchecks: ListChecks,
+  usercheck: UserCheck,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -135,6 +154,20 @@ const ROUTE_MAP: Record<string, string> = {
   "/gestao/humor": "/gestao/humor",
   "/gestao/planosdesenvolvimento": "/gestao/planosdesenvolvimento",
   "/gestao/resumoatividades": "/gestao/resumoatividades",
+  "/gestao/solicitacoes": "/gestao/solicitacoes",
+  "/gestao/pipeline": "/gestao/projetos",
+  "/gestao/aprovacoes": "/gestao/aprovacoes",
+  "/gestao/batida-ponto": "/gestao/batida-ponto",
+  "/gestao/comissoes": "/gestao/comissoes",
+  "/portalvagas": "/PortalVagas",
+  "/portalvagas/acesso": "/PortalVagas/Acesso",
+  // Novas rotas (Sprints 3-6)
+  "/gestao/projetos": "/gestao/projetos",
+  "/gestao/processo-seletivo": "/gestao/processo-seletivo",
+  // Admissão
+  "/admissao": "/admissao",
+  // Colaborador
+  "/colaborador/dependentes": "/colaborador/dependentes",
   // Desempenho sub-routes
   "/desempenho/minhasavaliacoes": "/desempenho",
   // Admin
@@ -150,6 +183,7 @@ const ROUTE_MAP: Record<string, string> = {
   "/admin/apikeys": "/admin/api-keys",
   "/admin/entraidconfig": "/admin/entra-id",
   "/admin/localizationconfig": "/admin/localization",
+  "/admin/regrasaprovacaovaga": "/admin/regras-aprovacao-vaga",
 };
 
 function normalizeHref(raw: string): string {
@@ -165,18 +199,40 @@ function normalizeHref(raw: string): string {
 /* ═══════════════════════════════════════════════════════════════════
    MODULE CLASSIFICATION (mirrors Razor GetModuleKey)
    ═══════════════════════════════════════════════════════════════════ */
-type ModuleKey = "Recrutamento" | "Cadastros" | "Relatórios" | "Feedback" | "Admin" | "Owner";
-const MODULE_ORDER: ModuleKey[] = ["Recrutamento", "Cadastros", "Relatórios", "Feedback", "Admin", "Owner"];
+type ModuleKey = "Recrutamento" | "Cadastros" | "Relatórios" | "Gestão de Pessoas" | "Operacional" | "Feedback" | "Admin" | "Owner";
+const MODULE_ORDER: ModuleKey[] = ["Recrutamento", "Operacional", "Gestão de Pessoas", "Cadastros", "Relatórios", "Feedback", "Admin", "Owner"];
 
-const RECRUTAMENTO_ROUTES = new Set([
-  "/dashboard", "/agendas", "/vagas", "/candidatos",
-  "/talentos", "/triagem", "/matching", "/portalvagas", "/entradaemailpasta",
+// Fluxo principal de recrutamento (na ordem do processo)
+const RECRUTAMENTO_ROUTES = new Set<string>([
+  RECRUITMENT_ROUTE_KEYS.dashboard,
+  RECRUITMENT_ROUTE_KEYS.solicitacoes,
+  RECRUITMENT_ROUTE_KEYS.aprovacoes,
+  RECRUITMENT_ROUTE_KEYS.vagas,
+  RECRUITMENT_ROUTE_KEYS.portalVagas,
+  RECRUITMENT_ROUTE_KEYS.talentos,
+  RECRUITMENT_ROUTE_KEYS.candidatos,
+  RECRUITMENT_ROUTE_KEYS.matching,
+  RECRUITMENT_ROUTE_KEYS.rodadas,
+  RECRUITMENT_ROUTE_KEYS.processoSeletivo,
+  RECRUITMENT_ROUTE_KEYS.triagem,
+  RECRUITMENT_ROUTE_KEYS.admissao,
+]);
+// Operacional (dia a dia)
+const OPERACIONAL_ROUTES = new Set([
+  "/agendas", "/entradaemailpasta",
+  "/gestao/batida-ponto", "/gestao/comissoes",
 ]);
 const CADASTROS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
   "/unidades", "/funcionarios", "/pessoas",
+  "/colaborador/dependentes",
 ]);
-const HIDDEN_ROUTES = new Set(["/matching", "/departamentos"]);
+// Gestão de Pessoas (people management, não recrutamento)
+const GESTAO_PESSOAS_ROUTES = new Set([
+  "/gestao/dashboard", "/gestao/planosdesenvolvimento",
+  "/gestao/humor", "/gestao/resumoatividades",
+]);
+const HIDDEN_ROUTES = new Set(["/departamentos", "/gestao/pipeline"]);
 
 function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
   if (!href || href === "#") {
@@ -193,9 +249,13 @@ function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
   if (r.startsWith("/admin")) return "Admin";
   if (r === "/relatorios") return "Relatórios";
   if (r === "/pesquisas") return "Feedback";
-  if (r.startsWith("/feedback") || r.startsWith("/gestao") || r.startsWith("/desempenho")) return "Feedback";
+  if (r.startsWith("/feedback") || r.startsWith("/desempenho")) return "Feedback";
   if (RECRUTAMENTO_ROUTES.has(r)) return "Recrutamento";
+  if (OPERACIONAL_ROUTES.has(r)) return "Operacional";
+  if (GESTAO_PESSOAS_ROUTES.has(r)) return "Gestão de Pessoas";
   if (CADASTROS_ROUTES.has(r) || r.startsWith("/cadastro/")) return "Cadastros";
+  // Fallback: any /gestao/* not matched goes to Recrutamento (new screens)
+  if (r.startsWith("/gestao")) return "Recrutamento";
   return "Recrutamento";
 }
 
@@ -216,6 +276,122 @@ function hasActiveDescendant(item: BffNavItem, normalized: string): boolean {
   const href = normalizeHref(item.href);
   if (isActive(normalized, href)) return true;
   return item.children?.some((c) => hasActiveDescendant(c, normalized)) ?? false;
+}
+
+function cloneNavItem(item: BffNavItem, overrides: Partial<BffNavItem> = {}): BffNavItem {
+  return {
+    ...item,
+    ...overrides,
+    children: overrides.children ?? item.children.map((child) => cloneNavItem(child)),
+  };
+}
+
+function createSyntheticGroup(
+  id: string,
+  label: string,
+  href: string,
+  icon: string | null | undefined,
+  children: BffNavItem[],
+): BffNavItem {
+  return {
+    id,
+    label,
+    href,
+    icon: icon ?? null,
+    openInNewTab: false,
+    children,
+  };
+}
+
+function normalizeRecruitmentItem(item: BffNavItem): BffNavItem {
+  const routeKey = toNavRouteKey(item.href);
+  return cloneNavItem(item, {
+    href: normalizeHref(item.href || "#"),
+    label: RECRUITMENT_ROUTE_LABELS[routeKey] ?? item.label,
+  });
+}
+
+function buildRecruitmentSidebar(items: BffNavItem[]): BffNavItem[] {
+  const known = new Map<string, BffNavItem>();
+  const leftovers: BffNavItem[] = [];
+
+  function collect(list: BffNavItem[]) {
+    for (const item of list) {
+      if ((!item.href || item.href === "#") && item.children.length > 0) {
+        collect(item.children);
+        continue;
+      }
+
+      const routeKey = toNavRouteKey(item.href);
+      const normalizedItem = normalizeRecruitmentItem(item);
+
+      if (routeKey !== "#" && RECRUTAMENTO_ROUTES.has(routeKey) && !known.has(routeKey)) {
+        known.set(routeKey, normalizedItem);
+        continue;
+      }
+
+      leftovers.push(normalizedItem);
+    }
+  }
+
+  collect(items);
+
+  const used = new Set<string>();
+  const result: BffNavItem[] = [];
+
+  const pushLeaf = (routeKey: string) => {
+    const item = known.get(routeKey);
+    if (!item) return;
+    used.add(routeKey);
+    result.push(cloneNavItem(item, { children: [] }));
+  };
+
+  const buildChildren = (routeKeys: readonly string[]) =>
+    routeKeys.flatMap((routeKey) => {
+      const item = known.get(routeKey);
+      if (!item) return [];
+      used.add(routeKey);
+      return [cloneNavItem(item, { children: [] })];
+    });
+
+  pushLeaf(RECRUITMENT_ROUTE_KEYS.dashboard);
+
+  const hubChildren = buildChildren(RECRUITMENT_HUB_ROUTE_KEYS);
+  if (hubChildren.length > 0) {
+    const hubSource = known.get(RECRUITMENT_ROUTE_KEYS.vagas) ?? hubChildren[0];
+    result.push(createSyntheticGroup(
+      "__recruitment_vagas",
+      "Vagas",
+      hubSource?.href ?? "/vagas",
+      hubSource?.icon ?? "bi-briefcase",
+      hubChildren,
+    ));
+  }
+
+  pushLeaf(RECRUITMENT_ROUTE_KEYS.talentos);
+  pushLeaf(RECRUITMENT_ROUTE_KEYS.candidatos);
+
+  const selectionChildren = buildChildren(RECRUITMENT_SELECTION_ROUTE_KEYS);
+  if (selectionChildren.length > 0) {
+    const selectionSource = known.get(RECRUITMENT_ROUTE_KEYS.matching)
+      ?? known.get(RECRUITMENT_ROUTE_KEYS.rodadas)
+      ?? selectionChildren[0];
+    result.push(createSyntheticGroup(
+      "__recruitment_selection",
+      "Seleção",
+      selectionSource?.href ?? "#",
+      selectionSource?.icon ?? "bi-stars",
+      selectionChildren,
+    ));
+  }
+
+  pushLeaf(RECRUITMENT_ROUTE_KEYS.admissao);
+
+  const remainingKnown = Array.from(known.entries())
+    .filter(([routeKey]) => !used.has(routeKey))
+    .map(([, item]) => cloneNavItem(item, { children: [] }));
+
+  return [...result, ...remainingKnown, ...leftovers];
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -297,8 +473,11 @@ function NavGroup({
   openGroups?: Record<string, boolean>;
   onGroupOpenChange?: (id: string, open: boolean) => void;
 }) {
+  const href = normalizeHref(item.href || "#");
   const iconKey = (item.icon ?? "").toLowerCase();
   const Icon = ICONS[iconKey] ?? DEFAULT_ICON;
+  const target = item.openInNewTab ? "_blank" : undefined;
+  const rel = item.openInNewTab ? "noopener noreferrer" : undefined;
 
   const visibleChildren = (item.children ?? []).filter((c) => !isRouteHidden(c.href));
   if (visibleChildren.length === 0) {
@@ -306,34 +485,66 @@ function NavGroup({
   }
 
   const hasActive = hasActiveDescendant(item, normalized);
+  const canNavigate = href !== "#";
   const isOpen = openGroups?.[item.id] ?? hasActive;
 
   const handleToggle = () => {
     onGroupOpenChange?.(item.id, !isOpen);
   };
 
+  const headerClass = cn(
+    "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[0.88rem] leading-snug text-white/80",
+    "border border-transparent transition-all duration-200",
+    "hover:bg-white/10 hover:border-white/12 hover:text-white",
+    (isOpen || hasActive) && "bg-white/[.08] border-white/[.14] text-white/95",
+  );
+
   return (
     <li>
-      <button
-        type="button"
-        className={cn(
-          "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[0.88rem] leading-snug text-white/80",
-          "border border-transparent transition-all duration-200",
-          "hover:bg-white/10 hover:border-white/12 hover:text-white",
-          isOpen && "text-white/95",
-        )}
-        onClick={handleToggle}
-      >
-        <Icon aria-hidden className="size-5 shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100" />
-        <span className="truncate flex-1 text-left">{item.label}</span>
-        <ChevronRight
-          aria-hidden
-          className={cn(
-            "size-3.5 shrink-0 opacity-60 transition-transform duration-250",
-            isOpen && "rotate-90",
-          )}
-        />
-      </button>
+      {canNavigate ? (
+        <div className={headerClass}>
+          <Link
+            className="flex min-w-0 flex-1 items-center gap-3"
+            href={href}
+            rel={rel}
+            target={target}
+            onMouseEnter={() => void prefetchScreenData(href)}
+          >
+            <Icon aria-hidden className="size-5 shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100" />
+            <span className="truncate flex-1 text-left">{item.label}</span>
+          </Link>
+          <button
+            type="button"
+            className="rounded-md p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            aria-label={isOpen ? `Fechar ${item.label}` : `Abrir ${item.label}`}
+            onClick={handleToggle}
+          >
+            <ChevronRight
+              aria-hidden
+              className={cn(
+                "size-3.5 shrink-0 transition-transform duration-250",
+                isOpen && "rotate-90",
+              )}
+            />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className={headerClass}
+          onClick={handleToggle}
+        >
+          <Icon aria-hidden className="size-5 shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100" />
+          <span className="truncate flex-1 text-left">{item.label}</span>
+          <ChevronRight
+            aria-hidden
+            className={cn(
+              "size-3.5 shrink-0 opacity-60 transition-transform duration-250",
+              isOpen && "rotate-90",
+            )}
+          />
+        </button>
+      )}
       <Collapsible open={isOpen}>
         <ul className="mt-0.5 space-y-0.5">
           {visibleChildren.map((c) =>
@@ -451,6 +662,8 @@ export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
   const grouped = useMemo(() => {
     const map: Record<ModuleKey, BffNavItem[]> = {
       Recrutamento: [],
+      "Operacional": [],
+      "Gestão de Pessoas": [],
       Cadastros: [],
       "Relatórios": [],
       Feedback: [],
@@ -460,10 +673,26 @@ export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
     for (const item of items) {
       if (isRouteHidden(item.href)) continue;
       const key = getModuleKey(item.href, item.children);
-      map[key].push(item);
+      // Flatten: if item is a group header (href="#") push children directly
+      if ((!item.href || item.href === "#") && item.children?.length) {
+        for (const child of item.children) {
+          if (!isRouteHidden(child.href)) {
+            const childKey = getModuleKey(child.href, child.children);
+            map[childKey].push(child);
+          }
+        }
+      } else {
+        map[key].push(item);
+      }
     }
+    map.Recrutamento = buildRecruitmentSidebar(map.Recrutamento);
     return map;
   }, [items]);
+
+  const renderedItems = useMemo(
+    () => MODULE_ORDER.flatMap((mod) => grouped[mod]),
+    [grouped],
+  );
 
   // ── 2. Detect which module owns the current route ──
   const activeModule = useMemo<ModuleKey>(() => {
@@ -524,9 +753,9 @@ export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
         }
       }
     }
-    walk(items);
+    walk(renderedItems);
     return { ...base, ...groupOverrides };
-  }, [items, normalized, groupOverrides]);
+  }, [renderedItems, normalized, groupOverrides]);
 
   const handleGroupOpenChange = useCallback((id: string, open: boolean) => {
     setGroupOverrides((p) => ({ ...p, [id]: open }));

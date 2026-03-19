@@ -196,9 +196,14 @@ public sealed class MatchingService : IMatchingService
         var safeTake = Math.Clamp(take, 1, 200);
         var safeMin = Math.Clamp(minScore, 0, 100);
 
+        // Cap: máximo 2000 candidatos para evitar OOM em tenants com base grande.
+        // Prioriza candidatos com score existente para esta vaga e mais recentes.
         var candidatos = await _db.Candidatos
             .AsNoTracking()
             .Where(c => c.TenantId == tenantId)
+            .OrderByDescending(c => c.LastMatchVagaId == vagaId)
+            .ThenByDescending(c => c.CreatedAtUtc)
+            .Take(2000)
             .ToListAsync(ct);
 
         var candidatoIds = candidatos.Select(c => c.Id).ToList();

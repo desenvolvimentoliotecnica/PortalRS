@@ -29,15 +29,15 @@ export default function FilterModal({ vagaDetail, onClose, onSave }: { vagaDetai
         return parts.length ? parts.join(". ") : null;
     }
 
-    const sel = "form-select w-full text-sm py-1.5";
-    const inp = "form-control w-full text-sm py-1.5";
+    const sel = "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+    const inp = "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="bg-background rounded-2xl border border-border shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between border-b px-5 py-3">
                     <div className="font-bold">Filtros de matching (IA)</div>
-                    <button type="button" className="text-xl opacity-50 hover:opacity-100 transition" onClick={onClose}>✕</button>
+                    <button type="button" className="size-7 flex items-center justify-center rounded opacity-50 hover:opacity-100 transition text-sm" onClick={onClose}>✕</button>
                 </div>
                 <div className="px-5 py-4">
                     <div className="font-semibold text-sm">Regras de matching por IA</div>
@@ -63,8 +63,8 @@ export default function FilterModal({ vagaDetail, onClose, onSave }: { vagaDetai
                     <div className="mt-3"><label className="text-xs text-muted-foreground">Observações</label><textarea className={`${inp} resize-none`} rows={2} value={f.observacoes} onChange={e => up("observacoes", e.target.value)} placeholder="Outros critérios" /></div>
                 </div>
                 <div className="flex justify-end gap-2 border-t px-5 py-3">
-                    <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
-                    <button type="button" className="btn-brand" onClick={() => onSave(buildRaw())}>💾 Salvar</button>
+                    <button type="button" className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors" onClick={onClose}>Cancelar</button>
+                    <button type="button" className="rounded-md px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" onClick={() => onSave(buildRaw())}>Salvar</button>
                 </div>
             </div>
         </div>
