@@ -4,18 +4,25 @@ import { type ComponentType, useCallback, useEffect, useMemo, useRef, useState }
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+    Banknote,
     Briefcase,
+    CalendarDays,
     CheckCircle2,
     Clock,
+    Columns3,
+    Copy,
     Eye,
     FileText,
     FolderOpen,
+    List,
+    MapPin,
     MoreHorizontal,
     PenSquare,
     Plus,
     RefreshCw,
     Search,
     ShieldCheck,
+    Target,
     Users,
 } from "lucide-react";
 
@@ -332,6 +339,7 @@ export default function VagasScreen() {
     const searchParams = useSearchParams();
     const { me } = useAuth();
     const deeplinkHandled = useRef(false);
+    const pendenciasMode = searchParams.get("pendencias") === "1" || searchParams.get("mode") === "pendencias";
 
     const roleSet = useMemo(
         () => new Set((me?.roles ?? []).map((role) => role.toLowerCase())),
@@ -347,8 +355,21 @@ export default function VagasScreen() {
     const [rows, setRows] = useState<VagaListItem[]>([]);
     const [q, setQ] = useState("");
     const [area, setArea] = useState("all");
-    const [status, setStatus] = useState("all");
+    const [status, setStatus] = useState(() => (pendenciasMode ? "rascunho" : "all"));
+    const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
+        if (typeof window === "undefined") return "list";
+        return (localStorage.getItem("renderrh.vagas.viewMode") as "list" | "kanban") || "list";
+    });
+    const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.vagas.viewMode", m); };
     const [areas, setAreas] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!pendenciasMode) return;
+        // Pendências sempre parte de rascunho (vagas aprovadas pelos superiores e liberadas para RH preencher).
+        setStatus("rascunho");
+        setArea("all");
+        setQ("");
+    }, [pendenciasMode]);
 
     const [solicitacoes, setSolicitacoes] = useState<SolicitacaoRow[]>([]);
     const [approvals, setApprovals] = useState<SolicitacaoRow[]>([]);
@@ -371,13 +392,14 @@ export default function VagasScreen() {
     const [approvalActing, setApprovalActing] = useState(false);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<VagasPayload>(`${BASE}/api/vagas`);
+        const endpoint = pendenciasMode ? `${BASE}/api/vagas/pendencias-rh` : `${BASE}/api/vagas`;
+        const payload = await fetchJson<VagasPayload>(endpoint);
         const list = mapVagasPayload(payload);
         setRows(list);
-        setScreenCache("/vagas", list);
+        setScreenCache(pendenciasMode ? "/vagas?pendencias=1" : "/vagas", list);
         const areaSet = new Set(list.map((v) => (v.area ?? "").trim()).filter(Boolean));
         setAreas(Array.from(areaSet).sort((a, b) => a.localeCompare(b, "pt-BR")));
-    }, []);
+    }, [pendenciasMode]);
 
     const loadSolicitacoes = useCallback(async () => {
         if (!showManagerSections) {
@@ -415,7 +437,8 @@ export default function VagasScreen() {
 
     useEffect(() => {
         let alive = true;
-        const cached = getScreenCache<VagaListItem[]>("/vagas");
+        const cacheKey = pendenciasMode ? "/vagas?pendencias=1" : "/vagas";
+        const cached = getScreenCache<VagaListItem[]>(cacheKey);
         if (cached) {
             setRows(cached);
             const areaSet = new Set(cached.map((v) => (v.area ?? "").trim()).filter(Boolean));
@@ -676,6 +699,9 @@ export default function VagasScreen() {
     const currentVagaArea = pickString(currentVagaDetail?.areaName ?? currentVagaDetail?.area, "—");
     const currentVagaDepartment = pickString(currentVagaDetail?.departmentName ?? currentVagaDetail?.department, "—");
     const currentVagaStatus = pickString(currentVagaDetail?.status, "");
+    const currentVagaVisibilidade = pickString(currentVagaDetail?.visibilidade, "");
+    const visibilidadePermitePortal = ["Externa", "InternaEExterna"].includes(currentVagaVisibilidade);
+    const vagaAberta = currentVagaStatus.toLowerCase() === "aberta";
     const currentVagaCodigo = pickString(currentVagaDetail?.codigo, "—");
     const currentVagaModalidade = pickString(currentVagaDetail?.modalidade, "—");
     const currentVagaSenioridade = pickString(currentVagaDetail?.senioridade, "—");
@@ -685,6 +711,30 @@ export default function VagasScreen() {
     const currentVagaMatch = clamp(pickNumber(currentVagaDetail?.threshold ?? currentVagaDetail?.matchMinimoPercentual, 0), 0, 100);
     const currentVagaQtd = pickNumber(currentVagaDetail?.quantidadeVagas, 0);
     const currentVagaResumo = pickString(currentVagaDetail?.resumoPitch ?? currentVagaDetail?.descricaoInterna, "").trim();
+    const currentVagaTipoContratacao = pickString(currentVagaDetail?.tipoContratacao, "");
+    const currentVagaPrioridade = pickString(currentVagaDetail?.prioridade, "");
+    const currentVagaSalMin = pickString(currentVagaDetail?.salarioMinimo, "");
+    const currentVagaSalMax = pickString(currentVagaDetail?.salarioMaximo, "");
+    const currentVagaMoeda = pickString(currentVagaDetail?.moeda, "").toUpperCase();
+    const currentVagaRecrutador = pickString(currentVagaDetail?.recrutadorResponsavel ?? currentVagaDetail?.recrutadorResponsavelNome, "");
+    const currentVagaGestor = pickString(currentVagaDetail?.gestorRequisitante ?? currentVagaDetail?.gestorRequisitanteNome, "");
+    const currentVagaDescPublica = pickString(currentVagaDetail?.descricaoPublica, "").trim();
+    const currentVagaTags = pickString(currentVagaDetail?.tagsKeywords ?? currentVagaDetail?.tagsResponsabilidades, "").trim();
+    const fmtSalary = () => {
+        if (!currentVagaSalMin && !currentVagaSalMax) return "—";
+        const fmt = (v: string) => { const n = parseFloat(v); return isNaN(n) ? v : n.toLocaleString("pt-BR", { minimumFractionDigits: 0 }); };
+        const prefix = currentVagaMoeda && currentVagaMoeda !== "BRL" ? `${currentVagaMoeda} ` : "R$ ";
+        if (currentVagaSalMin && currentVagaSalMax) return `${prefix}${fmt(currentVagaSalMin)} – ${fmt(currentVagaSalMax)}`;
+        return `${prefix}${fmt(currentVagaSalMin || currentVagaSalMax)}`;
+    };
+    const prioridadeMeta: Record<string, { label: string; cls: string }> = {
+        baixa: { label: "Baixa", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+        normal: { label: "Normal", cls: "text-sky-700 bg-sky-50 border-sky-200" },
+        alta: { label: "Alta", cls: "text-amber-700 bg-amber-50 border-amber-200" },
+        urgente: { label: "Urgente", cls: "text-red-700 bg-red-50 border-red-200" },
+        critica: { label: "Crítica", cls: "text-red-800 bg-red-100 border-red-300" },
+    };
+    const priMeta = prioridadeMeta[currentVagaPrioridade.toLowerCase()] ?? { label: currentVagaPrioridade || "—", cls: "text-muted-foreground bg-muted/30 border-border/50" };
     const flowSteps = showManagerSections ? [
         {
             step: "1",
@@ -853,10 +903,20 @@ export default function VagasScreen() {
                         <option value="all">Todas as áreas</option>
                         {areas.map((item) => <option key={item} value={item}>{item}</option>)}
                     </select>
+                    {isRecrutador && (
+                        <Button
+                            size="sm"
+                            variant={pendenciasMode ? "default" : "outline"}
+                            onClick={() => void router.push(pendenciasMode ? `/vagas` : `/vagas?pendencias=1`)}
+                        >
+                            Pendências
+                        </Button>
+                    )}
                     <select
                         className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
+                        disabled={pendenciasMode}
                     >
                         <option value="all">Todos os status</option>
                         <option value="aberta">Aberta</option>
@@ -864,236 +924,160 @@ export default function VagasScreen() {
                         <option value="pausada">Pausada</option>
                         <option value="fechada">Fechada</option>
                     </select>
+                    <div className="flex items-center rounded-md border border-input bg-background p-0.5">
+                        <button
+                            type="button"
+                            className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                            onClick={() => setViewMode("list")}
+                            title="Exibir como lista"
+                        >
+                            <List className="size-3.5" />
+                        </button>
+                        <button
+                            type="button"
+                            className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                            onClick={() => setViewMode("kanban")}
+                            title="Exibir como kanban"
+                        >
+                            <Columns3 className="size-3.5" />
+                        </button>
+                    </div>
                     <div className="ml-auto text-xs text-muted-foreground">
                         {filtered.length} vaga(s)
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="hover:bg-transparent">
-                                <TableHead className="min-w-[260px]">Vaga</TableHead>
-                                <TableHead>Área</TableHead>
-                                <TableHead>Requisitos</TableHead>
-                                <TableHead>Match mín.</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-12" />
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                Array.from({ length: 5 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        {Array.from({ length: 6 }).map((__, j) => (
-                                            <TableCell key={j}>
-                                                <div className="h-4 animate-pulse rounded bg-muted" />
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : paged.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="py-14 text-center text-sm text-muted-foreground">
-                                        Nenhuma vaga encontrada com os filtros atuais.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                paged.map((vaga) => {
-                                    const { total, obrig } = calcReqTotals(vaga);
-                                    const threshold = clamp(pickNumber(vaga.threshold ?? vaga.matchMinimoPercentual, 0), 0, 100);
-                                    const location = [vaga.cidade, vaga.uf].filter(Boolean).join(" / ");
-
-                                    return (
-                                        <TableRow
-                                            key={vaga.id}
-                                            className="cursor-pointer hover:bg-muted/40"
-                                            onClick={() => void openVagaDetail(vaga.id)}
-                                        >
-                                            <TableCell>
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div>
-                                                        <div className="text-sm font-medium">{vaga.titulo ?? "—"}</div>
-                                                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                                                            {vaga.codigo && <span className="font-mono">{vaga.codigo}</span>}
-                                                            {vaga.codigo && <span>·</span>}
-                                                            <span>{vaga.modalidade ?? "Modalidade não definida"}</span>
-                                                            {location && <><span>·</span><span>{location}</span></>}
-                                                        </div>
-                                                    </div>
-                                                    {typeof vaga.hasDetail === "boolean" && vaga.hasDetail && (
-                                                        <Badge variant="secondary" className="shrink-0">Detalhes</Badge>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-sm">{vaga.area || "—"}</TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2 text-xs">
-                                                    <span className="text-muted-foreground">{total} requisito(s)</span>
-                                                    {obrig > 0 && (
-                                                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                                                            {obrig} obrigatório(s)
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-xs font-mono text-muted-foreground">
-                                                {threshold}%
-                                            </TableCell>
-                                            <TableCell>
-                                                <VagaStatusBadge status={vaga.status} />
-                                            </TableCell>
-                                            <TableCell onClick={(e) => e.stopPropagation()}>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon-sm">
-                                                            <MoreHorizontal className="size-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-48">
-                                                        <DropdownMenuItem onClick={() => void openVagaDetail(vaga.id)}>
-                                                            <Eye className="mr-2 size-4" />
-                                                            Ver detalhes
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => router.push(`/gestao/projetos?vagaId=${encodeURIComponent(vaga.id)}`)}>
-                                                            <FolderOpen className="mr-2 size-4" />
-                                                            Projetos / Rodadas
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => {
-                                                            persistMatchingContext(vaga.id);
-                                                            router.push(`/matching?vagaId=${encodeURIComponent(vaga.id)}`);
-                                                        }}>
-                                                            <ShieldCheck className="mr-2 size-4" />
-                                                            Matching IA
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => router.push(`/candidatos?vagaId=${encodeURIComponent(vaga.id)}`)}>
-                                                            <Users className="mr-2 size-4" />
-                                                            Candidatos
-                                                        </DropdownMenuItem>
-                                                        {isRecrutador && (
-                                                            <>
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
-                                                                    <PenSquare className="mr-2 size-4" />
-                                                                    Editar
-                                                                </DropdownMenuItem>
-                                                            </>
-                                                        )}
-                                                        {isAdmin && (
-                                                            <DropdownMenuItem onClick={() => void duplicateVaga(vaga.id)}>
-                                                                <FileText className="mr-2 size-4" />
-                                                                Duplicar
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        {isRecrutador && (
-                                                            <>
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem
-                                                                    className="text-destructive focus:text-destructive"
-                                                                    onClick={() => void deleteVaga(vaga.id)}
-                                                                >
-                                                                    Excluir
-                                                                </DropdownMenuItem>
-                                                            </>
-                                                        )}
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-
-                <div className="border-t border-border/40 px-4 py-3">
-                    <PaginationBar
-                        page={page}
-                        pageSize={pageSize}
-                        totalItems={filtered.length}
-                        onPageChange={setPage}
-                        onPageSizeChange={setPageSize}
-                    />
-                </div>
-            </div>
-
-            {showManagerSections && (
-                <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-                    <div className="rounded-xl border border-border/50 bg-card shadow-sm">
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-3">
-                            <div>
-                                <div className="text-sm font-semibold">Minhas solicitações</div>
-                                <div className="text-xs text-muted-foreground">
-                                    Rascunhos, pendências e histórico das vagas pedidas pela gestão.
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" onClick={() => void loadSolicitacoes()}>
-                                    <RefreshCw className="mr-1 size-4" />
-                                    Atualizar
-                                </Button>
-                                <Button size="sm" onClick={() => openSolicitacaoEditor()}>
-                                    <Plus className="mr-1 size-4" />
-                                    Nova Solicitação
-                                </Button>
-                            </div>
-                        </div>
-
+                {viewMode === "list" ? (
+                    <>
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
-                                        <TableHead>Título</TableHead>
-                                        <TableHead>Tipo</TableHead>
-                                        <TableHead>Urgência</TableHead>
+                                        <TableHead className="min-w-[260px]">Vaga</TableHead>
+                                        <TableHead>Área</TableHead>
+                                        <TableHead>Requisitos</TableHead>
+                                        <TableHead>Match mín.</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead>Data</TableHead>
+                                        <TableHead className="w-12" />
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {loadingSolic ? (
-                                        Array.from({ length: 3 }).map((_, i) => (
+                                    {loading ? (
+                                        Array.from({ length: 5 }).map((_, i) => (
                                             <TableRow key={i}>
-                                                {Array.from({ length: 5 }).map((__, j) => (
+                                                {Array.from({ length: 6 }).map((__, j) => (
                                                     <TableCell key={j}>
                                                         <div className="h-4 animate-pulse rounded bg-muted" />
                                                     </TableCell>
                                                 ))}
                                             </TableRow>
                                         ))
-                                    ) : solicitacoes.length === 0 ? (
+                                    ) : paged.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
-                                                Nenhuma solicitação cadastrada.
+                                            <TableCell colSpan={6} className="py-14 text-center text-sm text-muted-foreground">
+                                                Nenhuma vaga encontrada com os filtros atuais.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        solicitacoes.map((item) => {
-                                            const urgencia = resolveUrgenciaMeta(item.urgencia);
+                                        paged.map((vaga) => {
+                                            const { total, obrig } = calcReqTotals(vaga);
+                                            const threshold = clamp(pickNumber(vaga.threshold ?? vaga.matchMinimoPercentual, 0), 0, 100);
+                                            const location = [vaga.cidade, vaga.uf].filter(Boolean).join(" / ");
+
                                             return (
                                                 <TableRow
-                                                    key={item.id}
+                                                    key={vaga.id}
                                                     className="cursor-pointer hover:bg-muted/40"
-                                                    onClick={() => void openSolicitacaoDetail(item.id)}
+                                                    onClick={() => void openVagaDetail(vaga.id)}
                                                 >
                                                     <TableCell>
-                                                        <div className="text-sm font-medium">{item.titulo}</div>
-                                                        <div className="mt-1 text-xs text-muted-foreground">
-                                                            {item.areaName || "Área não informada"} · {item.qtdPosicoes} posição(ões)
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div>
+                                                                <div className="text-sm font-medium">{vaga.titulo ?? "—"}</div>
+                                                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                                                                    {vaga.codigo && <span className="font-mono">{vaga.codigo}</span>}
+                                                                    {vaga.codigo && <span>·</span>}
+                                                                    <span>{vaga.modalidade ?? "Modalidade não definida"}</span>
+                                                                    {location && <><span>·</span><span>{location}</span></>}
+                                                                </div>
+                                                            </div>
+                                                            {typeof vaga.hasDetail === "boolean" && vaga.hasDetail && (
+                                                                <Badge variant="secondary" className="shrink-0">Detalhes</Badge>
+                                                            )}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">
-                                                        {resolveTipoLabel(item.tipoSolicitacao)}
+                                                    <TableCell className="text-sm">{vaga.area || "—"}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2 text-xs">
+                                                            <span className="text-muted-foreground">{total} requisito(s)</span>
+                                                            {obrig > 0 && (
+                                                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                                                    {obrig} obrigatório(s)
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-xs font-mono text-muted-foreground">
+                                                        {threshold}%
                                                     </TableCell>
                                                     <TableCell>
-                                                        <span className={`text-xs font-medium ${urgencia.cls}`}>{urgencia.label}</span>
+                                                        <VagaStatusBadge status={vaga.status} />
                                                     </TableCell>
-                                                    <TableCell>
-                                                        <SolicStatusBadge status={item.status} />
-                                                    </TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground">
-                                                        {formatDate(item.createdAtUtc)}
+                                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon-sm">
+                                                                    <MoreHorizontal className="size-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-48">
+                                                                <DropdownMenuItem onClick={() => void openVagaDetail(vaga.id)}>
+                                                                    <Eye className="mr-2 size-4" />
+                                                                    Ver detalhes
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => router.push(`/gestao/projetos?vagaId=${encodeURIComponent(vaga.id)}`)}>
+                                                                    <FolderOpen className="mr-2 size-4" />
+                                                                    Rodadas
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => {
+                                                                    persistMatchingContext(vaga.id);
+                                                                    router.push(`/matching?vagaId=${encodeURIComponent(vaga.id)}`);
+                                                                }}>
+                                                                    <ShieldCheck className="mr-2 size-4" />
+                                                                    Matching IA
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => router.push(`/candidatos?vagaId=${encodeURIComponent(vaga.id)}`)}>
+                                                                    <Users className="mr-2 size-4" />
+                                                                    Candidatos
+                                                                </DropdownMenuItem>
+                                                                {isRecrutador && (
+                                                                    <>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
+                                                                            <PenSquare className="mr-2 size-4" />
+                                                                            Editar
+                                                                        </DropdownMenuItem>
+                                                                    </>
+                                                                )}
+                                                                {isAdmin && (
+                                                                    <DropdownMenuItem onClick={() => void duplicateVaga(vaga.id)}>
+                                                                        <FileText className="mr-2 size-4" />
+                                                                        Duplicar
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {isRecrutador && (
+                                                                    <>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem
+                                                                            className="text-destructive focus:text-destructive"
+                                                                            onClick={() => void deleteVaga(vaga.id)}
+                                                                        >
+                                                                            Excluir
+                                                                        </DropdownMenuItem>
+                                                                    </>
+                                                                )}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     </TableCell>
                                                 </TableRow>
                                             );
@@ -1102,184 +1086,266 @@ export default function VagasScreen() {
                                 </TableBody>
                             </Table>
                         </div>
-                    </div>
 
-                    <div className="rounded-xl border border-border/50 bg-card shadow-sm">
-                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-3">
-                            <div>
-                                <div className="text-sm font-semibold">Aprovações pendentes</div>
-                                <div className="text-xs text-muted-foreground">
-                                    Itens visíveis para análise no fluxo de abertura de vaga.
-                                </div>
-                            </div>
-                            <Button variant="outline" size="sm" onClick={() => void loadApprovals()}>
-                                <RefreshCw className="mr-1 size-4" />
-                                Atualizar
-                            </Button>
-                        </div>
-
-                        <div className="space-y-2 p-4">
-                            {loadingApprovals ? (
-                                Array.from({ length: 3 }).map((_, i) => (
-                                    <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
-                                ))
-                            ) : approvals.length === 0 ? (
-                                <div className="rounded-xl border border-dashed border-border/60 px-4 py-10 text-center">
-                                    <div className="text-sm font-medium">Nenhuma aprovação pendente.</div>
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                        Quando houver solicitações aguardando análise, elas aparecerão aqui.
-                                    </div>
-                                </div>
-                            ) : (
-                                approvals.map((item) => {
-                                    const urgencia = resolveUrgenciaMeta(item.urgencia);
-                                    return (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            className="flex w-full items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-left transition-colors hover:bg-muted/40"
-                                            onClick={() => void openSolicitacaoDetail(item.id)}
-                                        >
-                                            <div>
-                                                <div className="text-sm font-medium">{item.titulo}</div>
-                                                <div className="mt-1 text-xs text-muted-foreground">
-                                                    {item.solicitanteNome || "Solicitante não informado"} · {item.areaName || "Área não informada"}
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-1">
-                                                <span className={`text-xs font-medium ${urgencia.cls}`}>{urgencia.label}</span>
-                                                <SolicStatusBadge status={item.status} />
-                                            </div>
-                                        </button>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
+                        <div className="border-t border-border/40 px-4 py-3">
+                            <PaginationBar
+                                page={page}
+                                pageSize={pageSize}
+                                totalItems={filtered.length}
+                                onPageChange={setPage}
+                                onPageSizeChange={setPageSize}
+                    />
                 </div>
-            )}
+                    </>
+                ) : (
+                    /* ── Kanban View ── */
+                    <div className="p-4 overflow-x-auto">
+                        {loading ? (
+                            <div className="flex gap-4">
+                                {Array.from({ length: 4 }).map((_, i) => (
+                                    <div key={i} className="w-72 shrink-0 space-y-3">
+                                        <div className="h-8 animate-pulse rounded-lg bg-muted" />
+                                        <div className="h-24 animate-pulse rounded-lg bg-muted" />
+                                        <div className="h-24 animate-pulse rounded-lg bg-muted" />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex gap-4 items-start">
+                                {(["rascunho", "aberta", "pausada", "fechada"] as const).map((col) => {
+                                    const meta = VAGA_STATUS[col];
+                                    const colVagas = filtered.filter((v) => {
+                                        const s = (v.status ?? "").toLowerCase();
+                                        if (col === "aberta") return s === "aberta" || s === "ativa";
+                                        if (col === "fechada") return s === "fechada" || s === "encerrada";
+                                        return s === col;
+                                    });
+                                    return (
+                                        <div key={col} className="w-72 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
+                                            <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
+                                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.cls}`}>{meta.label}</span>
+                                                <span className="text-xs text-muted-foreground ml-auto">{colVagas.length}</span>
+                                            </div>
+                                            <div className="flex-1 space-y-2 p-2 max-h-[calc(100vh-320px)] overflow-y-auto">
+                                                {colVagas.length === 0 ? (
+                                                    <div className="rounded-lg border border-dashed border-border/40 py-8 text-center text-xs text-muted-foreground">
+                                                        Nenhuma vaga
+                                                    </div>
+                                                ) : colVagas.map((vaga) => {
+                                                    const location = [vaga.cidade, vaga.uf].filter(Boolean).join(" / ");
+                                                    const threshold = clamp(pickNumber(vaga.threshold ?? vaga.matchMinimoPercentual, 0), 0, 100);
+                                                    return (
+                                                        <div
+                                                            key={vaga.id}
+                                                            className="rounded-lg border border-border/50 bg-card p-3 shadow-sm cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
+                                                            onClick={() => void openVagaDetail(vaga.id)}
+                                                        >
+                                                            <div className="text-sm font-medium leading-tight truncate">{vaga.titulo ?? "—"}</div>
+                                                            {vaga.codigo && <div className="mt-1 text-[11px] font-mono text-muted-foreground">{vaga.codigo}</div>}
+                                                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                                                                {vaga.area && <span>{vaga.area}</span>}
+                                                                {vaga.modalidade && <span>{vaga.modalidade}</span>}
+                                                                {location && (
+                                                                    <span className="inline-flex items-center gap-0.5">
+                                                                        <MapPin className="size-3" />
+                                                                        {location}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="mt-2 flex items-center justify-between">
+                                                                <span className="text-[11px] text-muted-foreground">Match {threshold}%</span>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <button type="button" className="rounded p-0.5 hover:bg-muted" onClick={(e) => e.stopPropagation()}>
+                                                                            <MoreHorizontal className="size-3.5 text-muted-foreground" />
+                                                                        </button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end" className="w-44">
+                                                                        <DropdownMenuItem onClick={() => void openVagaDetail(vaga.id)}>
+                                                                            <Eye className="mr-2 size-3.5" />Detalhes
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => { persistMatchingContext(vaga.id); router.push(`/matching?vagaId=${encodeURIComponent(vaga.id)}`); }}>
+                                                                            <ShieldCheck className="mr-2 size-3.5" />Matching
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => router.push(`/candidatos?vagaId=${encodeURIComponent(vaga.id)}`)}>
+                                                                            <Users className="mr-2 size-3.5" />Candidatos
+                                                                        </DropdownMenuItem>
+                                                                        {isRecrutador && (
+                                                                            <>
+                                                                                <DropdownMenuSeparator />
+                                                                                <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
+                                                                                    <PenSquare className="mr-2 size-3.5" />Editar
+                                                                                </DropdownMenuItem>
+                                                                            </>
+                                                                        )}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
             <Dialog open={vagaDetailOpen} onOpenChange={setVagaDetailOpen}>
-                <DialogContent className="max-w-4xl">
-                    <DialogHeader>
-                        <DialogTitle>{currentVagaTitle}</DialogTitle>
-                        <DialogDescription>
-                            Visão resumida da vaga antes de editar ou seguir para matching e projetos.
-                        </DialogDescription>
-                    </DialogHeader>
-
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+                    <DialogHeader className="sr-only"><DialogTitle>{currentVagaTitle}</DialogTitle><DialogDescription>Detalhes da vaga</DialogDescription></DialogHeader>
                     {vagaDetailLoading ? (
-                        <div className="space-y-3 py-2">
+                        <div className="space-y-3 p-6">
                             {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
+                                <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
                             ))}
                         </div>
                     ) : (
-                        <div className="space-y-5">
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
-                                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Status</div>
-                                    <div className="mt-1"><VagaStatusBadge status={currentVagaStatus} /></div>
-                                </div>
-                                <DetailField label="Código" value={currentVagaCodigo} />
-                                <DetailField label="Área" value={currentVagaArea} />
-                                <DetailField label="Departamento" value={currentVagaDepartment} />
-                            </div>
-
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                <DetailField label="Modalidade" value={currentVagaModalidade} />
-                                <DetailField label="Senioridade" value={currentVagaSenioridade} />
-                                <DetailField label="Localização" value={currentVagaLocation} />
-                                <DetailField label="Quantidade" value={currentVagaQtd || "—"} />
-                            </div>
-
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                <DetailField label="Match mínimo" value={`${currentVagaMatch}%`} />
-                                <DetailField label="Data de início" value={formatDate(pickString(currentVagaDetail?.dataInicio, ""))} />
-                                <DetailField label="Data de encerramento" value={formatDate(pickString(currentVagaDetail?.dataEncerramento, ""))} />
-                                <DetailField label="Atualizada em" value={formatDateTime(pickString(currentVagaDetail?.updatedAt, ""))} />
-                            </div>
-
-                            <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
-                                <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Resumo</div>
-                                <div className="mt-2 text-sm leading-6 text-foreground">
-                                    {currentVagaResumo || "Sem resumo cadastrado para esta vaga."}
+                        <>
+                            {/* ── Header ── */}
+                            <div className="bg-gradient-to-r from-primary/5 via-primary/3 to-transparent px-6 pt-6 pb-4 border-b border-border/40">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h2 className="text-lg font-bold tracking-tight truncate">{currentVagaTitle}</h2>
+                                            <VagaStatusBadge status={currentVagaStatus} />
+                                        </div>
+                                        <div className="mt-1.5 flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                                            {currentVagaCodigo !== "—" && <span className="font-mono text-xs bg-muted/60 px-1.5 py-0.5 rounded">{currentVagaCodigo}</span>}
+                                            <span>{currentVagaArea}</span>
+                                            <span className="text-border">|</span>
+                                            <span>{currentVagaDepartment}</span>
+                                        </div>
+                                    </div>
+                                    {currentVagaPrioridade && (
+                                        <span className={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold ${priMeta.cls}`}>
+                                            {priMeta.label}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-3">
-                                <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
-                                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Próximo passo</div>
-                                    <div className="mt-2 text-sm font-semibold text-foreground">Matching IA</div>
-                                    <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                                        Priorize candidatos da vaga e mova entre triagem, pendência, aprovação e reprovação.
+                            <div className="px-6 pb-6 space-y-5">
+                                {/* ── Info Grid ── */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm pt-2">
+                                    <div className="flex items-center gap-2">
+                                        <Briefcase className="size-4 text-muted-foreground shrink-0" />
+                                        <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Modalidade</div><div className="font-medium">{currentVagaModalidade}</div></div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Target className="size-4 text-muted-foreground shrink-0" />
+                                        <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Senioridade</div><div className="font-medium">{currentVagaSenioridade}</div></div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="size-4 text-muted-foreground shrink-0" />
+                                        <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Local</div><div className="font-medium">{currentVagaLocation}</div></div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Banknote className="size-4 text-muted-foreground shrink-0" />
+                                        <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Faixa salarial</div><div className="font-medium">{fmtSalary()}</div></div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="size-4 text-muted-foreground shrink-0" />
+                                        <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Contratação</div><div className="font-medium">{currentVagaTipoContratacao || "—"}</div></div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Users className="size-4 text-muted-foreground shrink-0" />
+                                        <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Vagas</div><div className="font-medium">{currentVagaQtd || "—"}</div></div>
                                     </div>
                                 </div>
-                                <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
-                                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Depois do matching</div>
-                                    <div className="mt-2 text-sm font-semibold text-foreground">Rodadas de seleção</div>
-                                    <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                                        Organize aprovados em rodadas para avançar com a área e preparar o processo seletivo.
-                                    </div>
-                                </div>
-                                <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
-                                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Fechamento</div>
-                                    <div className="mt-2 text-sm font-semibold text-foreground">Processo e admissão</div>
-                                    <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                                        Depois da rodada, acompanhe fases e conclua a contratação pela pré-admissão.
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div className="flex flex-wrap gap-2">
-                                {isRecrutador && currentVagaId && (
-                                    <Button
-                                        onClick={() => {
-                                            setVagaDetailOpen(false);
-                                            openEdit(currentVagaId);
-                                        }}
-                                    >
-                                        <PenSquare className="mr-1 size-4" />
-                                        Editar vaga
-                                    </Button>
+                                {/* ── Datas & Match ── */}
+                                <div className="flex flex-wrap gap-4 text-xs text-muted-foreground border-t border-border/30 pt-3">
+                                    <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" /> Início: {formatDate(pickString(currentVagaDetail?.dataInicio, "")) || "—"}</span>
+                                    <span className="inline-flex items-center gap-1"><Clock className="size-3.5" /> Encerramento: {formatDate(pickString(currentVagaDetail?.dataEncerramento, "")) || "—"}</span>
+                                    <span className="inline-flex items-center gap-1"><ShieldCheck className="size-3.5" /> Match min: <strong className="text-foreground">{currentVagaMatch}%</strong></span>
+                                    <span className="inline-flex items-center gap-1"><RefreshCw className="size-3.5" /> Atualizada: {formatDateTime(pickString(currentVagaDetail?.updatedAt, "")) || "—"}</span>
+                                </div>
+
+                                {/* ── Responsáveis ── */}
+                                {(currentVagaRecrutador || currentVagaGestor) && (
+                                    <div className="flex flex-wrap gap-6 text-sm">
+                                        {currentVagaRecrutador && (
+                                            <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Recrutador</div><div className="font-medium">{currentVagaRecrutador}</div></div>
+                                        )}
+                                        {currentVagaGestor && (
+                                            <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Gestor requisitante</div><div className="font-medium">{currentVagaGestor}</div></div>
+                                        )}
+                                    </div>
                                 )}
-                                {currentVagaId && (
-                                    <>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => {
-                                                setVagaDetailOpen(false);
-                                                persistMatchingContext(currentVagaId);
-                                                router.push(`/matching?vagaId=${encodeURIComponent(currentVagaId)}`);
-                                            }}
-                                        >
-                                            <ShieldCheck className="mr-1 size-4" />
-                                            Abrir matching
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => {
-                                                setVagaDetailOpen(false);
-                                                router.push(`/gestao/projetos?vagaId=${encodeURIComponent(currentVagaId)}`);
-                                            }}
-                                        >
-                                            <FolderOpen className="mr-1 size-4" />
-                                            Ver projetos
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => {
-                                                setVagaDetailOpen(false);
-                                                router.push(`/candidatos?vagaId=${encodeURIComponent(currentVagaId)}`);
-                                            }}
-                                        >
-                                            <Users className="mr-1 size-4" />
-                                            Ver candidatos
-                                        </Button>
-                                    </>
+
+                                {/* ── Resumo ── */}
+                                {currentVagaResumo && (
+                                    <div className="rounded-lg bg-muted/30 border border-border/40 p-4">
+                                        <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-1.5">Resumo</div>
+                                        <div className="text-sm leading-relaxed whitespace-pre-line">{currentVagaResumo}</div>
+                                    </div>
                                 )}
+
+                                {/* ── Descrição Pública ── */}
+                                {currentVagaDescPublica && (
+                                    <div className="rounded-lg bg-muted/30 border border-border/40 p-4">
+                                        <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-1.5">Descrição pública</div>
+                                        <div className="text-sm leading-relaxed whitespace-pre-line">{currentVagaDescPublica}</div>
+                                    </div>
+                                )}
+
+                                {/* ── Tags ── */}
+                                {currentVagaTags && (
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {currentVagaTags.split(/[;,]/).filter(Boolean).map((tag, i) => (
+                                            <Badge key={i} variant="secondary" className="text-xs font-normal">{tag.trim()}</Badge>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* ── Actions ── */}
+                                <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-4">
+                                    {isRecrutador && currentVagaId && (
+                                        <Button size="sm" onClick={() => { setVagaDetailOpen(false); openEdit(currentVagaId); }}>
+                                            <PenSquare className="mr-1.5 size-3.5" />
+                                            Editar
+                                        </Button>
+                                    )}
+                                    {currentVagaId && (
+                                        <>
+                                            <Button size="sm" variant="outline" onClick={() => { setVagaDetailOpen(false); persistMatchingContext(currentVagaId); router.push(`/matching?vagaId=${encodeURIComponent(currentVagaId)}`); }}>
+                                                <ShieldCheck className="mr-1.5 size-3.5" />
+                                                Matching
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={() => { setVagaDetailOpen(false); router.push(`/gestao/projetos?vagaId=${encodeURIComponent(currentVagaId)}`); }}>
+                                                <FolderOpen className="mr-1.5 size-3.5" />
+                                                Projetos
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={() => { setVagaDetailOpen(false); router.push(`/candidatos?vagaId=${encodeURIComponent(currentVagaId)}`); }}>
+                                                <Users className="mr-1.5 size-3.5" />
+                                                Candidatos
+                                            </Button>
+                                        </>
+                                    )}
+                                    {isRecrutador && currentVagaId && vagaAberta && visibilidadePermitePortal && (
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="ml-auto text-muted-foreground"
+                                            onClick={async () => {
+                                                const tenantId = me?.tenantId;
+                                                if (!tenantId) { toast.error("TenantId não encontrado."); return; }
+                                                const url = `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}&vagaId=${encodeURIComponent(currentVagaId)}`;
+                                                try { await navigator.clipboard.writeText(url); toast.success("Link do Portal copiado."); }
+                                                catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao copiar link."); }
+                                            }}
+                                        >
+                                            <Copy className="mr-1.5 size-3.5" />
+                                            Copiar link
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        </>
                     )}
                 </DialogContent>
             </Dialog>

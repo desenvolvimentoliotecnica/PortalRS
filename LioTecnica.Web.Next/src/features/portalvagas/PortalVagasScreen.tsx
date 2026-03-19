@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -125,6 +125,7 @@ function hasAllowedApplyExtension(fileName: string) {
 export default function PortalVagasScreen() {
   const searchParams = useSearchParams();
   const tenantId = (searchParams.get("tenantId") || searchParams.get("tenant") || "").trim();
+  const vagaId = (searchParams.get("vagaId") || "").trim();
 
   const [tab, setTab] = useState<Tab>("vagas");
   const [jobs, setJobs] = useState<PagedJobs>({ items: [], totalItems: 0, totalPages: 1, page: 1 });
@@ -172,9 +173,12 @@ export default function PortalVagasScreen() {
     consent: false,
   });
   const [applyFile, setApplyFile] = useState<File | null>(null);
+  const [camposPersonalizados, setCamposPersonalizados] = useState<{ id: string; label: string; tipo: number; obrigatorio: boolean; isReadOnly: boolean; valorPadrao: string | null; opcoes: string | null }[]>([]);
+  const [camposValues, setCamposValues] = useState<Record<string, string>>({});
 
   const canQuery = tenantId.length > 0;
   const candidateSession = useMemo(() => (tenantId ? getPortalCandidateSession(tenantId) : null), [tenantId]);
+  const lastAppliedVagaIdRef = useRef<string | null>(null);
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -243,8 +247,64 @@ export default function PortalVagasScreen() {
       linkedin: profile.linkedinUrl || "",
     }));
     setApplyFile(null);
+    setCamposPersonalizados([]);
+    setCamposValues({});
     setApplyOpen(true);
+
+    // Buscar campos personalizados da vaga
+    if (job.id && tenantId) {
+      apiFetch(`/api/public/vagas/${encodeURIComponent(job.id)}/campos-personalizados?tenantId=${encodeURIComponent(tenantId)}`, { cache: "no-store" })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setCamposPersonalizados(data);
+            const defaults: Record<string, string> = {};
+            for (const c of data) {
+              if (c.valorPadrao) defaults[c.id] = c.valorPadrao;
+              else if (c.tipo === 2) defaults[c.id] = "false";
+              else defaults[c.id] = "";
+            }
+            setCamposValues(defaults);
+          }
+        })
+        .catch(() => { /* best-effort */ });
+    }
   }
+
+  // Deeplink: ao abrir o portal com vagaId, já pré-seleciona a vaga e abre candidatura.
+  useEffect(() => {
+    if (!canQuery) return;
+    if (!vagaId) return;
+    if (lastAppliedVagaIdRef.current === vagaId) return;
+
+    let alive = true;
+    lastAppliedVagaIdRef.current = vagaId;
+
+    (async () => {
+      try {
+        const res = await apiFetch(
+          `/api/public/vagas/${encodeURIComponent(vagaId)}?tenantId=${encodeURIComponent(tenantId)}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) {
+          toast.error("Vaga não encontrada no portal.");
+          return;
+        }
+
+        const job = (await res.json()) as JobItem;
+        if (!alive) return;
+        openApply(job);
+      } catch (e) {
+        if (!alive) return;
+        toast.error(e instanceof Error ? e.message : "Falha ao abrir candidatura pela vaga informada.");
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [canQuery, tenantId, vagaId]);
 
   // UF/Cidade agora são campos locais (sem dependência de endpoint legado de localização).
 
@@ -272,6 +332,16 @@ export default function PortalVagasScreen() {
     ) {
       toast.error("Preencha os campos obrigatórios.");
       return;
+    }
+    // Validar campos personalizados obrigatórios
+    for (const campo of camposPersonalizados) {
+      if (campo.obrigatorio) {
+        const val = (camposValues[campo.id] ?? "").trim();
+        if (!val || (campo.tipo === 2 && val === "false")) {
+          toast.error(`O campo "${campo.label}" é obrigatório.`);
+          return;
+        }
+      }
     }
     if (applyFile) {
       if (applyFile.size > APPLY_MAX_FILE_BYTES) {
@@ -304,6 +374,12 @@ export default function PortalVagasScreen() {
       .join(" | ");
     formData.append("observacoes", obs);
     if (applyFile) formData.append("arquivo", applyFile);
+
+    // Campos personalizados (JSON)
+    if (camposPersonalizados.length > 0) {
+      const respostas = camposPersonalizados.map((c) => ({ campoId: c.id, valor: (camposValues[c.id] ?? "").trim() }));
+      formData.append("camposPersonalizadosJson", JSON.stringify(respostas));
+    }
 
     setSendingApply(true);
     try {
@@ -755,6 +831,57 @@ export default function PortalVagasScreen() {
                 <label className="mini-title mb-1 block">Informações adicionais</label>
                 <textarea className="form-control" rows={3} value={applyForm.recruiterNotes} onChange={(e) => setApplyForm((f) => ({ ...f, recruiterNotes: e.target.value }))} />
               </div>
+              {/* ── Campos personalizados dinâmicos ── */}
+              {camposPersonalizados.length > 0 && (
+                <div className="md:col-span-12 border-t border-border/40 pt-3 mt-1">
+                  <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Informações adicionais da vaga</div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                    {camposPersonalizados.map((campo) => {
+                      const val = camposValues[campo.id] ?? "";
+                      const readOnly = campo.isReadOnly;
+                      if (campo.tipo === 2) {
+                        // Checkbox
+                        return (
+                          <div key={campo.id} className="md:col-span-6 flex items-center gap-2">
+                            <input type="checkbox" disabled={readOnly} checked={val === "true"} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.checked ? "true" : "false" }))} />
+                            <label className="text-sm">{campo.label}{campo.obrigatorio ? " *" : ""}</label>
+                          </div>
+                        );
+                      }
+                      if (campo.tipo === 1 && campo.opcoes) {
+                        // Select
+                        const opts = campo.opcoes.split(";").map((o) => o.trim()).filter(Boolean);
+                        return (
+                          <div key={campo.id} className="md:col-span-6">
+                            <label className="mini-title mb-1 block">{campo.label}{campo.obrigatorio ? " *" : ""}</label>
+                            <select className="form-select" disabled={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))}>
+                              <option value="">Selecione</option>
+                              {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </div>
+                        );
+                      }
+                      if (campo.tipo === 3) {
+                        // Numero
+                        return (
+                          <div key={campo.id} className="md:col-span-6">
+                            <label className="mini-title mb-1 block">{campo.label}{campo.obrigatorio ? " *" : ""}</label>
+                            <input className="form-control" type="number" readOnly={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))} />
+                          </div>
+                        );
+                      }
+                      // Texto (default)
+                      return (
+                        <div key={campo.id} className="md:col-span-6">
+                          <label className="mini-title mb-1 block">{campo.label}{campo.obrigatorio ? " *" : ""}</label>
+                          <input className="form-control" readOnly={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Currículo (opcional)</label>
                 <input className="form-control" type="file" accept=".pdf,.doc,.docx" onChange={(e) => onApplyFileChange(e.target.files?.[0] || null)} />

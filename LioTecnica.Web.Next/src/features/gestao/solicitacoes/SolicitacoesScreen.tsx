@@ -13,6 +13,8 @@ import {
     Send,
     Clock,
     CheckCircle2,
+    Columns3,
+    List,
     XCircle,
     AlertTriangle,
     FileText,
@@ -161,13 +163,22 @@ export default function SolicitacoesScreen() {
     const { me } = useAuth();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin") ?? false;
 
+    /* ── tab ── */
+    const [activeTab, setActiveTab] = useState<"minhas" | "aprovacoes">("minhas");
+
     /* ── data ── */
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<SolicitacaoGridRow[]>([]);
+    const [pendingRows, setPendingRows] = useState<SolicitacaoGridRow[]>([]);
 
     /* ── filters ── */
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
+        if (typeof window === "undefined") return "list";
+        return (localStorage.getItem("renderrh.solicitacoes.viewMode") as "list" | "kanban") || "list";
+    });
+    const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.solicitacoes.viewMode", m); };
 
     /* ── form modal ── */
     const [formOpen, setFormOpen] = useState(false);
@@ -186,9 +197,13 @@ export default function SolicitacoesScreen() {
 
     /* ── data loading ── */
     const syncList = useCallback(async () => {
-        const data = await fetchJson<SolicitacaoGridRow[]>(API);
-        setRows(Array.isArray(data) ? data : []);
-    }, []);
+        const [allData, pendingData] = await Promise.all([
+            fetchJson<SolicitacaoGridRow[]>(API),
+            isAdmin ? fetchJson<SolicitacaoGridRow[]>(`${API}?status=1`) : Promise.resolve([]),
+        ]);
+        setRows(Array.isArray(allData) ? allData : []);
+        setPendingRows(Array.isArray(pendingData) ? pendingData : []);
+    }, [isAdmin]);
 
     useEffect(() => {
         let alive = true;
@@ -343,27 +358,50 @@ export default function SolicitacoesScreen() {
                 ))}
             </div>
 
+            {/* ── tabs ── */}
+            <div className="flex gap-1 border-b border-border/40">
+                <button
+                    onClick={() => setActiveTab("minhas")}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "minhas" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                >
+                    Minhas Solicitações
+                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => setActiveTab("aprovacoes")}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "aprovacoes" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                    >
+                        Aprovações Pendentes
+                        {pendingRows.length > 0 && (
+                            <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold min-w-[20px] h-5 px-1.5">
+                                {pendingRows.length}
+                            </span>
+                        )}
+                    </button>
+                )}
+            </div>
+
             {/* ── filters + table ── */}
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                 <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <div className="font-semibold">Minhas solicitações</div>
+                        <div className="font-semibold">{activeTab === "minhas" ? "Minhas solicitações" : "Aprovações pendentes"}</div>
                         <div className="text-muted-foreground text-sm">
-                            {loading ? "Carregando…" : `${filtered.length} solicitações`}
+                            {loading ? "Carregando…" : `${activeTab === "minhas" ? filtered.length : pendingRows.length} solicitações`}
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative">
+                        <div className="relative min-w-[220px] flex-1">
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
-                                className="w-[240px] pl-8"
+                                className="pl-9"
                                 placeholder="Buscar título, área…"
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
                             />
                         </div>
                         <select
-                            className="form-select h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
                         >
@@ -374,9 +412,14 @@ export default function SolicitacoesScreen() {
                             <option value="3">Reprovada</option>
                             <option value="4">Ajustes</option>
                         </select>
+                        <div className="flex items-center rounded-md border border-input bg-background p-0.5">
+                            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista"><List className="size-3.5" /></button>
+                            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban"><Columns3 className="size-3.5" /></button>
+                        </div>
                     </div>
                 </div>
 
+                {viewMode === "list" ? (
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -397,8 +440,8 @@ export default function SolicitacoesScreen() {
                                     Carregando…
                                 </TableCell>
                             </TableRow>
-                        ) : filtered.length ? (
-                            filtered.map((r) => (
+                        ) : (activeTab === "minhas" ? filtered : pendingRows).length ? (
+                            (activeTab === "minhas" ? filtered : pendingRows).map((r) => (
                                 <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => void openDetail(r)}>
                                     <TableCell>
                                         <div className="flex items-center gap-1.5">
@@ -417,7 +460,7 @@ export default function SolicitacoesScreen() {
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${r.tipoSolicitacao === 1 ? "bg-violet-500/15 text-violet-700" : "bg-sky-500/15 text-sky-700"}`}>
+                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${r.tipoSolicitacao === 1 ? "bg-blue-500/15 text-blue-700" : "bg-sky-500/15 text-sky-700"}`}>
                                             {r.tipoSolicitacao === 1 ? "Substituição" : "Nova"}
                                         </span>
                                     </TableCell>
@@ -459,6 +502,63 @@ export default function SolicitacoesScreen() {
                         )}
                     </TableBody>
                 </Table>
+                ) : (
+                    /* ── Kanban View ── */
+                    <div className="p-4 overflow-x-auto">
+                        {loading ? (
+                            <div className="flex gap-4">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={i} className="w-64 shrink-0 space-y-3">
+                                        <div className="h-8 animate-pulse rounded-lg bg-muted" />
+                                        <div className="h-20 animate-pulse rounded-lg bg-muted" />
+                                        <div className="h-20 animate-pulse rounded-lg bg-muted" />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex gap-4 items-start">
+                                {([0, 1, 2, 3, 4] as const).map((col) => {
+                                    const meta = STATUS_MAP[col as StatusKey];
+                                    const Icon = meta.icon;
+                                    const sourceRows = activeTab === "minhas" ? filtered : pendingRows;
+                                    const colItems = sourceRows.filter((r) => r.status === col);
+                                    return (
+                                        <div key={col} className="w-64 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
+                                            <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
+                                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.color}`}>
+                                                    <Icon className="size-3" />{meta.label}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground ml-auto">{colItems.length}</span>
+                                            </div>
+                                            <div className="flex-1 space-y-2 p-2 max-h-[calc(100vh-340px)] overflow-y-auto">
+                                                {colItems.length === 0 ? (
+                                                    <div className="rounded-lg border border-dashed border-border/40 py-8 text-center text-xs text-muted-foreground">
+                                                        Nenhuma
+                                                    </div>
+                                                ) : colItems.map((r) => (
+                                                    <div
+                                                        key={r.id}
+                                                        className="rounded-lg border border-border/50 bg-card p-3 shadow-sm cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
+                                                        onClick={() => void openDetail(r)}
+                                                    >
+                                                        <div className="text-sm font-medium leading-tight truncate">{r.titulo}</div>
+                                                        {r.solicitanteNome && <div className="mt-1 text-[11px] text-muted-foreground">{r.solicitanteNome}</div>}
+                                                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                                                            {r.areaName && <span>{r.areaName}</span>}
+                                                            <span>{r.qtdPosicoes} pos.</span>
+                                                            <span>{urgenciaBadge(r.urgencia)}</span>
+                                                        </div>
+                                                        <div className="mt-2 text-[10px] text-muted-foreground">{formatDate(r.createdAtUtc)}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* ── Form Modal ── */}

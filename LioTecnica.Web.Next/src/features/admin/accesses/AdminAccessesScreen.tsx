@@ -273,11 +273,11 @@ export default function AdminAccessesScreen() {
                 <div className="flex flex-wrap items-center gap-2">
                     {roleId && (
                         <>
-                            <Button variant="ghost" size="sm" onClick={selectAll}>
-                                <CheckSquare className="size-4" /><span className="hidden sm:inline ml-1">Selecionar tudo</span>
+                            <Button variant="outline" size="sm" onClick={selectAll}>
+                                <CheckSquare className="mr-1 size-4" />Selecionar tudo
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={clearAll}>
-                                <XCircle className="size-4" /><span className="hidden sm:inline ml-1">Limpar</span>
+                            <Button variant="outline" size="sm" onClick={clearAll}>
+                                <XCircle className="mr-1 size-4" />Limpar
                             </Button>
                             <Button variant={showPreview ? "default" : "outline"} size="sm" onClick={() => setShowPreview(p => !p)}>
                                 <Eye className="size-4 mr-1" />Preview
@@ -319,8 +319,8 @@ export default function AdminAccessesScreen() {
                         </select>
                     </div>
                     {roleId && (
-                        <Button variant="ghost" size="sm" onClick={() => void loadRoleMenus(roleId)} disabled={loadingAssignments}>
-                            <RefreshCw className="size-4 mr-1" /> Recarregar
+                        <Button variant="outline" size="sm" onClick={() => void loadRoleMenus(roleId)} disabled={loadingAssignments}>
+                            <RefreshCw className="mr-1 size-4" /> Recarregar
                         </Button>
                     )}
                     <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -376,7 +376,7 @@ export default function AdminAccessesScreen() {
                                             <Button
                                                 variant={allModSelected ? "default" : someModSelected ? "secondary" : "outline"}
                                                 size="sm"
-                                                className="text-xs h-7"
+                                                className="text-xs"
                                                 onClick={(e) => { e.stopPropagation(); toggleModule(mod.key); }}
                                             >
                                                 {allModSelected ? "Desmarcar Módulo" : "Selecionar Módulo"}

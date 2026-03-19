@@ -13,7 +13,18 @@ public sealed record ProjetoVagaResponse(
     Guid Id, Guid VagaId, int Numero, string? Descricao,
     StatusProjeto Status, int TotalCandidatos, DateTimeOffset CreatedAtUtc);
 
-public sealed record ProjetoVagaCreateRequest(string? Descricao, bool CopiarCandidatosAnterior = false);
+public sealed record ProjetoVagaCreateRequest(
+    string? Descricao,
+    bool CopiarCandidatosAnterior = false,
+    /// <summary>
+    /// Cria a rodada com "banco novo": ignora candidatos de projetos anteriores.
+    /// </summary>
+    bool IgnorarCandidatosAnterior = false,
+    /// <summary>
+    /// Quando não estiver copiando, reprova automaticamente apenas os candidatos
+    /// que já estavam como Reprovado em projetos anteriores.
+    /// </summary>
+    bool ReprovarApenasReprovadosAnterior = false);
 
 public sealed record ProjetoVagaUpdateRequest(string? Descricao);
 
@@ -94,13 +105,22 @@ public sealed class ProjetoVagaService : IProjetoVagaService
 
         // Candidatos únicos de rodadas anteriores da mesma vaga.
         List<Guid> candidatosAnteriores = [];
-        if (novoNumero > 1)
+        if (!request.IgnorarCandidatosAnterior && novoNumero > 1)
         {
-            candidatosAnteriores = await _db.Set<ProjetoCandidato>()
-                .Where(pc => _db.Set<ProjetoVaga>()
-                    .Where(p => p.VagaId == vagaId && p.Numero < novoNumero)
-                    .Select(p => p.Id)
-                    .Contains(pc.ProjetoId))
+            var baseQuery = _db.Set<ProjetoCandidato>()
+                .Where(pc =>
+                    _db.Set<ProjetoVaga>()
+                        .Where(p => p.VagaId == vagaId && p.Numero < novoNumero)
+                        .Select(p => p.Id)
+                        .Contains(pc.ProjetoId));
+
+            // Quando for "reprovação automática de reprovados", limita ao que já era Reprovado.
+            if (!request.CopiarCandidatosAnterior && request.ReprovarApenasReprovadosAnterior)
+            {
+                baseQuery = baseQuery.Where(pc => pc.Status == StatusCandidatoProjeto.Reprovado);
+            }
+
+            candidatosAnteriores = await baseQuery
                 .Select(pc => pc.CandidatoId)
                 .Distinct()
                 .ToListAsync(ct);
@@ -140,7 +160,7 @@ public sealed class ProjetoVagaService : IProjetoVagaService
             }
             else
             {
-                // Auto-rejeição: marcar candidatos anteriores como Reprovado na nova rodada
+                // Auto-rejeição: marcar candidatos anteriores como Reprovado na nova rodada.
                 var reprovados = candidatosAnteriores.Select(candidatoId => new ProjetoCandidato
                 {
                     Id = Guid.NewGuid(),

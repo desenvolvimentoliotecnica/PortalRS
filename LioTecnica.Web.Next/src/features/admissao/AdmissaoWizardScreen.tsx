@@ -278,7 +278,7 @@ export default function AdmissaoWizardScreen() {
                     const Icon = s.icon;
                     return (
                         <button key={s.key} onClick={() => setStep(i)}
-                            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${step === i ? "bg-violet-600 text-white" : i < step ? "bg-emerald-500/15 text-emerald-700" : "bg-muted/50 text-muted-foreground"
+                            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${step === i ? "bg-blue-600 text-white" : i < step ? "bg-emerald-500/15 text-emerald-700" : "bg-muted/50 text-muted-foreground"
                                 }`}
                         >
                             <Icon className="size-3.5" /> {s.label}
@@ -503,7 +503,7 @@ export default function AdmissaoWizardScreen() {
                         {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar Rascunho
                     </Button>
                     {step < STEPS.length - 1 ? (
-                        <Button className="bg-violet-600 hover:bg-violet-700" onClick={async () => { await save(); setStep(s => s + 1); }}>
+                        <Button className="bg-blue-600 hover:bg-blue-700" onClick={async () => { await save(); setStep(s => s + 1); }}>
                             Próximo <ChevronRight className="size-4" />
                         </Button>
                     ) : (

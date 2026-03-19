@@ -210,7 +210,7 @@ export default function AdminRolesScreen() {
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">Escopo de Visibilidade</label>
-                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={form.visibilityScope} onChange={(e) => upd("visibilityScope", e.target.value)}>
+                            <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.visibilityScope} onChange={(e) => upd("visibilityScope", e.target.value)}>
                                 <option value="">Padrão</option>
                                 <option value="all">Todos</option>
                                 <option value="area">Por Área</option>
@@ -219,7 +219,7 @@ export default function AdminRolesScreen() {
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">Escopo de Vagas</label>
-                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={form.vagasDataScope} onChange={(e) => upd("vagasDataScope", e.target.value)}>
+                            <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.vagasDataScope} onChange={(e) => upd("vagasDataScope", e.target.value)}>
                                 <option value="">Padrão</option>
                                 <option value="all">Todas</option>
                                 <option value="area">Por Área</option>
@@ -228,7 +228,7 @@ export default function AdminRolesScreen() {
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">Modo de Acesso</label>
-                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={form.accessMode} onChange={(e) => upd("accessMode", e.target.value)}>
+                            <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.accessMode} onChange={(e) => upd("accessMode", e.target.value)}>
                                 <option value="">Padrão</option>
                                 <option value="full">Completo</option>
                                 <option value="readonly">Somente Leitura</option>
@@ -254,7 +254,7 @@ export default function AdminRolesScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input className="w-[200px] pl-8" placeholder="buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                             <option value="all">Todos</option>
                             <option value="active">Ativos</option>
                             <option value="inactive">Inativos</option>

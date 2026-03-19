@@ -137,7 +137,7 @@ export default function AdminEmailConfigScreen() {
                     <h4 className="text-lg font-bold">Configuração de Email</h4>
                     <div className="text-muted-foreground text-sm">Configure SMTP (envio) e IMAP (recebimento).</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadConfig()}><RefreshCw className="size-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => void loadConfig()}><RefreshCw className="size-4" /></Button>
             </div>
 
             {/* SMTP */}

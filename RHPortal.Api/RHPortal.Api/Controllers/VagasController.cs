@@ -83,6 +83,20 @@ public sealed class VagasController : ControllerBase
     }
 
     /// <summary>
+    /// Lista vagas aprovadas pelos superiores e que estão em rascunho,
+    /// aguardando o RH preencher os detalhes para então liberar para o portal.
+    /// </summary>
+    [HttpGet("pendencias-rh")]
+    [ProducesResponseType(typeof(IReadOnlyList<VagaListItemResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<VagaListItemResponse>>> PendenciasRh(
+        [FromServices] IListVagasPendenciasRhHandler handler,
+        CancellationToken ct)
+    {
+        var items = await handler.HandleAsync(ct);
+        return Ok(items);
+    }
+
+    /// <summary>
     /// Consulta uma vaga específica pelo ID.
     /// </summary>
     [HttpGet("{id:guid}")]

@@ -56,7 +56,7 @@ export default function AdminEntraIdScreen() {
         <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div><h4 className="text-lg font-bold">Microsoft Entra ID</h4><div className="text-muted-foreground text-sm">Configure a autenticação via Microsoft Entra ID (Azure AD).</div></div>
-                <Button variant="ghost" size="sm" onClick={() => void load()}><RefreshCw className="size-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => void load()}><RefreshCw className="size-4" /></Button>
             </div>
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur space-y-3">
                 <div className="font-semibold">Configuração</div>

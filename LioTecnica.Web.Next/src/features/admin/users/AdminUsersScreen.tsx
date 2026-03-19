@@ -256,7 +256,7 @@ export default function AdminUsersScreen() {
                     <div>
                         <div className="text-sm font-medium mb-1">Status</div>
                         <select
-                            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm w-full max-w-[200px]"
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full max-w-[200px]"
                             value={newIsActive ? "true" : "false"}
                             onChange={(e) => setNewIsActive(e.target.value === "true")}
                         >
@@ -286,7 +286,7 @@ export default function AdminUsersScreen() {
                         <div>
                             <div className="text-sm font-medium mb-1">Funcionário (opcional)</div>
                             <select
-                                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm w-full max-w-md"
+                                className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full max-w-md"
                                 value={newFuncionarioId ?? ""}
                                 onChange={(e) => setNewFuncionarioId(e.target.value || null)}
                             >
@@ -367,12 +367,12 @@ export default function AdminUsersScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input className="w-[240px] pl-8" placeholder="nome, email..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="all">Todos</option>
                             <option value="active">Ativo</option>
                             <option value="inactive">Inativo</option>
                         </select>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
                             <option value="all">Todos perfis</option>
                             {uniqueRoleNames.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>

@@ -38,14 +38,31 @@ public sealed class CampoPersonalizadoController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Endpoint público: lista campos personalizados de uma vaga (para o Portal).</summary>
+    [HttpGet("api/public/vagas/{vagaId:guid}/campos-personalizados")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ListPublic(Guid vagaId, CancellationToken ct)
+        => Ok(await _service.ListAsync(vagaId, ct));
+
     /// <summary>Gera link público compartilhável para a vaga (para LinkedIn, etc.).</summary>
     [HttpGet("api/vagas/{vagaId:guid}/link-publico")]
     [AllowAnonymous]
-    public IActionResult GetLinkPublico(Guid vagaId)
+    public IActionResult GetLinkPublico(
+        Guid vagaId,
+        [FromQuery] string? tenantId)
     {
-        // O link público é simplesmente a URL do portal + vagaId
+        // O link público deve apontar para a UI Next e incluir tenantId para o endpoint público
+        // conseguir respeitar o data scope.
         var baseUrl = HttpContext.Request.Scheme + "://" + HttpContext.Request.Host;
-        var link = $"{baseUrl}/portal/vagas/{vagaId}";
+
+        var actualTenantId = (tenantId ?? HttpContext.Request.Headers["X-Tenant-Id"].ToString())
+            ?.Trim();
+        if (string.IsNullOrWhiteSpace(actualTenantId))
+            return BadRequest(new { message = "tenantId é obrigatório para gerar o link público do Portal." });
+
+        var encodedTenantId = Uri.EscapeDataString(actualTenantId);
+        var encodedVagaId = Uri.EscapeDataString(vagaId.ToString());
+        var link = $"{baseUrl}/app/PortalVagas?tenantId={encodedTenantId}&vagaId={encodedVagaId}";
         return Ok(new { link });
     }
 }

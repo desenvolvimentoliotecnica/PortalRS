@@ -220,7 +220,7 @@ export default function AdminMenusScreen() {
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">Menu Pai</label>
-                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={form.parentId} onChange={(e) => upd("parentId", e.target.value)}>
+                            <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.parentId} onChange={(e) => upd("parentId", e.target.value)}>
                                 <option value="">Nenhum (raiz)</option>
                                 {parents.map(p => <option key={p.id} value={p.id}>{p.displayName}</option>)}
                             </select>
@@ -251,7 +251,7 @@ export default function AdminMenusScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input className="w-[200px] pl-8" placeholder="buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
                             <option value="all">Todos módulos</option>
                             {modules.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>

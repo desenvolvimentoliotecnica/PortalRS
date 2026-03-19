@@ -118,11 +118,13 @@ export default function PesquisasScreen() {
                     <h4 className="text-lg font-bold">Pesquisas</h4>
                     <div className="text-muted-foreground text-sm">Gerencie pesquisas de clima e engajamento.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
-                    <RefreshCw className="size-4" />
+                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
+                    <RefreshCw className="mr-1 size-4" />
+                    Atualizar
                 </Button>
                 <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
-                    <Plus className="size-4" /><span className="hidden sm:inline ml-1">Nova Pesquisa</span>
+                    <Plus className="mr-1 size-4" />
+                    Nova Pesquisa
                 </Button>
             </div>
 
@@ -199,7 +201,7 @@ export default function PesquisasScreen() {
                                     <TableCell className="text-right text-xs">—</TableCell>
                                     <TableCell>{statusBadge(s)}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" className="h-7 text-xs">Ver</Button>
+                                        <Button variant="outline" size="sm">Ver</Button>
                                     </TableCell>
                                 </TableRow>
                             ))

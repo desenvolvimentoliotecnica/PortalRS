@@ -64,7 +64,7 @@ export default function AdminOperationalLogsScreen() {
         <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div><h4 className="text-lg font-bold">Logs Operacionais</h4><div className="text-muted-foreground text-sm">Logs de operação e erros do sistema.</div></div>
-                <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur"><div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Total</div><div className="mt-1 text-2xl font-bold text-primary">{total}</div></div>

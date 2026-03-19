@@ -463,20 +463,17 @@ export default function TalentosScreen() {
                       <div className="flex items-center justify-end gap-1 flex-wrap">
                         <Button
                           size="sm"
-                          variant="default"
-                          className="text-xs h-7 px-2.5 bg-violet-600 hover:bg-violet-700"
                           onClick={() => void openCadastrarCandidato(t)}
                           title="Cadastrar como candidato em uma vaga"
                         >
-                          <UserCheck className="size-3 mr-1" /> Candidatar
+                          <UserCheck className="mr-1 size-4" /> Candidatar
                         </Button>
-                        <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => void openDetail(t.id)}>
+                        <Button size="sm" variant="outline" onClick={() => void openDetail(t.id)}>
                           Detalhes
                         </Button>
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="text-xs h-7 px-2 text-red-600 hover:text-red-700 hover:border-red-300"
+                          variant="destructive"
                           onClick={() => void handleDelete(t.id, t.nome)}
                         >
                           Eliminar
@@ -638,7 +635,6 @@ export default function TalentosScreen() {
             <Button
               disabled={cadSaving || !cadVagaId}
               onClick={() => void handleCadastrarCandidato()}
-              className="bg-violet-600 hover:bg-violet-700"
             >
               {cadSaving && <Loader2 className="size-4 animate-spin mr-1" />}
               <UserCheck className="size-4 mr-1" /> Candidatar

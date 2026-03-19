@@ -17,24 +17,22 @@ export const RECRUITMENT_ROUTE_KEYS = {
   admissao: "/admissao",
 } as const;
 
-export const RECRUITMENT_HUB_ROUTE_KEYS = [
-  RECRUITMENT_ROUTE_KEYS.vagas,
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,
-  RECRUITMENT_ROUTE_KEYS.aprovacoes,
-  RECRUITMENT_ROUTE_KEYS.portalVagas,
-] as const;
-
-export const RECRUITMENT_SELECTION_ROUTE_KEYS = [
-  RECRUITMENT_ROUTE_KEYS.matching,
-  RECRUITMENT_ROUTE_KEYS.rodadas,
-  RECRUITMENT_ROUTE_KEYS.processoSeletivo,
-  RECRUITMENT_ROUTE_KEYS.triagem,
+/** Ordem linear do fluxo de recrutamento no sidebar. */
+export const RECRUITMENT_LINEAR_ORDER = [
+  RECRUITMENT_ROUTE_KEYS.dashboard,        // 0. Dashboard
+  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // 1. Solicitações (+ Aprovações)
+  RECRUITMENT_ROUTE_KEYS.vagas,            // 2. Vagas
+  RECRUITMENT_ROUTE_KEYS.candidatos,       // 3. Candidatos (+ Talentos)
+  RECRUITMENT_ROUTE_KEYS.matching,         // 4. Matching IA
+  RECRUITMENT_ROUTE_KEYS.triagem,          // 5. Triagem
+  RECRUITMENT_ROUTE_KEYS.processoSeletivo, // 6. Processo Seletivo
+  RECRUITMENT_ROUTE_KEYS.admissao,         // 7. Admissão
 ] as const;
 
 export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.dashboard]: "Dashboard",
-  [RECRUITMENT_ROUTE_KEYS.vagas]: "Painel de Vagas",
-  [RECRUITMENT_ROUTE_KEYS.solicitacoes]: "Solicitações de Vaga",
+  [RECRUITMENT_ROUTE_KEYS.vagas]: "Vagas",
+  [RECRUITMENT_ROUTE_KEYS.solicitacoes]: "Solicitações",
   [RECRUITMENT_ROUTE_KEYS.aprovacoes]: "Aprovações",
   [RECRUITMENT_ROUTE_KEYS.portalVagas]: "Portal de Vagas",
   [RECRUITMENT_ROUTE_KEYS.talentos]: "Banco de Talentos",
@@ -42,7 +40,7 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.matching]: "Matching IA",
   [RECRUITMENT_ROUTE_KEYS.rodadas]: "Rodadas de Seleção",
   [RECRUITMENT_ROUTE_KEYS.processoSeletivo]: "Processo Seletivo",
-  [RECRUITMENT_ROUTE_KEYS.triagem]: "Triagem (Kanban)",
+  [RECRUITMENT_ROUTE_KEYS.triagem]: "Triagem",
   [RECRUITMENT_ROUTE_KEYS.admissao]: "Admissão",
 };
 
@@ -106,18 +104,15 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
   const isGestor = isAdmin || roleSet.has("gestor");
 
   const extras: BffNavItem[] = [
-    createItem("nav-portalvagas", "Portal de Vagas", "/PortalVagas", "globe"),
-    createItem("nav-solicitacoes", "Solicitações de Vaga", "/gestao/solicitacoes", "clipboardlist"),
-    createItem("nav-aprovacoes", "Aprovações", "/gestao/aprovacoes", "listchecks"),
-    createItem("nav-rodadas", "Rodadas de Seleção", "/gestao/projetos", "clipboardlist"),
+    createItem("nav-solicitacoes", "Solicitações", "/gestao/solicitacoes", "clipboardlist"),
     createItem("nav-processo-seletivo", "Processo Seletivo", "/gestao/processo-seletivo", "listchecks"),
     createItem("nav-admissao", "Admissão", "/admissao", "usercheck"),
     createItem("nav-batidaponto", "Batida de Ponto", "/gestao/batida-ponto", "bi-clock-history"),
-    createItem("nav-comissoes", "Comissões", "/gestao/comissoes", "bi-bar-chart"),
+    createItem("nav-comissoes", "Pagamento extra", "/gestao/comissoes", "bi-bar-chart"),
   ];
 
   return extras.filter((item) => {
-    if (item.href === RECRUITMENT_ROUTE_KEYS.solicitacoes || item.href === RECRUITMENT_ROUTE_KEYS.aprovacoes) {
+    if (item.href === RECRUITMENT_ROUTE_KEYS.solicitacoes) {
       return isGestor;
     }
     return true;

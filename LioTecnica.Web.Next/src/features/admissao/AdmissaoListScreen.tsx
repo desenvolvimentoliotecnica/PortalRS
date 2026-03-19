@@ -154,7 +154,7 @@ export default function AdmissaoListScreen() {
                     <Button variant="outline" size="sm" onClick={() => setReadmissaoOpen(true)}>
                         <Search className="size-4" /> Readmissão (CPF)
                     </Button>
-                    <Button size="sm" className="bg-violet-600 hover:bg-violet-700" onClick={handleCreate} disabled={creating}>
+                    <Button size="sm" onClick={handleCreate} disabled={creating}>
                         {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Nova Admissão
                     </Button>
                 </div>
@@ -184,7 +184,7 @@ export default function AdmissaoListScreen() {
                             <button
                                 key={f.key}
                                 onClick={() => setStatusFilter(f.key)}
-                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${statusFilter === f.key ? "bg-violet-600 text-white" : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${statusFilter === f.key ? "bg-blue-600 text-white" : "bg-muted/50 text-muted-foreground hover:bg-muted"
                                     }`}
                             >
                                 {f.label}
@@ -267,7 +267,7 @@ export default function AdmissaoListScreen() {
                         <Input placeholder="000.000.000-00" value={readmissaoCpf} onChange={(e) => setReadmissaoCpf(e.target.value)} />
                         <div className="flex gap-2 justify-end">
                             <Button variant="outline" onClick={() => setReadmissaoOpen(false)}>Cancelar</Button>
-                            <Button className="bg-violet-600 hover:bg-violet-700" onClick={handleReadmissao}>
+                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleReadmissao}>
                                 <Search className="size-4" /> Buscar
                             </Button>
                         </div>

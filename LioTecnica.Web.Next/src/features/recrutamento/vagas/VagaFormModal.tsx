@@ -423,7 +423,7 @@ function EnumSelect({ value, onChange, options, placeholder }: {
 
 /* ── Tab definitions ─────────────────────────────────────────────────── */
 
-type TabKey = "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "candidatos";
+type TabKey = "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos";
 
 const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "dados", icon: "📋", label: "Dados básicos" },
@@ -435,8 +435,135 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "matching", icon: "✨", label: "Filtros matching (IA)" },
   { key: "processo", icon: "🔀", label: "Processo seletivo" },
   { key: "publicacao", icon: "📢", label: "Publicação" },
+  { key: "campos", icon: "🧩", label: "Campos personalizados" },
   { key: "candidatos", icon: "👥", label: "Candidatos" },
 ];
+
+/* ── CamposPersonalizadosTab ─────────────────────────────────────────── */
+
+type CampoItem = {
+  id: string; vagaId: string; label: string; tipo: number;
+  obrigatorio: boolean; isReadOnly: boolean; valorPadrao: string | null;
+  ordem: number; opcoes: string | null;
+};
+
+const TIPO_LABELS: Record<number, string> = { 0: "Texto", 1: "Select", 2: "Checkbox", 3: "Numero" };
+
+function CamposPersonalizadosTab({ vagaId }: { vagaId?: string }) {
+  const [campos, setCampos] = useState<CampoItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState({ label: "", tipo: 0, obrigatorio: false, isReadOnly: false, valorPadrao: "", opcoes: "" });
+
+  const load = useCallback(async () => {
+    if (!vagaId) return;
+    setLoading(true);
+    try {
+      const res = await apiFetch(`${BASE}/api/vagas/${vagaId}/campos-personalizados`);
+      if (res.ok) setCampos(await res.json());
+    } finally { setLoading(false); }
+  }, [vagaId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const resetForm = () => { setForm({ label: "", tipo: 0, obrigatorio: false, isReadOnly: false, valorPadrao: "", opcoes: "" }); setAdding(false); setEditId(null); };
+
+  const save = async () => {
+    if (!vagaId || !form.label.trim()) { toast.error("Label é obrigatório."); return; }
+    const body = { label: form.label.trim(), tipo: form.tipo, obrigatorio: form.obrigatorio, isReadOnly: form.isReadOnly, valorPadrao: form.valorPadrao || null, opcoes: form.opcoes || null };
+    const url = editId ? `${BASE}/api/campos-personalizados/${editId}` : `${BASE}/api/vagas/${vagaId}/campos-personalizados`;
+    const method = editId ? "PUT" : "POST";
+    const res = await apiFetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) { toast.error("Falha ao salvar campo."); return; }
+    toast.success(editId ? "Campo atualizado." : "Campo criado.");
+    resetForm();
+    await load();
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Excluir este campo?")) return;
+    await apiFetch(`${BASE}/api/campos-personalizados/${id}`, { method: "DELETE" });
+    toast.success("Campo removido.");
+    await load();
+  };
+
+  const startEdit = (c: CampoItem) => {
+    setEditId(c.id);
+    setForm({ label: c.label, tipo: c.tipo, obrigatorio: c.obrigatorio, isReadOnly: c.isReadOnly, valorPadrao: c.valorPadrao || "", opcoes: c.opcoes || "" });
+    setAdding(true);
+  };
+
+  if (!vagaId) return (
+    <div className="rounded-xl border border-border/50 bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+      Salve a vaga primeiro para configurar campos personalizados do portal.
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">Campos adicionais exibidos no formulário de candidatura do Portal.</div>
+        {!adding && <button className="btn-brand text-xs px-3 py-1" type="button" onClick={() => { resetForm(); setAdding(true); }}>+ Adicionar campo</button>}
+      </div>
+
+      {adding && (
+        <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/20">
+          <div className="grid grid-cols-12 gap-2">
+            <div className="col-span-5"><input className="form-control text-sm" placeholder="Label (ex: Possui CNH?)" value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} /></div>
+            <div className="col-span-3">
+              <select className="form-select text-sm" value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: Number(e.target.value) }))}>
+                <option value={0}>Texto</option><option value={1}>Select</option><option value={2}>Checkbox</option><option value={3}>Numero</option>
+              </select>
+            </div>
+            <div className="col-span-2 flex items-center gap-2">
+              <label className="inline-flex items-center gap-1 text-xs"><input type="checkbox" checked={form.obrigatorio} onChange={(e) => setForm((f) => ({ ...f, obrigatorio: e.target.checked }))} /> Obrig.</label>
+            </div>
+            <div className="col-span-2 flex items-center gap-2">
+              <label className="inline-flex items-center gap-1 text-xs"><input type="checkbox" checked={form.isReadOnly} onChange={(e) => setForm((f) => ({ ...f, isReadOnly: e.target.checked }))} /> Fixo</label>
+            </div>
+          </div>
+          {form.tipo === 1 && (
+            <input className="form-control text-sm" placeholder="Opções separadas por ; (ex: Sim;Não;Talvez)" value={form.opcoes} onChange={(e) => setForm((f) => ({ ...f, opcoes: e.target.value }))} />
+          )}
+          {form.isReadOnly && (
+            <input className="form-control text-sm" placeholder="Valor padrão (fixo para o candidato)" value={form.valorPadrao} onChange={(e) => setForm((f) => ({ ...f, valorPadrao: e.target.value }))} />
+          )}
+          <div className="flex gap-2">
+            <button className="btn-brand text-xs px-3 py-1" type="button" onClick={() => void save()}>{editId ? "Atualizar" : "Salvar"}</button>
+            <button className="btn-ghost text-xs px-3 py-1" type="button" onClick={resetForm}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div className="text-sm text-muted-foreground">Carregando...</div> : campos.length === 0 ? (
+        <div className="text-sm text-muted-foreground text-center py-4">Nenhum campo personalizado configurado.</div>
+      ) : (
+        <table className="w-full text-sm border-collapse">
+          <thead><tr className="border-b border-border/50 text-left text-xs text-muted-foreground">
+            <th className="py-1 px-2">#</th><th className="py-1 px-2">Label</th><th className="py-1 px-2">Tipo</th><th className="py-1 px-2">Obrig.</th><th className="py-1 px-2">Fixo</th><th className="py-1 px-2">Opções</th><th className="py-1 px-2"></th>
+          </tr></thead>
+          <tbody>
+            {campos.map((c, i) => (
+              <tr key={c.id} className="border-b border-border/30 hover:bg-muted/20">
+                <td className="py-1 px-2 text-muted-foreground">{i + 1}</td>
+                <td className="py-1 px-2 font-medium">{c.label}</td>
+                <td className="py-1 px-2">{TIPO_LABELS[c.tipo] ?? c.tipo}</td>
+                <td className="py-1 px-2">{c.obrigatorio ? "Sim" : "Não"}</td>
+                <td className="py-1 px-2">{c.isReadOnly ? "Sim" : "Não"}</td>
+                <td className="py-1 px-2 text-xs text-muted-foreground truncate max-w-[150px]">{c.opcoes || "—"}</td>
+                <td className="py-1 px-2 flex gap-1">
+                  <button className="btn-ghost text-xs px-2 py-0.5" type="button" onClick={() => startEdit(c)}>Editar</button>
+                  <button className="btn-ghost text-xs px-2 py-0.5 text-red-600" type="button" onClick={() => void remove(c.id)}>Excluir</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
 
 /* ── Main component ──────────────────────────────────────────────────── */
 
@@ -761,8 +888,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
               <Field label="Salário mínimo" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="0,00" value={draft.salarioMinimo} onChange={(e) => set("salarioMinimo", e.target.value)} /></Field>
               <Field label="Salário máximo" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="0,00" value={draft.salarioMaximo} onChange={(e) => set("salarioMaximo", e.target.value)} /></Field>
               <Field label="Periodicidade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.periodicidade} onChange={(v) => set("periodicidade", v)} options={enumOpts(enums, "vagaRemuneracaoPeriodicidade", "Selecionar")} /></Field>
-              <Field label="Bônus/Comissão"><EnumSelect value={draft.bonusTipo} onChange={(v) => set("bonusTipo", v)} options={enumOpts(enums, "vagaBonusTipo", "Selecionar")} /></Field>
-              <Field label="% bônus/comissão"><input className="form-control" placeholder="0,00%" value={draft.bonusPercentual} onChange={(e) => set("bonusPercentual", e.target.value)} /></Field>
+              <Field label="Bônus/Pagamento extra"><EnumSelect value={draft.bonusTipo} onChange={(v) => set("bonusTipo", v)} options={enumOpts(enums, "vagaBonusTipo", "Selecionar")} /></Field>
+              <Field label="% bônus/pagamento extra"><input className="form-control" placeholder="0,00%" value={draft.bonusPercentual} onChange={(e) => set("bonusPercentual", e.target.value)} /></Field>
               <Field label="Obs. remuneração"><input className="form-control" placeholder="Ex.: faixa depende de senioridade" value={draft.observacoesRemuneracao} onChange={(e) => set("observacoesRemuneracao", e.target.value)} /></Field>
               <div className="col-span-12 flex items-center justify-between gap-2 mt-2">
                 <div><div className="fw-semibold">Benefícios</div><div className="text-muted-foreground text-xs">Adicione benefícios com tipo, valor e detalhes.</div></div>
@@ -932,6 +1059,13 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── Campos personalizados ────────────────────────────── */}
+          {tab === "campos" && (
+            <div className="mt-2">
+              <CamposPersonalizadosTab vagaId={draft.id} />
             </div>
           )}
 

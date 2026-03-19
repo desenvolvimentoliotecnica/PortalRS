@@ -607,7 +607,7 @@ export default function AreasScreen() {
                 <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                         <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon-xs"
                             title="Detalhes"
                             onClick={() => void openDetail(a)}
@@ -615,7 +615,7 @@ export default function AreasScreen() {
                             <Eye />
                         </Button>
                         <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon-xs"
                             title="Editar"
                             onClick={() => void openEdit(a)}
@@ -623,9 +623,8 @@ export default function AreasScreen() {
                             <Pencil />
                         </Button>
                         <Button
-                            variant="ghost"
+                            variant="destructive"
                             size="icon-xs"
-                            className="text-destructive"
                             title="Excluir"
                             onClick={() => setDeleteTarget(a)}
                         >
@@ -650,7 +649,7 @@ export default function AreasScreen() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={() => {
                             setLoading(true);
@@ -659,12 +658,12 @@ export default function AreasScreen() {
                                 .finally(() => setLoading(false));
                         }}
                     >
-                        <RefreshCw className="size-4" />
-                        <span className="hidden sm:inline">Atualizar</span>
+                        <RefreshCw className="mr-1 size-4" />
+                        Atualizar
                     </Button>
                     <Button size="sm" onClick={openNew}>
-                        <Plus className="size-4" />
-                        <span className="hidden sm:inline">Nova área</span>
+                        <Plus className="mr-1 size-4" />
+                        Nova área
                     </Button>
                 </div>
             </div>

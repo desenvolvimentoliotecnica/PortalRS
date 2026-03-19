@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Search } from "lucide-react";
 
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const BASE = "/app";
 
@@ -215,6 +218,11 @@ export default function CandidatosScreen() {
 
   const [vagas, setVagas] = useState<VagaOption[]>([]);
 
+  const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
+    if (typeof window === "undefined") return "list";
+    return (localStorage.getItem("renderrh.candidatos.viewMode") as "list" | "kanban") || "list";
+  });
+  const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.candidatos.viewMode", m); };
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<Candidato | null>(null);
   const [detailTab, setDetailTab] = useState<"resumo" | "cv" | "docs" | "match">("resumo");
@@ -769,12 +777,15 @@ export default function CandidatosScreen() {
           <div className="text-muted-foreground text-sm">Candidatos • CV • Match</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button className="btn-ghost" type="button" onClick={exportJson}>
+          <Button variant="outline" size="sm" onClick={exportJson}>
             Exportar
-          </button>
-          <button className="btn-brand" type="button" onClick={openNew}>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.location.href = "/app/talentos"}>
+            Banco de Talentos
+          </Button>
+          <Button size="sm" onClick={openNew}>
             Novo candidato
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -868,8 +879,7 @@ export default function CandidatosScreen() {
             </select>
           </div>
           <div className="flex gap-2">
-            <button
-              className="btn-ghost"
+            <Button variant="outline" size="sm"
               type="button"
               onClick={() => {
                 setPage(1);
@@ -880,9 +890,8 @@ export default function CandidatosScreen() {
               }}
             >
               Aplicar
-            </button>
-            <button
-              className="btn-ghost"
+            </Button>
+            <Button variant="outline" size="sm"
               type="button"
               onClick={() => {
                 setQInput("");
@@ -897,10 +906,20 @@ export default function CandidatosScreen() {
               }}
             >
               Limpar
+            </Button>
+          </div>
+          <div className="flex items-center rounded-md border border-input bg-background p-0.5 ml-auto">
+            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-[rgb(var(--lt-primary))] text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+            </button>
+            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-[rgb(var(--lt-primary))] text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
             </button>
           </div>
         </div>
 
+        {viewMode === "list" ? (
+        <>
         <div className="table-responsive mt-2">
           <table className="table align-middle mb-0">
             <thead>
@@ -962,21 +981,21 @@ export default function CandidatosScreen() {
                         </span>
                       </td>
                       <td className="text-end nowrap">
-                        <button className="btn-ghost px-3 py-2 me-1" type="button" onClick={() => void openDetail(c.id)}>
+                        <Button variant="outline" size="sm" type="button" onClick={() => void openDetail(c.id)}>
                           Detalhes
-                        </button>
-                        <button className="btn-ghost px-3 py-2 me-1" type="button" onClick={() => void openEdit(c.id)}>
+                        </Button>
+                        <Button variant="outline" size="sm" type="button" onClick={() => void openEdit(c.id)}>
                           Editar
-                        </button>
-                        <button className="btn-ghost px-3 py-2 me-1" type="button" onClick={() => void sendToBloqueio(c.id)}>
+                        </Button>
+                        <Button variant="outline" size="sm" type="button" onClick={() => void sendToBloqueio(c.id)}>
                           Bloqueio de pessoa
-                        </button>
-                        <button className="btn-ghost px-3 py-2 me-1" type="button" title="Recalcular match" onClick={() => void recalcMatch(c.id)}>
+                        </Button>
+                        <Button variant="outline" size="sm" type="button" title="Recalcular match" onClick={() => void recalcMatch(c.id)}>
                           ↻
-                        </button>
-                        <button className="btn-ghost px-3 py-2 text-red-600" type="button" onClick={() => void deleteCandidate(c.id)}>
+                        </Button>
+                        <Button variant="destructive" size="sm" type="button" onClick={() => void deleteCandidate(c.id)}>
                           Excluir
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -1002,6 +1021,84 @@ export default function CandidatosScreen() {
             setPageSize(s || 20);
           }}
         />
+        </>
+        ) : (
+          /* ── Kanban View ── */
+          <div className="p-4 overflow-x-auto mt-2">
+            {loading ? (
+              <div className="flex gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="w-72 shrink-0 space-y-3">
+                    <div className="h-8 animate-pulse rounded-lg bg-muted" />
+                    <div className="h-20 animate-pulse rounded-lg bg-muted" />
+                    <div className="h-20 animate-pulse rounded-lg bg-muted" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-4 items-start">
+                {(statusOptionsEffective.length ? statusOptionsEffective : [
+                  { code: "pendente", text: "Pendente" },
+                  { code: "triagem", text: "Triagem" },
+                  { code: "aprovado", text: "Aprovado" },
+                  { code: "reprovado", text: "Reprovado" },
+                ]).map((col) => {
+                  const colItems = items.filter((c) => {
+                    const s = (c.status ?? "").toLowerCase();
+                    const code = col.code.toLowerCase();
+                    return s === code || s.includes(code);
+                  });
+                  const tagMeta = statusTag(col.code);
+                  const colCls = tagMeta.cls === "ok" ? "bg-emerald-500/15 text-emerald-700"
+                    : tagMeta.cls === "bad" ? "bg-red-500/15 text-red-700"
+                    : tagMeta.cls === "warn" ? "bg-amber-500/15 text-amber-700"
+                    : "bg-zinc-400/15 text-zinc-600";
+                  return (
+                    <div key={col.code} className="w-72 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
+                      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${colCls}`}>{col.text}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{colItems.length}</span>
+                      </div>
+                      <div className="flex-1 space-y-2 p-2 max-h-[calc(100vh-340px)] overflow-y-auto">
+                        {colItems.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border/40 py-8 text-center text-xs text-muted-foreground">
+                            Nenhum
+                          </div>
+                        ) : colItems.map((c) => {
+                          const v = vagas.find((x) => x.id === (c.vagaId ?? "")) ?? null;
+                          const score = clamp(pickNumber(c.lastMatch?.score, 0), 0, 100);
+                          return (
+                            <div
+                              key={c.id}
+                              className="rounded-lg border border-border/50 bg-card p-3 shadow-sm cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
+                              onClick={() => void openDetail(c.id)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="avatar size-7 text-[10px] shrink-0 rounded-full bg-muted flex items-center justify-center font-bold">{initials(pickString(c.nome, ""))}</div>
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium leading-tight truncate">{c.nome ?? "—"}</div>
+                                  <div className="text-[11px] text-muted-foreground truncate">{c.email ?? ""}</div>
+                                </div>
+                              </div>
+                              {v && <div className="mt-2 text-[11px] text-muted-foreground truncate">{v.label?.replace(/\s*\([^)]+\)\s*$/, "") ?? ""}</div>}
+                              <div className="mt-2 flex items-center justify-between">
+                                <span className="text-[11px] text-muted-foreground">Match {score}%</span>
+                                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="outline" size="sm" type="button" onClick={() => void openDetail(c.id)}>Detalhes</Button>
+                                  <Button variant="outline" size="sm" type="button" onClick={() => void openEdit(c.id)}>Editar</Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {detailOpen ? (
@@ -1044,11 +1141,11 @@ export default function CandidatosScreen() {
 
               <div className="flex items-center gap-2">
                 {detail?.id ? (
-                  <Link href={`/candidatos/detalhes?id=${encodeURIComponent(detail.id)}`} className="btn-ghost px-3 py-2" onClick={() => setDetailOpen(false)}>
+                  <Link href={`/candidatos/detalhes?id=${encodeURIComponent(detail.id)}`} className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" onClick={() => setDetailOpen(false)}>
                     Abrir em página
                   </Link>
                 ) : null}
-                <button className="btn-ghost px-3 py-2" type="button" onClick={() => setDetailOpen(false)}>
+                <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" type="button" onClick={() => setDetailOpen(false)}>
                   Fechar
                 </button>
               </div>
@@ -1139,13 +1236,13 @@ export default function CandidatosScreen() {
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button className="btn-ghost px-3 py-2" type="button" onClick={() => void openEdit(detail.id)}>
+                      <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" type="button" onClick={() => void openEdit(detail.id)}>
                         Editar
                       </button>
-                      <button className="btn-ghost px-3 py-2" type="button" onClick={() => void saveMeta()}>
+                      <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" type="button" onClick={() => void saveMeta()}>
                         Salvar status/vaga
                       </button>
-                      <button className="btn-ghost px-3 py-2 text-red-600" type="button" onClick={() => void deleteCandidate(detail.id)}>
+                      <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2 text-red-600" type="button" onClick={() => void deleteCandidate(detail.id)}>
                         Excluir
                       </button>
                     </div>
@@ -1158,7 +1255,7 @@ export default function CandidatosScreen() {
                       <div className="fw-semibold">Texto do CV</div>
                       <div className="flex gap-2">
                         <button
-                          className="btn-ghost px-3 py-2"
+                          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2"
                           type="button"
                           onClick={() => {
                             fetchJson(`${BASE}/api/candidatos/${encodeURIComponent(detail.id)}`, {
@@ -1172,7 +1269,7 @@ export default function CandidatosScreen() {
                         >
                           Salvar texto
                         </button>
-                        <button className="btn-ghost px-3 py-2" type="button" onClick={() => void recalcMatch(detail.id)}>
+                        <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" type="button" onClick={() => void recalcMatch(detail.id)}>
                           Recalcular match
                         </button>
                       </div>
@@ -1257,10 +1354,10 @@ export default function CandidatosScreen() {
                         </div>
 
                         <div className="d-flex flex-wrap gap-2 mt-3">
-                          <button className="btn-ghost px-3 py-2" type="button" onClick={() => void recalcMatch(detail.id)}>
+                          <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" type="button" onClick={() => void recalcMatch(detail.id)}>
                             Recalcular
                           </button>
-                          <button className="btn-ghost px-3 py-2" type="button" onClick={() => toast.info("Placeholder: aqui abriria a tela de Vagas filtrada na vaga.")}>
+                          <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" type="button" onClick={() => toast.info("Placeholder: aqui abriria a tela de Vagas filtrada na vaga.")}>
                             Abrir vaga (placeholder)
                           </button>
                         </div>
@@ -1282,7 +1379,7 @@ export default function CandidatosScreen() {
                 <p className="mini-title mb-1">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
                 <div className="text-lg font-extrabold">Cadastro</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setEditOpen(false)}>
+              <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" type="button" onClick={() => setEditOpen(false)}>
                 Fechar
               </button>
             </div>
@@ -1432,7 +1529,7 @@ export default function CandidatosScreen() {
 
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button
-                      className="btn-ghost px-3 py-2"
+                      className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2"
                       type="button"
                       onClick={() => {
                         if (!draftDocFile) return toast.error("Selecione um arquivo.");
@@ -1493,7 +1590,7 @@ export default function CandidatosScreen() {
                               </div>
                               <div className="flex gap-2">
                                 <button
-                                  className="btn-ghost px-3 py-2"
+                                  className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2"
                                   type="button"
                                   disabled={!candId}
                                   title={!candId ? "Salve o candidato para reenviar" : "Reenviar"}
@@ -1512,7 +1609,7 @@ export default function CandidatosScreen() {
                                 >
                                   Reenviar
                                 </button>
-                                <button className="btn-ghost px-3 py-2 text-red-600" type="button" onClick={() => setPendingDocs((prev) => prev.filter((x) => x.tempId !== d.tempId))}>
+                                <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2 text-red-600" type="button" onClick={() => setPendingDocs((prev) => prev.filter((x) => x.tempId !== d.tempId))}>
                                   Remover
                                 </button>
                               </div>
@@ -1527,10 +1624,10 @@ export default function CandidatosScreen() {
             </div>
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setEditOpen(false)}>
+              <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors" type="button" onClick={() => setEditOpen(false)}>
                 Cancelar
               </button>
-              <button className="btn-brand" type="button" onClick={() => void saveDraft()}>
+              <button className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors" type="button" onClick={() => void saveDraft()}>
                 Salvar
               </button>
             </div>
@@ -1546,7 +1643,7 @@ export default function CandidatosScreen() {
                 <p className="mini-title mb-1">Sugestões da IA</p>
                 <div className="text-lg font-extrabold">Aplicar dados extraídos</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setSuggestOpen(false)}>
+              <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" type="button" onClick={() => setSuggestOpen(false)}>
                 Fechar
               </button>
             </div>
@@ -1583,15 +1680,15 @@ export default function CandidatosScreen() {
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setSuggestOpen(false)}>
+              <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors" type="button" onClick={() => setSuggestOpen(false)}>
                 Cancelar
               </button>
               {detail?.talentoId ? (
-                <button className="btn-ghost" type="button" onClick={() => void applySuggestedToCandidate(true)}>
+                <button className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors" type="button" onClick={() => void applySuggestedToCandidate(true)}>
                   Aplicar no candidato e no talento
                 </button>
               ) : null}
-              <button className="btn-brand" type="button" onClick={() => void applySuggestedToCandidate(false)}>
+              <button className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors" type="button" onClick={() => void applySuggestedToCandidate(false)}>
                 Aplicar no candidato
               </button>
             </div>
@@ -1660,7 +1757,7 @@ function DocumentosBox({
           onChange={(e) => setFile(e.currentTarget.files?.[0] ?? null)}
         />
         <button
-          className="btn-ghost"
+          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
           type="button"
           onClick={() => {
             if (!file) return toast.error("Selecione um arquivo.");
@@ -1686,7 +1783,7 @@ function DocumentosBox({
           Enviar para IA (GPT)
         </label>
         <button
-          className="btn-ghost mt-2"
+          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors mt-2"
           type="button"
           onClick={() => {
             if (!cvFile) return toast.error("Selecione um PDF.");
@@ -1728,11 +1825,11 @@ function DocumentosBox({
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <a className="btn-ghost px-3 py-2" href={d.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!d.url}>
+                  <a className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2" href={d.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!d.url}>
                     Download
                   </a>
                   <button
-                    className="btn-ghost px-3 py-2 text-red-600"
+                    className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors px-3 py-2 text-red-600"
                     type="button"
                     onClick={async () => {
                       if (!(await confirmDialog({ title: "Excluir documento", description: "Excluir documento?", confirmText: "Excluir", destructive: true }))) return;
