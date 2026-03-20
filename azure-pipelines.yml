@@ -2,6 +2,7 @@ trigger:
   branches:
     include:
       - develop
+
 variables:
   - name: package_name
     value: "deploy-package.tar.gz"
@@ -9,6 +10,7 @@ variables:
     value: "drop"
   - name: package_path
     value: "$(Agent.TempDirectory)/deploy-package.tar.gz"
+
 stages:
   - stage: __default
     jobs:
@@ -17,17 +19,21 @@ stages:
           vmImage: ubuntu-latest
         steps:
           - checkout: self
+
           - task: NodeTool@0
             displayName: "Usar Node 20"
             inputs:
               versionSpec: "20.x"
+
           - task: Bash@3
             displayName: "Build do Next.js (gerar out/)"
             inputs:
               targetType: "inline"
               script: |
                 set -euo pipefail
+
                 BUILD_ROOT="$(Build.SourcesDirectory)"
+
                 if [ -d "$BUILD_ROOT/Voltage.RenderRH/LioTecnica.Web.Next" ]; then
                   NEXT_DIR="$BUILD_ROOT/Voltage.RenderRH/LioTecnica.Web.Next"
                 elif [ -d "$BUILD_ROOT/LioTecnica.Web.Next" ]; then
@@ -36,11 +42,15 @@ stages:
                   echo "ERRO: Diretório Next.js nao encontrado."
                   exit 1
                 fi
+
                 echo "NEXT_DIR=$NEXT_DIR"
                 cd "$NEXT_DIR"
+
                 echo "NEXT_PUBLIC_API_BASE=https://renderrh-qa.qualiit.com.br" > .env.production
                 echo "NEXT_PUBLIC_PORTAL_ORIGIN=https://renderrh-qa.qualiit.com.br" >> .env.production
+
                 npm i -g pnpm@9
+
                 WS_BAK=0
                 if [ -f "pnpm-workspace.yaml" ]; then
                   if ! grep -q '^packages:' pnpm-workspace.yaml; then
@@ -49,15 +59,20 @@ stages:
                     WS_BAK=1
                   fi
                 fi
+
                 rm -rf node_modules .next out
+
                 unset NODE_ENV || true
                 export NPM_CONFIG_PRODUCTION=false
                 export npm_config_production=false
+
                 pnpm install --frozen-lockfile --prod=false
+
                 export NODE_ENV=production
-                pnpm build
-                # Next 16 + output: export pode gerar out/ diretamente.
-                # Em alguns cenários de agente pode ficar em .next/export; normalizamos para out/.
+
+                # Força webpack no CI para garantir geração de output estático.
+                pnpm exec next build --webpack
+
                 if [ -d "out" ]; then
                   echo "OK: out/ gerado diretamente."
                 elif [ -d ".next/export" ]; then
@@ -71,24 +86,33 @@ stages:
                   [ -d .next ] && { echo "Conteúdo de .next:"; ls -la .next; } || true
                   exit 1
                 fi
+
                 test -d "out" || (echo "ERRO: pasta out/ nao foi gerada"; exit 1)
+
                 echo "out/ gerado com sucesso."
                 ls -lah out | head -50
+
                 if [ "$WS_BAK" -eq 1 ] && [ -f "pnpm-workspace.yaml.__ci.bak" ]; then
                   mv pnpm-workspace.yaml.__ci.bak pnpm-workspace.yaml
                 fi
+
                 rm -rf node_modules
+
           - task: Bash@3
             displayName: "Compactar projeto para release"
             inputs:
               targetType: "inline"
               script: |
                 set -euo pipefail
+
                 echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
                 cd "$(Build.SourcesDirectory)"
+
                 PACKAGE_PATH="$(package_path)"
                 PACKAGE_NAME="$(package_name)"
+
                 rm -f "$PACKAGE_PATH" || true
+
                 if [ -d "Voltage.RenderRH" ]; then
                   echo "Incluindo pasta Voltage.RenderRH no tar (estrutura preservada)"
                   tar -czf "$PACKAGE_PATH" \
@@ -129,15 +153,18 @@ stages:
                     --exclude='.env.production' \
                     -C . .
                 fi
+
                 test -f "$PACKAGE_PATH" || (echo "ERRO: pacote nao foi criado"; exit 1)
                 ls -lh "$PACKAGE_PATH"
                 echo "Pacote validado com sucesso"
+
           - task: CopyFiles@2
             displayName: "Organizar para artefato"
             inputs:
               SourceFolder: "$(Agent.TempDirectory)"
               Contents: "$(package_name)"
               TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+
           - task: PublishBuildArtifacts@1
             displayName: "Publicar artefato"
             inputs:
