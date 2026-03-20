@@ -177,7 +177,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved }:
     }
 
     const labelClass = "text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1";
-    const selectClass = "form-select h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm";
+    const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -210,7 +210,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved }:
                         <div>
                             <label className={labelClass}>Justificativa</label>
                             <textarea
-                                className="w-full rounded-md border border-input bg-transparent p-2 text-sm placeholder:text-muted-foreground"
+                                className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
                                 rows={3}
                                 value={draft.justificativa}
                                 onChange={(e) => setDraft((d) => ({ ...d, justificativa: e.target.value }))}

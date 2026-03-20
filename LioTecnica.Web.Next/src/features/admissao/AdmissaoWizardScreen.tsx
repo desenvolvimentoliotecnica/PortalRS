@@ -255,7 +255,7 @@ export default function AdmissaoWizardScreen() {
             <AlertTriangle className="size-8 text-destructive" />
             <p className="text-sm text-destructive">{loadError}</p>
             <Button variant="outline" size="sm" onClick={() => { if (id) loadData(); }}>Tentar novamente</Button>
-            <Button variant="ghost" size="sm" onClick={() => router.push("/admissao")}>Voltar para lista</Button>
+            <Button variant="outline" size="sm" onClick={() => router.push("/admissao")}>Voltar para lista</Button>
         </div>
     );
 
@@ -278,7 +278,7 @@ export default function AdmissaoWizardScreen() {
                     const Icon = s.icon;
                     return (
                         <button key={s.key} onClick={() => setStep(i)}
-                            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${step === i ? "bg-violet-600 text-white" : i < step ? "bg-emerald-500/15 text-emerald-700" : "bg-muted/50 text-muted-foreground"
+                            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${step === i ? "bg-blue-600 text-white" : i < step ? "bg-emerald-500/15 text-emerald-700" : "bg-muted/50 text-muted-foreground"
                                 }`}
                         >
                             <Icon className="size-3.5" /> {s.label}
@@ -375,7 +375,7 @@ export default function AdmissaoWizardScreen() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs text-muted-foreground block mb-1">Banco (FEBRABAN)</label>
-                                <select className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={form.bancoCodigo || ""} onChange={e => {
+                                <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.bancoCodigo || ""} onChange={e => {
                                     const [cod, ...nome] = e.target.value.split("-");
                                     set("bancoCodigo", cod); set("bancoNome", nome.join("-"));
                                 }}>
@@ -438,7 +438,7 @@ export default function AdmissaoWizardScreen() {
                         <div className="flex flex-wrap items-end gap-3">
                             <div>
                                 <label className="text-xs text-muted-foreground block mb-1">Tipo de Documento</label>
-                                <select className="rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={uploadTipo} onChange={e => setUploadTipo(Number(e.target.value))}>
+                                <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={uploadTipo} onChange={e => setUploadTipo(Number(e.target.value))}>
                                     {TIPO_DOC.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                 </select>
                             </div>
@@ -455,7 +455,7 @@ export default function AdmissaoWizardScreen() {
                                             <div className="text-sm font-medium">{d.nomeArquivo}</div>
                                             <div className="text-xs text-muted-foreground">{TIPO_DOC.find(t => t.value === d.tipo)?.label} • {(d.tamanhoBytes / 1024).toFixed(0)} KB</div>
                                         </div>
-                                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDeleteDoc(d.id)}>Remover</Button>
+                                        <Button variant="destructive" size="sm" onClick={() => handleDeleteDoc(d.id)}>Remover</Button>
                                     </div>
                                 ))}
                             </div>
@@ -503,7 +503,7 @@ export default function AdmissaoWizardScreen() {
                         {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Salvar Rascunho
                     </Button>
                     {step < STEPS.length - 1 ? (
-                        <Button className="bg-violet-600 hover:bg-violet-700" onClick={async () => { await save(); setStep(s => s + 1); }}>
+                        <Button className="bg-blue-600 hover:bg-blue-700" onClick={async () => { await save(); setStep(s => s + 1); }}>
                             Próximo <ChevronRight className="size-4" />
                         </Button>
                     ) : (
@@ -536,7 +536,7 @@ function Select({ label, value, options, onChange }: {
     return (
         <div>
             <label className="text-xs text-muted-foreground block mb-1">{label}</label>
-            <select className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={String(value ?? "")} onChange={e => onChange(e.target.value)}>
+            <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={String(value ?? "")} onChange={e => onChange(e.target.value)}>
                 <option value="">Selecione…</option>
                 {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>

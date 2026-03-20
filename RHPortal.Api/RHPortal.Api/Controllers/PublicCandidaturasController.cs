@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.Talentos;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Contracts.Candidates;
@@ -73,6 +75,35 @@ public sealed class PublicCandidaturasController : ControllerBase
         var email = (request.Email ?? "").Trim();
         if (string.IsNullOrWhiteSpace(email))
             return BadRequest(new { message = "Email é obrigatório." });
+
+        // ── Validação de campos personalizados obrigatórios ──
+        List<CampoPersonalizadoRespostaDto>? camposRespostas = null;
+        if (!string.IsNullOrWhiteSpace(request.CamposPersonalizadosJson))
+        {
+            try
+            {
+                camposRespostas = JsonSerializer.Deserialize<List<CampoPersonalizadoRespostaDto>>(
+                    request.CamposPersonalizadosJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch
+            {
+                return BadRequest(new { message = "Formato inválido para campos personalizados." });
+            }
+        }
+        camposRespostas ??= new List<CampoPersonalizadoRespostaDto>();
+
+        var camposConfig = await db.CamposPersonalizadosVaga
+            .AsNoTracking()
+            .Where(c => c.VagaId == request.VagaId)
+            .ToListAsync(ct);
+
+        foreach (var campo in camposConfig.Where(c => c.Obrigatorio))
+        {
+            var resposta = camposRespostas.FirstOrDefault(r => r.CampoId == campo.Id);
+            if (resposta is null || string.IsNullOrWhiteSpace(resposta.Valor))
+                return BadRequest(new { message = $"O campo \"{campo.Label}\" é obrigatório." });
+        }
 
         // 1) Verifica se já existe candidato com este email (no tenant atual)
         var tenantId = tenantContext.TenantId ?? "";
@@ -210,6 +241,34 @@ public sealed class PublicCandidaturasController : ControllerBase
                         request.Arquivo,
                         ct);
                 }
+            }
+
+            // ── Persistir respostas de campos personalizados ──
+            if (camposRespostas.Count > 0)
+            {
+                // Limpar respostas anteriores do mesmo candidato+vaga (para re-candidatura)
+                var existingRespostas = await db.RespostasCampoPersonalizadoVaga
+                    .Where(r => r.CandidatoId == result.Id && r.VagaId == request.VagaId)
+                    .ToListAsync(ct);
+                if (existingRespostas.Count > 0)
+                    db.RespostasCampoPersonalizadoVaga.RemoveRange(existingRespostas);
+
+                var now = DateTimeOffset.UtcNow;
+                foreach (var resp in camposRespostas)
+                {
+                    if (!camposConfig.Any(c => c.Id == resp.CampoId)) continue;
+                    db.RespostasCampoPersonalizadoVaga.Add(new RespostaCampoPersonalizadoVaga
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        VagaId = request.VagaId,
+                        CandidatoId = result.Id,
+                        CampoId = resp.CampoId,
+                        ValorTexto = resp.Valor?.Trim(),
+                        CreatedAtUtc = now,
+                    });
+                }
+                await db.SaveChangesAsync(ct);
             }
 
             // Calcular e persistir score de matching por IA (um candidato, uma vaga)
@@ -352,3 +411,6 @@ public sealed class PublicCandidaturasController : ControllerBase
         }
     }
 }
+
+/// <summary>DTO para deserializar cada resposta de campo personalizado vinda do form-data JSON.</summary>
+public sealed record CampoPersonalizadoRespostaDto(Guid CampoId, string? Valor);

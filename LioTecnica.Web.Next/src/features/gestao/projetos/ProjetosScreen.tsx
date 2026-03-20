@@ -102,7 +102,7 @@ export default function ProjetosScreen() {
     /* nova rodada */
     const [newDialogOpen, setNewDialogOpen] = useState(false);
     const [newDescricao, setNewDescricao] = useState("");
-    const [copiarCandidatos, setCopiarCandidatos] = useState<"vazio" | "copiar">("vazio");
+    const [modoCriacao, setModoCriacao] = useState<"banco_novo" | "copiar" | "reprovados">("banco_novo");
     const [creating, setCreating] = useState(false);
 
     /* load vagas */
@@ -166,12 +166,14 @@ export default function ProjetosScreen() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     descricao: newDescricao.trim() || null,
-                    copiarCandidatosAnterior: copiarCandidatos === "copiar",
+                    copiarCandidatosAnterior: modoCriacao === "copiar",
+                    ignorarCandidatosAnterior: modoCriacao === "banco_novo",
+                    reprovarApenasReprovadosAnterior: modoCriacao === "reprovados",
                 }),
             });
             setNewDialogOpen(false);
             setNewDescricao("");
-            setCopiarCandidatos("vazio");
+            setModoCriacao("banco_novo");
             toast.success("Nova rodada criada.");
             await loadProjetos(selectedVagaId);
         } catch (e) {
@@ -227,8 +229,8 @@ export default function ProjetosScreen() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     {selectedVagaId && (
-                        <Button variant="outline" size="sm" onClick={() => router.push(`/matching?vagaId=${encodeURIComponent(selectedVagaId)}`)}>
-                            Voltar ao matching
+                        <Button variant="outline" size="sm" onClick={() => router.push(`/vagas`)}>
+                            Voltar para vagas
                         </Button>
                     )}
                     {selectedProjeto && (
@@ -428,10 +430,10 @@ export default function ProjetosScreen() {
                                                     <TableCell className="text-right">
                                                         {c.status === 0 && (
                                                             <div className="flex items-center justify-end gap-1">
-                                                                <Button variant="ghost" size="icon-sm" title="Aprovar" onClick={() => void updateCandidatoStatus(c, 1)}>
+                                                                <Button variant="outline" size="icon-sm" title="Aprovar" onClick={() => void updateCandidatoStatus(c, 1)}>
                                                                     <UserCheck className="size-4 text-emerald-600" />
                                                                 </Button>
-                                                                <Button variant="ghost" size="icon-sm" title="Reprovar" onClick={() => void updateCandidatoStatus(c, 2)}>
+                                                                <Button variant="outline" size="icon-sm" title="Reprovar" onClick={() => void updateCandidatoStatus(c, 2)}>
                                                                     <UserX className="size-4 text-red-500" />
                                                                 </Button>
                                                             </div>
@@ -459,7 +461,7 @@ export default function ProjetosScreen() {
             </div>
 
             {/* Nova rodada dialog */}
-            <Dialog open={newDialogOpen} onOpenChange={(o) => { setNewDialogOpen(o); if (!o) { setNewDescricao(""); setCopiarCandidatos("vazio"); } }}>
+            <Dialog open={newDialogOpen} onOpenChange={(o) => { setNewDialogOpen(o); if (!o) { setNewDescricao(""); setModoCriacao("banco_novo"); } }}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Nova Rodada</DialogTitle>
@@ -478,25 +480,77 @@ export default function ProjetosScreen() {
                                 maxLength={240}
                             />
                         </div>
-                        {projetos.length > 0 && (
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Candidatos</label>
-                                <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/30 transition has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                                    <input type="radio" name="copiar" value="vazio" checked={copiarCandidatos === "vazio"} onChange={() => setCopiarCandidatos("vazio")} className="mt-0.5" />
-                                    <div>
-                                        <div className="text-sm font-medium">Começar vazio</div>
-                                        <div className="text-xs text-muted-foreground">Nova rodada sem candidatos.</div>
-                                    </div>
-                                </label>
-                                <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/30 transition has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                                    <input type="radio" name="copiar" value="copiar" checked={copiarCandidatos === "copiar"} onChange={() => setCopiarCandidatos("copiar")} className="mt-0.5" />
-                                    <div>
-                                        <div className="text-sm font-medium">Copiar da rodada anterior</div>
-                                        <div className="text-xs text-muted-foreground">Candidatos entram como "Disponível" para nova triagem.</div>
-                                    </div>
-                                </label>
+                        {selectedVagaId && (
+                            <div className="rounded-lg border border-border/40 bg-muted/10 px-3 py-2">
+                                <p className="text-xs text-muted-foreground">
+                                    Ajuste informações da vaga (portal) antes de criar a rodada, se necessário.
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setNewDialogOpen(false);
+                                            router.push(`/vagas?open=detail&vagaId=${encodeURIComponent(selectedVagaId)}`);
+                                        }}
+                                    >
+                                        Editar vaga (portal)
+                                    </Button>
+                                </div>
                             </div>
                         )}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Candidatos</label>
+
+                            <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/30 transition has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                                <input
+                                    type="radio"
+                                    name="modoCriacao"
+                                    value="banco_novo"
+                                    checked={modoCriacao === "banco_novo"}
+                                    onChange={() => setModoCriacao("banco_novo")}
+                                    className="mt-0.5"
+                                />
+                                <div>
+                                    <div className="text-sm font-medium">Criar vaga com banco novo</div>
+                                    <div className="text-xs text-muted-foreground">Nova rodada sem candidatos anteriores.</div>
+                                </div>
+                            </label>
+
+                            {projetos.length > 0 && (
+                                <>
+                                    <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/30 transition has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                                        <input
+                                            type="radio"
+                                            name="modoCriacao"
+                                            value="copiar"
+                                            checked={modoCriacao === "copiar"}
+                                            onChange={() => setModoCriacao("copiar")}
+                                            className="mt-0.5"
+                                        />
+                                        <div>
+                                            <div className="text-sm font-medium">Copiar da rodada anterior</div>
+                                            <div className="text-xs text-muted-foreground">Candidatos entram como "Disponível" para nova triagem.</div>
+                                        </div>
+                                    </label>
+
+                                    <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/30 transition has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                                        <input
+                                            type="radio"
+                                            name="modoCriacao"
+                                            value="reprovados"
+                                            checked={modoCriacao === "reprovados"}
+                                            onChange={() => setModoCriacao("reprovados")}
+                                            className="mt-0.5"
+                                        />
+                                        <div>
+                                            <div className="text-sm font-medium">Começar com reprovados anteriores</div>
+                                            <div className="text-xs text-muted-foreground">Reprovados anteriores entram automaticamente como "Reprovado".</div>
+                                        </div>
+                                    </label>
+                                </>
+                            )}
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setNewDialogOpen(false)}>Cancelar</Button>

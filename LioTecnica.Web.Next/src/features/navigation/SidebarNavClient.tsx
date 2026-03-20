@@ -54,10 +54,9 @@ import { cn } from "@/lib/utils";
 import type { BffNavItem } from "@/lib/schemas/bff";
 import { prefetchScreenData } from "@/lib/screenCache";
 import {
-  RECRUITMENT_HUB_ROUTE_KEYS,
+  RECRUITMENT_LINEAR_ORDER,
   RECRUITMENT_ROUTE_KEYS,
   RECRUITMENT_ROUTE_LABELS,
-  RECRUITMENT_SELECTION_ROUTE_KEYS,
   toNavRouteKey,
 } from "@/features/navigation/recruitmentNavigation";
 
@@ -202,19 +201,15 @@ function normalizeHref(raw: string): string {
 type ModuleKey = "Recrutamento" | "Cadastros" | "Relatórios" | "Gestão de Pessoas" | "Operacional" | "Feedback" | "Admin" | "Owner";
 const MODULE_ORDER: ModuleKey[] = ["Recrutamento", "Operacional", "Gestão de Pessoas", "Cadastros", "Relatórios", "Feedback", "Admin", "Owner"];
 
-// Fluxo principal de recrutamento (na ordem do processo)
+// Fluxo linear de recrutamento — Dashboard + 7 passos visíveis no sidebar
 const RECRUTAMENTO_ROUTES = new Set<string>([
   RECRUITMENT_ROUTE_KEYS.dashboard,
   RECRUITMENT_ROUTE_KEYS.solicitacoes,
-  RECRUITMENT_ROUTE_KEYS.aprovacoes,
   RECRUITMENT_ROUTE_KEYS.vagas,
-  RECRUITMENT_ROUTE_KEYS.portalVagas,
-  RECRUITMENT_ROUTE_KEYS.talentos,
   RECRUITMENT_ROUTE_KEYS.candidatos,
   RECRUITMENT_ROUTE_KEYS.matching,
-  RECRUITMENT_ROUTE_KEYS.rodadas,
-  RECRUITMENT_ROUTE_KEYS.processoSeletivo,
   RECRUITMENT_ROUTE_KEYS.triagem,
+  RECRUITMENT_ROUTE_KEYS.processoSeletivo,
   RECRUITMENT_ROUTE_KEYS.admissao,
 ]);
 // Operacional (dia a dia)
@@ -232,7 +227,13 @@ const GESTAO_PESSOAS_ROUTES = new Set([
   "/gestao/dashboard", "/gestao/planosdesenvolvimento",
   "/gestao/humor", "/gestao/resumoatividades",
 ]);
-const HIDDEN_ROUTES = new Set(["/departamentos", "/gestao/pipeline"]);
+const HIDDEN_ROUTES = new Set([
+  "/departamentos", "/gestao/pipeline",
+  "/gestao/aprovacoes",
+  "/portalvagas",
+  "/talentos",
+  "/gestao/projetos",
+]);
 
 function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
   if (!href || href === "#") {
@@ -286,23 +287,6 @@ function cloneNavItem(item: BffNavItem, overrides: Partial<BffNavItem> = {}): Bf
   };
 }
 
-function createSyntheticGroup(
-  id: string,
-  label: string,
-  href: string,
-  icon: string | null | undefined,
-  children: BffNavItem[],
-): BffNavItem {
-  return {
-    id,
-    label,
-    href,
-    icon: icon ?? null,
-    openInNewTab: false,
-    children,
-  };
-}
-
 function normalizeRecruitmentItem(item: BffNavItem): BffNavItem {
   const routeKey = toNavRouteKey(item.href);
   return cloneNavItem(item, {
@@ -311,6 +295,11 @@ function normalizeRecruitmentItem(item: BffNavItem): BffNavItem {
   });
 }
 
+/**
+ * Constrói o sidebar de recrutamento como lista linear (sem accordions).
+ * Segue a ordem definida em RECRUITMENT_LINEAR_ORDER:
+ * Solicitações → Vagas → Candidatos → Matching → Triagem → Processo Seletivo → Admissão
+ */
 function buildRecruitmentSidebar(items: BffNavItem[]): BffNavItem[] {
   const known = new Map<string, BffNavItem>();
   const leftovers: BffNavItem[] = [];
@@ -336,62 +325,23 @@ function buildRecruitmentSidebar(items: BffNavItem[]): BffNavItem[] {
 
   collect(items);
 
-  const used = new Set<string>();
+  // Lista linear seguindo a ordem do fluxo
   const result: BffNavItem[] = [];
+  const used = new Set<string>();
 
-  const pushLeaf = (routeKey: string) => {
+  for (const routeKey of RECRUITMENT_LINEAR_ORDER) {
     const item = known.get(routeKey);
-    if (!item) return;
+    if (!item) continue;
     used.add(routeKey);
     result.push(cloneNavItem(item, { children: [] }));
-  };
-
-  const buildChildren = (routeKeys: readonly string[]) =>
-    routeKeys.flatMap((routeKey) => {
-      const item = known.get(routeKey);
-      if (!item) return [];
-      used.add(routeKey);
-      return [cloneNavItem(item, { children: [] })];
-    });
-
-  pushLeaf(RECRUITMENT_ROUTE_KEYS.dashboard);
-
-  const hubChildren = buildChildren(RECRUITMENT_HUB_ROUTE_KEYS);
-  if (hubChildren.length > 0) {
-    const hubSource = known.get(RECRUITMENT_ROUTE_KEYS.vagas) ?? hubChildren[0];
-    result.push(createSyntheticGroup(
-      "__recruitment_vagas",
-      "Vagas",
-      hubSource?.href ?? "/vagas",
-      hubSource?.icon ?? "bi-briefcase",
-      hubChildren,
-    ));
   }
 
-  pushLeaf(RECRUITMENT_ROUTE_KEYS.talentos);
-  pushLeaf(RECRUITMENT_ROUTE_KEYS.candidatos);
-
-  const selectionChildren = buildChildren(RECRUITMENT_SELECTION_ROUTE_KEYS);
-  if (selectionChildren.length > 0) {
-    const selectionSource = known.get(RECRUITMENT_ROUTE_KEYS.matching)
-      ?? known.get(RECRUITMENT_ROUTE_KEYS.rodadas)
-      ?? selectionChildren[0];
-    result.push(createSyntheticGroup(
-      "__recruitment_selection",
-      "Seleção",
-      selectionSource?.href ?? "#",
-      selectionSource?.icon ?? "bi-stars",
-      selectionChildren,
-    ));
-  }
-
-  pushLeaf(RECRUITMENT_ROUTE_KEYS.admissao);
-
-  const remainingKnown = Array.from(known.entries())
-    .filter(([routeKey]) => !used.has(routeKey))
+  // Itens conhecidos que não estão no linear order (safety net)
+  const remaining = Array.from(known.entries())
+    .filter(([key]) => !used.has(key))
     .map(([, item]) => cloneNavItem(item, { children: [] }));
 
-  return [...result, ...remainingKnown, ...leftovers];
+  return [...result, ...remaining, ...leftovers];
 }
 
 /* ═══════════════════════════════════════════════════════════════════

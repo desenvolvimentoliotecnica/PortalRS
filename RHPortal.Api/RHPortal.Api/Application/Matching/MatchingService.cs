@@ -162,6 +162,22 @@ public sealed class MatchingService : IMatchingService
         }
 
         var profileText = BuildCandidateProfileText(candidato.CvText, resumo, competenciaNomes);
+
+        // Incluir respostas de campos personalizados no texto do perfil
+        var respostas = await _db.RespostasCampoPersonalizadoVaga
+            .AsNoTracking()
+            .Include(r => r.Campo)
+            .Where(r => r.CandidatoId == candidatoId && r.VagaId == vagaId && r.TenantId == tenantId)
+            .ToListAsync(ct);
+        if (respostas.Count > 0)
+        {
+            var answersText = string.Join(" ", respostas
+                .Where(r => r.Campo is not null && !string.IsNullOrWhiteSpace(r.ValorTexto))
+                .Select(r => $"{r.Campo!.Label} {r.ValorTexto}"));
+            if (!string.IsNullOrWhiteSpace(answersText))
+                profileText = string.IsNullOrWhiteSpace(profileText) ? answersText : $"{profileText} {answersText}";
+        }
+
         var profileNormalized = NormalizeText(profileText);
 
         var vaga = await _db.Vagas

@@ -26,7 +26,7 @@ export default function AdmissaoError({
             </div>
             <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={reset}>Tentar novamente</Button>
-                <Button variant="ghost" size="sm" onClick={() => window.location.href = "/app/admissao"}>Voltar para lista</Button>
+                <Button variant="outline" size="sm" onClick={() => window.location.href = "/app/admissao"}>Voltar para lista</Button>
             </div>
         </div>
     );

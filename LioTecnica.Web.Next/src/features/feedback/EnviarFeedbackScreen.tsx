@@ -115,7 +115,7 @@ export default function EnviarFeedbackScreen() {
                 <div className="space-y-1.5">
                     <label className="text-sm font-bold flex items-center gap-1"><Users className="size-4" /> Selecione um colaborador</label>
                     <select
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
                         value={toUserId}
                         onChange={(e) => setToUserId(e.target.value)}
                     >
@@ -148,7 +148,7 @@ export default function EnviarFeedbackScreen() {
                 <div className="space-y-2">
                     <label className="text-sm font-bold flex items-center gap-1"><FileText className="size-4" /> Descreva seu feedback</label>
                     <select
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
                         value={template}
                         onChange={(e) => handleTemplateChange(e.target.value)}
                     >

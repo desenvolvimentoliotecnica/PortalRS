@@ -128,7 +128,7 @@ export default function AdminGestoresScreen() {
                     </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={load}>
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="size-4" />
                 </Button>
             </div>
 
@@ -193,12 +193,12 @@ export default function AdminGestoresScreen() {
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <Button
-                                        variant={hasChanges(f) ? "default" : "ghost"}
+                                        variant={hasChanges(f) ? "default" : "outline"}
                                         size="sm"
                                         disabled={saving === f.id || !hasChanges(f)}
                                         onClick={() => handleSave(f.id)}
                                     >
-                                        {saving === f.id ? "..." : <Save className="h-4 w-4" />}
+                                        {saving === f.id ? "..." : <Save className="size-4" />}
                                     </Button>
                                 </TableCell>
                             </TableRow>

@@ -273,11 +273,11 @@ export default function AdminAccessesScreen() {
                 <div className="flex flex-wrap items-center gap-2">
                     {roleId && (
                         <>
-                            <Button variant="ghost" size="sm" onClick={selectAll}>
-                                <CheckSquare className="size-4" /><span className="hidden sm:inline ml-1">Selecionar tudo</span>
+                            <Button variant="outline" size="sm" onClick={selectAll}>
+                                <CheckSquare className="mr-1 size-4" />Selecionar tudo
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={clearAll}>
-                                <XCircle className="size-4" /><span className="hidden sm:inline ml-1">Limpar</span>
+                            <Button variant="outline" size="sm" onClick={clearAll}>
+                                <XCircle className="mr-1 size-4" />Limpar
                             </Button>
                             <Button variant={showPreview ? "default" : "outline"} size="sm" onClick={() => setShowPreview(p => !p)}>
                                 <Eye className="size-4 mr-1" />Preview
@@ -310,8 +310,7 @@ export default function AdminAccessesScreen() {
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                 <div className="flex flex-wrap items-end gap-3">
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-muted-foreground">Perfil</label>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm min-w-[250px]" value={roleId} onChange={(e) => handleRoleChange(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[250px]" value={roleId} onChange={(e) => handleRoleChange(e.target.value)}>
                             <option value="">Selecione um perfil</option>
                             {roles.map(r => (
                                 <option key={r.id} value={r.id}>{r.name}{r.isSystem ? " (Sistema)" : ""}</option>
@@ -319,8 +318,8 @@ export default function AdminAccessesScreen() {
                         </select>
                     </div>
                     {roleId && (
-                        <Button variant="ghost" size="sm" onClick={() => void loadRoleMenus(roleId)} disabled={loadingAssignments}>
-                            <RefreshCw className="size-4 mr-1" /> Recarregar
+                        <Button variant="outline" size="sm" onClick={() => void loadRoleMenus(roleId)} disabled={loadingAssignments}>
+                            <RefreshCw className="mr-1 size-4" /> Recarregar
                         </Button>
                     )}
                     <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -328,7 +327,7 @@ export default function AdminAccessesScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input className="w-[240px] pl-8" placeholder="menu, perm, rota..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="all">Todos</option>
                             <option value="selected">Selecionados</option>
                             <option value="unselected">Não selecionados</option>
@@ -376,7 +375,7 @@ export default function AdminAccessesScreen() {
                                             <Button
                                                 variant={allModSelected ? "default" : someModSelected ? "secondary" : "outline"}
                                                 size="sm"
-                                                className="text-xs h-7"
+                                                className="text-xs"
                                                 onClick={(e) => { e.stopPropagation(); toggleModule(mod.key); }}
                                             >
                                                 {allModSelected ? "Desmarcar Módulo" : "Selecionar Módulo"}

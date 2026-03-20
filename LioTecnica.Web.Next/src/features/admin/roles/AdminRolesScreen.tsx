@@ -168,7 +168,7 @@ export default function AdminRolesScreen() {
                     <div className="text-muted-foreground text-sm">Gerencie os perfis de acesso e suas permissões.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => void loadRoles()} disabled={loading}>
+                    <Button variant="outline" size="sm" onClick={() => void loadRoles()} disabled={loading}>
                         <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
                     </Button>
                     <Button size="sm" onClick={startCreate}>
@@ -210,7 +210,7 @@ export default function AdminRolesScreen() {
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">Escopo de Visibilidade</label>
-                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={form.visibilityScope} onChange={(e) => upd("visibilityScope", e.target.value)}>
+                            <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.visibilityScope} onChange={(e) => upd("visibilityScope", e.target.value)}>
                                 <option value="">Padrão</option>
                                 <option value="all">Todos</option>
                                 <option value="area">Por Área</option>
@@ -219,7 +219,7 @@ export default function AdminRolesScreen() {
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">Escopo de Vagas</label>
-                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={form.vagasDataScope} onChange={(e) => upd("vagasDataScope", e.target.value)}>
+                            <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.vagasDataScope} onChange={(e) => upd("vagasDataScope", e.target.value)}>
                                 <option value="">Padrão</option>
                                 <option value="all">Todas</option>
                                 <option value="area">Por Área</option>
@@ -228,7 +228,7 @@ export default function AdminRolesScreen() {
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">Modo de Acesso</label>
-                            <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={form.accessMode} onChange={(e) => upd("accessMode", e.target.value)}>
+                            <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.accessMode} onChange={(e) => upd("accessMode", e.target.value)}>
                                 <option value="">Padrão</option>
                                 <option value="full">Completo</option>
                                 <option value="readonly">Somente Leitura</option>
@@ -254,7 +254,7 @@ export default function AdminRolesScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input className="w-[200px] pl-8" placeholder="buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                             <option value="all">Todos</option>
                             <option value="active">Ativos</option>
                             <option value="inactive">Inativos</option>
@@ -300,11 +300,11 @@ export default function AdminRolesScreen() {
                                     <TableCell className="text-right">{r.userCount ?? 0}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <Button variant="ghost" size="sm" onClick={() => startEdit(r)} title="Editar">
+                                            <Button variant="outline" size="sm" onClick={() => startEdit(r)} title="Editar">
                                                 <Pencil className="size-4" />
                                             </Button>
                                             {!r.isSystem && (
-                                                <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleDelete(r.id, r.name)} title="Remover">
+                                                <Button variant="destructive" size="sm" onClick={() => void handleDelete(r.id, r.name)} title="Remover">
                                                     <Trash2 className="size-4" />
                                                 </Button>
                                             )}

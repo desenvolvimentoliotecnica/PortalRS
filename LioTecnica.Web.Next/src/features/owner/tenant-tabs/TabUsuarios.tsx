@@ -229,11 +229,11 @@ export default function TabUsuarios({ tenantId }: { tenantId: string }) {
                                     </td>
                                     <td className="py-2 px-3">
                                         <div className="flex gap-1 justify-end">
-                                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEdit(u)}><Edit className="size-3.5 mr-1" />Editar</Button>
-                                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setPwUserId(u.id); setPwValue(""); setPwConfirm(""); setPwOpen(true); }}>
+                                            <Button variant="outline" size="sm" onClick={() => openEdit(u)}><Edit className="size-3.5 mr-1" />Editar</Button>
+                                            <Button variant="outline" size="sm" onClick={() => { setPwUserId(u.id); setPwValue(""); setPwConfirm(""); setPwOpen(true); }}>
                                                 <Key className="size-3.5 mr-1" />Senha
                                             </Button>
-                                            <Button variant="outline" size="sm" className="h-7 text-xs text-red-600 hover:text-red-700" onClick={() => handleDelete(u.id)}>
+                                            <Button variant="destructive" size="sm" onClick={() => handleDelete(u.id)}>
                                                 <Trash2 className="size-3.5" />
                                             </Button>
                                         </div>

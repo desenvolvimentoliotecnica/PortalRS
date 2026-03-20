@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Search } from "lucide-react";
 
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const BASE = "/app";
 
@@ -215,6 +218,11 @@ export default function CandidatosScreen() {
 
   const [vagas, setVagas] = useState<VagaOption[]>([]);
 
+  const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
+    if (typeof window === "undefined") return "list";
+    return (localStorage.getItem("renderrh.candidatos.viewMode") as "list" | "kanban") || "list";
+  });
+  const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.candidatos.viewMode", m); };
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<Candidato | null>(null);
   const [detailTab, setDetailTab] = useState<"resumo" | "cv" | "docs" | "match">("resumo");
@@ -769,12 +777,15 @@ export default function CandidatosScreen() {
           <div className="text-muted-foreground text-sm">Candidatos • CV • Match</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button className="btn-ghost" type="button" onClick={exportJson}>
+          <Button variant="outline" size="sm" onClick={exportJson}>
             Exportar
-          </button>
-          <button className="btn-brand" type="button" onClick={openNew}>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.location.href = "/app/talentos"}>
+            Banco de Talentos
+          </Button>
+          <Button size="sm" onClick={openNew}>
             Novo candidato
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -807,100 +818,66 @@ export default function CandidatosScreen() {
       </div>
 
       <div className="card-soft p-3">
-        <div className="flex flex-wrap items-end gap-2 mb-3">
-          <div>
-            <div className="small text-muted mb-1">Busca</div>
-            <input
-              className="form-control w-[260px]"
-              placeholder="Nome, email, vaga..."
-              value={qInput}
-              onChange={(e) => setQInput(e.target.value)}
-            />
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Nome, email, vaga..." value={qInput} onChange={(e) => setQInput(e.target.value)} />
           </div>
-          <div>
-            <div className="small text-muted mb-1">Status</div>
-            <div ref={statusDropdownRef} className="position-relative" style={{ minWidth: 200 }}>
-              <button
-                type="button"
-                className="form-select form-select-sm text-start d-flex align-items-center justify-content-between gap-2 w-100"
-                style={{ borderColor: "var(--lt-border)", background: "#fff" }}
-                onClick={() => setStatusOpen((v) => !v)}
-              >
-                <span className="text-truncate">{statusLabel}</span>
-                <span className="text-muted small">▾</span>
-              </button>
-              {statusOpen ? (
-                <div className="dropdown-menu shadow-sm p-2 show" style={{ display: "block", minWidth: 200, zIndex: 50 }}>
-                  {statusOptionsEffective.map((opt) => {
-                    const checked = statuses.includes(opt.code);
-                    return (
-                      <label
-                        key={opt.code}
-                        className="dropdown-item d-flex align-items-center gap-2 py-2 mb-0 cursor-pointer"
-                        style={{ cursor: "pointer" }}
-                      >
-                        <input
-                          type="checkbox"
-                          className="form-check-input flex-shrink-0"
-                          checked={checked}
-                          onChange={() => {
-                            setPage(1);
-                            setStatuses((prev) => (prev.includes(opt.code) ? prev.filter((x) => x !== opt.code) : [...prev, opt.code]));
-                          }}
-                        />
-                        <span>{opt.text}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div>
-            <div className="small text-muted mb-1">Vaga</div>
-            <select className="form-select w-[320px]" value={vagaId} onChange={(e) => setVagaId(e.target.value)}>
-              <option value="">Todas</option>
-              {vagas.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2">
+          <div ref={statusDropdownRef} className="relative">
             <button
-              className="btn-ghost"
               type="button"
-              onClick={() => {
-                setPage(1);
-                setLoading(true);
-                sync()
-                  .catch(() => toast.error("Falha ao aplicar filtros."))
-                  .finally(() => setLoading(false));
-              }}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm inline-flex items-center justify-between gap-2 min-w-[180px]"
+              onClick={() => setStatusOpen((v) => !v)}
             >
-              Aplicar
+              <span className="truncate">{statusLabel}</span>
+              <span className="text-muted-foreground text-xs">▾</span>
             </button>
-            <button
-              className="btn-ghost"
-              type="button"
-              onClick={() => {
-                setQInput("");
-                setQ("");
-                setStatuses([]);
-                setVagaId("");
-                setPage(1);
-                setLoading(true);
-                sync()
-                  .catch(() => toast.error("Falha ao limpar filtros."))
-                  .finally(() => setLoading(false));
-              }}
-            >
-              Limpar
+            {statusOpen ? (
+              <div className="absolute top-full left-0 mt-1 z-50 rounded-md border border-border bg-popover p-1.5 shadow-md min-w-[200px]">
+                {statusOptionsEffective.map((opt) => {
+                  const checked = statuses.includes(opt.code);
+                  return (
+                    <label key={opt.code} className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/60">
+                      <input
+                        type="checkbox"
+                        className="size-3.5 rounded border-border"
+                        checked={checked}
+                        onChange={() => {
+                          setPage(1);
+                          setStatuses((prev) => (prev.includes(opt.code) ? prev.filter((x) => x !== opt.code) : [...prev, opt.code]));
+                        }}
+                      />
+                      <span>{opt.text}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm max-w-[280px]" value={vagaId} onChange={(e) => setVagaId(e.target.value)}>
+            <option value="">Todas as vagas</option>
+            {vagas.map((v) => (
+              <option key={v.id} value={v.id}>{v.label}</option>
+            ))}
+          </select>
+          <Button variant="outline" size="sm" type="button" onClick={() => { setPage(1); setLoading(true); sync().catch(() => toast.error("Falha ao aplicar filtros.")).finally(() => setLoading(false)); }}>
+            Aplicar
+          </Button>
+          <Button variant="outline" size="sm" type="button" onClick={() => { setQInput(""); setQ(""); setStatuses([]); setVagaId(""); setPage(1); setLoading(true); sync().catch(() => toast.error("Falha ao limpar filtros.")).finally(() => setLoading(false)); }}>
+            Limpar
+          </Button>
+          <div className="flex items-center rounded-md border border-input bg-background p-0.5 ml-auto">
+            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-[rgb(var(--lt-primary))] text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+            </button>
+            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-[rgb(var(--lt-primary))] text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
             </button>
           </div>
         </div>
 
+        {viewMode === "list" ? (
+        <>
         <div className="table-responsive mt-2">
           <table className="table align-middle mb-0">
             <thead>
@@ -962,21 +939,21 @@ export default function CandidatosScreen() {
                         </span>
                       </td>
                       <td className="text-end nowrap">
-                        <button className="btn-ghost px-3 py-2 me-1" type="button" onClick={() => void openDetail(c.id)}>
+                        <Button variant="outline" size="sm" type="button" onClick={() => void openDetail(c.id)}>
                           Detalhes
-                        </button>
-                        <button className="btn-ghost px-3 py-2 me-1" type="button" onClick={() => void openEdit(c.id)}>
+                        </Button>
+                        <Button variant="outline" size="sm" type="button" onClick={() => void openEdit(c.id)}>
                           Editar
-                        </button>
-                        <button className="btn-ghost px-3 py-2 me-1" type="button" onClick={() => void sendToBloqueio(c.id)}>
+                        </Button>
+                        <Button variant="outline" size="sm" type="button" onClick={() => void sendToBloqueio(c.id)}>
                           Bloqueio de pessoa
-                        </button>
-                        <button className="btn-ghost px-3 py-2 me-1" type="button" title="Recalcular match" onClick={() => void recalcMatch(c.id)}>
+                        </Button>
+                        <Button variant="outline" size="sm" type="button" title="Recalcular match" onClick={() => void recalcMatch(c.id)}>
                           ↻
-                        </button>
-                        <button className="btn-ghost px-3 py-2 text-red-600" type="button" onClick={() => void deleteCandidate(c.id)}>
+                        </Button>
+                        <Button variant="destructive" size="sm" type="button" onClick={() => void deleteCandidate(c.id)}>
                           Excluir
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -1002,6 +979,84 @@ export default function CandidatosScreen() {
             setPageSize(s || 20);
           }}
         />
+        </>
+        ) : (
+          /* ── Kanban View ── */
+          <div className="p-4 overflow-x-auto mt-2">
+            {loading ? (
+              <div className="flex gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="w-72 shrink-0 space-y-3">
+                    <div className="h-8 animate-pulse rounded-lg bg-muted" />
+                    <div className="h-20 animate-pulse rounded-lg bg-muted" />
+                    <div className="h-20 animate-pulse rounded-lg bg-muted" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-4 items-start">
+                {(statusOptionsEffective.length ? statusOptionsEffective : [
+                  { code: "pendente", text: "Pendente" },
+                  { code: "triagem", text: "Triagem" },
+                  { code: "aprovado", text: "Aprovado" },
+                  { code: "reprovado", text: "Reprovado" },
+                ]).map((col) => {
+                  const colItems = items.filter((c) => {
+                    const s = (c.status ?? "").toLowerCase();
+                    const code = col.code.toLowerCase();
+                    return s === code || s.includes(code);
+                  });
+                  const tagMeta = statusTag(col.code);
+                  const colCls = tagMeta.cls === "ok" ? "bg-emerald-500/15 text-emerald-700"
+                    : tagMeta.cls === "bad" ? "bg-red-500/15 text-red-700"
+                    : tagMeta.cls === "warn" ? "bg-amber-500/15 text-amber-700"
+                    : "bg-zinc-400/15 text-zinc-600";
+                  return (
+                    <div key={col.code} className="w-72 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
+                      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${colCls}`}>{col.text}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{colItems.length}</span>
+                      </div>
+                      <div className="flex-1 space-y-2 p-2 max-h-[calc(100vh-340px)] overflow-y-auto">
+                        {colItems.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border/40 py-8 text-center text-xs text-muted-foreground">
+                            Nenhum
+                          </div>
+                        ) : colItems.map((c) => {
+                          const v = vagas.find((x) => x.id === (c.vagaId ?? "")) ?? null;
+                          const score = clamp(pickNumber(c.lastMatch?.score, 0), 0, 100);
+                          return (
+                            <div
+                              key={c.id}
+                              className="rounded-lg border border-border/50 bg-card p-3 shadow-sm cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
+                              onClick={() => void openDetail(c.id)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="avatar size-7 text-[10px] shrink-0 rounded-full bg-muted flex items-center justify-center font-bold">{initials(pickString(c.nome, ""))}</div>
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium leading-tight truncate">{c.nome ?? "—"}</div>
+                                  <div className="text-[11px] text-muted-foreground truncate">{c.email ?? ""}</div>
+                                </div>
+                              </div>
+                              {v && <div className="mt-2 text-[11px] text-muted-foreground truncate">{v.label?.replace(/\s*\([^)]+\)\s*$/, "") ?? ""}</div>}
+                              <div className="mt-2 flex items-center justify-between">
+                                <span className="text-[11px] text-muted-foreground">Match {score}%</span>
+                                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="outline" size="sm" type="button" onClick={() => void openDetail(c.id)}>Detalhes</Button>
+                                  <Button variant="outline" size="sm" type="button" onClick={() => void openEdit(c.id)}>Editar</Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {detailOpen ? (
@@ -1044,13 +1099,15 @@ export default function CandidatosScreen() {
 
               <div className="flex items-center gap-2">
                 {detail?.id ? (
-                  <Link href={`/candidatos/detalhes?id=${encodeURIComponent(detail.id)}`} className="btn-ghost px-3 py-2" onClick={() => setDetailOpen(false)}>
-                    Abrir em página
-                  </Link>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/candidatos/detalhes?id=${encodeURIComponent(detail.id)}`} onClick={() => setDetailOpen(false)}>
+                      Abrir em página
+                    </Link>
+                  </Button>
                 ) : null}
-                <button className="btn-ghost px-3 py-2" type="button" onClick={() => setDetailOpen(false)}>
+                <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>
                   Fechar
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -1068,14 +1125,14 @@ export default function CandidatosScreen() {
                         { key: "match", label: "Match" },
                       ] as const
                     ).map((t) => (
-                      <button
+                      <Button
                         key={t.key}
-                        type="button"
-                        className={detailTab === t.key ? "btn-brand px-3 py-2" : "btn-ghost px-3 py-2"}
+                        size="sm"
+                        variant={detailTab === t.key ? "default" : "outline"}
                         onClick={() => setDetailTab(t.key)}
                       >
                         {t.label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                   <div className="text-end">
@@ -1104,7 +1161,7 @@ export default function CandidatosScreen() {
                     <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
                       <div>
                         <div className="small text-muted mb-1">Status</div>
-                        <select className="form-select" value={detail.status ?? ""} onChange={(e) => setDetail({ ...detail, status: e.target.value })}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={detail.status ?? ""} onChange={(e) => setDetail({ ...detail, status: e.target.value })}>
                           {statusOptionsEffective.map((opt) => (
                             <option key={opt.code} value={opt.code}>
                               {opt.text}
@@ -1115,7 +1172,7 @@ export default function CandidatosScreen() {
                       <div>
                         <div className="small text-muted mb-1">Vaga</div>
                         <select
-                          className="form-select"
+                          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                           value={detail.vagaId ?? ""}
                           onChange={(e) => {
                             const id = e.target.value;
@@ -1139,15 +1196,15 @@ export default function CandidatosScreen() {
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button className="btn-ghost px-3 py-2" type="button" onClick={() => void openEdit(detail.id)}>
+                      <Button variant="outline" size="sm" onClick={() => void openEdit(detail.id)}>
                         Editar
-                      </button>
-                      <button className="btn-ghost px-3 py-2" type="button" onClick={() => void saveMeta()}>
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => void saveMeta()}>
                         Salvar status/vaga
-                      </button>
-                      <button className="btn-ghost px-3 py-2 text-red-600" type="button" onClick={() => void deleteCandidate(detail.id)}>
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => void deleteCandidate(detail.id)}>
                         Excluir
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ) : null}
@@ -1157,9 +1214,9 @@ export default function CandidatosScreen() {
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <div className="fw-semibold">Texto do CV</div>
                       <div className="flex gap-2">
-                        <button
-                          className="btn-ghost px-3 py-2"
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
                             fetchJson(`${BASE}/api/candidatos/${encodeURIComponent(detail.id)}`, {
                               method: "PUT",
@@ -1171,13 +1228,13 @@ export default function CandidatosScreen() {
                           }}
                         >
                           Salvar texto
-                        </button>
-                        <button className="btn-ghost px-3 py-2" type="button" onClick={() => void recalcMatch(detail.id)}>
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => void recalcMatch(detail.id)}>
                           Recalcular match
-                        </button>
+                        </Button>
                       </div>
                     </div>
-                    <textarea className="form-control" rows={10} value={detail.cvText ?? ""} onChange={(e) => setDetail({ ...detail, cvText: e.target.value })} />
+                    <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={10} value={detail.cvText ?? ""} onChange={(e) => setDetail({ ...detail, cvText: e.target.value })} />
                   </div>
                 ) : null}
 
@@ -1257,12 +1314,12 @@ export default function CandidatosScreen() {
                         </div>
 
                         <div className="d-flex flex-wrap gap-2 mt-3">
-                          <button className="btn-ghost px-3 py-2" type="button" onClick={() => void recalcMatch(detail.id)}>
+                          <Button variant="outline" size="sm" onClick={() => void recalcMatch(detail.id)}>
                             Recalcular
-                          </button>
-                          <button className="btn-ghost px-3 py-2" type="button" onClick={() => toast.info("Placeholder: aqui abriria a tela de Vagas filtrada na vaga.")}>
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => toast.info("Placeholder: aqui abriria a tela de Vagas filtrada na vaga.")}>
                             Abrir vaga (placeholder)
-                          </button>
+                          </Button>
                         </div>
                       </>
                     )}
@@ -1282,19 +1339,19 @@ export default function CandidatosScreen() {
                 <p className="mini-title mb-1">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
                 <div className="text-lg font-extrabold">Cadastro</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setEditOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setEditOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
               <div className="md:col-span-8">
                 <label className="mini-title mb-1 block">Nome</label>
-                <input className="form-control" value={pickString(draft.nome, "")} onChange={(e) => setDraft({ ...draft, nome: e.target.value })} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.nome, "")} onChange={(e) => setDraft({ ...draft, nome: e.target.value })} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Status</label>
-                <select className="form-select" value={pickString(draft.status, defaultEnumCode("candidatoStatus", "novo"))} onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.status, defaultEnumCode("candidatoStatus", "novo"))} onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
                   {statusOptionsEffective.map((opt) => (
                     <option key={opt.code} value={opt.code}>
                       {opt.text}
@@ -1304,23 +1361,23 @@ export default function CandidatosScreen() {
               </div>
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Email</label>
-                <input className="form-control" value={pickString(draft.email, "")} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.email, "")} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
               </div>
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Fone</label>
-                <input className="form-control" value={pickString(draft.fone, "")} onChange={(e) => setDraft({ ...draft, fone: e.target.value })} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.fone, "")} onChange={(e) => setDraft({ ...draft, fone: e.target.value })} />
               </div>
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Cidade</label>
-                <input className="form-control" value={pickString(draft.cidade, "")} onChange={(e) => setDraft({ ...draft, cidade: e.target.value })} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.cidade, "")} onChange={(e) => setDraft({ ...draft, cidade: e.target.value })} />
               </div>
               <div className="md:col-span-2">
                 <label className="mini-title mb-1 block">UF</label>
-                <input className="form-control" value={pickString(draft.uf, "")} onChange={(e) => setDraft({ ...draft, uf: e.target.value })} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.uf, "")} onChange={(e) => setDraft({ ...draft, uf: e.target.value })} />
               </div>
               <div className="md:col-span-2">
                 <label className="mini-title mb-1 block">Fonte</label>
-                <select className="form-select" value={pickString((draft as Record<string, unknown>)?.fonte, defaultEnumCode("candidatoFonte", "email"))} onChange={(e) => setDraft({ ...draft, fonte: e.target.value })}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pickString((draft as Record<string, unknown>)?.fonte, defaultEnumCode("candidatoFonte", "email"))} onChange={(e) => setDraft({ ...draft, fonte: e.target.value })}>
                   {enumOptions(enums, "candidatoFonte").map((opt) => (
                     <option key={opt.code} value={opt.code}>
                       {opt.text}
@@ -1331,7 +1388,7 @@ export default function CandidatosScreen() {
               <div className="md:col-span-8">
                 <label className="mini-title mb-1 block">LinkedIn URL</label>
                 <input
-                  className="form-control"
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   type="url"
                   placeholder="https://linkedin.com/in/..."
                   value={draft.linkedinUrl ?? ""}
@@ -1341,7 +1398,7 @@ export default function CandidatosScreen() {
               <div className="md:col-span-4 flex flex-col justify-end">
                 <label className="mini-title mb-1 block">Trabalhando atualmente?</label>
                 <select
-                  className="form-select"
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                   value={
                     draft.trabalhandoAtualmente === true ? "sim"
                     : draft.trabalhandoAtualmente === false ? "nao"
@@ -1363,7 +1420,7 @@ export default function CandidatosScreen() {
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Pretensão salarial (R$)</label>
                 <input
-                  className="form-control"
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   type="number"
                   min={0}
                   step={100}
@@ -1379,7 +1436,7 @@ export default function CandidatosScreen() {
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Vaga</label>
-                <select className="form-select" value={pickString(draft.vagaId, "")} onChange={(e) => setDraft({ ...draft, vagaId: e.target.value })}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.vagaId, "")} onChange={(e) => setDraft({ ...draft, vagaId: e.target.value })}>
                   <option value="">Sem vaga</option>
                   {vagas.map((v) => (
                     <option key={v.id} value={v.id}>
@@ -1390,7 +1447,7 @@ export default function CandidatosScreen() {
               </div>
               <div className="md:col-span-12">
                 <label className="mini-title mb-1 block">Resumo / Observações</label>
-                <textarea className="form-control" rows={3} value={pickString((draft as Record<string, unknown>)?.obs, "")} onChange={(e) => setDraft({ ...draft, obs: e.target.value })} />
+                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={pickString((draft as Record<string, unknown>)?.obs, "")} onChange={(e) => setDraft({ ...draft, obs: e.target.value })} />
               </div>
 
               <div className="md:col-span-12">
@@ -1405,7 +1462,7 @@ export default function CandidatosScreen() {
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
                     <div className="md:col-span-3">
                       <label className="mini-title mb-1 block">Tipo</label>
-                      <select className="form-select" value={draftDocTipo} onChange={(e) => setDraftDocTipo(e.target.value)}>
+                      <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={draftDocTipo} onChange={(e) => setDraftDocTipo(e.target.value)}>
                         {(enumOptions(enums, "candidatoDocumentoTipo").length
                           ? enumOptions(enums, "candidatoDocumentoTipo")
                           : [
@@ -1422,18 +1479,18 @@ export default function CandidatosScreen() {
                     </div>
                     <div className="md:col-span-5">
                       <label className="mini-title mb-1 block">Descrição</label>
-                      <input className="form-control" value={draftDocDescricao} onChange={(e) => setDraftDocDescricao(e.target.value)} placeholder="Ex.: CV atualizado, Certificação, Portfólio" />
+                      <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={draftDocDescricao} onChange={(e) => setDraftDocDescricao(e.target.value)} placeholder="Ex.: CV atualizado, Certificação, Portfólio" />
                     </div>
                     <div className="md:col-span-4">
                       <label className="mini-title mb-1 block">Arquivo</label>
-                      <input className="form-control" type="file" onChange={(e) => setDraftDocFile(e.currentTarget.files?.[0] ?? null)} />
+                      <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="file" onChange={(e) => setDraftDocFile(e.currentTarget.files?.[0] ?? null)} />
                     </div>
                   </div>
 
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      className="btn-ghost px-3 py-2"
-                      type="button"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => {
                         if (!draftDocFile) return toast.error("Selecione um arquivo.");
                         const tipo = (draftDocTipo || "").trim();
@@ -1470,7 +1527,7 @@ export default function CandidatosScreen() {
                       }}
                     >
                       Enviar documento
-                    </button>
+                    </Button>
                   </div>
 
                   {pendingDocs.length ? (
@@ -1492,9 +1549,9 @@ export default function CandidatosScreen() {
                                 </div>
                               </div>
                               <div className="flex gap-2">
-                                <button
-                                  className="btn-ghost px-3 py-2"
-                                  type="button"
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   disabled={!candId}
                                   title={!candId ? "Salve o candidato para reenviar" : "Reenviar"}
                                   onClick={() => {
@@ -1511,10 +1568,10 @@ export default function CandidatosScreen() {
                                   }}
                                 >
                                   Reenviar
-                                </button>
-                                <button className="btn-ghost px-3 py-2 text-red-600" type="button" onClick={() => setPendingDocs((prev) => prev.filter((x) => x.tempId !== d.tempId))}>
+                                </Button>
+                                <Button variant="destructive" size="sm" onClick={() => setPendingDocs((prev) => prev.filter((x) => x.tempId !== d.tempId))}>
                                   Remover
-                                </button>
+                                </Button>
                               </div>
                             </div>
                           );
@@ -1527,12 +1584,12 @@ export default function CandidatosScreen() {
             </div>
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setEditOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setEditOpen(false)}>
                 Cancelar
-              </button>
-              <button className="btn-brand" type="button" onClick={() => void saveDraft()}>
+              </Button>
+              <Button onClick={() => void saveDraft()}>
                 Salvar
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1546,22 +1603,22 @@ export default function CandidatosScreen() {
                 <p className="mini-title mb-1">Sugestões da IA</p>
                 <div className="text-lg font-extrabold">Aplicar dados extraídos</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setSuggestOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setSuggestOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="mini-title mb-1 block">CV (texto)</label>
-                <textarea className="form-control" rows={8} value={suggestedCvText} onChange={(e) => setSuggestedCvText(e.target.value)} />
+                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={8} value={suggestedCvText} onChange={(e) => setSuggestedCvText(e.target.value)} />
               </div>
               <div className="space-y-2">
                 {(["nome", "email", "fone", "cidade", "uf"] as const).map((k) => (
                   <div key={k}>
                     <label className="mini-title mb-1 block">{k.toUpperCase()}</label>
                     <input
-                      className="form-control"
+                      className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                       value={pickString(suggested?.[k], "")}
                       onChange={(e) => {
                         const v = e.target.value;
@@ -1573,7 +1630,7 @@ export default function CandidatosScreen() {
                 <div>
                   <label className="mini-title mb-1 block">Resumo</label>
                   <textarea
-                    className="form-control"
+                    className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                     rows={3}
                     value={pickString(suggested?.resumoProfissional, "")}
                     onChange={(e) => setSuggested((prev) => ({ ...(prev ?? {}), resumoProfissional: e.target.value }))}
@@ -1583,17 +1640,17 @@ export default function CandidatosScreen() {
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setSuggestOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setSuggestOpen(false)}>
                 Cancelar
-              </button>
+              </Button>
               {detail?.talentoId ? (
-                <button className="btn-ghost" type="button" onClick={() => void applySuggestedToCandidate(true)}>
+                <Button variant="outline" size="sm" onClick={() => void applySuggestedToCandidate(true)}>
                   Aplicar no candidato e no talento
-                </button>
+                </Button>
               ) : null}
-              <button className="btn-brand" type="button" onClick={() => void applySuggestedToCandidate(false)}>
+              <Button onClick={() => void applySuggestedToCandidate(false)}>
                 Aplicar no candidato
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1639,7 +1696,7 @@ function DocumentosBox({
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-1 gap-2">
-        <select className="form-select" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={tipo} onChange={(e) => setTipo(e.target.value)}>
           {(docTipoOptions.length
             ? docTipoOptions
             : [
@@ -1653,15 +1710,15 @@ function DocumentosBox({
             </option>
           ))}
         </select>
-        <input className="form-control" placeholder="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+        <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
         <input
-          className="form-control"
+          className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
           type="file"
           onChange={(e) => setFile(e.currentTarget.files?.[0] ?? null)}
         />
-        <button
-          className="btn-ghost"
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => {
             if (!file) return toast.error("Selecione um arquivo.");
             void uploadDocumento(candidato.id, tipo, descricao, file)
@@ -1675,19 +1732,20 @@ function DocumentosBox({
           }}
         >
           Enviar documento
-        </button>
+        </Button>
       </div>
 
       <div className="mt-2 rounded-xl border border-[rgba(16,82,144,.14)] bg-white/60 p-2">
         <div className="fw-semibold mb-2">CV PDF + Extrair</div>
-        <input className="form-control" type="file" accept="application/pdf" onChange={(e) => setCvFile(e.currentTarget.files?.[0] ?? null)} />
+        <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="file" accept="application/pdf" onChange={(e) => setCvFile(e.currentTarget.files?.[0] ?? null)} />
         <label className="mt-2 inline-flex items-center gap-2 text-sm">
           <input type="checkbox" checked={enviarParaGpt} onChange={(e) => setEnviarParaGpt(e.target.checked)} />
           Enviar para IA (GPT)
         </label>
-        <button
-          className="btn-ghost mt-2"
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
           onClick={() => {
             if (!cvFile) return toast.error("Selecione um PDF.");
             const ext = (cvFile.name || "").toLowerCase().slice(-4);
@@ -1712,7 +1770,7 @@ function DocumentosBox({
           }}
         >
           Enviar e extrair
-        </button>
+        </Button>
       </div>
 
       <div className="mt-2">
@@ -1728,12 +1786,14 @@ function DocumentosBox({
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <a className="btn-ghost px-3 py-2" href={d.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!d.url}>
-                    Download
-                  </a>
-                  <button
-                    className="btn-ghost px-3 py-2 text-red-600"
-                    type="button"
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={d.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!d.url}>
+                      Download
+                    </a>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
                     onClick={async () => {
                       if (!(await confirmDialog({ title: "Excluir documento", description: "Excluir documento?", confirmText: "Excluir", destructive: true }))) return;
                       void deleteDocumento(candidato.id, d.id)
@@ -1745,7 +1805,7 @@ function DocumentosBox({
                     }}
                   >
                     Excluir
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}

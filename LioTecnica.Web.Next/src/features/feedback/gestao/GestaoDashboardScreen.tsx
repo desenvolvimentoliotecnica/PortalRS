@@ -75,7 +75,7 @@ export default function GestaoDashboardScreen() {
                     <h4 className="text-lg font-bold">Dashboard</h4>
                     <div className="text-muted-foreground text-sm">Visão geral da gestão de equipes.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
             </div>

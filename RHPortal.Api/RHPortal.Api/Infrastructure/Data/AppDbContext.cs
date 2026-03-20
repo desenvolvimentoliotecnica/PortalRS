@@ -56,6 +56,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<ProjetoCandidato> ProjetoCandidatos => Set<ProjetoCandidato>();
     public DbSet<FaseProcesso> FasesProcesso => Set<FaseProcesso>();
     public DbSet<CampoPersonalizadoVaga> CamposPersonalizadosVaga => Set<CampoPersonalizadoVaga>();
+    public DbSet<RespostaCampoPersonalizadoVaga> RespostasCampoPersonalizadoVaga => Set<RespostaCampoPersonalizadoVaga>();
     public DbSet<LogComunicacao> LogsComunicacao => Set<LogComunicacao>();
     public DbSet<AprovacaoFaixaSalarial> AprovacoesFaixaSalarial => Set<AprovacaoFaixaSalarial>();
     public DbSet<PermissaoNivelVaga> PermissoesNivelVaga => Set<PermissaoNivelVaga>();
@@ -794,6 +795,20 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Opcoes).HasMaxLength(1000);
             b.HasOne(x => x.Vaga).WithMany().HasForeignKey(x => x.VagaId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(x => new { x.TenantId, x.VagaId, x.Ordem });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // RESPOSTAS DE CAMPOS PERSONALIZADOS
+        modelBuilder.Entity<RespostaCampoPersonalizadoVaga>(b =>
+        {
+            b.ToTable("RespostasCampoPersonalizadoVaga");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ValorTexto).HasMaxLength(2000);
+            b.HasOne(x => x.Vaga).WithMany().HasForeignKey(x => x.VagaId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Candidato).WithMany().HasForeignKey(x => x.CandidatoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Campo).WithMany().HasForeignKey(x => x.CampoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.VagaId, x.CandidatoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

@@ -419,7 +419,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 Titulo: entity.Titulo,
                 DepartmentId: null,
                 AreaId: entity.AreaId.Value,
-                Status: VagaStatus.Aberta,
+                // A vaga fica em "Rascunho" para o RH preencher detalhes do portal
+                // e só depois liberar via Vaga.Status = Aberta.
+                Status: VagaStatus.Rascunho,
                 Codigo: null,
                 AreaTime: null,
                 Modalidade: null,

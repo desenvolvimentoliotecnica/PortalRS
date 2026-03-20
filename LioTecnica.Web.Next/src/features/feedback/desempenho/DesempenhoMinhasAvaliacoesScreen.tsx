@@ -60,7 +60,7 @@ export default function DesempenhoMinhasAvaliacoesScreen() {
                     <h4 className="text-lg font-bold">Minhas Avaliações</h4>
                     <div className="text-muted-foreground text-sm">Acompanhe suas avaliações de desempenho.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
             </div>
@@ -126,7 +126,7 @@ export default function DesempenhoMinhasAvaliacoesScreen() {
                                     <TableCell className="font-mono font-semibold">{ev.score != null ? ev.score.toFixed(1) : "—"}</TableCell>
                                     <TableCell className="text-sm whitespace-nowrap">{fmtDate(ev.dueDate)}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" className="h-7 px-2">
+                                        <Button variant="outline" size="sm">
                                             <Eye className="size-3.5 mr-1" />Ver
                                         </Button>
                                     </TableCell>
@@ -146,7 +146,7 @@ export default function DesempenhoMinhasAvaliacoesScreen() {
                                 <div className="font-bold text-lg">{selected.title}</div>
                                 <div className="text-muted-foreground text-sm">{selected.cycle}</div>
                             </div>
-                            <Button variant="ghost" size="sm" onClick={() => setDetailId(null)}>Fechar</Button>
+                            <Button variant="outline" size="sm" onClick={() => setDetailId(null)}>Fechar</Button>
                         </div>
                         <div className="space-y-3">
                             <div className="rounded-lg bg-muted/30 p-3">

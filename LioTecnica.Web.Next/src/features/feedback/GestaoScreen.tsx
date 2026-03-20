@@ -44,7 +44,7 @@ export default function GestaoScreen() {
                     <h4 className="text-lg font-bold">Gestão da Equipe</h4>
                     <div className="text-muted-foreground text-sm">Acompanhe os planos de desenvolvimento da sua equipe.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">

@@ -187,8 +187,9 @@ export default function AdminApiKeysScreen() {
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}>
-                        <RefreshCw className="size-4" />
+                    <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+                        <RefreshCw className="mr-1 size-4" />
+                        Atualizar
                     </Button>
                     <Button size="sm" onClick={openCreateForm}>
                         <Plus className="size-4 mr-1" />Nova chave
@@ -261,8 +262,8 @@ export default function AdminApiKeysScreen() {
                                 <TableCell className="text-xs">{formatDate(k.lastUsedAtUtc)}</TableCell>
                                 <TableCell className="text-right">
                                     {k.isActive ? (
-                                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleRevoke(k.id ?? "", k.name ?? "")}>
-                                            <Trash2 className="size-4 mr-1" />Revogar
+                                        <Button variant="destructive" size="sm" onClick={() => void handleRevoke(k.id ?? "", k.name ?? "")}>
+                                            <Trash2 className="mr-1 size-4" />Revogar
                                         </Button>
                                     ) : "—"}
                                 </TableCell>

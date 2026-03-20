@@ -141,7 +141,7 @@ export default function AdminLogsScreen() {
                     <h4 className="text-lg font-bold">Logs Transacionais</h4>
                     <div className="text-muted-foreground text-sm">Auditoria de operações do sistema.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadLogs()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => void loadLogs()} disabled={loading}><RefreshCw className="size-4" /></Button>
             </div>
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
@@ -162,7 +162,7 @@ export default function AdminLogsScreen() {
             {/* Detail panel */}
             {detail && (
                 <div className="card-soft rounded-xl border border-primary/30 bg-primary/5 p-4 backdrop-blur space-y-2">
-                    <div className="flex items-center justify-between"><div className="font-semibold">Detalhes da Transação</div><Button variant="ghost" size="sm" onClick={() => setDetail(null)}>✕</Button></div>
+                    <div className="flex items-center justify-between"><div className="font-semibold">Detalhes da Transação</div><Button variant="outline" size="sm" onClick={() => setDetail(null)}>✕</Button></div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                         <div><span className="text-muted-foreground">Usuário:</span> {detail.userName || "—"}</div>
                         <div><span className="text-muted-foreground">Ação:</span> {detail.action || "—"}</div>
@@ -194,7 +194,7 @@ export default function AdminLogsScreen() {
                                 <TableCell className="font-medium">{t.userName || "—"}</TableCell>
                                 <TableCell><span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{t.action || "—"}</span></TableCell>
                                 <TableCell className="text-sm text-muted-foreground">{t.statusCode ?? "—"}</TableCell>
-                                <TableCell className="text-right"><Button variant="ghost" size="sm" onClick={() => void viewDetail(t.id)}><Eye className="size-4" /></Button></TableCell>
+                                <TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => void viewDetail(t.id)}><Eye className="size-4" /></Button></TableCell>
                             </TableRow>
                         )))}
                     </TableBody>

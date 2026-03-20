@@ -78,7 +78,10 @@ public sealed class CandidatoService : ICandidatoService
     {
         IQueryable<Candidato> q = _db.Candidatos
             .AsNoTracking()
-            .Include(x => x.Vaga);
+            // Não usar Include aqui: a tela usa apenas projeções de campos da Vaga
+            // (ex.: Codigo/Titulo). O Include carregaria a entidade inteira e pode
+            // quebrar se o schema do tenant não tiver todas as colunas mais novas.
+            ;
 
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
@@ -161,11 +164,69 @@ public sealed class CandidatoService : ICandidatoService
     {
         var entity = await _db.Candidatos
             .AsNoTracking()
-            .Include(x => x.Vaga)
             .Include(x => x.Documentos)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
-        return entity is null ? null : MapToResponse(entity);
+        if (entity is null) return null;
+
+        // Buscar apenas os campos necessários da Vaga para evitar dependência
+        // de colunas novas que podem não existir em todos os tenants.
+        string? vagaCodigo = null;
+        string? vagaTitulo = null;
+        Guid? vagaAreaId = null;
+        Guid? vagaRecrutadorResponsavelUserId = null;
+
+        if (entity.VagaId is { } vagaId && vagaId != Guid.Empty)
+        {
+            var vaga = await _db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == vagaId)
+                .Select(v => new
+                {
+                    v.Codigo,
+                    v.Titulo,
+                    v.AreaId,
+                    v.RecrutadorResponsavelUserId
+                })
+                .FirstOrDefaultAsync(ct);
+
+            vagaCodigo = vaga?.Codigo;
+            vagaTitulo = vaga?.Titulo;
+            vagaAreaId = vaga?.AreaId;
+            vagaRecrutadorResponsavelUserId = vaga?.RecrutadorResponsavelUserId;
+        }
+
+        return new CandidateResponse(
+            entity.Id,
+            entity.Nome,
+            entity.Email,
+            entity.Fone,
+            entity.Cidade,
+            entity.Uf,
+            entity.LinkedinUrl,
+            entity.Fonte,
+            entity.Status,
+            entity.TrabalhandoAtualmente,
+            entity.PretensaoSalarial,
+            entity.VagaId,
+            vagaCodigo,
+            vagaTitulo,
+            vagaAreaId,
+            vagaRecrutadorResponsavelUserId,
+            entity.TalentoId,
+            entity.Obs,
+            entity.ResumoProfissional,
+            entity.CvText,
+            MapMatch(entity),
+            entity.Documentos
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .Select(doc => MapDocumento(entity.Id, doc))
+                .ToList(),
+            entity.ApplicationRecruiterUserId,
+            entity.ApplicationRecruiterUserName,
+            entity.CreatedAtUtc,
+            entity.UpdatedAtUtc
+        );
     }
 
     /// <summary>

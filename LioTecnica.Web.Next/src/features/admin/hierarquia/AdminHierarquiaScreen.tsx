@@ -186,10 +186,10 @@ export default function AdminHierarquiaScreen() {
                                         className="h-8"
                                         autoFocus
                                     />
-                                    <Button variant="ghost" size="icon-xs" onClick={() => void update(item.id)}>
-                                        <Save className="size-4 text-emerald-600" />
+                                    <Button variant="outline" size="icon-xs" onClick={() => void update(item.id)}>
+                                        <Save className="size-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon-xs" onClick={() => setEditId(null)}>
+                                    <Button variant="outline" size="icon-xs" onClick={() => setEditId(null)}>
                                         <X className="size-4" />
                                     </Button>
                                 </div>
@@ -198,23 +198,23 @@ export default function AdminHierarquiaScreen() {
                                     <span className="flex-1 font-medium">{item.nome}</span>
                                     <div className="flex items-center gap-1">
                                         <Button
-                                            variant="ghost" size="icon-xs"
+                                            variant="outline" size="icon-xs"
                                             disabled={index === 0}
                                             onClick={() => void move(index, -1)}
                                         >
                                             <ArrowUp className="size-4" />
                                         </Button>
                                         <Button
-                                            variant="ghost" size="icon-xs"
+                                            variant="outline" size="icon-xs"
                                             disabled={index === items.length - 1}
                                             onClick={() => void move(index, 1)}
                                         >
                                             <ArrowDown className="size-4" />
                                         </Button>
-                                        <Button variant="ghost" size="icon-xs" onClick={() => startEdit(item)}>
+                                        <Button variant="outline" size="icon-xs" onClick={() => startEdit(item)}>
                                             <Pencil className="size-4" />
                                         </Button>
-                                        <Button variant="ghost" size="icon-xs" className="text-destructive" onClick={() => void remove(item.id)}>
+                                        <Button variant="destructive" size="icon-xs" onClick={() => void remove(item.id)}>
                                             <Trash2 className="size-4" />
                                         </Button>
                                     </div>

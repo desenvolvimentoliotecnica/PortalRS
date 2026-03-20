@@ -451,11 +451,11 @@ export default function FuncoesScreen() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={exportCsv} title="Exportar funções (CSV)">
+          <Button variant="outline" size="sm" onClick={exportCsv} title="Exportar funções (CSV)">
             <FileDown className="size-4" />
             <span className="hidden sm:inline ml-1">Exportar</span>
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => void reloadWithConfirm()} title="Recarregar dados">
+          <Button variant="outline" size="sm" onClick={() => void reloadWithConfirm()} title="Recarregar dados">
             <RefreshCw className="size-4" />
             <span className="hidden sm:inline ml-1">Atualizar</span>
           </Button>
@@ -506,7 +506,7 @@ export default function FuncoesScreen() {
               />
             </div>
             <select
-              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -551,7 +551,7 @@ export default function FuncoesScreen() {
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="icon-xs"
                         title="Detalhes"
                         onClick={() => void openDetails(c)}
@@ -559,7 +559,7 @@ export default function FuncoesScreen() {
                         <Eye />
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="icon-xs"
                         title="Editar"
                         onClick={() => void openEdit(c)}
@@ -567,9 +567,8 @@ export default function FuncoesScreen() {
                         <Pencil />
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="destructive"
                         size="icon-xs"
-                        className="text-destructive"
                         title="Excluir"
                         onClick={() => setDeleteTarget(c)}
                       >
@@ -627,7 +626,7 @@ export default function FuncoesScreen() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
               <select
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={draft.status}
                 onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as FuncaoDraft["status"] }))}
               >
@@ -740,16 +739,16 @@ export default function FuncoesScreen() {
                         <td className="nowrap font-mono">{count}</td>
                         <td className="nowrap">{formatDatePtBr(vaga.updatedAt)}</td>
                         <td className="text-end nowrap">
-                          <button
-                            className="btn-ghost px-3 py-2"
-                            type="button"
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                               window.location.href = `/app/vagas?vagaId=${encodeURIComponent(vaga.id)}&open=detail`;
                             }}
                             title="Abrir vaga"
                           >
                             Abrir vaga
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))

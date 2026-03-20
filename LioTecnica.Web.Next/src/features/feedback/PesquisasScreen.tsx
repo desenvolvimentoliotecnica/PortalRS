@@ -118,11 +118,13 @@ export default function PesquisasScreen() {
                     <h4 className="text-lg font-bold">Pesquisas</h4>
                     <div className="text-muted-foreground text-sm">Gerencie pesquisas de clima e engajamento.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
-                    <RefreshCw className="size-4" />
+                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
+                    <RefreshCw className="mr-1 size-4" />
+                    Atualizar
                 </Button>
                 <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
-                    <Plus className="size-4" /><span className="hidden sm:inline ml-1">Nova Pesquisa</span>
+                    <Plus className="mr-1 size-4" />
+                    Nova Pesquisa
                 </Button>
             </div>
 
@@ -131,7 +133,7 @@ export default function PesquisasScreen() {
                     <div className="font-semibold">Criar Pesquisa</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <Input placeholder="Título da pesquisa" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={newType} onChange={e => setNewType(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={newType} onChange={e => setNewType(e.target.value)}>
                             <option value="rapida">Rápida</option>
                             <option value="super">Super</option>
                         </select>
@@ -159,7 +161,7 @@ export default function PesquisasScreen() {
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Exibindo</span>
-                        <select className="h-8 rounded-md border border-input bg-transparent px-1 text-sm" style={{ width: 60 }} value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+                        <select className="h-8 rounded-md border border-input bg-background px-1 text-sm" style={{ width: 60 }} value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
                             {[10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
                         </select>
                         <span className="text-sm text-muted-foreground">resultados por página</span>
@@ -199,7 +201,7 @@ export default function PesquisasScreen() {
                                     <TableCell className="text-right text-xs">—</TableCell>
                                     <TableCell>{statusBadge(s)}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" className="h-7 text-xs">Ver</Button>
+                                        <Button variant="outline" size="sm">Ver</Button>
                                     </TableCell>
                                 </TableRow>
                             ))

@@ -464,6 +464,7 @@ builder.Services.AddScoped<IDeleteFuncionarioHandler, DeleteFuncionarioHandler>(
 
 // Vagas
 builder.Services.AddScoped<IListVagasHandler, ListVagasHandler>();
+builder.Services.AddScoped<IListVagasPendenciasRhHandler, ListVagasPendenciasRhHandler>();
 builder.Services.AddScoped<IGetVagaByIdHandler, GetVagaByIdHandler>();
 builder.Services.AddScoped<ICreateVagaHandler, CreateVagaHandler>();
 builder.Services.AddScoped<IUpdateVagaHandler, UpdateVagaHandler>();

@@ -153,7 +153,7 @@ export default function AdminEmailTemplatesScreen() {
                     <div className="text-muted-foreground text-sm">Gerencie os modelos de email do sistema.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => void loadTemplates()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => void loadTemplates()} disabled={loading}><RefreshCw className="size-4" /></Button>
                     <Button size="sm" onClick={startCreate}><Plus className="size-4 mr-1" />Novo template</Button>
                 </div>
             </div>
@@ -182,7 +182,7 @@ export default function AdminEmailTemplatesScreen() {
                     </div>
                     <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">Corpo HTML</label>
-                        <textarea className="w-full min-h-[200px] rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono" value={form.body} onChange={e => upd("body", e.target.value)} />
+                        <textarea className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono" value={form.body} onChange={e => upd("body", e.target.value)} />
                     </div>
                     <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={e => upd("isActive", e.target.checked)} className="rounded border-input" /> Ativo</label>
@@ -211,8 +211,8 @@ export default function AdminEmailTemplatesScreen() {
                                 <TableCell className="text-center">{t.isActive ? <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">Ativo</span> : <span className="inline-flex items-center rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 text-xs font-medium">Inativo</span>}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-1">
-                                        <Button variant="ghost" size="sm" onClick={() => void startEdit(t.id)} title="Editar"><Pencil className="size-4" /></Button>
-                                        {!t.isActive && <Button variant="ghost" size="sm" onClick={() => void handleSetActive(t.id)} title="Ativar"><Power className="size-4 text-emerald-600" /></Button>}
+                                        <Button variant="outline" size="sm" onClick={() => void startEdit(t.id)} title="Editar"><Pencil className="size-4" /></Button>
+                                        {!t.isActive && <Button variant="outline" size="sm" onClick={() => void handleSetActive(t.id)} title="Ativar"><Power className="size-4" /></Button>}
                                     </div>
                                 </TableCell>
                             </TableRow>

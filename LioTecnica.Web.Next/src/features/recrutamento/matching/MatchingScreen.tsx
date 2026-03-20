@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Search, Check, X, Clock, ClipboardList, Eye, Mail, MessageCircle, Linkedin, ArrowLeft, SlidersHorizontal, RotateCcw, FolderOpen } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   type AnyRec, type VagaOption, type RankItem, type VagaDetail, type CandidatoFull, type TabKey,
   BASE, pk, pn, clamp, initials, formatDuration,
@@ -680,8 +681,8 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <input
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 pl-9 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            <Input
+              className="pl-9"
               placeholder="Buscar por nome ou e-mail…"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}

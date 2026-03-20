@@ -78,7 +78,7 @@ export default function GestaoResumoScreen() {
                     <h4 className="text-lg font-bold">Resumo de Atividades</h4>
                     <div className="text-muted-foreground text-sm">Visão consolidada das atividades e progresso da equipe.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
             </div>

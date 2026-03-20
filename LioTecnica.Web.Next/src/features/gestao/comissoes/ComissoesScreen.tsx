@@ -9,7 +9,7 @@ export default function ComissoesScreen() {
                 <DollarSign className="size-10 text-muted-foreground" />
             </div>
             <div>
-                <h3 className="font-semibold text-base mb-1">Comissões</h3>
+                <h3 className="font-semibold text-base mb-1">Pagamento extra</h3>
                 <p className="text-sm text-muted-foreground">
                     Este módulo está em desenvolvimento e será disponibilizado em breve.
                 </p>

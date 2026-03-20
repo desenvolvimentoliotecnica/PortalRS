@@ -11,6 +11,8 @@ import type {
   EventDropArg,
 } from "@fullcalendar/core";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import {
   Calendar,
@@ -528,27 +530,29 @@ export default function AgendasScreen() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button className="btn-ghost" type="button" onClick={exportJson}>
+          <Button variant="outline" size="sm" onClick={exportJson}>
             Exportar
-          </button>
-          <label className="btn-ghost cursor-pointer">
-            Importar
-            <input
-              className="hidden"
-              type="file"
-              accept="application/json"
-              onChange={(e) => {
-                const f = e.currentTarget.files?.[0];
-                if (!f) return;
-                void importJson(f).finally(() => {
-                  e.currentTarget.value = "";
-                });
-              }}
-            />
-          </label>
-          <button className="btn-brand" type="button" onClick={() => openCreate()}>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <label className="cursor-pointer">
+              Importar
+              <input
+                className="hidden"
+                type="file"
+                accept="application/json"
+                onChange={(e) => {
+                  const f = e.currentTarget.files?.[0];
+                  if (!f) return;
+                  void importJson(f).finally(() => {
+                    e.currentTarget.value = "";
+                  });
+                }}
+              />
+            </label>
+          </Button>
+          <Button size="sm" onClick={() => openCreate()}>
             Novo evento
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -579,9 +583,9 @@ export default function AgendasScreen() {
         <div className="card-soft p-3">
           <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
             <div className="flex items-center gap-2">
-              <button
-                className="btn-ghost px-3 py-2"
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   const api = calRef.current?.getApi();
                   api?.prev();
@@ -589,10 +593,10 @@ export default function AgendasScreen() {
                 }}
               >
                 ‹
-              </button>
-              <button
-                className="btn-ghost px-3 py-2"
-                type="button"
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   const api = calRef.current?.getApi();
                   api?.today();
@@ -600,10 +604,10 @@ export default function AgendasScreen() {
                 }}
               >
                 Hoje
-              </button>
-              <button
-                className="btn-ghost px-3 py-2"
-                type="button"
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   const api = calRef.current?.getApi();
                   api?.next();
@@ -611,19 +615,19 @@ export default function AgendasScreen() {
                 }}
               >
                 ›
-              </button>
+              </Button>
             </div>
 
             <div className="text-[1.05rem] font-bold">{viewTitle || "—"}</div>
 
             <div className="flex items-center gap-2">
-              <input
-                className="form-control w-[240px]"
+              <Input
+                className="w-[240px]"
                 placeholder="Buscar…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
-              <select className="form-select w-[180px]" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+              <select className="h-9 rounded-md border border-input bg-background px-3 text-sm w-[180px]" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
                 <option value="all">Todos os tipos</option>
                 {types.map((t) => (
                   <option key={t.code} value={t.code}>
@@ -632,7 +636,7 @@ export default function AgendasScreen() {
                 ))}
               </select>
               <select
-                className="form-select w-[150px]"
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm w-[150px]"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
@@ -794,19 +798,19 @@ export default function AgendasScreen() {
                 <div className="mini-title mb-1">{form.id ? "Editar evento" : "Novo evento"}</div>
                 <div className="text-lg font-extrabold">{form.id ? "Atualizar" : "Agendar"}</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setCreateOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
               <div className="md:col-span-8">
                 <label className="mini-title mb-1 block">Título</label>
-                <input className="form-control" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Tipo</label>
-                <select className="form-select" value={form.typeCode} onChange={(e) => setForm({ ...form, typeCode: e.target.value })}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.typeCode} onChange={(e) => setForm({ ...form, typeCode: e.target.value })}>
                   {types.map((t) => (
                     <option key={t.code} value={t.code}>
                       {t.label}
@@ -818,7 +822,7 @@ export default function AgendasScreen() {
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Início</label>
                 <input
-                  className="form-control"
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   type="datetime-local"
                   value={form.start}
                   onChange={(e) => setForm({ ...form, start: e.target.value })}
@@ -826,16 +830,16 @@ export default function AgendasScreen() {
               </div>
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Fim</label>
-                <input className="form-control" type="datetime-local" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="datetime-local" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
               </div>
 
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Local</label>
-                <input className="form-control" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
               </div>
               <div className="md:col-span-3">
                 <label className="mini-title mb-1 block">Status</label>
-                <select className="form-select" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as EventForm["status"] })}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as EventForm["status"] })}>
                   <option value="confirmado">Confirmado</option>
                   <option value="pendente">Pendente</option>
                   <option value="cancelado">Cancelado</option>
@@ -843,12 +847,12 @@ export default function AgendasScreen() {
               </div>
               <div className="md:col-span-3">
                 <label className="mini-title mb-1 block">Owner</label>
-                <input className="form-control" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
               </div>
 
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Candidato</label>
-                <select className="form-select" value={form.candidateName} onChange={(e) => setForm({ ...form, candidateName: e.target.value })}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.candidateName} onChange={(e) => setForm({ ...form, candidateName: e.target.value })}>
                   <option value="">Selecione…</option>
                   {candidatos.map((c) => (
                     <option key={c.id} value={c.nome ?? ""}>
@@ -859,7 +863,7 @@ export default function AgendasScreen() {
               </div>
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Vaga</label>
-                <select className="form-select" value={form.vagaId} onChange={(e) => setForm({ ...form, vagaId: e.target.value })}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.vagaId} onChange={(e) => setForm({ ...form, vagaId: e.target.value })}>
                   <option value="">Selecione…</option>
                   {vagas.map((v) => (
                     <option key={v.id} value={v.id}>
@@ -871,22 +875,21 @@ export default function AgendasScreen() {
 
               <div className="md:col-span-12">
                 <label className="mini-title mb-1 block">Notas</label>
-                <textarea className="form-control" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
             </div>
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setCreateOpen(false)} disabled={busy === "loading"}>
+              <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)} disabled={busy === "loading"}>
                 Cancelar
-              </button>
-              <button
-                className="btn-brand"
-                type="button"
+              </Button>
+              <Button
+                size="sm"
                 onClick={() => void saveForm().catch(() => toast.error("Falha ao salvar evento."))}
                 disabled={busy === "loading"}
               >
                 Salvar
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -910,9 +913,9 @@ export default function AgendasScreen() {
                   {fmtTimeRange(safeDate(selectedEvent.startAtUtc), safeDate(selectedEvent.endAtUtc))}
                 </div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setViewOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setViewOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -940,25 +943,25 @@ export default function AgendasScreen() {
             </div>
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => void duplicatePlus7(selectedEvent.id)}>
+              <Button variant="outline" size="sm" onClick={() => void duplicatePlus7(selectedEvent.id)}>
                 Duplicar +7d
-              </button>
-              <button className="btn-ghost" type="button" onClick={() => openEdit(selectedEvent.id)}>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => openEdit(selectedEvent.id)}>
                 Editar
-              </button>
-              <button
-                className="btn-ghost"
-                type="button"
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={async () => {
                   if (!(await confirmDialog({ title: "Excluir evento", description: "Excluir este evento?", confirmText: "Excluir", destructive: true }))) return;
                   void deleteEvent(selectedEvent.id).catch(() => toast.error("Falha ao excluir evento."));
                 }}
               >
                 Excluir
-              </button>
-              <button className="btn-brand" type="button" onClick={() => setViewOpen(false)}>
+              </Button>
+              <Button size="sm" onClick={() => setViewOpen(false)}>
                 OK
-              </button>
+              </Button>
             </div>
           </div>
         </div>

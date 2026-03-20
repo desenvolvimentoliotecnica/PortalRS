@@ -14,5 +14,7 @@ public sealed record PortalCandidaturaRequest(
     [MaxLength(160)] string? CargoAtual,
     [Range(0, 80)] int? AnosExperiencia,
     [MaxLength(2000)] string? Observacoes,
-    IFormFile? Arquivo
+    IFormFile? Arquivo,
+    /// <summary>JSON array: [{"campoId":"guid","valor":"text"}, ...]</summary>
+    [MaxLength(8000)] string? CamposPersonalizadosJson
 );

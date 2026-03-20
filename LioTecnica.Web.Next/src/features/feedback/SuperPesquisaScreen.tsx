@@ -171,8 +171,9 @@ export default function SuperPesquisaScreen() {
                     <div className="text-muted-foreground text-sm">Crie e analise pesquisas completas de forma muito fácil e rápida!</div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
-                        <RefreshCw className="size-4" />
+                    <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
+                        <RefreshCw className="mr-1 size-4" />
+                        Atualizar
                     </Button>
                 </div>
             </div>
@@ -340,7 +341,7 @@ export default function SuperPesquisaScreen() {
                                     </select>
                                 </div>
                                 <div className="flex justify-end md:pb-0.5">
-                                    <Button variant="ghost" size="sm" onClick={() => removeQuestion(question.id)} disabled={questions.length <= 1}>
+                                    <Button variant="outline" size="sm" onClick={() => removeQuestion(question.id)} disabled={questions.length <= 1}>
                                         <Trash2 className="size-4" />
                                     </Button>
                                 </div>

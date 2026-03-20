@@ -419,7 +419,7 @@ export default function PessoasScreen() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => {
               setLoading(true);
@@ -428,12 +428,12 @@ export default function PessoasScreen() {
                 .finally(() => setLoading(false));
             }}
           >
-            <RefreshCw className="size-4" />
-            <span className="hidden sm:inline">Atualizar</span>
+            <RefreshCw className="mr-1 size-4" />
+            Atualizar
           </Button>
           <Button size="sm" onClick={openManualBlock}>
-            <UserX className="size-4" />
-            <span className="hidden sm:inline">Bloquear pessoa</span>
+            <UserX className="mr-1 size-4" />
+            Bloquear pessoa
           </Button>
         </div>
       </div>
@@ -487,12 +487,12 @@ export default function PessoasScreen() {
                   <TableCell className="text-sm">{fmtDate(p.createdAtUtc)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon-xs" title="Editar" onClick={() => void openEdit(p.id)}>
+                      <Button variant="outline" size="icon-xs" title="Editar" onClick={() => void openEdit(p.id)}>
                         <Pencil />
                       </Button>
                       {p.estaBloqueado ? (
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="icon-xs"
                           title="Desbloquear"
                           onClick={() => void unblock(p)}
@@ -500,7 +500,7 @@ export default function PessoasScreen() {
                           <Unlock />
                         </Button>
                       ) : (
-                        <Button variant="ghost" size="icon-xs" title="Bloquear" onClick={() => openBlock(p)}>
+                        <Button variant="outline" size="icon-xs" title="Bloquear" onClick={() => openBlock(p)}>
                           <UserX />
                         </Button>
                       )}
@@ -522,7 +522,7 @@ export default function PessoasScreen() {
           <div className="flex items-center gap-2">
             <span>Exibir</span>
             <select
-              className="h-8 rounded border bg-transparent px-2 text-xs"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value) || 20)}
             >
@@ -625,7 +625,7 @@ export default function PessoasScreen() {
               <div className="md:col-span-2">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Origem</label>
                 <select
-                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={String(draft.origem ?? 0)}
                   onChange={(e) => setDraft((d) => ({ ...d, origem: Number(e.target.value) || 0 }))}
                 >
@@ -647,7 +647,7 @@ export default function PessoasScreen() {
               <div className="md:col-span-12">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Resumo profissional</label>
                 <textarea
-                  className="form-control"
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   rows={2}
                   value={draft.resumoProfissional ?? ""}
                   onChange={(e) => setDraft((d) => ({ ...d, resumoProfissional: e.target.value }))}
@@ -656,7 +656,7 @@ export default function PessoasScreen() {
               <div className="md:col-span-12">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Observações</label>
                 <textarea
-                  className="form-control"
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   rows={2}
                   value={draft.obs ?? ""}
                   onChange={(e) => setDraft((d) => ({ ...d, obs: e.target.value }))}
@@ -792,7 +792,7 @@ export default function PessoasScreen() {
           </DialogHeader>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Motivo</label>
-            <textarea className="form-control" rows={3} value={blockMotivo} onChange={(e) => setBlockMotivo(e.target.value)} />
+            <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={blockMotivo} onChange={(e) => setBlockMotivo(e.target.value)} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBlockOpen(false)} disabled={blocking}>
@@ -825,7 +825,7 @@ export default function PessoasScreen() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Motivo</label>
               <textarea
-                className="form-control"
+                className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                 rows={2}
                 value={manualMotivo}
                 onChange={(e) => setManualMotivo(e.target.value)}

@@ -198,7 +198,7 @@ export default function LoginScreenRazor({
                 Tenant
               </label>
               <input
-                className="form-control"
+                className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                 id="tenantIdInput"
                 name="TenantId"
                 autoComplete="organization"
@@ -227,7 +227,7 @@ export default function LoginScreenRazor({
                 Email
               </label>
               <input
-                className="form-control"
+                className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                 id="emailInput"
                 name="Email"
                 autoComplete="username"
@@ -242,7 +242,7 @@ export default function LoginScreenRazor({
                 Password
               </label>
               <input
-                className="form-control"
+                className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                 id="passwordInput"
                 name="Password"
                 type="password"

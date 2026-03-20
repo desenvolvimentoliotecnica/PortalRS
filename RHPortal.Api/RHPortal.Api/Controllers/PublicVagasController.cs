@@ -172,6 +172,59 @@ public sealed class PublicVagasController : ControllerBase
         return Ok(new PagedResult<PortalVagaCardResponse>(items, page, pageSize, totalItems, totalPages));
     }
 
+    /// <summary>
+    /// Consulta uma vaga pública específica pelo ID.
+    /// </summary>
+    [ProducesResponseType(typeof(PortalVagaCardResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<PortalVagaCardResponse>> GetById(
+        [FromRoute] Guid id,
+        CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var tenantId = _tenantContext.TenantId;
+
+        var tenantName = await _masterDb.Tenants
+            .AsNoTracking()
+            .Where(t => t.TenantId == tenantId)
+            .Select(t => t.Name)
+            .FirstOrDefaultAsync(ct);
+
+        var item = await _db.Vagas
+            .AsNoTracking()
+            .Include(v => v.Area)
+            .Where(v => v.Id == id)
+            .Where(v => v.Status == VagaStatus.Aberta)
+            .Where(v => !v.Confidencial)
+            .Where(v => v.Visibilidade == VagaPublicacaoVisibilidade.Externa
+                || v.Visibilidade == VagaPublicacaoVisibilidade.InternaEExterna)
+            .Where(v => !v.DataInicio.HasValue || v.DataInicio.Value <= today)
+            .Where(v => !v.DataEncerramento.HasValue || v.DataEncerramento.Value >= today)
+            .Select(v => new PortalVagaCardResponse(
+                v.Id,
+                v.Titulo,
+                v.Area != null ? v.Area.Name : null,
+                v.Modalidade,
+                v.TipoContratacao,
+                v.Senioridade,
+                v.Cidade,
+                v.Uf,
+                v.TagsKeywordsRaw,
+                v.TagsStackRaw,
+                v.TagsResponsabilidadesRaw,
+                v.SalarioMinimo,
+                v.SalarioMaximo,
+                v.CreatedAtUtc,
+                tenantName))
+            .FirstOrDefaultAsync(ct);
+
+        if (item is null)
+            return NotFound();
+
+        return Ok(item);
+    }
+
     private static bool TryParseEnum<TEnum>(string? value, out TEnum parsed) where TEnum : struct
     {
         if (string.IsNullOrWhiteSpace(value))

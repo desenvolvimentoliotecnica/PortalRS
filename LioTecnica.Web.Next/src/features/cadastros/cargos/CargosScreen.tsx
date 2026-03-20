@@ -218,7 +218,7 @@ export default function CargosScreen() {
                     <div className="text-muted-foreground text-sm">Padronize cargos usados nos funcionários e vagas.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => { setLoading(true); syncList().catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setLoading(true); syncList().catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
                         <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
                     </Button>
                     <Button size="sm" onClick={openNew}><Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo cargo</span></Button>
@@ -252,7 +252,7 @@ export default function CargosScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input className="w-[240px] pl-8" placeholder="nome, codigo, area..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="all">Todos</option>
                             <option value="ativo">Ativo</option>
                             <option value="inativo">Inativo</option>
@@ -287,9 +287,9 @@ export default function CargosScreen() {
                                 <TableCell>{statusBadge(c.status)}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-1">
-                                        <Button variant="ghost" size="icon-xs" title="Detalhes" onClick={() => setDetailItem(c)}><Eye /></Button>
-                                        <Button variant="ghost" size="icon-xs" title="Editar" onClick={() => void openEdit(c)}><Pencil /></Button>
-                                        <Button variant="ghost" size="icon-xs" className="text-destructive" title="Excluir" onClick={() => setDeleteTarget(c)}><Trash2 /></Button>
+                                        <Button variant="outline" size="icon-xs" title="Detalhes" onClick={() => setDetailItem(c)}><Eye /></Button>
+                                        <Button variant="outline" size="icon-xs" title="Editar" onClick={() => void openEdit(c)}><Pencil /></Button>
+                                        <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(c)}><Trash2 /></Button>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -325,21 +325,21 @@ export default function CargosScreen() {
                         </div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
-                            <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}>
+                            <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}>
                                 <option value="ativo">Ativo</option>
                                 <option value="inativo">Inativo</option>
                             </select>
                         </div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-muted-foreground">Área</label>
-                            <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={draft.areaId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, areaId: e.target.value || null }))}>
+                            <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.areaId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, areaId: e.target.value || null }))}>
                                 <option value="">Selecionar área</option>
                                 {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-muted-foreground">Senioridade</label>
-                            <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={draft.seniority} onChange={(e) => setDraft((d) => ({ ...d, seniority: e.target.value }))}>
+                            <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.seniority} onChange={(e) => setDraft((d) => ({ ...d, seniority: e.target.value }))}>
                                 <option value="">Selecionar senioridade</option>
                                 <option value="junior">Junior</option>
                                 <option value="pleno">Pleno</option>

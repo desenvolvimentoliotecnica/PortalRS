@@ -135,7 +135,7 @@ function UsersTab() {
     return (
         <>
             <div className="flex flex-wrap items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
                 <Button size="sm" onClick={() => setShowCreate(!showCreate)}><Plus className="size-4 mr-1" />Novo usuário</Button>
                 <div className="ml-auto relative"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="w-[240px] pl-8" placeholder="nome, email..." value={q} onChange={e => setQ(e.target.value)} /></div>
             </div>
@@ -152,7 +152,7 @@ function UsersTab() {
             )}
             {assignUserId && (
                 <div className="card-soft rounded-xl border border-primary/30 bg-primary/5 p-4 backdrop-blur space-y-3">
-                    <div className="flex items-center justify-between"><div className="font-semibold">Atribuir perfis</div><Button variant="ghost" size="sm" onClick={() => setAssignUserId(null)}>✕</Button></div>
+                    <div className="flex items-center justify-between"><div className="font-semibold">Atribuir perfis</div><Button variant="outline" size="sm" onClick={() => setAssignUserId(null)}>✕</Button></div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {roles.map(r => (
                             <label key={r.id} className={`flex items-center gap-2 rounded-lg border p-2 cursor-pointer transition-colors ${userRoleIds.has(r.id) ? "bg-primary/5 border-primary/30" : "border-border/40"}`}>
@@ -178,9 +178,9 @@ function UsersTab() {
                                         <TableCell>{u.isActive ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium"><ShieldCheck className="size-3" />Ativo</span> : <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 text-xs font-medium"><ShieldOff className="size-3" />Inativo</span>}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
-                                                <Button variant="ghost" size="sm" onClick={() => openRoleAssign(u)} title="Perfis"><Shield className="size-4" /></Button>
-                                                <Button variant="ghost" size="sm" onClick={() => void handleSetPassword(u.id)} title="Senha"><Key className="size-4" /></Button>
-                                                <Button variant="ghost" size="sm" onClick={() => void handleToggleStatus(u.id, !u.isActive)} title={u.isActive ? "Desativar" : "Ativar"}>{u.isActive ? <ShieldOff className="size-4" /> : <ShieldCheck className="size-4" />}</Button>
+                                                <Button variant="outline" size="sm" onClick={() => openRoleAssign(u)} title="Perfis"><Shield className="size-4" /></Button>
+                                                <Button variant="outline" size="sm" onClick={() => void handleSetPassword(u.id)} title="Senha"><Key className="size-4" /></Button>
+                                                <Button variant="outline" size="sm" onClick={() => void handleToggleStatus(u.id, !u.isActive)} title={u.isActive ? "Desativar" : "Ativar"}>{u.isActive ? <ShieldOff className="size-4" /> : <ShieldCheck className="size-4" />}</Button>
                                             </div>
                                         </TableCell>
                                     </TableRow>
@@ -234,7 +234,7 @@ function RolesTab() {
     return (
         <>
             <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
                 <Button size="sm" onClick={startCreate}><Plus className="size-4 mr-1" />Novo perfil</Button>
             </div>
             {showForm && (
@@ -256,7 +256,7 @@ function RolesTab() {
                                         <TableCell className="text-sm text-muted-foreground">{r.description || "—"}</TableCell>
                                         <TableCell>{r.isSystem ? <span className="inline-flex items-center rounded-full bg-sky-100 text-sky-800 px-2 py-0.5 text-xs font-medium">Sistema</span> : <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">Custom</span>}</TableCell>
                                         <TableCell className="text-right">{r.userCount ?? 0}</TableCell>
-                                        <TableCell className="text-right"><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" onClick={() => startEdit(r)}><Pencil className="size-4" /></Button>{!r.isSystem && <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleDelete(r.id, r.name)}><Trash2 className="size-4" /></Button>}</div></TableCell>
+                                        <TableCell className="text-right"><div className="flex items-center justify-end gap-1"><Button variant="outline" size="sm" onClick={() => startEdit(r)}><Pencil className="size-4" /></Button>{!r.isSystem && <Button variant="destructive" size="sm" onClick={() => void handleDelete(r.id, r.name)}><Trash2 className="size-4" /></Button>}</div></TableCell>
                                     </TableRow>
                                 ))}
                     </TableBody>
@@ -310,7 +310,7 @@ function MenusTab() {
     return (
         <>
             <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
                 <Button size="sm" onClick={startCreate}><Plus className="size-4 mr-1" />Novo menu</Button>
             </div>
             {showForm && (
@@ -322,7 +322,7 @@ function MenusTab() {
                         <Input placeholder="Permissão *" value={formPerm} onChange={e => setFormPerm(e.target.value)} />
                         <Input placeholder="Ícone" value={formIcon} onChange={e => setFormIcon(e.target.value)} />
                         <Input type="number" placeholder="Ordem" value={formOrder} onChange={e => setFormOrder(parseInt(e.target.value) || 0)} />
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={formParent} onChange={e => setFormParent(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={formParent} onChange={e => setFormParent(e.target.value)}>
                             <option value="">Nenhum pai</option>
                             {parents.map(p => <option key={p.id} value={p.id}>{p.displayName}</option>)}
                         </select>
@@ -344,7 +344,7 @@ function MenusTab() {
                                         <TableCell><code className="text-xs">{m.permissionKey || "—"}</code></TableCell>
                                         <TableCell className="text-center">{m.order}</TableCell>
                                         <TableCell className="text-center">{m.isActive ? <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">Ativo</span> : <span className="inline-flex items-center rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 text-xs font-medium">Inativo</span>}</TableCell>
-                                        <TableCell className="text-right"><div className="flex items-center justify-end gap-1"><Button variant="ghost" size="sm" onClick={() => startEdit(m)}><Pencil className="size-4" /></Button><Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleDelete(m.id, m.displayName)}><Trash2 className="size-4" /></Button></div></TableCell>
+                                        <TableCell className="text-right"><div className="flex items-center justify-end gap-1"><Button variant="outline" size="sm" onClick={() => startEdit(m)}><Pencil className="size-4" /></Button><Button variant="destructive" size="sm" onClick={() => void handleDelete(m.id, m.displayName)}><Trash2 className="size-4" /></Button></div></TableCell>
                                     </TableRow>
                                 ))}
                     </TableBody>

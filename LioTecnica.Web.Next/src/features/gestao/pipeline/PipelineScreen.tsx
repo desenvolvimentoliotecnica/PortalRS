@@ -252,7 +252,7 @@ export default function PipelineScreen() {
                     </div>
                 </div>
                 <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                         setLoading(true);
@@ -356,7 +356,7 @@ export default function PipelineScreen() {
                                         <div className="flex items-center gap-2">
                                             {urgenciaBadge(pipeline.urgencia)}
                                             <Button
-                                                variant="ghost"
+                                                variant="outline"
                                                 size="icon-xs"
                                                 title="Ver detalhes das etapas"
                                                 onClick={() => {

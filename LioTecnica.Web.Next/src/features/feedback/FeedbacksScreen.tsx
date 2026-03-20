@@ -163,7 +163,7 @@ export default function FeedbacksScreen() {
                             <Send className="size-4 mr-1" />Enviar Feedback
                         </Button>
                     </Link>
-                    <Button variant="ghost" size="sm" onClick={() => { void loadData(); void loadCounts(); }} disabled={loading}>
+                    <Button variant="outline" size="sm" onClick={() => { void loadData(); void loadCounts(); }} disabled={loading}>
                         <RefreshCw className="size-4" />
                     </Button>
                 </div>

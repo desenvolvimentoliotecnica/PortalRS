@@ -88,7 +88,7 @@ export default function PesquisaRapidaScreen() {
                     <h4 className="text-lg font-bold">Pesquisa Rápida</h4>
                     <div className="text-muted-foreground text-sm">Responda pesquisas rápidas sobre clima organizacional e engajamento.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
             </div>
@@ -158,7 +158,7 @@ export default function PesquisaRapidaScreen() {
                         <div className="p-5 border-b border-border/30">
                             <div className="flex items-start justify-between gap-2">
                                 <div className="font-bold text-lg">Responder Pesquisa</div>
-                                <Button variant="ghost" size="sm" onClick={() => { setActiveSurveyId(null); setQuestions([]); }}>Fechar</Button>
+                                <Button variant="outline" size="sm" onClick={() => { setActiveSurveyId(null); setQuestions([]); }}>Fechar</Button>
                             </div>
                         </div>
                         <div className="p-5 space-y-4">

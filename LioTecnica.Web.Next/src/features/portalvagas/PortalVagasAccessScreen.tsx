@@ -6,6 +6,7 @@ import Link from "next/link";
 import Script from "next/script";
 import { clearPortalCandidateSession, portalAuthFetch, savePortalCandidateSession } from "@/features/portalvagas/publicApi";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 type Mode = "login" | "register";
 type Locale = "pt-BR" | "en-US";
@@ -142,9 +143,9 @@ export default function PortalVagasAccessScreen() {
   return (
     <section className="mx-auto max-w-2xl space-y-4 py-8 relative">
       <div className="absolute top-4 right-4">
-        <button type="button" className="btn-ghost text-sm" onClick={() => setHelpOpen(true)}>
+        <Button variant="outline" size="sm" onClick={() => setHelpOpen(true)}>
           Precisa de ajuda?
-        </button>
+        </Button>
       </div>
 
       <div className="card-soft p-6">
@@ -162,45 +163,45 @@ export default function PortalVagasAccessScreen() {
         ) : null}
 
         <div className="mt-4 flex gap-2">
-          <button className={`btn-ghost flex-1 ${mode === "login" ? "bg-[rgba(16,82,144,.12)]" : ""}`} onClick={() => setMode("login")} type="button">
+          <Button className="flex-1" size="sm" variant={mode === "login" ? "default" : "outline"} onClick={() => setMode("login")}>
             Entrar
-          </button>
-          <button className={`btn-ghost flex-1 ${mode === "register" ? "bg-[rgba(16,82,144,.12)]" : ""}`} onClick={() => setMode("register")} type="button">
+          </Button>
+          <Button className="flex-1" size="sm" variant={mode === "register" ? "default" : "outline"} onClick={() => setMode("register")}>
             Criar acesso
-          </button>
+          </Button>
         </div>
 
         {mode === "login" ? (
           <div className="mt-4 space-y-3">
             <div>
               <label className="mini-title mb-1 block">E-mail</label>
-              <input className="form-control" type="email" value={login.email} onChange={(e) => setLogin((s) => ({ ...s, email: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="email" value={login.email} onChange={(e) => setLogin((s) => ({ ...s, email: e.target.value }))} />
             </div>
             <div>
               <label className="mini-title mb-1 block">Senha</label>
-              <input className="form-control" type="password" value={login.password} onChange={(e) => setLogin((s) => ({ ...s, password: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="password" value={login.password} onChange={(e) => setLogin((s) => ({ ...s, password: e.target.value }))} />
             </div>
-            <button className="btn-brand w-full" type="button" onClick={() => void doLogin()} disabled={loading || !tenantId}>
+            <Button className="w-full" size="sm" onClick={() => void doLogin()} disabled={loading || !tenantId}>
               {loading ? "Entrando..." : "Entrar no portal"}
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-12">
             <div className="md:col-span-12">
               <label className="mini-title mb-1 block">Nome completo</label>
-              <input className="form-control" value={register.nome} onChange={(e) => setRegister((s) => ({ ...s, nome: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={register.nome} onChange={(e) => setRegister((s) => ({ ...s, nome: e.target.value }))} />
             </div>
             <div className="md:col-span-6">
               <label className="mini-title mb-1 block">E-mail</label>
-              <input className="form-control" type="email" value={register.email} onChange={(e) => setRegister((s) => ({ ...s, email: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="email" value={register.email} onChange={(e) => setRegister((s) => ({ ...s, email: e.target.value }))} />
             </div>
             <div className="md:col-span-6">
               <label className="mini-title mb-1 block">Telefone</label>
-              <input className="form-control" value={register.fone} onChange={(e) => setRegister((s) => ({ ...s, fone: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={register.fone} onChange={(e) => setRegister((s) => ({ ...s, fone: e.target.value }))} />
             </div>
             <div className="md:col-span-3">
               <label className="mini-title mb-1 block">UF</label>
-              <select className="form-select" value={register.uf} onChange={(e) => setRegister((s) => ({ ...s, uf: e.target.value.toUpperCase() }))}>
+              <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={register.uf} onChange={(e) => setRegister((s) => ({ ...s, uf: e.target.value.toUpperCase() }))}>
                 <option value="">Selecione</option>
                 {UF_LIST.map((uf) => (
                   <option key={uf} value={uf}>{uf}</option>
@@ -209,20 +210,20 @@ export default function PortalVagasAccessScreen() {
             </div>
             <div className="md:col-span-9">
               <label className="mini-title mb-1 block">Cidade</label>
-              <input className="form-control" value={register.cidade} onChange={(e) => setRegister((s) => ({ ...s, cidade: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={register.cidade} onChange={(e) => setRegister((s) => ({ ...s, cidade: e.target.value }))} />
             </div>
             <div className="md:col-span-6">
               <label className="mini-title mb-1 block">Senha</label>
-              <input className="form-control" type="password" value={register.password} onChange={(e) => setRegister((s) => ({ ...s, password: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="password" value={register.password} onChange={(e) => setRegister((s) => ({ ...s, password: e.target.value }))} />
             </div>
             <div className="md:col-span-6">
               <label className="mini-title mb-1 block">Confirmar senha</label>
-              <input className="form-control" type="password" value={register.passwordConfirm} onChange={(e) => setRegister((s) => ({ ...s, passwordConfirm: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="password" value={register.passwordConfirm} onChange={(e) => setRegister((s) => ({ ...s, passwordConfirm: e.target.value }))} />
             </div>
             <div className="md:col-span-12">
-              <button className="btn-brand w-full" type="button" onClick={() => void doRegister()} disabled={loading || !tenantId}>
+              <Button className="w-full" size="sm" onClick={() => void doRegister()} disabled={loading || !tenantId}>
                 {loading ? "Criando..." : "Criar acesso"}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -231,12 +232,14 @@ export default function PortalVagasAccessScreen() {
       <div className="flex flex-col items-center gap-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Idioma:</span>
-          <button type="button" className={`px-2 py-1 rounded text-sm ${locale === "pt-BR" ? "bg-[rgba(16,82,144,.2)] font-semibold" : "btn-ghost"}`} onClick={() => setLocale("pt-BR")} title="Português">PT</button>
-          <button type="button" className={`px-2 py-1 rounded text-sm ${locale === "en-US" ? "bg-[rgba(16,82,144,.2)] font-semibold" : "btn-ghost"}`} onClick={() => setLocale("en-US")} title="English">EN</button>
+          <Button size="sm" variant={locale === "pt-BR" ? "default" : "outline"} onClick={() => setLocale("pt-BR")} title="Português">PT</Button>
+          <Button size="sm" variant={locale === "en-US" ? "default" : "outline"} onClick={() => setLocale("en-US")} title="English">EN</Button>
         </div>
-        <Link className="btn-ghost" href={`/app/PortalVagas${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ""}`}>
-          Voltar para o portal
-        </Link>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/app/PortalVagas${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ""}`}>
+            Voltar para o portal
+          </Link>
+        </Button>
       </div>
 
       {helpOpen ? (
@@ -247,7 +250,7 @@ export default function PortalVagasAccessScreen() {
                 <h2 id="helpModalLabel" className="text-base font-extrabold">Como funciona o processo</h2>
                 <p className="text-sm text-muted-foreground">Etapas para acompanhar sua candidatura.</p>
               </div>
-              <button type="button" className="btn-ghost px-2 py-1" onClick={() => setHelpOpen(false)} aria-label="Fechar">Fechar</button>
+              <Button variant="outline" size="sm" onClick={() => setHelpOpen(false)} aria-label="Fechar">Fechar</Button>
             </div>
             <div className="mt-4 space-y-3">
               {HELP_STEPS[locale].map((step, i) => (
@@ -258,7 +261,7 @@ export default function PortalVagasAccessScreen() {
               ))}
             </div>
             <div className="mt-4 flex justify-end">
-              <button type="button" className="btn-brand" onClick={() => setHelpOpen(false)}>Fechar</button>
+              <Button size="sm" onClick={() => setHelpOpen(false)}>Fechar</Button>
             </div>
           </div>
         </div>

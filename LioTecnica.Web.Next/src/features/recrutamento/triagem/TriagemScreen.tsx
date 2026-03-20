@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
@@ -622,9 +624,9 @@ export default function TriagemScreen({
           <div className="text-muted-foreground text-sm">Pipeline (drag & drop) + decisão</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            className="btn-ghost"
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => {
               const triageLog = selectedId ? history[selectedId] ?? [] : [];
               const payload = { version: 1, exportedAt: new Date().toISOString(), triageLog };
@@ -641,13 +643,13 @@ export default function TriagemScreen({
             }}
           >
             Exportar
-          </button>
-          <button className="btn-brand" type="button" disabled={loading} onClick={() => void autoTriage()}>
+          </Button>
+          <Button size="sm" disabled={loading} onClick={() => void autoTriage()}>
             Auto-triagem
-          </button>
-          <button className="btn-ghost" type="button" disabled={loading} onClick={() => void refreshBoard()}>
+          </Button>
+          <Button variant="outline" size="sm" disabled={loading} onClick={() => void refreshBoard()}>
             Atualizar
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -655,8 +657,7 @@ export default function TriagemScreen({
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div>
             <label className="mini-title mb-1 block">Buscar</label>
-            <input
-              className="form-control"
+            <Input
               value={filters.q}
               placeholder="Nome, e-mail, vaga, cidade..."
               onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
@@ -664,7 +665,7 @@ export default function TriagemScreen({
           </div>
           <div>
             <label className="mini-title mb-1 block">Vaga</label>
-            <select className="form-select" value={filters.vagaId} onChange={(e) => setFilters((f) => ({ ...f, vagaId: e.target.value }))}>
+            <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={filters.vagaId} onChange={(e) => setFilters((f) => ({ ...f, vagaId: e.target.value }))}>
               <option value="all">Todas</option>
               {vagaFilterOptions.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -675,7 +676,7 @@ export default function TriagemScreen({
           </div>
           <div>
             <label className="mini-title mb-1 block">SLA</label>
-            <select className="form-select" value={filters.sla} onChange={(e) => setFilters((f) => ({ ...f, sla: e.target.value as "all" | "late" | "ok" }))}>
+            <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={filters.sla} onChange={(e) => setFilters((f) => ({ ...f, sla: e.target.value as "all" | "late" | "ok" }))}>
               <option value="all">Todos</option>
               <option value="late">Atrasados</option>
               <option value="ok">Dentro do prazo</option>
@@ -748,9 +749,9 @@ export default function TriagemScreen({
                             <div className="text-muted-foreground text-xs truncate">{c.email || ""}</div>
                           </div>
                         </div>
-                        <button className="btn-ghost px-3 py-2" type="button" onClick={() => openDetail(c.id)} title="Detalhes">
+                        <Button variant="outline" size="sm" onClick={() => openDetail(c.id)} title="Detalhes">
                           Detalhes
-                        </button>
+                        </Button>
                       </div>
 
                       <div className="mt-2 flex items-center justify-between gap-2">
@@ -786,9 +787,9 @@ export default function TriagemScreen({
                         )}
                         <span className={`status-tag ${missCount ? "bad" : "ok"}`}>{missCount ? `${missCount} obrig.` : "Obrig. OK"}</span>
                         {c.applicationRecruiterUserName ? <span className="badge-soft">{c.applicationRecruiterUserName}</span> : null}
-                        <button className="btn-ghost px-3 py-2 ms-auto" type="button" onClick={() => openDecision(c.id)}>
+                        <Button variant="outline" size="sm" className="ms-auto" onClick={() => openDecision(c.id)}>
                           Decisão
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   );
@@ -820,9 +821,9 @@ export default function TriagemScreen({
                   </div>
                 </div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setDetailOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -854,19 +855,19 @@ export default function TriagemScreen({
               <div className="text-muted-foreground text-xs mb-2">Atribuir / remover por nome (como no legado).</div>
               <div className="flex flex-wrap items-center gap-2">
                 <input
-                  className="form-control"
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   style={{ maxWidth: 240 }}
                   value={recruiterDraft}
                   placeholder="Nome do recrutador"
                   onChange={(e) => setRecruiterDraft(e.target.value)}
                 />
-                <button
-                  className="btn-ghost"
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => void assignRecruiter(selected.id, recruiterDraft)}
                 >
                   Atribuir
-                </button>
+                </Button>
                 <span className="text-muted-foreground text-sm">
                   {selected.applicationRecruiterUserName ? `Atual: ${selected.applicationRecruiterUserName}` : "—"}
                 </span>
@@ -903,12 +904,12 @@ export default function TriagemScreen({
                 )}
               </div>
               <div className="mt-3 flex justify-end gap-2">
-                <button className="btn-ghost" type="button" onClick={() => void recalcMatch(selected.id)}>
+                <Button variant="outline" size="sm" onClick={() => void recalcMatch(selected.id)}>
                   Recalcular match
-                </button>
-                <button className="btn-brand" type="button" onClick={() => openDecision(selected.id)}>
+                </Button>
+                <Button size="sm" onClick={() => openDecision(selected.id)}>
                   Decisão
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -936,12 +937,12 @@ export default function TriagemScreen({
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => openDecision(selected.id)}>
+              <Button variant="outline" size="sm" onClick={() => openDecision(selected.id)}>
                 Decisão
-              </button>
-              <button className="btn-brand" type="button" onClick={() => setDetailOpen(false)}>
+              </Button>
+              <Button size="sm" onClick={() => setDetailOpen(false)}>
                 OK
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -955,15 +956,15 @@ export default function TriagemScreen({
                 <p className="mini-title mb-1">Decisão</p>
                 <div className="text-lg font-extrabold">{selected.nome || "—"}</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setDecisionOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setDecisionOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="mini-title mb-1 block">Ação</label>
-                <select className="form-select" value={decisionStage} onChange={(e) => setDecisionStage(e.target.value as Stage)}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={decisionStage} onChange={(e) => setDecisionStage(e.target.value as Stage)}>
                   {(getEnumOptions("triagemDecisionAction").length
                     ? getEnumOptions("triagemDecisionAction").map((o) => ({ value: o.code, label: o.text }))
                     : [
@@ -982,7 +983,7 @@ export default function TriagemScreen({
               <div>
                 <label className="mini-title mb-1 block">Motivo</label>
                 {getEnumOptions("triagemDecisionReason").length ? (
-                  <select className="form-select" value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)}>
+                  <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)}>
                     <option value="">—</option>
                     {getEnumOptions("triagemDecisionReason").map((o) => (
                       <option key={o.code} value={o.code}>
@@ -991,12 +992,12 @@ export default function TriagemScreen({
                     ))}
                   </select>
                 ) : (
-                  <input className="form-control" value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} />
+                  <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} />
                 )}
               </div>
               <div className="md:col-span-2">
                 <label className="mini-title mb-1 block">Nota</label>
-                <textarea className="form-control" rows={4} value={decisionNote} onChange={(e) => setDecisionNote(e.target.value)} />
+                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={4} value={decisionNote} onChange={(e) => setDecisionNote(e.target.value)} />
               </div>
             </div>
 
@@ -1008,12 +1009,11 @@ export default function TriagemScreen({
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setDecisionOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setDecisionOpen(false)}>
                 Cancelar
-              </button>
-              <button
-                className="btn-brand"
-                type="button"
+              </Button>
+              <Button
+                size="sm"
                 onClick={() => {
                   const reasonLabel = decisionReason ? getEnumText("triagemDecisionReason", decisionReason, decisionReason) : "";
                   const obs = (decisionNote || "").trim();
@@ -1032,7 +1032,7 @@ export default function TriagemScreen({
                 }}
               >
                 Confirmar
-              </button>
+              </Button>
             </div>
           </div>
         </div>

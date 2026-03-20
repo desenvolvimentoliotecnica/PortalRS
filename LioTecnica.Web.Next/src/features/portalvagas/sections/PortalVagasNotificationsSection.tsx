@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import type { NotificationsResponse } from "./types";
 
 export default function PortalVagasNotificationsSection() {
@@ -156,19 +157,19 @@ export default function PortalVagasNotificationsSection() {
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <div>
           <label className="text-xs text-muted-foreground">E-mail para notificações</label>
-          <input className="form-control" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Telefone</label>
-          <input className="form-control" value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Frequência</label>
-          <input className="form-control" value={form.frequencia} onChange={(e) => setForm((f) => ({ ...f, frequencia: e.target.value }))} placeholder="Ex: Diário, Semanal" />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.frequencia} onChange={(e) => setForm((f) => ({ ...f, frequencia: e.target.value }))} placeholder="Ex: Diário, Semanal" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Idioma</label>
-          <input className="form-control" value={form.idioma} onChange={(e) => setForm((f) => ({ ...f, idioma: e.target.value }))} />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.idioma} onChange={(e) => setForm((f) => ({ ...f, idioma: e.target.value }))} />
         </div>
       </div>
       <div>
@@ -198,20 +199,20 @@ export default function PortalVagasNotificationsSection() {
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <div>
           <label className="text-xs text-muted-foreground">Silêncio início</label>
-          <input className="form-control" value={form.silencioInicio} onChange={(e) => setForm((f) => ({ ...f, silencioInicio: e.target.value }))} /> 
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.silencioInicio} onChange={(e) => setForm((f) => ({ ...f, silencioInicio: e.target.value }))} /> 
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Silêncio fim</label>
-          <input className="form-control" value={form.silencioFim} onChange={(e) => setForm((f) => ({ ...f, silencioFim: e.target.value }))} />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.silencioFim} onChange={(e) => setForm((f) => ({ ...f, silencioFim: e.target.value }))} />
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <button className="btn-brand" type="button" disabled={saving} onClick={() => void save()}>
+        <Button size="sm" disabled={saving} onClick={() => void save()}>
           {saving ? "Salvando..." : "Salvar notificações"}
-        </button>
-        <button className="btn-ghost" type="button" onClick={testNotify}>
+        </Button>
+        <Button variant="outline" size="sm" onClick={testNotify}>
           Testar
-        </button>
+        </Button>
       </div>
       <div className="rounded-lg border border-border/60 bg-slate-50 p-3 text-sm text-muted-foreground">
         <strong className="text-slate-700">Resumo:</strong> {buildPreview()}

@@ -207,7 +207,7 @@ export default function Reunioes1a1Screen() {
                     <Button size="sm" onClick={openCreate}>
                         <Plus className="size-4 mr-1" />Criar reunião 1:1
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                    <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                         <RefreshCw className="size-4" />
                     </Button>
                 </div>
@@ -225,7 +225,7 @@ export default function Reunioes1a1Screen() {
                     </div>
                     <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-2 text-sm" style={{ minWidth: 160 }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" style={{ minWidth: 160 }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                             <option value="">Todos</option>
                             <option value="atrasada">Atrasada</option>
                             <option value="agendada">Agendada</option>
@@ -234,14 +234,14 @@ export default function Reunioes1a1Screen() {
                     </div>
                     <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Categoria</label>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-2 text-sm" style={{ minWidth: 130 }} value={filterCategoria} onChange={(e) => setFilterCategoria(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" style={{ minWidth: 130 }} value={filterCategoria} onChange={(e) => setFilterCategoria(e.target.value)}>
                             <option value="">Todas</option>
                             <option value="sem-categoria">Sem Categoria</option>
                         </select>
                     </div>
                     <div>
                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Frequência</label>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-2 text-sm" style={{ minWidth: 130 }} value={filterFrequencia} onChange={(e) => setFilterFrequencia(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" style={{ minWidth: 130 }} value={filterFrequencia} onChange={(e) => setFilterFrequencia(e.target.value)}>
                             <option value="">Todas</option>
                             <option value="boa">Boa</option>
                             <option value="ruim">Ruim</option>
@@ -297,10 +297,10 @@ export default function Reunioes1a1Screen() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-1">
-                                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(m)}>
+                                                <Button variant="outline" size="sm" onClick={() => openEdit(m)}>
                                                     <Pencil className="size-3.5" />
                                                 </Button>
-                                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => void handleDelete(m.id)}>
+                                                <Button variant="destructive" size="sm" onClick={() => void handleDelete(m.id)}>
                                                     <Trash2 className="size-3.5" />
                                                 </Button>
                                             </div>
@@ -316,16 +316,16 @@ export default function Reunioes1a1Screen() {
                 <div className="flex flex-wrap items-center justify-between mt-3 gap-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>Itens por página:</span>
-                        <select className="h-8 rounded-md border border-input bg-transparent px-1 text-sm" style={{ width: 65 }} value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+                        <select className="h-8 rounded-md border border-input bg-background px-1 text-sm" style={{ width: 65 }} value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
                             {[5, 10, 15, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
                         </select>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>{page} de {totalPages || 1}</span>
-                        <Button variant="outline" size="sm" className="h-7 px-2" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                             <ChevronLeft className="size-4" />
                         </Button>
-                        <Button variant="outline" size="sm" className="h-7 px-2" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
                             <ChevronRight className="size-4" />
                         </Button>
                     </div>
@@ -359,7 +359,7 @@ export default function Reunioes1a1Screen() {
                     <div className="rounded-xl border bg-card p-6 shadow-xl w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between">
                             <h5 className="font-bold">{editId ? "Editar reunião 1:1" : "Criar reunião 1:1"}</h5>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setModalOpen(false)}>
+                            <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>
                                 <X className="size-4" />
                             </Button>
                         </div>

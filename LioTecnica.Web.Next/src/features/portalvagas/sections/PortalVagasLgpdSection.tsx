@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import { Button } from "@/components/ui/button";
 import type { LgpdResponse } from "./types";
 
 export default function PortalVagasLgpdSection() {
@@ -169,34 +170,34 @@ export default function PortalVagasLgpdSection() {
         </label>
         <div>
           <label className="text-xs text-muted-foreground">Retenção (meses)</label>
-          <input className="form-control w-24" type="number" value={form.retencaoMeses} onChange={(e) => setForm((f) => ({ ...f, retencaoMeses: e.target.value || "" }))} />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm w-24" type="number" value={form.retencaoMeses} onChange={(e) => setForm((f) => ({ ...f, retencaoMeses: e.target.value || "" }))} />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Compartilhamento</label>
-          <textarea className="form-control" rows={2} value={form.compartilhamento} onChange={(e) => setForm((f) => ({ ...f, compartilhamento: e.target.value }))} />
+          <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} value={form.compartilhamento} onChange={(e) => setForm((f) => ({ ...f, compartilhamento: e.target.value }))} />
         </div>
       </div>
       <div className="flex gap-2">
-        <button className="btn-brand" type="button" disabled={saving} onClick={() => void save()}>
+        <Button size="sm" disabled={saving} onClick={() => void save()}>
           {saving ? "Salvando..." : "Salvar consentimentos"}
-        </button>
-        <button className="btn-ghost" type="button" onClick={() => void loadReceipt()}>
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => void loadReceipt()}>
           Gerar comprovante
-        </button>
-        <button className="btn-ghost" type="button" onClick={() => void lgpdRevokeConsent()}>
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => void lgpdRevokeConsent()}>
           Revogar consentimento
-        </button>
+        </Button>
       </div>
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        <button className="btn-ghost text-sm" type="button" onClick={lgpdRequestAccess}>
+        <Button variant="outline" size="sm" onClick={lgpdRequestAccess}>
           Solicitar acesso aos dados
-        </button>
-        <button className="btn-ghost text-sm" type="button" onClick={lgpdRequestCorrection}>
+        </Button>
+        <Button variant="outline" size="sm" onClick={lgpdRequestCorrection}>
           Solicitar correção
-        </button>
-        <button className="btn-ghost text-sm text-red-600" type="button" onClick={lgpdRequestDeletion}>
+        </Button>
+        <Button variant="destructive" size="sm" onClick={lgpdRequestDeletion}>
           Solicitar exclusão
-        </button>
+        </Button>
       </div>
       {data?.consentidoEmUtc && (
         <p className="text-xs text-muted-foreground">Último consentimento: {new Date(data.consentidoEmUtc).toLocaleString("pt-BR")}</p>
@@ -205,7 +206,7 @@ export default function PortalVagasLgpdSection() {
         <div className="mt-4 rounded border border-border/60 p-4">
           <div className="flex justify-between">
             <strong>Comprovante LGPD</strong>
-            <button className="btn-ghost text-xs" type="button" onClick={() => setReceiptHtml(null)}>Fechar</button>
+            <Button variant="outline" size="sm" onClick={() => setReceiptHtml(null)}>Fechar</Button>
           </div>
           <div className="mt-2 max-h-64 overflow-auto text-sm [&_*]:max-w-full" dangerouslySetInnerHTML={{ __html: receiptHtml }} />
         </div>

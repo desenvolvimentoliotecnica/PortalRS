@@ -64,7 +64,7 @@ export default function AdminOperationalLogsScreen() {
         <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div><h4 className="text-lg font-bold">Logs Operacionais</h4><div className="text-muted-foreground text-sm">Logs de operação e erros do sistema.</div></div>
-                <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur"><div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Total</div><div className="mt-1 text-2xl font-bold text-primary">{total}</div></div>
@@ -77,7 +77,7 @@ export default function AdminOperationalLogsScreen() {
                     <div className="font-semibold">Logs</div>
                     <div className="flex flex-wrap items-center gap-2">
                         <div className="relative"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="w-[200px] pl-8" placeholder="buscar..." value={q} onChange={e => { setQ(e.target.value); setPage(1); }} /></div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={levelFilter} onChange={e => { setLevelFilter(e.target.value); setPage(1); }}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={levelFilter} onChange={e => { setLevelFilter(e.target.value); setPage(1); }}>
                             <option value="all">Todos níveis</option>
                             <option value="error">Erro</option>
                             <option value="warning">Aviso</option>

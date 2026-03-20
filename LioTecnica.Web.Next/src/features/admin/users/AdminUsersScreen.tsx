@@ -227,7 +227,7 @@ export default function AdminUsersScreen() {
                     <div className="text-muted-foreground text-sm">Gerencie os usuários do sistema.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                    <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                         <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
                     </Button>
                     <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
@@ -256,7 +256,7 @@ export default function AdminUsersScreen() {
                     <div>
                         <div className="text-sm font-medium mb-1">Status</div>
                         <select
-                            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm w-full max-w-[200px]"
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full max-w-[200px]"
                             value={newIsActive ? "true" : "false"}
                             onChange={(e) => setNewIsActive(e.target.value === "true")}
                         >
@@ -286,7 +286,7 @@ export default function AdminUsersScreen() {
                         <div>
                             <div className="text-sm font-medium mb-1">Funcionário (opcional)</div>
                             <select
-                                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm w-full max-w-md"
+                                className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full max-w-md"
                                 value={newFuncionarioId ?? ""}
                                 onChange={(e) => setNewFuncionarioId(e.target.value || null)}
                             >
@@ -367,12 +367,12 @@ export default function AdminUsersScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input className="w-[240px] pl-8" placeholder="nome, email..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="all">Todos</option>
                             <option value="active">Ativo</option>
                             <option value="inactive">Inativo</option>
                         </select>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
                             <option value="all">Todos perfis</option>
                             {uniqueRoleNames.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
@@ -421,13 +421,13 @@ export default function AdminUsersScreen() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <Button variant="ghost" size="sm" onClick={() => startEdit(u)} title="Editar">
+                                            <Button variant="outline" size="sm" onClick={() => startEdit(u)} title="Editar">
                                                 <Pencil className="size-4" />
                                             </Button>
-                                            <Button variant="ghost" size="sm" onClick={() => void handleToggleStatus(u.id, !u.isActive)} title={u.isActive ? "Desativar" : "Ativar"}>
+                                            <Button variant="outline" size="sm" onClick={() => void handleToggleStatus(u.id, !u.isActive)} title={u.isActive ? "Desativar" : "Ativar"}>
                                                 {u.isActive ? <ShieldOff className="size-4" /> : <ShieldCheck className="size-4" />}
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleDelete(u.id, u.fullName)}>
+                                            <Button variant="destructive" size="sm" onClick={() => void handleDelete(u.id, u.fullName)}>
                                                 <Trash2 className="size-4" />
                                             </Button>
                                         </div>
