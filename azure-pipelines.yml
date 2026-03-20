@@ -29,28 +29,28 @@ steps:
         fi
         echo "NEXT_DIR=$NEXT_DIR"
         cd "$NEXT_DIR"
-        export NEXT_PUBLIC_API_BASE=""
-        export NEXT_PUBLIC_PORTAL_ORIGIN=""
-        export NODE_ENV=production
-        # Instala pnpm sem corepack (evita comportamento diferente/bug no workspace)
+        # Env de build
+        echo "NEXT_PUBLIC_API_BASE=https://renderrh-qa.qualiit.com.br" > .env.production
+        echo "NEXT_PUBLIC_PORTAL_ORIGIN=https://renderrh-qa.qualiit.com.br" >> .env.production
+        # Instala pnpm sem usar corepack
         npm i -g pnpm@9
-        # Seu pnpm-workspace.yaml nao tem "packages:"; pnpm@9 quebra ao ler.
+        # O seu pnpm-workspace.yaml nao tem "packages:"; pnpm@9 quebra com ele.
         WS_BAK=0
         if [ -f "pnpm-workspace.yaml" ]; then
-          if python -c "import pathlib,sys; t=pathlib.Path('pnpm-workspace.yaml').read_text(encoding='utf-8'); sys.exit(0 if 'packages:' in t else 1)"; then
-            echo "pnpm-workspace.yaml ok (tem 'packages:')"
-          else
-            echo "Renomeando pnpm-workspace.yaml (sem 'packages:') para nao quebrar pnpm@9..."
+          if ! grep -q '^packages:' pnpm-workspace.yaml; then
+            echo "pnpm-workspace.yaml sem 'packages:' -> renomeando temporariamente..."
             mv pnpm-workspace.yaml pnpm-workspace.yaml.__ci.bak
             WS_BAK=1
           fi
         fi
+        # Nao force NODE_ENV=production antes do install (senão pnpm remove devDependencies e falta typescript)
+        unset NODE_ENV || true
         rm -rf node_modules .next out
         pnpm install --frozen-lockfile
+        export NODE_ENV=production
         pnpm build
-        # Garante out/ mesmo que next build nao gere (depende do config)
         if [ ! -d "out" ]; then
-          echo "out/ nao existe apos pnpm build; rodando next export..."
+          echo "out/ nao existe -> rodando next export..."
           pnpm exec next export
         fi
         test -d "out" || (echo "ERRO: pasta out/ nao foi gerada"; exit 1)
@@ -71,6 +71,7 @@ steps:
         cd "$(Build.SourcesDirectory)"
         PACKAGE_PATH="$(package_path)"
         PACKAGE_NAME="$(package_name)"
+        rm -f "$PACKAGE_PATH" || true
         if [ -d "Voltage.RenderRH" ]; then
           echo "Incluindo pasta Voltage.RenderRH no tar (estrutura preservada)"
           tar -czf "$PACKAGE_PATH" \
@@ -87,6 +88,7 @@ steps:
             --exclude='*/.next' \
             --exclude='*.log' \
             --exclude='.env' \
+            --exclude='.env.production' \
             --exclude='*/.venv' \
             --exclude='*Liotecnica.Integration.RM.Schema.Tables/CV' \
             --exclude='*Liotecnica.Integration.RM.Logs' \
@@ -107,6 +109,7 @@ steps:
             --exclude='*/.next' \
             --exclude='*.log' \
             --exclude='.env' \
+            --exclude='.env.production' \
             -C . .
         fi
         test -f "$PACKAGE_PATH" || (echo "ERRO: pacote nao foi criado"; exit 1)
