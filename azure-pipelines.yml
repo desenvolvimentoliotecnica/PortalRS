@@ -56,6 +56,21 @@ stages:
                 pnpm install --frozen-lockfile --prod=false
                 export NODE_ENV=production
                 pnpm build
+                # Next 16 + output: export pode gerar out/ diretamente.
+                # Em alguns cenários de agente pode ficar em .next/export; normalizamos para out/.
+                if [ -d "out" ]; then
+                  echo "OK: out/ gerado diretamente."
+                elif [ -d ".next/export" ]; then
+                  echo "out/ ausente; copiando .next/export -> out/"
+                  mkdir -p out
+                  cp -r .next/export/* out/
+                else
+                  echo "ERRO: nenhuma saída estática encontrada (out/ ou .next/export)."
+                  echo "Conteúdo da pasta:"
+                  ls -la
+                  [ -d .next ] && { echo "Conteúdo de .next:"; ls -la .next; } || true
+                  exit 1
+                fi
                 test -d "out" || (echo "ERRO: pasta out/ nao foi gerada"; exit 1)
                 echo "out/ gerado com sucesso."
                 ls -lah out | head -50
