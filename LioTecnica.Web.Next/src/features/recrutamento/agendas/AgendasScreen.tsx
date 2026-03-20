@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import interactionPlugin, { type EventResizeDoneArg } from "@fullcalendar/interaction";
@@ -23,7 +24,7 @@ import {
   Video,
 } from "lucide-react";
 
-import styles from "./agendas.module.css";
+
 import {
   type AgendaEventApi,
   type AgendaType,
@@ -32,7 +33,9 @@ import {
 } from "@/lib/schemas/recrutamento";
 import { apiFetch } from "@/lib/api";
 
+
 type Health = "idle" | "loading";
+
 
 type EventForm = {
   id?: string;
@@ -47,6 +50,7 @@ type EventForm = {
   vagaId: string;
   notes: string;
 };
+
 
 type ImportedAgendaEvent = {
   title?: unknown;
@@ -64,8 +68,10 @@ type ImportedAgendaEvent = {
   };
 };
 
+
 const BASE = "/app";
 const AGENDA_API_BASE = `/api/agenda`;
+
 
 function toLocalIsoInputValue(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -74,10 +80,12 @@ function toLocalIsoInputValue(d: Date) {
   )}`;
 }
 
+
 function parseLocalIsoInputValue(s: string) {
   const d = new Date(s);
   return Number.isNaN(d.getTime()) ? null : d;
 }
+
 
 function safeDate(value: unknown): Date | null {
   if (!value) return null;
@@ -86,12 +94,14 @@ function safeDate(value: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+
 function statusLabel(s: string) {
   if (s === "confirmado") return "Confirmado";
   if (s === "pendente") return "Pendente";
   if (s === "cancelado") return "Cancelado";
   return s || "—";
 }
+
 
 function agendaIcon(icon: unknown) {
   const k = String(icon ?? "")
@@ -104,6 +114,7 @@ function agendaIcon(icon: unknown) {
   if (k === "bi-chat-dots") return MessageSquare;
   return Calendar;
 }
+
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await apiFetch(url, {
@@ -122,6 +133,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+
 function mapCandidatesPayload(payload: unknown): CandidatoListItem[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload as CandidatoListItem[];
@@ -129,12 +141,14 @@ function mapCandidatesPayload(payload: unknown): CandidatoListItem[] {
   return Array.isArray(items) ? (items as CandidatoListItem[]) : [];
 }
 
+
 function mapVagasPayload(payload: unknown): VagaListItem[] {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload as VagaListItem[];
   const items = (payload as { items?: unknown }).items;
   return Array.isArray(items) ? (items as VagaListItem[]) : [];
 }
+
 
 function fmtTimeRange(start: Date | null, end: Date | null) {
   if (!start) return "—";
@@ -150,8 +164,10 @@ function fmtTimeRange(start: Date | null, end: Date | null) {
   return `${s} - ${e}`;
 }
 
+
 export default function AgendasScreen() {
   const calRef = useRef<FullCalendar | null>(null);
+
 
   const [busy, setBusy] = useState<Health>("loading");
   const [types, setTypes] = useState<AgendaType[]>([]);
@@ -159,23 +175,29 @@ export default function AgendasScreen() {
   const [candidatos, setCandidatos] = useState<CandidatoListItem[]>([]);
   const [vagas, setVagas] = useState<VagaListItem[]>([]);
 
+
   const [viewMode, setViewMode] = useState<"timeGridWeek" | "timeGridDay">("timeGridWeek");
   const [viewTitle, setViewTitle] = useState<string>("—");
+
 
   const [q, setQ] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
+
   const [activeRange, setActiveRange] = useState<{ start: Date; end: Date } | null>(null);
+
 
   const [createOpen, setCreateOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+
   const selectedEvent = useMemo(
     () => (selectedId ? events.find((e) => e.id === selectedId) ?? null : null),
     [events, selectedId],
   );
+
 
   const selectedEventType = useMemo(() => {
     const code = String(selectedEvent?.typeCode ?? "")
@@ -187,6 +209,7 @@ export default function AgendasScreen() {
     const Icon = agendaIcon(icon);
     return { label, Icon };
   }, [selectedEvent?.typeCode, selectedEvent?.typeIcon, selectedEvent?.typeLabel, types]);
+
 
   const [form, setForm] = useState<EventForm>(() => ({
     title: "",
@@ -200,6 +223,7 @@ export default function AgendasScreen() {
     vagaId: "",
     notes: "",
   }));
+
 
   useEffect(() => {
     let alive = true;
@@ -226,6 +250,7 @@ export default function AgendasScreen() {
     };
   }, []);
 
+
   async function loadEventsForCurrentRange() {
     const api = calRef.current?.getApi();
     const start = api?.view?.activeStart;
@@ -236,6 +261,7 @@ export default function AgendasScreen() {
     const list = await fetchJson<AgendaEventApi[]>(`${AGENDA_API_BASE}/events?${params.toString()}`);
     setEvents(Array.isArray(list) ? list : []);
   }
+
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -260,6 +286,7 @@ export default function AgendasScreen() {
       return blob.includes(qq);
     });
   }, [events, filterStatus, filterType, q]);
+
 
   const kpis = useMemo(() => {
     const now = new Date();
@@ -292,6 +319,7 @@ export default function AgendasScreen() {
     return { today, week, pending, interviews };
   }, [filtered]);
 
+
   const sideList = useMemo(() => {
     const start = activeRange?.start;
     const end = activeRange?.end;
@@ -307,6 +335,7 @@ export default function AgendasScreen() {
       .slice(0, 12);
     return list;
   }, [activeRange?.end, activeRange?.start, filtered]);
+
 
   function openCreate(start?: Date, end?: Date) {
     const s = start ?? new Date();
@@ -329,6 +358,7 @@ export default function AgendasScreen() {
     setCreateOpen(true);
   }
 
+
   function openEdit(id: string) {
     const ev = events.find((x) => x.id === id);
     if (!ev) return;
@@ -337,6 +367,7 @@ export default function AgendasScreen() {
     const e = parseLocalIsoInputValue(ev.endAtUtc ?? "") ?? new Date(s.getTime() + 60 * 60 * 1000);
     const vagaLabel = ev.vagaCode ? `${ev.vagaTitle ?? ""} (${ev.vagaCode})` : (ev.vagaTitle ?? "");
     const vaga = vagas.find((v) => (v.codigo ? `${v.titulo ?? ""} (${v.codigo})` : (v.titulo ?? "")) === vagaLabel) ?? null;
+
 
     setForm({
       id: ev.id,
@@ -354,10 +385,12 @@ export default function AgendasScreen() {
     setCreateOpen(true);
   }
 
+
   function openView(id: string) {
     setSelectedId(id);
     setViewOpen(true);
   }
+
 
   async function saveForm() {
     const payload = {
@@ -375,6 +408,7 @@ export default function AgendasScreen() {
       typeCode: form.typeCode,
     };
 
+
     if (form.id) {
       await fetchJson(`${AGENDA_API_BASE}/events/${encodeURIComponent(form.id)}`, {
         method: "PUT",
@@ -390,9 +424,11 @@ export default function AgendasScreen() {
     }
     toast.success("Evento salvo.");
 
+
     await loadEventsForCurrentRange();
     setCreateOpen(false);
   }
+
 
   async function deleteEvent(id: string) {
     await fetchJson(`${AGENDA_API_BASE}/events/${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -400,6 +436,7 @@ export default function AgendasScreen() {
     await loadEventsForCurrentRange();
     setViewOpen(false);
   }
+
 
   async function duplicatePlus7(id: string) {
     const ev = events.find((x) => x.id === id);
@@ -410,6 +447,7 @@ export default function AgendasScreen() {
     plus7s.setDate(plus7s.getDate() + 7);
     const plus7e = new Date(e);
     plus7e.setDate(plus7e.getDate() + 7);
+
 
     const payload = {
       title: `${ev.title ?? "Evento"} (cópia)`,
@@ -434,6 +472,7 @@ export default function AgendasScreen() {
     setViewOpen(false);
     toast.success("Evento duplicado (+7 dias).");
   }
+
 
   async function onEventMove(arg: EventDropArg | EventResizeDoneArg) {
     const id = arg.event.id;
@@ -461,6 +500,7 @@ export default function AgendasScreen() {
     await loadEventsForCurrentRange();
   }
 
+
   function exportJson() {
     const data = {
       types,
@@ -481,6 +521,7 @@ export default function AgendasScreen() {
     URL.revokeObjectURL(url);
     toast.success("Exportação iniciada.");
   }
+
 
   async function importJson(file: File) {
     const text = await file.text();
@@ -521,6 +562,7 @@ export default function AgendasScreen() {
     await loadEventsForCurrentRange();
   }
 
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -528,6 +570,7 @@ export default function AgendasScreen() {
           <h4 className="text-lg font-bold">Agenda</h4>
           <div className="text-muted-foreground text-sm">Entrevistas, eventos e confirmações</div>
         </div>
+
 
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={exportJson}>
@@ -556,6 +599,7 @@ export default function AgendasScreen() {
         </div>
       </div>
 
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="card-soft p-3">
           <div className="mini-title mb-1">Hoje</div>
@@ -578,6 +622,7 @@ export default function AgendasScreen() {
           <div className="text-muted-foreground text-sm">na semana</div>
         </div>
       </div>
+
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_320px]">
         <div className="card-soft p-3">
@@ -618,7 +663,9 @@ export default function AgendasScreen() {
               </Button>
             </div>
 
+
             <div className="text-[1.05rem] font-bold">{viewTitle || "—"}</div>
+
 
             <div className="flex items-center gap-2">
               <Input
@@ -645,6 +692,7 @@ export default function AgendasScreen() {
                 <option value="pendente">Pendente</option>
                 <option value="cancelado">Cancelado</option>
               </select>
+
 
               <div className="flex overflow-hidden rounded-xl border border-[rgba(16,82,144,.14)] bg-white/60">
                 <button
@@ -673,7 +721,9 @@ export default function AgendasScreen() {
             </div>
           </div>
 
-          <div className={styles.calendarHost}>
+
+          {/* calendarHost inline — substitui agendas.module.css */}
+          <div className="min-w-0 overflow-x-auto">
             <FullCalendar
               ref={(r) => {
                 calRef.current = r;
@@ -725,10 +775,12 @@ export default function AgendasScreen() {
             />
           </div>
 
+
           <div className="text-muted-foreground mt-2 text-sm">
             Dica: clique e arraste no calendário para agendar rapidamente.
           </div>
         </div>
+
 
         <aside className="card-soft p-3">
           <div className="flex items-start justify-between gap-2 pb-2">
@@ -741,6 +793,7 @@ export default function AgendasScreen() {
               <span className="mono">{sideList.length}</span>
             </span>
           </div>
+
 
           <div className="space-y-2">
             {sideList.length ? (
@@ -789,6 +842,7 @@ export default function AgendasScreen() {
         </aside>
       </div>
 
+
       {/* Modal simples (sem shadcn ainda) — mantém HTML enxuto e funcional */}
       {createOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
@@ -802,6 +856,7 @@ export default function AgendasScreen() {
                 Fechar
               </Button>
             </div>
+
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
               <div className="md:col-span-8">
@@ -819,6 +874,7 @@ export default function AgendasScreen() {
                 </select>
               </div>
 
+
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Início</label>
                 <input
@@ -832,6 +888,7 @@ export default function AgendasScreen() {
                 <label className="mini-title mb-1 block">Fim</label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="datetime-local" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
               </div>
+
 
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Local</label>
@@ -849,6 +906,7 @@ export default function AgendasScreen() {
                 <label className="mini-title mb-1 block">Owner</label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
               </div>
+
 
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Candidato</label>
@@ -873,11 +931,13 @@ export default function AgendasScreen() {
                 </select>
               </div>
 
+
               <div className="md:col-span-12">
                 <label className="mini-title mb-1 block">Notas</label>
                 <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
             </div>
+
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)} disabled={busy === "loading"}>
@@ -894,6 +954,7 @@ export default function AgendasScreen() {
           </div>
         </div>
       ) : null}
+
 
       {viewOpen && selectedEvent ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
@@ -918,6 +979,7 @@ export default function AgendasScreen() {
               </Button>
             </div>
 
+
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
               <div className="card-soft p-3" style={{ boxShadow: "none" }}>
                 <div className="mini-title mb-1">Candidato</div>
@@ -941,6 +1003,7 @@ export default function AgendasScreen() {
                 <div className="text-muted-foreground whitespace-pre-wrap text-sm">{selectedEvent.notes ?? "—"}</div>
               </div>
             </div>
+
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => void duplicatePlus7(selectedEvent.id)}>
@@ -969,4 +1032,3 @@ export default function AgendasScreen() {
     </section>
   );
 }
-
