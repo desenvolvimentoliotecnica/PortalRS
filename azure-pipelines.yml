@@ -1,31 +1,24 @@
 trigger:
   - develop
-
 pool:
   vmImage: ubuntu-latest
-
 variables:
   package_name: "deploy-package.tar.gz"
   artifact_name: "drop"
   package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
-
 steps:
   - checkout: self
-
   - task: NodeTool@0
     displayName: "Usar Node 20"
     inputs:
       versionSpec: "20.x"
-
   - task: Bash@3
     displayName: "Build + export do Next.js (gerar out/)"
     inputs:
       targetType: "inline"
       script: |
         set -euo pipefail
-
         BUILD_ROOT="$(Build.SourcesDirectory)"
-
         if [ -d "$BUILD_ROOT/Voltage.RenderRH/LioTecnica.Web.Next" ]; then
           NEXT_DIR="$BUILD_ROOT/Voltage.RenderRH/LioTecnica.Web.Next"
         elif [ -d "$BUILD_ROOT/LioTecnica.Web.Next" ]; then
@@ -34,49 +27,50 @@ steps:
           echo "ERRO: Diretório Next.js nao encontrado."
           exit 1
         fi
-
         echo "NEXT_DIR=$NEXT_DIR"
         cd "$NEXT_DIR"
-
         export NEXT_PUBLIC_API_BASE=""
         export NEXT_PUBLIC_PORTAL_ORIGIN=""
         export NODE_ENV=production
-
-        # Garante pnpm disponível
-        if ! command -v pnpm >/dev/null 2>&1; then
-          corepack enable || true
-          # pnpm major 9 (compatível com lockfileVersion 9.x)
-          corepack prepare pnpm@9 --activate || npm i -g pnpm@9
+        # Instala pnpm sem corepack (evita comportamento diferente/bug no workspace)
+        npm i -g pnpm@9
+        # Seu pnpm-workspace.yaml nao tem "packages:"; pnpm@9 quebra ao ler.
+        WS_BAK=0
+        if [ -f "pnpm-workspace.yaml" ]; then
+          if python -c "import pathlib,sys; t=pathlib.Path('pnpm-workspace.yaml').read_text(encoding='utf-8'); sys.exit(0 if 'packages:' in t else 1)"; then
+            echo "pnpm-workspace.yaml ok (tem 'packages:')"
+          else
+            echo "Renomeando pnpm-workspace.yaml (sem 'packages:') para nao quebrar pnpm@9..."
+            mv pnpm-workspace.yaml pnpm-workspace.yaml.__ci.bak
+            WS_BAK=1
+          fi
         fi
-
         rm -rf node_modules .next out
         pnpm install --frozen-lockfile
-
-        # Produz build
         pnpm build
-
-        # Exporta para gerar a pasta out/
-        pnpm exec next export
-
-        test -d "out" || (echo "ERRO: out/ nao foi gerado"; exit 1)
+        # Garante out/ mesmo que next build nao gere (depende do config)
+        if [ ! -d "out" ]; then
+          echo "out/ nao existe apos pnpm build; rodando next export..."
+          pnpm exec next export
+        fi
+        test -d "out" || (echo "ERRO: pasta out/ nao foi gerada"; exit 1)
         echo "out/ gerado com sucesso."
-        ls -lah out | head
-
-        # Limpa antes do tar (evita inflar o artefato)
+        ls -lah out | head -50
+        # Restaura workspace se foi renomeado
+        if [ "$WS_BAK" -eq 1 ] && [ -f "pnpm-workspace.yaml.__ci.bak" ]; then
+          mv pnpm-workspace.yaml.__ci.bak pnpm-workspace.yaml
+        fi
+        # Limpa antes de empacotar
         rm -rf node_modules
-
   - task: Bash@3
     displayName: "Compactar projeto para release"
     inputs:
       targetType: "inline"
       script: |
-        set -eo pipefail
-
+        set -euo pipefail
         cd "$(Build.SourcesDirectory)"
-
         PACKAGE_PATH="$(package_path)"
         PACKAGE_NAME="$(package_name)"
-
         if [ -d "Voltage.RenderRH" ]; then
           echo "Incluindo pasta Voltage.RenderRH no tar (estrutura preservada)"
           tar -czf "$PACKAGE_PATH" \
@@ -115,18 +109,15 @@ steps:
             --exclude='.env' \
             -C . .
         fi
-
         test -f "$PACKAGE_PATH" || (echo "ERRO: pacote nao foi criado"; exit 1)
         ls -lh "$PACKAGE_PATH"
         echo "Pacote validado com sucesso"
-
   - task: CopyFiles@2
     displayName: "Organizar para artefato"
     inputs:
       SourceFolder: "$(Agent.TempDirectory)"
       Contents: "$(package_name)"
       TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
-
   - task: PublishBuildArtifacts@1
     displayName: "Publicar artefato"
     inputs:
