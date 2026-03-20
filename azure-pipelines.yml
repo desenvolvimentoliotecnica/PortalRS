@@ -1,126 +1,131 @@
 trigger:
-  - develop
-pool:
-  vmImage: ubuntu-latest
+  branches:
+    include:
+      - develop
 variables:
-  package_name: "deploy-package.tar.gz"
-  artifact_name: "drop"
-  package_path: "$(Agent.TempDirectory)/deploy-package.tar.gz"
-steps:
-  - checkout: self
-  - task: NodeTool@0
-    displayName: "Usar Node 20"
-    inputs:
-      versionSpec: "20.x"
-  - task: Bash@3
-    displayName: "Build + export do Next.js (gerar out/)"
-    inputs:
-      targetType: "inline"
-      script: |
-        set -euo pipefail
-        BUILD_ROOT="$(Build.SourcesDirectory)"
-        if [ -d "$BUILD_ROOT/Voltage.RenderRH/LioTecnica.Web.Next" ]; then
-          NEXT_DIR="$BUILD_ROOT/Voltage.RenderRH/LioTecnica.Web.Next"
-        elif [ -d "$BUILD_ROOT/LioTecnica.Web.Next" ]; then
-          NEXT_DIR="$BUILD_ROOT/LioTecnica.Web.Next"
-        else
-          echo "ERRO: Diretório Next.js nao encontrado."
-          exit 1
-        fi
-        echo "NEXT_DIR=$NEXT_DIR"
-        cd "$NEXT_DIR"
-        echo "NEXT_PUBLIC_API_BASE=https://renderrh-qa.qualiit.com.br" > .env.production
-        echo "NEXT_PUBLIC_PORTAL_ORIGIN=https://renderrh-qa.qualiit.com.br" >> .env.production
-        npm i -g pnpm@9
-        WS_BAK=0
-        if [ -f "pnpm-workspace.yaml" ]; then
-          if ! grep -q '^packages:' pnpm-workspace.yaml; then
-            echo "pnpm-workspace.yaml sem 'packages:' -> renomeando temporariamente..."
-            mv pnpm-workspace.yaml pnpm-workspace.yaml.__ci.bak
-            WS_BAK=1
-          fi
-        fi
-        rm -rf node_modules .next out
-        unset NODE_ENV || true
-        export NPM_CONFIG_PRODUCTION=false
-        export npm_config_production=false
-        pnpm install --frozen-lockfile --prod=false
-        node -e "require('typescript'); console.log('typescript ok')"
-        export NODE_ENV=production
-        pnpm build
-        if [ ! -d "out" ]; then
-          echo "out/ nao existe apos pnpm build; rodando next export..."
-          pnpm exec next export
-        fi
-        test -d "out" || (echo "ERRO: pasta out/ nao foi gerada"; exit 1)
-        echo "out/ gerado com sucesso."
-        ls -lah out | head -50
-        if [ "$WS_BAK" -eq 1 ] && [ -f "pnpm-workspace.yaml.__ci.bak" ]; then
-          mv pnpm-workspace.yaml.__ci.bak pnpm-workspace.yaml
-        fi
-        rm -rf node_modules
-  - task: Bash@3
-    displayName: "Compactar projeto para release"
-    inputs:
-      targetType: "inline"
-      script: |
-        set -euo pipefail
-        cd "$(Build.SourcesDirectory)"
-        PACKAGE_PATH="$(package_path)"
-        PACKAGE_NAME="$(package_name)"
-        rm -f "$PACKAGE_PATH" || true
-        if [ -d "Voltage.RenderRH" ]; then
-          echo "Incluindo pasta Voltage.RenderRH no tar (estrutura preservada)"
-          tar -czf "$PACKAGE_PATH" \
-            --warning=no-file-changed \
-            --exclude='.git' \
-            --exclude='.vs' \
-            --exclude='.vscode' \
-            --exclude='.idea' \
-            --exclude="$PACKAGE_NAME" \
-            --exclude='deploy-package.tar.gz' \
-            --exclude='*/bin' \
-            --exclude='*/obj' \
-            --exclude='*/node_modules' \
-            --exclude='*/.next' \
-            --exclude='*.log' \
-            --exclude='.env' \
-            --exclude='.env.production' \
-            --exclude='*/.venv' \
-            --exclude='*Liotecnica.Integration.RM.Schema.Tables/CV' \
-            --exclude='*Liotecnica.Integration.RM.Logs' \
-            Voltage.RenderRH
-        else
-          echo "Root: . (sem Voltage.RenderRH)"
-          tar -czf "$PACKAGE_PATH" \
-            --warning=no-file-changed \
-            --exclude='.git' \
-            --exclude='.vs' \
-            --exclude='.vscode' \
-            --exclude='.idea' \
-            --exclude="$PACKAGE_NAME" \
-            --exclude='deploy-package.tar.gz' \
-            --exclude='bin' \
-            --exclude='obj' \
-            --exclude='*/node_modules' \
-            --exclude='*/.next' \
-            --exclude='*.log' \
-            --exclude='.env' \
-            --exclude='.env.production' \
-            -C . .
-        fi
-        test -f "$PACKAGE_PATH" || (echo "ERRO: pacote nao foi criado"; exit 1)
-        ls -lh "$PACKAGE_PATH"
-        echo "Pacote validado com sucesso"
-  - task: CopyFiles@2
-    displayName: "Organizar para artefato"
-    inputs:
-      SourceFolder: "$(Agent.TempDirectory)"
-      Contents: "$(package_name)"
-      TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
-  - task: PublishBuildArtifacts@1
-    displayName: "Publicar artefato"
-    inputs:
-      PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
-      ArtifactName: "$(artifact_name)"
-      publishLocation: "Container"
+  - name: package_name
+    value: "deploy-package.tar.gz"
+  - name: artifact_name
+    value: "drop"
+  - name: package_path
+    value: "$(Agent.TempDirectory)/deploy-package.tar.gz"
+stages:
+  - stage: __default
+    jobs:
+      - job: Job
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+          - task: NodeTool@0
+            displayName: "Usar Node 20"
+            inputs:
+              versionSpec: "20.x"
+          - task: Bash@3
+            displayName: "Build do Next.js (gerar out/)"
+            inputs:
+              targetType: "inline"
+              script: |
+                set -euo pipefail
+                BUILD_ROOT="$(Build.SourcesDirectory)"
+                if [ -d "$BUILD_ROOT/Voltage.RenderRH/LioTecnica.Web.Next" ]; then
+                  NEXT_DIR="$BUILD_ROOT/Voltage.RenderRH/LioTecnica.Web.Next"
+                elif [ -d "$BUILD_ROOT/LioTecnica.Web.Next" ]; then
+                  NEXT_DIR="$BUILD_ROOT/LioTecnica.Web.Next"
+                else
+                  echo "ERRO: Diretório Next.js nao encontrado."
+                  exit 1
+                fi
+                echo "NEXT_DIR=$NEXT_DIR"
+                cd "$NEXT_DIR"
+                echo "NEXT_PUBLIC_API_BASE=https://renderrh-qa.qualiit.com.br" > .env.production
+                echo "NEXT_PUBLIC_PORTAL_ORIGIN=https://renderrh-qa.qualiit.com.br" >> .env.production
+                npm i -g pnpm@9
+                WS_BAK=0
+                if [ -f "pnpm-workspace.yaml" ]; then
+                  if ! grep -q '^packages:' pnpm-workspace.yaml; then
+                    echo "pnpm-workspace.yaml sem 'packages:' -> renomeando temporariamente..."
+                    mv pnpm-workspace.yaml pnpm-workspace.yaml.__ci.bak
+                    WS_BAK=1
+                  fi
+                fi
+                rm -rf node_modules .next out
+                unset NODE_ENV || true
+                export NPM_CONFIG_PRODUCTION=false
+                export npm_config_production=false
+                pnpm install --frozen-lockfile --prod=false
+                export NODE_ENV=production
+                pnpm build
+                test -d "out" || (echo "ERRO: pasta out/ nao foi gerada"; exit 1)
+                echo "out/ gerado com sucesso."
+                ls -lah out | head -50
+                if [ "$WS_BAK" -eq 1 ] && [ -f "pnpm-workspace.yaml.__ci.bak" ]; then
+                  mv pnpm-workspace.yaml.__ci.bak pnpm-workspace.yaml
+                fi
+                rm -rf node_modules
+          - task: Bash@3
+            displayName: "Compactar projeto para release"
+            inputs:
+              targetType: "inline"
+              script: |
+                set -euo pipefail
+                echo "Build.SourcesDirectory = $(Build.SourcesDirectory)"
+                cd "$(Build.SourcesDirectory)"
+                PACKAGE_PATH="$(package_path)"
+                PACKAGE_NAME="$(package_name)"
+                rm -f "$PACKAGE_PATH" || true
+                if [ -d "Voltage.RenderRH" ]; then
+                  echo "Incluindo pasta Voltage.RenderRH no tar (estrutura preservada)"
+                  tar -czf "$PACKAGE_PATH" \
+                    --warning=no-file-changed \
+                    --exclude='.git' \
+                    --exclude='.vs' \
+                    --exclude='.vscode' \
+                    --exclude='.idea' \
+                    --exclude='deploy-package.tar.gz' \
+                    --exclude="$PACKAGE_NAME" \
+                    --exclude='*/bin' \
+                    --exclude='*/obj' \
+                    --exclude='*/node_modules' \
+                    --exclude='*/.next' \
+                    --exclude='*.log' \
+                    --exclude='.env' \
+                    --exclude='.env.production' \
+                    --exclude='*/.venv' \
+                    --exclude='*Liotecnica.Integration.RM.Schema.Tables/CV' \
+                    --exclude='*Liotecnica.Integration.RM.Logs' \
+                    Voltage.RenderRH
+                else
+                  echo "Root: . (sem Voltage.RenderRH)"
+                  tar -czf "$PACKAGE_PATH" \
+                    --warning=no-file-changed \
+                    --exclude='.git' \
+                    --exclude='.vs' \
+                    --exclude='.vscode' \
+                    --exclude='.idea' \
+                    --exclude='deploy-package.tar.gz' \
+                    --exclude="$PACKAGE_NAME" \
+                    --exclude='bin' \
+                    --exclude='obj' \
+                    --exclude='*/node_modules' \
+                    --exclude='*/.next' \
+                    --exclude='*.log' \
+                    --exclude='.env' \
+                    --exclude='.env.production' \
+                    -C . .
+                fi
+                test -f "$PACKAGE_PATH" || (echo "ERRO: pacote nao foi criado"; exit 1)
+                ls -lh "$PACKAGE_PATH"
+                echo "Pacote validado com sucesso"
+          - task: CopyFiles@2
+            displayName: "Organizar para artefato"
+            inputs:
+              SourceFolder: "$(Agent.TempDirectory)"
+              Contents: "$(package_name)"
+              TargetFolder: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+          - task: PublishBuildArtifacts@1
+            displayName: "Publicar artefato"
+            inputs:
+              PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(artifact_name)"
+              ArtifactName: "$(artifact_name)"
+              publishLocation: "Container"
