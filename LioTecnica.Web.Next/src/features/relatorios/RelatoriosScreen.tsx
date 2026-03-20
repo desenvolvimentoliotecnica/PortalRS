@@ -535,7 +535,7 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
           <p className="text-muted-foreground text-sm">Relatórios operacionais e gerenciais</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => { setLoading(true); void loadCatalogAndVagas().then(async () => { await loadCurrentReport(); toast.success("Atualizado."); }).catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
+          <Button variant="outline" size="sm" onClick={() => { setLoading(true); void loadCatalogAndVagas().then(async () => { await loadCurrentReport(); toast.success("Atualizado."); }).catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
             <RefreshCcw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => { try { downloadCsv(reportId, data.headers, data.rows); toast.success("CSV exportado."); } catch { toast.error("Falha."); } }}>
@@ -566,25 +566,25 @@ export default function RelatoriosScreen({ initialCatalog, initialVagas }: { ini
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Período</label>
-            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={filters.period} onChange={(e) => setFilters((p) => ({ ...p, period: e.target.value }))}>
+            <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={filters.period} onChange={(e) => setFilters((p) => ({ ...p, period: e.target.value }))}>
               {periodOptions.map((o) => <option key={o.code} value={o.code}>{o.text}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Vaga</label>
-            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={filters.vaga} onChange={(e) => setFilters((p) => ({ ...p, vaga: e.target.value }))}>
+            <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={filters.vaga} onChange={(e) => setFilters((p) => ({ ...p, vaga: e.target.value }))}>
               {vagaOptions.map((o) => <option key={`${o.kind}:${o.value}`} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Origem</label>
-            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={filters.origem} onChange={(e) => setFilters((p) => ({ ...p, origem: e.target.value }))}>
+            <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={filters.origem} onChange={(e) => setFilters((p) => ({ ...p, origem: e.target.value }))}>
               {origemOptions.map((o, i) => <option key={`origem-${i}`} value={o.code}>{o.text}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
-            <select className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm" value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>
+            <select className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm" value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>
               {statusOptions.map((o, i) => <option key={`status-${i}`} value={o.code}>{o.text}</option>)}
             </select>
           </div>

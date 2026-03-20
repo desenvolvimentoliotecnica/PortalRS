@@ -162,7 +162,7 @@ export default function CelebracaoScreen() {
                     <h4 className="text-lg font-bold">Celebração 🎉</h4>
                     <div className="text-muted-foreground text-sm">Reconheça e celebre conquistas dos seus colegas.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadFeed()} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => void loadFeed()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
             </div>
@@ -254,7 +254,7 @@ export default function CelebracaoScreen() {
                             )}
                             {/* Comments section */}
                             <div className="mt-3 flex items-center gap-2 pt-2 border-t border-border/30">
-                                <Button variant="ghost" size="sm" onClick={() => void toggleComments(post.id)}>
+                                <Button variant="outline" size="sm" onClick={() => void toggleComments(post.id)}>
                                     <MessageCircle className="size-4 mr-1" />
                                     {expandedPostId === post.id ? "Ocultar" : "Comentários"}
                                 </Button>
@@ -273,7 +273,7 @@ export default function CelebracaoScreen() {
                                                 <span className="text-xs text-muted-foreground ml-2">{fmtDate(c.createdAtUtc)}</span>
                                                 <div className="text-sm">{c.content}</div>
                                             </div>
-                                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => void toggleReaction(post.id, c.id)}>
+                                            <Button variant="outline" size="sm" onClick={() => void toggleReaction(post.id, c.id)}>
                                                 <Heart className={`size-3 ${c.myReaction ? "fill-red-500 text-red-500" : ""}`} />
                                             </Button>
                                             {c.reactionCount > 0 && <span className="text-xs text-muted-foreground">{c.reactionCount}</span>}

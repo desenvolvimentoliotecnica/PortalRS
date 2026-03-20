@@ -57,7 +57,7 @@ export default function GamificacaoHistoricoScreen() {
                     <h4 className="text-lg font-bold">Gamificação — Histórico</h4>
                     <div className="text-muted-foreground text-sm">Top 3 colaboradores por mês nos últimos 12 meses.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
             </div>

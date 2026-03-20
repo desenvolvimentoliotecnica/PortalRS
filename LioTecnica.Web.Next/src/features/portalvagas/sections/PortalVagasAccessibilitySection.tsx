@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import type { AccessibilityResponse } from "./types";
 
 export default function PortalVagasAccessibilitySection() {
@@ -106,19 +107,19 @@ export default function PortalVagasAccessibilitySection() {
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <div>
           <label className="text-xs text-muted-foreground">Idioma preferido</label>
-          <input className="form-control" value={form.idioma} onChange={(e) => setForm((f) => ({ ...f, idioma: e.target.value }))} />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.idioma} onChange={(e) => setForm((f) => ({ ...f, idioma: e.target.value }))} />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Canal preferido</label>
-          <input className="form-control" value={form.canal} onChange={(e) => setForm((f) => ({ ...f, canal: e.target.value }))} placeholder="Ex: Vídeo, Áudio" />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.canal} onChange={(e) => setForm((f) => ({ ...f, canal: e.target.value }))} placeholder="Ex: Vídeo, Áudio" />
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Melhor horário</label>
-          <input className="form-control" value={form.melhorHorario} onChange={(e) => setForm((f) => ({ ...f, melhorHorario: e.target.value }))} />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.melhorHorario} onChange={(e) => setForm((f) => ({ ...f, melhorHorario: e.target.value }))} />
         </div>
         <div className="md:col-span-2">
           <label className="text-xs text-muted-foreground">Observações de comunicação</label>
-          <textarea className="form-control" rows={2} value={form.observacoesComunicacao} onChange={(e) => setForm((f) => ({ ...f, observacoesComunicacao: e.target.value }))} />
+          <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} value={form.observacoesComunicacao} onChange={(e) => setForm((f) => ({ ...f, observacoesComunicacao: e.target.value }))} />
         </div>
       </div>
       <div>
@@ -142,7 +143,7 @@ export default function PortalVagasAccessibilitySection() {
         </div>
         <div className="mt-2">
           <label className="text-xs text-muted-foreground">Detalhes das necessidades</label>
-          <textarea className="form-control" rows={2} value={form.detalhesNecessidades} onChange={(e) => setForm((f) => ({ ...f, detalhesNecessidades: e.target.value }))} />
+          <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} value={form.detalhesNecessidades} onChange={(e) => setForm((f) => ({ ...f, detalhesNecessidades: e.target.value }))} />
         </div>
       </div>
       <div>
@@ -154,25 +155,25 @@ export default function PortalVagasAccessibilitySection() {
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           <div>
             <label className="text-xs text-muted-foreground">Identificação</label>
-            <input className="form-control" value={form.pcdIdentificacao} onChange={(e) => setForm((f) => ({ ...f, pcdIdentificacao: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.pcdIdentificacao} onChange={(e) => setForm((f) => ({ ...f, pcdIdentificacao: e.target.value }))} />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Tipo</label>
-            <input className="form-control" value={form.pcdTipo} onChange={(e) => setForm((f) => ({ ...f, pcdTipo: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.pcdTipo} onChange={(e) => setForm((f) => ({ ...f, pcdTipo: e.target.value }))} />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Comprovação</label>
-            <input className="form-control" value={form.pcdComprovacao} onChange={(e) => setForm((f) => ({ ...f, pcdComprovacao: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.pcdComprovacao} onChange={(e) => setForm((f) => ({ ...f, pcdComprovacao: e.target.value }))} />
           </div>
           <div className="md:col-span-2">
             <label className="text-xs text-muted-foreground">Observações PcD</label>
-            <textarea className="form-control" rows={2} value={form.pcdObservacoes} onChange={(e) => setForm((f) => ({ ...f, pcdObservacoes: e.target.value }))} />
+            <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} value={form.pcdObservacoes} onChange={(e) => setForm((f) => ({ ...f, pcdObservacoes: e.target.value }))} />
           </div>
         </div>
       </div>
-      <button className="btn-brand" type="button" disabled={saving} onClick={() => void save()}>
+      <Button size="sm" disabled={saving} onClick={() => void save()}>
         {saving ? "Salvando..." : "Salvar acessibilidade"}
-      </button>
+      </Button>
     </div>
   );
 }

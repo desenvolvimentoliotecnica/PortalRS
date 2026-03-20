@@ -23,6 +23,7 @@ import {
 } from "@/features/portalvagas/sections";
 import NewJobModal from "@/features/portalvagas/NewJobModal";
 import JobCard from "@/features/portalvagas/JobCard";
+import { Button } from "@/components/ui/button";
 import { getSectionInfo, parseTagsResponsabilidades, buildSummary } from "@/features/portalvagas/jobsUtils";
 
 type JobItem = {
@@ -523,16 +524,16 @@ export default function PortalVagasScreen() {
           </div>
           <div className="flex flex-wrap gap-2">
             {isAdmin ? (
-              <button className="btn-brand" type="button" onClick={() => setNewJobOpen(true)}>
+              <Button size="sm" onClick={() => setNewJobOpen(true)}>
                 Nova vaga
-              </button>
+              </Button>
             ) : null}
-            <button className="btn-ghost" type="button" onClick={() => void openProfile()}>
+            <Button variant="outline" size="sm" onClick={() => void openProfile()}>
               Meu perfil
-            </button>
-            <button
-              className="btn-ghost text-red-600"
-              type="button"
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
               onClick={() => {
                 if (tenantId) clearPortalCandidateSession(tenantId);
                 setAuthRequired(true);
@@ -540,7 +541,7 @@ export default function PortalVagasScreen() {
               }}
             >
               Sair
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -551,15 +552,17 @@ export default function PortalVagasScreen() {
         ) : null}
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <button className={`btn-ghost ${tab === "vagas" ? "bg-[rgba(16,82,144,.12)]" : ""}`} onClick={() => setTab("vagas")} type="button">
+          <Button size="sm" variant={tab === "vagas" ? "default" : "outline"} onClick={() => setTab("vagas")}>
             Vagas
-          </button>
-          <button className={`btn-ghost ${tab === "agenda" ? "bg-[rgba(16,82,144,.12)]" : ""}`} onClick={() => setTab("agenda")} type="button">
+          </Button>
+          <Button size="sm" variant={tab === "agenda" ? "default" : "outline"} onClick={() => setTab("agenda")}>
             Agenda
-          </button>
-          <Link className="btn-ghost" href={`/app/PortalVagas/Acesso${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ""}`}>
-            Acesso
-          </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/app/PortalVagas/Acesso${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ""}`}>
+              Acesso
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -573,12 +576,12 @@ export default function PortalVagasScreen() {
               value={q}
               onChange={(e) => { setQ(e.target.value); setPage(1); }}
             />
-            <button type="button" className="btn-brand px-3 py-1.5 text-sm" onClick={() => setPage(1)}>
+            <Button size="sm" onClick={() => setPage(1)}>
               Buscar
-            </button>
-            <button type="button" className="btn-ghost px-3 py-1.5 text-sm" onClick={() => { setQ(""); setPage(1); }}>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setQ(""); setPage(1); }}>
               Limpar
-            </button>
+            </Button>
           </div>
 
           <div className="card-soft p-4 space-y-3">
@@ -587,7 +590,7 @@ export default function PortalVagasScreen() {
                 {loading ? "Carregando..." : `${jobs.totalItems} vaga(s) encontrada(s)`}
               </span>
               <div className="flex flex-wrap gap-2">
-                <select className="form-select text-sm w-auto" value={location} onChange={(e) => { setLocation(e.target.value); setPage(1); }}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={location} onChange={(e) => { setLocation(e.target.value); setPage(1); }}>
                   <option value="">Local (qualquer)</option>
                   <option value="São Paulo, SP">São Paulo, SP</option>
                   <option value="Rio de Janeiro, RJ">Rio de Janeiro, RJ</option>
@@ -595,26 +598,26 @@ export default function PortalVagasScreen() {
                   <option value="Curitiba, PR">Curitiba, PR</option>
                   <option value="Remoto">Remoto (Brasil)</option>
                 </select>
-                <select className="form-select text-sm w-auto" value={mode} onChange={(e) => { setMode(e.target.value); setPage(1); }}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={mode} onChange={(e) => { setMode(e.target.value); setPage(1); }}>
                   <option value="">Formato</option>
                   <option value="Remoto">Remoto</option>
                   <option value="Hibrido">Híbrido</option>
                   <option value="Presencial">Presencial</option>
                 </select>
-                <select className="form-select text-sm w-auto" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
                   <option value="">Tipo</option>
                   <option value="CLT">CLT</option>
                   <option value="PJ">PJ</option>
                   <option value="Estágio">Estágio</option>
                 </select>
-                <select className="form-select text-sm w-auto" value={level} onChange={(e) => { setLevel(e.target.value); setPage(1); }}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={level} onChange={(e) => { setLevel(e.target.value); setPage(1); }}>
                   <option value="">Senioridade</option>
                   <option value="Júnior">Júnior</option>
                   <option value="Pleno">Pleno</option>
                   <option value="Sênior">Sênior</option>
                   <option value="Liderança">Liderança</option>
                 </select>
-                <select className="form-select text-sm w-auto" value={area} onChange={(e) => { setArea(e.target.value); setPage(1); }}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={area} onChange={(e) => { setArea(e.target.value); setPage(1); }}>
                   <option value="">Área</option>
                   <option value="Engenharia">Engenharia</option>
                   <option value="Dados">Dados</option>
@@ -623,8 +626,8 @@ export default function PortalVagasScreen() {
                   <option value="Segurança">Segurança</option>
                   <option value="Operações">Operações</option>
                 </select>
-                <input className="form-control text-sm w-24" placeholder="Sal. mín." type="number" min={0} step={500} value={minSalary} onChange={(e) => { setMinSalary(e.target.value); setPage(1); }} />
-                <select className="form-select text-sm w-auto" value={sort} onChange={(e) => setSort(e.target.value)}>
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm text-sm w-24" placeholder="Sal. mín." type="number" min={0} step={500} value={minSalary} onChange={(e) => { setMinSalary(e.target.value); setPage(1); }} />
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={sort} onChange={(e) => setSort(e.target.value)}>
                   <option value="recent">Mais recentes</option>
                   <option value="salaryDesc">Maior salário</option>
                   <option value="companyAsc">Empresa A-Z</option>
@@ -636,9 +639,9 @@ export default function PortalVagasScreen() {
               <div className="py-12 text-center">
                 <h3 className="font-semibold mb-2">Nenhuma vaga encontrada</h3>
                 <p className="text-muted-foreground text-sm mb-3">Tente remover alguns filtros ou refinar o texto de busca.</p>
-                <button type="button" className="btn-ghost" onClick={() => { setQ(""); setLocation(""); setMode(""); setType(""); setLevel(""); setArea(""); setMinSalary(""); setPage(1); }}>
+                <Button variant="outline" size="sm" onClick={() => { setQ(""); setLocation(""); setMode(""); setType(""); setLevel(""); setArea(""); setMinSalary(""); setPage(1); }}>
                   Limpar filtros
-                </button>
+                </Button>
               </div>
             ) : (
               <>
@@ -685,13 +688,13 @@ export default function PortalVagasScreen() {
 
                 {jobs.totalPages > 1 ? (
                   <div className="flex items-center justify-end gap-2 pt-4">
-                    <button className="btn-ghost px-3 py-2" type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                       Anterior
-                    </button>
+                    </Button>
                     <span className="text-sm text-muted-foreground">Página {jobs.page} de {jobs.totalPages}</span>
-                    <button className="btn-ghost px-3 py-2" type="button" disabled={page >= jobs.totalPages} onClick={() => setPage((p) => p + 1)}>
+                    <Button variant="outline" size="sm" disabled={page >= jobs.totalPages} onClick={() => setPage((p) => p + 1)}>
                       Próxima
-                    </button>
+                    </Button>
                   </div>
                 ) : null}
               </>
@@ -710,7 +713,7 @@ export default function PortalVagasScreen() {
                 <div className="text-lg font-extrabold">{selectedJob.titulo}</div>
                 <div className="text-sm text-muted-foreground">{selectedJob.empresaNome || selectedJob.tenantName || "Empresa"}</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setSelectedJob(null)}>Fechar</button>
+              <Button variant="outline" size="sm" onClick={() => setSelectedJob(null)}>Fechar</Button>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">{buildSummary(selectedJob)}</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -739,9 +742,9 @@ export default function PortalVagasScreen() {
               </div>
             ) : null}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-              <button
-                type="button"
-                className="btn-ghost text-sm"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   const url = typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}#${selectedJob.id}` : `#${selectedJob.id}`;
                   void navigator.clipboard.writeText(url);
@@ -749,10 +752,10 @@ export default function PortalVagasScreen() {
                 }}
               >
                 Copiar link interno
-              </button>
+              </Button>
               <div className="flex gap-2">
-                <button className="btn-ghost" type="button" onClick={() => setSelectedJob(null)}>Fechar</button>
-                <button className="btn-brand" type="button" onClick={() => openApply(selectedJob)}>Candidatar-se</button>
+                <Button variant="outline" size="sm" onClick={() => setSelectedJob(null)}>Fechar</Button>
+                <Button size="sm" onClick={() => openApply(selectedJob)}>Candidatar-se</Button>
               </div>
             </div>
           </div>
@@ -767,55 +770,55 @@ export default function PortalVagasScreen() {
                 <div className="text-lg font-extrabold">Enviar candidatura</div>
                 <div className="text-sm text-muted-foreground">{selectedJob.titulo} - {selectedJob.empresaNome || selectedJob.tenantName || "Empresa"}</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setApplyOpen(false)}>Fechar</button>
+              <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Fechar</Button>
             </div>
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Nome completo</label>
-                <input className="form-control" value={applyForm.fullName} onChange={(e) => setApplyForm((f) => ({ ...f, fullName: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.fullName} onChange={(e) => setApplyForm((f) => ({ ...f, fullName: e.target.value }))} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">E-mail</label>
-                <input className="form-control" value={applyForm.email} onChange={(e) => setApplyForm((f) => ({ ...f, email: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.email} onChange={(e) => setApplyForm((f) => ({ ...f, email: e.target.value }))} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Telefone</label>
-                <input className="form-control" value={applyForm.phone} onChange={(e) => setApplyForm((f) => ({ ...f, phone: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.phone} onChange={(e) => setApplyForm((f) => ({ ...f, phone: e.target.value }))} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">UF</label>
-                <select className="form-select" value={applyForm.uf} onChange={(e) => setApplyForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={applyForm.uf} onChange={(e) => setApplyForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))}>
                   <option value="">Selecione</option>
                   {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
                 </select>
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Cidade</label>
-                <input className="form-control" value={applyForm.city} onChange={(e) => setApplyForm((f) => ({ ...f, city: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.city} onChange={(e) => setApplyForm((f) => ({ ...f, city: e.target.value }))} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">LinkedIn</label>
-                <input className="form-control" value={applyForm.linkedin} onChange={(e) => setApplyForm((f) => ({ ...f, linkedin: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.linkedin} onChange={(e) => setApplyForm((f) => ({ ...f, linkedin: e.target.value }))} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Portfólio</label>
-                <input className="form-control" value={applyForm.portfolio} onChange={(e) => setApplyForm((f) => ({ ...f, portfolio: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.portfolio} onChange={(e) => setApplyForm((f) => ({ ...f, portfolio: e.target.value }))} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Cargo atual</label>
-                <input className="form-control" value={applyForm.currentRole} onChange={(e) => setApplyForm((f) => ({ ...f, currentRole: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.currentRole} onChange={(e) => setApplyForm((f) => ({ ...f, currentRole: e.target.value }))} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Anos de experiência</label>
-                <input className="form-control" value={applyForm.experienceYears} onChange={(e) => setApplyForm((f) => ({ ...f, experienceYears: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.experienceYears} onChange={(e) => setApplyForm((f) => ({ ...f, experienceYears: e.target.value }))} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Pretensão salarial</label>
-                <input className="form-control" value={applyForm.salaryExpectation} onChange={(e) => setApplyForm((f) => ({ ...f, salaryExpectation: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.salaryExpectation} onChange={(e) => setApplyForm((f) => ({ ...f, salaryExpectation: e.target.value }))} />
               </div>
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Disponibilidade para iniciar</label>
-                <select className="form-select" value={applyForm.availability} onChange={(e) => setApplyForm((f) => ({ ...f, availability: e.target.value }))}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={applyForm.availability} onChange={(e) => setApplyForm((f) => ({ ...f, availability: e.target.value }))}>
                   <option value="">Selecione</option>
                   <option value="Imediata">Imediata</option>
                   <option value="Até 15 dias">Até 15 dias</option>
@@ -825,11 +828,11 @@ export default function PortalVagasScreen() {
               </div>
               <div className="md:col-span-12">
                 <label className="mini-title mb-1 block">Resumo profissional</label>
-                <textarea className="form-control" rows={3} value={applyForm.highlights} onChange={(e) => setApplyForm((f) => ({ ...f, highlights: e.target.value }))} />
+                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={applyForm.highlights} onChange={(e) => setApplyForm((f) => ({ ...f, highlights: e.target.value }))} />
               </div>
               <div className="md:col-span-12">
                 <label className="mini-title mb-1 block">Informações adicionais</label>
-                <textarea className="form-control" rows={3} value={applyForm.recruiterNotes} onChange={(e) => setApplyForm((f) => ({ ...f, recruiterNotes: e.target.value }))} />
+                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={applyForm.recruiterNotes} onChange={(e) => setApplyForm((f) => ({ ...f, recruiterNotes: e.target.value }))} />
               </div>
               {/* ── Campos personalizados dinâmicos ── */}
               {camposPersonalizados.length > 0 && (
@@ -854,7 +857,7 @@ export default function PortalVagasScreen() {
                         return (
                           <div key={campo.id} className="md:col-span-6">
                             <label className="mini-title mb-1 block">{campo.label}{campo.obrigatorio ? " *" : ""}</label>
-                            <select className="form-select" disabled={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))}>
+                            <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" disabled={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))}>
                               <option value="">Selecione</option>
                               {opts.map((o) => <option key={o} value={o}>{o}</option>)}
                             </select>
@@ -866,7 +869,7 @@ export default function PortalVagasScreen() {
                         return (
                           <div key={campo.id} className="md:col-span-6">
                             <label className="mini-title mb-1 block">{campo.label}{campo.obrigatorio ? " *" : ""}</label>
-                            <input className="form-control" type="number" readOnly={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))} />
+                            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" readOnly={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))} />
                           </div>
                         );
                       }
@@ -874,7 +877,7 @@ export default function PortalVagasScreen() {
                       return (
                         <div key={campo.id} className="md:col-span-6">
                           <label className="mini-title mb-1 block">{campo.label}{campo.obrigatorio ? " *" : ""}</label>
-                          <input className="form-control" readOnly={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))} />
+                          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" readOnly={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))} />
                         </div>
                       );
                     })}
@@ -884,7 +887,7 @@ export default function PortalVagasScreen() {
 
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Currículo (opcional)</label>
-                <input className="form-control" type="file" accept=".pdf,.doc,.docx" onChange={(e) => onApplyFileChange(e.target.files?.[0] || null)} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="file" accept=".pdf,.doc,.docx" onChange={(e) => onApplyFileChange(e.target.files?.[0] || null)} />
               </div>
               <div className="md:col-span-6 flex items-end">
                 <label className="inline-flex items-center gap-2">
@@ -894,10 +897,10 @@ export default function PortalVagasScreen() {
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setApplyOpen(false)}>Cancelar</button>
-              <button className="btn-brand" type="button" disabled={sendingApply} onClick={() => void submitApply()}>
+              <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Cancelar</Button>
+              <Button size="sm" disabled={sendingApply} onClick={() => void submitApply()}>
                 {sendingApply ? "Enviando..." : "Enviar candidatura"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -911,14 +914,14 @@ export default function PortalVagasScreen() {
                 <div className="text-lg font-extrabold">Meu perfil</div>
                 <div className="text-sm text-muted-foreground">Atualize seus dados de candidato.</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setProfileOpen(false)}>Fechar</button>
+              <Button variant="outline" size="sm" onClick={() => setProfileOpen(false)}>Fechar</Button>
             </div>
 
             {authRequired ? (
               <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
                 Você precisa autenticar no Portal de Vagas para editar o perfil.
                 <div className="mt-2">
-                  <Link className="btn-brand" href={`/app/PortalVagas/Acesso${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ""}`}>Ir para Acesso</Link>
+                  <Button size="sm" asChild><Link href={`/app/PortalVagas/Acesso${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ""}`}>Ir para Acesso</Link></Button>
                 </div>
               </div>
             ) : (
@@ -940,14 +943,14 @@ export default function PortalVagasScreen() {
                       ["tests", "Testes RH"],
                     ] as const
                   ).map(([key, label]) => (
-                    <button
+                    <Button
                       key={key}
-                      className={`btn-ghost px-3 py-1.5 text-sm ${profileSection === key ? "bg-[rgba(16,82,144,.12)]" : ""}`}
-                      type="button"
+                      size="sm"
+                      variant={profileSection === key ? "default" : "outline"}
                       onClick={() => setProfileSection(key)}
                     >
                       {label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
                 <div className="mt-3 overflow-y-auto flex-1 min-h-0">
@@ -956,30 +959,30 @@ export default function PortalVagasScreen() {
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
                         <div className="md:col-span-6">
                           <label className="mini-title mb-1 block">Nome</label>
-                          <input className="form-control" value={profile.nome || ""} onChange={(e) => setProfile((p) => ({ ...p, nome: e.target.value }))} />
+                          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={profile.nome || ""} onChange={(e) => setProfile((p) => ({ ...p, nome: e.target.value }))} />
                         </div>
                         <div className="md:col-span-6">
                           <label className="mini-title mb-1 block">E-mail</label>
-                          <input className="form-control" value={profile.email || ""} readOnly />
+                          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={profile.email || ""} readOnly />
                         </div>
                         <div className="md:col-span-4">
                           <label className="mini-title mb-1 block">Telefone</label>
-                          <input className="form-control" value={profile.fone || ""} onChange={(e) => setProfile((p) => ({ ...p, fone: e.target.value }))} />
+                          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={profile.fone || ""} onChange={(e) => setProfile((p) => ({ ...p, fone: e.target.value }))} />
                         </div>
                         <div className="md:col-span-4">
                           <label className="mini-title mb-1 block">UF</label>
-                          <select className="form-select" value={profile.uf || ""} onChange={(e) => setProfile((p) => ({ ...p, uf: e.target.value.toUpperCase() }))}>
+                          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={profile.uf || ""} onChange={(e) => setProfile((p) => ({ ...p, uf: e.target.value.toUpperCase() }))}>
                             <option value="">Selecione</option>
                             {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
                           </select>
                         </div>
                         <div className="md:col-span-4">
                           <label className="mini-title mb-1 block">Cidade</label>
-                          <input className="form-control" value={profile.cidade || ""} onChange={(e) => setProfile((p) => ({ ...p, cidade: e.target.value }))} />
+                          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={profile.cidade || ""} onChange={(e) => setProfile((p) => ({ ...p, cidade: e.target.value }))} />
                         </div>
                         <div className="md:col-span-12">
                           <label className="mini-title mb-1 block">LinkedIn</label>
-                          <input className="form-control" value={profile.linkedinUrl || ""} onChange={(e) => setProfile((p) => ({ ...p, linkedinUrl: e.target.value }))} />
+                          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={profile.linkedinUrl || ""} onChange={(e) => setProfile((p) => ({ ...p, linkedinUrl: e.target.value }))} />
                         </div>
                         <div className="md:col-span-12">
                           <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -993,22 +996,22 @@ export default function PortalVagasScreen() {
                         </div>
                         <div className="md:col-span-12">
                           <label className="mini-title mb-1 block">Resumo profissional</label>
-                          <textarea className="form-control" rows={4} value={profile.resumoProfissional || ""} onChange={(e) => setProfile((p) => ({ ...p, resumoProfissional: e.target.value }))} />
+                          <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={4} value={profile.resumoProfissional || ""} onChange={(e) => setProfile((p) => ({ ...p, resumoProfissional: e.target.value }))} />
                         </div>
                         <div className="md:col-span-6">
                           <label className="mini-title mb-1 block">Avatar</label>
-                          <input className="form-control" type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && void upload("avatar", e.target.files[0])} />
+                          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && void upload("avatar", e.target.files[0])} />
                         </div>
                         <div className="md:col-span-6">
                           <label className="mini-title mb-1 block">Currículo</label>
-                          <input className="form-control" type="file" accept=".pdf,.doc,.docx" onChange={(e) => e.target.files?.[0] && void upload("curriculo", e.target.files[0])} />
+                          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="file" accept=".pdf,.doc,.docx" onChange={(e) => e.target.files?.[0] && void upload("curriculo", e.target.files[0])} />
                         </div>
                       </div>
                       <div className="mt-4 flex justify-end gap-2">
-                        <button className="btn-ghost" type="button" onClick={() => setProfileOpen(false)}>Cancelar</button>
-                        <button className="btn-brand" type="button" disabled={savingProfile} onClick={() => void saveProfile()}>
+                        <Button variant="outline" size="sm" onClick={() => setProfileOpen(false)}>Cancelar</Button>
+                        <Button size="sm" disabled={savingProfile} onClick={() => void saveProfile()}>
                           {savingProfile ? "Salvando..." : "Salvar perfil"}
-                        </button>
+                        </Button>
                       </div>
                     </>
                   )}
@@ -1063,15 +1066,15 @@ export default function PortalVagasScreen() {
           <div className="absolute right-0 top-0 bottom-0 w-80 max-w-full bg-white shadow-xl p-4 overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold">Filtros</h3>
-              <button type="button" className="btn-ghost" onClick={() => setFiltersDrawerOpen(false)}>Fechar</button>
+              <Button variant="outline" size="sm" onClick={() => setFiltersDrawerOpen(false)}>Fechar</Button>
             </div>
             <div className="space-y-3">
-              <div><label className="text-xs text-muted-foreground">Busca</label><input className="form-control mt-1" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Buscar..." /></div>
-              <div><label className="text-xs text-muted-foreground">Local</label><input className="form-control mt-1" value={location} onChange={(e) => { setLocation(e.target.value); setPage(1); }} /></div>
-              <div><label className="text-xs text-muted-foreground">Modelo</label><select className="form-select mt-1" value={mode} onChange={(e) => { setMode(e.target.value); setPage(1); }}><option value="">Qualquer</option><option value="Remoto">Remoto</option><option value="Hibrido">Híbrido</option><option value="Presencial">Presencial</option></select></div>
-              <div><label className="text-xs text-muted-foreground">Sal. mín. (R$)</label><input className="form-control mt-1" type="number" value={minSalary} onChange={(e) => { setMinSalary(e.target.value); setPage(1); }} /></div>
+              <div><label className="text-xs text-muted-foreground">Busca</label><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm mt-1" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Buscar..." /></div>
+              <div><label className="text-xs text-muted-foreground">Local</label><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm mt-1" value={location} onChange={(e) => { setLocation(e.target.value); setPage(1); }} /></div>
+              <div><label className="text-xs text-muted-foreground">Modelo</label><select className="h-9 rounded-md border border-input bg-background px-3 text-sm mt-1" value={mode} onChange={(e) => { setMode(e.target.value); setPage(1); }}><option value="">Qualquer</option><option value="Remoto">Remoto</option><option value="Hibrido">Híbrido</option><option value="Presencial">Presencial</option></select></div>
+              <div><label className="text-xs text-muted-foreground">Sal. mín. (R$)</label><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm mt-1" type="number" value={minSalary} onChange={(e) => { setMinSalary(e.target.value); setPage(1); }} /></div>
             </div>
-            <button type="button" className="btn-brand w-full mt-4" onClick={() => setFiltersDrawerOpen(false)}>Aplicar</button>
+            <Button size="sm" className="w-full mt-4" onClick={() => setFiltersDrawerOpen(false)}>Aplicar</Button>
           </div>
         </div>
       ) : null}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import type { PreferencesResponse } from "./types";
 
 const FIELDS: Array<[keyof PreferencesResponse, string]> = [
@@ -85,16 +86,16 @@ export default function PortalVagasPreferencesSection() {
           <div key={key} className={key === "resumo" || key === "naoAbreMaoDe" ? "md:col-span-2" : ""}>
             <label className="text-xs text-muted-foreground">{label}</label>
             {key === "resumo" || key === "naoAbreMaoDe" ? (
-              <textarea className="form-control" rows={2} value={data[key] ?? ""} onChange={(e) => setData((d) => ({ ...d, [key]: e.target.value }))} />
+              <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} value={data[key] ?? ""} onChange={(e) => setData((d) => ({ ...d, [key]: e.target.value }))} />
             ) : (
-              <input className="form-control" value={data[key] ?? ""} onChange={(e) => setData((d) => ({ ...d, [key]: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={data[key] ?? ""} onChange={(e) => setData((d) => ({ ...d, [key]: e.target.value }))} />
             )}
           </div>
         ))}
       </div>
-      <button className="btn-brand" type="button" disabled={saving} onClick={() => void save()}>
+      <Button size="sm" disabled={saving} onClick={() => void save()}>
         {saving ? "Salvando..." : "Salvar preferências"}
-      </button>
+      </Button>
     </div>
   );
 }

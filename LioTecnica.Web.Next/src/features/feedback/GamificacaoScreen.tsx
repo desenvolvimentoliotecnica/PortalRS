@@ -114,7 +114,7 @@ export default function GamificacaoScreen() {
                             <Clock className="size-4 mr-1" />Histórico
                         </Button>
                     </Link>
-                    <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                    <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                         <RefreshCw className="size-4" />
                     </Button>
                 </div>

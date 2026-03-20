@@ -272,7 +272,7 @@ export default function UnidadesScreen() {
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-lg font-bold">Unidades e filiais</h4>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => { setLoading(true); syncList().catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setLoading(true); syncList().catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
                         <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
                     </Button>
                     <Button size="sm" onClick={openNew}><Plus className="size-4" /><span className="hidden sm:inline ml-1">Nova unidade</span></Button>
@@ -306,7 +306,7 @@ export default function UnidadesScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input className="w-[240px] pl-8" placeholder="nome, codigo, cidade..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="all">Todos</option>
                             <option value="ativo">Ativo</option>
                             <option value="inativo">Inativo</option>
@@ -352,9 +352,9 @@ export default function UnidadesScreen() {
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-1">
-                                        <Button variant="ghost" size="icon-xs" title="Detalhes" onClick={() => setDetailItem(u)}><Eye /></Button>
-                                        <Button variant="ghost" size="icon-xs" title="Editar" onClick={() => void openEdit(u)}><Pencil /></Button>
-                                        <Button variant="ghost" size="icon-xs" className="text-destructive" title="Excluir" onClick={() => setDeleteTarget(u)}><Trash2 /></Button>
+                                        <Button variant="outline" size="icon-xs" title="Detalhes" onClick={() => setDetailItem(u)}><Eye /></Button>
+                                        <Button variant="outline" size="icon-xs" title="Editar" onClick={() => void openEdit(u)}><Pencil /></Button>
+                                        <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(u)}><Trash2 /></Button>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -384,7 +384,7 @@ export default function UnidadesScreen() {
                         <div className="sm:col-span-2"><label className="mb-1 block text-xs font-medium text-muted-foreground">Nome *</label><Input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} /></div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
-                            <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}>
+                            <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}>
                                 <option value="Active">Ativo</option>
                                 <option value="Inactive">Inativo</option>
                             </select>

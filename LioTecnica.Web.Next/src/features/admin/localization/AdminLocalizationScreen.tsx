@@ -61,14 +61,14 @@ export default function AdminLocalizationScreen() {
                 <div className="flex items-center gap-2 font-semibold"><Globe className="size-5 text-primary" /> Configurações Regionais</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Idioma Padrão</label>
-                        <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={config.defaultLanguage ?? ""} onChange={e => upd("defaultLanguage", e.target.value)}>
+                        <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={config.defaultLanguage ?? ""} onChange={e => upd("defaultLanguage", e.target.value)}>
                             <option value="pt-BR">Português (Brasil)</option>
                             <option value="en-US">English (US)</option>
                             <option value="es-ES">Español</option>
                         </select>
                     </div>
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Fuso Horário</label>
-                        <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={config.timezone ?? ""} onChange={e => upd("timezone", e.target.value)}>
+                        <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={config.timezone ?? ""} onChange={e => upd("timezone", e.target.value)}>
                             <option value="America/Sao_Paulo">America/São Paulo (UTC-3)</option>
                             <option value="America/Manaus">America/Manaus (UTC-4)</option>
                             <option value="America/Cuiaba">America/Cuiabá (UTC-4)</option>
@@ -78,7 +78,7 @@ export default function AdminLocalizationScreen() {
                     </div>
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Formato de Data</label><Input value={config.dateFormat ?? ""} onChange={e => upd("dateFormat", e.target.value)} placeholder="dd/MM/yyyy" /></div>
                     <div className="space-y-1"><label className="text-xs font-medium text-muted-foreground">Moeda</label>
-                        <select className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={config.currency ?? ""} onChange={e => upd("currency", e.target.value)}>
+                        <select className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm" value={config.currency ?? ""} onChange={e => upd("currency", e.target.value)}>
                             <option value="BRL">BRL (R$)</option>
                             <option value="USD">USD ($)</option>
                             <option value="EUR">EUR (€)</option>

@@ -159,7 +159,7 @@ export default function AdmissaoRevisaoScreen() {
             <AlertTriangle className="size-8 text-destructive" />
             <p className="text-sm text-destructive">{isError ? "Não foi possível carregar os dados da admissão." : "Admissão não encontrada."}</p>
             <Button variant="outline" size="sm" onClick={() => refetch()}>Tentar novamente</Button>
-            <Button variant="ghost" size="sm" onClick={() => router.push("/admissao")}>Voltar para lista</Button>
+            <Button variant="outline" size="sm" onClick={() => router.push("/admissao")}>Voltar para lista</Button>
         </div>
     );
 
@@ -318,7 +318,7 @@ export default function AdmissaoRevisaoScreen() {
                         <label className="text-xs text-muted-foreground block mb-1">Observação do RH (opcional)</label>
                         <Input value={approveObs} onChange={e => setApproveObs(e.target.value)} placeholder="Comentários adicionais…" />
                     </div>
-                    <Button variant="outline" className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => setRejectOpen(true)} disabled={processing}>
+                    <Button variant="destructive" onClick={() => setRejectOpen(true)} disabled={processing}>
                         <XCircle className="size-4" /> Rejeitar
                     </Button>
                     <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={processing}>

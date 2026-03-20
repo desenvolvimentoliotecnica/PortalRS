@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import { Button } from "@/components/ui/button";
 import type { CertificationDto, SkillDto, SkillsPortfolioResponse } from "./types";
 
 export default function PortalVagasSkillsSection() {
@@ -219,7 +220,7 @@ export default function PortalVagasSkillsSection() {
           ] as const).map(([l, k]) => (
             <div key={k}>
               <label className="text-xs text-muted-foreground">{l}</label>
-              <input className="form-control" value={form[k]} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form[k]} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))} />
             </div>
           ))}
           {([
@@ -230,38 +231,38 @@ export default function PortalVagasSkillsSection() {
           ] as const).map(([l, k]) => (
             <div key={k}>
               <label className="text-xs text-muted-foreground">{l}</label>
-              <input className="form-control" value={form[k]} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))} />
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form[k]} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))} />
             </div>
           ))}
           <div className="md:col-span-2">
             <label className="text-xs text-muted-foreground">Observação</label>
-            <input className="form-control" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />
           </div>
           <div className="md:col-span-2">
             <label className="text-xs text-muted-foreground">Tags</label>
-            <input className="form-control" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="Ex: React, Node, AWS" />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="Ex: React, Node, AWS" />
           </div>
         </div>
-        <button className="btn-brand mt-2" type="button" disabled={saving} onClick={() => void savePrefs()}>
+        <Button size="sm" className="mt-2" disabled={saving} onClick={() => void savePrefs()}>
           {saving ? "Salvando..." : "Salvar preferências"}
-        </button>
+        </Button>
       </div>
 
       <div>
         <h4 className="mini-title mb-2">Competências</h4>
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            <input className="form-control w-24" placeholder="Tipo" value={skillForm.tipo} onChange={(e) => setSkillForm((f) => ({ ...f, tipo: e.target.value }))} />
-            <input className="form-control flex-1 min-w-[120px]" placeholder="Nome" value={skillForm.nome} onChange={(e) => setSkillForm((f) => ({ ...f, nome: e.target.value }))} />
-            <input className="form-control w-28" placeholder="Nível" value={skillForm.nivel} onChange={(e) => setSkillForm((f) => ({ ...f, nivel: e.target.value }))} />
-            <input className="form-control flex-1 min-w-[120px]" placeholder="Evidência" value={skillForm.evidencia} onChange={(e) => setSkillForm((f) => ({ ...f, evidencia: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm w-24" placeholder="Tipo" value={skillForm.tipo} onChange={(e) => setSkillForm((f) => ({ ...f, tipo: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm flex-1 min-w-[120px]" placeholder="Nome" value={skillForm.nome} onChange={(e) => setSkillForm((f) => ({ ...f, nome: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm w-28" placeholder="Nível" value={skillForm.nivel} onChange={(e) => setSkillForm((f) => ({ ...f, nivel: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm flex-1 min-w-[120px]" placeholder="Evidência" value={skillForm.evidencia} onChange={(e) => setSkillForm((f) => ({ ...f, evidencia: e.target.value }))} />
             {editingSkill ? (
               <>
-                <button className="btn-brand" type="button" disabled={saving} onClick={() => void updateSkill()}>Salvar</button>
-                <button className="btn-ghost" type="button" onClick={() => { setEditingSkill(null); setSkillForm({ tipo: "", nome: "", nivel: "", evidencia: "" }); }}>Cancelar</button>
+                <Button size="sm" disabled={saving} onClick={() => void updateSkill()}>Salvar</Button>
+                <Button variant="outline" size="sm" onClick={() => { setEditingSkill(null); setSkillForm({ tipo: "", nome: "", nivel: "", evidencia: "" }); }}>Cancelar</Button>
               </>
             ) : (
-              <button className="btn-brand" type="button" disabled={saving} onClick={() => void createSkill()}>Adicionar</button>
+              <Button size="sm" disabled={saving} onClick={() => void createSkill()}>Adicionar</Button>
             )}
           </div>
           <ul className="space-y-1">
@@ -269,8 +270,8 @@ export default function PortalVagasSkillsSection() {
               <li key={s.id} className="flex items-center justify-between rounded border border-border/60 px-2 py-1 text-sm">
                 <span>{s.tipo} • {s.nome} ({s.nivel})</span>
                 <div className="flex gap-1">
-                  <button className="btn-ghost text-xs" type="button" onClick={() => { setEditingSkill(s); setSkillForm({ tipo: s.tipo, nome: s.nome, nivel: s.nivel, evidencia: s.evidencia ?? "" }); }}>Editar</button>
-                  <button className="btn-ghost text-xs text-red-600" type="button" onClick={() => void deleteSkill(s.id)}>Excluir</button>
+                  <Button variant="outline" size="sm" onClick={() => { setEditingSkill(s); setSkillForm({ tipo: s.tipo, nome: s.nome, nivel: s.nivel, evidencia: s.evidencia ?? "" }); }}>Editar</Button>
+                  <Button variant="destructive" size="sm" onClick={() => void deleteSkill(s.id)}>Excluir</Button>
                 </div>
               </li>
             ))}
@@ -282,17 +283,17 @@ export default function PortalVagasSkillsSection() {
         <h4 className="mini-title mb-2">Certificações</h4>
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            <input className="form-control flex-1 min-w-[140px]" placeholder="Nome" value={certForm.nome} onChange={(e) => setCertForm((f) => ({ ...f, nome: e.target.value }))} />
-            <input className="form-control w-36" placeholder="Instituição" value={certForm.instituicao} onChange={(e) => setCertForm((f) => ({ ...f, instituicao: e.target.value }))} />
-            <input className="form-control w-20" placeholder="Ano" value={certForm.ano} onChange={(e) => setCertForm((f) => ({ ...f, ano: e.target.value }))} />
-            <input className="form-control flex-1 min-w-[120px]" placeholder="Link" value={certForm.link} onChange={(e) => setCertForm((f) => ({ ...f, link: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm flex-1 min-w-[140px]" placeholder="Nome" value={certForm.nome} onChange={(e) => setCertForm((f) => ({ ...f, nome: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm w-36" placeholder="Instituição" value={certForm.instituicao} onChange={(e) => setCertForm((f) => ({ ...f, instituicao: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm w-20" placeholder="Ano" value={certForm.ano} onChange={(e) => setCertForm((f) => ({ ...f, ano: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm flex-1 min-w-[120px]" placeholder="Link" value={certForm.link} onChange={(e) => setCertForm((f) => ({ ...f, link: e.target.value }))} />
             {editingCert ? (
               <>
-                <button className="btn-brand" type="button" disabled={saving} onClick={() => void updateCert()}>Salvar</button>
-                <button className="btn-ghost" type="button" onClick={() => { setEditingCert(null); setCertForm({ nome: "", instituicao: "", ano: "", link: "" }); }}>Cancelar</button>
+                <Button size="sm" disabled={saving} onClick={() => void updateCert()}>Salvar</Button>
+                <Button variant="outline" size="sm" onClick={() => { setEditingCert(null); setCertForm({ nome: "", instituicao: "", ano: "", link: "" }); }}>Cancelar</Button>
               </>
             ) : (
-              <button className="btn-brand" type="button" disabled={saving} onClick={() => void createCert()}>Adicionar</button>
+              <Button size="sm" disabled={saving} onClick={() => void createCert()}>Adicionar</Button>
             )}
           </div>
           <ul className="space-y-1">
@@ -300,8 +301,8 @@ export default function PortalVagasSkillsSection() {
               <li key={c.id} className="flex items-center justify-between rounded border border-border/60 px-2 py-1 text-sm">
                 <span>{c.nome}{c.instituicao ? ` (${c.instituicao})` : ""}{c.ano ? ` - ${c.ano}` : ""}</span>
                 <div className="flex gap-1">
-                  <button className="btn-ghost text-xs" type="button" onClick={() => { setEditingCert(c); setCertForm({ nome: c.nome, instituicao: c.instituicao ?? "", ano: c.ano ?? "", link: c.link ?? "" }); }}>Editar</button>
-                  <button className="btn-ghost text-xs text-red-600" type="button" onClick={() => void deleteCert(c.id)}>Excluir</button>
+                  <Button variant="outline" size="sm" onClick={() => { setEditingCert(c); setCertForm({ nome: c.nome, instituicao: c.instituicao ?? "", ano: c.ano ?? "", link: c.link ?? "" }); }}>Editar</Button>
+                  <Button variant="destructive" size="sm" onClick={() => void deleteCert(c.id)}>Excluir</Button>
                 </div>
               </li>
             ))}

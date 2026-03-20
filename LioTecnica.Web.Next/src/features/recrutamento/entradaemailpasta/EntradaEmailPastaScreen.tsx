@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
@@ -629,28 +630,29 @@ export default function EntradaEmailPastaScreen({
           <div className="text-muted-foreground text-sm">Fila de entrada + upload + ações</div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-ghost" type="button" onClick={() => void refreshAll()}>
+          <Button variant="outline" size="sm" onClick={() => void refreshAll()}>
             Atualizar
-          </button>
-          <button className="btn-ghost" type="button" onClick={exportJson}>
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportJson}>
             Exportar
-          </button>
-          <label className="btn-ghost cursor-pointer">
-            Importar
-            <input
-              className="hidden"
-              type="file"
-              accept="application/json"
-              onChange={(e) => {
-                const f = e.currentTarget.files?.[0];
-                if (!f) return;
-                void importJson(f).finally(() => (e.currentTarget.value = ""));
-              }}
-            />
-          </label>
-          <button
-            className="btn-brand"
-            type="button"
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <label className="cursor-pointer">
+              Importar
+              <input
+                className="hidden"
+                type="file"
+                accept="application/json"
+                onChange={(e) => {
+                  const f = e.currentTarget.files?.[0];
+                  if (!f) return;
+                  void importJson(f).finally(() => (e.currentTarget.value = ""));
+                }}
+              />
+            </label>
+          </Button>
+          <Button
+            size="sm"
             onClick={() => {
               const vagaId = vagasRef.current[0]?.id ?? null;
               const payload = {
@@ -678,7 +680,7 @@ export default function EntradaEmailPastaScreen({
             }}
           >
             Simular coleta
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -712,20 +714,22 @@ export default function EntradaEmailPastaScreen({
               <div className="fw-bold">Upload manual</div>
               <div className="text-muted-foreground text-sm">Arraste PDFs/DOCs aqui ou selecione arquivos.</div>
             </div>
-            <label className="btn-ghost cursor-pointer">
-              Selecionar arquivo
-              <input
-                className="hidden"
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.txt"
-                onChange={(e) => {
-                  const files = e.currentTarget.files;
-                  if (!files || !files.length) return;
-                  void uploadFiles(files).finally(() => (e.currentTarget.value = ""));
-                }}
-              />
-            </label>
+            <Button variant="outline" size="sm" asChild>
+              <label className="cursor-pointer">
+                Selecionar arquivo
+                <input
+                  className="hidden"
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={(e) => {
+                    const files = e.currentTarget.files;
+                    if (!files || !files.length) return;
+                    void uploadFiles(files).finally(() => (e.currentTarget.value = ""));
+                  }}
+                />
+              </label>
+            </Button>
           </div>
 
           <div
@@ -759,14 +763,14 @@ export default function EntradaEmailPastaScreen({
               <div className="text-muted-foreground text-sm">Selecione um item para ver detalhes e executar ações.</div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <input className="form-control w-[260px]" placeholder="Remetente, assunto, arquivo..." value={q} onChange={(e) => setQ(e.target.value)} />
-              <select className="form-select w-[180px]" value={origem} onChange={(e) => setOrigem(e.target.value)}>
+              <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm w-[260px]" placeholder="Remetente, assunto, arquivo..." value={q} onChange={(e) => setQ(e.target.value)} />
+              <select className="h-9 rounded-md border border-input bg-background px-3 text-sm w-[180px]" value={origem} onChange={(e) => setOrigem(e.target.value)}>
                 <option value="all">Todas origens</option>
                 <option value="email">Email</option>
                 <option value="pasta">Pasta</option>
                 <option value="upload">Upload</option>
               </select>
-              <select className="form-select w-[180px]" value={status} onChange={(e) => setStatus(e.target.value)}>
+              <select className="h-9 rounded-md border border-input bg-background px-3 text-sm w-[180px]" value={status} onChange={(e) => setStatus(e.target.value)}>
                 <option value="all">Todos status</option>
                 <option value="novo">Novo</option>
                 <option value="processando">Processando</option>
@@ -883,9 +887,9 @@ export default function EntradaEmailPastaScreen({
                   </span>
                 </div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setDetailOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             {(() => {
@@ -929,9 +933,9 @@ export default function EntradaEmailPastaScreen({
                                       <span className="mono">{pickNumber(s.score, 0)}</span>
                                     </div>
                                   </div>
-                                  <button
-                                    className={isAssigned ? "btn-ghost px-3 py-2 text-red-700" : "btn-ghost px-3 py-2"}
-                                    type="button"
+                                  <Button
+                                    variant={isAssigned ? "destructive" : "outline"}
+                                    size="sm"
                                     disabled={disabled}
                                     title={disabled ? "Já existe uma vaga vinculada" : undefined}
                                     onClick={() => {
@@ -943,7 +947,7 @@ export default function EntradaEmailPastaScreen({
                                     }}
                                   >
                                     {isAssigned ? "Desvincular" : "Vincular"}
-                                  </button>
+                                  </Button>
                                 </div>
                               </div>
                             );
@@ -973,7 +977,7 @@ export default function EntradaEmailPastaScreen({
                     <div className="card-soft p-3" style={{ boxShadow: "none" }}>
                       <div className="fw-bold mb-2">Preview (texto extraído)</div>
                       <textarea
-                        className="form-control"
+                        className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                         rows={8}
                         value={selected.previewText ?? ""}
                         onChange={(e) => {
@@ -982,9 +986,9 @@ export default function EntradaEmailPastaScreen({
                         }}
                       />
                       <div className="mt-2 flex flex-wrap justify-end gap-2">
-                        <button
-                          className="btn-ghost"
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
                             const cur = inboxRef.current.find((x) => x.id === selected.id);
                             if (!cur) return;
@@ -994,10 +998,10 @@ export default function EntradaEmailPastaScreen({
                           }}
                         >
                           Salvar preview
-                        </button>
-                        <button
-                          className="btn-ghost"
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
                             const first = vagasRef.current[0];
                             if (!first) return;
@@ -1007,7 +1011,7 @@ export default function EntradaEmailPastaScreen({
                           }}
                         >
                           Auto-atribuir vaga (demo)
-                        </button>
+                        </Button>
                       </div>
 
                       {ultimoErro ? (
@@ -1058,30 +1062,29 @@ export default function EntradaEmailPastaScreen({
                         </div>
 
                         <div className="mt-2 flex flex-wrap gap-2">
-                          <button
-                            className="btn-brand"
-                            type="button"
+                          <Button
+                            size="sm"
                             onClick={() => void runProcess(selected.id, false)}
                           >
                             {selected.status === "processando" ? "Continuar" : "Processar"}
-                          </button>
-                          <button className="btn-ghost" type="button" onClick={() => void runProcess(selected.id, true)}>
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => void runProcess(selected.id, true)}>
                             Reprocessar
-                          </button>
+                          </Button>
                         </div>
 
                         <div className="mt-2 flex flex-wrap gap-2">
-                          <button className="btn-ghost" type="button" onClick={() => void addToTalentos(selected.id)}>
+                          <Button variant="outline" size="sm" onClick={() => void addToTalentos(selected.id)}>
                             Adicionar à base de talentos
-                          </button>
-                          <button className="btn-ghost" type="button" onClick={() => void createCandidateFromInbox(selected)}>
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => void createCandidateFromInbox(selected)}>
                             Criar candidato
-                          </button>
+                          </Button>
                         </div>
 
-                        <button
-                          className="btn-ghost text-red-700"
-                          type="button"
+                        <Button
+                          variant="destructive"
+                          size="sm"
                           onClick={async () => {
                             if (!(await confirmDialog({ title: "Descartar item", description: "Descartar este item?", confirmText: "Descartar", destructive: true }))) return;
                             const next: InboxItem = {
@@ -1102,7 +1105,7 @@ export default function EntradaEmailPastaScreen({
                           }}
                         >
                           Descartar
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>

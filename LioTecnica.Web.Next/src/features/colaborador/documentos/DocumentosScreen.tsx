@@ -103,7 +103,7 @@ export default function DocumentosScreen() {
                     <h4 className="text-lg font-bold">Meus Documentos</h4>
                     <div className="text-muted-foreground text-sm">Envie e gerencie seus documentos pessoais</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => { setLoading(true); load().finally(() => setLoading(false)); }}>
+                <Button variant="outline" size="sm" onClick={() => { setLoading(true); load().finally(() => setLoading(false)); }}>
                     <RefreshCw className="size-4" /> Atualizar
                 </Button>
             </div>
@@ -114,7 +114,7 @@ export default function DocumentosScreen() {
                 <div className="flex flex-wrap items-end gap-3">
                     <div>
                         <label className="text-xs text-muted-foreground block mb-1">Tipo</label>
-                        <select className="rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={tipo} onChange={(e) => setTipo(Number(e.target.value))}>
+                        <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={tipo} onChange={(e) => setTipo(Number(e.target.value))}>
                             {Object.entries(TIPO_MAP).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                         </select>
                     </div>
@@ -122,7 +122,7 @@ export default function DocumentosScreen() {
                         <label className="text-xs text-muted-foreground block mb-1">Arquivo (PDF, JPG, PNG — máx 10MB)</label>
                         <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="text-sm" />
                     </div>
-                    <Button disabled={uploading} onClick={handleUpload} className="bg-violet-600 hover:bg-violet-700">
+                    <Button disabled={uploading} onClick={handleUpload}>
                         <Upload className="size-4" /> {uploading ? "Enviando…" : "Enviar"}
                     </Button>
                 </div>
@@ -162,7 +162,7 @@ export default function DocumentosScreen() {
                                     </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(d.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon-xs" className="text-red-600" title="Remover" onClick={() => void handleDelete(d.id)}>
+                                        <Button variant="destructive" size="icon-xs" title="Remover" onClick={() => void handleDelete(d.id)}>
                                             <Trash2 />
                                         </Button>
                                     </TableCell>

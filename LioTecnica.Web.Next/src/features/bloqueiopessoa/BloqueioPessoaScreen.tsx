@@ -92,7 +92,7 @@ export default function BloqueioPessoaScreen() {
                     <div className="text-muted-foreground text-sm">Gerencie a lista de pessoas bloqueadas no sistema.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="size-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className="mr-1 size-4" />Atualizar</Button>
                     <Button size="sm" onClick={() => setShowCreate(!showCreate)}><Plus className="size-4 mr-1" />Bloquear pessoa</Button>
                 </div>
             </div>
@@ -138,7 +138,7 @@ export default function BloqueioPessoaScreen() {
                                         <TableCell><span className="inline-flex items-center rounded-full bg-zinc-100 text-zinc-600 px-2 py-0.5 text-xs font-medium">{p.origem || "Manual"}</span></TableCell>
                                         <TableCell className="text-xs whitespace-nowrap">{p.bloqueadoEm ? new Date(p.bloqueadoEm).toLocaleDateString("pt-BR") : "—"}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" className="text-emerald-600" onClick={() => void handleUnblock(p.id, p.nome || "pessoa")} title="Desbloquear">
+                                            <Button variant="outline" size="sm" onClick={() => void handleUnblock(p.id, p.nome || "pessoa")} title="Desbloquear">
                                                 <Ban className="size-4" />
                                             </Button>
                                         </TableCell>

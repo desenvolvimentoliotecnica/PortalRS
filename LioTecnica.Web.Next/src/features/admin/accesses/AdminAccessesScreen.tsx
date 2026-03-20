@@ -310,8 +310,7 @@ export default function AdminAccessesScreen() {
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                 <div className="flex flex-wrap items-end gap-3">
                     <div>
-                        <label className="mb-1 block text-xs font-medium text-muted-foreground">Perfil</label>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm min-w-[250px]" value={roleId} onChange={(e) => handleRoleChange(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[250px]" value={roleId} onChange={(e) => handleRoleChange(e.target.value)}>
                             <option value="">Selecione um perfil</option>
                             {roles.map(r => (
                                 <option key={r.id} value={r.id}>{r.name}{r.isSystem ? " (Sistema)" : ""}</option>
@@ -328,7 +327,7 @@ export default function AdminAccessesScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input className="w-[240px] pl-8" placeholder="menu, perm, rota..." value={q} onChange={(e) => setQ(e.target.value)} />
                         </div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="all">Todos</option>
                             <option value="selected">Selecionados</option>
                             <option value="unselected">Não selecionados</option>

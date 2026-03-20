@@ -317,7 +317,7 @@ export default function SolicitacoesScreen() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={() => {
                             setLoading(true);
@@ -471,21 +471,21 @@ export default function SolicitacoesScreen() {
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                            <Button variant="ghost" size="icon-xs" title="Detalhes" onClick={() => void openDetail(r)}>
+                                            <Button variant="outline" size="icon-xs" title="Detalhes" onClick={() => void openDetail(r)}>
                                                 <Eye />
                                             </Button>
                                             {(r.status === 0 || r.status === 4) && (
                                                 <>
-                                                    <Button variant="ghost" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
+                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
                                                         <Pencil />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
+                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
                                                         <Send />
                                                     </Button>
                                                 </>
                                             )}
                                             {r.status === 0 && (
-                                                <Button variant="ghost" size="icon-xs" className="text-destructive" title="Excluir" onClick={() => setDeleteTarget(r)}>
+                                                <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
                                                     <Trash2 />
                                                 </Button>
                                             )}
@@ -646,7 +646,7 @@ export default function SolicitacoesScreen() {
                                 <div className="space-y-3 rounded-lg border border-border/60 p-3">
                                     <div className="text-sm font-semibold">Ações de aprovação</div>
                                     <textarea
-                                        className="w-full rounded-md border border-input bg-transparent p-2 text-sm placeholder:text-muted-foreground"
+                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
                                         rows={2}
                                         placeholder="Observação (opcional)..."
                                         value={approvalObs}

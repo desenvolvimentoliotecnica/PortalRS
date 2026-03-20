@@ -1026,7 +1026,7 @@ export default function VagasScreen() {
                                                     <TableCell onClick={(e) => e.stopPropagation()}>
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon-sm">
+                                                                <Button variant="outline" size="icon-sm">
                                                                     <MoreHorizontal className="size-4" />
                                                                 </Button>
                                                             </DropdownMenuTrigger>
@@ -1329,7 +1329,7 @@ export default function VagasScreen() {
                                     {isRecrutador && currentVagaId && vagaAberta && visibilidadePermitePortal && (
                                         <Button
                                             size="sm"
-                                            variant="ghost"
+                                            variant="outline"
                                             className="ml-auto text-muted-foreground"
                                             onClick={async () => {
                                                 const tenantId = me?.tenantId;

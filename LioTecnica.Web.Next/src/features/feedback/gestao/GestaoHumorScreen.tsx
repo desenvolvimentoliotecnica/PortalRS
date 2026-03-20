@@ -63,7 +63,7 @@ export default function GestaoHumorScreen() {
                     <h4 className="text-lg font-bold">Termômetro de Humor</h4>
                     <div className="text-muted-foreground text-sm">Acompanhe o humor e bem-estar da equipe ao longo do tempo.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
             </div>

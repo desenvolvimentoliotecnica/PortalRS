@@ -14,6 +14,7 @@ import {
     User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
 /* ── Types ── */
@@ -132,9 +133,11 @@ export default function CandidatoDetalhesScreen() {
         return (
             <section className="card-soft p-6 text-center">
                 <p className="text-muted-foreground">Nenhum candidato selecionado.</p>
-                <Link href="/candidatos" className="btn-ghost mt-2 inline-flex items-center gap-1">
-                    <ArrowLeft className="size-4" /> Voltar para Candidatos
-                </Link>
+                <Button variant="outline" size="sm" className="mt-2" asChild>
+                    <Link href="/candidatos">
+                        <ArrowLeft className="size-4" /> Voltar para Candidatos
+                    </Link>
+                </Button>
             </section>
         );
     }
@@ -147,9 +150,11 @@ export default function CandidatoDetalhesScreen() {
                     <h4 className="text-lg font-bold">Detalhes do candidato</h4>
                     <div className="text-muted-foreground text-sm">Match, histórico e status.</div>
                 </div>
-                <Link href="/candidatos" className="btn-ghost inline-flex items-center gap-1">
-                    <ArrowLeft className="size-4" /> Voltar
-                </Link>
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/candidatos">
+                        <ArrowLeft className="size-4" /> Voltar
+                    </Link>
+                </Button>
             </div>
 
             {loading ? (
@@ -234,7 +239,7 @@ export default function CandidatoDetalhesScreen() {
                             <div className="font-semibold mb-1">Texto do CV</div>
                             <div className="text-muted-foreground text-sm mb-2">Texto usado para matching.</div>
                             <textarea
-                                className="form-control w-full"
+                                className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm w-full"
                                 rows={12}
                                 readOnly
                                 value={cand.cvTexto || "Sem texto de CV disponível."}
@@ -265,9 +270,11 @@ export default function CandidatoDetalhesScreen() {
                                                 </div>
                                             </div>
                                             {d.downloadUrl && (
-                                                <a href={d.downloadUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost text-xs px-2 py-1">
-                                                    Download
-                                                </a>
+                                                <Button variant="outline" size="sm" asChild>
+                                                    <a href={d.downloadUrl} target="_blank" rel="noopener noreferrer">
+                                                        Download
+                                                    </a>
+                                                </Button>
                                             )}
                                         </div>
                                     ))}

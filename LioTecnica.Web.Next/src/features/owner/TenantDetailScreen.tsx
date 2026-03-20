@@ -366,10 +366,9 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
                                     O tenant ficará inativo e todos os usuários deixarão de poder acessá-lo. Os dados não são removidos.
                                 </p>
                                 <Button
-                                    variant="outline"
+                                    variant="destructive"
                                     onClick={() => void handleDelete()}
                                     disabled={busy}
-                                    className="text-red-600 border-red-300 hover:bg-red-100 dark:border-red-700 dark:hover:bg-red-900/30"
                                 >
                                     <Trash2 className="size-4 mr-1.5" />
                                     Eliminar tenant

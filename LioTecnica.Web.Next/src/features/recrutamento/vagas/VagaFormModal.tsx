@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
 const BASE = "/app";
@@ -414,7 +415,7 @@ function EnumSelect({ value, onChange, options, placeholder }: {
 }) {
   const hasPlaceholder = placeholder && !options.some((o) => o.code === "");
   return (
-    <select className="form-select" value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={value} onChange={(e) => onChange(e.target.value)}>
       {hasPlaceholder && <option value="">{placeholder}</option>}
       {options.map((o) => <option key={o.code} value={o.code}>{o.text}</option>)}
     </select>
@@ -504,15 +505,15 @@ function CamposPersonalizadosTab({ vagaId }: { vagaId?: string }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">Campos adicionais exibidos no formulário de candidatura do Portal.</div>
-        {!adding && <button className="btn-brand text-xs px-3 py-1" type="button" onClick={() => { resetForm(); setAdding(true); }}>+ Adicionar campo</button>}
+        {!adding && <Button size="sm" onClick={() => { resetForm(); setAdding(true); }}>+ Adicionar campo</Button>}
       </div>
 
       {adding && (
         <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/20">
           <div className="grid grid-cols-12 gap-2">
-            <div className="col-span-5"><input className="form-control text-sm" placeholder="Label (ex: Possui CNH?)" value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} /></div>
+            <div className="col-span-5"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm text-sm" placeholder="Label (ex: Possui CNH?)" value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} /></div>
             <div className="col-span-3">
-              <select className="form-select text-sm" value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: Number(e.target.value) }))}>
+              <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm" value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: Number(e.target.value) }))}>
                 <option value={0}>Texto</option><option value={1}>Select</option><option value={2}>Checkbox</option><option value={3}>Numero</option>
               </select>
             </div>
@@ -524,14 +525,14 @@ function CamposPersonalizadosTab({ vagaId }: { vagaId?: string }) {
             </div>
           </div>
           {form.tipo === 1 && (
-            <input className="form-control text-sm" placeholder="Opções separadas por ; (ex: Sim;Não;Talvez)" value={form.opcoes} onChange={(e) => setForm((f) => ({ ...f, opcoes: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm text-sm" placeholder="Opções separadas por ; (ex: Sim;Não;Talvez)" value={form.opcoes} onChange={(e) => setForm((f) => ({ ...f, opcoes: e.target.value }))} />
           )}
           {form.isReadOnly && (
-            <input className="form-control text-sm" placeholder="Valor padrão (fixo para o candidato)" value={form.valorPadrao} onChange={(e) => setForm((f) => ({ ...f, valorPadrao: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm text-sm" placeholder="Valor padrão (fixo para o candidato)" value={form.valorPadrao} onChange={(e) => setForm((f) => ({ ...f, valorPadrao: e.target.value }))} />
           )}
           <div className="flex gap-2">
-            <button className="btn-brand text-xs px-3 py-1" type="button" onClick={() => void save()}>{editId ? "Atualizar" : "Salvar"}</button>
-            <button className="btn-ghost text-xs px-3 py-1" type="button" onClick={resetForm}>Cancelar</button>
+            <Button size="sm" onClick={() => void save()}>{editId ? "Atualizar" : "Salvar"}</Button>
+            <Button variant="outline" size="sm" onClick={resetForm}>Cancelar</Button>
           </div>
         </div>
       )}
@@ -553,8 +554,8 @@ function CamposPersonalizadosTab({ vagaId }: { vagaId?: string }) {
                 <td className="py-1 px-2">{c.isReadOnly ? "Sim" : "Não"}</td>
                 <td className="py-1 px-2 text-xs text-muted-foreground truncate max-w-[150px]">{c.opcoes || "—"}</td>
                 <td className="py-1 px-2 flex gap-1">
-                  <button className="btn-ghost text-xs px-2 py-0.5" type="button" onClick={() => startEdit(c)}>Editar</button>
-                  <button className="btn-ghost text-xs px-2 py-0.5 text-red-600" type="button" onClick={() => void remove(c.id)}>Excluir</button>
+                  <Button variant="outline" size="sm" onClick={() => startEdit(c)}>Editar</Button>
+                  <Button variant="destructive" size="sm" onClick={() => void remove(c.id)}>Excluir</Button>
                 </td>
               </tr>
             ))}
@@ -757,7 +758,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
             <h5 className="fw-bold text-lg">{draft.id ? "Editar vaga" : "Nova vaga"}</h5>
             <div className="text-muted-foreground text-sm">Dados principais da vaga. Requisitos e pesos ficam nos detalhes.</div>
           </div>
-          <button className="btn-ghost px-3 py-2" type="button" onClick={onClose}>Fechar</button>
+          <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
         </div>
 
         {/* Tab pills */}
@@ -784,7 +785,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
               <div className="col-span-12">
                 <label className="form-label small text-muted-foreground block mb-1">Copiar de outra vaga</label>
                 <div className="relative">
-                  <input className="form-control" placeholder="Buscar vaga para copiar dados..." value={copySearch} onChange={(e) => setCopySearch(e.target.value)} />
+                  <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Buscar vaga para copiar dados..." value={copySearch} onChange={(e) => setCopySearch(e.target.value)} />
                   {filteredCopyVagas.length > 0 && (
                     <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {filteredCopyVagas.map((v) => (
@@ -798,11 +799,11 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
                 <div className="text-muted-foreground text-xs mt-1">Selecione uma vaga para preencher o formulário com seus dados (edite e salve como nova).</div>
               </div>
               <div className="col-span-12 mt-1"><div className="fw-semibold">Identificação e contexto</div></div>
-              <Field label="Código" span="col-span-12 md:col-span-4"><input className="form-control" placeholder="Ex.: MKT-JR-001" value={draft.codigo} onChange={(e) => set("codigo", e.target.value)} /></Field>
-              <Field label="Título" required span="col-span-12 md:col-span-8"><input className="form-control" placeholder="Ex.: Analista de Marketing Jr" value={draft.titulo} onChange={(e) => set("titulo", e.target.value)} /></Field>
+              <Field label="Código" span="col-span-12 md:col-span-4"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: MKT-JR-001" value={draft.codigo} onChange={(e) => set("codigo", e.target.value)} /></Field>
+              <Field label="Título" required span="col-span-12 md:col-span-8"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Analista de Marketing Jr" value={draft.titulo} onChange={(e) => set("titulo", e.target.value)} /></Field>
               <Field label="Nome Interno (Engessado)" span="col-span-12 md:col-span-8">
                 <input
-                  className="form-control"
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   placeholder="Ex.: Analista de TI Sênior"
                   value={draft.nomeEngessado}
                   onChange={(e) => set("nomeEngessado", e.target.value)}
@@ -816,22 +817,22 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
               <Field label="Modalidade"><EnumSelect value={draft.modalidade} onChange={(v) => set("modalidade", v)} options={enumOpts(enums, "vagaModalidade")} /></Field>
               <Field label="Status" required><EnumSelect value={draft.status} onChange={(v) => set("status", v)} options={enumOpts(enums, "vagaStatus")} /></Field>
               <Field label="Senioridade"><EnumSelect value={draft.senioridade} onChange={(v) => set("senioridade", v)} options={enumOpts(enums, "vagaSenioridade", "Selecionar")} /></Field>
-              <Field label="Qtd. vagas" span="col-span-6 md:col-span-3"><input className="form-control" type="number" min={1} value={draft.quantidadeVagas} onChange={(e) => set("quantidadeVagas", Math.max(1, Number(e.target.value) || 1))} /></Field>
+              <Field label="Qtd. vagas" span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={1} value={draft.quantidadeVagas} onChange={(e) => set("quantidadeVagas", Math.max(1, Number(e.target.value) || 1))} /></Field>
               <Field label="Tipo contratação" span="col-span-6 md:col-span-3"><EnumSelect value={draft.tipoContratacao} onChange={(v) => set("tipoContratacao", v)} options={enumOpts(enums, "vagaTipoContratacao", "Selecionar")} /></Field>
               <Field label="Match mínimo" span="col-span-12 md:col-span-3">
-                <div className="flex items-center gap-1"><input className="form-control" type="number" min={0} max={100} value={draft.matchMinimoPercentual} onChange={(e) => set("matchMinimoPercentual", clamp(Number(e.target.value) || 0, 0, 100))} /><span className="text-sm text-muted-foreground">%</span></div>
+                <div className="flex items-center gap-1"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={0} max={100} value={draft.matchMinimoPercentual} onChange={(e) => set("matchMinimoPercentual", clamp(Number(e.target.value) || 0, 0, 100))} /><span className="text-sm text-muted-foreground">%</span></div>
               </Field>
-              <Field label="Descrição interna" span="col-span-12"><textarea className="form-control" rows={3} placeholder="Resumo interno da vaga, responsabilidades, etc." value={draft.descricaoInterna} onChange={(e) => set("descricaoInterna", e.target.value)} /></Field>
-              <Field label="Código interno" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="EX.: VAG-2025-0012" maxLength={40} value={draft.codigoInterno} onChange={(e) => set("codigoInterno", e.target.value)} /></Field>
-              <Field label="Código CBO" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="0000-00" value={draft.codigoCbo} onChange={(e) => set("codigoCbo", e.target.value)} /></Field>
+              <Field label="Descrição interna" span="col-span-12"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} placeholder="Resumo interno da vaga, responsabilidades, etc." value={draft.descricaoInterna} onChange={(e) => set("descricaoInterna", e.target.value)} /></Field>
+              <Field label="Código interno" span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="EX.: VAG-2025-0012" maxLength={40} value={draft.codigoInterno} onChange={(e) => set("codigoInterno", e.target.value)} /></Field>
+              <Field label="Código CBO" span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="0000-00" value={draft.codigoCbo} onChange={(e) => set("codigoCbo", e.target.value)} /></Field>
               <Field label="Motivo abertura" span="col-span-6 md:col-span-3"><EnumSelect value={draft.motivoAbertura} onChange={(v) => set("motivoAbertura", v)} options={enumOpts(enums, "vagaMotivoAbertura", "Selecionar")} /></Field>
               <Field label="Orçamento aprovado" span="col-span-6 md:col-span-3"><EnumSelect value={draft.orcamentoAprovado} onChange={(v) => set("orcamentoAprovado", v)} options={enumOpts(enums, "vagaOrcamentoAprovado", "Selecionar")} /></Field>
-              <Field label="Gestor requisitante"><input className="form-control" placeholder="Buscar gestor..." maxLength={120} value={draft.gestorRequisitante} onChange={(e) => set("gestorRequisitante", e.target.value)} /></Field>
-              <Field label="Recrutador responsável"><input className="form-control" placeholder="Buscar recrutador..." maxLength={120} value={draft.recrutadorResponsavel} onChange={(e) => set("recrutadorResponsavel", e.target.value)} /></Field>
+              <Field label="Gestor requisitante"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Buscar gestor..." maxLength={120} value={draft.gestorRequisitante} onChange={(e) => set("gestorRequisitante", e.target.value)} /></Field>
+              <Field label="Recrutador responsável"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Buscar recrutador..." maxLength={120} value={draft.recrutadorResponsavel} onChange={(e) => set("recrutadorResponsavel", e.target.value)} /></Field>
               <Field label="Prioridade"><EnumSelect value={draft.prioridade} onChange={(v) => set("prioridade", v)} options={enumOpts(enums, "vagaPrioridade", "Selecionar")} /></Field>
-              <Field label="Resumo / pitch da vaga" span="col-span-12"><textarea className="form-control" rows={2} placeholder="Explique rapidamente o propósito da vaga e o diferencial." value={draft.resumoPitch} onChange={(e) => set("resumoPitch", e.target.value)} /></Field>
-              <Field label="Responsabilidades (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="form-control" rows={2} placeholder="Ex.: triagem de currículos; entrevistas; alinhamento com gestores" value={draft.tagsResponsabilidades} onChange={(e) => set("tagsResponsabilidades", e.target.value)} /></Field>
-              <Field label="Palavras-chave (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="form-control" rows={2} placeholder="Ex.: recrutamento; ATS; entrevistas por competência" value={draft.tagsKeywords} onChange={(e) => set("tagsKeywords", e.target.value)} /></Field>
+              <Field label="Resumo / pitch da vaga" span="col-span-12"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Explique rapidamente o propósito da vaga e o diferencial." value={draft.resumoPitch} onChange={(e) => set("resumoPitch", e.target.value)} /></Field>
+              <Field label="Responsabilidades (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Ex.: triagem de currículos; entrevistas; alinhamento com gestores" value={draft.tagsResponsabilidades} onChange={(e) => set("tagsResponsabilidades", e.target.value)} /></Field>
+              <Field label="Palavras-chave (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Ex.: recrutamento; ATS; entrevistas por competência" value={draft.tagsKeywords} onChange={(e) => set("tagsKeywords", e.target.value)} /></Field>
               <div className="col-span-12 flex flex-wrap gap-6 mt-1">
                 <Field label="Confidencial?" span=""><Toggle label="Ocultar empresa/gestor em canais públicos" checked={draft.confidencial} onChange={(v) => set("confidencial", v)} /></Field>
                 <Field label="Aceita PCD?" span=""><Toggle label="Vaga inclusiva" checked={draft.aceitaPcd} onChange={(v) => set("aceitaPcd", v)} /></Field>
@@ -846,18 +847,18 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
               <Field label="Preferência de gênero"><EnumSelect value={draft.generoPreferencia} onChange={(v) => set("generoPreferencia", v)} options={enumOpts(enums, "vagaGeneroPreferencia", "Selecionar preferência")} /></Field>
               <Field label="Vaga afirmativa?" span="col-span-6 md:col-span-4"><Toggle label="Sim" checked={draft.vagaAfirmativa} onChange={(v) => set("vagaAfirmativa", v)} /></Field>
               <Field label="Linguagem inclusiva" span="col-span-6 md:col-span-4"><Toggle label="Revisar descrição" checked={draft.linguagemInclusiva} onChange={(v) => set("linguagemInclusiva", v)} /></Field>
-              <Field label="Público afirmativo (opcional)" span="col-span-12 md:col-span-6"><input className="form-control" placeholder="Ex.: PCD; Mulheres; Pessoas Negras" maxLength={120} value={draft.publicoAfirmativo} onChange={(e) => set("publicoAfirmativo", e.target.value)} /></Field>
-              <Field label="Observações PCD" span="col-span-12 md:col-span-6"><input className="form-control" placeholder="Ex.: acomodações ou ajustes necessários" value={draft.observacoesPcd} onChange={(e) => set("observacoesPcd", e.target.value)} /></Field>
+              <Field label="Público afirmativo (opcional)" span="col-span-12 md:col-span-6"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: PCD; Mulheres; Pessoas Negras" maxLength={120} value={draft.publicoAfirmativo} onChange={(e) => set("publicoAfirmativo", e.target.value)} /></Field>
+              <Field label="Observações PCD" span="col-span-12 md:col-span-6"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: acomodações ou ajustes necessários" value={draft.observacoesPcd} onChange={(e) => set("observacoesPcd", e.target.value)} /></Field>
             </div>
           )}
 
           {/* ── Projeto ──────────────────────────────────────────── */}
           {tab === "projeto" && (
             <div className="grid grid-cols-12 gap-x-3 gap-y-2 mt-2">
-              <Field label="Nome do projeto"><input className="form-control" placeholder="Ex.: Migração RH" value={draft.projetoNome} onChange={(e) => set("projetoNome", e.target.value)} /></Field>
-              <Field label="Cliente/Área impactada"><input className="form-control" placeholder="Ex.: Operações" value={draft.projetoCliente} onChange={(e) => set("projetoCliente", e.target.value)} /></Field>
-              <Field label="Prazo previsto"><input className="form-control" placeholder="Ex.: Q3/2025" value={draft.projetoPrazo} onChange={(e) => set("projetoPrazo", e.target.value)} /></Field>
-              <Field label="Descrição do projeto" span="col-span-12"><textarea className="form-control" rows={2} placeholder="Escopo e objetivos do projeto." value={draft.projetoDescricao} onChange={(e) => set("projetoDescricao", e.target.value)} /></Field>
+              <Field label="Nome do projeto"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Migração RH" value={draft.projetoNome} onChange={(e) => set("projetoNome", e.target.value)} /></Field>
+              <Field label="Cliente/Área impactada"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Operações" value={draft.projetoCliente} onChange={(e) => set("projetoCliente", e.target.value)} /></Field>
+              <Field label="Prazo previsto"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Q3/2025" value={draft.projetoPrazo} onChange={(e) => set("projetoPrazo", e.target.value)} /></Field>
+              <Field label="Descrição do projeto" span="col-span-12"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Escopo e objetivos do projeto." value={draft.projetoDescricao} onChange={(e) => set("projetoDescricao", e.target.value)} /></Field>
             </div>
           )}
 
@@ -865,19 +866,19 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
           {tab === "local" && (
             <div className="grid grid-cols-12 gap-x-3 gap-y-2 mt-2">
               <Field label="Regime"><EnumSelect value={draft.regime} onChange={(v) => set("regime", v)} options={enumOpts(enums, "vagaRegimeJornada", "Selecionar")} /></Field>
-              <Field label="Carga semanal (h)"><input className="form-control" placeholder="40" value={draft.cargaSemanalHoras} onChange={(e) => set("cargaSemanalHoras", e.target.value)} /></Field>
+              <Field label="Carga semanal (h)"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="40" value={draft.cargaSemanalHoras} onChange={(e) => set("cargaSemanalHoras", e.target.value)} /></Field>
               <Field label="Escala"><EnumSelect value={draft.escala} onChange={(v) => set("escala", v)} options={enumOpts(enums, "vagaEscalaTrabalho", "Selecionar")} /></Field>
-              <Field label="Entrada"><input className="form-control" type="time" value={draft.horaEntrada} onChange={(e) => set("horaEntrada", e.target.value)} /></Field>
-              <Field label="Saída"><input className="form-control" type="time" value={draft.horaSaida} onChange={(e) => set("horaSaida", e.target.value)} /></Field>
-              <Field label="Intervalo"><input className="form-control" placeholder="01:00" value={draft.intervalo} onChange={(e) => set("intervalo", e.target.value)} /></Field>
-              <Field label="CEP" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="00000-000" value={draft.cep} onChange={(e) => set("cep", e.target.value)} /></Field>
-              <Field label="Logradouro" span="col-span-12 md:col-span-5"><input className="form-control" placeholder="Rua / Av." value={draft.logradouro} onChange={(e) => set("logradouro", e.target.value)} /></Field>
-              <Field label="Número" span="col-span-6 md:col-span-2"><input className="form-control" placeholder="123" value={draft.numero} onChange={(e) => set("numero", e.target.value)} /></Field>
-              <Field label="Bairro" span="col-span-6 md:col-span-2"><input className="form-control" placeholder="Centro" value={draft.bairro} onChange={(e) => set("bairro", e.target.value)} /></Field>
-              <Field label="Cidade"><input className="form-control" placeholder="Ex.: Embu das Artes" value={draft.cidade} onChange={(e) => set("cidade", e.target.value)} /></Field>
-              <Field label="UF" span="col-span-4 md:col-span-2"><input className="form-control" placeholder="SP" maxLength={2} value={draft.uf} onChange={(e) => set("uf", e.target.value.toUpperCase())} /></Field>
-              <Field label="Política de trabalho" span="col-span-12 md:col-span-6"><input className="form-control" placeholder="Ex.: 2 dias presencial, 3 remoto" value={draft.politicaTrabalho} onChange={(e) => set("politicaTrabalho", e.target.value)} /></Field>
-              <Field label="Obs. deslocamento" span="col-span-12 md:col-span-6"><input className="form-control" placeholder="Ex.: viagens 1x/mês" value={draft.observacoesDeslocamento} onChange={(e) => set("observacoesDeslocamento", e.target.value)} /></Field>
+              <Field label="Entrada"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="time" value={draft.horaEntrada} onChange={(e) => set("horaEntrada", e.target.value)} /></Field>
+              <Field label="Saída"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="time" value={draft.horaSaida} onChange={(e) => set("horaSaida", e.target.value)} /></Field>
+              <Field label="Intervalo"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="01:00" value={draft.intervalo} onChange={(e) => set("intervalo", e.target.value)} /></Field>
+              <Field label="CEP" span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="00000-000" value={draft.cep} onChange={(e) => set("cep", e.target.value)} /></Field>
+              <Field label="Logradouro" span="col-span-12 md:col-span-5"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Rua / Av." value={draft.logradouro} onChange={(e) => set("logradouro", e.target.value)} /></Field>
+              <Field label="Número" span="col-span-6 md:col-span-2"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="123" value={draft.numero} onChange={(e) => set("numero", e.target.value)} /></Field>
+              <Field label="Bairro" span="col-span-6 md:col-span-2"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Centro" value={draft.bairro} onChange={(e) => set("bairro", e.target.value)} /></Field>
+              <Field label="Cidade"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Embu das Artes" value={draft.cidade} onChange={(e) => set("cidade", e.target.value)} /></Field>
+              <Field label="UF" span="col-span-4 md:col-span-2"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="SP" maxLength={2} value={draft.uf} onChange={(e) => set("uf", e.target.value.toUpperCase())} /></Field>
+              <Field label="Política de trabalho" span="col-span-12 md:col-span-6"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: 2 dias presencial, 3 remoto" value={draft.politicaTrabalho} onChange={(e) => set("politicaTrabalho", e.target.value)} /></Field>
+              <Field label="Obs. deslocamento" span="col-span-12 md:col-span-6"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: viagens 1x/mês" value={draft.observacoesDeslocamento} onChange={(e) => set("observacoesDeslocamento", e.target.value)} /></Field>
             </div>
           )}
 
@@ -885,25 +886,25 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
           {tab === "remuneracao" && (
             <div className="grid grid-cols-12 gap-x-3 gap-y-2 mt-2">
               <Field label="Moeda" span="col-span-6 md:col-span-3"><EnumSelect value={draft.moeda} onChange={(v) => set("moeda", v)} options={enumOpts(enums, "vagaMoeda", "Selecionar")} /></Field>
-              <Field label="Salário mínimo" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="0,00" value={draft.salarioMinimo} onChange={(e) => set("salarioMinimo", e.target.value)} /></Field>
-              <Field label="Salário máximo" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="0,00" value={draft.salarioMaximo} onChange={(e) => set("salarioMaximo", e.target.value)} /></Field>
+              <Field label="Salário mínimo" span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="0,00" value={draft.salarioMinimo} onChange={(e) => set("salarioMinimo", e.target.value)} /></Field>
+              <Field label="Salário máximo" span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="0,00" value={draft.salarioMaximo} onChange={(e) => set("salarioMaximo", e.target.value)} /></Field>
               <Field label="Periodicidade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.periodicidade} onChange={(v) => set("periodicidade", v)} options={enumOpts(enums, "vagaRemuneracaoPeriodicidade", "Selecionar")} /></Field>
               <Field label="Bônus/Pagamento extra"><EnumSelect value={draft.bonusTipo} onChange={(v) => set("bonusTipo", v)} options={enumOpts(enums, "vagaBonusTipo", "Selecionar")} /></Field>
-              <Field label="% bônus/pagamento extra"><input className="form-control" placeholder="0,00%" value={draft.bonusPercentual} onChange={(e) => set("bonusPercentual", e.target.value)} /></Field>
-              <Field label="Obs. remuneração"><input className="form-control" placeholder="Ex.: faixa depende de senioridade" value={draft.observacoesRemuneracao} onChange={(e) => set("observacoesRemuneracao", e.target.value)} /></Field>
+              <Field label="% bônus/pagamento extra"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="0,00%" value={draft.bonusPercentual} onChange={(e) => set("bonusPercentual", e.target.value)} /></Field>
+              <Field label="Obs. remuneração"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: faixa depende de senioridade" value={draft.observacoesRemuneracao} onChange={(e) => set("observacoesRemuneracao", e.target.value)} /></Field>
               <div className="col-span-12 flex items-center justify-between gap-2 mt-2">
                 <div><div className="fw-semibold">Benefícios</div><div className="text-muted-foreground text-xs">Adicione benefícios com tipo, valor e detalhes.</div></div>
-                <button className="btn-ghost text-sm" type="button" onClick={() => setList("beneficios", (l) => [...l, { tipo: "", valor: "", recorrencia: "mensal", obrigatorio: true, obs: "" }])}>+ Adicionar</button>
+                <Button variant="outline" size="sm" onClick={() => setList("beneficios", (l) => [...l, { tipo: "", valor: "", recorrencia: "mensal", obrigatorio: true, obs: "" }])}>+ Adicionar</Button>
               </div>
               {draft.beneficios.map((b, i) => (
                 <div key={i} className="col-span-12 card-soft p-3">
-                  <div className="flex justify-between items-start mb-2"><span className="fw-semibold text-sm">Benefício #{i + 1}</span><button type="button" className="btn-ghost text-red-600 text-xs" onClick={() => setList("beneficios", (l) => l.filter((_, j) => j !== i))}>Remover</button></div>
+                  <div className="flex justify-between items-start mb-2"><span className="fw-semibold text-sm">Benefício #{i + 1}</span><Button variant="destructive" size="sm" onClick={() => setList("beneficios", (l) => l.filter((_, j) => j !== i))}>Remover</Button></div>
                   <div className="grid grid-cols-12 gap-2">
                     <Field label="Tipo" span="col-span-12 md:col-span-4"><EnumSelect value={b.tipo} onChange={(v) => setList("beneficios", (l) => l.map((x, j) => j === i ? { ...x, tipo: v } : x))} options={enumOpts(enums, "vagaBeneficioTipo", "Selecionar")} /></Field>
-                    <Field label="Valor" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="R$ 0,00" value={b.valor} onChange={(e) => setList("beneficios", (l) => l.map((x, j) => j === i ? { ...x, valor: e.target.value } : x))} /></Field>
+                    <Field label="Valor" span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="R$ 0,00" value={b.valor} onChange={(e) => setList("beneficios", (l) => l.map((x, j) => j === i ? { ...x, valor: e.target.value } : x))} /></Field>
                     <Field label="Recorrência" span="col-span-6 md:col-span-3"><EnumSelect value={b.recorrencia} onChange={(v) => setList("beneficios", (l) => l.map((x, j) => j === i ? { ...x, recorrencia: v } : x))} options={enumOpts(enums, "vagaBeneficioRecorrencia")} /></Field>
                     <Field label="Obrigatório?" span="col-span-6 md:col-span-2"><Toggle label="Sim" checked={b.obrigatorio} onChange={(v) => setList("beneficios", (l) => l.map((x, j) => j === i ? { ...x, obrigatorio: v } : x))} /></Field>
-                    <Field label="Observações" span="col-span-12"><input className="form-control" placeholder="Ex.: coparticipação, carência, faixa" value={b.obs} onChange={(e) => setList("beneficios", (l) => l.map((x, j) => j === i ? { ...x, obs: e.target.value } : x))} /></Field>
+                    <Field label="Observações" span="col-span-12"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: coparticipação, carência, faixa" value={b.obs} onChange={(e) => setList("beneficios", (l) => l.map((x, j) => j === i ? { ...x, obs: e.target.value } : x))} /></Field>
                   </div>
                 </div>
               ))}
@@ -915,29 +916,29 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
             <div className="grid grid-cols-12 gap-x-3 gap-y-2 mt-2">
               <Field label="Escolaridade"><EnumSelect value={draft.escolaridade} onChange={(v) => set("escolaridade", v)} options={enumOpts(enums, "vagaEscolaridade", "Selecionar")} /></Field>
               <Field label="Área de formação"><EnumSelect value={draft.formacaoArea} onChange={(v) => set("formacaoArea", v)} options={enumOpts(enums, "vagaFormacaoArea", "Selecionar")} /></Field>
-              <Field label="Experiência mín. (anos)"><input className="form-control" placeholder="0" value={draft.experienciaMinimaAnos} onChange={(e) => set("experienciaMinimaAnos", e.target.value)} /></Field>
-              <Field label="Stack / Ferramentas (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="form-control" rows={2} placeholder="Ex.: Excel; Power BI; ATS" value={draft.tagsStack} onChange={(e) => set("tagsStack", e.target.value)} /></Field>
-              <Field label="Idiomas (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="form-control" rows={2} placeholder="Ex.: Inglês (B2); Espanhol (A2)" value={draft.tagsIdiomas} onChange={(e) => set("tagsIdiomas", e.target.value)} /></Field>
+              <Field label="Experiência mín. (anos)"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="0" value={draft.experienciaMinimaAnos} onChange={(e) => set("experienciaMinimaAnos", e.target.value)} /></Field>
+              <Field label="Stack / Ferramentas (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Ex.: Excel; Power BI; ATS" value={draft.tagsStack} onChange={(e) => set("tagsStack", e.target.value)} /></Field>
+              <Field label="Idiomas (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Ex.: Inglês (B2); Espanhol (A2)" value={draft.tagsIdiomas} onChange={(e) => set("tagsIdiomas", e.target.value)} /></Field>
               <div className="col-span-12 flex items-center justify-between gap-2 mt-2">
                 <div><div className="fw-semibold">Requisitos detalhados</div><div className="text-muted-foreground text-xs">Peso, obrigatório, nível e avaliação.</div></div>
-                <button className="btn-ghost text-sm" type="button" onClick={() => setList("requisitos", (l) => [...l, { nome: "", categoria: "competencia", peso: "1", obrigatorio: false, anosMinimos: "", nivel: "", avaliacao: "", sinonimos: "", obs: "" }])}>+ Adicionar</button>
+                <Button variant="outline" size="sm" onClick={() => setList("requisitos", (l) => [...l, { nome: "", categoria: "competencia", peso: "1", obrigatorio: false, anosMinimos: "", nivel: "", avaliacao: "", sinonimos: "", obs: "" }])}>+ Adicionar</Button>
               </div>
               {draft.requisitos.map((r, i) => (
                 <div key={i} className="col-span-12 card-soft p-3">
-                  <div className="flex justify-between items-start mb-2"><span className="fw-semibold text-sm">Requisito #{i + 1}</span><button type="button" className="btn-ghost text-red-600 text-xs" onClick={() => setList("requisitos", (l) => l.filter((_, j) => j !== i))}>Remover</button></div>
+                  <div className="flex justify-between items-start mb-2"><span className="fw-semibold text-sm">Requisito #{i + 1}</span><Button variant="destructive" size="sm" onClick={() => setList("requisitos", (l) => l.filter((_, j) => j !== i))}>Remover</Button></div>
                   <div className="grid grid-cols-12 gap-2">
-                    <Field label="Requisito" span="col-span-12 md:col-span-6"><input className="form-control" placeholder="Ex.: Excel avançado, SQL, etc." value={r.nome} onChange={(e) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, nome: e.target.value } : x))} /></Field>
+                    <Field label="Requisito" span="col-span-12 md:col-span-6"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Excel avançado, SQL, etc." value={r.nome} onChange={(e) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, nome: e.target.value } : x))} /></Field>
                     <Field label="Peso (1-10)" span="col-span-6 md:col-span-2"><EnumSelect value={r.peso} onChange={(v) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, peso: v } : x))} options={enumOpts(enums, "vagaPeso").length ? enumOpts(enums, "vagaPeso") : Array.from({ length: 10 }, (_, k) => ({ code: String(k + 1), text: String(k + 1) }))} /></Field>
                     <Field label="Obrigatório" span="col-span-6 md:col-span-2"><Toggle label="Sim" checked={r.obrigatorio} onChange={(v) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, obrigatorio: v } : x))} /></Field>
-                    <Field label="Anos mín." span="col-span-6 md:col-span-2"><input className="form-control" placeholder="0" value={r.anosMinimos} onChange={(e) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, anosMinimos: e.target.value } : x))} /></Field>
+                    <Field label="Anos mín." span="col-span-6 md:col-span-2"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="0" value={r.anosMinimos} onChange={(e) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, anosMinimos: e.target.value } : x))} /></Field>
                     <Field label="Nível" span="col-span-6 md:col-span-4"><EnumSelect value={r.nivel} onChange={(v) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, nivel: v } : x))} options={enumOpts(enums, "vagaRequisitoNivel", "Selecionar")} /></Field>
                     <Field label="Avaliação" span="col-span-6 md:col-span-4"><EnumSelect value={r.avaliacao} onChange={(v) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, avaliacao: v } : x))} options={enumOpts(enums, "vagaRequisitoAvaliacao", "Selecionar")} /></Field>
-                    <Field label="Sinônimos (vírgula)" span="col-span-12 md:col-span-4"><input className="form-control" placeholder="Ex.: pbi, powerbi, business intelligence" value={r.sinonimos} onChange={(e) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, sinonimos: e.target.value } : x))} /></Field>
-                    <Field label="Obs." span="col-span-12"><input className="form-control" placeholder="Ex.: precisa ter aplicado em alto volume" value={r.obs} onChange={(e) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, obs: e.target.value } : x))} /></Field>
+                    <Field label="Sinônimos (vírgula)" span="col-span-12 md:col-span-4"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: pbi, powerbi, business intelligence" value={r.sinonimos} onChange={(e) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, sinonimos: e.target.value } : x))} /></Field>
+                    <Field label="Obs." span="col-span-12"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: precisa ter aplicado em alto volume" value={r.obs} onChange={(e) => setList("requisitos", (l) => l.map((x, j) => j === i ? { ...x, obs: e.target.value } : x))} /></Field>
                   </div>
                 </div>
               ))}
-              <Field label="Diferenciais" span="col-span-12"><textarea className="form-control" rows={2} placeholder="Ex.: certificações, vivência em alto volume" value={draft.diferenciais} onChange={(e) => set("diferenciais", e.target.value)} /></Field>
+              <Field label="Diferenciais" span="col-span-12"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Ex.: certificações, vivência em alto volume" value={draft.diferenciais} onChange={(e) => set("diferenciais", e.target.value)} /></Field>
             </div>
           )}
 
@@ -949,9 +950,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
               <Field label="Senioridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingSenioridade} onChange={(v) => set("matchingSenioridade", v)} options={enumOpts(enums, "vagaSenioridade", "Qualquer")} /></Field>
               <Field label="Escolaridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingEscolaridade} onChange={(v) => set("matchingEscolaridade", v)} options={enumOpts(enums, "vagaEscolaridade", "Qualquer")} /></Field>
               <Field label="Formação (área)" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingFormacaoArea} onChange={(v) => set("matchingFormacaoArea", v)} options={enumOpts(enums, "vagaFormacaoArea", "Qualquer")} /></Field>
-              <Field label="Cidade" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="Ex.: São Paulo" value={draft.matchingCidade} onChange={(e) => set("matchingCidade", e.target.value)} /></Field>
+              <Field label="Cidade" span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: São Paulo" value={draft.matchingCidade} onChange={(e) => set("matchingCidade", e.target.value)} /></Field>
               <Field label="UF" span="col-span-6 md:col-span-3">
-                <select className="form-select" value={draft.matchingUF} onChange={(e) => set("matchingUF", e.target.value)}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={draft.matchingUF} onChange={(e) => set("matchingUF", e.target.value)}>
                   <option value="">Qualquer</option>
                   {UF_LIST.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
@@ -959,24 +960,24 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
               <Field label="Tempo de experiência" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingExp} onChange={(v) => set("matchingExp", v)} options={EXP_OPTIONS} /></Field>
               <Field label="Sexo" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingSexo} onChange={(v) => set("matchingSexo", v)} options={SEXO_OPTIONS} /></Field>
               <Field label="PCD" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingPcd} onChange={(v) => set("matchingPcd", v)} options={PCD_MATCH_OPTIONS} /></Field>
-              <Field label="Idade mín." span="col-span-6 md:col-span-2"><input className="form-control" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMin} onChange={(e) => set("matchingIdadeMin", e.target.value)} /></Field>
-              <Field label="Idade máx." span="col-span-6 md:col-span-2"><input className="form-control" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMax} onChange={(e) => set("matchingIdadeMax", e.target.value)} /></Field>
+              <Field label="Idade mín." span="col-span-6 md:col-span-2"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMin} onChange={(e) => set("matchingIdadeMin", e.target.value)} /></Field>
+              <Field label="Idade máx." span="col-span-6 md:col-span-2"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMax} onChange={(e) => set("matchingIdadeMax", e.target.value)} /></Field>
               <div className="col-span-12 md:col-span-5 flex items-end gap-3 pb-1">
                 <Toggle label="Requer CNH" checked={draft.matchingRequerCnh} onChange={(v) => set("matchingRequerCnh", v)} />
                 {draft.matchingRequerCnh && (
-                  <select className="form-select w-auto" value={draft.matchingCnhCategoria} onChange={(e) => set("matchingCnhCategoria", e.target.value)}>
+                  <select className="h-9 rounded-md border border-input bg-background px-3 text-sm w-auto" value={draft.matchingCnhCategoria} onChange={(e) => set("matchingCnhCategoria", e.target.value)}>
                     {CNH_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 )}
               </div>
-              <Field label="Habilidades desejadas" span="col-span-12"><input className="form-control" placeholder="Ex.: .NET, SQL, APIs REST (separadas por vírgula)" value={draft.matchingHabilidades} onChange={(e) => set("matchingHabilidades", e.target.value)} /></Field>
-              <Field label="Observações adicionais (opcional)" span="col-span-12"><textarea className="form-control" rows={2} placeholder="Outros critérios em texto livre" value={draft.matchingObs} onChange={(e) => set("matchingObs", e.target.value)} /></Field>
+              <Field label="Habilidades desejadas" span="col-span-12"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: .NET, SQL, APIs REST (separadas por vírgula)" value={draft.matchingHabilidades} onChange={(e) => set("matchingHabilidades", e.target.value)} /></Field>
+              <Field label="Observações adicionais (opcional)" span="col-span-12"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Outros critérios em texto livre" value={draft.matchingObs} onChange={(e) => set("matchingObs", e.target.value)} /></Field>
 
               <div className="col-span-12 mt-3"><div className="fw-semibold">Pesos do matching</div><div className="text-muted-foreground text-xs mb-2">Distribua o peso entre as dimensões (total recomendado: 100).</div></div>
-              <Field label={`Competência (${draft.weightsCompetencia})`} span="col-span-6 md:col-span-3"><input className="form-control" type="number" min={0} max={100} value={draft.weightsCompetencia} onChange={(e) => set("weightsCompetencia", Number(e.target.value) || 0)} /></Field>
-              <Field label={`Experiência (${draft.weightsExperiencia})`} span="col-span-6 md:col-span-3"><input className="form-control" type="number" min={0} max={100} value={draft.weightsExperiencia} onChange={(e) => set("weightsExperiencia", Number(e.target.value) || 0)} /></Field>
-              <Field label={`Formação (${draft.weightsFormacao})`} span="col-span-6 md:col-span-3"><input className="form-control" type="number" min={0} max={100} value={draft.weightsFormacao} onChange={(e) => set("weightsFormacao", Number(e.target.value) || 0)} /></Field>
-              <Field label={`Localidade (${draft.weightsLocalidade})`} span="col-span-6 md:col-span-3"><input className="form-control" type="number" min={0} max={100} value={draft.weightsLocalidade} onChange={(e) => set("weightsLocalidade", Number(e.target.value) || 0)} /></Field>
+              <Field label={`Competência (${draft.weightsCompetencia})`} span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={0} max={100} value={draft.weightsCompetencia} onChange={(e) => set("weightsCompetencia", Number(e.target.value) || 0)} /></Field>
+              <Field label={`Experiência (${draft.weightsExperiencia})`} span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={0} max={100} value={draft.weightsExperiencia} onChange={(e) => set("weightsExperiencia", Number(e.target.value) || 0)} /></Field>
+              <Field label={`Formação (${draft.weightsFormacao})`} span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={0} max={100} value={draft.weightsFormacao} onChange={(e) => set("weightsFormacao", Number(e.target.value) || 0)} /></Field>
+              <Field label={`Localidade (${draft.weightsLocalidade})`} span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={0} max={100} value={draft.weightsLocalidade} onChange={(e) => set("weightsLocalidade", Number(e.target.value) || 0)} /></Field>
               <div className="col-span-12"><span className={`badge-soft ${weightsTotal === 100 ? "" : "text-red-600"}`}>Total: {weightsTotal}%{weightsTotal !== 100 && " (recomendado: 100%)"}</span></div>
             </div>
           )}
@@ -986,38 +987,38 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
             <div className="grid grid-cols-12 gap-x-3 gap-y-2 mt-2">
               <div className="col-span-12 flex items-center justify-between gap-2">
                 <div><div className="fw-semibold">Etapas do processo</div><div className="text-muted-foreground text-xs">Defina responsáveis, modo e SLA.</div></div>
-                <button className="btn-ghost text-sm" type="button" onClick={() => setList("etapas", (l) => [...l, { nome: "", responsavel: "", modo: "", slaDias: "3", descricao: "" }])}>+ Adicionar</button>
+                <Button variant="outline" size="sm" onClick={() => setList("etapas", (l) => [...l, { nome: "", responsavel: "", modo: "", slaDias: "3", descricao: "" }])}>+ Adicionar</Button>
               </div>
               {draft.etapas.map((e, i) => (
                 <div key={i} className="col-span-12 card-soft p-3">
-                  <div className="flex justify-between items-start mb-2"><span className="fw-semibold text-sm">Etapa #{i + 1}</span><button type="button" className="btn-ghost text-red-600 text-xs" onClick={() => setList("etapas", (l) => l.filter((_, j) => j !== i))}>Remover</button></div>
+                  <div className="flex justify-between items-start mb-2"><span className="fw-semibold text-sm">Etapa #{i + 1}</span><Button variant="destructive" size="sm" onClick={() => setList("etapas", (l) => l.filter((_, j) => j !== i))}>Remover</Button></div>
                   <div className="grid grid-cols-12 gap-2">
-                    <Field label="Nome da etapa" span="col-span-12 md:col-span-4"><input className="form-control" placeholder="Ex.: Entrevista RH" value={e.nome} onChange={(ev) => setList("etapas", (l) => l.map((x, j) => j === i ? { ...x, nome: ev.target.value } : x))} /></Field>
+                    <Field label="Nome da etapa" span="col-span-12 md:col-span-4"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Entrevista RH" value={e.nome} onChange={(ev) => setList("etapas", (l) => l.map((x, j) => j === i ? { ...x, nome: ev.target.value } : x))} /></Field>
                     <Field label="Responsável" span="col-span-12 md:col-span-3"><EnumSelect value={e.responsavel} onChange={(v) => setList("etapas", (l) => l.map((x, j) => j === i ? { ...x, responsavel: v } : x))} options={enumOpts(enums, "vagaEtapaResponsavel", "Selecionar")} /></Field>
                     <Field label="Modo" span="col-span-6 md:col-span-2"><EnumSelect value={e.modo} onChange={(v) => setList("etapas", (l) => l.map((x, j) => j === i ? { ...x, modo: v } : x))} options={enumOpts(enums, "vagaEtapaModo", "Selecionar")} /></Field>
-                    <Field label="SLA (dias)" span="col-span-6 md:col-span-3"><input className="form-control" placeholder="3" value={e.slaDias} onChange={(ev) => setList("etapas", (l) => l.map((x, j) => j === i ? { ...x, slaDias: ev.target.value } : x))} /></Field>
-                    <Field label="Descrição / instruções" span="col-span-12"><input className="form-control" placeholder="Ex.: entrevista por competências, 45min" value={e.descricao} onChange={(ev) => setList("etapas", (l) => l.map((x, j) => j === i ? { ...x, descricao: ev.target.value } : x))} /></Field>
+                    <Field label="SLA (dias)" span="col-span-6 md:col-span-3"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="3" value={e.slaDias} onChange={(ev) => setList("etapas", (l) => l.map((x, j) => j === i ? { ...x, slaDias: ev.target.value } : x))} /></Field>
+                    <Field label="Descrição / instruções" span="col-span-12"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: entrevista por competências, 45min" value={e.descricao} onChange={(ev) => setList("etapas", (l) => l.map((x, j) => j === i ? { ...x, descricao: ev.target.value } : x))} /></Field>
                   </div>
                 </div>
               ))}
               <div className="col-span-12 flex items-center justify-between gap-2 mt-2">
                 <div><div className="fw-semibold">Perguntas de triagem</div><div className="text-muted-foreground text-xs">Knockout, peso e opções.</div></div>
-                <button className="btn-ghost text-sm" type="button" onClick={() => setList("perguntasTriagem", (l) => [...l, { texto: "", tipo: "", peso: "1", obrigatoria: true, knockout: false, opcoes: "" }])}>+ Adicionar</button>
+                <Button variant="outline" size="sm" onClick={() => setList("perguntasTriagem", (l) => [...l, { texto: "", tipo: "", peso: "1", obrigatoria: true, knockout: false, opcoes: "" }])}>+ Adicionar</Button>
               </div>
               {draft.perguntasTriagem.map((p, i) => (
                 <div key={i} className="col-span-12 card-soft p-3">
-                  <div className="flex justify-between items-start mb-2"><span className="fw-semibold text-sm">Pergunta #{i + 1}</span><button type="button" className="btn-ghost text-red-600 text-xs" onClick={() => setList("perguntasTriagem", (l) => l.filter((_, j) => j !== i))}>Remover</button></div>
+                  <div className="flex justify-between items-start mb-2"><span className="fw-semibold text-sm">Pergunta #{i + 1}</span><Button variant="destructive" size="sm" onClick={() => setList("perguntasTriagem", (l) => l.filter((_, j) => j !== i))}>Remover</Button></div>
                   <div className="grid grid-cols-12 gap-2">
-                    <Field label="Pergunta" span="col-span-12"><input className="form-control" placeholder="Ex.: Tem disponibilidade para presencial 2x por semana?" value={p.texto} onChange={(ev) => setList("perguntasTriagem", (l) => l.map((x, j) => j === i ? { ...x, texto: ev.target.value } : x))} /></Field>
+                    <Field label="Pergunta" span="col-span-12"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Tem disponibilidade para presencial 2x por semana?" value={p.texto} onChange={(ev) => setList("perguntasTriagem", (l) => l.map((x, j) => j === i ? { ...x, texto: ev.target.value } : x))} /></Field>
                     <Field label="Tipo" span="col-span-12 md:col-span-4"><EnumSelect value={p.tipo} onChange={(v) => setList("perguntasTriagem", (l) => l.map((x, j) => j === i ? { ...x, tipo: v } : x))} options={enumOpts(enums, "vagaPerguntaTipo", "Selecionar")} /></Field>
                     <Field label="Peso" span="col-span-6 md:col-span-2"><EnumSelect value={p.peso} onChange={(v) => setList("perguntasTriagem", (l) => l.map((x, j) => j === i ? { ...x, peso: v } : x))} options={enumOpts(enums, "vagaPeso").length ? enumOpts(enums, "vagaPeso") : Array.from({ length: 10 }, (_, k) => ({ code: String(k + 1), text: String(k + 1) }))} /></Field>
                     <Field label="Obrigatória?" span="col-span-6 md:col-span-3"><Toggle label="Sim" checked={p.obrigatoria} onChange={(v) => setList("perguntasTriagem", (l) => l.map((x, j) => j === i ? { ...x, obrigatoria: v } : x))} /></Field>
                     <Field label="Knockout?" span="col-span-6 md:col-span-3"><Toggle label="Sim" checked={p.knockout} onChange={(v) => setList("perguntasTriagem", (l) => l.map((x, j) => j === i ? { ...x, knockout: v } : x))} /></Field>
-                    <Field label="Opções (separe por ;)" span="col-span-12"><input className="form-control" placeholder="Ex.: Sim;Não;Talvez" value={p.opcoes} onChange={(ev) => setList("perguntasTriagem", (l) => l.map((x, j) => j === i ? { ...x, opcoes: ev.target.value } : x))} /></Field>
+                    <Field label="Opções (separe por ;)" span="col-span-12"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Sim;Não;Talvez" value={p.opcoes} onChange={(ev) => setList("perguntasTriagem", (l) => l.map((x, j) => j === i ? { ...x, opcoes: ev.target.value } : x))} /></Field>
                   </div>
                 </div>
               ))}
-              <Field label="Observações internas do processo" span="col-span-12"><textarea className="form-control" rows={2} placeholder="Ex.: aprovações necessárias, critérios de corte" value={draft.observacoesProcesso} onChange={(e) => set("observacoesProcesso", e.target.value)} /></Field>
+              <Field label="Observações internas do processo" span="col-span-12"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Ex.: aprovações necessárias, critérios de corte" value={draft.observacoesProcesso} onChange={(e) => set("observacoesProcesso", e.target.value)} /></Field>
             </div>
           )}
 
@@ -1025,9 +1026,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
           {tab === "publicacao" && (
             <div className="grid grid-cols-12 gap-x-3 gap-y-2 mt-2">
               <Field label="Visibilidade"><EnumSelect value={draft.visibilidade} onChange={(v) => set("visibilidade", v)} options={enumOpts(enums, "vagaPublicacaoVisibilidade", "Selecionar")} /></Field>
-              <Field label="Data de início"><input className="form-control" type="date" value={draft.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} /></Field>
-              <Field label="Data de encerramento"><input className="form-control" type="date" value={draft.dataEncerramento} onChange={(e) => set("dataEncerramento", e.target.value)} /></Field>
-              <Field label="Meta SLA (dias)"><input className="form-control" type="number" min={0} placeholder="Ex.: 30" value={draft.slaDiasMetaFechamento} onChange={(e) => set("slaDiasMetaFechamento", e.target.value)} /></Field>
+              <Field label="Data de início"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="date" value={draft.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} /></Field>
+              <Field label="Data de encerramento"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="date" value={draft.dataEncerramento} onChange={(e) => set("dataEncerramento", e.target.value)} /></Field>
+              <Field label="Meta SLA (dias)"><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={0} placeholder="Ex.: 30" value={draft.slaDiasMetaFechamento} onChange={(e) => set("slaDiasMetaFechamento", e.target.value)} /></Field>
               <div className="col-span-12 mt-1"><div className="fw-semibold text-sm">Canais</div></div>
               <div className="col-span-12 flex flex-wrap gap-4">
                 <Toggle label="LinkedIn" checked={draft.canalLinkedIn} onChange={(v) => set("canalLinkedIn", v)} />
@@ -1035,7 +1036,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
                 <Toggle label="Indicação" checked={draft.canalIndicacao} onChange={(v) => set("canalIndicacao", v)} />
                 <Toggle label="Portais de emprego" checked={draft.canalPortaisEmprego} onChange={(v) => set("canalPortaisEmprego", v)} />
               </div>
-              <Field label="Descrição pública" span="col-span-12"><textarea className="form-control" rows={4} placeholder="Inclua responsabilidades, requisitos e benefícios." value={draft.descricaoPublica} onChange={(e) => set("descricaoPublica", e.target.value)} /></Field>
+              <Field label="Descrição pública" span="col-span-12"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={4} placeholder="Inclua responsabilidades, requisitos e benefícios." value={draft.descricaoPublica} onChange={(e) => set("descricaoPublica", e.target.value)} /></Field>
               <div className="col-span-12 md:col-span-6">
                 <div className="card-soft p-3">
                   <div className="fw-semibold mb-2 text-sm">LGPD / Consentimentos</div>
@@ -1045,7 +1046,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
                     <Toggle label="Retenção por X meses" checked={draft.lgpdRetencao} onChange={(v) => set("lgpdRetencao", v)} />
                   </div>
                   {draft.lgpdRetencao && (
-                    <div className="mt-2"><label className="form-label small text-muted-foreground mb-1 block">Prazo de retenção (meses)</label><input className="form-control" placeholder="12" value={draft.lgpdRetencaoMeses} onChange={(e) => set("lgpdRetencaoMeses", e.target.value)} /></div>
+                    <div className="mt-2"><label className="form-label small text-muted-foreground mb-1 block">Prazo de retenção (meses)</label><input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="12" value={draft.lgpdRetencaoMeses} onChange={(e) => set("lgpdRetencaoMeses", e.target.value)} /></div>
                   )}
                 </div>
               </div>

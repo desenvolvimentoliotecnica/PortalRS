@@ -209,11 +209,11 @@ export default function RegrasAprovacaoVagaScreen() {
                                     </span>
                                 </TableCell>
                                 <TableCell className="text-right space-x-1">
-                                    <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
+                                    <Button variant="outline" size="icon" onClick={() => openEdit(r)}>
                                         <Pencil className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(r.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    <Button variant="destructive" size="icon" onClick={() => handleDelete(r.id)}>
+                                        <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </TableCell>
                             </TableRow>

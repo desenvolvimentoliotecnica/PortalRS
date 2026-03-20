@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 type JobItem = {
   id: string;
   titulo: string;
@@ -106,12 +108,12 @@ export default function JobCard({ job, index, onDetails, onApply }: JobCardProps
         </div>
         <div className="text-sm text-muted-foreground mt-auto">Faixa: {money(job.salarioMinimo, job.salarioMaximo)}</div>
         <div className="mt-3 flex gap-2">
-          <button type="button" className="btn-ghost px-3 py-2 text-sm" onClick={onDetails}>
+          <Button variant="outline" size="sm" onClick={onDetails}>
             Detalhes
-          </button>
-          <button type="button" className="btn-brand px-3 py-2 text-sm" onClick={onApply}>
+          </Button>
+          <Button size="sm" onClick={onApply}>
             Candidatar-se
-          </button>
+          </Button>
         </div>
       </div>
     </article>

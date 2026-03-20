@@ -162,7 +162,7 @@ export default function AdminLogsScreen() {
             {/* Detail panel */}
             {detail && (
                 <div className="card-soft rounded-xl border border-primary/30 bg-primary/5 p-4 backdrop-blur space-y-2">
-                    <div className="flex items-center justify-between"><div className="font-semibold">Detalhes da Transação</div><Button variant="ghost" size="sm" onClick={() => setDetail(null)}>✕</Button></div>
+                    <div className="flex items-center justify-between"><div className="font-semibold">Detalhes da Transação</div><Button variant="outline" size="sm" onClick={() => setDetail(null)}>✕</Button></div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                         <div><span className="text-muted-foreground">Usuário:</span> {detail.userName || "—"}</div>
                         <div><span className="text-muted-foreground">Ação:</span> {detail.action || "—"}</div>

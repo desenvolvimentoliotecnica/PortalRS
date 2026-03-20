@@ -182,7 +182,7 @@ export default function AdminEmailTemplatesScreen() {
                     </div>
                     <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">Corpo HTML</label>
-                        <textarea className="w-full min-h-[200px] rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono" value={form.body} onChange={e => upd("body", e.target.value)} />
+                        <textarea className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono" value={form.body} onChange={e => upd("body", e.target.value)} />
                     </div>
                     <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={e => upd("isActive", e.target.checked)} className="rounded border-input" /> Ativo</label>

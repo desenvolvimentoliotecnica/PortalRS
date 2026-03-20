@@ -28,7 +28,7 @@ export default function AppError({
             </div>
             <div className="flex gap-2">
                 <Button variant="outline" onClick={reset}>Tentar novamente</Button>
-                <Button variant="ghost" onClick={() => (window.location.href = "/app/dashboard")}>
+                <Button variant="outline" onClick={() => (window.location.href = "/app/dashboard")}>
                     Ir para Dashboard
                 </Button>
             </div>

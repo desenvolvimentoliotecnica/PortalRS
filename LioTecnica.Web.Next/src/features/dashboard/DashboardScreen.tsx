@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { toast } from "sonner";
 import { Folder, Mail } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
 
@@ -452,15 +453,15 @@ export default function DashboardScreen({
           <h4 className="text-lg font-bold">Dashboard</h4>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn-ghost" type="button" onClick={() => setFiltersOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)}>
             Filtros
-          </button>
-          <button className="btn-brand" type="button" onClick={() => setQuickOpen(true)}>
+          </Button>
+          <Button size="sm" onClick={() => setQuickOpen(true)}>
             Ações
-          </button>
-          <button className="btn-ghost" type="button" onClick={() => void refreshAll()}>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void refreshAll()}>
             Atualizar
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -520,9 +521,9 @@ export default function DashboardScreen({
               <div className="fw-bold">Funil</div>
               <div className="text-muted-foreground text-sm">Pipeline</div>
             </div>
-            <button className="btn-ghost px-3 py-2" type="button" onClick={() => setFiltersOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)}>
               Filtros
-            </button>
+            </Button>
           </div>
 
           <div className="space-y-3 mt-2">
@@ -557,12 +558,12 @@ export default function DashboardScreen({
             <div className="text-muted-foreground text-sm">Top 15 por score</div>
           </div>
           <div className="flex gap-2">
-            <button className="btn-ghost" type="button">
+            <Button variant="outline" size="sm">
               Exportar
-            </button>
-            <button className="btn-brand" type="button" onClick={() => goToCreateVaga()}>
+            </Button>
+            <Button size="sm" onClick={() => goToCreateVaga()}>
               Nova vaga
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -608,15 +609,15 @@ export default function DashboardScreen({
                       <BadgeEtapa etapa={x.etapa || "Triagem"} />
                     </td>
                     <td className="text-end">
-                      <button
-                        className="btn-ghost"
-                        type="button"
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => {
                           goToVagaDetail(x.vagaId);
                         }}
                       >
                         Ver vaga
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))
@@ -640,15 +641,15 @@ export default function DashboardScreen({
                 <div className="fw-bold">Filtros e Visões</div>
                 <div className="text-muted-foreground text-sm">Ajuste o dashboard para a operação do RH</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setFiltersOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setFiltersOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="mt-4 space-y-3">
               <div>
                 <div className="fw-semibold mb-2">Vaga</div>
-                <select className="form-select" value={vagaId} onChange={(e) => setVagaId(e.target.value)}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={vagaId} onChange={(e) => setVagaId(e.target.value)}>
                   {(enums.vagaFilterSimple?.length ? enums.vagaFilterSimple : [{ code: "all", text: "Todas" }]).map((opt) => (
                     <option key={opt.code} value={opt.code}>
                       {opt.text}
@@ -670,11 +671,11 @@ export default function DashboardScreen({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="form-label small text-muted-foreground block mb-1">De</label>
-                    <input className="form-control" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+                    <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
                   </div>
                   <div>
                     <label className="form-label small text-muted-foreground block mb-1">Até</label>
-                    <input className="form-control" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                    <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -694,9 +695,9 @@ export default function DashboardScreen({
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <button
-                className="btn-ghost"
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setMinMatch(DEFAULT_MIN_MATCH);
                   setVagaId("all");
@@ -706,16 +707,15 @@ export default function DashboardScreen({
                 }}
               >
                 Limpar
-              </button>
-              <button
-                className="btn-brand"
-                type="button"
+              </Button>
+              <Button
+                size="sm"
                 onClick={() => {
                   void refreshTopMatches().finally(() => setFiltersOpen(false));
                 }}
               >
                 Aplicar
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -729,9 +729,9 @@ export default function DashboardScreen({
                 <div className="fw-bold">Ações rápidas</div>
                 <div className="text-muted-foreground text-sm">Atalhos para operação do RH</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setQuickOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setQuickOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="mt-4 space-y-3">
@@ -740,11 +740,11 @@ export default function DashboardScreen({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="col-span-2">
                     <label className="form-label small text-muted-foreground block mb-1">Título</label>
-                    <input className="form-control" placeholder="Ex.: Analista de Marketing Jr" value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} />
+                    <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" placeholder="Ex.: Analista de Marketing Jr" value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} />
                   </div>
                   <div>
                     <label className="form-label small text-muted-foreground block mb-1">Área</label>
-                    <select className="form-select" value={quickArea} onChange={(e) => setQuickArea(e.target.value)}>
+                    <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={quickArea} onChange={(e) => setQuickArea(e.target.value)}>
                       <option value="">Selecionar área</option>
                       {areas.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -755,7 +755,7 @@ export default function DashboardScreen({
                   </div>
                   <div>
                     <label className="form-label small text-muted-foreground block mb-1">Status</label>
-                    <select className="form-select" value={quickStatus} onChange={(e) => setQuickStatus(e.target.value)}>
+                    <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={quickStatus} onChange={(e) => setQuickStatus(e.target.value)}>
                       <option value="">Selecionar status</option>
                       {(enums.vagaStatus ?? []).map((opt) => (
                         <option key={opt.code} value={opt.code}>
@@ -766,13 +766,13 @@ export default function DashboardScreen({
                   </div>
                   <div className="col-span-2">
                     <label className="form-label small text-muted-foreground block mb-1">Palavras-chave (separadas por vírgula)</label>
-                    <input className="form-control" placeholder="Ex.: power bi, seo, redes sociais, crm" value={quickKeywords} onChange={(e) => setQuickKeywords(e.target.value)} />
+                    <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" placeholder="Ex.: power bi, seo, redes sociais, crm" value={quickKeywords} onChange={(e) => setQuickKeywords(e.target.value)} />
                   </div>
                 </div>
                 <div className="mt-3">
-                  <button
-                    className="btn-brand w-full"
-                    type="button"
+                  <Button
+                    className="w-full"
+                    size="sm"
                     onClick={() => {
                       const quickAreaName = areas.find((a) => a.id === quickArea)?.nome ?? "";
                       goToCreateVaga({
@@ -784,25 +784,25 @@ export default function DashboardScreen({
                     }}
                   >
                     Criar vaga
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div className="card-soft p-3">
                 <div className="fw-semibold mb-2">Upload CV</div>
                 <div className="flex flex-col gap-2">
-                  <button className="btn-brand" type="button" onClick={goToUploadCv}>
+                  <Button size="sm" onClick={goToUploadCv}>
                     Abrir entrada de currículos
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div className="card-soft p-3">
                 <div className="fw-semibold mb-2">Executar match</div>
                 <div className="text-muted-foreground text-sm mb-2">Ajustes: pesos, obrigatórios e sinônimos por vaga.</div>
-                <button className="btn-brand w-full" type="button" onClick={() => goToExecutarMatch(vagaId)}>
+                <Button className="w-full" size="sm" onClick={() => goToExecutarMatch(vagaId)}>
                   Abrir matching
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -820,9 +820,9 @@ export default function DashboardScreen({
                 </div>
                 <span className="badge-soft">{openVagas.length}</span>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setOpenVagasOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setOpenVagasOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="p-4">
@@ -866,9 +866,9 @@ export default function DashboardScreen({
                             <td>{formatLocal(v)}</td>
                             <td className="text-end mono">{formatDate(v.updatedAtUtc)}</td>
                             <td className="text-end">
-                              <button className="btn-ghost" type="button" onClick={() => goToVagaDetail(v.id)}>
+                              <Button variant="outline" size="sm" onClick={() => goToVagaDetail(v.id)}>
                                 Ver vaga
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                         ))

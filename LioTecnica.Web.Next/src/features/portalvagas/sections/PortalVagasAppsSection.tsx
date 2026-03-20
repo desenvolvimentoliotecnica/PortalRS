@@ -6,6 +6,7 @@ import { loadAppsHistory, saveAppsHistory, type AppHistoryItem } from "@/feature
 import { usePortalVagasLocale } from "@/features/portalvagas/usePortalVagasLocale";
 import { t } from "@/features/portalvagas/strings";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import { Button } from "@/components/ui/button";
 const STATUS_OPTIONS = ["Aplicado", "Triagem", "Entrevista", "Teste", "Proposta", "Aprovado", "Reprovado", "Desistiu"] as const;
 const STATUS_COLORS: Record<string, string> = {
   Aprovado: "bg-green-600 text-white",
@@ -239,30 +240,30 @@ export default function PortalVagasAppsSection() {
           <p className="text-muted-foreground text-sm">{s.subtitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-ghost text-sm" type="button" onClick={seed}>
+          <Button variant="outline" size="sm" onClick={seed}>
             {s.insertExample}
-          </button>
-          <button className="btn-ghost text-sm" type="button" onClick={importFromMyApps}>
+          </Button>
+          <Button variant="outline" size="sm" onClick={importFromMyApps}>
             {s.importFromMyApps}
-          </button>
-          <button className="btn-brand text-sm" type="button" onClick={() => openModal()}>
+          </Button>
+          <Button size="sm" onClick={() => openModal()}>
             {s.newApp}
-          </button>
-          <button className="btn-ghost text-sm" type="button" onClick={downloadAppsSummary}>
+          </Button>
+          <Button variant="outline" size="sm" onClick={downloadAppsSummary}>
             {s.downloadSummary}
-          </button>
-          <button className="btn-ghost text-sm text-red-600" type="button" onClick={clear}>
+          </Button>
+          <Button variant="destructive" size="sm" onClick={clear}>
             {s.clear}
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
         <div className="md:col-span-6">
-          <input className="form-control" placeholder={s.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder={s.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="md:col-span-3">
-          <select className="form-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">{s.statusAll}</option>
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -270,7 +271,7 @@ export default function PortalVagasAppsSection() {
           </select>
         </div>
         <div className="md:col-span-3">
-          <select className="form-select" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
             <option value="new">{s.sortNew}</option>
             <option value="old">{s.sortOld}</option>
             <option value="status">{s.sortStatus}</option>
@@ -327,12 +328,12 @@ export default function PortalVagasAppsSection() {
                   )}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button className="btn-ghost px-2 py-1 text-sm" type="button" onClick={() => openModal(app)}>
+                  <Button variant="outline" size="sm" onClick={() => openModal(app)}>
                     Editar
-                  </button>
-                  <button className="btn-ghost px-2 py-1 text-sm text-red-600" type="button" onClick={() => remove(app.id)}>
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => remove(app.id)}>
                     Excluir
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -345,28 +346,28 @@ export default function PortalVagasAppsSection() {
           <div className="card-soft w-full max-w-2xl p-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold">Candidatura</h4>
-              <button className="btn-ghost" type="button" onClick={() => setModalOpen(false)}>Fechar</button>
+              <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>Fechar</Button>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label className="text-xs text-muted-foreground">Vaga</label>
-                <input className="form-control" placeholder="Ex.: Analista de Qualidade Jr" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Analista de Qualidade Jr" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Empresa</label>
-                <input className="form-control" placeholder="Ex.: Liotécnica" value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: Liotécnica" value={form.company} onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Local</label>
-                <input className="form-control" placeholder="Ex.: São Paulo / Remoto" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: São Paulo / Remoto" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Data</label>
-                <input className="form-control" placeholder="Ex.: 24/01/2026" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Ex.: 24/01/2026" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Status</label>
-                <select className="form-select" value={form.status} onChange={(e) => { const s = e.target.value; setForm((f) => ({ ...f, status: s, stages: stagesFromStatus(s) })); }}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.status} onChange={(e) => { const s = e.target.value; setForm((f) => ({ ...f, status: s, stages: stagesFromStatus(s) })); }}>
                   {STATUS_OPTIONS.map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
@@ -374,7 +375,7 @@ export default function PortalVagasAppsSection() {
               </div>
               <div className="md:col-span-2">
                 <label className="text-xs text-muted-foreground">Link da vaga</label>
-                <input className="form-control" placeholder="https://..." value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="https://..." value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
               </div>
               <div className="md:col-span-2">
                 <label className="text-xs text-muted-foreground">Etapas (pipeline)</label>
@@ -389,28 +390,28 @@ export default function PortalVagasAppsSection() {
               </div>
               <div className="md:col-span-2">
                 <label className="text-xs text-muted-foreground">Notas / feedback</label>
-                <textarea className="form-control" rows={3} placeholder="Ex.: entrevista marcada para 02/02 às 10:00" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} placeholder="Ex.: entrevista marcada para 02/02 às 10:00" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
               </div>
               <div className="md:col-span-2">
                 <label className="text-xs text-muted-foreground">Timeline (eventos)</label>
                 <div className="space-y-2 mt-1">
                   {form.timeline.map((ev, i) => (
                     <div key={i} className="flex gap-2 items-center rounded border p-2 bg-white/50">
-                      <input className="form-control text-xs flex-1" placeholder="Data" value={ev.at} onChange={(e) => setForm((f) => ({ ...f, timeline: f.timeline.map((t, j) => j === i ? { ...t, at: e.target.value } : t) }))} />
-                      <input className="form-control text-xs flex-1" placeholder="Etapa" value={ev.label} onChange={(e) => setForm((f) => ({ ...f, timeline: f.timeline.map((t, j) => j === i ? { ...t, label: e.target.value } : t) }))} />
-                      <input className="form-control text-xs flex-1" placeholder="Detalhe" value={ev.text} onChange={(e) => setForm((f) => ({ ...f, timeline: f.timeline.map((t, j) => j === i ? { ...t, text: e.target.value } : t) }))} />
-                      <button type="button" className="btn-ghost px-1 py-0.5 text-red-600 text-xs" onClick={() => setForm((f) => ({ ...f, timeline: f.timeline.filter((_, j) => j !== i) }))}>×</button>
+                      <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm text-xs flex-1" placeholder="Data" value={ev.at} onChange={(e) => setForm((f) => ({ ...f, timeline: f.timeline.map((t, j) => j === i ? { ...t, at: e.target.value } : t) }))} />
+                      <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm text-xs flex-1" placeholder="Etapa" value={ev.label} onChange={(e) => setForm((f) => ({ ...f, timeline: f.timeline.map((t, j) => j === i ? { ...t, label: e.target.value } : t) }))} />
+                      <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm text-xs flex-1" placeholder="Detalhe" value={ev.text} onChange={(e) => setForm((f) => ({ ...f, timeline: f.timeline.map((t, j) => j === i ? { ...t, text: e.target.value } : t) }))} />
+                      <Button variant="destructive" size="sm" onClick={() => setForm((f) => ({ ...f, timeline: f.timeline.filter((_, j) => j !== i) }))}>×</Button>
                     </div>
                   ))}
-                  <button type="button" className="btn-ghost text-xs" onClick={() => setForm((f) => ({ ...f, timeline: [...f.timeline, { at: new Date().toLocaleDateString("pt-BR"), label: "", text: "" }] }))}>
+                  <Button variant="outline" size="sm" onClick={() => setForm((f) => ({ ...f, timeline: [...f.timeline, { at: new Date().toLocaleDateString("pt-BR"), label: "", text: "" }] }))}>
                     + Adicionar evento
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setModalOpen(false)}>Cancelar</button>
-              <button className="btn-brand" type="button" onClick={save}>Salvar</button>
+              <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>Cancelar</Button>
+              <Button size="sm" onClick={save}>Salvar</Button>
             </div>
           </div>
         </div>

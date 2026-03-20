@@ -430,10 +430,10 @@ export default function ProjetosScreen() {
                                                     <TableCell className="text-right">
                                                         {c.status === 0 && (
                                                             <div className="flex items-center justify-end gap-1">
-                                                                <Button variant="ghost" size="icon-sm" title="Aprovar" onClick={() => void updateCandidatoStatus(c, 1)}>
+                                                                <Button variant="outline" size="icon-sm" title="Aprovar" onClick={() => void updateCandidatoStatus(c, 1)}>
                                                                     <UserCheck className="size-4 text-emerald-600" />
                                                                 </Button>
-                                                                <Button variant="ghost" size="icon-sm" title="Reprovar" onClick={() => void updateCandidatoStatus(c, 2)}>
+                                                                <Button variant="outline" size="icon-sm" title="Reprovar" onClick={() => void updateCandidatoStatus(c, 2)}>
                                                                     <UserX className="size-4 text-red-500" />
                                                                 </Button>
                                                             </div>

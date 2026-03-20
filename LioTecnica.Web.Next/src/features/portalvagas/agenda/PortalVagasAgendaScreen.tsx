@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import { Button } from "@/components/ui/button";
 
 type AgendaPreferences = {
   interviewMode: string;
@@ -418,18 +419,18 @@ export default function PortalVagasAgendaScreen() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button className="btn-ghost" type="button" disabled>
+          <Button variant="outline" size="sm" disabled>
             Voltar às seções
-          </button>
-          <button className="btn-ghost hidden" type="button" disabled>
+          </Button>
+          <Button variant="outline" size="sm" className="hidden" disabled>
             Inserir exemplo
-          </button>
-          <button className="btn-ghost hidden" type="button" disabled>
+          </Button>
+          <Button variant="outline" size="sm" className="hidden" disabled>
             Baixar resumo
-          </button>
-          <button className="btn-ghost" type="button" onClick={() => void resetAgenda()}>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void resetAgenda()}>
             Limpar
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -440,12 +441,12 @@ export default function PortalVagasAgendaScreen() {
             Abra o Portal Vagas legado para autenticar e depois volte aqui.
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <a className="btn-brand" href="/PortalVagas" target="_blank" rel="noopener">
-              Abrir Portal Vagas
-            </a>
-            <Link className="btn-ghost" href="/dashboard">
-              Voltar ao app
-            </Link>
+            <Button size="sm" asChild>
+              <a href="/PortalVagas" target="_blank" rel="noopener">Abrir Portal Vagas</a>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard">Voltar ao app</Link>
+            </Button>
           </div>
         </div>
       ) : null}
@@ -457,7 +458,7 @@ export default function PortalVagasAgendaScreen() {
           <div className="md:col-span-4">
             <label className="mini-title mb-1 block">Formato preferido de entrevista</label>
             <select
-              className="form-select"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={prefs.interviewMode}
               onChange={(e) => {
                 const next = { ...prefs, interviewMode: e.target.value };
@@ -477,7 +478,7 @@ export default function PortalVagasAgendaScreen() {
           <div className="md:col-span-4">
             <label className="mini-title mb-1 block">Data de início disponível</label>
             <input
-              className="form-control"
+              className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
               value={prefs.startDate}
               placeholder="Ex.: Imediato / 10/02/2026"
               onChange={(e) => {
@@ -492,7 +493,7 @@ export default function PortalVagasAgendaScreen() {
           <div className="md:col-span-4">
             <label className="mini-title mb-1 block">Aviso prévio (se aplicável)</label>
             <select
-              className="form-select"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={prefs.notice}
               onChange={(e) => {
                 const next = { ...prefs, notice: e.target.value };
@@ -513,7 +514,7 @@ export default function PortalVagasAgendaScreen() {
           <div className="md:col-span-12">
             <label className="mini-title mb-1 block">Observações (opcional)</label>
             <input
-              className="form-control"
+              className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
               value={prefs.notes}
               placeholder="Ex.: prefiro entrevistas entre 9h e 11h, com confirmação por WhatsApp"
               onChange={(e) => {
@@ -588,7 +589,7 @@ export default function PortalVagasAgendaScreen() {
           <div className="md:col-span-6">
             <label className="mini-title mb-1 block">Horário preferido (opcional)</label>
             <input
-              className="form-control"
+              className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
               value={prefs.preferredHours}
               placeholder="Ex.: 09:00–11:00"
               onChange={(e) => {
@@ -602,7 +603,7 @@ export default function PortalVagasAgendaScreen() {
           <div className="md:col-span-6">
             <label className="mini-title mb-1 block">Fuso horário</label>
             <select
-              className="form-select"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={prefs.timezone}
               onChange={(e) => {
                 const next = { ...prefs, timezone: e.target.value };
@@ -626,24 +627,24 @@ export default function PortalVagasAgendaScreen() {
             <div className="font-extrabold">Bloqueios (indisponibilidades)</div>
             <div className="text-muted-foreground text-sm">Use para datas/horários em que você não pode fazer entrevista.</div>
           </div>
-          <button className="btn-brand" type="button" onClick={() => openBlockModal()}>
+          <Button size="sm" onClick={() => openBlockModal()}>
             Adicionar bloqueio
-          </button>
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 gap-2 md:grid-cols-12 mt-3">
           <div className="md:col-span-6">
-            <input className="form-control" placeholder="Buscar bloqueio..." value={blocksSearch} onChange={(e) => setBlocksSearch(e.target.value)} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Buscar bloqueio..." value={blocksSearch} onChange={(e) => setBlocksSearch(e.target.value)} />
           </div>
           <div className="md:col-span-3">
-            <select className="form-select" value={blocksSort} onChange={(e) => setBlocksSort(e.target.value as any)}>
+            <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={blocksSort} onChange={(e) => setBlocksSort(e.target.value as any)}>
               <option value="new">Mais recentes</option>
               <option value="old">Mais antigos</option>
               <option value="date">Por data (asc)</option>
             </select>
           </div>
           <div className="md:col-span-3">
-            <select className="form-select" value={blocksTypeFilter} onChange={(e) => setBlocksTypeFilter(e.target.value)}>
+            <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={blocksTypeFilter} onChange={(e) => setBlocksTypeFilter(e.target.value)}>
               <option value="">Tipo (todos)</option>
               <option value="Entrevista">Entrevista</option>
               <option value="Compromisso">Compromisso</option>
@@ -671,12 +672,12 @@ export default function PortalVagasAgendaScreen() {
                     <div className="text-muted-foreground text-xs mt-2">Atualizado: {new Date(b.updatedAtUtc).toLocaleString("pt-BR")}</div>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
-                    <button className="btn-ghost px-3 py-2" type="button" onClick={() => openBlockModal(b.id)}>
+                    <Button variant="outline" size="sm" onClick={() => openBlockModal(b.id)}>
                       Editar
-                    </button>
-                    <button className="btn-ghost px-3 py-2" type="button" onClick={() => void deleteBlock(b.id)}>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => void deleteBlock(b.id)}>
                       Remover
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -695,15 +696,15 @@ export default function PortalVagasAgendaScreen() {
                 <div className="mini-title mb-1">Bloqueio</div>
                 <div className="text-lg font-extrabold">{blockForm.id ? "Editar" : "Adicionar"}</div>
               </div>
-              <button className="btn-ghost px-3 py-2" type="button" onClick={() => setBlockModalOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setBlockModalOpen(false)}>
                 Fechar
-              </button>
+              </Button>
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
               <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">Tipo</label>
-                <select className="form-select" value={blockForm.type} onChange={(e) => setBlockForm((f) => ({ ...f, type: e.target.value }))}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={blockForm.type} onChange={(e) => setBlockForm((f) => ({ ...f, type: e.target.value }))}>
                   <option value="Compromisso">Compromisso</option>
                   <option value="Entrevista">Entrevista</option>
                   <option value="Viagem">Viagem</option>
@@ -715,7 +716,7 @@ export default function PortalVagasAgendaScreen() {
               <div className="md:col-span-8">
                 <label className="mini-title mb-1 block">Título</label>
                 <input
-                  className="form-control"
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   value={blockForm.title}
                   placeholder="Ex.: consulta médica / prova / viagem"
                   onChange={(e) => setBlockForm((f) => ({ ...f, title: e.target.value }))}
@@ -724,27 +725,27 @@ export default function PortalVagasAgendaScreen() {
 
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Data</label>
-                <input className="form-control" value={blockForm.date} placeholder="Ex.: 28/01/2026" onChange={(e) => setBlockForm((f) => ({ ...f, date: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={blockForm.date} placeholder="Ex.: 28/01/2026" onChange={(e) => setBlockForm((f) => ({ ...f, date: e.target.value }))} />
               </div>
 
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Horário (opcional)</label>
-                <input className="form-control" value={blockForm.hours} placeholder="Ex.: 14:00–16:00" onChange={(e) => setBlockForm((f) => ({ ...f, hours: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={blockForm.hours} placeholder="Ex.: 14:00–16:00" onChange={(e) => setBlockForm((f) => ({ ...f, hours: e.target.value }))} />
               </div>
 
               <div className="md:col-span-12">
                 <label className="mini-title mb-1 block">Observações (opcional)</label>
-                <textarea className="form-control" rows={3} value={blockForm.notes} placeholder="Ex.: sem disponibilidade neste período" onChange={(e) => setBlockForm((f) => ({ ...f, notes: e.target.value }))} />
+                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={blockForm.notes} placeholder="Ex.: sem disponibilidade neste período" onChange={(e) => setBlockForm((f) => ({ ...f, notes: e.target.value }))} />
               </div>
             </div>
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <button className="btn-ghost" type="button" onClick={() => setBlockModalOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setBlockModalOpen(false)}>
                 Cancelar
-              </button>
-              <button className="btn-brand" type="button" onClick={() => void saveBlock()}>
+              </Button>
+              <Button size="sm" onClick={() => void saveBlock()}>
                 Salvar
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -133,7 +133,7 @@ export default function PesquisasScreen() {
                     <div className="font-semibold">Criar Pesquisa</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <Input placeholder="Título da pesquisa" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={newType} onChange={e => setNewType(e.target.value)}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={newType} onChange={e => setNewType(e.target.value)}>
                             <option value="rapida">Rápida</option>
                             <option value="super">Super</option>
                         </select>
@@ -161,7 +161,7 @@ export default function PesquisasScreen() {
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Exibindo</span>
-                        <select className="h-8 rounded-md border border-input bg-transparent px-1 text-sm" style={{ width: 60 }} value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+                        <select className="h-8 rounded-md border border-input bg-background px-1 text-sm" style={{ width: 60 }} value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
                             {[10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
                         </select>
                         <span className="text-sm text-muted-foreground">resultados por página</span>

@@ -112,10 +112,10 @@ export default function DependentesScreen() {
                     <div className="text-muted-foreground text-sm">Gerencie seus dependentes cadastrados</div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => { setLoading(true); load().finally(() => setLoading(false)); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setLoading(true); load().finally(() => setLoading(false)); }}>
                         <RefreshCw className="size-4" />
                     </Button>
-                    <Button size="sm" onClick={openNew} className="bg-violet-600 hover:bg-violet-700">
+                    <Button size="sm" onClick={openNew}>
                         <Plus className="size-4" /> Adicionar
                     </Button>
                 </div>
@@ -147,8 +147,8 @@ export default function DependentesScreen() {
                                 <TableCell className="text-sm">{d.isPcd ? "Sim" : "Não"}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-1">
-                                        <Button variant="ghost" size="icon-xs" title="Editar" onClick={() => openEdit(d)}><Pencil /></Button>
-                                        <Button variant="ghost" size="icon-xs" className="text-red-600" title="Remover" onClick={() => void handleDelete(d.id)}><Trash2 /></Button>
+                                        <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(d)}><Pencil /></Button>
+                                        <Button variant="destructive" size="icon-xs" title="Remover" onClick={() => void handleDelete(d.id)}><Trash2 /></Button>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -171,7 +171,7 @@ export default function DependentesScreen() {
                         </div>
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Parentesco</label>
-                            <select className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm" value={fParentesco} onChange={(e) => setFParentesco(Number(e.target.value))}>
+                            <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={fParentesco} onChange={(e) => setFParentesco(Number(e.target.value))}>
                                 {Object.entries(PARENTESCO_MAP).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                             </select>
                         </div>
@@ -189,7 +189,7 @@ export default function DependentesScreen() {
                         </label>
                         <div className="flex gap-2 justify-end pt-2">
                             <Button variant="outline" onClick={() => setFormOpen(false)}><X className="size-4" /> Cancelar</Button>
-                            <Button disabled={saving} onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700">
+                            <Button disabled={saving} onClick={handleSave}>
                                 <Save className="size-4" /> {saving ? "Salvando…" : "Salvar"}
                             </Button>
                         </div>

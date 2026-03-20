@@ -83,7 +83,7 @@ export default function GestaoPlanosScreen() {
                     <Button size="sm" onClick={() => toast.info("Funcionalidade de criação de PDI em breve.")}>
                         <Plus className="size-4 mr-1" />Novo PDI
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                    <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                         <RefreshCw className="size-4" />
                     </Button>
                 </div>

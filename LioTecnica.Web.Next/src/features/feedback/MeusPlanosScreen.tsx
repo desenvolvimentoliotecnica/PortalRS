@@ -103,7 +103,7 @@ export default function MeusPlanosScreen() {
                     <h4 className="text-lg font-bold">Meus Planos de Desenvolvimento</h4>
                     <div className="text-muted-foreground text-sm">Acompanhe seus planos de desenvolvimento individual (PDI).</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />
                 </Button>
                 <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
@@ -152,7 +152,7 @@ export default function MeusPlanosScreen() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{plan.status}</span>
-                                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleDelete(plan.id)}>
+                                        <Button variant="destructive" size="sm" onClick={() => void handleDelete(plan.id)}>
                                             <Trash2 className="size-4" />
                                         </Button>
                                     </div>

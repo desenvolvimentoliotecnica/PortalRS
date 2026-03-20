@@ -197,11 +197,11 @@ export default function TabEmails({ tenantId }: { tenantId: string }) {
                                                 <td className="py-1.5 px-2 text-center">{statusBadge(item.status)}</td>
                                                 <td className="py-1.5 px-2 text-center">
                                                     <div className="flex items-center gap-1 justify-center">
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openDetail(item.id)}>
+                                                        <Button variant="outline" size="sm" onClick={() => openDetail(item.id)}>
                                                             <Eye className="size-3.5" />
                                                         </Button>
                                                         {item.status.toLowerCase() === "failed" && (
-                                                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleRetry(item.id)} disabled={retrying === item.id}>
+                                                            <Button variant="outline" size="sm" onClick={() => handleRetry(item.id)} disabled={retrying === item.id}>
                                                                 {retrying === item.id ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
                                                             </Button>
                                                         )}

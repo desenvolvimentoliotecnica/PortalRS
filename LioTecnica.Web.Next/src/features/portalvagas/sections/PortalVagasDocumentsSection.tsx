@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import { Button } from "@/components/ui/button";
 import type { DocumentDto } from "./types";
 
 type DocumentsResponse = { items: DocumentDto[] };
@@ -130,14 +131,14 @@ export default function PortalVagasDocumentsSection() {
       <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
         <div className="md:col-span-6">
           <input
-            className="form-control"
+            className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
             placeholder="Buscar por nome/tipo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="md:col-span-3">
-          <select className="form-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
             <option value="">Filtrar por tipo (todos)</option>
             {Array.from(new Set(items.map((d) => d.tipo).filter(Boolean))).map((t) => (
               <option key={t} value={t}>
@@ -147,7 +148,7 @@ export default function PortalVagasDocumentsSection() {
           </select>
         </div>
         <div className="md:col-span-3">
-          <select className="form-select" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
             <option value="new">Mais recentes</option>
             <option value="old">Mais antigos</option>
             <option value="name">Nome (A-Z)</option>
@@ -156,23 +157,23 @@ export default function PortalVagasDocumentsSection() {
         </div>
       </div>
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        <input className="form-control" placeholder="Tipo *" value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))} />
-        <input className="form-control" placeholder="Nome *" value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
-        <input className="form-control md:col-span-2" placeholder="Link" value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
-        <input className="form-control" placeholder="Data" value={form.data} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} />
-        <input className="form-control" type="file" onChange={(e) => setForm((f) => ({ ...f, fileName: e.target.files?.[0]?.name || "" }))} />
+        <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Tipo *" value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))} />
+        <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Nome *" value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
+        <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm md:col-span-2" placeholder="Link" value={form.link} onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))} />
+        <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Data" value={form.data} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} />
+        <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="file" onChange={(e) => setForm((f) => ({ ...f, fileName: e.target.files?.[0]?.name || "" }))} />
         <div className="md:col-span-2">
-          <textarea className="form-control" rows={2} placeholder="Observações" value={form.observacoes} onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))} />
+          <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Observações" value={form.observacoes} onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))} />
         </div>
       </div>
       <div className="flex gap-2">
         {editing ? (
           <>
-            <button className="btn-brand" type="button" disabled={saving} onClick={() => void update()}>Salvar</button>
-            <button className="btn-ghost" type="button" onClick={() => { setEditing(null); setForm({ tipo: "", nome: "", link: "", data: "", observacoes: "", fileName: "" }); }}>Cancelar</button>
+            <Button size="sm" disabled={saving} onClick={() => void update()}>Salvar</Button>
+            <Button variant="outline" size="sm" onClick={() => { setEditing(null); setForm({ tipo: "", nome: "", link: "", data: "", observacoes: "", fileName: "" }); }}>Cancelar</Button>
           </>
         ) : (
-          <button className="btn-brand" type="button" disabled={saving} onClick={() => void create()}>Adicionar</button>
+          <Button size="sm" disabled={saving} onClick={() => void create()}>Adicionar</Button>
         )}
       </div>
       <ul className="space-y-1">
@@ -180,8 +181,8 @@ export default function PortalVagasDocumentsSection() {
           <li key={d.id} className="flex items-center justify-between rounded border border-border/60 px-2 py-1 text-sm">
             <span>{d.tipo} • {d.nome}</span>
             <div className="flex gap-1">
-              <button className="btn-ghost text-xs" type="button" onClick={() => { setEditing(d); setForm({ tipo: d.tipo, nome: d.nome, link: d.link ?? "", data: d.data ?? "", observacoes: d.observacoes ?? "", fileName: d.fileName ?? "" }); }}>Editar</button>
-              <button className="btn-ghost text-xs text-red-600" type="button" onClick={() => void remove(d.id)}>Excluir</button>
+              <Button variant="outline" size="sm" onClick={() => { setEditing(d); setForm({ tipo: d.tipo, nome: d.nome, link: d.link ?? "", data: d.data ?? "", observacoes: d.observacoes ?? "", fileName: d.fileName ?? "" }); }}>Editar</Button>
+              <Button variant="destructive" size="sm" onClick={() => void remove(d.id)}>Excluir</Button>
             </div>
           </li>
         ))}

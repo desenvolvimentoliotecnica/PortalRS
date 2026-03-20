@@ -456,11 +456,10 @@ export default function TenantsScreen() {
 
                                                     {t.isActive && (
                                                         <Button
-                                                            variant="outline"
+                                                            variant="destructive"
                                                             size="sm"
                                                             onClick={() => handleDelete(t.tenantId)}
                                                             disabled={busy === t.tenantId}
-                                                            className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
                                                         >
                                                             <Trash2 className="size-3.5" />
                                                             <span className="hidden lg:inline">Eliminar</span>

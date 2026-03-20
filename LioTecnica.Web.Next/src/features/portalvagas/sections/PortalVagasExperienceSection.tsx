@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import { Button } from "@/components/ui/button";
 import type { ExperienceDto, ProjectDto } from "./types";
 
 type ExperienceProjectsResponse = { experiences: ExperienceDto[]; projects: ProjectDto[] };
@@ -163,23 +164,23 @@ export default function PortalVagasExperienceSection() {
         <h4 className="mini-title mb-2">Experiências profissionais</h4>
         <div className="space-y-2">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            <input className="form-control" placeholder="Empresa *" value={expForm.empresa} onChange={(e) => setExpForm((f) => ({ ...f, empresa: e.target.value }))} />
-            <input className="form-control" placeholder="Cargo *" value={expForm.cargo} onChange={(e) => setExpForm((f) => ({ ...f, cargo: e.target.value }))} />
-            <input className="form-control" placeholder="Início" value={expForm.inicio} onChange={(e) => setExpForm((f) => ({ ...f, inicio: e.target.value }))} />
-            <input className="form-control" placeholder="Fim" value={expForm.fim} onChange={(e) => setExpForm((f) => ({ ...f, fim: e.target.value }))} />
-            <input className="form-control md:col-span-2" placeholder="Local" value={expForm.local} onChange={(e) => setExpForm((f) => ({ ...f, local: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Empresa *" value={expForm.empresa} onChange={(e) => setExpForm((f) => ({ ...f, empresa: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Cargo *" value={expForm.cargo} onChange={(e) => setExpForm((f) => ({ ...f, cargo: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Início" value={expForm.inicio} onChange={(e) => setExpForm((f) => ({ ...f, inicio: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Fim" value={expForm.fim} onChange={(e) => setExpForm((f) => ({ ...f, fim: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm md:col-span-2" placeholder="Local" value={expForm.local} onChange={(e) => setExpForm((f) => ({ ...f, local: e.target.value }))} />
             <div className="md:col-span-2">
-              <textarea className="form-control" rows={2} placeholder="Atividades" value={expForm.atividades} onChange={(e) => setExpForm((f) => ({ ...f, atividades: e.target.value }))} />
+              <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Atividades" value={expForm.atividades} onChange={(e) => setExpForm((f) => ({ ...f, atividades: e.target.value }))} />
             </div>
           </div>
           <div className="flex gap-2">
             {editingExp ? (
               <>
-                <button className="btn-brand" type="button" disabled={saving} onClick={() => void updateExp()}>Salvar</button>
-                <button className="btn-ghost" type="button" onClick={() => { setEditingExp(null); setExpForm({ empresa: "", cargo: "", inicio: "", fim: "", local: "", atividades: "" }); }}>Cancelar</button>
+                <Button size="sm" disabled={saving} onClick={() => void updateExp()}>Salvar</Button>
+                <Button variant="outline" size="sm" onClick={() => { setEditingExp(null); setExpForm({ empresa: "", cargo: "", inicio: "", fim: "", local: "", atividades: "" }); }}>Cancelar</Button>
               </>
             ) : (
-              <button className="btn-brand" type="button" disabled={saving} onClick={() => void createExp()}>Adicionar</button>
+              <Button size="sm" disabled={saving} onClick={() => void createExp()}>Adicionar</Button>
             )}
           </div>
           <ul className="space-y-1">
@@ -187,8 +188,8 @@ export default function PortalVagasExperienceSection() {
               <li key={e.id} className="flex items-center justify-between rounded border border-border/60 px-2 py-1 text-sm">
                 <span>{e.empresa} • {e.cargo} {e.inicio || e.fim ? `(${e.inicio || "?"} - ${e.fim || "atual"})` : ""}</span>
                 <div className="flex gap-1">
-                  <button className="btn-ghost text-xs" type="button" onClick={() => { setEditingExp(e); setExpForm({ empresa: e.empresa, cargo: e.cargo, inicio: e.inicio ?? "", fim: e.fim ?? "", local: e.local ?? "", atividades: e.atividades ?? "" }); }}>Editar</button>
-                  <button className="btn-ghost text-xs text-red-600" type="button" onClick={() => void deleteExp(e.id)}>Excluir</button>
+                  <Button variant="outline" size="sm" onClick={() => { setEditingExp(e); setExpForm({ empresa: e.empresa, cargo: e.cargo, inicio: e.inicio ?? "", fim: e.fim ?? "", local: e.local ?? "", atividades: e.atividades ?? "" }); }}>Editar</Button>
+                  <Button variant="destructive" size="sm" onClick={() => void deleteExp(e.id)}>Excluir</Button>
                 </div>
               </li>
             ))}
@@ -200,25 +201,25 @@ export default function PortalVagasExperienceSection() {
         <h4 className="mini-title mb-2">Projetos</h4>
         <div className="space-y-2">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            <input className="form-control" placeholder="Nome *" value={projForm.nome} onChange={(e) => setProjForm((f) => ({ ...f, nome: e.target.value }))} />
-            <input className="form-control" placeholder="Período" value={projForm.periodo} onChange={(e) => setProjForm((f) => ({ ...f, periodo: e.target.value }))} />
-            <input className="form-control md:col-span-2" placeholder="Link" value={projForm.link} onChange={(e) => setProjForm((f) => ({ ...f, link: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Nome *" value={projForm.nome} onChange={(e) => setProjForm((f) => ({ ...f, nome: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Período" value={projForm.periodo} onChange={(e) => setProjForm((f) => ({ ...f, periodo: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm md:col-span-2" placeholder="Link" value={projForm.link} onChange={(e) => setProjForm((f) => ({ ...f, link: e.target.value }))} />
             <div className="md:col-span-2">
-              <textarea className="form-control" rows={2} placeholder="Descrição" value={projForm.descricao} onChange={(e) => setProjForm((f) => ({ ...f, descricao: e.target.value }))} />
+              <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Descrição" value={projForm.descricao} onChange={(e) => setProjForm((f) => ({ ...f, descricao: e.target.value }))} />
             </div>
-            <input className="form-control" placeholder="Stack" value={projForm.stack} onChange={(e) => setProjForm((f) => ({ ...f, stack: e.target.value }))} />
+            <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Stack" value={projForm.stack} onChange={(e) => setProjForm((f) => ({ ...f, stack: e.target.value }))} />
             <div className="md:col-span-2">
-              <textarea className="form-control" rows={2} placeholder="Destaques" value={projForm.destaques} onChange={(e) => setProjForm((f) => ({ ...f, destaques: e.target.value }))} />
+              <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} placeholder="Destaques" value={projForm.destaques} onChange={(e) => setProjForm((f) => ({ ...f, destaques: e.target.value }))} />
             </div>
           </div>
           <div className="flex gap-2">
             {editingProj ? (
               <>
-                <button className="btn-brand" type="button" disabled={saving} onClick={() => void updateProj()}>Salvar</button>
-                <button className="btn-ghost" type="button" onClick={() => { setEditingProj(null); setProjForm({ nome: "", periodo: "", descricao: "", link: "", stack: "", destaques: "" }); }}>Cancelar</button>
+                <Button size="sm" disabled={saving} onClick={() => void updateProj()}>Salvar</Button>
+                <Button variant="outline" size="sm" onClick={() => { setEditingProj(null); setProjForm({ nome: "", periodo: "", descricao: "", link: "", stack: "", destaques: "" }); }}>Cancelar</Button>
               </>
             ) : (
-              <button className="btn-brand" type="button" disabled={saving} onClick={() => void createProj()}>Adicionar</button>
+              <Button size="sm" disabled={saving} onClick={() => void createProj()}>Adicionar</Button>
             )}
           </div>
           <ul className="space-y-1">
@@ -226,8 +227,8 @@ export default function PortalVagasExperienceSection() {
               <li key={p.id} className="flex items-center justify-between rounded border border-border/60 px-2 py-1 text-sm">
                 <span>{p.nome}{p.periodo ? ` (${p.periodo})` : ""}</span>
                 <div className="flex gap-1">
-                  <button className="btn-ghost text-xs" type="button" onClick={() => { setEditingProj(p); setProjForm({ nome: p.nome, periodo: p.periodo ?? "", descricao: p.descricao ?? "", link: p.link ?? "", stack: p.stack ?? "", destaques: p.destaques ?? "" }); }}>Editar</button>
-                  <button className="btn-ghost text-xs text-red-600" type="button" onClick={() => void deleteProj(p.id)}>Excluir</button>
+                  <Button variant="outline" size="sm" onClick={() => { setEditingProj(p); setProjForm({ nome: p.nome, periodo: p.periodo ?? "", descricao: p.descricao ?? "", link: p.link ?? "", stack: p.stack ?? "", destaques: p.destaques ?? "" }); }}>Editar</Button>
+                  <Button variant="destructive" size="sm" onClick={() => void deleteProj(p.id)}>Excluir</Button>
                 </div>
               </li>
             ))}

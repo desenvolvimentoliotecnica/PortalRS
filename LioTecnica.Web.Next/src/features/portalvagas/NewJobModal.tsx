@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 type LookupItem = { id: string; name: string };
 type EnumOption = { code: string; text: string };
@@ -265,7 +266,7 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
             <h2 id="newJobModalLabel" className="text-lg font-extrabold">Nova vaga</h2>
             <p className="text-sm text-muted-foreground">Preencha os dados principais para publicar a vaga.</p>
           </div>
-          <button type="button" className="btn-ghost px-3 py-2" onClick={onClose} aria-label="Fechar">Fechar</button>
+          <Button variant="outline" size="sm" onClick={onClose} aria-label="Fechar">Fechar</Button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -275,104 +276,104 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="md:col-span-2">
                 <label className="mini-title mb-1 block">Título *</label>
-                <input className="form-control" value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))} maxLength={160} required />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))} maxLength={160} required />
               </div>
               <div>
                 <label className="mini-title mb-1 block">Área *</label>
-                <select className="form-select" value={form.areaId} onChange={(e) => setForm((f) => ({ ...f, areaId: e.target.value }))} required>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.areaId} onChange={(e) => setForm((f) => ({ ...f, areaId: e.target.value }))} required>
                   <option value="">Selecione</option>
                   {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mini-title mb-1 block">Departamento *</label>
-                <select className="form-select" value={form.departmentId} onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))} required>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.departmentId} onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))} required>
                   <option value="">Selecione</option>
                   {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mini-title mb-1 block">Status</label>
-                <select className="form-select" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
                   {getOpts("vagaStatus").map((o) => <option key={o.code} value={o.code}>{o.text}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mini-title mb-1 block">Modalidade</label>
-                <select className="form-select" value={form.modalidade} onChange={(e) => setForm((f) => ({ ...f, modalidade: e.target.value }))}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.modalidade} onChange={(e) => setForm((f) => ({ ...f, modalidade: e.target.value }))}>
                   <option value="">Selecione</option>
                   {getOpts("vagaModalidade").map((o) => <option key={o.code} value={o.code}>{o.text}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mini-title mb-1 block">Senioridade</label>
-                <select className="form-select" value={form.senioridade} onChange={(e) => setForm((f) => ({ ...f, senioridade: e.target.value }))}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.senioridade} onChange={(e) => setForm((f) => ({ ...f, senioridade: e.target.value }))}>
                   <option value="">Selecione</option>
                   {getOpts("vagaSenioridade").map((o) => <option key={o.code} value={o.code}>{o.text}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mini-title mb-1 block">Tipo de contratação</label>
-                <select className="form-select" value={form.tipoContratacao} onChange={(e) => setForm((f) => ({ ...f, tipoContratacao: e.target.value }))}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.tipoContratacao} onChange={(e) => setForm((f) => ({ ...f, tipoContratacao: e.target.value }))}>
                   <option value="">Selecione</option>
                   {getOpts("vagaTipoContratacao").map((o) => <option key={o.code} value={o.code}>{o.text}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mini-title mb-1 block">Quantidade de vagas</label>
-                <input type="number" className="form-control" min={1} value={form.quantidadeVagas} onChange={(e) => setForm((f) => ({ ...f, quantidadeVagas: Math.max(1, Number(e.target.value) || 1) }))} />
+                <input type="number" className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" min={1} value={form.quantidadeVagas} onChange={(e) => setForm((f) => ({ ...f, quantidadeVagas: Math.max(1, Number(e.target.value) || 1) }))} />
               </div>
               <div>
                 <label className="mini-title mb-1 block">Match mínimo (%)</label>
-                <input type="number" className="form-control" min={0} max={100} value={form.matchMinimo} onChange={(e) => setForm((f) => ({ ...f, matchMinimo: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }))} />
+                <input type="number" className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" min={0} max={100} value={form.matchMinimo} onChange={(e) => setForm((f) => ({ ...f, matchMinimo: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }))} />
               </div>
               <div>
                 <label className="mini-title mb-1 block">Visibilidade</label>
-                <select className="form-select" value={form.visibilidade} onChange={(e) => setForm((f) => ({ ...f, visibilidade: e.target.value }))}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.visibilidade} onChange={(e) => setForm((f) => ({ ...f, visibilidade: e.target.value }))}>
                   {getOpts("vagaPublicacaoVisibilidade").map((o) => <option key={o.code} value={o.code}>{o.text}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mini-title mb-1 block">UF</label>
-                <select className="form-select" value={form.uf} onChange={(e) => setForm((f) => ({ ...f, uf: e.target.value, cidade: "" }))}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.uf} onChange={(e) => setForm((f) => ({ ...f, uf: e.target.value, cidade: "" }))}>
                   <option value="">Selecione</option>
                   {ufs.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mini-title mb-1 block">Cidade</label>
-                <select className="form-select" value={form.cidade} onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} disabled={!form.uf || loadingCities}>
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.cidade} onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} disabled={!form.uf || loadingCities}>
                   <option value="">{form.uf ? (loadingCities ? "Carregando..." : "Selecione") : "Selecione a UF primeiro"}</option>
                   {cities.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mini-title mb-1 block">Salário mínimo (R$)</label>
-                <input className="form-control" type="text" inputMode="decimal" value={form.salarioMinimo} onChange={(e) => setForm((f) => ({ ...f, salarioMinimo: formatMoneyInput(e.target.value) }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="text" inputMode="decimal" value={form.salarioMinimo} onChange={(e) => setForm((f) => ({ ...f, salarioMinimo: formatMoneyInput(e.target.value) }))} />
               </div>
               <div>
                 <label className="mini-title mb-1 block">Salário máximo (R$)</label>
-                <input className="form-control" type="text" inputMode="decimal" value={form.salarioMaximo} onChange={(e) => setForm((f) => ({ ...f, salarioMaximo: formatMoneyInput(e.target.value) }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="text" inputMode="decimal" value={form.salarioMaximo} onChange={(e) => setForm((f) => ({ ...f, salarioMaximo: formatMoneyInput(e.target.value) }))} />
               </div>
             </div>
 
             <div>
               <label className="mini-title mb-1 block">Descrição pública</label>
-              <textarea className="form-control" rows={4} value={form.descricaoPublica} onChange={(e) => setForm((f) => ({ ...f, descricaoPublica: e.target.value }))} />
+              <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={4} value={form.descricaoPublica} onChange={(e) => setForm((f) => ({ ...f, descricaoPublica: e.target.value }))} />
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div>
                 <label className="mini-title mb-1 block">Tags palavras-chave</label>
-                <input className="form-control" value={form.tagsKeywords} onChange={(e) => setForm((f) => ({ ...f, tagsKeywords: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.tagsKeywords} onChange={(e) => setForm((f) => ({ ...f, tagsKeywords: e.target.value }))} />
               </div>
               <div>
                 <label className="mini-title mb-1 block">Tags stack</label>
-                <input className="form-control" value={form.tagsStack} onChange={(e) => setForm((f) => ({ ...f, tagsStack: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.tagsStack} onChange={(e) => setForm((f) => ({ ...f, tagsStack: e.target.value }))} />
               </div>
               <div>
                 <label className="mini-title mb-1 block">Tags responsabilidades</label>
-                <input className="form-control" value={form.tagsResponsabilidades} onChange={(e) => setForm((f) => ({ ...f, tagsResponsabilidades: e.target.value }))} />
+                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.tagsResponsabilidades} onChange={(e) => setForm((f) => ({ ...f, tagsResponsabilidades: e.target.value }))} />
               </div>
             </div>
 
@@ -412,10 +413,10 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
           </div>
 
           <div className="flex justify-end gap-2 p-4 border-t shrink-0">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn-brand" disabled={loading}>
+            <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+            <Button size="sm" type="submit" disabled={loading}>
               {loading ? "Salvando..." : "Salvar vaga"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

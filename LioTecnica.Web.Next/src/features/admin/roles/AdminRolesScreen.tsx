@@ -168,7 +168,7 @@ export default function AdminRolesScreen() {
                     <div className="text-muted-foreground text-sm">Gerencie os perfis de acesso e suas permissões.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => void loadRoles()} disabled={loading}>
+                    <Button variant="outline" size="sm" onClick={() => void loadRoles()} disabled={loading}>
                         <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
                     </Button>
                     <Button size="sm" onClick={startCreate}>
@@ -300,11 +300,11 @@ export default function AdminRolesScreen() {
                                     <TableCell className="text-right">{r.userCount ?? 0}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <Button variant="ghost" size="sm" onClick={() => startEdit(r)} title="Editar">
+                                            <Button variant="outline" size="sm" onClick={() => startEdit(r)} title="Editar">
                                                 <Pencil className="size-4" />
                                             </Button>
                                             {!r.isSystem && (
-                                                <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleDelete(r.id, r.name)} title="Remover">
+                                                <Button variant="destructive" size="sm" onClick={() => void handleDelete(r.id, r.name)} title="Remover">
                                                     <Trash2 className="size-4" />
                                                 </Button>
                                             )}

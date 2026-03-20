@@ -549,7 +549,7 @@ export default function AreasScreen() {
                 <TableCell>
                     <div className="flex items-center">
                         <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon-xs"
                             title="Expandir/colapsar"
                             aria-label="Expandir/colapsar"
@@ -718,7 +718,7 @@ export default function AreasScreen() {
                             />
                         </div>
                         <select
-                            className="form-select h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
                         >
@@ -858,7 +858,7 @@ export default function AreasScreen() {
                                 Área pai
                             </label>
                             <select
-                                className="form-select h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                                 value={draft.parentId ?? ""}
                                 onChange={(e) =>
                                     setDraft((d) => ({
@@ -883,7 +883,7 @@ export default function AreasScreen() {
                                 Dono (funcionário)
                             </label>
                             <select
-                                className="form-select h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                                 value={draft.ownerFuncionarioId ?? ""}
                                 onChange={(e) =>
                                     setDraft((d) => ({
@@ -905,7 +905,7 @@ export default function AreasScreen() {
                                 Status
                             </label>
                             <select
-                                className="form-select h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                                 value={draft.status}
                                 onChange={(e) =>
                                     setDraft((d) => ({ ...d, status: e.target.value }))
@@ -1018,7 +1018,7 @@ export default function AreasScreen() {
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <Button
-                                                        variant="ghost"
+                                                        variant="outline"
                                                         size="icon-xs"
                                                         title="Abrir vaga"
                                                         onClick={() =>

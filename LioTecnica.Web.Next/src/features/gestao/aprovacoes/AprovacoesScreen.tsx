@@ -249,7 +249,7 @@ export default function AprovacoesScreen() {
                     </div>
                 </div>
                 <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                         setLoading(true);
@@ -330,12 +330,12 @@ export default function AprovacoesScreen() {
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex items-center justify-end gap-1">
-                                            <Button variant="ghost" size="icon-xs" title="Ver detalhes" onClick={() => void openDetail(r)}>
+                                            <Button variant="outline" size="icon-xs" title="Ver detalhes" onClick={() => void openDetail(r)}>
                                                 <Eye />
                                             </Button>
                                             <Button
                                                 size="sm"
-                                                className="bg-emerald-600 hover:bg-emerald-700 h-7 px-2 text-xs"
+                                                className="bg-emerald-600 hover:bg-emerald-700"
                                                 onClick={() => {
                                                     setApprovalObs("");
                                                     void doAction(r.id, "approve");
@@ -345,8 +345,7 @@ export default function AprovacoesScreen() {
                                             </Button>
                                             <Button
                                                 size="sm"
-                                                variant="outline"
-                                                className="text-red-600 border-red-300 hover:bg-red-50 h-7 px-2 text-xs"
+                                                variant="destructive"
                                                 onClick={() => {
                                                     setApprovalObs("");
                                                     void doAction(r.id, "reject");
@@ -488,7 +487,7 @@ export default function AprovacoesScreen() {
                                 <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
                                     <div className="text-sm font-semibold text-amber-700">Sua decisão</div>
                                     <textarea
-                                        className="w-full rounded-md border border-input bg-transparent p-2 text-sm placeholder:text-muted-foreground"
+                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
                                         rows={2}
                                         placeholder="Observação (opcional)..."
                                         value={approvalObs}
@@ -514,9 +513,8 @@ export default function AprovacoesScreen() {
                                         </Button>
                                         <Button
                                             size="sm"
-                                            variant="outline"
+                                            variant="destructive"
                                             disabled={acting}
-                                            className="text-red-600 border-red-300 hover:bg-red-50"
                                             onClick={() => void doAction(detail.id, "reject")}
                                         >
                                             <XCircle className="size-4" /> Reprovar

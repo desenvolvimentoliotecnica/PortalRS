@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import { Button } from "@/components/ui/button";
 
 const STORAGE_KEY = "liotec_portal_rh_tests_v1";
 
@@ -87,9 +88,9 @@ export default function PortalVagasTestsSection() {
           <h4 className="mini-title">Testes de RH</h4>
           <p className="text-muted-foreground text-sm">Complete os testes para enriquecer seu perfil (MVP: resultados salvos neste navegador).</p>
         </div>
-        <button className="btn-ghost text-sm" type="button" onClick={resetAll}>
+        <Button variant="outline" size="sm" onClick={resetAll}>
           Reiniciar todos
-        </button>
+        </Button>
       </div>
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
@@ -127,13 +128,13 @@ export default function PortalVagasTestsSection() {
                 </div>
                 <div className="mt-3">
                   {t.status === "Não iniciado" || t.status === "Em andamento" ? (
-                    <button className="btn-brand text-sm" type="button" onClick={() => simulateComplete(t.id)}>
+                    <Button size="sm" onClick={() => simulateComplete(t.id)}>
                       Simular conclusão
-                    </button>
+                    </Button>
                   ) : (
-                    <button className="btn-ghost text-sm" type="button" onClick={() => simulateComplete(t.id)}>
+                    <Button variant="outline" size="sm" onClick={() => simulateComplete(t.id)}>
                       Refazer
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>

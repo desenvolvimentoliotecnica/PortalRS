@@ -227,7 +227,7 @@ export default function AdminUsersScreen() {
                     <div className="text-muted-foreground text-sm">Gerencie os usuários do sistema.</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => void loadData()} disabled={loading}>
+                    <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                         <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
                     </Button>
                     <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
@@ -421,13 +421,13 @@ export default function AdminUsersScreen() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <Button variant="ghost" size="sm" onClick={() => startEdit(u)} title="Editar">
+                                            <Button variant="outline" size="sm" onClick={() => startEdit(u)} title="Editar">
                                                 <Pencil className="size-4" />
                                             </Button>
-                                            <Button variant="ghost" size="sm" onClick={() => void handleToggleStatus(u.id, !u.isActive)} title={u.isActive ? "Desativar" : "Ativar"}>
+                                            <Button variant="outline" size="sm" onClick={() => void handleToggleStatus(u.id, !u.isActive)} title={u.isActive ? "Desativar" : "Ativar"}>
                                                 {u.isActive ? <ShieldOff className="size-4" /> : <ShieldCheck className="size-4" />}
                                             </Button>
-                                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => void handleDelete(u.id, u.fullName)}>
+                                            <Button variant="destructive" size="sm" onClick={() => void handleDelete(u.id, u.fullName)}>
                                                 <Trash2 className="size-4" />
                                             </Button>
                                         </div>

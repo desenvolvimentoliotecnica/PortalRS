@@ -77,7 +77,7 @@ export default function AdminOperationalLogsScreen() {
                     <div className="font-semibold">Logs</div>
                     <div className="flex flex-wrap items-center gap-2">
                         <div className="relative"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="w-[200px] pl-8" placeholder="buscar..." value={q} onChange={e => { setQ(e.target.value); setPage(1); }} /></div>
-                        <select className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={levelFilter} onChange={e => { setLevelFilter(e.target.value); setPage(1); }}>
+                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={levelFilter} onChange={e => { setLevelFilter(e.target.value); setPage(1); }}>
                             <option value="all">Todos níveis</option>
                             <option value="error">Erro</option>
                             <option value="warning">Aviso</option>

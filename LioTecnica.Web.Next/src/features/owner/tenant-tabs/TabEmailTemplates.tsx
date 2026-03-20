@@ -132,9 +132,8 @@ export default function TabEmailTemplates({ tenantId }: { tenantId: string }) {
                             <div className="flex items-center gap-1 ml-2">
                                 <span className={`w-2 h-2 rounded-full ${t.isActive ? "bg-green-500" : "bg-gray-300"}`} />
                                 <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
-                                    className="h-7 w-7 p-0"
                                     onClick={(e) => { e.stopPropagation(); handleSetActive(t.id, !t.isActive); }}
                                     title={t.isActive ? "Desativar" : "Ativar"}
                                 >

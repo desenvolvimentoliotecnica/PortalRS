@@ -188,7 +188,7 @@ export default function FeedbackInicioScreen() {
                     <h4 className="text-lg font-bold">Início</h4>
                     <div className="text-muted-foreground text-sm">Visão geral do módulo de feedback e engajamento.</div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadData()}>
+                <Button variant="outline" size="sm" onClick={() => void loadData()}>
                     <RefreshCw className="size-4" />
                 </Button>
             </div>
@@ -257,7 +257,7 @@ export default function FeedbackInicioScreen() {
                                                 </div>
                                             </div>
                                             <Link href="/app/feedback/reunioes1a1">
-                                                <Button variant="ghost" size="sm" className="size-8 p-0">
+                                                <Button variant="outline" size="sm">
                                                     <ArrowRight className="size-4" />
                                                 </Button>
                                             </Link>
@@ -392,7 +392,7 @@ export default function FeedbackInicioScreen() {
                                             <CheckCircle2 className="size-4 text-green-500" />
                                         ) : (
                                             <Link href={act.key === "feedbacks" ? "/app/feedback/enviar" : act.key === "celebrations" ? "/app/feedback/celebracao" : "/app/feedback/feedbacks"}>
-                                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                                <Button variant="outline" size="sm">
                                                     <ArrowRight className="size-3" />
                                                 </Button>
                                             </Link>

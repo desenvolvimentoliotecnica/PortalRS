@@ -345,7 +345,7 @@ export default function ProcessoSeletivoScreen() {
                 <TableCell className="text-right">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon-xs">
+                            <Button variant="outline" size="icon-xs">
                                 <ChevronDown className="size-4" />
                             </Button>
                         </DropdownMenuTrigger>
@@ -413,7 +413,7 @@ export default function ProcessoSeletivoScreen() {
                     <div className="flex-1 min-w-[200px]">
                         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Rodada</label>
                         <select
-                            className="mt-1 block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                            className="mt-1 block w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
                             value={selectedProjeto?.id ?? ""}
                             onChange={(e) => {
                                 const p = projetos.find((x) => x.id === e.target.value) ?? null;
@@ -463,7 +463,7 @@ export default function ProcessoSeletivoScreen() {
                                 <Input className="pl-8" placeholder="Buscar candidato..." value={q} onChange={(e) => setQ(e.target.value)} />
                             </div>
                             <select
-                                className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
                             >
@@ -474,7 +474,7 @@ export default function ProcessoSeletivoScreen() {
                                 <option value="3">Disponível</option>
                             </select>
                             <select
-                                className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                                 value={filterFaseId}
                                 onChange={(e) => setFilterFaseId(e.target.value)}
                             >
@@ -565,7 +565,7 @@ export default function ProcessoSeletivoScreen() {
                                                 <TableCell><ScoreBadge score={c.score} /></TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">{c.faseAtualNome ?? "—"}</TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button variant="ghost" size="icon-xs" title="Mover para fase" onClick={() => openMove(c.id)}>
+                                                    <Button variant="outline" size="icon-xs" title="Mover para fase" onClick={() => openMove(c.id)}>
                                                         <MoveRight className="size-4 text-primary" />
                                                     </Button>
                                                 </TableCell>
@@ -606,16 +606,16 @@ export default function ProcessoSeletivoScreen() {
                                                 <span className="text-xs text-muted-foreground px-2 py-0.5 rounded-full bg-muted">{RESP_LABEL[f.responsavelTipo]}</span>
                                                 <span className="text-xs text-muted-foreground">{cs.length} candidatos</span>
                                                 <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                                                    <Button variant="ghost" size="icon-xs" disabled={idx === 0} onClick={() => void moveFase(idx, -1)}>
+                                                    <Button variant="outline" size="icon-xs" disabled={idx === 0} onClick={() => void moveFase(idx, -1)}>
                                                         <ArrowUp className="size-3.5" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon-xs" disabled={idx === fases.length - 1} onClick={() => void moveFase(idx, 1)}>
+                                                    <Button variant="outline" size="icon-xs" disabled={idx === fases.length - 1} onClick={() => void moveFase(idx, 1)}>
                                                         <ArrowDown className="size-3.5" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon-xs" onClick={() => openEditFase(f)}>
+                                                    <Button variant="outline" size="icon-xs" onClick={() => openEditFase(f)}>
                                                         <Pencil className="size-3.5" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon-xs" className="text-destructive" onClick={() => void deleteFase(f.id)}>
+                                                    <Button variant="destructive" size="icon-xs" onClick={() => void deleteFase(f.id)}>
                                                         <Trash2 className="size-3.5" />
                                                     </Button>
                                                 </div>
@@ -653,7 +653,7 @@ export default function ProcessoSeletivoScreen() {
                                                                         </Badge>
                                                                     </TableCell>
                                                                     <TableCell className="text-right">
-                                                                        <Button variant="ghost" size="icon-xs" title="Mover para outra fase" onClick={() => openMove(c.id)}>
+                                                                        <Button variant="outline" size="icon-xs" title="Mover para outra fase" onClick={() => openMove(c.id)}>
                                                                             <MoveRight className="size-4 text-primary" />
                                                                         </Button>
                                                                     </TableCell>
@@ -681,7 +681,7 @@ export default function ProcessoSeletivoScreen() {
                                                 <div key={c.id} className="flex items-center gap-3 py-1.5 text-sm">
                                                     <span className="font-medium flex-1">{c.candidatoNome}</span>
                                                     <ScoreBadge score={c.score} />
-                                                    <Button variant="ghost" size="icon-xs" title="Atribuir fase" onClick={() => openMove(c.id)}>
+                                                    <Button variant="outline" size="icon-xs" title="Atribuir fase" onClick={() => openMove(c.id)}>
                                                         <MoveRight className="size-4 text-primary" />
                                                     </Button>
                                                 </div>
