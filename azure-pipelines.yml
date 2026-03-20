@@ -29,12 +29,9 @@ steps:
         fi
         echo "NEXT_DIR=$NEXT_DIR"
         cd "$NEXT_DIR"
-        # Env de build
         echo "NEXT_PUBLIC_API_BASE=https://renderrh-qa.qualiit.com.br" > .env.production
         echo "NEXT_PUBLIC_PORTAL_ORIGIN=https://renderrh-qa.qualiit.com.br" >> .env.production
-        # Instala pnpm sem usar corepack
         npm i -g pnpm@9
-        # O seu pnpm-workspace.yaml nao tem "packages:"; pnpm@9 quebra com ele.
         WS_BAK=0
         if [ -f "pnpm-workspace.yaml" ]; then
           if ! grep -q '^packages:' pnpm-workspace.yaml; then
@@ -43,24 +40,24 @@ steps:
             WS_BAK=1
           fi
         fi
-        # Nao force NODE_ENV=production antes do install (senão pnpm remove devDependencies e falta typescript)
-        unset NODE_ENV || true
         rm -rf node_modules .next out
-        pnpm install --frozen-lockfile
+        unset NODE_ENV || true
+        export NPM_CONFIG_PRODUCTION=false
+        export npm_config_production=false
+        pnpm install --frozen-lockfile --prod=false
+        node -e "require('typescript'); console.log('typescript ok')"
         export NODE_ENV=production
         pnpm build
         if [ ! -d "out" ]; then
-          echo "out/ nao existe -> rodando next export..."
+          echo "out/ nao existe apos pnpm build; rodando next export..."
           pnpm exec next export
         fi
         test -d "out" || (echo "ERRO: pasta out/ nao foi gerada"; exit 1)
         echo "out/ gerado com sucesso."
         ls -lah out | head -50
-        # Restaura workspace se foi renomeado
         if [ "$WS_BAK" -eq 1 ] && [ -f "pnpm-workspace.yaml.__ci.bak" ]; then
           mv pnpm-workspace.yaml.__ci.bak pnpm-workspace.yaml
         fi
-        # Limpa antes de empacotar
         rm -rf node_modules
   - task: Bash@3
     displayName: "Compactar projeto para release"
