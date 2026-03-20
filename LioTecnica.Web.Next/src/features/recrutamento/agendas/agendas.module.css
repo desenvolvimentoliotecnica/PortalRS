@@ -1,6 +1,6 @@
 /* Port direto do CSS embutido do legado (Agendas/Index.cshtml), focado em largura/sync do FullCalendar. */
 
-:root {
+:global(:root) {
   --fc-time-label-width: 50px;
 }
 

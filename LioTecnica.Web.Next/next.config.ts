@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   // StrictMode em dev causa double-render de todos os componentes (consumo extra de RAM/CPU).
   // Reabilite antes de build de produção para pegar efeitos colaterais.
   reactStrictMode: process.env.NODE_ENV === "production",
+  output: "export",
 
   /**
    * We mount the Next app under `/app` to coexist with the ASP.NET MVC legacy
@@ -23,7 +24,8 @@ const nextConfig: NextConfig = {
   },
 
   images: {
-    unoptimized: false,
+    // Static export não suporta o otimizador padrão do Next/Image.
+    unoptimized: true,
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 3600,
   },
