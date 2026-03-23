@@ -15,7 +15,6 @@ import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import PaginationBar from "@/components/pagination/PaginationBar";
-import { useClientPagination } from "@/hooks/useClientPagination";
 
 
 
@@ -48,6 +47,13 @@ interface FuncDraft {
 }
 
 interface LookupItem { id: string; name?: string; nome?: string }
+interface FuncListPayload {
+    items: Record<string, unknown>[];
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+}
 
 /* ---------- helpers ---------- */
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -91,9 +97,24 @@ export default function FuncionariosScreen() {
     const [saving, setSaving] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<FuncItem | null>(null);
     const [detailItem, setDetailItem] = useState<FuncItem | null>(null);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
-    const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: Record<string, unknown>[] }>(`/api/funcionarios`);
+    const syncList = useCallback(async (opts: { page: number; pageSize: number; search?: string; status?: string }) => {
+        const nextPage = opts.page;
+        const nextPageSize = opts.pageSize;
+        const nextSearch = (opts.search ?? "").trim();
+        const nextStatus = opts.status ?? "all";
+        const params = new URLSearchParams({
+            page: String(nextPage),
+            pageSize: String(nextPageSize),
+        });
+        if (nextSearch) params.set("search", nextSearch);
+        if (nextStatus === "ativo") params.set("status", "Active");
+        if (nextStatus === "inativo") params.set("status", "Inactive");
+        const payload = await fetchJson<FuncListPayload>(`/api/funcionarios?${params.toString()}`);
         const mapped: FuncItem[] = (Array.isArray(payload?.items) ? payload.items : []).map((i) => ({
             id: String(i.id ?? ""),
             nome: String(i.name ?? ""),
@@ -110,6 +131,10 @@ export default function FuncionariosScreen() {
         }));
         setRows(mapped);
         setScreenCache("/funcionarios", mapped);
+        setPage(typeof payload?.page === "number" && payload.page > 0 ? payload.page : nextPage);
+        setPageSize(typeof payload?.pageSize === "number" && payload.pageSize > 0 ? payload.pageSize : nextPageSize);
+        setTotalItems(typeof payload?.totalItems === "number" && payload.totalItems >= 0 ? payload.totalItems : 0);
+        setTotalPages(typeof payload?.totalPages === "number" && payload.totalPages > 0 ? payload.totalPages : 1);
     }, []);
 
     const loadLookups = useCallback(async () => {
@@ -134,39 +159,33 @@ export default function FuncionariosScreen() {
         } else {
             setLoading(true);
         }
-        Promise.all([syncList(), loadLookups()])
-            .catch((e) => { console.error("Funcionários – load error", e); toast.error(`Falha ao carregar funcionários: ${e instanceof Error ? e.message : "erro"}`); })
+        loadLookups()
+            .catch((e) => { console.error("Funcionários – lookup load error", e); toast.error(`Falha ao carregar lookups: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
-    }, [syncList, loadLookups]);
+    }, [loadLookups]);
 
-    /* filter */
-    const filtered = useMemo(() => {
-        const qq = q.trim().toLowerCase();
-        return rows.filter((f) => {
-            const st = (f.status ?? "").toLowerCase();
-            if (statusFilter === "ativo" && st !== "ativo" && st !== "active") return false;
-            if (statusFilter === "inativo" && st !== "inativo" && st !== "inactive") return false;
-            if (!qq) return true;
-            return [f.nome, f.email, f.area, f.unidade, f.cargo].filter(Boolean).join(" ").toLowerCase().includes(qq);
-        });
-    }, [q, rows, statusFilter]);
-
-    /* pagination */
-    const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
-        initialPageSize: 20,
-        resetDeps: [q, statusFilter],
-    });
-    const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.end, slice.start]);
+    useEffect(() => {
+        const id = setTimeout(() => {
+            setLoading(true);
+            syncList({ page: 1, pageSize, search: q, status: statusFilter })
+                .catch((e) => {
+                    console.error("Funcionários – filter load error", e);
+                    toast.error(`Falha ao aplicar filtros: ${e instanceof Error ? e.message : "erro"}`);
+                })
+                .finally(() => setLoading(false));
+        }, 350);
+        return () => clearTimeout(id);
+    }, [q, statusFilter, pageSize, syncList]);
 
     /* KPIs — Razor: Funcionários, Ativos, Headcount, Unidades */
     const kpis = useMemo(() => {
-        const total = rows.length;
+        const total = totalItems;
         const active = rows.filter((f) => ["ativo", "active"].includes((f.status ?? "").toLowerCase())).length;
         const headcount = rows.reduce((s, f) => s + (f.headcount ?? 0), 0);
         const uniqueUnidades = new Set(rows.map((f) => f.unidade).filter(Boolean)).size;
         return { total, active, headcount, uniqueUnidades };
-    }, [rows]);
+    }, [rows, totalItems]);
 
     /* CRUD */
     function openNew() { setDraft({ ...emptyDraft }); setEditOpen(true); }
@@ -211,7 +230,7 @@ export default function FuncionariosScreen() {
                 toast.success("Funcionário criado.");
             }
             setEditOpen(false);
-            await syncList();
+            await syncList({ page, pageSize, search: q, status: statusFilter });
         } catch { toast.error("Falha ao salvar."); }
         finally { setSaving(false); }
     }
@@ -222,7 +241,8 @@ export default function FuncionariosScreen() {
             await fetchJson(`/api/funcionarios/${deleteTarget.id}`, { method: "DELETE" });
             toast.success("Funcionário excluído.");
             setDeleteTarget(null);
-            await syncList();
+            const targetPage = totalItems > 1 && rows.length === 1 && page > 1 ? page - 1 : page;
+            await syncList({ page: targetPage, pageSize, search: q, status: statusFilter });
         } catch { toast.error("Falha ao excluir."); }
     }
 
@@ -234,7 +254,7 @@ export default function FuncionariosScreen() {
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-lg font-bold">Funcionários</h4>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => { setLoading(true); syncList().catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setLoading(true); syncList({ page: 1, pageSize, search: q, status: statusFilter }).catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
                         <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
                     </Button>
                     <Button size="sm" onClick={openNew}><Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo funcionário</span></Button>
@@ -288,7 +308,7 @@ export default function FuncionariosScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Carregando…</TableCell></TableRow>
-                        ) : paged.length ? paged.map((f) => (
+                        ) : rows.length ? rows.map((f) => (
                             <TableRow key={f.id}>
                                 <TableCell>
                                     <div className="font-semibold">{f.nome}</div>
@@ -319,10 +339,22 @@ export default function FuncionariosScreen() {
                 <PaginationBar
                     page={page}
                     pageSize={pageSize}
-                    totalItems={filtered.length}
+                    totalItems={totalItems}
                     pageSizes={PAGE_SIZES}
-                    onPageChange={setPage}
-                    onPageSizeChange={setPageSize}
+                    onPageChange={(nextPage) => {
+                        if (nextPage === page || nextPage < 1 || nextPage > totalPages) return;
+                        setLoading(true);
+                        syncList({ page: nextPage, pageSize, search: q, status: statusFilter })
+                            .catch(() => toast.error("Falha ao carregar página."))
+                            .finally(() => setLoading(false));
+                    }}
+                    onPageSizeChange={(nextPageSize) => {
+                        const safeSize = Number.isFinite(nextPageSize) ? Math.min(100, Math.max(10, Math.trunc(nextPageSize))) : 20;
+                        setLoading(true);
+                        syncList({ page: 1, pageSize: safeSize, search: q, status: statusFilter })
+                            .catch(() => toast.error("Falha ao alterar página."))
+                            .finally(() => setLoading(false));
+                    }}
                 />
             </div>
 
