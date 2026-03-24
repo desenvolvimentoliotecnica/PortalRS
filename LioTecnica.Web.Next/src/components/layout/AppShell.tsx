@@ -14,6 +14,7 @@ import { ApiMenuForCurrentUserSchema, type ApiMenuForCurrentUser } from "@/lib/s
 const OWNER_NAV_ITEMS: BffNavItem[] = [
   { id: "__owner_tenants", label: "Tenants", href: "/Owner/Tenants", icon: "building2", openInNewTab: false, children: [] },
   { id: "__owner_ia", label: "IA", href: "/Owner/IA", icon: "brain", openInNewTab: false, children: [] },
+  { id: "__owner_integracao", label: "Integração", href: "/Owner/Integracao", icon: "arrow-right-left", openInNewTab: false, children: [] },
 ];
 
 function mergeTenantExtras(tree: BffNavItem[], me: BffMe): BffNavItem[] {

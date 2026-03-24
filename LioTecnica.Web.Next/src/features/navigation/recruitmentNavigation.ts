@@ -107,6 +107,7 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
     createItem("nav-solicitacoes", "Solicitações", "/gestao/solicitacoes", "clipboardlist"),
     createItem("nav-processo-seletivo", "Processo Seletivo", "/gestao/processo-seletivo", "listchecks"),
     createItem("nav-admissao", "Admissão", "/admissao", "usercheck"),
+    createItem("nav-admissao-integracao", "Integração TOTVS", "/admissao/integracao", "arrow-right-left"),
     createItem("nav-batidaponto", "Batida de Ponto", "/gestao/batida-ponto", "bi-clock-history"),
     createItem("nav-comissoes", "Pagamento extra", "/gestao/comissoes", "bi-bar-chart"),
   ];

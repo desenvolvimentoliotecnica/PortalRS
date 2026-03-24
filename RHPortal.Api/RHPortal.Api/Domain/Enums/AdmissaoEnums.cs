@@ -41,3 +41,9 @@ public enum PreenchidoPor : short
     Candidato = 0,
     RH = 1
 }
+
+public enum IntegracaoResultado : short
+{
+    Sucesso = 1,
+    Falha = 2
+}

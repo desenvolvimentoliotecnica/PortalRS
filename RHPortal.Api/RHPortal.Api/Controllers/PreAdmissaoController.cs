@@ -132,4 +132,84 @@ public sealed class PreAdmissaoController : ControllerBase
     {
         return await _service.DeleteDocumentoAsync(id, docId, ct) ? NoContent() : NotFound();
     }
+
+    // ── Integração TOTVS — Node.js (API Key only) ──
+
+    /// <summary>
+    /// [TOTVS] Fila de pré-admissões aguardando integração com TOTVS Progress Datasul.
+    /// </summary>
+    /// <remarks>
+    /// Retorna todas as pré-admissões do tenant com status **Aprovada (3)** ordenadas por data de aprovação (FIFO).
+    /// Cada item representa um colaborador pronto para ser cadastrado no Progress.
+    ///
+    /// **Autenticação:** exclusivamente via `X-Api-Key` — não aceita JWT humano.
+    /// O tenant é resolvido automaticamente a partir da chave fornecida; é obrigatório também enviar `X-Tenant-Id`.
+    ///
+    /// **Fluxo recomendado:**
+    /// 1. `GET /api/pre-admissao/integracao/pendentes` → obtém a fila
+    /// 2. Para cada `id`, `GET /api/pre-admissao/{id}` → obtém todos os dados do colaborador
+    /// 3. Cadastra no Progress Datasul
+    /// 4. `POST /api/pre-admissao/{id}/integracao/resultado` → reporta sucesso ou falha
+    /// </remarks>
+    [HttpGet("integracao/pendentes")]
+    [Authorize(Roles = "ApiKey")]
+    [ProducesResponseType(typeof(IReadOnlyList<PreAdmissaoPendenteIntegracaoRow>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListPendentesIntegracao(CancellationToken ct)
+        => Ok(await _service.ListPendentesIntegracaoAsync(ct));
+
+    /// <summary>
+    /// [TOTVS] Reporta o resultado de uma tentativa de integração com TOTVS Progress Datasul.
+    /// </summary>
+    /// <remarks>
+    /// Deve ser chamado após cada tentativa de cadastro no Progress, independente do resultado.
+    ///
+    /// **Comportamento por resultado:**
+    /// - `"sucesso"` → status muda para **Integrada (5)**, preenche `integradaEmUtc`. Sai da fila permanentemente.
+    /// - `"falha"` → status **permanece Aprovada (3)**, registro volta para a fila na próxima chamada de pendentes. Use `mensagem` para registrar o erro.
+    ///
+    /// **Body:**
+    /// ```json
+    /// {
+    ///   "status": "sucesso",   // ou "falha" (obrigatório, case-insensitive)
+    ///   "mensagem": "..."      // opcional — erro ou confirmação do Progress
+    /// }
+    /// ```
+    ///
+    /// **Autenticação:** exclusivamente via `X-Api-Key`.
+    /// </remarks>
+    /// <param name="id">ID (GUID) da pré-admissão retornado pela fila de pendentes.</param>
+    [HttpPost("{id:guid}/integracao/resultado")]
+    [Authorize(Roles = "ApiKey")]
+    [ProducesResponseType(typeof(PreAdmissaoDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RegistrarResultadoIntegracao(
+        Guid id, [FromBody] IntegracaoResultadoRequest request, CancellationToken ct)
+    {
+        var statusLower = request.Status?.ToLower();
+        if (statusLower is not ("sucesso" or "falha"))
+            return BadRequest("O campo 'status' deve ser 'sucesso' ou 'falha'.");
+
+        var (result, error) = await _service.RegistrarResultadoIntegracaoAsync(id, request, ct);
+        if (result is null && error is null) return NotFound();
+        if (error is not null) return BadRequest(new { message = error });
+        return Ok(result);
+    }
+
+    // ── Painel de Integração — usuários do tenant (JWT) ──
+
+    /// <summary>
+    /// Painel de integração TOTVS do tenant — histórico de Aprovadas e Integradas.
+    /// </summary>
+    /// <remarks>
+    /// Exibe pré-admissões nos status **Aprovada (3)** (pendentes) e **Integrada (5)** (concluídas).
+    /// Filtro opcional por resultado: **1 = Sucesso**, **2 = Falha**.
+    /// Autenticação via JWT. Usuário vê apenas dados do seu próprio tenant.
+    /// </remarks>
+    /// <param name="resultado">Filtro opcional: 1 = Sucesso, 2 = Falha. Omitir retorna todos.</param>
+    [HttpGet("integracao/painel")]
+    [ProducesResponseType(typeof(IReadOnlyList<PreAdmissaoPainelIntegracaoRow>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> PainelIntegracao(
+        [FromQuery] IntegracaoResultado? resultado, CancellationToken ct)
+        => Ok(await _service.ListPainelIntegracaoAsync(resultado, ct));
 }
