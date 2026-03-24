@@ -220,6 +220,15 @@ public sealed class PreAdmissao : ITenantEntity
     public DateTimeOffset? SubmittedAtUtc { get; set; }
     public DateTimeOffset? ApprovedAtUtc { get; set; }
 
+    // ── Integração TOTVS ──
+
+    public IntegracaoResultado? IntegracaoResultado { get; set; }
+
+    [StringLength(2000)]
+    public string? IntegracaoMensagem { get; set; }
+
+    public DateTimeOffset? IntegradaEmUtc { get; set; }
+
     // ── Navigation ──
     public List<PreAdmissaoDocumento> Documentos { get; set; } = new();
 }

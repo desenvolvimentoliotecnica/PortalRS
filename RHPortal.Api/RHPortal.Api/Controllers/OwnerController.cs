@@ -5,15 +5,18 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Funcionarios.Handlers;
 using RhPortal.Api.Application.Owner;
+using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Application.Units.Handlers;
 using RhPortal.Api.Application.Users;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Funcionarios;
 using RhPortal.Api.Contracts.Owner;
+using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Contracts.Roles;
 using RhPortal.Api.Contracts.Units;
 using RhPortal.Api.Contracts.Users;
+using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -30,13 +33,15 @@ public sealed class OwnerController : ControllerBase
     private readonly OwnerAuthService _ownerAuth;
     private readonly ITenantProvisioningService _provisioning;
     private readonly IServiceProvider _scope;
+    private readonly IPreAdmissaoService _preAdmissaoService;
 
-    public OwnerController(MasterDbContext masterDb, OwnerAuthService ownerAuth, ITenantProvisioningService provisioning, IServiceProvider scope)
+    public OwnerController(MasterDbContext masterDb, OwnerAuthService ownerAuth, ITenantProvisioningService provisioning, IServiceProvider scope, IPreAdmissaoService preAdmissaoService)
     {
         _masterDb = masterDb;
         _ownerAuth = ownerAuth;
         _provisioning = provisioning;
         _scope = scope;
+        _preAdmissaoService = preAdmissaoService;
     }
 
     [AllowAnonymous]
@@ -505,4 +510,18 @@ public sealed class OwnerController : ControllerBase
         var result = await handler.HandleAsync(q, ct);
         return Ok(result);
     }
+
+    // ── Painel Integração TOTVS (cross-tenant) ──
+
+    /// <summary>
+    /// Histórico de integração TOTVS cross-tenant — Owner vê todos os tenants.
+    /// Filtros opcionais: tenantId (empresa específica), resultado (1=Sucesso, 2=Falha).
+    /// </summary>
+    [HttpGet("integracao/painel")]
+    [ProducesResponseType(typeof(IReadOnlyList<OwnerPainelIntegracaoRow>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> OwnerPainelIntegracao(
+        [FromQuery] string? tenantId,
+        [FromQuery] IntegracaoResultado? resultado,
+        CancellationToken ct)
+        => Ok(await _preAdmissaoService.OwnerListPainelIntegracaoAsync(tenantId, resultado, ct));
 }

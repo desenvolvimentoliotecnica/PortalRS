@@ -22,6 +22,10 @@ public interface IPreAdmissaoService
     Task<BuscaCpfResponse> BuscarPorCpfAsync(string cpf, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse> UploadDocumentoAsync(Guid preAdmissaoId, TipoDocumento tipo, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, Guid docId, CancellationToken ct);
+    Task<IReadOnlyList<PreAdmissaoPendenteIntegracaoRow>> ListPendentesIntegracaoAsync(CancellationToken ct);
+    Task<IReadOnlyList<PreAdmissaoPainelIntegracaoRow>> ListPainelIntegracaoAsync(IntegracaoResultado? filtro, CancellationToken ct);
+    Task<(PreAdmissaoDetailResponse? Result, string? Error)> RegistrarResultadoIntegracaoAsync(Guid id, IntegracaoResultadoRequest request, CancellationToken ct);
+    Task<IReadOnlyList<OwnerPainelIntegracaoRow>> OwnerListPainelIntegracaoAsync(string? tenantId, IntegracaoResultado? filtro, CancellationToken ct);
 }
 
 public sealed class PreAdmissaoService : IPreAdmissaoService
@@ -372,6 +376,90 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         return true;
     }
 
+    // ── Integração TOTVS ──
+
+    public async Task<IReadOnlyList<PreAdmissaoPendenteIntegracaoRow>> ListPendentesIntegracaoAsync(CancellationToken ct)
+    {
+        return await _db.Set<Domain.Entities.PreAdmissao>()
+            .AsNoTracking()
+            .Where(x => x.TenantId == _tenantContext.TenantId && x.Status == PreAdmissaoStatus.Aprovada)
+            .OrderBy(x => x.ApprovedAtUtc)
+            .Select(x => new PreAdmissaoPendenteIntegracaoRow(x.Id, x.Nome, x.Cpf, x.DataAdmissao, x.Status))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<PreAdmissaoPainelIntegracaoRow>> ListPainelIntegracaoAsync(IntegracaoResultado? filtro, CancellationToken ct)
+    {
+        var q = _db.Set<Domain.Entities.PreAdmissao>()
+            .AsNoTracking()
+            .Where(x => x.TenantId == _tenantContext.TenantId
+                     && (x.Status == PreAdmissaoStatus.Aprovada || x.Status == PreAdmissaoStatus.Integrada));
+
+        if (filtro.HasValue)
+            q = q.Where(x => x.IntegracaoResultado == filtro.Value);
+
+        return await q
+            .OrderByDescending(x => x.ApprovedAtUtc)
+            .Select(x => new PreAdmissaoPainelIntegracaoRow(
+                x.Id, x.Nome, x.Cpf, x.DataAdmissao, x.Status,
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.ApprovedAtUtc, x.IntegradaEmUtc))
+            .ToListAsync(ct);
+    }
+
+    public async Task<(PreAdmissaoDetailResponse? Result, string? Error)> RegistrarResultadoIntegracaoAsync(
+        Guid id, IntegracaoResultadoRequest request, CancellationToken ct)
+    {
+        var e = await _db.Set<Domain.Entities.PreAdmissao>()
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == _tenantContext.TenantId, ct);
+
+        if (e is null) return (null, null);
+        if (e.Status != PreAdmissaoStatus.Aprovada)
+            return (null, $"Pré-admissão não está no status 'Aprovada' (atual: {e.Status}).");
+
+        var isSucesso = string.Equals(request.Status, "sucesso", StringComparison.OrdinalIgnoreCase);
+        e.IntegracaoMensagem = request.Mensagem?.Trim();
+        e.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        if (isSucesso)
+        {
+            e.Status = PreAdmissaoStatus.Integrada;
+            e.IntegracaoResultado = IntegracaoResultado.Sucesso;
+            e.IntegradaEmUtc = DateTimeOffset.UtcNow;
+        }
+        else
+        {
+            // Mantém Aprovada → reaparece na fila para retry
+            e.IntegracaoResultado = IntegracaoResultado.Falha;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return (await GetByIdAsync(id, ct), null);
+    }
+
+    public async Task<IReadOnlyList<OwnerPainelIntegracaoRow>> OwnerListPainelIntegracaoAsync(
+        string? tenantId, IntegracaoResultado? filtro, CancellationToken ct)
+    {
+        var q = _db.Set<Domain.Entities.PreAdmissao>()
+            .AsNoTracking()
+            .IgnoreQueryFilters()   // cross-tenant: Owner vê todos os tenants
+            .Where(x => x.Status == PreAdmissaoStatus.Aprovada || x.Status == PreAdmissaoStatus.Integrada);
+
+        if (!string.IsNullOrWhiteSpace(tenantId))
+            q = q.Where(x => x.TenantId == tenantId);
+
+        if (filtro.HasValue)
+            q = q.Where(x => x.IntegracaoResultado == filtro.Value);
+
+        return await q
+            .OrderByDescending(x => x.ApprovedAtUtc)
+            .Select(x => new OwnerPainelIntegracaoRow(
+                x.TenantId, x.Id, x.Nome, x.Cpf, x.DataAdmissao, x.Status,
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.ApprovedAtUtc, x.IntegradaEmUtc))
+            .ToListAsync(ct);
+    }
+
     // ── Helpers ──
 
     private static bool ValidarCpf(string? cpf)
@@ -410,6 +498,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ReservistaNumero, e.CategoriaCnh, e.ValidadeCnh, e.Ctps, e.CtpsSerie, e.CtpsUf,
         e.ValidacaoCpfOk, e.ValidacaoCepOk, e.ValidacaoBancoOk, e.ValidacaoSalarioOk, e.ValidacaoSalarioJustificativa,
         e.CreatedAtUtc, e.SubmittedAtUtc, e.ApprovedAtUtc,
-        e.Documentos.Select(d => new PreAdmissaoDocumentoResponse(d.Id, d.Tipo, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.Status, d.ObservacaoRh, d.CreatedAtUtc)).ToList()
+        e.Documentos.Select(d => new PreAdmissaoDocumentoResponse(d.Id, d.Tipo, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.Status, d.ObservacaoRh, d.CreatedAtUtc)).ToList(),
+        e.IntegracaoResultado, e.IntegracaoMensagem, e.IntegradaEmUtc
     );
 }
