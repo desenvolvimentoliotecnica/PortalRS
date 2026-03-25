@@ -15,18 +15,22 @@ export const RECRUITMENT_ROUTE_KEYS = {
   processoSeletivo: "/gestao/processo-seletivo",
   triagem: "/triagem",
   admissao: "/admissao",
+  integracao: "/admissao/integracao",
 } as const;
 
-/** Ordem linear do fluxo de recrutamento no sidebar. */
+/** Ordem linear do fluxo de recrutamento no sidebar (funil R&S). */
 export const RECRUITMENT_LINEAR_ORDER = [
   RECRUITMENT_ROUTE_KEYS.dashboard,        // 0. Dashboard
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // 1. Solicitações (+ Aprovações)
-  RECRUITMENT_ROUTE_KEYS.vagas,            // 2. Vagas
-  RECRUITMENT_ROUTE_KEYS.candidatos,       // 3. Candidatos (+ Talentos)
-  RECRUITMENT_ROUTE_KEYS.matching,         // 4. Matching IA
-  RECRUITMENT_ROUTE_KEYS.triagem,          // 5. Triagem
-  RECRUITMENT_ROUTE_KEYS.processoSeletivo, // 6. Processo Seletivo
-  RECRUITMENT_ROUTE_KEYS.admissao,         // 7. Admissão
+  RECRUITMENT_ROUTE_KEYS.vagas,            // 1. Vagas
+  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // 2. Solicitações
+  RECRUITMENT_ROUTE_KEYS.aprovacoes,       // 3. Aprovações
+  RECRUITMENT_ROUTE_KEYS.portalVagas,      // 4. Portal de Vagas
+  RECRUITMENT_ROUTE_KEYS.candidatos,       // 5. Candidatos
+  RECRUITMENT_ROUTE_KEYS.matching,         // 6. Matching IA
+  RECRUITMENT_ROUTE_KEYS.triagem,          // 7. Triagem
+  RECRUITMENT_ROUTE_KEYS.processoSeletivo, // 8. Processo Seletivo
+  RECRUITMENT_ROUTE_KEYS.admissao,         // 9. Admissão
+  RECRUITMENT_ROUTE_KEYS.integracao,       // 10. Integração TOTVS
 ] as const;
 
 export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
@@ -42,21 +46,23 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.processoSeletivo]: "Processo Seletivo",
   [RECRUITMENT_ROUTE_KEYS.triagem]: "Triagem",
   [RECRUITMENT_ROUTE_KEYS.admissao]: "Admissão",
+  [RECRUITMENT_ROUTE_KEYS.integracao]: "Integração TOTVS",
 };
 
 export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.dashboard,
+  RECRUITMENT_ROUTE_KEYS.vagas,
   RECRUITMENT_ROUTE_KEYS.solicitacoes,
   RECRUITMENT_ROUTE_KEYS.aprovacoes,
-  RECRUITMENT_ROUTE_KEYS.vagas,
   RECRUITMENT_ROUTE_KEYS.portalVagas,
   RECRUITMENT_ROUTE_KEYS.talentos,
   RECRUITMENT_ROUTE_KEYS.candidatos,
   RECRUITMENT_ROUTE_KEYS.matching,
   RECRUITMENT_ROUTE_KEYS.rodadas,
-  RECRUITMENT_ROUTE_KEYS.processoSeletivo,
   RECRUITMENT_ROUTE_KEYS.triagem,
+  RECRUITMENT_ROUTE_KEYS.processoSeletivo,
   RECRUITMENT_ROUTE_KEYS.admissao,
+  RECRUITMENT_ROUTE_KEYS.integracao,
 ] as const;
 
 const ROUTE_KEY_ALIASES: Record<string, string> = {

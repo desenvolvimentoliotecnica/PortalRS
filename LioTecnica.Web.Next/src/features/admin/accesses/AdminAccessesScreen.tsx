@@ -50,7 +50,7 @@ const MODULE_CONFIG: { key: string; label: string; icon: typeof LayoutDashboard;
     },
     {
         key: "feedback", label: "Feedback", icon: MessageSquare, color: "text-purple-600",
-        routes: ["/feedback", "/feedback/pesquisas", "/feedback/celebracao", "/feedback/enviar", "/feedback/feedbacks", "/feedback/gamificacao", "/feedback/meusplanos", "/feedback/pesquisarapida", "/feedback/reunioes1a1", "/feedback/superpesquisa", "/desempenho"],
+        routes: ["/feedback", "/feedback/pesquisas", "/feedback/celebracao", "/feedback/enviar", "/feedback/feedbacks", "/feedback/gamificacao", "/feedback/meusplanos", "/feedback/reunioes1a1", "/desempenho"],
     },
     {
         key: "cadastros", label: "Cadastros", icon: LayoutDashboard, color: "text-cyan-600",

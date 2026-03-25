@@ -1037,6 +1037,24 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, onClose, 
                 <Toggle label="Portais de emprego" checked={draft.canalPortaisEmprego} onChange={(v) => set("canalPortaisEmprego", v)} />
               </div>
               <Field label="Descrição pública" span="col-span-12"><textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={4} placeholder="Inclua responsabilidades, requisitos e benefícios." value={draft.descricaoPublica} onChange={(e) => set("descricaoPublica", e.target.value)} /></Field>
+              {draft.id && (
+                <div className="col-span-12">
+                  <div className="card-soft p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">Link do Portal de Candidatura</div>
+                      <div className="text-xs text-muted-foreground mt-0.5 font-mono truncate max-w-xs">
+                        {typeof window !== "undefined" ? `${window.location.origin}/portalvagas?vagaId=${draft.id}` : `/portalvagas?vagaId=${draft.id}`}
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" type="button" onClick={() => {
+                      const url = `${window.location.origin}/portalvagas?vagaId=${draft.id}`;
+                      void navigator.clipboard.writeText(url).then(() => toast.success("Link copiado!"));
+                    }}>
+                      Copiar link
+                    </Button>
+                  </div>
+                </div>
+              )}
               <div className="col-span-12 md:col-span-6">
                 <div className="card-soft p-3">
                   <div className="fw-semibold mb-2 text-sm">LGPD / Consentimentos</div>

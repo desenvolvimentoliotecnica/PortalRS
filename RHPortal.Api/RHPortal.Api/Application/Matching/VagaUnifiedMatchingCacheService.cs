@@ -39,10 +39,10 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
         _rhAiOptions = rhAiOptions.Value;
     }
 
-    public Task<VagaUnifiedMatchingRankingSnapshot> GetOrStartAsync(Guid vagaId, int take = 20, CancellationToken ct = default)
+    public Task<VagaUnifiedMatchingRankingSnapshot> GetOrStartAsync(Guid vagaId, int take = 100, CancellationToken ct = default)
         => GetOrStartInternalAsync(vagaId, take, invalidate: false, ct);
 
-    public Task<VagaUnifiedMatchingRankingSnapshot> InvalidateAndStartAsync(Guid vagaId, int take = 20, CancellationToken ct = default)
+    public Task<VagaUnifiedMatchingRankingSnapshot> InvalidateAndStartAsync(Guid vagaId, int take = 100, CancellationToken ct = default)
         => GetOrStartInternalAsync(vagaId, take, invalidate: true, ct);
 
     private async Task<VagaUnifiedMatchingRankingSnapshot> GetOrStartInternalAsync(

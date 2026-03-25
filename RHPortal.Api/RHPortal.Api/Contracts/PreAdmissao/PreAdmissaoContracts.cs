@@ -309,6 +309,77 @@ public sealed record OwnerPainelIntegracaoRow(
     DateTimeOffset? IntegradaEmUtc
 );
 
+// ── Aprovação de contratação pelo gestor (inicia fluxo Ítalo) ──
+
+/// <summary>
+/// Dados mínimos para o gestor aprovar a contratação de um candidato.
+/// Dispara a coleta de documentos via Ítalo (WhatsApp).
+/// </summary>
+public sealed record AprovarContratacaoRequest(
+    /// <summary>ID do candidato no módulo de R&amp;S (opcional — para vincular à pré-admissão).</summary>
+    Guid? CandidatoId,
+    /// <summary>Nome completo do candidato.</summary>
+    string Nome,
+    /// <summary>CPF do candidato (opcional — Ítalo pode confirmar via OCR).</summary>
+    string? Cpf,
+    /// <summary>E-mail para contato com o candidato.</summary>
+    string? Email,
+    /// <summary>Celular/WhatsApp do candidato — usado pelo Ítalo para iniciar a coleta.</summary>
+    string? Celular,
+    Guid? UnitId,
+    Guid? AreaId,
+    Guid? JobPositionId,
+    DateOnly? DataAdmissao,
+    decimal? Salario
+);
+
+// ── Webhook Ítalo — dados OCR dos documentos coletados ──
+
+/// <summary>
+/// Payload enviado pelo Ítalo após processar cada documento do candidato via Lambda OCR.
+/// Chamado para cada documento (RG, CPF, comprovante de residência).
+/// </summary>
+public sealed record DocumentoExternoRequest(
+    /// <summary>Tipo do documento processado: "rg", "cpf", "comprovante_residencia".</summary>
+    string TipoDocumento,
+    /// <summary>Nome original do arquivo enviado pelo candidato.</summary>
+    string? NomeArquivo,
+    /// <summary>Content-type do arquivo (ex: "image/jpeg", "application/pdf").</summary>
+    string? ContentType,
+    /// <summary>Conteúdo do documento em Base64 para persistência.</summary>
+    string? DocumentoBase64,
+    /// <summary>Dados extraídos do RG pelo agente OCR ler_rg.</summary>
+    DadosOcrRg? DadosRg,
+    /// <summary>Dados extraídos do CPF pelo agente OCR ler_cpf.</summary>
+    DadosOcrCpf? DadosCpf,
+    /// <summary>Dados extraídos do comprovante de residência pelo agente ler_comprovante_residencia.</summary>
+    DadosOcrComprovante? DadosComprovante
+);
+
+public sealed record DadosOcrRg(
+    string? NomeCompleto,
+    string? NumeroRg,
+    string? NumeroCpf,
+    string? NivelConfiabilidade
+);
+
+public sealed record DadosOcrCpf(
+    string? NumeroCpf,
+    string? NivelConfiabilidade
+);
+
+public sealed record DadosOcrComprovante(
+    string? NomeCompleto,
+    string? EnderecoConcatenato,
+    string? Cep,
+    string? Logradouro,
+    string? Numero,
+    string? Bairro,
+    string? Cidade,
+    string? Uf,
+    string? NivelConfiabilidade
+);
+
 // ── Readmissão ──
 
 public sealed record BuscaCpfResponse(

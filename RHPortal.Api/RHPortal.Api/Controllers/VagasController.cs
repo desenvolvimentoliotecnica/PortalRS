@@ -169,6 +169,11 @@ public sealed class VagasController : ControllerBase
     /// Retorna o ranking unificado (candidatos + talentos) a partir do cache persistido.
     /// Se não estiver pronto para os filtros atuais, inicia recálculo em background e retorna 202 com stale (se houver).
     /// </summary>
+    /// <summary>
+    /// Retorna o ranking unificado (candidatos + talentos) a partir do cache persistido.
+    /// O cache sempre pré-armazena até 100 candidatos. O parâmetro <c>take</c> faz slice local (sem re-rodar IA).
+    /// Se não estiver pronto para os filtros atuais, inicia recálculo em background e retorna 202 com stale (se houver).
+    /// </summary>
     [HttpGet("{id:guid}/matching-ranking")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status202Accepted)]
@@ -179,16 +184,18 @@ public sealed class VagasController : ControllerBase
         [FromQuery] int take = 20,
         CancellationToken ct = default)
     {
+        var safeTake = Math.Clamp(take, 10, 100);
         var startedAt = DateTimeOffset.UtcNow;
-        var snapshot = await cacheService.GetOrStartAsync(id, take, ct);
+
+        // Sempre usa o cache de 100 — o slice é feito aqui, sem re-rodar IA
+        var snapshot = await cacheService.GetOrStartAsync(id, take: 100, ct: ct);
         _logger.LogInformation(
-            "Matching ranking snapshot. Tenant={TenantId} VagaId={VagaId} Take={Take} Status={Status} Items={Items} StaleItems={StaleItems} ElapsedMs={ElapsedMs}",
+            "Matching ranking snapshot. Tenant={TenantId} VagaId={VagaId} Take={Take} CachedTotal={CachedTotal} Status={Status} ElapsedMs={ElapsedMs}",
             _tenantContext.TenantId,
             id,
-            take,
-            snapshot.Status,
+            safeTake,
             snapshot.Items.Count,
-            snapshot.StaleItems.Count,
+            snapshot.Status,
             (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds
         );
 
@@ -200,7 +207,8 @@ public sealed class VagasController : ControllerBase
                 filtersHash = snapshot.FiltersHash,
                 startedAtUtc = snapshot.StartedAtUtc,
                 computedAtUtc = snapshot.ComputedAtUtc,
-                items = snapshot.Items
+                cachedCount = snapshot.Items.Count,
+                items = snapshot.Items.Take(safeTake).ToList()
             });
         }
 
@@ -301,7 +309,7 @@ public sealed class VagasController : ControllerBase
             if (updated is null)
                 return NotFound();
             // Dispara recálculo unificado em background; a tela lê do cache.
-            _ = unifiedCache.InvalidateAndStartAsync(id, take: 20, ct: CancellationToken.None);
+            _ = unifiedCache.InvalidateAndStartAsync(id, take: 100, ct: CancellationToken.None);
             return Ok(updated);
         }
         catch (InvalidOperationException ex)

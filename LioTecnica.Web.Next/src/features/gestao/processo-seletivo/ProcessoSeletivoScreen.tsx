@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import {
     Plus, Pencil, Trash2, ArrowUp, ArrowDown, Search, MoveRight,
-    Users, GripVertical, ChevronDown, ChevronRight, Cpu,
+    Users, GripVertical, ChevronDown, ChevronRight, Cpu, UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,6 +160,12 @@ export default function ProcessoSeletivoScreen() {
     const [movePcId, setMovePcId] = useState<string | null>(null);
     const [moveTargetFaseId, setMoveTargetFaseId] = useState<string>("");
 
+    /* aprovar contratação dialog */
+    const [aprovarDialogOpen, setAprovarDialogOpen] = useState(false);
+    const [aprovarTarget, setAprovarTarget] = useState<CandidatoFase | null>(null);
+    const [aprovarCelular, setAprovarCelular] = useState("");
+    const [aprovarLoading, setAprovarLoading] = useState(false);
+
     /* Load projetos (across recent vagas) */
     useEffect(() => {
         fetchJson<any>("/api/vagas?fields=id,titulo").then((data) => {
@@ -311,6 +317,36 @@ export default function ProcessoSeletivoScreen() {
     const openEditFase = (f: Fase) => { setEditFaseId(f.id); setFaseNome(f.nome); setFaseResp(f.responsavelTipo); setFaseDialogOpen(true); };
     const openNewFase = () => { setEditFaseId(null); setFaseNome(""); setFaseResp(0); setFaseDialogOpen(true); };
     const openMove = (pcId: string) => { setMovePcId(pcId); setMoveTargetFaseId(fases[0]?.id ?? ""); setMoveDialogOpen(true); };
+    const openAprovar = (c: CandidatoFase) => { setAprovarTarget(c); setAprovarCelular(""); setAprovarDialogOpen(true); };
+
+    async function aprovarContratacao() {
+        if (!aprovarTarget) return;
+        setAprovarLoading(true);
+        try {
+            const res = await apiFetch("/api/pre-admissao/aprovar-contratacao", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    candidatoId: aprovarTarget.candidatoId,
+                    nome: aprovarTarget.candidatoNome,
+                    email: aprovarTarget.candidatoEmail ?? undefined,
+                    celular: aprovarCelular.trim() || undefined,
+                }),
+            });
+            if (!res.ok) {
+                const text = await res.text().catch(() => "");
+                throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+            }
+            const data = await res.json();
+            toast.success("Contratação aprovada! Redirecionando para pré-admissão...");
+            setAprovarDialogOpen(false);
+            router.push(`/admissao/tracking/${data.id}`);
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setAprovarLoading(false);
+        }
+    }
 
     /* ── Candidatos table row ── */
     function CandidatoRow({ c }: { c: CandidatoFase }) {
@@ -352,6 +388,9 @@ export default function ProcessoSeletivoScreen() {
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openMove(c.id)}>
                                 <MoveRight className="size-4 mr-2" /> Mover fase
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openAprovar(c)} className="text-green-700 focus:text-green-700">
+                                <UserCheck className="size-4 mr-2" /> Aprovar Contratação
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -719,6 +758,47 @@ export default function ProcessoSeletivoScreen() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setFaseDialogOpen(false)}>Cancelar</Button>
                         <Button disabled={!faseNome.trim()} onClick={() => void saveFase()}>{editFaseId ? "Salvar" : "Criar"}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Aprovar Contratação Dialog ── */}
+            <Dialog open={aprovarDialogOpen} onOpenChange={setAprovarDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Aprovar Contratação</DialogTitle>
+                        <DialogDescription>
+                            Confirme os dados para iniciar o processo de pré-admissão de{" "}
+                            <strong>{aprovarTarget?.candidatoNome}</strong>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nome</label>
+                            <Input value={aprovarTarget?.candidatoNome ?? ""} readOnly className="bg-muted/30" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">E-mail</label>
+                            <Input value={aprovarTarget?.candidatoEmail ?? "—"} readOnly className="bg-muted/30" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Celular (opcional)</label>
+                            <Input
+                                placeholder="(11) 99999-0000"
+                                value={aprovarCelular}
+                                onChange={(e) => setAprovarCelular(e.target.value)}
+                                maxLength={20}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAprovarDialogOpen(false)} disabled={aprovarLoading}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={() => void aprovarContratacao()} disabled={aprovarLoading} className="bg-green-600 hover:bg-green-700 text-white">
+                            <UserCheck className="size-4 mr-2" />
+                            {aprovarLoading ? "Aprovando..." : "Confirmar Aprovação"}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
