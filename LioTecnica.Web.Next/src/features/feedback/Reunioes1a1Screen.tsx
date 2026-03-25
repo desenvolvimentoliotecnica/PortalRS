@@ -195,10 +195,13 @@ export default function Reunioes1a1Screen() {
     return (
         <section className="space-y-3">
             {/* ── Header ── */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h4 className="text-lg font-bold">Reuniões 1:1</h4>
-                    <p className="text-muted-foreground text-sm">Crie, acompanhe e finalize reuniões individuais com seus liderados</p>
+                    <div className="mb-2 inline-flex rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        Feedback
+                    </div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Reuniões 1:1</h1>
+                    <p className="text-muted-foreground text-sm mt-0.5">Crie, acompanhe e finalize reuniões individuais com seus liderados</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" disabled title="Em breve">

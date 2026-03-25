@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
-import { clearPortalCandidateSession, getPortalCandidateSession, portalCandidateFetch } from "@/features/portalvagas/publicApi";
+import { getPortalCandidateSession, portalCandidateFetch } from "@/features/portalvagas/publicApi";
 import PortalVagasAgendaScreen from "@/features/portalvagas/agenda/PortalVagasAgendaScreen";
 import { addAppToHistory } from "@/features/portalvagas/appsStorage";
 import {
@@ -24,7 +24,7 @@ import {
 import NewJobModal from "@/features/portalvagas/NewJobModal";
 import JobCard from "@/features/portalvagas/JobCard";
 import { Button } from "@/components/ui/button";
-import { getSectionInfo, parseTagsResponsabilidades, buildSummary } from "@/features/portalvagas/jobsUtils";
+import { parseTagsResponsabilidades, buildSummary } from "@/features/portalvagas/jobsUtils";
 
 type JobItem = {
   id: string;
@@ -507,187 +507,142 @@ export default function PortalVagasScreen() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const inputCls = "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20";
+  const selectCls = "w-full h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20";
+  const labelCls = "block text-xs font-medium text-muted-foreground mb-1";
+
   return (
-    <section className="space-y-4 relative">
-      <div className="rounded-xl bg-gradient-to-br from-[rgba(16,82,144,.08)] to-transparent p-6 mb-4">
-        <h1 className="text-2xl font-extrabold">Transforme o Futuro da Alimentação</h1>
-        <p className="text-muted-foreground mt-1">Ambiente inovador, tecnologia de ponta e paixão por qualidade.</p>
-      </div>
+    <div className="min-h-screen bg-background relative">
 
-      <div className="card-soft p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-lg font-extrabold">Portal de Vagas</div>
-            <div className="text-muted-foreground text-sm">
-              Catálogo público, candidatura, perfil e agenda no Next.
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {isAdmin ? (
-              <Button size="sm" onClick={() => setNewJobOpen(true)}>
-                Nova vaga
-              </Button>
-            ) : null}
-            <Button variant="outline" size="sm" onClick={() => void openProfile()}>
-              Meu perfil
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                if (tenantId) clearPortalCandidateSession(tenantId);
-                setAuthRequired(true);
-                toast.success("Sessão encerrada neste navegador.");
-              }}
-            >
-              Sair
-            </Button>
-          </div>
+      {/* ── Hero ── */}
+      <div className="border-b border-border/40 bg-gradient-to-br from-primary/5 via-background to-background px-4 pb-8 pt-10 text-center">
+        <h1 className="text-3xl font-bold tracking-tight">Encontre sua próxima vaga</h1>
+        <p className="mt-2 text-muted-foreground text-sm">Candidate-se em segundos, sem criar conta.</p>
+
+        {/* Search bar */}
+        <div className="mx-auto mt-6 flex max-w-2xl items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-2.5 shadow-sm">
+          <svg className="size-4 shrink-0 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <input
+            className="flex-1 bg-transparent text-sm focus:outline-none"
+            placeholder="Cargo, área, tecnologia..."
+            value={q}
+            onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          />
+          {q && (
+            <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setQ(""); setPage(1); }}>
+              <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          )}
         </div>
 
-        {!tenantId ? (
-          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-            Tenant não informado na URL. Use o link com <code>?tenantId=...</code> para habilitar catálogo/candidatura.
-          </div>
-        ) : null}
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" variant={tab === "vagas" ? "default" : "outline"} onClick={() => setTab("vagas")}>
-            Vagas
-          </Button>
-          <Button size="sm" variant={tab === "agenda" ? "default" : "outline"} onClick={() => setTab("agenda")}>
-            Agenda
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/app/PortalVagas/Acesso${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ""}`}>
-              Acesso
-            </Link>
-          </Button>
+        {/* Action buttons */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm">
+          <Button variant="ghost" size="sm" onClick={() => void openProfile()}>Meu perfil</Button>
+          {tab !== "agenda" && (
+            <Button variant="ghost" size="sm" onClick={() => setTab("agenda")}>Ver agenda</Button>
+          )}
+          {tab === "agenda" && (
+            <Button variant="ghost" size="sm" onClick={() => setTab("vagas")}>Ver vagas</Button>
+          )}
+          {!tenantId && (
+            <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-800">
+              Link sem tenantId — use <code>?tenantId=...</code> para ver vagas
+            </span>
+          )}
         </div>
       </div>
 
-      {tab === "vagas" ? (
-        <div className="space-y-4">
-          <div className="rounded-xl bg-white border border-[rgba(16,82,144,.1)] shadow-sm p-3 flex flex-wrap items-center gap-2">
-            <span className="text-muted-foreground">🔍</span>
-            <input
-              className="flex-1 min-w-[200px] border-0 bg-transparent focus:outline-none focus:ring-0"
-              placeholder="Buscar por cargo, empresa, tecnologia..."
-              value={q}
-              onChange={(e) => { setQ(e.target.value); setPage(1); }}
-            />
-            <Button size="sm" onClick={() => setPage(1)}>
-              Buscar
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { setQ(""); setPage(1); }}>
-              Limpar
-            </Button>
-          </div>
+      {/* ── Content ── */}
+      <div className="mx-auto max-w-6xl px-4 py-6">
+        {tab === "agenda" ? (
+          <PortalVagasAgendaScreen />
+        ) : (
+          <div className="space-y-5">
+            {/* Filters row */}
+            <div className="flex flex-wrap items-center gap-2">
+              <select className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" value={location} onChange={(e) => { setLocation(e.target.value); setPage(1); }}>
+                <option value="">Localização</option>
+                <option value="São Paulo, SP">São Paulo, SP</option>
+                <option value="Rio de Janeiro, RJ">Rio de Janeiro, RJ</option>
+                <option value="Belo Horizonte, MG">Belo Horizonte, MG</option>
+                <option value="Curitiba, PR">Curitiba, PR</option>
+                <option value="Remoto">Remoto (Brasil)</option>
+              </select>
+              <select className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" value={mode} onChange={(e) => { setMode(e.target.value); setPage(1); }}>
+                <option value="">Formato</option>
+                <option value="Remoto">Remoto</option>
+                <option value="Hibrido">Híbrido</option>
+                <option value="Presencial">Presencial</option>
+              </select>
+              <select className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
+                <option value="">Contratação</option>
+                <option value="CLT">CLT</option>
+                <option value="PJ">PJ</option>
+                <option value="Estágio">Estágio</option>
+              </select>
+              <select className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" value={level} onChange={(e) => { setLevel(e.target.value); setPage(1); }}>
+                <option value="">Senioridade</option>
+                <option value="Júnior">Júnior</option>
+                <option value="Pleno">Pleno</option>
+                <option value="Sênior">Sênior</option>
+                <option value="Liderança">Liderança</option>
+              </select>
+              <select className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" value={area} onChange={(e) => { setArea(e.target.value); setPage(1); }}>
+                <option value="">Área</option>
+                <option value="Engenharia">Engenharia</option>
+                <option value="Dados">Dados</option>
+                <option value="Produto">Produto</option>
+                <option value="Design">Design</option>
+                <option value="Segurança">Segurança</option>
+                <option value="Operações">Operações</option>
+              </select>
 
-          <div className="card-soft p-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm text-muted-foreground">
-                {loading ? "Carregando..." : `${jobs.totalItems} vaga(s) encontrada(s)`}
-              </span>
-              <div className="flex flex-wrap gap-2">
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={location} onChange={(e) => { setLocation(e.target.value); setPage(1); }}>
-                  <option value="">Local (qualquer)</option>
-                  <option value="São Paulo, SP">São Paulo, SP</option>
-                  <option value="Rio de Janeiro, RJ">Rio de Janeiro, RJ</option>
-                  <option value="Belo Horizonte, MG">Belo Horizonte, MG</option>
-                  <option value="Curitiba, PR">Curitiba, PR</option>
-                  <option value="Remoto">Remoto (Brasil)</option>
-                </select>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={mode} onChange={(e) => { setMode(e.target.value); setPage(1); }}>
-                  <option value="">Formato</option>
-                  <option value="Remoto">Remoto</option>
-                  <option value="Hibrido">Híbrido</option>
-                  <option value="Presencial">Presencial</option>
-                </select>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
-                  <option value="">Tipo</option>
-                  <option value="CLT">CLT</option>
-                  <option value="PJ">PJ</option>
-                  <option value="Estágio">Estágio</option>
-                </select>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={level} onChange={(e) => { setLevel(e.target.value); setPage(1); }}>
-                  <option value="">Senioridade</option>
-                  <option value="Júnior">Júnior</option>
-                  <option value="Pleno">Pleno</option>
-                  <option value="Sênior">Sênior</option>
-                  <option value="Liderança">Liderança</option>
-                </select>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={area} onChange={(e) => { setArea(e.target.value); setPage(1); }}>
-                  <option value="">Área</option>
-                  <option value="Engenharia">Engenharia</option>
-                  <option value="Dados">Dados</option>
-                  <option value="Produto">Produto</option>
-                  <option value="Design">Design</option>
-                  <option value="Segurança">Segurança</option>
-                  <option value="Operações">Operações</option>
-                </select>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm text-sm w-24" placeholder="Sal. mín." type="number" min={0} step={500} value={minSalary} onChange={(e) => { setMinSalary(e.target.value); setPage(1); }} />
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm text-sm w-auto" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {loading ? "Carregando..." : `${jobs.totalItems} vaga${jobs.totalItems !== 1 ? "s" : ""}`}
+                </span>
+                <select className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" value={sort} onChange={(e) => setSort(e.target.value)}>
                   <option value="recent">Mais recentes</option>
                   <option value="salaryDesc">Maior salário</option>
                   <option value="companyAsc">Empresa A-Z</option>
                 </select>
+                {(q || location || mode || type || level || area || minSalary) && (
+                  <Button variant="ghost" size="sm" onClick={() => { setQ(""); setLocation(""); setMode(""); setType(""); setLevel(""); setArea(""); setMinSalary(""); setPage(1); }}>
+                    Limpar filtros
+                  </Button>
+                )}
               </div>
             </div>
 
-            {!loading && jobs.items.length === 0 ? (
-              <div className="py-12 text-center">
-                <h3 className="font-semibold mb-2">Nenhuma vaga encontrada</h3>
-                <p className="text-muted-foreground text-sm mb-3">Tente remover alguns filtros ou refinar o texto de busca.</p>
-                <Button variant="outline" size="sm" onClick={() => { setQ(""); setLocation(""); setMode(""); setType(""); setLevel(""); setArea(""); setMinSalary(""); setPage(1); }}>
-                  Limpar filtros
-                </Button>
+            {/* Jobs grid */}
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-44 rounded-xl border border-border/40 bg-muted/30 animate-pulse" />
+                ))}
+              </div>
+            ) : jobs.items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <svg className="size-12 text-muted-foreground/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                <p className="font-semibold text-muted-foreground">Nenhuma vaga encontrada</p>
+                <p className="text-sm text-muted-foreground/70 mt-1">Tente remover filtros ou buscar por outras palavras.</p>
               </div>
             ) : (
               <>
-                {(() => {
-                  const groups = new Map<string, JobItem[]>();
-                  const areaFallback = "Geral";
-                  jobs.items.forEach((job) => {
-                    const key = (job.area || areaFallback).toString();
-                    if (!groups.has(key)) groups.set(key, []);
-                    groups.get(key)!.push(job);
-                  });
-                  let offset = 0;
-                  return Array.from(groups.entries()).map(([areaKey, areaJobs]) => {
-                    const info = getSectionInfo(areaKey);
-                    const section = (
-                      <section key={areaKey} className="mb-8">
-                        <div
-                          className="rounded-xl mb-4 p-6 text-white flex flex-col justify-end min-h-[120px] bg-cover bg-center relative overflow-hidden"
-                          style={{ backgroundImage: `url('${info.image}')` }}
-                        >
-                          <div className="absolute inset-0 bg-black/40" />
-                          <div className="relative z-10">
-                            <h2 className="text-xl font-bold">{info.title}</h2>
-                            <span className="text-sm opacity-90">{areaJobs.length} vagas</span>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {areaJobs.map((job, idx) => (
-                            <JobCard
-                              key={job.id}
-                              job={job}
-                              index={offset + idx}
-                              onDetails={() => setSelectedJob(job)}
-                              onApply={() => openApply(job)}
-                            />
-                          ))}
-                        </div>
-                      </section>
-                    );
-                    offset += areaJobs.length;
-                    return section;
-                  });
-                })()}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {jobs.items.map((job, idx) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      index={idx}
+                      onDetails={() => setSelectedJob(job)}
+                      onApply={() => openApply(job)}
+                    />
+                  ))}
+                </div>
 
-                {jobs.totalPages > 1 ? (
-                  <div className="flex items-center justify-end gap-2 pt-4">
+                {jobs.totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-3 pt-4">
                     <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                       Anterior
                     </Button>
@@ -696,107 +651,398 @@ export default function PortalVagasScreen() {
                       Próxima
                     </Button>
                   </div>
-                ) : null}
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Job Detail Modal ── */}
+      {selectedJob && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-2xl rounded-2xl border border-border/40 bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-border/40 bg-card px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold leading-tight">{selectedJob.titulo}</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{selectedJob.empresaNome || selectedJob.tenantName || "Empresa"}</p>
+              </div>
+              <button type="button" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors" onClick={() => setSelectedJob(null)}>
+                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              {/* Meta chips */}
+              <div className="flex flex-wrap gap-2">
+                {selectedJob.modalidade && <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-xs font-medium">{selectedJob.modalidade}</span>}
+                {selectedJob.tipoContratacao && <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-xs font-medium">{selectedJob.tipoContratacao}</span>}
+                {selectedJob.senioridade && <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-xs font-medium">{selectedJob.senioridade}</span>}
+                {(selectedJob.cidade || selectedJob.uf) && <span className="rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-xs font-medium">{[selectedJob.cidade, selectedJob.uf].filter(Boolean).join(", ")}</span>}
+                {(selectedJob.salarioMinimo || selectedJob.salarioMaximo) && <span className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">{money(selectedJob.salarioMinimo, selectedJob.salarioMaximo)}</span>}
+              </div>
+
+              {/* Description */}
+              {buildSummary(selectedJob) && (
+                <p className="text-sm text-muted-foreground leading-relaxed">{buildSummary(selectedJob)}</p>
+              )}
+
+              {/* Responsibilities */}
+              {parseTagsResponsabilidades(selectedJob.tagsResponsabilidadesRaw).length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold mb-2">Responsabilidades</p>
+                  <ul className="space-y-1.5">
+                    {parseTagsResponsabilidades(selectedJob.tagsResponsabilidadesRaw).map((r, i) => (
+                      <li key={`resp-${selectedJob.id}-${i}`} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary/60" />
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Tags */}
+              {tags(selectedJob).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {tags(selectedJob).map((t, i) => (
+                    <span key={`tag-${selectedJob.id}-${i}`} className="rounded-full border border-border/50 px-2.5 py-0.5 text-xs text-muted-foreground">{t}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-border/40 bg-card px-6 py-4">
+              <button
+                type="button"
+                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+                onClick={() => {
+                  const url = typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}#${selectedJob.id}` : `#${selectedJob.id}`;
+                  void navigator.clipboard.writeText(url);
+                  toast.success("Link copiado!");
+                }}
+              >
+                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                Copiar link
+              </button>
+              <Button onClick={() => { setSelectedJob(null); openApply(selectedJob); }}>
+                Candidatar-se a esta vaga
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Apply Modal ── */}
+      {applyOpen && selectedJob && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-2xl rounded-2xl border border-border/40 bg-card shadow-2xl max-h-[92vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-border/40 px-6 py-4 shrink-0">
+              <div>
+                <h2 className="text-lg font-semibold">Candidatura</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{selectedJob.titulo}</p>
+              </div>
+              <button type="button" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 transition-colors" onClick={() => setApplyOpen(false)}>
+                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+              {/* Dados pessoais */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Dados pessoais</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Nome completo *</label>
+                    <input className={inputCls} placeholder="Seu nome completo" value={applyForm.fullName} onChange={(e) => setApplyForm((f) => ({ ...f, fullName: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>E-mail *</label>
+                    <input className={inputCls} type="email" placeholder="seu@email.com" value={applyForm.email} onChange={(e) => setApplyForm((f) => ({ ...f, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Telefone</label>
+                    <input className={inputCls} placeholder="(11) 99999-9999" value={applyForm.phone} onChange={(e) => setApplyForm((f) => ({ ...f, phone: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>LinkedIn</label>
+                    <input className={inputCls} placeholder="linkedin.com/in/seuperfil" value={applyForm.linkedin} onChange={(e) => setApplyForm((f) => ({ ...f, linkedin: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Cidade</label>
+                    <input className={inputCls} placeholder="São Paulo" value={applyForm.city} onChange={(e) => setApplyForm((f) => ({ ...f, city: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Estado</label>
+                    <select className={selectCls} value={applyForm.uf} onChange={(e) => setApplyForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))}>
+                      <option value="">Selecione</option>
+                      {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Experiência */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Experiência</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Cargo atual</label>
+                    <input className={inputCls} placeholder="Desenvolvedor Pleno" value={applyForm.currentRole} onChange={(e) => setApplyForm((f) => ({ ...f, currentRole: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Anos de experiência</label>
+                    <input className={inputCls} type="number" min={0} placeholder="3" value={applyForm.experienceYears} onChange={(e) => setApplyForm((f) => ({ ...f, experienceYears: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Pretensão salarial</label>
+                    <input className={inputCls} placeholder="R$ 8.000" value={applyForm.salaryExpectation} onChange={(e) => setApplyForm((f) => ({ ...f, salaryExpectation: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Disponibilidade</label>
+                    <select className={selectCls} value={applyForm.availability} onChange={(e) => setApplyForm((f) => ({ ...f, availability: e.target.value }))}>
+                      <option value="">Selecione</option>
+                      <option value="Imediata">Imediata</option>
+                      <option value="Até 15 dias">Até 15 dias</option>
+                      <option value="Até 30 dias">Até 30 dias</option>
+                      <option value="Mais de 30 dias">Mais de 30 dias</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={labelCls}>Resumo profissional</label>
+                    <textarea className={`${inputCls} resize-none`} rows={3} placeholder="Conte um pouco sobre você e seus diferenciais..." value={applyForm.highlights} onChange={(e) => setApplyForm((f) => ({ ...f, highlights: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Campos personalizados */}
+              {camposPersonalizados.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Informações da vaga</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {camposPersonalizados.map((campo) => {
+                      const val = camposValues[campo.id] ?? "";
+                      const readOnly = campo.isReadOnly;
+                      const fieldLabel = `${campo.label}${campo.obrigatorio ? " *" : ""}`;
+                      if (campo.tipo === 2) {
+                        return (
+                          <label key={campo.id} className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" className="rounded" disabled={readOnly} checked={val === "true"} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.checked ? "true" : "false" }))} />
+                            <span className="text-sm">{fieldLabel}</span>
+                          </label>
+                        );
+                      }
+                      if (campo.tipo === 1 && campo.opcoes) {
+                        return (
+                          <div key={campo.id}>
+                            <label className={labelCls}>{fieldLabel}</label>
+                            <select className={selectCls} disabled={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))}>
+                              <option value="">Selecione</option>
+                              {campo.opcoes.split(";").map((o) => o.trim()).filter(Boolean).map((o) => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={campo.id}>
+                          <label className={labelCls}>{fieldLabel}</label>
+                          <input className={inputCls} type={campo.tipo === 3 ? "number" : "text"} readOnly={readOnly} value={val} onChange={(e) => setCamposValues((v) => ({ ...v, [campo.id]: e.target.value }))} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Currículo + LGPD */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Currículo e consentimento</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className={labelCls}>Currículo (PDF, DOC, DOCX — máx. 5MB)</label>
+                    <input className={inputCls} type="file" accept=".pdf,.doc,.docx" onChange={(e) => onApplyFileChange(e.target.files?.[0] || null)} />
+                  </div>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5 rounded" checked={applyForm.consent} onChange={(e) => setApplyForm((f) => ({ ...f, consent: e.target.checked }))} />
+                    <span className="text-sm text-muted-foreground">Concordo com o uso dos meus dados para fins de recrutamento e seleção *</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-border/40 px-6 py-4 shrink-0">
+              <Button variant="outline" onClick={() => setApplyOpen(false)}>Cancelar</Button>
+              <Button disabled={sendingApply} onClick={() => void submitApply()}>
+                {sendingApply ? "Enviando..." : "Enviar candidatura"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Profile Modal ── */}
+      {profileOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-4xl rounded-2xl border border-border/40 bg-card shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-start justify-between gap-3 border-b border-border/40 px-6 py-4 shrink-0">
+              <div>
+                <h2 className="text-lg font-semibold">Meu Perfil</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">Atualize seus dados de candidato.</p>
+              </div>
+              <button type="button" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 transition-colors" onClick={() => setProfileOpen(false)}>
+                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {authRequired ? (
+              <div className="px-6 py-8 text-center">
+                <p className="text-muted-foreground text-sm mb-4">Você precisa autenticar para editar o perfil.</p>
+                <Button asChild><Link href={`/app/PortalVagas/Acesso${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ""}`}>Ir para Acesso</Link></Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-1 border-b border-border/40 px-6 py-3 shrink-0 overflow-x-auto">
+                  {([["perfil", "Perfil"], ["skills", "Competências"], ["education", "Formação"], ["preferences", "Preferências"], ["lgpd", "LGPD"], ["notifications", "Notificações"], ["documents", "Documentos"], ["experience", "Experiência"], ["references", "Referências"], ["accessibility", "Acessibilidade"], ["apps", "Candidaturas"], ["tests", "Testes RH"]] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${profileSection === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+                      onClick={() => setProfileSection(key)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="overflow-y-auto flex-1 px-6 py-5">
+                  {profileSection === "perfil" && (
+                    <>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className={labelCls}>Nome</label>
+                          <input className={inputCls} value={profile.nome || ""} onChange={(e) => setProfile((p) => ({ ...p, nome: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>E-mail</label>
+                          <input className={inputCls} value={profile.email || ""} readOnly />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Telefone</label>
+                          <input className={inputCls} value={profile.fone || ""} onChange={(e) => setProfile((p) => ({ ...p, fone: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Estado</label>
+                          <select className={selectCls} value={profile.uf || ""} onChange={(e) => setProfile((p) => ({ ...p, uf: e.target.value.toUpperCase() }))}>
+                            <option value="">Selecione</option>
+                            {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className={labelCls}>Cidade</label>
+                          <input className={inputCls} value={profile.cidade || ""} onChange={(e) => setProfile((p) => ({ ...p, cidade: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>LinkedIn</label>
+                          <input className={inputCls} value={profile.linkedinUrl || ""} onChange={(e) => setProfile((p) => ({ ...p, linkedinUrl: e.target.value }))} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" className="rounded" checked={profile.trabalhandoAtualmente === true} onChange={(e) => setProfile((p) => ({ ...p, trabalhandoAtualmente: e.target.checked }))} />
+                            <span className="text-sm text-muted-foreground">Está trabalhando atualmente</span>
+                          </label>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className={labelCls}>Resumo profissional</label>
+                          <textarea className={`${inputCls} resize-none`} rows={4} value={profile.resumoProfissional || ""} onChange={(e) => setProfile((p) => ({ ...p, resumoProfissional: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Avatar</label>
+                          <input className={inputCls} type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && void upload("avatar", e.target.files[0])} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Currículo</label>
+                          <input className={inputCls} type="file" accept=".pdf,.doc,.docx" onChange={(e) => e.target.files?.[0] && void upload("curriculo", e.target.files[0])} />
+                        </div>
+                      </div>
+                      <div className="mt-5 flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setProfileOpen(false)}>Cancelar</Button>
+                        <Button disabled={savingProfile} onClick={() => void saveProfile()}>
+                          {savingProfile ? "Salvando..." : "Salvar perfil"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                  {profileSection === "skills" && <PortalVagasSkillsSection />}
+                  {profileSection === "education" && <PortalVagasEducationSection />}
+                  {profileSection === "preferences" && <PortalVagasPreferencesSection />}
+                  {profileSection === "lgpd" && <PortalVagasLgpdSection />}
+                  {profileSection === "notifications" && <PortalVagasNotificationsSection />}
+                  {profileSection === "documents" && <PortalVagasDocumentsSection />}
+                  {profileSection === "experience" && <PortalVagasExperienceSection />}
+                  {profileSection === "references" && <PortalVagasReferencesSection />}
+                  {profileSection === "accessibility" && <PortalVagasAccessibilitySection />}
+                  {profileSection === "apps" && <PortalVagasAppsSection />}
+                  {profileSection === "tests" && <PortalVagasTestsSection />}
+                </div>
               </>
             )}
           </div>
         </div>
-      ) : null}
+      )}
 
-      {tab === "agenda" ? <PortalVagasAgendaScreen /> : null}
+      <NewJobModal
+        open={newJobOpen}
+        onClose={() => setNewJobOpen(false)}
+        onSaved={() => setRefreshKey((k) => k + 1)}
+      />
 
-      {selectedJob ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="card-soft w-full max-w-2xl p-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="text-lg font-extrabold">{selectedJob.titulo}</div>
-                <div className="text-sm text-muted-foreground">{selectedJob.empresaNome || selectedJob.tenantName || "Empresa"}</div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setSelectedJob(null)}>Fechar</Button>
+      {/* ── Back to top / Filtros mobile ── */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 items-end">
+        {showBackToTop && (
+          <button
+            type="button"
+            className="rounded-xl border bg-card shadow-lg px-4 py-2 text-sm font-medium hover:bg-muted/60 transition-colors"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          >
+            ↑ Topo
+          </button>
+        )}
+        <button
+          type="button"
+          className="rounded-xl bg-primary text-primary-foreground shadow-lg px-4 py-2 text-sm font-medium hover:opacity-90 md:hidden"
+          onClick={() => setFiltersDrawerOpen(true)}
+        >
+          Filtros
+        </button>
+      </div>
+
+      {filtersDrawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setFiltersDrawerOpen(false)} />
+          <div className="absolute right-0 top-0 bottom-0 w-80 max-w-full bg-card shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between border-b border-border/40 px-5 py-4">
+              <h3 className="font-semibold">Filtros</h3>
+              <button type="button" className="rounded-lg p-1 text-muted-foreground hover:bg-muted/50" onClick={() => setFiltersDrawerOpen(false)}>
+                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">{buildSummary(selectedJob)}</p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {tags(selectedJob).map((t, i) => (
-                <span key={`modal-${selectedJob.id}-${i}`} className="rounded-full border border-border/60 px-2 py-0.5 text-xs bg-slate-50">
-                  {t}
-                </span>
-              ))}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              <div><label className={labelCls}>Busca</label><input className={inputCls} value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Cargo, área..." /></div>
+              <div><label className={labelCls}>Localização</label><input className={inputCls} value={location} onChange={(e) => { setLocation(e.target.value); setPage(1); }} /></div>
+              <div><label className={labelCls}>Formato</label><select className={selectCls} value={mode} onChange={(e) => { setMode(e.target.value); setPage(1); }}><option value="">Qualquer</option><option value="Remoto">Remoto</option><option value="Hibrido">Híbrido</option><option value="Presencial">Presencial</option></select></div>
+              <div><label className={labelCls}>Contratação</label><select className={selectCls} value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}><option value="">Qualquer</option><option value="CLT">CLT</option><option value="PJ">PJ</option><option value="Estágio">Estágio</option></select></div>
+              <div><label className={labelCls}>Salário mínimo</label><input className={inputCls} type="number" placeholder="Ex: 5000" value={minSalary} onChange={(e) => { setMinSalary(e.target.value); setPage(1); }} /></div>
             </div>
-            <div className="mt-3 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
-              <div><strong>Área:</strong> {selectedJob.area || "—"}</div>
-              <div><strong>Local:</strong> {selectedJob.cidade || "—"}{selectedJob.uf ? `, ${selectedJob.uf}` : ""}</div>
-              <div><strong>Modalidade:</strong> {selectedJob.modalidade || "—"}</div>
-              <div><strong>Contrato:</strong> {selectedJob.tipoContratacao || "—"}</div>
-              <div><strong>Senioridade:</strong> {selectedJob.senioridade || "—"}</div>
-              <div><strong>Faixa:</strong> {money(selectedJob.salarioMinimo, selectedJob.salarioMaximo)}</div>
-            </div>
-            {parseTagsResponsabilidades(selectedJob.tagsResponsabilidadesRaw).length > 0 ? (
-              <div className="mt-4">
-                <strong className="text-sm">Responsabilidades</strong>
-                <ul className="mt-1 list-disc list-inside text-sm text-muted-foreground space-y-1">
-                  {parseTagsResponsabilidades(selectedJob.tagsResponsabilidadesRaw).map((r, i) => (
-                    <li key={`resp-${selectedJob.id}-${i}`}>{r}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const url = typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}#${selectedJob.id}` : `#${selectedJob.id}`;
-                  void navigator.clipboard.writeText(url);
-                  toast.success("Link copiado para a área de transferência.");
-                }}
-              >
-                Copiar link interno
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setSelectedJob(null)}>Fechar</Button>
-                <Button size="sm" onClick={() => openApply(selectedJob)}>Candidatar-se</Button>
-              </div>
+            <div className="border-t border-border/40 px-5 py-4">
+              <Button className="w-full" onClick={() => setFiltersDrawerOpen(false)}>Aplicar filtros</Button>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
+    </div>
+  );
+}
 
-      {applyOpen && selectedJob ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="card-soft w-full max-w-3xl p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="text-lg font-extrabold">Enviar candidatura</div>
-                <div className="text-sm text-muted-foreground">{selectedJob.titulo} - {selectedJob.empresaNome || selectedJob.tenantName || "Empresa"}</div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setApplyOpen(false)}>Fechar</Button>
-            </div>
-            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Nome completo</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.fullName} onChange={(e) => setApplyForm((f) => ({ ...f, fullName: e.target.value }))} />
-              </div>
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">E-mail</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.email} onChange={(e) => setApplyForm((f) => ({ ...f, email: e.target.value }))} />
-              </div>
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Telefone</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.phone} onChange={(e) => setApplyForm((f) => ({ ...f, phone: e.target.value }))} />
-              </div>
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">UF</label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={applyForm.uf} onChange={(e) => setApplyForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))}>
-                  <option value="">Selecione</option>
-                  {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
-                </select>
-              </div>
-              <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Cidade</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.city} onChange={(e) => setApplyForm((f) => ({ ...f, city: e.target.value }))} />
-              </div>
-              <div className="md:col-span-4">
                 <label className="mini-title mb-1 block">LinkedIn</label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={applyForm.linkedin} onChange={(e) => setApplyForm((f) => ({ ...f, linkedin: e.target.value }))} />
               </div>

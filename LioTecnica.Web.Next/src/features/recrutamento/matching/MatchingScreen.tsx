@@ -83,6 +83,8 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   const [candidatoFull, setCandidatoFull] = useState<CandidatoFull | null>(null);
   const [cvText, setCvText] = useState("");
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [topN, setTopN] = useState(20);
+  const [cachedCount, setCachedCount] = useState(0);
   const [processingProgress, setProcessingProgress] = useState<ProcessingProgress | null>(null);
   const [processingNowMs, setProcessingNowMs] = useState(() => Date.now());
   const [searchQuery, setSearchQuery] = useState("");
@@ -153,13 +155,14 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     try {
       // Load ranking + excluded IDs in parallel
       const [snap, excludedIds] = await Promise.all([
-        api<AnyRec>(`${BASE}/api/vagas/${encodeURIComponent(id)}/matching-ranking?take=20`),
+        api<AnyRec>(`${BASE}/api/vagas/${encodeURIComponent(id)}/matching-ranking?take=${topN}`),
         loadExcludedIds(id),
       ]);
       if (token !== pollRef.current) return;
       const mapItems = (arr: unknown) => (Array.isArray(arr) ? arr.map(mapRankItem).filter(r => !excludedIds.has(r.id)) : []);
       if (snap?.status === "ready") {
         const mapped = mapItems(snap.items); sugCacheRef.current = mapped; setItems(mapped); setRankStatus("ready"); setSelectedId(null);
+        if (typeof snap.cachedCount === "number") setCachedCount(snap.cachedCount);
         const s = Date.parse(pk(snap.startedAtUtc)), c = Date.parse(pk(snap.computedAtUtc));
         if (Number.isFinite(s) && Number.isFinite(c) && c > s) saveObservedDurationMs(id, c - s);
         setProcessingProgress(null); pollDelayRef.current = 800;
@@ -178,9 +181,23 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         setItems(mapped); setRankStatus(mapped.length ? "ready" : "failed"); setSelectedId(null); setProcessingProgress(null);
       }
     } catch (e) { if (token !== pollRef.current) return; setRankStatus("failed"); setProcessingProgress(null); toast.error(e instanceof Error ? e.message : "Falha ao carregar ranking."); }
-  }, [loadExcludedIds]);
+  }, [loadExcludedIds, topN]);
 
   useEffect(() => { loadSuggestionsRef.current = (id, force = false) => { void loadSuggestions(id, force); }; }, [loadSuggestions]);
+
+  // Reload when topN changes (loadSuggestionsRef must be updated first, so run in next micro-task)
+  const prevTopNRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevTopNRef.current === null) { prevTopNRef.current = topN; return; }
+    if (prevTopNRef.current === topN) return;
+    prevTopNRef.current = topN;
+    if (!vagaId || tab !== "suggestions") return;
+    sugCacheRef.current = null;
+    // Defer so loadSuggestionsRef is updated after loadSuggestions recreates with new topN
+    const t = setTimeout(() => loadSuggestionsRef.current(vagaId, true), 0);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topN]);
 
   const loadRejected = useCallback(async (id: string, force = false) => {
     if (!force && rejCacheRef.current) { setItems(rejCacheRef.current); setRankStatus("ready"); setSelectedId(null); return; }
@@ -553,28 +570,34 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-2 inline-flex rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Etapa de seleção
+            Matching IA
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Matching de Candidatos</h1>
-          {vagaDetail?.titulo
-            ? <p className="text-muted-foreground text-sm mt-0.5">Vaga: <span className="font-medium text-foreground">{vagaDetail.titulo}</span> · priorize quem segue para rodadas e processo seletivo.</p>
-            : <p className="text-muted-foreground text-sm mt-0.5">Pontuação, triagem e decisão automática antes das rodadas de seleção.</p>
-          }
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {vagaDetail?.titulo ?? "Matching de Candidatos"}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Ranqueamento automático · priorize quem avança para triagem e processo seletivo
+          </p>
         </div>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <Link className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors" href="/vagas">
-            <ArrowLeft className="size-3.5" /> Voltar para vagas
+
+        {/* Action bar */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Link
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            href="/vagas"
+          >
+            <ArrowLeft className="size-3.5" /> Vagas
           </Link>
           {vagaId && (
             <>
               <Link
-                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 href={`/candidatos?vagaId=${encodeURIComponent(vagaId)}`}
               >
                 <ClipboardList className="size-3.5" /> Candidatos
               </Link>
               <Link
-                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 href={`/gestao/projetos?vagaId=${encodeURIComponent(vagaId)}`}
               >
                 <FolderOpen className="size-3.5" /> Rodadas
@@ -582,38 +605,50 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
             </>
           )}
           {vagaId && vagaDetail && (
-            <button className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted" type="button" onClick={() => setShowFilterModal(true)}>
-              <SlidersHorizontal className="size-3.5" /> Filtros IA
-            </button>
+            <>
+              <button
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                type="button"
+                onClick={() => setShowFilterModal(true)}
+              >
+                <SlidersHorizontal className="size-3.5" /> Filtros IA
+              </button>
+              {/* Top N — número direto, sem slider */}
+              <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Top</span>
+                <input
+                  type="number"
+                  min={5}
+                  max={100}
+                  step={5}
+                  value={topN}
+                  className="w-12 bg-transparent text-sm font-semibold text-center focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  onChange={(e) => {
+                    const n = Math.min(100, Math.max(5, Number(e.target.value) || 20));
+                    setTopN(n);
+                  }}
+                />
+                {cachedCount > topN && (
+                  <span className="text-[10px] text-emerald-600 whitespace-nowrap">{cachedCount} cache</span>
+                )}
+              </div>
+            </>
           )}
           {vagaId && vagaDetail && vagaDetail.matchingFiltrosOriginaisRaw != null && vagaDetail.matchingFiltrosOriginaisRaw !== (vagaDetail.matchingFiltrosRaw ?? "") && (
-            <button className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted" type="button" onClick={() => void revertFiltros()}>
+            <button
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              type="button"
+              onClick={() => void revertFiltros()}
+            >
               <RotateCcw className="size-3.5" /> Reverter filtros
             </button>
           )}
         </div>
       </div>
 
-      {!vagaId ? (
+      {!vagaId && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Vaga não informada. Abra o matching a partir da tela de vagas.
-        </div>
-      ) : null}
-
-      {vagaId && (
-        <div className="grid gap-3 md:grid-cols-3">
-          <FlowStageCard
-            title="Triagem com IA"
-            description="Use esta tela para ranquear candidatos, registrar pendências e decidir quem segue no funil."
-          />
-          <FlowStageCard
-            title="Rodadas de seleção"
-            description="Os aprovados daqui seguem para rodadas, onde você organiza os grupos por vaga."
-          />
-          <FlowStageCard
-            title="Processo e admissão"
-            description="Depois da rodada, acompanhe fases, entrevistas e finalize a contratação pela pré-admissão."
-          />
         </div>
       )}
 

@@ -144,10 +144,10 @@ const ROUTE_MAP: Record<string, string> = {
   "/feedback/gamificacaohistorico": "/feedback/gamificacao/historico",
   "/feedback/gestao": "/feedback/gestao",
   "/feedback/meusplanos": "/feedback/meusplanos",
-  "/feedback/pesquisarapida": "/feedback/pesquisarapida",
   "/feedback/pesquisas": "/feedback/pesquisas",
+  "/feedback/pesquisarapida": "/feedback/pesquisas",
+  "/feedback/superpesquisa": "/feedback/pesquisas",
   "/feedback/reunioes1a1": "/feedback/reunioes1a1",
-  "/feedback/superpesquisa": "/feedback/superpesquisa",
   // Gestão sub-routes (Razor uses PascalCase, Next.js lowercase)
   "/gestao/dashboard": "/gestao/dashboard",
   "/gestao/humor": "/gestao/humor",
@@ -182,7 +182,12 @@ const ROUTE_MAP: Record<string, string> = {
   "/admin/apikeys": "/admin/api-keys",
   "/admin/entraidconfig": "/admin/entra-id",
   "/admin/localizationconfig": "/admin/localization",
-  "/admin/regrasaprovacaovaga": "/admin/regras-aprovacao-vaga",
+  // Hierarquia/Organograma unificado (antigas telas separadas → página com abas)
+  "/admin/hierarquia": "/admin/organograma",
+  "/admin/gestores": "/admin/organograma",
+  "/admin/organograma": "/admin/organograma",
+  "/admin/regrasaprovacaovaga": "/admin/organograma",
+  "/admin/regras-aprovacao-vaga": "/admin/organograma",
 };
 
 function normalizeHref(raw: string): string {
@@ -233,6 +238,9 @@ const HIDDEN_ROUTES = new Set([
   "/portalvagas",
   "/talentos",
   "/gestao/projetos",
+  // Pesquisas antigas removidas — unificadas em /feedback/pesquisas
+  "/feedback/pesquisarapida",
+  "/feedback/superpesquisa",
 ]);
 
 function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {

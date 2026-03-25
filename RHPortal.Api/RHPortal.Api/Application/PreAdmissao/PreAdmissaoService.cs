@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using RhPortal.Api.Application.ItaloIntegracao;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -26,6 +27,18 @@ public interface IPreAdmissaoService
     Task<IReadOnlyList<PreAdmissaoPainelIntegracaoRow>> ListPainelIntegracaoAsync(IntegracaoResultado? filtro, CancellationToken ct);
     Task<(PreAdmissaoDetailResponse? Result, string? Error)> RegistrarResultadoIntegracaoAsync(Guid id, IntegracaoResultadoRequest request, CancellationToken ct);
     Task<IReadOnlyList<OwnerPainelIntegracaoRow>> OwnerListPainelIntegracaoAsync(string? tenantId, IntegracaoResultado? filtro, CancellationToken ct);
+
+    /// <summary>
+    /// Gestor aprova contratação — cria pré-admissão com status PreenchimentoPendente
+    /// e notifica o Ítalo para iniciar coleta de documentos via WhatsApp.
+    /// </summary>
+    Task<PreAdmissaoDetailResponse> AprovarContratacaoAsync(AprovarContratacaoRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Webhook do Ítalo — recebe dados OCR de um documento processado e persiste
+    /// no registro de pré-admissão. Avança para EmRevisão quando RG + Comprovante chegam.
+    /// </summary>
+    Task<PreAdmissaoDetailResponse?> ReceberDocumentosExternosAsync(Guid id, DocumentoExternoRequest request, CancellationToken ct);
 }
 
 public sealed class PreAdmissaoService : IPreAdmissaoService
@@ -34,6 +47,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly ITenantContext _tenantContext;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IEmailQueueService _emailQueue;
+    private readonly IItaloIntegrationService _italoService;
     private readonly ILogger<PreAdmissaoService> _logger;
 
     public PreAdmissaoService(
@@ -41,12 +55,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         ITenantContext tenantContext,
         UserManager<ApplicationUser> userManager,
         IEmailQueueService emailQueue,
+        IItaloIntegrationService italoService,
         ILogger<PreAdmissaoService> logger)
     {
         _db = db;
         _tenantContext = tenantContext;
         _userManager = userManager;
         _emailQueue = emailQueue;
+        _italoService = italoService;
         _logger = logger;
     }
 
@@ -458,6 +474,153 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
                 x.IntegracaoResultado, x.IntegracaoMensagem,
                 x.ApprovedAtUtc, x.IntegradaEmUtc))
             .ToListAsync(ct);
+    }
+
+    // ── Fluxo Ítalo — Gestor aprova contratação ──
+
+    public async Task<PreAdmissaoDetailResponse> AprovarContratacaoAsync(AprovarContratacaoRequest request, CancellationToken ct)
+    {
+        var entity = new Domain.Entities.PreAdmissao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            Status = PreAdmissaoStatus.PreenchimentoPendente,
+            PreenchidoPor = PreenchidoPor.Candidato,
+            CandidatoId = request.CandidatoId,
+            Nome = request.Nome.Trim(),
+            Cpf = request.Cpf?.Trim(),
+            Email = request.Email?.Trim(),
+            Celular = request.Celular?.Trim(),
+            UnitId = request.UnitId,
+            AreaId = request.AreaId,
+            JobPositionId = request.JobPositionId,
+            DataAdmissao = request.DataAdmissao,
+            Salario = request.Salario,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
+        await _db.SaveChangesAsync(ct);
+
+        // Notifica Ítalo para iniciar coleta de documentos via WhatsApp
+        await _italoService.NotificarCandidatoAsync(entity.Id, entity.Nome, entity.Celular, entity.Email, ct);
+
+        return (await GetByIdAsync(entity.Id, ct))!;
+    }
+
+    // ── Fluxo Ítalo — Webhook recebe dados OCR ──
+
+    public async Task<PreAdmissaoDetailResponse?> ReceberDocumentosExternosAsync(Guid id, DocumentoExternoRequest request, CancellationToken ct)
+    {
+        var e = await _db.Set<Domain.Entities.PreAdmissao>()
+            .Include(x => x.Documentos)
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == _tenantContext.TenantId, ct);
+        if (e is null) return null;
+
+        var tipoLower = request.TipoDocumento?.ToLower() ?? "";
+
+        // Mapeia dados OCR → campos da pré-admissão
+        if (tipoLower is "rg" && request.DadosRg is { } rg)
+        {
+            if (!string.IsNullOrWhiteSpace(rg.NomeCompleto) && string.IsNullOrWhiteSpace(e.Nome))
+                e.Nome = rg.NomeCompleto.Trim();
+            if (!string.IsNullOrWhiteSpace(rg.NumeroRg))
+                e.Rg = rg.NumeroRg.Trim();
+            if (!string.IsNullOrWhiteSpace(rg.NumeroCpf) && string.IsNullOrWhiteSpace(e.Cpf))
+                e.Cpf = rg.NumeroCpf.Trim();
+        }
+
+        if (tipoLower is "cpf" && request.DadosCpf is { } cpf)
+        {
+            if (!string.IsNullOrWhiteSpace(cpf.NumeroCpf) && string.IsNullOrWhiteSpace(e.Cpf))
+                e.Cpf = cpf.NumeroCpf.Trim();
+        }
+
+        if (tipoLower is "comprovante_residencia" && request.DadosComprovante is { } comp)
+        {
+            if (!string.IsNullOrWhiteSpace(comp.Cep)) e.Cep = comp.Cep.Trim();
+            if (!string.IsNullOrWhiteSpace(comp.Logradouro)) e.Logradouro = comp.Logradouro.Trim();
+            if (!string.IsNullOrWhiteSpace(comp.Numero)) e.Numero = comp.Numero.Trim();
+            if (!string.IsNullOrWhiteSpace(comp.Bairro)) e.Bairro = comp.Bairro.Trim();
+            if (!string.IsNullOrWhiteSpace(comp.Cidade)) e.Cidade = comp.Cidade.Trim();
+            if (!string.IsNullOrWhiteSpace(comp.Uf)) e.Uf = comp.Uf.Trim();
+        }
+
+        // Salva documento (base64 → arquivo local)
+        if (!string.IsNullOrWhiteSpace(request.DocumentoBase64))
+        {
+            try
+            {
+                var tipoDoc = tipoLower switch
+                {
+                    "rg" => TipoDocumento.RG,
+                    "cpf" => TipoDocumento.CPF,
+                    "comprovante_residencia" => TipoDocumento.ComprovanteResidencia,
+                    _ => TipoDocumento.Outro,
+                };
+                var ext = request.ContentType switch
+                {
+                    "image/jpeg" or "image/jpg" => ".jpg",
+                    "image/png" => ".png",
+                    "application/pdf" => ".pdf",
+                    _ => Path.GetExtension(request.NomeArquivo ?? "") is { Length: > 0 } x ? x : ".bin",
+                };
+                var nomeArquivo = request.NomeArquivo ?? $"{tipoLower}{ext}";
+                var storagePath = $"documentos/pre-admissao/{id}/{Guid.NewGuid()}{ext}";
+                var fullPath = Path.Combine("wwwroot", storagePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+                var bytes = Convert.FromBase64String(request.DocumentoBase64);
+                await File.WriteAllBytesAsync(fullPath, bytes, ct);
+
+                var doc = new PreAdmissaoDocumento
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId,
+                    PreAdmissaoId = id,
+                    Tipo = tipoDoc,
+                    NomeArquivo = nomeArquivo,
+                    ContentType = request.ContentType ?? "application/octet-stream",
+                    TamanhoBytes = bytes.LongLength,
+                    StoragePath = storagePath,
+                    Status = StatusDocumento.PendenteValidacao,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    UpdatedAtUtc = DateTimeOffset.UtcNow,
+                };
+                _db.Set<PreAdmissaoDocumento>().Add(doc);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao salvar documento externo para pré-admissão {Id}", id);
+            }
+        }
+
+        // Avança para EmRevisão quando RG + Comprovante de Residência chegaram
+        if (e.Status == PreAdmissaoStatus.PreenchimentoPendente)
+        {
+            var tiposRecebidos = e.Documentos
+                .Select(d => d.Tipo)
+                .ToHashSet();
+
+            // Inclui o documento atual (ainda não salvo na lista em memória)
+            var tipoAtual = tipoLower switch
+            {
+                "rg" => (TipoDocumento?)TipoDocumento.RG,
+                "cpf" => TipoDocumento.CPF,
+                "comprovante_residencia" => TipoDocumento.ComprovanteResidencia,
+                _ => null,
+            };
+            if (tipoAtual.HasValue) tiposRecebidos.Add(tipoAtual.Value);
+
+            if (tiposRecebidos.Contains(TipoDocumento.RG) && tiposRecebidos.Contains(TipoDocumento.ComprovanteResidencia))
+            {
+                e.Status = PreAdmissaoStatus.EmRevisao;
+                e.SubmittedAtUtc = DateTimeOffset.UtcNow;
+            }
+        }
+
+        e.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
     }
 
     // ── Helpers ──

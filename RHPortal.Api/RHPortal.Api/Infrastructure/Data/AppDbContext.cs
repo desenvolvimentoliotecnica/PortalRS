@@ -104,6 +104,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<FeedbackItemRating> FeedbackItemRatings => Set<FeedbackItemRating>();
     public DbSet<DevelopmentPlan> DevelopmentPlans => Set<DevelopmentPlan>();
     public DbSet<DevelopmentPlanGoal> DevelopmentPlanGoals => Set<DevelopmentPlanGoal>();
+    public DbSet<NineBoxAssessment> NineBoxAssessments => Set<NineBoxAssessment>();
+    public DbSet<Meta> Metas => Set<Meta>();
+    public DbSet<AvaliacaoCiclo> AvaliacaoCiclos => Set<AvaliacaoCiclo>();
+    public DbSet<AvaliacaoPergunta> AvaliacaoPerguntas => Set<AvaliacaoPergunta>();
+    public DbSet<AvaliacaoResposta> AvaliacaoRespostas => Set<AvaliacaoResposta>();
     public DbSet<OneOnOneMeeting> OneOnOneMeetings => Set<OneOnOneMeeting>();
     public DbSet<MoodEntry> MoodEntries => Set<MoodEntry>();
     public DbSet<RenderCoinBalance> RenderCoinBalances => Set<RenderCoinBalance>();
@@ -1808,6 +1813,90 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.Cascade);
 
             b.HasIndex(x => x.PlanId);
+        });
+
+        modelBuilder.Entity<NineBoxAssessment>(b =>
+        {
+            b.ToTable("NineBoxAssessments");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Observacoes).HasMaxLength(2000);
+
+            b.HasOne(x => x.Funcionario)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Avaliador)
+                .WithMany()
+                .HasForeignKey(x => x.AvaliadorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.FuncionarioId });
+            b.HasIndex(x => new { x.TenantId, x.CriadoEmUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AvaliacaoCiclo>(b =>
+        {
+            b.ToTable("AvaliacaoCiclos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Periodo).HasMaxLength(50).IsRequired();
+            b.HasOne(x => x.CriadoPor).WithMany().HasForeignKey(x => x.CriadoPorId).OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(x => x.Perguntas).WithOne(p => p.Ciclo).HasForeignKey(p => p.CicloId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(x => x.Respostas).WithOne(r => r.Ciclo).HasForeignKey(r => r.CicloId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AvaliacaoPergunta>(b =>
+        {
+            b.ToTable("AvaliacaoPerguntas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Texto).HasMaxLength(500).IsRequired();
+        });
+
+        modelBuilder.Entity<AvaliacaoResposta>(b =>
+        {
+            b.ToTable("AvaliacaoRespostas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.RespostasJson).HasColumnType("text");
+            b.Property(x => x.Score).HasColumnType("decimal(5,2)");
+            b.HasOne(x => x.Avaliador).WithMany().HasForeignKey(x => x.AvaliadorId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Avaliando).WithMany().HasForeignKey(x => x.AvaliandoId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.TenantId, x.CicloId, x.AvaliandoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Meta>(b =>
+        {
+            b.ToTable("Metas");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Titulo).HasMaxLength(300).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(2000);
+            b.Property(x => x.Unidade).HasMaxLength(20);
+            b.Property(x => x.ValorMeta).HasColumnType("decimal(18,4)");
+            b.Property(x => x.ValorAtual).HasColumnType("decimal(18,4)");
+
+            b.HasOne(x => x.Funcionario)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.CriadaPor)
+                .WithMany()
+                .HasForeignKey(x => x.CriadaPorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.FuncionarioId });
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
         modelBuilder.Entity<OneOnOneMeeting>(b =>

@@ -98,10 +98,13 @@ export default function MeusPlanosScreen() {
 
     return (
         <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h4 className="text-lg font-bold">Meus Planos de Desenvolvimento</h4>
-                    <div className="text-muted-foreground text-sm">Acompanhe seus planos de desenvolvimento individual (PDI).</div>
+                    <div className="mb-2 inline-flex rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        Desenvolvimento
+                    </div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Meus Planos de Desenvolvimento</h1>
+                    <p className="text-muted-foreground text-sm mt-0.5">Acompanhe seus planos de desenvolvimento individual (PDI).</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
                     <RefreshCw className="size-4" />

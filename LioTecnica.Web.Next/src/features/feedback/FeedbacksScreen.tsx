@@ -147,10 +147,13 @@ export default function FeedbacksScreen() {
     return (
         <section className="space-y-3">
             {/* ── Header ── */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h4 className="text-lg font-bold">Feedbacks</h4>
-                    <p className="text-muted-foreground text-sm">
+                    <div className="mb-2 inline-flex rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        Feedback
+                    </div>
+                    <h1 className="text-2xl font-semibold tracking-tight">Feedbacks</h1>
+                    <p className="text-muted-foreground text-sm mt-0.5">
                         Dê, solicite e receba feedbacks precisos de maneira construtiva
                     </p>
                 </div>

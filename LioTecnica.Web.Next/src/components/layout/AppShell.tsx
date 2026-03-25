@@ -70,31 +70,6 @@ function AppShellInner({ children }: { children: ReactNode }) {
     });
     const result = roots.map(strip);
 
-    // ── Fix orphan pesquisa items ─────────────────────────────────
-    const pesquisaRoutes = new Set(["/feedback/pesquisarapida", "/feedback/superpesquisa"]);
-    const orphanPesquisas = result.filter(
-      (n) => pesquisaRoutes.has(n.href.toLowerCase().replace(/\/+$/, "")),
-    );
-    if (orphanPesquisas.length > 0) {
-      const alreadyGrouped = result.some(
-        (n) => n.children.some((c) => pesquisaRoutes.has(c.href.toLowerCase().replace(/\/+$/, ""))),
-      );
-      if (!alreadyGrouped) {
-        const pesquisasGroup: BffNavItem = {
-          id: "__pesquisas_group",
-          label: "Pesquisas",
-          href: "#",
-          icon: "bi-search",
-          openInNewTab: false,
-          children: orphanPesquisas,
-        };
-        const firstIdx = result.findIndex((n) => orphanPesquisas.includes(n));
-        const filtered = result.filter((n) => !orphanPesquisas.includes(n));
-        filtered.splice(firstIdx, 0, pesquisasGroup);
-        return filtered;
-      }
-    }
-
     return result;
   }
 

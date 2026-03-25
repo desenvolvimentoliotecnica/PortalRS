@@ -106,8 +106,11 @@ export default function EnviarFeedbackScreen() {
     return (
         <section className="space-y-4">
             <div>
-                <h4 className="text-lg font-bold">Enviar Feedback</h4>
-                <p className="text-muted-foreground text-sm">Selecione um colaborador para enviar um feedback sobre desempenho</p>
+                <div className="mb-2 inline-flex rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Feedback
+                </div>
+                <h1 className="text-2xl font-semibold tracking-tight">Enviar Feedback</h1>
+                <p className="text-muted-foreground text-sm mt-0.5">Selecione um colaborador para enviar um feedback sobre desempenho</p>
             </div>
 
             <div className="rounded-xl border border-border/40 bg-card/60 p-6 backdrop-blur space-y-5">

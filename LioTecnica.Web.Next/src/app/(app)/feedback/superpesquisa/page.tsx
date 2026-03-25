@@ -1,12 +1,9 @@
 "use client";
-
-import { AuthGuard } from "@/hooks/useAuth";
-import SuperPesquisaScreen from "@/features/feedback/SuperPesquisaScreen";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Page() {
-  return (
-    <AuthGuard>
-      <SuperPesquisaScreen />
-    </AuthGuard>
-  );
+    const router = useRouter();
+    useEffect(() => { router.replace("/app/feedback/pesquisas"); }, [router]);
+    return null;
 }

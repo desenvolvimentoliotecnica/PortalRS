@@ -35,6 +35,7 @@ using RhPortal.Api.Application.CamposPersonalizados;
 using RhPortal.Api.Application.Comunicacao;
 using RhPortal.Api.Application.AprovacoesFaixa;
 using RhPortal.Api.Application.Colaborador;
+using RhPortal.Api.Application.ItaloIntegracao;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Application.Menus;
 using RhPortal.Api.Application.Portal;
@@ -404,8 +405,15 @@ builder.Services.AddScoped<ICampoPersonalizadoService, CampoPersonalizadoService
 builder.Services.AddScoped<IComunicacaoService, ComunicacaoService>();
 builder.Services.AddScoped<IAprovacaoFaixaService, AprovacaoFaixaService>();
 builder.Services.AddScoped<IRegraAprovacaoVagaService, RegraAprovacaoVagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.NineBox.INineBoxService, RhPortal.Api.Application.NineBox.NineBoxService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Metas.IMetaService, RhPortal.Api.Application.Metas.MetaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoService, RhPortal.Api.Application.Avaliacao.AvaliacaoService>();
 builder.Services.AddScoped<IColaboradorService, ColaboradorService>();
 builder.Services.AddScoped<IPreAdmissaoService, PreAdmissaoService>();
+builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 builder.Services.AddScoped<IVagaService, VagaService>();
 builder.Services.AddScoped<ICandidatoService, CandidatoService>();
 builder.Services.AddScoped<IPessoaService, PessoaService>();

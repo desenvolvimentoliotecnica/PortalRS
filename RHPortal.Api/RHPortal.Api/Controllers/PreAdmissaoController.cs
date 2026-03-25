@@ -133,6 +133,56 @@ public sealed class PreAdmissaoController : ControllerBase
         return await _service.DeleteDocumentoAsync(id, docId, ct) ? NoContent() : NotFound();
     }
 
+    // ── Fluxo Ítalo — Gestor aprova contratação ──
+
+    /// <summary>
+    /// Gestor aprova a contratação do candidato — inicia coleta de documentos via Ítalo (WhatsApp).
+    /// </summary>
+    /// <remarks>
+    /// Cria uma pré-admissão com status **PreenchimentoPendente (1)** e notifica a API do Ítalo
+    /// para que o candidato receba uma mensagem no WhatsApp solicitando RG, CPF e comprovante de residência.
+    ///
+    /// **Fluxo a partir daqui:**
+    /// 1. Ítalo envia documentos ao candidato → candidato responde → Lambda OCR processa
+    /// 2. Ítalo chama `POST /api/pre-admissao/{id}/documentos-externos` com dados extraídos
+    /// 3. Quando RG + Comprovante chegam → status muda para **EmRevisão (2)**
+    /// 4. RH revisa e aprova → status **Aprovada (3)** → aparece para Gabriel
+    /// </remarks>
+    [HttpPost("aprovar-contratacao")]
+    [ProducesResponseType(typeof(PreAdmissaoDetailResponse), StatusCodes.Status201Created)]
+    public async Task<IActionResult> AprovarContratacao([FromBody] AprovarContratacaoRequest request, CancellationToken ct)
+    {
+        var result = await _service.AprovarContratacaoAsync(request, ct);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+    }
+
+    /// <summary>
+    /// [Ítalo] Webhook que recebe dados OCR de documentos coletados via WhatsApp.
+    /// </summary>
+    /// <remarks>
+    /// Chamado pela API do Ítalo após processar cada documento enviado pelo candidato.
+    /// Preenche os campos da pré-admissão com os dados extraídos e salva o documento.
+    ///
+    /// **Tipos de documento aceitos:**
+    /// - `"rg"` → preenche Nome, RG, CPF (se ausente)
+    /// - `"cpf"` → preenche CPF (se ausente)
+    /// - `"comprovante_residencia"` → preenche CEP, logradouro, bairro, cidade, UF
+    ///
+    /// Quando **RG + Comprovante** chegam, o status avança automaticamente para **EmRevisão (2)**.
+    ///
+    /// **Autenticação:** exclusivamente via `X-Api-Key`.
+    /// </remarks>
+    /// <param name="id">ID da pré-admissão retornado em `POST /api/pre-admissao/aprovar-contratacao`.</param>
+    [HttpPost("{id:guid}/documentos-externos")]
+    [Authorize(Roles = "ApiKey")]
+    [ProducesResponseType(typeof(PreAdmissaoDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReceberDocumentosExternos(Guid id, [FromBody] DocumentoExternoRequest request, CancellationToken ct)
+    {
+        var result = await _service.ReceberDocumentosExternosAsync(id, request, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     // ── Integração TOTVS — Node.js (API Key only) ──
 
     /// <summary>
