@@ -120,6 +120,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<SurveyResponse> SurveyResponses => Set<SurveyResponse>();
     public DbSet<SurveyAnswer> SurveyAnswers => Set<SurveyAnswer>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<TenantAwsSettings> TenantAwsSettings => Set<TenantAwsSettings>();
     public DbSet<CandidatoVagaMatchingScore> CandidatoVagaMatchingScores => Set<CandidatoVagaMatchingScore>();
     public DbSet<VagaUnifiedMatchingCache> VagaUnifiedMatchingCaches => Set<VagaUnifiedMatchingCache>();
 

@@ -409,6 +409,9 @@ builder.Services.AddScoped<RhPortal.Api.Application.NineBox.INineBoxService, RhP
 builder.Services.AddScoped<RhPortal.Api.Application.Metas.IMetaService, RhPortal.Api.Application.Metas.MetaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoService, RhPortal.Api.Application.Avaliacao.AvaliacaoService>();
 builder.Services.AddScoped<IColaboradorService, ColaboradorService>();
+builder.Services.Configure<RhPortal.Api.Infrastructure.Storage.AwsOptions>(builder.Configuration.GetSection("Aws"));
+builder.Services.AddScoped<RhPortal.Api.Application.AwsSettings.IAwsSettingsService, RhPortal.Api.Application.AwsSettings.AwsSettingsService>();
+builder.Services.AddScoped<RhPortal.Api.Infrastructure.Storage.IS3StorageService, RhPortal.Api.Infrastructure.Storage.S3StorageService>();
 builder.Services.AddScoped<IPreAdmissaoService, PreAdmissaoService>();
 builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService>(client =>
 {

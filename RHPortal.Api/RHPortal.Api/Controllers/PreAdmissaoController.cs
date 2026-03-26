@@ -133,6 +133,33 @@ public sealed class PreAdmissaoController : ControllerBase
         return await _service.DeleteDocumentoAsync(id, docId, ct) ? NoContent() : NotFound();
     }
 
+    // ── Admissão Manual ──
+
+    /// <summary>
+    /// RH inicia admissão manual a partir de um candidato aprovado no recrutamento.
+    /// </summary>
+    /// <remarks>
+    /// Cria uma pré-admissão com status <b>Rascunho</b> pré-preenchida com os dados do candidato.
+    /// O RH preenche os demais dados no wizard e sobe os documentos normalmente.
+    ///
+    /// **Pré-requisito:** candidato deve estar com status <c>Aprovado</c> no módulo de R&amp;S.
+    /// </remarks>
+    [HttpPost("iniciar-manual")]
+    [ProducesResponseType(typeof(PreAdmissaoDetailResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> IniciarManual([FromBody] IniciarManualRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.IniciarManualAsync(request, ct);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     // ── Fluxo Ítalo — Gestor aprova contratação ──
 
     /// <summary>

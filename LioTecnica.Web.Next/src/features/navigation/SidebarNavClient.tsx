@@ -183,6 +183,7 @@ const ROUTE_MAP: Record<string, string> = {
   "/admin/operationallogs": "/admin/operational-logs",
   "/admin/emails": "/admin/emails",
   "/admin/emailconfig": "/admin/email-config",
+  "/admin/awssettings": "/admin/aws-settings",
   "/admin/emailtemplates": "/admin/email-templates",
   "/admin/apikeys": "/admin/api-keys",
   "/admin/entraidconfig": "/admin/entra-id",

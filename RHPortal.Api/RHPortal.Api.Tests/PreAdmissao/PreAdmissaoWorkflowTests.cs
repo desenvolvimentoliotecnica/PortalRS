@@ -8,6 +8,7 @@ using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Storage;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
 using Xunit;
@@ -54,11 +55,16 @@ public sealed class PreAdmissaoWorkflowTests
 
         var emailQueue = new Mock<IEmailQueueService>();
         var italoService = new Mock<IItaloIntegrationService>();
+        var storage = new Mock<IS3StorageService>();
+        storage.Setup(x => x.UploadAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync((Stream _, string key, string _, CancellationToken _) => key);
+        storage.Setup(x => x.GetPresignedUrl(It.IsAny<string>(), It.IsAny<TimeSpan?>()))
+               .Returns("https://s3.mock/presigned");
         var logger = new Mock<ILogger<PreAdmissaoService>>();
 
         var service = new PreAdmissaoService(
             db, tenantMock.Object, userManager.Object,
-            emailQueue.Object, italoService.Object, logger.Object);
+            emailQueue.Object, italoService.Object, storage.Object, logger.Object);
 
         return (db, service);
     }

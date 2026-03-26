@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
     ArrowLeft,
@@ -11,6 +11,7 @@ import {
     Loader2,
     Paperclip,
     Sparkles,
+    UserCheck,
     User,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -77,6 +78,7 @@ type Tab = "resumo" | "cv" | "docs" | "match";
 
 export default function CandidatoDetalhesScreen() {
     const sp = useSearchParams();
+    const router = useRouter();
     const candidatoId = sp.get("id") ?? "";
     const vagaId = sp.get("vagaId") ?? "";
 
@@ -86,6 +88,30 @@ export default function CandidatoDetalhesScreen() {
     const [docs, setDocs] = useState<DocItem[]>([]);
     const [match, setMatch] = useState<MatchResult | null>(null);
     const [matchLoading, setMatchLoading] = useState(false);
+    const [admissaoLoading, setAdmissaoLoading] = useState(false);
+
+    const iniciarAdmissao = async () => {
+        setAdmissaoLoading(true);
+        try {
+            const res = await apiFetch("/api/pre-admissao/iniciar-manual", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ candidatoId }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                toast.error((err as { message?: string }).message ?? "Erro ao iniciar admissão.");
+                return;
+            }
+            const data = (await res.json()) as { id: string };
+            toast.success("Admissão iniciada. Preenchendo dados...");
+            router.push(`/admissao/nova?id=${data.id}`);
+        } catch {
+            toast.error("Falha ao iniciar admissão.");
+        } finally {
+            setAdmissaoLoading(false);
+        }
+    };
 
     const load = useCallback(async () => {
         if (!candidatoId) return;
@@ -182,7 +208,7 @@ export default function CandidatoDetalhesScreen() {
                                 )}
                             </div>
                         </div>
-                        <div className="text-end space-y-1">
+                        <div className="text-end space-y-1.5">
                             {cand.status && (
                                 <span className="badge-soft">{cand.status}</span>
                             )}
@@ -195,6 +221,18 @@ export default function CandidatoDetalhesScreen() {
                                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                                     <User className="size-3" /> Recrutador: {cand.recrutadorNome}
                                 </div>
+                            )}
+                            {cand.status === "Aprovado" && (
+                                <Button
+                                    size="sm"
+                                    onClick={iniciarAdmissao}
+                                    disabled={admissaoLoading}
+                                >
+                                    {admissaoLoading
+                                        ? <Loader2 className="size-4 animate-spin" />
+                                        : <UserCheck className="size-4" />}
+                                    Iniciar Admissão
+                                </Button>
                             )}
                         </div>
                     </div>

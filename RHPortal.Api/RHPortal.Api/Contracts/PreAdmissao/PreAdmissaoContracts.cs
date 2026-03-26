@@ -146,7 +146,9 @@ public sealed record PreAdmissaoDocumentoResponse(
     long TamanhoBytes,
     StatusDocumento Status,
     string? ObservacaoRh,
-    DateTimeOffset CreatedAtUtc
+    DateTimeOffset CreatedAtUtc,
+    /// <summary>Presigned URL S3 para download direto (expira em 15 min).</summary>
+    string PresignedUrl
 );
 
 // ── Create / Update ──
@@ -378,6 +380,29 @@ public sealed record DadosOcrComprovante(
     string? Cidade,
     string? Uf,
     string? NivelConfiabilidade
+);
+
+// ── Admissão manual pelo RH (candidato aprovado no recrutamento) ──
+
+/// <summary>
+/// RH inicia admissão manual a partir de um candidato aprovado.
+/// A pré-admissão é criada em Rascunho pré-preenchida com os dados do candidato.
+/// </summary>
+public sealed record IniciarManualRequest(
+    /// <summary>ID do candidato aprovado no módulo de R&amp;S.</summary>
+    [Required] Guid CandidatoId,
+    /// <summary>Data prevista de admissão (opcional — pode ser preenchida no wizard).</summary>
+    DateOnly? DataAdmissao,
+    /// <summary>ID do cargo (opcional — pode ser preenchido no wizard).</summary>
+    Guid? JobPositionId,
+    /// <summary>ID da área/departamento (opcional).</summary>
+    Guid? AreaId,
+    /// <summary>ID da unidade/filial (opcional).</summary>
+    Guid? UnitId,
+    /// <summary>Salário proposto (opcional).</summary>
+    decimal? Salario,
+    /// <summary>Tipo de contratação (opcional).</summary>
+    TipoContratacaoAdmissao? TipoContratacao
 );
 
 // ── Readmissão ──
