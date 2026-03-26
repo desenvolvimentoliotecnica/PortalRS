@@ -7,6 +7,7 @@ import GestaoResumoScreen from "@/features/feedback/gestao/GestaoResumoScreen";
 import GestaoPlanosScreen from "@/features/feedback/gestao/GestaoPlanosScreen";
 import MetasScreen from "@/features/feedback/MetasScreen";
 import NineBoxScreen from "@/features/feedback/nine-box/NineBoxScreen";
+import CiclosAvaliacaoScreen from "@/features/feedback/CiclosAvaliacaoScreen";
 
 const TABS = [
     { id: "dashboard", label: "Dashboard" },
@@ -15,6 +16,7 @@ const TABS = [
     { id: "planos", label: "Planos de Desenvolvimento" },
     { id: "metas", label: "Metas" },
     { id: "ninebox", label: "Nine-in-Box" },
+    { id: "avaliacoes", label: "Avaliações" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -59,6 +61,7 @@ export default function GestaoScreen() {
             {tab === "planos" && <GestaoPlanosScreen />}
             {tab === "metas" && <MetasScreen />}
             {tab === "ninebox" && <NineBoxScreen />}
+            {tab === "avaliacoes" && <CiclosAvaliacaoScreen />}
         </div>
     );
 }

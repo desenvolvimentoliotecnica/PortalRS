@@ -6,6 +6,7 @@ import {
     Users, MessageSquare, Handshake, PartyPopper, TrendingUp,
     Trophy, ChevronRight, RefreshCw, Smile, Frown, Meh, Laugh, Angry,
     CheckCircle2, Circle, ArrowRight, Calendar, Star,
+    Target, LayoutGrid, ClipboardCheck, BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
@@ -191,6 +192,24 @@ export default function FeedbackInicioScreen() {
                 <Button variant="outline" size="sm" onClick={() => void loadData()}>
                     <RefreshCw className="size-4" />
                 </Button>
+            </div>
+
+            {/* Quick nav */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                    { href: "/app/feedback/meusplanos", icon: BookOpen, label: "Meus Planos", color: "bg-violet-100 text-violet-600" },
+                    { href: "/app/feedback/minhas-avaliacoes", icon: ClipboardCheck, label: "Minhas Avaliações", color: "bg-sky-100 text-sky-600" },
+                    { href: "/app/feedback/metas", icon: Target, label: "Metas", color: "bg-emerald-100 text-emerald-600" },
+                    { href: "/app/feedback/gestao", icon: LayoutGrid, label: "Gestão da Equipe", color: "bg-amber-100 text-amber-600" },
+                ].map(({ href, icon: Icon, label, color }) => (
+                    <Link key={href} href={href} className="flex items-center gap-3 rounded-xl border border-border/40 bg-card/60 p-4 hover:bg-muted/40 transition-colors">
+                        <div className={`size-9 rounded-full flex items-center justify-center shrink-0 ${color}`}>
+                            <Icon className="size-4" />
+                        </div>
+                        <span className="text-sm font-medium leading-tight">{label}</span>
+                        <ChevronRight className="size-4 text-muted-foreground ml-auto shrink-0" />
+                    </Link>
+                ))}
             </div>
 
             {/* Greeting + KPIs */}

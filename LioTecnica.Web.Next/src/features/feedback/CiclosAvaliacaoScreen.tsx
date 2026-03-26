@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import {
     Plus, RefreshCw, CheckCircle2, Clock, Lock, ClipboardList,
-    ChevronRight, Trash2, BarChart2,
+    ChevronRight, Trash2, BarChart2, LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +97,48 @@ export default function CiclosAvaliacaoScreen() {
     const [resultadosCiclo, setResultadosCiclo] = useState<CicloResponse | null>(null);
     const [resultados, setResultados] = useState<ResultadoRow[]>([]);
     const [resultadosLoading, setResultadosLoading] = useState(false);
+
+    /* nine-box suggestion */
+    const [nineBoxModal, setNineBoxModal] = useState<{ avaliandoId: string; avaliandoNome: string; cargo: string | null; desempenho: number } | null>(null);
+    const [nineBoxPotencial, setNineBoxPotencial] = useState(2);
+    const [savingNineBox, setSavingNineBox] = useState(false);
+
+    function scoreToDesempenho(score: number): number {
+        if (score >= 4) return 3;
+        if (score >= 2.5) return 2;
+        return 1;
+    }
+
+    const NINE_BOX_NAMES: Record<string, string> = {
+        "1-1": "Questionável", "1-2": "Em Desenvolvimento", "1-3": "Enigma",
+        "2-1": "Efetivo", "2-2": "Núcleo", "2-3": "Alto Potencial",
+        "3-1": "Especialista", "3-2": "Alto Desempenho", "3-3": "Estrela",
+    };
+
+    async function salvarNineBox() {
+        if (!nineBoxModal) return;
+        setSavingNineBox(true);
+        try {
+            const res = await apiFetch("/api/nine-box", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    funcionarioId: nineBoxModal.avaliandoId,
+                    desempenho: nineBoxModal.desempenho,
+                    potencial: nineBoxPotencial,
+                    observacoes: `Posicionamento sugerido a partir da avaliação de desempenho. Score: ${resultados.find(r => r.avaliandoId === nineBoxModal.avaliandoId)?.score?.toFixed(1)}`,
+                }),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const qKey = `${nineBoxModal.desempenho}-${nineBoxPotencial}`;
+            toast.success(`${nineBoxModal.avaliandoNome} posicionado como "${NINE_BOX_NAMES[qKey] ?? qKey}" no Nine-Box!`);
+            setNineBoxModal(null);
+        } catch {
+            toast.error("Erro ao salvar no Nine-Box.");
+        } finally {
+            setSavingNineBox(false);
+        }
+    }
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -322,6 +364,16 @@ export default function CiclosAvaliacaoScreen() {
                                             <ScoreBar score={r.score} />
                                         </div>
                                         {r.score >= 4 && <CheckCircle2 className="size-4 text-green-500 shrink-0" />}
+                                        <button
+                                            title="Sugerir posição Nine-Box"
+                                            onClick={() => {
+                                                setNineBoxPotencial(2);
+                                                setNineBoxModal({ avaliandoId: r.avaliandoId, avaliandoNome: r.avaliandoNome, cargo: r.cargo, desempenho: scoreToDesempenho(r.score) });
+                                            }}
+                                            className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                                        >
+                                            <LayoutGrid className="size-3" /> Nine-Box
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -332,6 +384,56 @@ export default function CiclosAvaliacaoScreen() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Nine-Box suggestion modal */}
+            {nineBoxModal && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+                    <div className="bg-background rounded-2xl shadow-xl w-full max-w-sm p-6 border border-border">
+                        <div className="flex items-center gap-2 mb-4">
+                            <LayoutGrid className="size-5 text-primary" />
+                            <h3 className="text-sm font-semibold">Posicionar no Nine-Box</h3>
+                        </div>
+                        <div className="text-sm font-medium mb-0.5">{nineBoxModal.avaliandoNome}</div>
+                        <div className="text-xs text-muted-foreground mb-4">{nineBoxModal.cargo ?? "—"}</div>
+
+                        <div className="rounded-lg bg-muted/40 p-3 mb-4 text-xs">
+                            <div className="font-medium mb-1">Desempenho (calculado da avaliação)</div>
+                            <div className="flex gap-2">
+                                {[1, 2, 3].map((v) => (
+                                    <div key={v} className={`flex-1 rounded-md border px-2 py-1.5 text-center text-xs font-medium ${nineBoxModal.desempenho === v ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground"}`}>
+                                        {v === 1 ? "Baixo" : v === 2 ? "Médio" : "Alto"}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mb-5">
+                            <label className="text-xs font-medium text-muted-foreground block mb-2">
+                                Potencial (sua avaliação): <span className="font-bold text-foreground">{nineBoxPotencial === 1 ? "Baixo" : nineBoxPotencial === 2 ? "Médio" : "Alto"}</span>
+                            </label>
+                            <input
+                                type="range" min={1} max={3} step={1} value={nineBoxPotencial}
+                                className="w-full accent-primary"
+                                onChange={(e) => setNineBoxPotencial(Number(e.target.value))}
+                            />
+                            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                                <span>Baixo</span><span>Médio</span><span>Alto</span>
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg px-3 py-2 text-center text-xs font-semibold bg-primary/10 text-primary mb-5">
+                            Quadrante: {NINE_BOX_NAMES[`${nineBoxModal.desempenho}-${nineBoxPotencial}`] ?? "—"}
+                        </div>
+
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" className="flex-1" onClick={() => setNineBoxModal(null)} disabled={savingNineBox}>Cancelar</Button>
+                            <Button size="sm" className="flex-1" onClick={() => void salvarNineBox()} disabled={savingNineBox}>
+                                {savingNineBox ? "Salvando..." : "Confirmar"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }

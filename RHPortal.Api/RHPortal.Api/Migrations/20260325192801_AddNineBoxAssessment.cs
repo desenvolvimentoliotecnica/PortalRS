@@ -11,24 +11,9 @@ namespace RHPortal.Api.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "IntegracaoMensagem",
-                table: "PreAdmissoes",
-                type: "character varying(2000)",
-                maxLength: 2000,
-                nullable: true);
-
-            migrationBuilder.AddColumn<short>(
-                name: "IntegracaoResultado",
-                table: "PreAdmissoes",
-                type: "smallint",
-                nullable: true);
-
-            migrationBuilder.AddColumn<DateTimeOffset>(
-                name: "IntegradaEmUtc",
-                table: "PreAdmissoes",
-                type: "timestamp with time zone",
-                nullable: true);
+            // Nota: IntegracaoMensagem, IntegracaoResultado e IntegradaEmUtc já foram adicionados
+            // pela migration 20260324000000_AddCamposIntegracaoPreAdmissao (com SQL IF NOT EXISTS).
+            // Não repetir aqui para evitar erro "column already exists" no PostgreSQL.
 
             migrationBuilder.CreateTable(
                 name: "NineBoxAssessments",
@@ -88,17 +73,8 @@ namespace RHPortal.Api.Migrations
             migrationBuilder.DropTable(
                 name: "NineBoxAssessments");
 
-            migrationBuilder.DropColumn(
-                name: "IntegracaoMensagem",
-                table: "PreAdmissoes");
-
-            migrationBuilder.DropColumn(
-                name: "IntegracaoResultado",
-                table: "PreAdmissoes");
-
-            migrationBuilder.DropColumn(
-                name: "IntegradaEmUtc",
-                table: "PreAdmissoes");
+            // As colunas IntegracaoMensagem, IntegracaoResultado e IntegradaEmUtc são gerenciadas
+            // pela migration 20260324000000_AddCamposIntegracaoPreAdmissao. Não removê-las aqui.
         }
     }
 }
