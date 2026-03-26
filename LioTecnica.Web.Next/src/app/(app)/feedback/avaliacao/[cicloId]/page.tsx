@@ -1,18 +1,11 @@
-"use client";
+import AvaliacaoCicloPageClient from "./AvaliacaoCicloPageClient";
 
-import { AuthGuard } from "@/hooks/useAuth";
-import AvaliacaoFormScreen from "@/features/feedback/AvaliacaoFormScreen";
-import { useParams } from "next/navigation";
+// Necessário para build com `output: export` em rotas dinâmicas.
+// A página real é client-side (usa `useParams`), então usamos um placeholder em build time.
+export function generateStaticParams() {
+  return [{ cicloId: "__" }];
+}
 
 export default function Page() {
-    const params = useParams();
-    const cicloId = params.cicloId as string;
-
-    return (
-        <AuthGuard>
-            <div className="p-6">
-                <AvaliacaoFormScreen cicloId={cicloId} />
-            </div>
-        </AuthGuard>
-    );
+  return <AvaliacaoCicloPageClient />;
 }
