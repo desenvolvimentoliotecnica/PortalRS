@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
+using RhPortal.Api.Application.ItaloIntegracao;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
@@ -44,6 +45,7 @@ public sealed class IntegracaoTotvsServiceTests
             userStore.Object, null, null, null, null, null, null, null, null);
 
         var emailQueue = new Mock<IEmailQueueService>();
+        var italoService = new Mock<IItaloIntegrationService>();
         var logger = new Mock<ILogger<PreAdmissaoService>>();
 
         var service = new PreAdmissaoService(
@@ -51,6 +53,7 @@ public sealed class IntegracaoTotvsServiceTests
             tenantMock.Object,
             userManager.Object,
             emailQueue.Object,
+            italoService.Object,
             logger.Object);
 
         return (db, service);
