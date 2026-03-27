@@ -214,10 +214,12 @@ public static class DbSeeder
             var seedVagasEnabledFromConfig = config.GetValue<bool?>("Seed:Vagas:Enabled") ?? true;
             var seedCandidatosEnabledFromConfig = config.GetValue<bool?>("Seed:Candidatos:Enabled") ?? true;
             var seedInboxEnabledDefaultFromConfig = config.GetValue<bool?>("Seed:InboxItems:Enabled") ?? true;
+            var seedPreAdmisoesEnabledFromConfig = config.GetValue<bool?>("Seed:PreAdmissoes:Enabled") ?? true;
 
             var seedVagasEnabled = overrides?.SeedVagasEnabled ?? seedVagasEnabledFromConfig;
             var seedCandidatosEnabled = overrides?.SeedCandidatosEnabled ?? seedCandidatosEnabledFromConfig;
             var seedInboxEnabledDefault = overrides?.SeedInboxEnabled ?? seedInboxEnabledDefaultFromConfig;
+            var seedPreAdmisoesEnabled = overrides?.SeedPreAdmisoesEnabled ?? seedPreAdmisoesEnabledFromConfig;
 
             // ---------------------------
             // Tenants (com override também)
@@ -256,6 +258,7 @@ public static class DbSeeder
                 seedVagasEnabled: seedVagasEnabled,
                 seedCandidatosEnabled: seedCandidatosEnabled,
                 seedInboxEnabled: liotecnicaInboxEnabled,
+                seedPreAdmisoesEnabled: seedPreAdmisoesEnabled,
                 localizer: localizer,
                 randomSeed: randomSeed,
                 ct: ct);
@@ -282,6 +285,7 @@ public static class DbSeeder
                 seedVagasEnabled: seedVagasEnabled,
                 seedCandidatosEnabled: seedCandidatosEnabled,
                 seedInboxEnabled: devInboxEnabled,
+                seedPreAdmisoesEnabled: seedPreAdmisoesEnabled,
                 localizer: localizer,
                 randomSeed: randomSeed,
                 ct: ct);
@@ -335,6 +339,7 @@ public static class DbSeeder
         bool seedVagasEnabled,
         bool seedCandidatosEnabled,
         bool seedInboxEnabled,
+        bool seedPreAdmisoesEnabled,
         IStringLocalizer<SeedMessages> localizer,
         int? randomSeed,
         CancellationToken ct)
@@ -395,6 +400,12 @@ public static class DbSeeder
             await global::RhPortal.Api.Infrastructure.Data.Seeders.InboxItemSeeder.EnsureAsync(
                 db, tenantId, inboxSeedCount, ct);
         }
+
+        if (seedPreAdmisoesEnabled)
+        {
+            await global::RhPortal.Api.Infrastructure.Data.Seeders.PreAdmissaoSeeder.EnsureAsync(
+                db, tenantId, randomSeed, ct);
+        }
     }
 
     /// <summary>
@@ -406,6 +417,7 @@ public static class DbSeeder
         bool? SeedEnabled = null,
         bool? SeedVagasEnabled = null,
         bool? SeedCandidatosEnabled = null,
-        bool? SeedInboxEnabled = null
+        bool? SeedInboxEnabled = null,
+        bool? SeedPreAdmisoesEnabled = null
     );
 }
