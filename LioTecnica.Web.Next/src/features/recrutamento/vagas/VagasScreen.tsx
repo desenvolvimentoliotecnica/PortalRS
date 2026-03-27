@@ -1,6 +1,6 @@
 "use client";
 
-import { type ComponentType, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -262,69 +262,6 @@ function SolicStatusBadge({ status }: { status: number | string }) {
     return <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.cls}`}>{meta.label}</span>;
 }
 
-function KpiCard({
-    icon: Icon,
-    label,
-    value,
-    tone = "default",
-}: {
-    icon: ComponentType<{ className?: string }>;
-    label: string;
-    value: number | string;
-    tone?: "default" | "success" | "warning";
-}) {
-    const toneMap = {
-        default: "bg-muted/50 text-foreground",
-        success: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-        warning: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-    };
-
-    return (
-        <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-                <div>
-                    <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                        {label}
-                    </div>
-                    <div className="mt-2 text-2xl font-semibold tracking-tight">{value}</div>
-                </div>
-                <div className={`rounded-xl p-2.5 ${toneMap[tone]}`}>
-                    <Icon className="size-5" />
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function FlowStepCard({
-    step,
-    title,
-    description,
-    icon: Icon,
-}: {
-    step: string;
-    title: string;
-    description: string;
-    icon: ComponentType<{ className?: string }>;
-}) {
-    return (
-        <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
-            <div className="flex items-start gap-3">
-                <div className="rounded-xl border border-border/60 bg-muted/30 p-2.5">
-                    <Icon className="size-4 text-foreground" />
-                </div>
-                <div className="min-w-0">
-                    <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                        Etapa {step}
-                    </div>
-                    <div className="mt-1 text-sm font-semibold text-foreground">{title}</div>
-                    <div className="mt-1 text-xs leading-5 text-muted-foreground">{description}</div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 function DetailField({ label, value }: { label: string; value: string | number | null | undefined }) {
     return (
         <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
@@ -362,6 +299,7 @@ export default function VagasScreen() {
     });
     const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.vagas.viewMode", m); };
     const [areas, setAreas] = useState<string[]>([]);
+    const [dateSort, setDateSort] = useState<"newest" | "oldest">("newest");
 
     useEffect(() => {
         if (!pendenciasMode) return;
@@ -380,10 +318,12 @@ export default function VagasScreen() {
 
     const [editOpen, setEditOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
+    const [editDefaultTab, setEditDefaultTab] = useState<string | undefined>(undefined);
 
     const [vagaDetailOpen, setVagaDetailOpen] = useState(false);
     const [vagaDetailLoading, setVagaDetailLoading] = useState(false);
     const [vagaDetail, setVagaDetail] = useState<Record<string, unknown> | null>(null);
+    const [vagaCandidateCount, setVagaCandidateCount] = useState<number | null>(null);
 
     const [solicDetailOpen, setSolicDetailOpen] = useState(false);
     const [solicDetailLoading, setSolicDetailLoading] = useState(false);
@@ -479,7 +419,7 @@ export default function VagasScreen() {
 
     const filtered = useMemo(() => {
         const qq = q.trim().toLowerCase();
-        return rows.filter((v) => {
+        const result = rows.filter((v) => {
             if (status !== "all" && (v.status ?? "").toLowerCase() !== status) return false;
             if (area !== "all" && (v.area ?? "").trim() !== area) return false;
             if (!qq) return true;
@@ -489,7 +429,13 @@ export default function VagasScreen() {
                 .toLowerCase()
                 .includes(qq);
         });
-    }, [rows, q, area, status]);
+        result.sort((a, b) => {
+            const da = new Date(pickString(a.updatedAt)).getTime() || 0;
+            const db = new Date(pickString(b.updatedAt)).getTime() || 0;
+            return dateSort === "newest" ? db - da : da - db;
+        });
+        return result;
+    }, [rows, q, area, status, dateSort]);
 
     const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
         initialPageSize: 20,
@@ -527,6 +473,14 @@ export default function VagasScreen() {
         setEditOpen(true);
     }
 
+    async function copyPortalLink(vagaId: string) {
+        const tenantId = me?.tenantId;
+        if (!tenantId) { toast.error("TenantId não encontrado."); return; }
+        const url = `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}&vagaId=${encodeURIComponent(vagaId)}`;
+        try { await navigator.clipboard.writeText(url); toast.success("Link do portal copiado!"); }
+        catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao copiar link."); }
+    }
+
     function openSolicitacaoEditor(id?: string | null) {
         setSolicitacaoEditId(id ?? null);
         setSolicitacaoOpen(true);
@@ -535,9 +489,16 @@ export default function VagasScreen() {
     async function openVagaDetail(id: string) {
         setVagaDetailOpen(true);
         setVagaDetailLoading(true);
+        setVagaCandidateCount(null);
         try {
-            const data = await fetchJson<unknown>(`${BASE}/api/vagas/${encodeURIComponent(id)}`);
+            const [data, candData] = await Promise.all([
+                fetchJson<unknown>(`${BASE}/api/vagas/${encodeURIComponent(id)}`),
+                fetchJson<unknown>(`${BASE}/api/candidatos?vagaId=${encodeURIComponent(id)}&pageSize=1`).catch(() => null),
+            ]);
             setVagaDetail(asRecord(data));
+            const rec = asRecord(candData);
+            const total = rec?.totalCount ?? rec?.total;
+            setVagaCandidateCount(typeof total === "number" ? total : null);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "Falha ao carregar detalhes da vaga.");
             setVagaDetailOpen(false);
@@ -757,8 +718,8 @@ export default function VagasScreen() {
     ] : [
         {
             step: "1",
-            title: "Configure a vaga",
-            description: "Ajuste dados, requisitos e corte mínimo antes de seguir para análise de candidatos.",
+            title: "Configure e publique a vaga",
+            description: "Ajuste dados, requisitos e visibilidade. Na aba Publicação, ative o portal e gere o link para candidatos externos.",
             icon: PenSquare,
         },
         {
@@ -782,169 +743,91 @@ export default function VagasScreen() {
     ];
 
     return (
-        <section className="space-y-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <Badge variant="secondary" className="mb-2">
-                        {showManagerSections ? "Hub do gestor" : "Hub do recrutamento"}
-                    </Badge>
-                    <h1 className="text-2xl font-semibold tracking-tight">Vagas</h1>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                        {showManagerSections
-                            ? "Solicite, acompanhe aprovações e consulte a abertura de vagas sem pular entre telas soltas."
-                            : "Centralize configuração da vaga, matching, rodadas e avanço para admissão a partir do mesmo ponto."}
-                    </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => void syncList()}>
-                        <RefreshCw className="mr-1 size-4" />
-                        Atualizar vagas
+        <section className="space-y-4">
+            {/* Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-lg font-bold tracking-tight">Vagas</h1>
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" onClick={() => void syncList()}>
+                        <RefreshCw className="mr-1 size-3" /> Atualizar
                     </Button>
                     {isAdmin && (
                         <>
-                            <Button variant="outline" size="sm" onClick={exportJson}>
-                                Exportar
-                            </Button>
-                            <Button variant="outline" size="sm" asChild>
+                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" onClick={exportJson}>Exportar</Button>
+                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" asChild>
                                 <label className="cursor-pointer">
                                     Importar
-                                    <input
-                                        className="hidden"
-                                        type="file"
-                                        accept="application/json"
-                                        onChange={(e) => {
-                                            const file = e.currentTarget.files?.[0];
-                                            if (!file) return;
-                                            file.text()
-                                                .then((text) => {
-                                                    const parsed = JSON.parse(text) as { vagas?: unknown[] };
-                                                    if (!Array.isArray(parsed?.vagas)) {
-                                                        toast.error("JSON inválido.");
-                                                        return;
-                                                    }
-                                                    Promise.all(parsed.vagas.map((vaga) => fetchJson(`${BASE}/api/vagas`, {
-                                                        method: "POST",
-                                                        headers: { "Content-Type": "application/json" },
-                                                        body: JSON.stringify(vaga),
-                                                    })))
-                                                        .then(() => {
-                                                            toast.success("Importação concluída.");
-                                                            void syncList();
-                                                        })
-                                                        .catch(() => toast.error("Falha ao importar vagas."));
-                                                })
-                                                .catch(() => toast.error("Falha ao ler arquivo."));
-                                            e.currentTarget.value = "";
-                                        }}
-                                    />
+                                    <input className="hidden" type="file" accept="application/json" onChange={(e) => { const file = e.currentTarget.files?.[0]; if (!file) return; file.text().then((text) => { const parsed = JSON.parse(text) as { vagas?: unknown[] }; if (!Array.isArray(parsed?.vagas)) { toast.error("JSON inválido."); return; } Promise.all(parsed.vagas.map((vaga) => fetchJson(`${BASE}/api/vagas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(vaga) }))).then(() => { toast.success("Importação concluída."); void syncList(); }).catch(() => toast.error("Falha ao importar vagas.")); }).catch(() => toast.error("Falha ao ler arquivo.")); e.currentTarget.value = ""; }} />
                                 </label>
                             </Button>
                         </>
                     )}
                     {isRecrutador && (
-                        <Button size="sm" onClick={openNew}>
-                            <Plus className="mr-1 size-4" />
-                            Nova Vaga
+                        <Button size="sm" className="h-8" onClick={openNew}>
+                            <Plus className="mr-1 size-3.5" /> Nova Vaga
                         </Button>
                     )}
                 </div>
             </div>
 
-            <div className={`grid gap-3 ${showManagerSections ? "md:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
-                {flowSteps.map((step) => (
-                    <FlowStepCard
-                        key={step.step}
-                        step={step.step}
-                        title={step.title}
-                        description={step.description}
-                        icon={step.icon}
-                    />
-                ))}
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiCard icon={Briefcase} label="Total de vagas" value={vagaCounts.total} />
-                <KpiCard icon={CheckCircle2} label="Vagas abertas" value={vagaCounts.open} tone="success" />
-                <KpiCard icon={Clock} label="Em preparação" value={vagaCounts.preparation} tone="warning" />
-                <KpiCard
-                    icon={showManagerSections ? ShieldCheck : Users}
-                    label={showManagerSections ? "Aprovações pendentes" : "Vagas encerradas"}
-                    value={showManagerSections ? approvals.length : vagaCounts.closed}
-                />
-            </div>
-
-            <div className="rounded-xl border border-border/50 bg-card shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-3">
-                    <div>
-                        <div className="text-sm font-semibold">Painel de vagas</div>
-                        <div className="text-xs text-muted-foreground">
-                            Abra uma vaga para seguir com matching, candidatos e rodadas sem sair do fluxo principal.
+            {/* Tutorial colapsado */}
+            <details className="group rounded-lg border border-border/40 bg-card shadow-sm">
+                <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+                    <svg className="size-3.5 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z"/></svg>
+                    Como funciona o fluxo de vagas?
+                </summary>
+                <div className={`px-4 pb-3 pt-1 grid gap-2 ${showManagerSections ? "md:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
+                    {flowSteps.map((step) => (
+                        <div key={step.step} className="flex items-start gap-2.5 rounded-lg bg-slate-50/80 p-3">
+                            <div className="rounded-lg bg-white border border-border/50 p-1.5 shrink-0 shadow-sm">
+                                <step.icon className="size-3.5 text-slate-500" />
+                            </div>
+                            <div className="min-w-0">
+                                <div className="text-[11px] font-semibold text-foreground">{step.title}</div>
+                                <div className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{step.description}</div>
+                            </div>
                         </div>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                        {showManagerSections ? "Gestor + acompanhamento" : "RH + seleção"}
-                    </Badge>
+                    ))}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 border-b border-border/40 p-4">
-                    <div className="relative min-w-[220px] flex-1">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            className="pl-9"
-                            placeholder="Buscar título, código, área ou localização..."
-                            value={q}
-                            onChange={(e) => setQ(e.target.value)}
-                        />
+            </details>
+
+            {/* Main panel */}
+            <div className="rounded-xl border border-border/50 bg-card shadow-sm">
+                {/* Filters bar */}
+                <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2.5">
+                    <div className="relative min-w-[180px] flex-1 max-w-sm">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input className="pl-8 h-8 text-sm" placeholder="Buscar vaga..." value={q} onChange={(e) => setQ(e.target.value)} />
                     </div>
-                    <select
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                        value={area}
-                        onChange={(e) => setArea(e.target.value)}
-                    >
+                    <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={area} onChange={(e) => setArea(e.target.value)}>
                         <option value="all">Todas as áreas</option>
                         {areas.map((item) => <option key={item} value={item}>{item}</option>)}
                     </select>
-                    {isRecrutador && (
-                        <Button
-                            size="sm"
-                            variant={pendenciasMode ? "default" : "outline"}
-                            onClick={() => void router.push(pendenciasMode ? `/vagas` : `/vagas?pendencias=1`)}
-                        >
-                            Pendências
-                        </Button>
-                    )}
-                    <select
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                        disabled={pendenciasMode}
-                    >
-                        <option value="all">Todos os status</option>
-                        <option value="aberta">Aberta</option>
-                        <option value="rascunho">Rascunho</option>
+                    <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={status} onChange={(e) => setStatus(e.target.value)} disabled={pendenciasMode}>
+                        <option value="all">Todos ({rows.length})</option>
+                        <option value="aberta">Abertas ({vagaCounts.open})</option>
+                        <option value="rascunho">Rascunho ({vagaCounts.preparation})</option>
                         <option value="pausada">Pausada</option>
-                        <option value="fechada">Fechada</option>
+                        <option value="fechada">Fechada ({vagaCounts.closed})</option>
                     </select>
+                    <button type="button" className="inline-flex items-center gap-1 h-8 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => setDateSort(prev => prev === "newest" ? "oldest" : "newest")} title={dateSort === "newest" ? "Mais novas primeiro" : "Mais antigas primeiro"}>
+                        <CalendarDays className="size-3" />
+                        {dateSort === "newest" ? "Recentes" : "Antigas"}
+                    </button>
+                    {isRecrutador && (
+                        <button type="button" className={`inline-flex items-center h-8 rounded-md border px-2 text-xs font-medium transition-colors ${pendenciasMode ? "bg-primary text-primary-foreground border-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"}`} onClick={() => { if (pendenciasMode) { setStatus("all"); void router.replace("/vagas"); } else { void router.push("/vagas?pendencias=1"); } }}>
+                            Pendências
+                        </button>
+                    )}
                     <div className="flex items-center rounded-md border border-input bg-background p-0.5">
-                        <button
-                            type="button"
-                            className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                            onClick={() => setViewMode("list")}
-                            title="Exibir como lista"
-                        >
-                            <List className="size-3.5" />
+                        <button type="button" className={`inline-flex items-center justify-center rounded-sm px-1.5 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
+                            <List className="size-3" />
                         </button>
-                        <button
-                            type="button"
-                            className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                            onClick={() => setViewMode("kanban")}
-                            title="Exibir como kanban"
-                        >
-                            <Columns3 className="size-3.5" />
+                        <button type="button" className={`inline-flex items-center justify-center rounded-sm px-1.5 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban">
+                            <Columns3 className="size-3" />
                         </button>
                     </div>
-                    <div className="ml-auto text-xs text-muted-foreground">
-                        {filtered.length} vaga(s)
-                    </div>
+                    <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">{filtered.length} resultado(s)</span>
                 </div>
 
                 {viewMode === "list" ? (
@@ -1006,7 +889,9 @@ export default function VagasScreen() {
                                                             )}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="text-sm">{vaga.area || "—"}</TableCell>
+                                                    <TableCell className="text-sm" onClick={(e) => { e.stopPropagation(); setArea(vaga.area?.trim() || "all"); }}>
+                                                        <span className="hover:underline hover:text-foreground cursor-pointer">{vaga.area || "—"}</span>
+                                                    </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2 text-xs">
                                                             <span className="text-muted-foreground">{total} requisito(s)</span>
@@ -1020,8 +905,8 @@ export default function VagasScreen() {
                                                     <TableCell className="text-xs font-mono text-muted-foreground">
                                                         {threshold}%
                                                     </TableCell>
-                                                    <TableCell>
-                                                        <VagaStatusBadge status={vaga.status} />
+                                                    <TableCell onClick={(e) => { e.stopPropagation(); setStatus((vaga.status ?? "").toLowerCase() || "all"); }}>
+                                                        <span className="cursor-pointer"><VagaStatusBadge status={vaga.status} /></span>
                                                     </TableCell>
                                                     <TableCell onClick={(e) => e.stopPropagation()}>
                                                         <DropdownMenu>
@@ -1056,6 +941,10 @@ export default function VagasScreen() {
                                                                         <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
                                                                             <PenSquare className="mr-2 size-4" />
                                                                             Editar
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => void copyPortalLink(vaga.id)}>
+                                                                            <Copy className="mr-2 size-4" />
+                                                                            Copiar link do portal
                                                                         </DropdownMenuItem>
                                                                     </>
                                                                 )}
@@ -1175,6 +1064,9 @@ export default function VagasScreen() {
                                                                                 <DropdownMenuSeparator />
                                                                                 <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
                                                                                     <PenSquare className="mr-2 size-3.5" />Editar
+                                                                                </DropdownMenuItem>
+                                                                                <DropdownMenuItem onClick={() => void copyPortalLink(vaga.id)}>
+                                                                                    <Copy className="mr-2 size-3.5" />Copiar link
                                                                                 </DropdownMenuItem>
                                                                             </>
                                                                         )}
@@ -1302,6 +1194,50 @@ export default function VagasScreen() {
                                     </div>
                                 )}
 
+                                {/* ── Checklist da vaga ── */}
+                                {isRecrutador && currentVagaId && (
+                                    <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                                        <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">Checklist da vaga</div>
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                            {[
+                                                { label: "Dados básicos", done: !!currentVagaTitle && currentVagaTitle !== "Vaga" },
+                                                { label: "Requisitos", done: Array.isArray((vagaDetail as Record<string, unknown> | null)?.requisitos) && ((vagaDetail as Record<string, unknown>).requisitos as unknown[]).length > 0 },
+                                                { label: "Matching IA", done: !!pickString((vagaDetail as Record<string, unknown> | null)?.matchingFiltrosRaw, "") },
+                                                { label: "Publicação", done: visibilidadePermitePortal },
+                                            ].map(item => (
+                                                <div key={item.label} className="flex items-center gap-1.5">
+                                                    {item.done
+                                                        ? <CheckCircle2 className="size-3.5 text-emerald-500" />
+                                                        : <div className="size-3.5 rounded-full border-2 border-muted-foreground/30" />}
+                                                    <span className={item.done ? "text-foreground" : "text-muted-foreground"}>{item.label}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── Portal status callout ── */}
+                                {isRecrutador && currentVagaId && !vagaAberta && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+                                        Vaga em <b>rascunho</b> — portal inativo. Mude o status para &quot;Aberta&quot; na aba <b>Dados</b> para publicar.
+                                    </div>
+                                )}
+                                {isRecrutador && currentVagaId && vagaAberta && !visibilidadePermitePortal && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400 flex items-center justify-between gap-2">
+                                        <span>Portal inativo. Ative a <b>visibilidade</b> como &quot;Externa&quot; para publicar.</span>
+                                        <button
+                                            className="shrink-0 rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 transition-colors"
+                                            onClick={() => {
+                                                setVagaDetailOpen(false);
+                                                setEditDefaultTab("publicacao");
+                                                openEdit(currentVagaId);
+                                            }}
+                                        >
+                                            Configurar Publicação
+                                        </button>
+                                    </div>
+                                )}
+
                                 {/* ── Actions ── */}
                                 <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-4">
                                     {isRecrutador && currentVagaId && (
@@ -1315,6 +1251,9 @@ export default function VagasScreen() {
                                             <Button size="sm" variant="outline" onClick={() => { setVagaDetailOpen(false); persistMatchingContext(currentVagaId); router.push(`/matching?vagaId=${encodeURIComponent(currentVagaId)}`); }}>
                                                 <ShieldCheck className="mr-1.5 size-3.5" />
                                                 Matching
+                                                {vagaCandidateCount != null && vagaCandidateCount > 0 && (
+                                                    <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold min-w-[18px] h-[18px] px-1">{vagaCandidateCount}</span>
+                                                )}
                                             </Button>
                                             <Button size="sm" variant="outline" onClick={() => { setVagaDetailOpen(false); router.push(`/gestao/projetos?vagaId=${encodeURIComponent(currentVagaId)}`); }}>
                                                 <FolderOpen className="mr-1.5 size-3.5" />
@@ -1323,24 +1262,29 @@ export default function VagasScreen() {
                                             <Button size="sm" variant="outline" onClick={() => { setVagaDetailOpen(false); router.push(`/candidatos?vagaId=${encodeURIComponent(currentVagaId)}`); }}>
                                                 <Users className="mr-1.5 size-3.5" />
                                                 Candidatos
+                                                {vagaCandidateCount != null && vagaCandidateCount > 0 && (
+                                                    <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold min-w-[18px] h-[18px] px-1">{vagaCandidateCount}</span>
+                                                )}
                                             </Button>
                                         </>
                                     )}
-                                    {isRecrutador && currentVagaId && vagaAberta && visibilidadePermitePortal && (
+                                    {isRecrutador && currentVagaId && (
                                         <Button
                                             size="sm"
                                             variant="outline"
                                             className="ml-auto text-muted-foreground"
-                                            onClick={async () => {
-                                                const tenantId = me?.tenantId;
-                                                if (!tenantId) { toast.error("TenantId não encontrado."); return; }
-                                                const url = `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}&vagaId=${encodeURIComponent(currentVagaId)}`;
-                                                try { await navigator.clipboard.writeText(url); toast.success("Link do Portal copiado."); }
-                                                catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao copiar link."); }
-                                            }}
+                                            disabled={!vagaAberta || !visibilidadePermitePortal}
+                                            title={
+                                                !vagaAberta
+                                                    ? "Abra a vaga para ativar o portal"
+                                                    : !visibilidadePermitePortal
+                                                    ? "Configure Visibilidade → Externa para ativar o portal"
+                                                    : "Copiar link do portal de candidatos"
+                                            }
+                                            onClick={() => void copyPortalLink(currentVagaId)}
                                         >
                                             <Copy className="mr-1.5 size-3.5" />
-                                            Copiar link
+                                            Copiar link do portal
                                         </Button>
                                     )}
                                 </div>
@@ -1483,14 +1427,21 @@ export default function VagasScreen() {
             <VagaFormModal
                 open={editOpen}
                 editId={editId}
+                defaultTab={editDefaultTab as any}
                 onClose={() => {
                     setEditOpen(false);
                     setEditId(null);
+                    setEditDefaultTab(undefined);
                 }}
-                onSaved={() => {
+                onSaved={(savedVagaId) => {
+                    const wasNew = !editId;
                     setEditOpen(false);
                     setEditId(null);
+                    setEditDefaultTab(undefined);
                     void syncList();
+                    if (wasNew && savedVagaId) {
+                        setTimeout(() => void openVagaDetail(savedVagaId), 350);
+                    }
                 }}
             />
         </section>

@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ClipboardList,
   Clock,
+  CloudUpload,
   FileUp,
   Filter,
   Gauge,
@@ -109,6 +110,7 @@ const ICONS: Record<string, LucideIcon> = {
   "bi-translate": Languages,
   "bi-check2-square": CheckSquare,
   "bi-bar-chart": BarChart3,
+  "cloud-upload": CloudUpload,
   // Fallback plain names
   brain: Brain,
   building2: Building2,
@@ -218,7 +220,6 @@ const RECRUTAMENTO_ROUTES = new Set<string>([
   RECRUITMENT_ROUTE_KEYS.solicitacoes,
   RECRUITMENT_ROUTE_KEYS.vagas,
   RECRUITMENT_ROUTE_KEYS.candidatos,
-  RECRUITMENT_ROUTE_KEYS.matching,
   RECRUITMENT_ROUTE_KEYS.triagem,
   RECRUITMENT_ROUTE_KEYS.processoSeletivo,
   RECRUITMENT_ROUTE_KEYS.admissao,
@@ -243,6 +244,7 @@ const HIDDEN_ROUTES = new Set([
   "/gestao/aprovacoes",
   "/portalvagas",
   "/talentos",
+  "/matching",
   "/gestao/projetos",
   // Pesquisas antigas removidas — unificadas em /feedback/pesquisas
   "/feedback/pesquisarapida",

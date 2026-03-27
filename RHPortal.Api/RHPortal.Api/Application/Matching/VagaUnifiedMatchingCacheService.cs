@@ -59,7 +59,7 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
         var vaga = await _db.Vagas
             .AsNoTracking()
             .Where(v => v.Id == vagaId)
-            .Select(v => new { v.Id, v.MatchingFiltrosRaw })
+            .Select(v => new { v.Id, v.MatchingFiltrosRaw, v.PesoCompetencia, v.PesoExperiencia, v.PesoFormacao, v.PesoLocalidade })
             .FirstOrDefaultAsync(ct);
 
         if (vaga is null)
@@ -75,7 +75,7 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
             );
         }
 
-        var desiredHash = ComputeFiltersHash(vaga.MatchingFiltrosRaw, ruleVersion);
+        var desiredHash = ComputeFiltersHash(vaga.MatchingFiltrosRaw, ruleVersion, vaga.PesoCompetencia, vaga.PesoExperiencia, vaga.PesoFormacao, vaga.PesoLocalidade);
         var cache = await _db.VagaUnifiedMatchingCaches
             .AsTracking()
             .FirstOrDefaultAsync(x => x.VagaId == vagaId, ct);
@@ -295,9 +295,9 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
         }
     }
 
-    private static string ComputeFiltersHash(string? raw, string? ruleVersion)
+    private static string ComputeFiltersHash(string? raw, string? ruleVersion, int wC = 40, int wE = 30, int wF = 15, int wL = 15)
     {
-        var normalized = $"{NormalizeFiltersText(raw)}|rule:{(ruleVersion ?? string.Empty).Trim()}";
+        var normalized = $"{NormalizeFiltersText(raw)}|rule:{(ruleVersion ?? string.Empty).Trim()}|w:{wC},{wE},{wF},{wL}";
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(normalized));
         return Convert.ToHexString(bytes).ToLowerInvariant();

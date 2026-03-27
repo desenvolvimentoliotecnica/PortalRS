@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { toast } from "sonner";
-import { Folder, Mail } from "lucide-react";
+import { Folder, Mail, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { apiFetch } from "@/lib/api";
 
 
@@ -215,9 +216,9 @@ function mapOpenVagas(payload: unknown): OpenVagaRow[] {
 
 function BadgeEtapa({ etapa }: { etapa: string }) {
   const e = (etapa || "").toLowerCase();
-  const cls =
-    e.includes("reprov") ? "bad" : e.includes("aprov") ? "ok" : e.includes("entrev") ? "warn" : e.includes("triag") ? "warn" : "";
-  return <span className={`status-tag ${cls}`}>{etapa}</span>;
+  const color =
+    e.includes("reprov") ? "bg-red-500/15 text-red-700" : e.includes("aprov") ? "bg-emerald-500/15 text-emerald-700" : e.includes("entrev") ? "bg-amber-500/15 text-amber-700" : e.includes("triag") ? "bg-blue-500/15 text-blue-700" : "bg-zinc-400/15 text-zinc-600";
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${color}`}>{etapa}</span>;
 }
 
 function OriginBadge({ origem }: { origem: string }) {
@@ -226,8 +227,8 @@ function OriginBadge({ origem }: { origem: string }) {
   const Icon = lower === "email" ? Mail : Folder;
   const label = raw || "-";
   return (
-    <span className="badge-soft">
-      <Icon size={14} />
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600">
+      <Icon className="size-3" />
       {label}
     </span>
   );
@@ -298,9 +299,7 @@ export default function DashboardScreen({
   const [quickArea, setQuickArea] = useState<string>("");
 
   const [enums, setEnums] = useState<EnumData>({});
-  const [openVagasOpen, setOpenVagasOpen] = useState(false);
-  const [openVagas, setOpenVagas] = useState<OpenVagaRow[]>([]);
-  const [openVagasLoading, setOpenVagasLoading] = useState(false);
+  // openVagas removido — KPI navega para /vagas
   const [quickTitle, setQuickTitle] = useState("");
   const [quickStatus, setQuickStatus] = useState("");
   const [quickKeywords, setQuickKeywords] = useState("");
@@ -341,14 +340,7 @@ export default function DashboardScreen({
       });
   }, []);
 
-  useEffect(() => {
-    if (!openVagasOpen) return;
-    setOpenVagasLoading(true);
-    void fetchJson<unknown>(`/api/dashboard/open-vagas?take=200`)
-      .then((rows) => setOpenVagas(mapOpenVagas(rows)))
-      .catch(() => toast.error("Falha ao carregar vagas abertas."))
-      .finally(() => setOpenVagasLoading(false));
-  }, [openVagasOpen]);
+  // Modal de vagas removido — KPI "Vagas abertas" navega direto para /vagas
 
   useEffect(() => {
     const ctx = canvasRef.current;
@@ -447,10 +439,11 @@ export default function DashboardScreen({
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="text-lg font-bold">Dashboard</h4>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Visão geral do recrutamento</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)}>
@@ -467,59 +460,59 @@ export default function DashboardScreen({
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
         <div
-          className="card-soft p-3 cursor-pointer"
+          className="rounded-xl border border-border/40 bg-card shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
           role="button"
           tabIndex={0}
-          onClick={() => setOpenVagasOpen(true)}
+          onClick={() => { window.location.href = "/app/vagas"; }}
           onKeyDown={(ev) => {
             if (ev.key !== "Enter" && ev.key !== " ") return;
             ev.preventDefault();
-            setOpenVagasOpen(true);
+            window.location.href = "/app/vagas";
           }}
         >
-          <div className="mini-title mb-1">Vagas abertas</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.openVagas}</div>
-          <div className="text-muted-foreground text-sm">em aberto</div>
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Vagas abertas</div>
+          <div className="text-2xl font-bold mt-1.5 tabular-nums text-[rgb(var(--lt-primary))]">{kpis.openVagas}</div>
+          <div className="text-muted-foreground text-xs mt-0.5">em aberto</div>
         </div>
-        <div className="card-soft p-3">
-          <div className="mini-title mb-1">CVs hoje</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.cvsHoje}</div>
-          <div className="text-muted-foreground text-sm">recebidos</div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50/50 shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-blue-600/70 uppercase tracking-widest">CVs hoje</div>
+          <div className="text-2xl font-bold mt-1.5 text-blue-600 tabular-nums">{kpis.cvsHoje}</div>
+          <div className="text-muted-foreground text-xs mt-0.5">recebidos</div>
         </div>
-        <div className="card-soft p-3">
-          <div className="mini-title mb-1">Pendentes match</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.pendentesMatch}</div>
-          <div className="text-muted-foreground text-sm">aguardando</div>
+        <div className="rounded-xl border border-amber-100 bg-amber-50/50 shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-amber-600/70 uppercase tracking-widest">Pendentes match</div>
+          <div className="text-2xl font-bold mt-1.5 text-amber-600 tabular-nums">{kpis.pendentesMatch}</div>
+          <div className="text-muted-foreground text-xs mt-0.5">aguardando</div>
         </div>
-        <div className="card-soft p-3">
-          <div className="mini-title mb-1">Aprovados 7 dias</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.aprovados7Dias}</div>
-          <div className="text-muted-foreground text-sm">últimos 7 dias</div>
+        <div className="rounded-xl border border-green-100 bg-green-50/50 shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-green-600/70 uppercase tracking-widest">Aprovados 7 dias</div>
+          <div className="text-2xl font-bold mt-1.5 text-green-600 tabular-nums">{kpis.aprovados7Dias}</div>
+          <div className="text-muted-foreground text-xs mt-0.5">últimos 7 dias</div>
         </div>
-        <div className="card-soft p-3">
-          <div className="mini-title mb-1">Vagas fora SLA</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.vagasForaSla}</div>
-          <div className="text-muted-foreground text-sm">atenção</div>
+        <div className="rounded-xl border border-red-100 bg-red-50/50 shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-red-600/70 uppercase tracking-widest">Vagas fora SLA</div>
+          <div className="text-2xl font-bold mt-1.5 text-red-600 tabular-nums">{kpis.vagasForaSla}</div>
+          <div className="text-muted-foreground text-xs mt-0.5">atenção</div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr]">
-        <div className="card-soft p-3">
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="fw-bold">Resumo</div>
-              <div className="text-muted-foreground text-sm">Últimos 14 dias</div>
+              <div className="text-sm font-semibold">Resumo</div>
+              <div className="text-muted-foreground text-xs">Últimos 14 dias</div>
             </div>
-            <span className="badge-soft">Tendência</span>
+            <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">Tendência</span>
           </div>
           <canvas ref={canvasRef} height={110} />
         </div>
 
-        <div className="card-soft p-3">
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="fw-bold">Funil</div>
-              <div className="text-muted-foreground text-sm">Pipeline</div>
+              <div className="text-sm font-semibold">Funil</div>
+              <div className="text-muted-foreground text-xs">Pipeline</div>
             </div>
             <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)}>
               Filtros
@@ -551,11 +544,11 @@ export default function DashboardScreen({
         </div>
       </div>
 
-      <div className="card-soft p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
-            <div className="fw-bold">Melhores matches</div>
-            <div className="text-muted-foreground text-sm">Top 15 por score</div>
+            <div className="text-sm font-semibold">Melhores matches</div>
+            <div className="text-muted-foreground text-xs">Top 15 por score</div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm">
@@ -567,48 +560,46 @@ export default function DashboardScreen({
           </div>
         </div>
 
-        <div className="table-responsive">
-          <table className="table align-middle mb-0">
-            <thead>
-              <tr>
-                <th style={{ minWidth: 220 }}>Vaga</th>
-                <th style={{ minWidth: 200 }}>Candidato</th>
-                <th style={{ minWidth: 170 }}>Origem</th>
-                <th style={{ minWidth: 240 }}>Match</th>
-                <th style={{ minWidth: 170 }}>Etapa</th>
-                <th className="text-end" style={{ minWidth: 150 }}>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead style={{ minWidth: 220 }}>Vaga</TableHead>
+                <TableHead style={{ minWidth: 200 }}>Candidato</TableHead>
+                <TableHead style={{ minWidth: 170 }}>Origem</TableHead>
+                <TableHead style={{ minWidth: 240 }}>Match</TableHead>
+                <TableHead style={{ minWidth: 170 }}>Etapa</TableHead>
+                <TableHead className="text-right" style={{ minWidth: 150 }}>
                   Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {topMatches.length ? (
                 topMatches.map((x) => (
-                  <tr key={`${x.vagaId}|${x.candidatoId}`}>
-                    <td>
-                      <div className="fw-semibold">{x.vagaTitulo || "-"}</div>
-                      <div className="text-muted-foreground text-sm">Código: {x.vagaCodigo || "-"}</div>
-                    </td>
-                    <td>
-                      <div className="fw-semibold">{x.candidatoNome || "-"}</div>
-                      <div className="text-muted-foreground text-sm">ID: {x.candidatoId || "-"}</div>
-                    </td>
-                    <td>
+                  <TableRow key={`${x.vagaId}|${x.candidatoId}`}>
+                    <TableCell>
+                      <div className="font-medium text-sm">{x.vagaTitulo || "-"}</div>
+                      <div className="text-muted-foreground text-xs">Código: {x.vagaCodigo || "-"}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-sm">{x.candidatoNome || "-"}</div>
+                    </TableCell>
+                    <TableCell>
                       <OriginBadge origem={x.origem || "-"} />
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="h-2 flex-1 rounded-full bg-black/10 overflow-hidden">
                           <div className="h-full bg-[rgb(var(--lt-primary))]" style={{ width: `${x.matchScore}%` }} />
                         </div>
-                        <div className="font-extrabold mono w-[52px] text-right">{x.matchScore}%</div>
+                        <div className="font-bold tabular-nums font-mono w-[52px] text-right">{x.matchScore}%</div>
                       </div>
-                      <div className="text-muted-foreground text-sm mt-1">Match calculado pela API.</div>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <BadgeEtapa etapa={x.etapa || "Triagem"} />
-                    </td>
-                    <td className="text-end">
+                    </TableCell>
+                    <TableCell className="text-right">
                       <Button
                         variant="outline"
                         size="sm"
@@ -618,18 +609,18 @@ export default function DashboardScreen({
                       >
                         Ver vaga
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               ) : (
-                <tr>
-                  <td colSpan={6} className="text-center text-muted py-4">
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Nenhum registro atende o filtro atual.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 
@@ -638,7 +629,7 @@ export default function DashboardScreen({
           <div className="ml-auto h-dvh w-full max-w-md bg-white p-4 shadow-2xl">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <div className="fw-bold">Filtros e Visões</div>
+                <div className="text-sm font-semibold">Filtros e Visões</div>
                 <div className="text-muted-foreground text-sm">Ajuste o dashboard para a operação do RH</div>
               </div>
               <Button variant="outline" size="sm" onClick={() => setFiltersOpen(false)}>
@@ -648,7 +639,7 @@ export default function DashboardScreen({
 
             <div className="mt-4 space-y-3">
               <div>
-                <div className="fw-semibold mb-2">Vaga</div>
+                <div className="text-sm font-medium mb-2">Vaga</div>
                 <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={vagaId} onChange={(e) => setVagaId(e.target.value)}>
                   {(enums.vagaFilterSimple?.length ? enums.vagaFilterSimple : [{ code: "all", text: "Todas" }]).map((opt) => (
                     <option key={opt.code} value={opt.code}>
@@ -666,29 +657,29 @@ export default function DashboardScreen({
                 </select>
               </div>
 
-              <div className="card-soft p-3">
-                <div className="fw-semibold mb-2">Período</div>
+              <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+                <div className="text-sm font-medium mb-2">Período</div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="form-label small text-muted-foreground block mb-1">De</label>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">De</label>
                     <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
                   </div>
                   <div>
-                    <label className="form-label small text-muted-foreground block mb-1">Até</label>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">Até</label>
                     <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
                   </div>
                 </div>
               </div>
 
               <div>
-                <div className="fw-semibold mb-2">Match mínimo</div>
+                <div className="text-sm font-medium mb-2">Match mínimo</div>
                 <input className="w-full" type="range" min={0} max={100} value={minMatch} onChange={(e) => setMinMatch(clamp(Number(e.target.value), 0, 100))} />
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>0%</span>
                   <span>50%</span>
                   <span>100%</span>
                 </div>
-                <div className="mt-2 badge-soft">
+                <div className="mt-2 inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">
                   Atual: <span className="font-semibold">{minMatch}%</span>
                 </div>
               </div>
@@ -726,7 +717,7 @@ export default function DashboardScreen({
           <div className="ml-auto h-dvh w-full max-w-md bg-white p-4 shadow-2xl">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <div className="fw-bold">Ações rápidas</div>
+                <div className="text-sm font-semibold">Ações rápidas</div>
                 <div className="text-muted-foreground text-sm">Atalhos para operação do RH</div>
               </div>
               <Button variant="outline" size="sm" onClick={() => setQuickOpen(false)}>
@@ -735,15 +726,15 @@ export default function DashboardScreen({
             </div>
 
             <div className="mt-4 space-y-3">
-              <div className="card-soft p-3">
-                <div className="fw-semibold mb-2">Criar vaga</div>
+              <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+                <div className="text-sm font-medium mb-2">Criar vaga</div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="col-span-2">
-                    <label className="form-label small text-muted-foreground block mb-1">Título</label>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">Título</label>
                     <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" placeholder="Ex.: Analista de Marketing Jr" value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} />
                   </div>
                   <div>
-                    <label className="form-label small text-muted-foreground block mb-1">Área</label>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">Área</label>
                     <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={quickArea} onChange={(e) => setQuickArea(e.target.value)}>
                       <option value="">Selecionar área</option>
                       {areas.map((a) => (
@@ -754,7 +745,7 @@ export default function DashboardScreen({
                     </select>
                   </div>
                   <div>
-                    <label className="form-label small text-muted-foreground block mb-1">Status</label>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">Status</label>
                     <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={quickStatus} onChange={(e) => setQuickStatus(e.target.value)}>
                       <option value="">Selecionar status</option>
                       {(enums.vagaStatus ?? []).map((opt) => (
@@ -765,7 +756,7 @@ export default function DashboardScreen({
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label className="form-label small text-muted-foreground block mb-1">Palavras-chave (separadas por vírgula)</label>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">Palavras-chave (separadas por vírgula)</label>
                     <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" placeholder="Ex.: power bi, seo, redes sociais, crm" value={quickKeywords} onChange={(e) => setQuickKeywords(e.target.value)} />
                   </div>
                 </div>
@@ -788,8 +779,8 @@ export default function DashboardScreen({
                 </div>
               </div>
 
-              <div className="card-soft p-3">
-                <div className="fw-semibold mb-2">Upload CV</div>
+              <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+                <div className="text-sm font-medium mb-2">Upload CV</div>
                 <div className="flex flex-col gap-2">
                   <Button size="sm" onClick={goToUploadCv}>
                     Abrir entrada de currículos
@@ -797,8 +788,8 @@ export default function DashboardScreen({
                 </div>
               </div>
 
-              <div className="card-soft p-3">
-                <div className="fw-semibold mb-2">Executar match</div>
+              <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+                <div className="text-sm font-medium mb-2">Executar match</div>
                 <div className="text-muted-foreground text-sm mb-2">Ajustes: pesos, obrigatórios e sinônimos por vaga.</div>
                 <Button className="w-full" size="sm" onClick={() => goToExecutarMatch(vagaId)}>
                   Abrir matching
@@ -809,83 +800,7 @@ export default function DashboardScreen({
         </div>
       ) : null}
 
-      {openVagasOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="card-soft w-full max-w-5xl bg-white shadow-2xl overflow-hidden">
-            <div className="flex items-start justify-between gap-2 p-4 border-b border-black/10">
-              <div className="flex items-center gap-2">
-                <div>
-                  <div className="fw-bold text-lg">Vagas abertas</div>
-                  <div className="text-muted-foreground text-sm">Lista de vagas em aberto</div>
-                </div>
-                <span className="badge-soft">{openVagas.length}</span>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setOpenVagasOpen(false)}>
-                Fechar
-              </Button>
-            </div>
-
-            <div className="p-4">
-              <div className="table-responsive">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th style={{ minWidth: 120 }}>Código</th>
-                      <th style={{ minWidth: 240 }}>Vaga</th>
-                      <th style={{ minWidth: 160 }}>Área</th>
-                      <th style={{ minWidth: 150 }}>Modo</th>
-                      <th style={{ minWidth: 160 }}>Local</th>
-                      <th className="text-end" style={{ minWidth: 140 }}>
-                        Atualizado
-                      </th>
-                      <th className="text-end" style={{ minWidth: 120 }}>
-                        Ações
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {openVagasLoading ? (
-                      <tr>
-                        <td colSpan={7} className="text-center text-muted py-4">
-                          Carregando...
-                        </td>
-                      </tr>
-                    ) : openVagas.length ? (
-                      openVagas
-                        .slice()
-                        .sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR"))
-                        .map((v) => (
-                          <tr key={v.id}>
-                            <td className="mono">{v.codigo || "-"}</td>
-                            <td>
-                              <div className="fw-semibold">{v.titulo || "-"}</div>
-                              <div className="text-muted-foreground text-sm">{v.senioridade || "-"}</div>
-                            </td>
-                            <td>{v.area || "-"}</td>
-                            <td>{v.modalidade || "-"}</td>
-                            <td>{formatLocal(v)}</td>
-                            <td className="text-end mono">{formatDate(v.updatedAtUtc)}</td>
-                            <td className="text-end">
-                              <Button variant="outline" size="sm" onClick={() => goToVagaDetail(v.id)}>
-                                Ver vaga
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
-                    ) : (
-                      <tr>
-                        <td colSpan={7} className="text-center text-muted py-4">
-                          Nenhuma vaga em aberto.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* Modal de vagas removido — clicar no KPI navega direto para /vagas */}
     </section>
   );
 }

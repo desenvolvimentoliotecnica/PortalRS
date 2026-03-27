@@ -50,6 +50,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<DocumentoColaborador> DocumentosColaborador => Set<DocumentoColaborador>();
     public DbSet<PreAdmissao> PreAdmissoes => Set<PreAdmissao>();
     public DbSet<PreAdmissaoDocumento> PreAdmissaoDocumentos => Set<PreAdmissaoDocumento>();
+    public DbSet<PreAdmissaoDocumentoSolicitado> PreAdmissaoDocumentosSolicitados => Set<PreAdmissaoDocumentoSolicitado>();
     public DbSet<FaixaSalarial> FaixasSalariais => Set<FaixaSalarial>();
     public DbSet<NivelHierarquico> NiveisHierarquicos => Set<NivelHierarquico>();
     public DbSet<ProjetoVaga> ProjetosVaga => Set<ProjetoVaga>();
@@ -709,8 +710,21 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Area).WithMany().HasForeignKey(x => x.AreaId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.JobPosition).WithMany().HasForeignKey(x => x.JobPositionId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.RequisitoCategoria).WithMany().HasForeignKey(x => x.RequisitoCategoriaId).OnDelete(DeleteBehavior.SetNull);
+            b.Property(x => x.AccessToken).HasMaxLength(64);
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.Cpf });
+            b.HasIndex(x => new { x.TenantId, x.AccessToken }).HasFilter("\"AccessToken\" IS NOT NULL");
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // PRÉ-ADMISSÃO DOCUMENTOS SOLICITADOS
+        modelBuilder.Entity<PreAdmissaoDocumentoSolicitado>(b =>
+        {
+            b.ToTable("PreAdmissaoDocumentosSolicitados");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasOne(x => x.PreAdmissao).WithMany(p => p.DocumentosSolicitados).HasForeignKey(x => x.PreAdmissaoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.PreAdmissaoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

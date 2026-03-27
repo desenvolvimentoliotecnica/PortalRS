@@ -11,6 +11,7 @@ import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 
 const BASE = "/app";
 
@@ -103,12 +104,12 @@ function initials(name: string) {
 
 function statusTag(statusRaw: string | null | undefined) {
   const s = (statusRaw ?? "").trim().toLowerCase();
-  if (s === "pendente") return { cls: "warn", label: "Pendente" };
-  if (s === "triagem" || s === "em triagem") return { cls: "warn", label: "Em triagem" };
-  if (s === "aprovado" || s === "aprovados") return { cls: "ok", label: "Aprovado" };
-  if (s === "reprovado" || s === "reprovados") return { cls: "bad", label: "Reprovado" };
-  if (!s) return { cls: "", label: "—" };
-  return { cls: "", label: statusRaw ?? "—" };
+  if (s === "pendente") return { colorCls: "bg-amber-500/15 text-amber-700", label: "Pendente" };
+  if (s === "triagem" || s === "em triagem") return { colorCls: "bg-blue-500/15 text-blue-700", label: "Em triagem" };
+  if (s === "aprovado" || s === "aprovados") return { colorCls: "bg-emerald-500/15 text-emerald-700", label: "Aprovado" };
+  if (s === "reprovado" || s === "reprovados") return { colorCls: "bg-red-500/15 text-red-700", label: "Reprovado" };
+  if (!s) return { colorCls: "bg-zinc-400/15 text-zinc-600", label: "—" };
+  return { colorCls: "bg-zinc-400/15 text-zinc-600", label: statusRaw ?? "—" };
 }
 
 function normalizeText(s: string) {
@@ -770,11 +771,11 @@ export default function CandidatosScreen() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="text-lg font-bold">Candidatos</h4>
-          <div className="text-muted-foreground text-sm">Candidatos • CV • Match</div>
+          <h1 className="text-2xl font-semibold tracking-tight">Candidatos</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Gestão de candidatos vinculados às vagas</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={exportJson}>
@@ -790,34 +791,34 @@ export default function CandidatosScreen() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <div className="card-soft p-3">
-          <div className="mini-title mb-1">Total</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.total}</div>
+        <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Total</div>
+          <div className="text-2xl font-bold tabular-nums text-[rgb(var(--lt-primary))]">{kpis.total}</div>
           <div className="text-muted-foreground text-sm">candidatos (página)</div>
         </div>
-        <div className="card-soft p-3">
-          <div className="mini-title mb-1">Pendente</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.pend}</div>
+        <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Pendente</div>
+          <div className="text-2xl font-bold tabular-nums text-amber-600">{kpis.pend}</div>
           <div className="text-muted-foreground text-sm">aguardando</div>
         </div>
-        <div className="card-soft p-3">
-          <div className="mini-title mb-1">Em triagem</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.tri}</div>
+        <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Em triagem</div>
+          <div className="text-2xl font-bold tabular-nums text-blue-600">{kpis.tri}</div>
           <div className="text-muted-foreground text-sm">aguardando análise</div>
         </div>
-        <div className="card-soft p-3">
-          <div className="mini-title mb-1">Aprovados</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.ap}</div>
+        <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Aprovados</div>
+          <div className="text-2xl font-bold tabular-nums text-emerald-600">{kpis.ap}</div>
           <div className="text-muted-foreground text-sm">em avanço</div>
         </div>
-        <div className="card-soft p-3">
-          <div className="mini-title mb-1">Reprovados</div>
-          <div className="text-2xl font-extrabold text-[rgb(var(--lt-primary))]">{kpis.rep}</div>
+        <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Reprovados</div>
+          <div className="text-2xl font-bold tabular-nums text-red-600">{kpis.rep}</div>
           <div className="text-muted-foreground text-sm">fora do perfil</div>
         </div>
       </div>
 
-      <div className="card-soft p-3">
+      <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <div className="relative min-w-[220px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -878,26 +879,26 @@ export default function CandidatosScreen() {
 
         {viewMode === "list" ? (
         <>
-        <div className="table-responsive mt-2">
-          <table className="table align-middle mb-0">
-            <thead>
-              <tr>
-                <th style={{ minWidth: 260 }}>Candidato</th>
-                <th style={{ minWidth: 220 }}>Vaga</th>
-                <th style={{ minWidth: 150 }}>Status</th>
-                <th style={{ minWidth: 170 }}>Match</th>
-                <th className="text-end" style={{ minWidth: 230 }}>
+        <div className="overflow-x-auto mt-2">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead style={{ minWidth: 260 }}>Candidato</TableHead>
+                <TableHead style={{ minWidth: 220 }}>Vaga</TableHead>
+                <TableHead style={{ minWidth: 150 }}>Status</TableHead>
+                <TableHead style={{ minWidth: 170 }}>Match</TableHead>
+                <TableHead className="text-end" style={{ minWidth: 230 }}>
                   Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading ? (
-                <tr>
-                  <td colSpan={5} className="text-center text-muted py-4">
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
                     Carregando…
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : items.length ? (
                 items.map((c) => {
                   const v = vagas.find((x) => x.id === (c.vagaId ?? "")) ?? null;
@@ -908,13 +909,13 @@ export default function CandidatosScreen() {
                   const pass = c.lastMatch?.pass ?? (thr ? score >= thr : false);
                   const matchText = thr ? `${score}% • ${pass ? "Dentro" : "Abaixo"}` : `${score}%`;
                   return (
-                    <tr key={c.id}>
-                      <td>
+                    <TableRow key={c.id}>
+                      <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="avatar">{initials(pickString(c.nome, ""))}</div>
+                          <div className="size-10 rounded-xl grid place-items-center bg-[rgb(var(--lt-soft)/0.35)] border border-[rgb(var(--lt-brand)/0.18)] text-[rgb(var(--lt-primary))] font-black shrink-0">{initials(pickString(c.nome, ""))}</div>
                           <div>
-                            <div className="fw-bold">{c.nome ?? "—"}</div>
-                            <div className="text-muted small">
+                            <div className="font-semibold">{c.nome ?? "—"}</div>
+                            <div className="text-muted-foreground text-sm">
                               <span>{c.email ?? ""}</span>
                               {c.fone ? (
                                 <>
@@ -925,20 +926,20 @@ export default function CandidatosScreen() {
                             </div>
                           </div>
                         </div>
-                      </td>
-                      <td className="nowrap">
-                        <div className="fw-semibold">{v?.label ? v.label.replace(/\s*\([^)]+\)\s*$/, "") : c.vagaTitle ?? "—"}</div>
-                        <div className="text-muted small mono">{v?.code ?? c.vagaCode ?? ""}</div>
-                      </td>
-                      <td className="nowrap">
-                        <span className={`status-tag ${tag.cls}`}>{statusLabelText}</span>
-                      </td>
-                      <td className="nowrap">
-                        <span className={`status-tag ${pass ? "ok" : thr ? "bad" : ""}`}>
-                          <span className="mono">{matchText}</span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <div className="font-medium">{v?.label ? v.label.replace(/\s*\([^)]+\)\s*$/, "") : c.vagaTitle ?? "—"}</div>
+                        <div className="text-muted-foreground text-sm tabular-nums font-mono">{v?.code ?? c.vagaCode ?? ""}</div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${tag.colorCls}`}>{statusLabelText}</span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${pass ? "bg-emerald-500/15 text-emerald-700" : thr ? "bg-red-500/15 text-red-700" : "bg-zinc-400/15 text-zinc-600"}`}>
+                          <span className="tabular-nums font-mono">{matchText}</span>
                         </span>
-                      </td>
-                      <td className="text-end nowrap">
+                      </TableCell>
+                      <TableCell className="text-end whitespace-nowrap">
                         <Button variant="outline" size="sm" type="button" onClick={() => void openDetail(c.id)}>
                           Detalhes
                         </Button>
@@ -954,19 +955,19 @@ export default function CandidatosScreen() {
                         <Button variant="destructive" size="sm" type="button" onClick={() => void deleteCandidate(c.id)}>
                           Excluir
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               ) : (
-                <tr>
-                  <td colSpan={5} className="text-center text-muted py-4">
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
                     Nenhum candidato encontrado com os filtros atuais.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         <PaginationBar
@@ -1007,10 +1008,7 @@ export default function CandidatosScreen() {
                     return s === code || s.includes(code);
                   });
                   const tagMeta = statusTag(col.code);
-                  const colCls = tagMeta.cls === "ok" ? "bg-emerald-500/15 text-emerald-700"
-                    : tagMeta.cls === "bad" ? "bg-red-500/15 text-red-700"
-                    : tagMeta.cls === "warn" ? "bg-amber-500/15 text-amber-700"
-                    : "bg-zinc-400/15 text-zinc-600";
+                  const colCls = tagMeta.colorCls;
                   return (
                     <div key={col.code} className="w-72 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
                       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
@@ -1032,7 +1030,7 @@ export default function CandidatosScreen() {
                               onClick={() => void openDetail(c.id)}
                             >
                               <div className="flex items-center gap-2">
-                                <div className="avatar size-7 text-[10px] shrink-0 rounded-full bg-muted flex items-center justify-center font-bold">{initials(pickString(c.nome, ""))}</div>
+                                <div className="size-7 text-[10px] shrink-0 rounded-full bg-muted flex items-center justify-center font-bold">{initials(pickString(c.nome, ""))}</div>
                                 <div className="min-w-0">
                                   <div className="text-sm font-medium leading-tight truncate">{c.nome ?? "—"}</div>
                                   <div className="text-[11px] text-muted-foreground truncate">{c.email ?? ""}</div>
@@ -1061,10 +1059,10 @@ export default function CandidatosScreen() {
 
       {detailOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="card-soft w-full max-w-5xl p-4">
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-5xl p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="avatar" style={{ width: 52, height: 52 }}>
+                <div className="size-[52px] rounded-xl grid place-items-center bg-[rgb(var(--lt-soft)/0.35)] border border-[rgb(var(--lt-brand)/0.18)] text-[rgb(var(--lt-primary))] font-black shrink-0">
                   {initials(pickString(detail?.nome, ""))}
                 </div>
                 <div>
@@ -1144,7 +1142,7 @@ export default function CandidatosScreen() {
                       return (
                         <>
                           <div className="mb-1">
-                            <span className={`status-tag ${st.cls}`}>{label}</span>
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.colorCls}`}>{label}</span>
                           </div>
                           <div className="text-muted-foreground text-sm">Atualizado: {updatedTxt}</div>
                         </>
@@ -1154,13 +1152,13 @@ export default function CandidatosScreen() {
                 </div>
 
                 {detailTab === "resumo" ? (
-                  <div className="card-soft p-3" style={{ boxShadow: "none" }}>
-                    <div className="fw-semibold mb-1">Observações</div>
+                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4" style={{ boxShadow: "none" }}>
+                    <div className="font-medium mb-1">Observações</div>
                     <div className="text-muted-foreground text-sm whitespace-pre-wrap">{pickString((detail as Record<string, unknown>)?.obs, "—") || "—"}</div>
 
                     <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
                       <div>
-                        <div className="small text-muted mb-1">Status</div>
+                        <div className="text-sm text-muted-foreground mb-1">Status</div>
                         <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={detail.status ?? ""} onChange={(e) => setDetail({ ...detail, status: e.target.value })}>
                           {statusOptionsEffective.map((opt) => (
                             <option key={opt.code} value={opt.code}>
@@ -1170,7 +1168,7 @@ export default function CandidatosScreen() {
                         </select>
                       </div>
                       <div>
-                        <div className="small text-muted mb-1">Vaga</div>
+                        <div className="text-sm text-muted-foreground mb-1">Vaga</div>
                         <select
                           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                           value={detail.vagaId ?? ""}
@@ -1210,9 +1208,9 @@ export default function CandidatosScreen() {
                 ) : null}
 
                 {detailTab === "cv" ? (
-                  <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4" style={{ boxShadow: "none" }}>
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                      <div className="fw-semibold">Texto do CV</div>
+                      <div className="font-medium">Texto do CV</div>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
@@ -1239,8 +1237,8 @@ export default function CandidatosScreen() {
                 ) : null}
 
                 {detailTab === "docs" ? (
-                  <div className="card-soft p-3" style={{ boxShadow: "none" }}>
-                    <div className="fw-semibold mb-2">Documentos</div>
+                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4" style={{ boxShadow: "none" }}>
+                    <div className="font-medium mb-2">Documentos</div>
                     <DocumentosBox
                       candidato={detail}
                       docTipoOptions={enumOptions(enums, "candidatoDocumentoTipo")}
@@ -1266,35 +1264,35 @@ export default function CandidatosScreen() {
                 ) : null}
 
                 {detailTab === "match" ? (
-                  <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4" style={{ boxShadow: "none" }}>
                     {!pickString(detail.vagaId, "").trim() ? (
-                      <div className="alert alert-warning mb-0" style={{ borderRadius: 14 }}>
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 p-3 text-sm">
                         Vincule uma vaga ao candidato para calcular o match.
                       </div>
                     ) : !detailMatch ? (
                       <div className="text-muted-foreground text-sm">Carregando match…</div>
                     ) : (
                       <>
-                        <div className="d-flex align-items-center justify-content-between">
+                        <div className="flex items-center justify-between">
                           <div>
-                            <div className="fw-bold">Resultado atual</div>
-                            <div className="text-muted small">Score por palavras-chave</div>
+                            <div className="font-semibold">Resultado atual</div>
+                            <div className="text-muted-foreground text-sm">Score por palavras-chave</div>
                           </div>
-                          <span className={`status-tag ${detailMatch.pass ? "ok" : "bad"}`}>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${detailMatch.pass ? "bg-emerald-500/15 text-emerald-700" : "bg-red-500/15 text-red-700"}`}>
                             {detailMatch.pass ? "Dentro do mínimo" : "Abaixo do mínimo"}
                           </span>
                         </div>
 
                         <div className="mt-2">
-                          <div className="d-flex align-items-center gap-2">
-                            <div className="progress flex-grow-1">
-                              <div className="progress-bar" style={{ width: `${clamp(detailMatch.score, 0, 100)}%` }} />
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full bg-[rgb(var(--lt-primary))] transition-all" style={{ width: `${clamp(detailMatch.score, 0, 100)}%` }} />
                             </div>
-                            <div className="fw-bold" style={{ minWidth: 54, textAlign: "right" }}>
+                            <div className="font-semibold" style={{ minWidth: 54, textAlign: "right" }}>
                               {clamp(detailMatch.score, 0, 100)}%
                             </div>
                           </div>
-                          <div className="text-muted small mt-1">
+                          <div className="text-muted-foreground text-sm mt-1">
                             Match mínimo da vaga: <strong>{detailMatch.threshold}%</strong>
                             <span className="mx-1">•</span> Encontrados: <strong>{detailMatch.hits.length}</strong>
                             <span className="mx-1">•</span> Obrigatórios faltando: <strong>{detailMatch.missMandatory.length}</strong>
@@ -1302,18 +1300,18 @@ export default function CandidatosScreen() {
                         </div>
 
                         {detailMatch.missMandatory.length ? (
-                          <div className="alert alert-danger mt-3 mb-0" style={{ borderRadius: 14 }}>
-                            <div className="fw-semibold mb-1">Obrigatórios não encontrados</div>
-                            <div className="small">{detailMatch.missMandatory.map((x) => x.termo).slice(0, 12).join(", ")}</div>
+                          <div className="rounded-xl border border-red-200 bg-red-50 text-red-800 p-3 text-sm mt-3">
+                            <div className="font-medium mb-1">Obrigatórios não encontrados</div>
+                            <div className="text-sm">{detailMatch.missMandatory.map((x) => x.termo).slice(0, 12).join(", ")}</div>
                           </div>
                         ) : null}
 
                         <div className="mt-3">
-                          <div className="fw-semibold mb-1">Encontrados</div>
-                          <div className="small text-muted">{detailMatch.hits.map((x) => x.termo).slice(0, 12).join(", ") || "—"}</div>
+                          <div className="font-medium mb-1">Encontrados</div>
+                          <div className="text-sm text-muted-foreground">{detailMatch.hits.map((x) => x.termo).slice(0, 12).join(", ") || "—"}</div>
                         </div>
 
-                        <div className="d-flex flex-wrap gap-2 mt-3">
+                        <div className="flex flex-wrap gap-2 mt-3">
                           <Button variant="outline" size="sm" onClick={() => void recalcMatch(detail.id)}>
                             Recalcular
                           </Button>
@@ -1333,10 +1331,10 @@ export default function CandidatosScreen() {
 
       {editOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="card-soft w-full max-w-3xl p-4">
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-3xl p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="mini-title mb-1">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
                 <div className="text-lg font-extrabold">Cadastro</div>
               </div>
               <Button variant="outline" size="sm" onClick={() => setEditOpen(false)}>
@@ -1346,11 +1344,11 @@ export default function CandidatosScreen() {
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
               <div className="md:col-span-8">
-                <label className="mini-title mb-1 block">Nome</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Nome</label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.nome, "")} onChange={(e) => setDraft({ ...draft, nome: e.target.value })} />
               </div>
               <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Status</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Status</label>
                 <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.status, defaultEnumCode("candidatoStatus", "novo"))} onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
                   {statusOptionsEffective.map((opt) => (
                     <option key={opt.code} value={opt.code}>
@@ -1360,23 +1358,23 @@ export default function CandidatosScreen() {
                 </select>
               </div>
               <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Email</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Email</label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.email, "")} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
               </div>
               <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Fone</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Fone</label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.fone, "")} onChange={(e) => setDraft({ ...draft, fone: e.target.value })} />
               </div>
               <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Cidade</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Cidade</label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.cidade, "")} onChange={(e) => setDraft({ ...draft, cidade: e.target.value })} />
               </div>
               <div className="md:col-span-2">
-                <label className="mini-title mb-1 block">UF</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">UF</label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.uf, "")} onChange={(e) => setDraft({ ...draft, uf: e.target.value })} />
               </div>
               <div className="md:col-span-2">
-                <label className="mini-title mb-1 block">Fonte</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Fonte</label>
                 <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pickString((draft as Record<string, unknown>)?.fonte, defaultEnumCode("candidatoFonte", "email"))} onChange={(e) => setDraft({ ...draft, fonte: e.target.value })}>
                   {enumOptions(enums, "candidatoFonte").map((opt) => (
                     <option key={opt.code} value={opt.code}>
@@ -1386,7 +1384,7 @@ export default function CandidatosScreen() {
                 </select>
               </div>
               <div className="md:col-span-8">
-                <label className="mini-title mb-1 block">LinkedIn URL</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">LinkedIn URL</label>
                 <input
                   className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   type="url"
@@ -1396,7 +1394,7 @@ export default function CandidatosScreen() {
                 />
               </div>
               <div className="md:col-span-4 flex flex-col justify-end">
-                <label className="mini-title mb-1 block">Trabalhando atualmente?</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Trabalhando atualmente?</label>
                 <select
                   className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                   value={
@@ -1418,7 +1416,7 @@ export default function CandidatosScreen() {
                 </select>
               </div>
               <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Pretensão salarial (R$)</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Pretensão salarial (R$)</label>
                 <input
                   className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   type="number"
@@ -1435,7 +1433,7 @@ export default function CandidatosScreen() {
                 />
               </div>
               <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Vaga</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Vaga</label>
                 <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.vagaId, "")} onChange={(e) => setDraft({ ...draft, vagaId: e.target.value })}>
                   <option value="">Sem vaga</option>
                   {vagas.map((v) => (
@@ -1446,22 +1444,22 @@ export default function CandidatosScreen() {
                 </select>
               </div>
               <div className="md:col-span-12">
-                <label className="mini-title mb-1 block">Resumo / Observações</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Resumo / Observações</label>
                 <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={pickString((draft as Record<string, unknown>)?.obs, "")} onChange={(e) => setDraft({ ...draft, obs: e.target.value })} />
               </div>
 
               <div className="md:col-span-12">
                 <div className="mt-2 rounded-xl border border-[rgba(16,82,144,.14)] bg-white/60 p-3">
-                  <div className="fw-semibold mb-2">Documentos</div>
+                  <div className="font-medium mb-2">Documentos</div>
                   {!draft.id ? (
-                    <div className="alert alert-warning mb-2" style={{ borderRadius: 14 }}>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 p-3 text-sm mb-2">
                       Os documentos serão enviados ao salvar o candidato.
                     </div>
                   ) : null}
 
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
                     <div className="md:col-span-3">
-                      <label className="mini-title mb-1 block">Tipo</label>
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Tipo</label>
                       <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={draftDocTipo} onChange={(e) => setDraftDocTipo(e.target.value)}>
                         {(enumOptions(enums, "candidatoDocumentoTipo").length
                           ? enumOptions(enums, "candidatoDocumentoTipo")
@@ -1478,11 +1476,11 @@ export default function CandidatosScreen() {
                       </select>
                     </div>
                     <div className="md:col-span-5">
-                      <label className="mini-title mb-1 block">Descrição</label>
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Descrição</label>
                       <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={draftDocDescricao} onChange={(e) => setDraftDocDescricao(e.target.value)} placeholder="Ex.: CV atualizado, Certificação, Portfólio" />
                     </div>
                     <div className="md:col-span-4">
-                      <label className="mini-title mb-1 block">Arquivo</label>
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Arquivo</label>
                       <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="file" onChange={(e) => setDraftDocFile(e.currentTarget.files?.[0] ?? null)} />
                     </div>
                   </div>
@@ -1532,7 +1530,7 @@ export default function CandidatosScreen() {
 
                   {pendingDocs.length ? (
                     <div className="mt-3">
-                      <div className="fw-semibold small mb-2">Pendentes</div>
+                      <div className="font-medium text-sm mb-2">Pendentes</div>
                       <div className="space-y-2">
                         {pendingDocs.map((d) => {
                           const tipoTxt = enumText(enums, "candidatoDocumentoTipo", d.tipo, d.tipo);
@@ -1540,7 +1538,7 @@ export default function CandidatosScreen() {
                           return (
                             <div key={d.tempId} className="flex items-start justify-between gap-2 rounded-xl border border-[rgba(16,82,144,.14)] bg-white/55 p-2">
                               <div className="min-w-0">
-                                <div className="fw-semibold truncate">{d.nomeArquivo}</div>
+                                <div className="font-medium truncate">{d.nomeArquivo}</div>
                                 <div className="text-muted-foreground text-xs">
                                   {tipoTxt} • {d.descricao || "Sem descrição"} • {formatFileSize(d.tamanhoBytes)} •{" "}
                                   <span className={d.status === "failed" ? "text-red-600" : "text-amber-600"}>
@@ -1597,10 +1595,10 @@ export default function CandidatosScreen() {
 
       {suggestOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="card-soft w-full max-w-3xl p-4">
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-3xl p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="mini-title mb-1">Sugestões da IA</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Sugestões da IA</p>
                 <div className="text-lg font-extrabold">Aplicar dados extraídos</div>
               </div>
               <Button variant="outline" size="sm" onClick={() => setSuggestOpen(false)}>
@@ -1610,13 +1608,13 @@ export default function CandidatosScreen() {
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
-                <label className="mini-title mb-1 block">CV (texto)</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">CV (texto)</label>
                 <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={8} value={suggestedCvText} onChange={(e) => setSuggestedCvText(e.target.value)} />
               </div>
               <div className="space-y-2">
                 {(["nome", "email", "fone", "cidade", "uf"] as const).map((k) => (
                   <div key={k}>
-                    <label className="mini-title mb-1 block">{k.toUpperCase()}</label>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">{k.toUpperCase()}</label>
                     <input
                       className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                       value={pickString(suggested?.[k], "")}
@@ -1628,7 +1626,7 @@ export default function CandidatosScreen() {
                   </div>
                 ))}
                 <div>
-                  <label className="mini-title mb-1 block">Resumo</label>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Resumo</label>
                   <textarea
                     className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                     rows={3}
@@ -1736,7 +1734,7 @@ function DocumentosBox({
       </div>
 
       <div className="mt-2 rounded-xl border border-[rgba(16,82,144,.14)] bg-white/60 p-2">
-        <div className="fw-semibold mb-2">CV PDF + Extrair</div>
+        <div className="font-medium mb-2">CV PDF + Extrair</div>
         <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="file" accept="application/pdf" onChange={(e) => setCvFile(e.currentTarget.files?.[0] ?? null)} />
         <label className="mt-2 inline-flex items-center gap-2 text-sm">
           <input type="checkbox" checked={enviarParaGpt} onChange={(e) => setEnviarParaGpt(e.target.checked)} />
@@ -1779,7 +1777,7 @@ function DocumentosBox({
             {docs.map((d) => (
               <div key={d.id} className="flex items-start justify-between gap-2 rounded-xl border border-[rgba(16,82,144,.14)] bg-white/55 p-2">
                 <div className="min-w-0">
-                  <div className="fw-semibold truncate">{d.nomeArquivo ?? "—"}</div>
+                  <div className="font-medium truncate">{d.nomeArquivo ?? "—"}</div>
                   <div className="text-muted-foreground text-xs">
                     {tipoText(d.tipo)} • {d.descricao ?? "Sem descrição"}{" "}
                     {d.tamanhoBytes ? <>• {formatFileSize(d.tamanhoBytes)}</> : null}

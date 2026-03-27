@@ -52,6 +52,7 @@ from app.embeddings import (
     _build_talento_text_for_embedding,
 )
 from app.filtros import parse_matching_filtros_raw, criteria_to_prompt_text
+from app.unified_matching import _extract_weights, _build_requisitos_text, DEFAULT_WEIGHTS
 from app.log import gemini as log
 
 
@@ -99,7 +100,8 @@ def run_gemini_matching(
         return []
 
     # 4. LLM avalia cada pessoa do top vetorial
-    vaga_context = _build_vaga_context_v2(vaga)
+    weights = _extract_weights(vaga)
+    vaga_context = _build_vaga_context_v2(vaga, weights)
     ranked = []
     t0 = time.time()
 
@@ -122,11 +124,21 @@ def run_gemini_matching(
         if scores is None:
             return None
 
-        # Score final = média ponderada (filtros 65%, requisitos 35%)
+        # Score final = média ponderada pelos pesos configurados na vaga
+        wc = weights.get("competencia", 40)
+        we = weights.get("experiencia", 30)
+        wf = weights.get("formacao", 15)
+        wl = weights.get("localidade", 15)
+        total_w = wc + we + wf + wl or 100
         score_final = round(
-            scores["score_filtros"] * 0.65 + scores["score_requisitos"] * 0.35
+            (scores["score_competencia"] * wc + scores["score_experiencia"] * we +
+             scores["score_formacao"] * wf + scores["score_localidade"] * wl) / total_w
         )
         score_final = max(0, min(100, score_final))
+
+        # Compat sintéticos
+        score_filtros = round((scores["score_localidade"] * wl + scores["score_experiencia"] * we) / max(1, wl + we)) if (wl + we) > 0 else 0
+        score_requisitos = round((scores["score_competencia"] * wc + scores["score_formacao"] * wf) / max(1, wc + wf)) if (wc + wf) > 0 else 0
 
         return {
             "person_id": person_id,
@@ -134,8 +146,12 @@ def run_gemini_matching(
             "email": person["email"],
             "source": source,
             "score_embedding": person["score"],
-            "score_filtros": scores["score_filtros"],
-            "score_requisitos": scores["score_requisitos"],
+            "score_competencia": scores["score_competencia"],
+            "score_experiencia": scores["score_experiencia"],
+            "score_formacao": scores["score_formacao"],
+            "score_localidade": scores["score_localidade"],
+            "score_filtros": score_filtros,
+            "score_requisitos": score_requisitos,
             "score_final": score_final,
             "justificativa": scores.get("justificativa", ""),
         }
@@ -210,27 +226,42 @@ def evaluate_new_person(
     if not profile_text:
         return None
 
+    weights = _extract_weights(vaga)
+
     llm = ChatOpenAI(
         model=OPENAI_CHAT_MODEL,
         openai_api_key=OPENAI_API_KEY,
         temperature=0,
     )
-    vaga_context = _build_vaga_context_v2(vaga)
+    vaga_context = _build_vaga_context_v2(vaga, weights)
     scores = _evaluate_with_llm_v2(llm, vaga_context, profile_text)
     if scores is None:
         return None
 
+    wc = weights.get("competencia", 40)
+    we = weights.get("experiencia", 30)
+    wf = weights.get("formacao", 15)
+    wl = weights.get("localidade", 15)
+    total_w = wc + we + wf + wl or 100
     score_final = round(
-        scores["score_filtros"] * 0.65 + scores["score_requisitos"] * 0.35
+        (scores["score_competencia"] * wc + scores["score_experiencia"] * we +
+         scores["score_formacao"] * wf + scores["score_localidade"] * wl) / total_w
     )
     score_final = max(0, min(100, score_final))
+
+    score_filtros = round((scores["score_localidade"] * wl + scores["score_experiencia"] * we) / max(1, wl + we)) if (wl + we) > 0 else 0
+    score_requisitos = round((scores["score_competencia"] * wc + scores["score_formacao"] * wf) / max(1, wc + wf)) if (wc + wf) > 0 else 0
 
     return {
         "person_id": person_id,
         "source": source,
         "score_embedding": similarity,
-        "score_filtros": scores["score_filtros"],
-        "score_requisitos": scores["score_requisitos"],
+        "score_competencia": scores["score_competencia"],
+        "score_experiencia": scores["score_experiencia"],
+        "score_formacao": scores["score_formacao"],
+        "score_localidade": scores["score_localidade"],
+        "score_filtros": score_filtros,
+        "score_requisitos": score_requisitos,
         "score_final": score_final,
         "justificativa": scores.get("justificativa", ""),
     }
@@ -375,44 +406,90 @@ def _get_person_profile_text_v2(
     return None
 
 
-def _build_vaga_context_v2(vaga: dict[str, Any]) -> str:
-    """Monta contexto completo da vaga para o prompt LLM."""
+def _build_vaga_context_v2(vaga: dict[str, Any], weights: dict[str, int] | None = None) -> str:
+    """Monta contexto completo da vaga para o prompt LLM, organizado por 4 dimensões."""
     titulo = vaga.get("Titulo") or "Sem título"
-
-    # Filtros
-    filtros_raw = (vaga.get("MatchingFiltrosRaw") or "").strip()
-    criteria = parse_matching_filtros_raw(filtros_raw)
-    filtros_text = criteria_to_prompt_text(criteria) if criteria else "Nenhum filtro definido"
-
-    # Keywords
-    keywords_raw = (vaga.get("TagsKeywordsRaw") or "").strip()
-    keywords_text = keywords_raw.replace(";", ", ") if keywords_raw else "Nenhuma"
+    w = weights or _extract_weights(vaga)
+    wc, we, wf, wl = w["competencia"], w["experiencia"], w["formacao"], w["localidade"]
 
     # Requisitos
     requisitos = vaga.get("requisitos") or []
-    req_lines = []
-    for r in requisitos:
-        nome = (r.get("Nome") or "").strip()
-        if not nome:
-            continue
-        obrig = "OBRIGATÓRIO" if r.get("Obrigatorio") else "desejável"
-        peso = r.get("Peso", 1)
-        syn = (r.get("SinonimosRaw") or "").strip()
-        text = f"- {nome} ({obrig}, peso {peso})"
-        if syn:
-            text += f" [sinônimos: {syn}]"
-        req_lines.append(text)
-    requisitos_text = "\n".join(req_lines) if req_lines else "Nenhum requisito técnico"
+    requisitos_text = _build_requisitos_text(requisitos)
+
+    # Keywords
+    keywords_raw = (vaga.get("TagsKeywordsRaw") or "").strip()
+    keywords_text = keywords_raw.replace(";", ", ") if keywords_raw else ""
+
+    # Filtros parsed para dimensões
+    filtros_raw = (vaga.get("MatchingFiltrosRaw") or "").strip()
+    _criteria = parse_matching_filtros_raw(filtros_raw) if filtros_raw else []
+    parsed: dict[str, str] = {}
+    for c in _criteria:
+        key = (c.get("label") or "").strip().lower().replace("ç", "c").replace("õ", "o")
+        val = (c.get("valor") or "").strip()
+        if key and val:
+            parsed[key] = val
+
+    # Competência
+    comp_lines = []
+    if requisitos_text and requisitos_text != "Nenhum requisito técnico definido":
+        comp_lines.append(requisitos_text)
+    if keywords_text:
+        comp_lines.append(f"Palavras-chave: {keywords_text}")
+    if parsed.get("habilidades"):
+        comp_lines.append(f"Habilidades desejadas: {parsed['habilidades']}")
+    comp_section = "\n".join(comp_lines) if comp_lines else "Nenhum requisito definido"
+
+    # Experiência
+    exp_lines = []
+    senioridade = vaga.get("Senioridade") or ""
+    exp_min = vaga.get("ExperienciaMinimaAnos")
+    if senioridade:
+        exp_lines.append(f"- Senioridade esperada: {senioridade}")
+    if exp_min:
+        exp_lines.append(f"- Experiência mínima: {exp_min} anos")
+    if parsed.get("tempoexperiencia"):
+        exp_lines.append(f"- Tempo de experiência: {parsed['tempoexperiencia']}")
+    exp_section = "\n".join(exp_lines) if exp_lines else "Nenhum critério de experiência"
+
+    # Formação
+    form_lines = []
+    escolaridade = vaga.get("Escolaridade") or ""
+    formacao_area = vaga.get("FormacaoArea") or ""
+    if escolaridade:
+        form_lines.append(f"- Escolaridade mínima: {escolaridade}")
+    if formacao_area:
+        form_lines.append(f"- Área de formação: {formacao_area}")
+    form_section = "\n".join(form_lines) if form_lines else "Nenhum critério de formação"
+
+    # Localidade
+    loc_lines = []
+    modalidade = vaga.get("Modalidade") or ""
+    cidade = vaga.get("Cidade") or ""
+    uf_val = vaga.get("Uf") or ""
+    if modalidade:
+        loc_lines.append(f"- Modalidade: {modalidade}")
+    if cidade or uf_val:
+        loc_lines.append(f"- Cidade/UF: {cidade}/{uf_val}" if cidade else f"- UF: {uf_val}")
+    if parsed.get("sexo"):
+        loc_lines.append(f"- Sexo: {parsed['sexo']}")
+    if parsed.get("pcd"):
+        loc_lines.append(f"- PCD: {parsed['pcd']}")
+    loc_section = "\n".join(loc_lines) if loc_lines else "Nenhum critério de localidade"
 
     return f"""VAGA: {titulo}
 
-FILTROS DEMOGRÁFICOS/LOGÍSTICOS (peso 65%):
-{filtros_text}
+COMPETÊNCIA TÉCNICA (peso {wc}%):
+{comp_section}
 
-PALAVRAS-CHAVE: {keywords_text}
+EXPERIÊNCIA PROFISSIONAL (peso {we}%):
+{exp_section}
 
-REQUISITOS TÉCNICOS (peso 35%):
-{requisitos_text}"""
+FORMAÇÃO ACADÊMICA (peso {wf}%):
+{form_section}
+
+LOCALIDADE E LOGÍSTICA (peso {wl}%):
+{loc_section}"""
 
 
 def _evaluate_with_llm_v2(
@@ -421,44 +498,45 @@ def _evaluate_with_llm_v2(
     profile_text: str,
 ) -> dict[str, Any] | None:
     """
-    Avalia candidato contra vaga usando LLM.
-    Retorna dict com score_filtros (0-100), score_requisitos (0-100), justificativa.
-    Scores são PONTOS, não percentuais.
+    Avalia candidato contra vaga usando LLM em 4 dimensões.
+    Retorna dict com score_competencia, score_experiencia, score_formacao, score_localidade, justificativa.
     """
     prompt = f"""Você é o sistema de matching do RenderRH (v2 — Gemini).
-Avalie este candidato/profissional para a vaga descrita.
+Avalie este candidato/profissional para a vaga descrita em 4 dimensões.
 
 {vaga_context}
 
 PERFIL DO CANDIDATO:
 {profile_text}
 
-INSTRUÇÕES DE AVALIAÇÃO (scores em PONTOS de 0 a 100):
+INSTRUÇÕES DE AVALIAÇÃO (cada dimensão de 0 a 100 pontos):
 
-1. FILTROS (score_filtros 0-100 pontos):
-   Avalie CADA filtro demográfico/logístico:
-   - 100 pts = match perfeito
-   - 70 pts = match razoável (ex: cidade próxima)
-   - 40 pts = match difícil
-   - 0 pts = inviável
-   Calcule a MÉDIA dos scores de todos os filtros.
-
-   Regras:
-   - Modalidade Remoto = localização irrelevante
-   - Senioridade adjacente (Júnior→Pleno) = aceitável com desconto
-   - ±1 ano de experiência é tolerável
-
-2. REQUISITOS (score_requisitos 0-100 pontos):
-   - OBRIGATÓRIOS valem 70% dos pontos
+1. COMPETÊNCIA TÉCNICA (score_competencia 0-100):
+   Avalie requisitos técnicos, skills, habilidades:
+   - OBRIGATÓRIOS valem 70% do score
    - Desejáveis valem 30%
    - Sinônimos = match parcial (metade dos pontos)
    - Skills extras NÃO penalizam
-   - Se não informar, considere NÃO atende
 
-3. Se informações insuficientes para um critério, dê 20-30 pontos (não zero).
+2. EXPERIÊNCIA PROFISSIONAL (score_experiencia 0-100):
+   Avalie senioridade, anos de experiência, relevância do background:
+   - Senioridade adjacente (Júnior→Pleno) = aceitável com desconto
+   - ±1 ano de experiência é tolerável
+
+3. FORMAÇÃO ACADÊMICA (score_formacao 0-100):
+   Avalie escolaridade, área de formação, certificações.
+   Se a vaga não define critérios de formação, dê 80.
+
+4. LOCALIDADE E LOGÍSTICA (score_localidade 0-100):
+   Avalie modalidade, localização, PCD, CNH.
+   Modalidade Remoto = localização irrelevante → 100.
+
+REGRAS GERAIS:
+- Se informações insuficientes, dê 20-30 (não zero)
+- Se a vaga não define critérios para uma dimensão, dê 80
 
 Responda APENAS com JSON válido (sem markdown, sem comentários):
-{{"score_filtros": <0-100>, "score_requisitos": <0-100>, "justificativa": "<1-2 frases>"}}"""
+{{"score_competencia": <0-100>, "score_experiencia": <0-100>, "score_formacao": <0-100>, "score_localidade": <0-100>, "justificativa": "<1-2 frases>"}}"""
 
     try:
         msg = llm.invoke([HumanMessage(content=prompt)])
@@ -473,8 +551,10 @@ Responda APENAS com JSON válido (sem markdown, sem comentários):
 
         result = json.loads(text)
         return {
-            "score_filtros": max(0, min(100, int(result.get("score_filtros", 0)))),
-            "score_requisitos": max(0, min(100, int(result.get("score_requisitos", 0)))),
+            "score_competencia": max(0, min(100, int(result.get("score_competencia", 0)))),
+            "score_experiencia": max(0, min(100, int(result.get("score_experiencia", 0)))),
+            "score_formacao": max(0, min(100, int(result.get("score_formacao", 0)))),
+            "score_localidade": max(0, min(100, int(result.get("score_localidade", 0)))),
             "justificativa": str(result.get("justificativa", "")),
         }
     except Exception as e:

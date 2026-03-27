@@ -17,7 +17,11 @@ public sealed record PreAdmissaoGridRow(
     DateOnly? DataAdmissao,
     decimal? Salario,
     PreenchidoPor PreenchidoPor,
-    DateTimeOffset CreatedAtUtc
+    DateTimeOffset CreatedAtUtc,
+    int TotalDocumentos,
+    int DocumentosPendentes,
+    int DocumentosValidados,
+    int DocumentosRejeitados
 );
 
 public sealed record PreAdmissaoListQuery(
@@ -131,6 +135,12 @@ public sealed record PreAdmissaoDetailResponse(
 
     // Documentos
     List<PreAdmissaoDocumentoResponse> Documentos,
+
+    // Documentos solicitados pelo RH
+    List<DocumentoSolicitadoResponse> DocumentosSolicitados,
+
+    // Portal candidato
+    string? AccessToken,
 
     // Integração TOTVS
     IntegracaoResultado? IntegracaoResultado,
@@ -423,4 +433,41 @@ public sealed record BuscaCpfResponse(
     string? Cidade,
     string? Uf,
     DateTime? DataNascimento
+);
+
+// ── Solicitação de documentos pelo RH ──
+
+public sealed record SalvarDocumentosSolicitadosRequest(
+    List<DocumentoSolicitadoEntry> Documentos
+);
+
+public sealed record DocumentoSolicitadoEntry(
+    TipoDocumento TipoDocumento,
+    bool Obrigatorio
+);
+
+public sealed record DocumentoSolicitadoResponse(
+    TipoDocumento TipoDocumento,
+    string Label,
+    bool Obrigatorio
+);
+
+// ── Gerar link de acesso do candidato ──
+
+public sealed record GerarLinkRequest(string Cpf);
+
+public sealed record GerarLinkResponse(string AccessToken, string PublicUrl);
+
+// ── Validação de documento individual pelo RH ──
+
+public sealed record ValidarDocumentoRequest(
+    [Required] StatusDocumento Status,
+    string? ObservacaoRh
+);
+
+public sealed record ValidarDocumentoResponse(
+    Guid Id,
+    StatusDocumento Status,
+    string? ObservacaoRh,
+    DateTimeOffset UpdatedAtUtc
 );

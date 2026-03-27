@@ -98,6 +98,13 @@ public sealed class PortalVagaSyncService
         {
             try
             {
+                // Apenas vagas ativas (ATIVO=1) e sem data de fechamento (ainda abertas)
+                var ativo = row.TryGetProperty("ATIVO", out var ativoEl) && ativoEl.ValueKind == JsonValueKind.Number ? ativoEl.GetInt32() : 0;
+                if (ativo != 1) { skipped++; continue; }
+
+                var dataFech = GetDateTime(row, "DATAFECHAMENTO");
+                if (dataFech.HasValue) { skipped++; continue; }
+
                 var titulo = GetString(row, "NOME")?.Trim();
                 if (string.IsNullOrWhiteSpace(titulo))
                 {
@@ -159,13 +166,21 @@ public sealed class PortalVagaSyncService
 
     private static object BuildVagaPayload(string titulo, string codigo, Guid areaId, Guid? departmentId, JsonElement row)
     {
-        var observacao = GetString(row, "OBSERVACAO");
+        var complemento = GetString(row, "COMPLEMENTO");
         var dataAbertura = GetDateTime(row, "DATAABERTURA");
-        var dataFechamento = GetDateTime(row, "DATAFECHAMENTO");
         DateOnly? dataInicio = dataAbertura.HasValue ? DateOnly.FromDateTime(dataAbertura.Value) : null;
-        DateOnly? dataEncerramento = dataFechamento.HasValue ? DateOnly.FromDateTime(dataFechamento.Value) : null;
-        var descricaoPublica = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim();
+
+        var experienciasExigidas = GetString(row, "EXPERIENCIASEXIGIDAS")?.Trim();
+        var experienciasDesejadas = GetString(row, "EXPERIENCIASDESEJADAS")?.Trim();
+        var remuneracao = GetDecimal(row, "REMUNERACAO");
+        var escolaridade = MapGrauInstrucao(row);
+
+        // Monta descricaoPublica com o complemento do RM
+        var descricaoPublica = string.IsNullOrWhiteSpace(complemento) ? null : complemento.Trim();
         if (descricaoPublica != null && descricaoPublica.Length > 2000) descricaoPublica = descricaoPublica.Substring(0, 2000);
+
+        // Monta matchingFiltrosRaw como texto estruturado para a IA de matching
+        var matchingFiltrosRaw = BuildMatchingFiltrosRaw(titulo, experienciasExigidas, experienciasDesejadas, escolaridade, remuneracao);
 
         return new
         {
@@ -181,6 +196,7 @@ public sealed class PortalVagaSyncService
             tipoContratacao = (short?)null,
             matchMinimoPercentual = 70,
             weights = new { competencia = 40, experiencia = 30, formacao = 15, localidade = 15 },
+            matchingFiltrosRaw,
             descricaoInterna = (string?)null,
             codigoInterno = (string?)null,
             codigoCbo = (string?)null,
@@ -219,22 +235,22 @@ public sealed class PortalVagaSyncService
             politicaTrabalho = (string?)null,
             observacoesDeslocamento = (string?)null,
             moeda = (short?)null,
-            salarioMinimo = GetDecimal(row, "SALARIO"),
-            salarioMaximo = GetDecimal(row, "REMUNERACAO"),
+            salarioMinimo = remuneracao,
+            salarioMaximo = remuneracao,
             periodicidade = (short?)null,
             bonusTipo = (short?)null,
             bonusPercentual = (decimal?)null,
             observacoesRemuneracao = (string?)null,
-            escolaridade = (short?)null,
+            escolaridade,
             formacaoArea = (short?)null,
             experienciaMinimaAnos = (int?)null,
             tagsStackRaw = (string?)null,
             tagsIdiomasRaw = (string?)null,
-            diferenciais = (string?)null,
+            diferenciais = string.IsNullOrWhiteSpace(experienciasDesejadas) ? null : experienciasDesejadas,
             observacoesProcesso = (string?)null,
             visibilidade = (short?)null,
             dataInicio,
-            dataEncerramento,
+            dataEncerramento = (DateOnly?)null,
             canalLinkedIn = false,
             canalSiteCarreiras = true,
             canalIndicacao = false,
@@ -252,6 +268,70 @@ public sealed class PortalVagaSyncService
             requisitos = (object?)null,
             etapas = (object?)null,
             perguntasTriagem = (object?)null
+        };
+    }
+
+    /// <summary>
+    /// Monta texto estruturado para matchingFiltrosRaw a partir dos dados do RM.
+    /// Esse texto é usado pela IA como contexto para calcular matching candidato x vaga.
+    /// </summary>
+    private static string? BuildMatchingFiltrosRaw(string titulo, string? experienciasExigidas, string? experienciasDesejadas, short? escolaridade, decimal? remuneracao)
+    {
+        var parts = new List<string>();
+
+        parts.Add($"Cargo: {titulo}");
+
+        if (!string.IsNullOrWhiteSpace(experienciasExigidas))
+            parts.Add($"Experiências exigidas: {experienciasExigidas}");
+
+        if (!string.IsNullOrWhiteSpace(experienciasDesejadas))
+            parts.Add($"Experiências desejadas: {experienciasDesejadas}");
+
+        if (escolaridade.HasValue)
+        {
+            var nomeEscolaridade = escolaridade.Value switch
+            {
+                1 => "Ensino Fundamental",
+                2 => "Ensino Médio",
+                3 => "Ensino Técnico",
+                4 => "Ensino Superior",
+                5 => "Pós-Graduação",
+                6 => "MBA",
+                7 => "Mestrado",
+                8 => "Doutorado",
+                _ => $"Nível {escolaridade.Value}"
+            };
+            parts.Add($"Escolaridade mínima: {nomeEscolaridade}");
+        }
+
+        if (remuneracao.HasValue && remuneracao.Value > 0)
+            parts.Add($"Faixa salarial: R$ {remuneracao.Value:N2}");
+
+        return string.Join("\n", parts);
+    }
+
+    /// <summary>
+    /// Mapeia CODGRAUINSTRUCAO do RM para o enum de escolaridade do Portal.
+    /// RM: 1=Analfabeto, 2=Até 4ªSérie, 3=Até 8ªSérie, 4=2ºGrauCompleto, 5=SuperiorIncompleto,
+    ///     6=SuperiorCompleto, 7=Especialização, 8=Mestrado, 9=Doutorado, 10=PósDout, 11=NãoAlfabet
+    /// Portal: 1=Fundamental, 2=Médio, 3=Técnico, 4=Superior, 5=PósGrad, 6=MBA, 7=Mestrado, 8=Doutorado
+    /// </summary>
+    private static short? MapGrauInstrucao(JsonElement row)
+    {
+        if (!row.TryGetProperty("CODGRAUINSTRUCAO", out var el)) return null;
+        if (el.ValueKind == JsonValueKind.Null || el.ValueKind == JsonValueKind.Undefined) return null;
+        if (el.ValueKind != JsonValueKind.Number) return null;
+
+        return el.GetInt32() switch
+        {
+            1 or 2 or 3 => 1,   // Fundamental
+            4 => 2,              // Médio (2º grau completo)
+            5 => 4,              // Superior incompleto → Superior
+            6 => 4,              // Superior completo
+            7 => 5,              // Especialização → Pós-Graduação
+            8 => 7,              // Mestrado
+            9 or 10 => 8,       // Doutorado / Pós-Doutorado
+            _ => null
         };
     }
 

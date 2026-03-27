@@ -229,6 +229,13 @@ public sealed class PreAdmissao : ITenantEntity
 
     public DateTimeOffset? IntegradaEmUtc { get; set; }
 
+    // ── Portal candidato ──
+
+    /// <summary>Token de acesso para o candidato preencher dados externamente (gerado pelo RH).</summary>
+    [StringLength(64)]
+    public string? AccessToken { get; set; }
+
     // ── Navigation ──
     public List<PreAdmissaoDocumento> Documentos { get; set; } = new();
+    public List<PreAdmissaoDocumentoSolicitado> DocumentosSolicitados { get; set; } = new();
 }

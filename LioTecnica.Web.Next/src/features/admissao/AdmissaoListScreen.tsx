@@ -5,6 +5,7 @@ import {
     Plus,
     Search,
     FileSpreadsheet,
+    FileText,
     Clock,
     CheckCircle2,
     XCircle,
@@ -51,6 +52,10 @@ interface PreAdmissaoRow {
     salario: number | null;
     preenchidoPor: number;
     createdAtUtc: string;
+    totalDocumentos: number;
+    documentosPendentes: number;
+    documentosValidados: number;
+    documentosRejeitados: number;
 }
 
 const STATUS_MAP: Record<number, { label: string; color: string; icon: React.ElementType }> = {
@@ -143,7 +148,7 @@ export default function AdmissaoListScreen() {
     };
 
     return (
-        <section className="space-y-6">
+        <section className="space-y-5">
             {/* header */}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -151,6 +156,9 @@ export default function AdmissaoListScreen() {
                     <p className="text-muted-foreground text-sm mt-0.5">Gerencie as pré-admissões de novos colaboradores</p>
                 </div>
                 <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setStatusFilter("1")}>
+                        <FileText className="size-4" /> Docs Pendentes
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setReadmissaoOpen(true)}>
                         <Search className="size-4" /> Readmissão (CPF)
                     </Button>
@@ -184,7 +192,7 @@ export default function AdmissaoListScreen() {
                             <button
                                 key={f.key}
                                 onClick={() => setStatusFilter(f.key)}
-                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${statusFilter === f.key ? "bg-blue-600 text-white" : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                                className={`rounded-full px-3 py-1 text-xs font-semibold transition-all border ${statusFilter === f.key ? "bg-[rgb(var(--lt-primary))] text-white border-[rgb(var(--lt-primary))]" : "bg-card text-slate-700 border-border/60 hover:bg-slate-50"
                                     }`}
                             >
                                 {f.label}
@@ -192,8 +200,8 @@ export default function AdmissaoListScreen() {
                         ))}
                     </div>
                     <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input className="w-[260px] pl-8" placeholder="Buscar nome, CPF…" value={q} onChange={(e) => setQ(e.target.value)} />
+                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input className="w-[260px] pl-9" placeholder="Buscar nome, CPF…" value={q} onChange={(e) => setQ(e.target.value)} />
                     </div>
                 </div>
 
@@ -207,16 +215,17 @@ export default function AdmissaoListScreen() {
                             <TableHead>Unidade</TableHead>
                             <TableHead className="text-center">Admissão</TableHead>
                             <TableHead className="text-center">Status</TableHead>
+                            <TableHead className="text-center">Docs</TableHead>
                             <TableHead className="text-right">Criado em</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading && (
-                            <TableRow><TableCell colSpan={8} className="py-4"><TableSkeleton rows={5} /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={9} className="py-4"><TableSkeleton rows={5} /></TableCell></TableRow>
                         )}
                         {!isLoading && filtered.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={8} className="py-16 text-center">
+                                <TableCell colSpan={9} className="py-16 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Users className="size-10 opacity-20" />
                                         <p className="text-sm font-medium">Nenhuma pré-admissão encontrada</p>
@@ -245,6 +254,20 @@ export default function AdmissaoListScreen() {
                                             <Icon className="size-3" /> {s.label}
                                         </span>
                                     </TableCell>
+                                    <TableCell className="text-center">
+                                        {r.totalDocumentos > 0 ? (
+                                            <span className={`text-xs font-mono font-semibold ${
+                                                r.documentosRejeitados > 0 ? "text-red-600" :
+                                                r.documentosPendentes > 0 ? "text-amber-600" :
+                                                r.documentosValidados === r.totalDocumentos ? "text-green-600" :
+                                                "text-muted-foreground"
+                                            }`}>
+                                                {r.documentosValidados}/{r.totalDocumentos}
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">—</span>
+                                        )}
+                                    </TableCell>
                                     <TableCell className="text-right text-xs text-muted-foreground">
                                         {new Date(r.createdAtUtc).toLocaleDateString("pt-BR")}
                                     </TableCell>
@@ -267,7 +290,7 @@ export default function AdmissaoListScreen() {
                         <Input placeholder="000.000.000-00" value={readmissaoCpf} onChange={(e) => setReadmissaoCpf(e.target.value)} />
                         <div className="flex gap-2 justify-end">
                             <Button variant="outline" onClick={() => setReadmissaoOpen(false)}>Cancelar</Button>
-                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleReadmissao}>
+                            <Button className="bg-[rgb(var(--lt-primary))] hover:bg-[rgb(var(--lt-brand))]" onClick={handleReadmissao}>
                                 <Search className="size-4" /> Buscar
                             </Button>
                         </div>
@@ -283,8 +306,8 @@ function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType;
         <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
             <div className={`rounded-lg p-2.5 shrink-0 ${color}`}><Icon className="size-4" /></div>
             <div>
-                <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider leading-none mb-1">{label}</div>
-                <div className="text-2xl font-bold leading-none">{value}</div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest leading-none mb-1">{label}</div>
+                <div className="text-2xl font-bold leading-none tabular-nums">{value}</div>
             </div>
         </div>
     );

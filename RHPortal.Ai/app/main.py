@@ -106,8 +106,12 @@ class MatchItem(BaseModel):
     email: str
     source: str = Field(..., description="'candidato' ou 'talento'")
     similaridade_vetorial: int = Field(..., ge=0, le=100, description="Score vetorial pré-filtro")
-    score_filtros: int = Field(..., ge=0, le=100, description="Score filtros")
-    score_requisitos: int = Field(..., ge=0, le=100, description="Score requisitos")
+    score_competencia: int = Field(0, ge=0, le=100, description="Score competência técnica")
+    score_experiencia: int = Field(0, ge=0, le=100, description="Score experiência profissional")
+    score_formacao: int = Field(0, ge=0, le=100, description="Score formação acadêmica")
+    score_localidade: int = Field(0, ge=0, le=100, description="Score localidade e logística")
+    score_filtros: int = Field(0, ge=0, le=100, description="Score filtros (backward compat)")
+    score_requisitos: int = Field(0, ge=0, le=100, description="Score requisitos (backward compat)")
     score_final: int = Field(..., ge=0, le=100, description="Score final ponderado")
     mandatory_total: int = Field(0, ge=0, description="Total de requisitos obrigatórios")
     missing_mandatory_count: int = Field(0, ge=0, description="Obrigatórios não atendidos")
@@ -137,8 +141,12 @@ class EvaluateOneRequest(BaseModel):
 class EvaluateOneResponse(BaseModel):
     person_id: str
     source: str
-    score_filtros: int = Field(..., ge=0, le=100)
-    score_requisitos: int = Field(..., ge=0, le=100)
+    score_competencia: int = Field(0, ge=0, le=100)
+    score_experiencia: int = Field(0, ge=0, le=100)
+    score_formacao: int = Field(0, ge=0, le=100)
+    score_localidade: int = Field(0, ge=0, le=100)
+    score_filtros: int = Field(0, ge=0, le=100)
+    score_requisitos: int = Field(0, ge=0, le=100)
     score_final: int = Field(..., ge=0, le=100)
     mandatory_total: int = Field(0, ge=0)
     missing_mandatory_count: int = Field(0, ge=0)
@@ -636,8 +644,12 @@ class GeminiMatchItem(BaseModel):
     email: str
     source: str = Field(..., description="'candidato' ou 'talento'")
     score_embedding: int = Field(..., ge=0, le=100, description="Score de embedding (pontos)")
-    score_filtros: int = Field(..., ge=0, le=100, description="Score filtros (pontos)")
-    score_requisitos: int = Field(..., ge=0, le=100, description="Score requisitos (pontos)")
+    score_competencia: int = Field(0, ge=0, le=100, description="Score competência técnica")
+    score_experiencia: int = Field(0, ge=0, le=100, description="Score experiência profissional")
+    score_formacao: int = Field(0, ge=0, le=100, description="Score formação acadêmica")
+    score_localidade: int = Field(0, ge=0, le=100, description="Score localidade e logística")
+    score_filtros: int = Field(0, ge=0, le=100, description="Score filtros (compat)")
+    score_requisitos: int = Field(0, ge=0, le=100, description="Score requisitos (compat)")
     score_final: int = Field(..., ge=0, le=100, description="Score final (pontos)")
     justificativa: str = Field("", description="Justificativa da avaliação")
 
@@ -679,6 +691,10 @@ class GeminiEvaluatePersonResponse(BaseModel):
     person_id: str
     source: str
     score_embedding: int = Field(0, ge=0, le=100)
+    score_competencia: int = Field(0, ge=0, le=100)
+    score_experiencia: int = Field(0, ge=0, le=100)
+    score_formacao: int = Field(0, ge=0, le=100)
+    score_localidade: int = Field(0, ge=0, le=100)
     score_filtros: int = Field(0, ge=0, le=100)
     score_requisitos: int = Field(0, ge=0, le=100)
     score_final: int = Field(0, ge=0, le=100)

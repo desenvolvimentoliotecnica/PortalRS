@@ -124,12 +124,34 @@ export default function CandidateDetailModal({ item, candidatoFull, vagaDetail, 
                     {matchResult && (
                         <div className="rounded-xl border border-[rgba(16,82,144,.12)] bg-[rgba(16,82,144,.03)] p-4">
                             <div className="font-bold text-sm mb-3">Composição do Score (IA)</div>
-                            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                                <div className="text-muted-foreground">Score filtros</div><div className="text-right font-semibold">{Math.round(item.scoreFiltros ?? 0)}%</div>
-                                <div className="text-muted-foreground">Score requisitos</div><div className="text-right font-semibold">{Math.round(item.scoreRequisitos ?? 0)}%</div>
+                            <div className="space-y-2.5">
+                                {([
+                                    { label: "Competência", score: item.scoreCompetencia ?? 0, peso: vagaDetail?.weightsCompetencia ?? 40 },
+                                    { label: "Experiência", score: item.scoreExperiencia ?? 0, peso: vagaDetail?.weightsExperiencia ?? 30 },
+                                    { label: "Formação", score: item.scoreFormacao ?? 0, peso: vagaDetail?.weightsFormacao ?? 15 },
+                                    { label: "Localidade", score: item.scoreLocalidade ?? 0, peso: vagaDetail?.weightsLocalidade ?? 15 },
+                                ] as const).map(dim => (
+                                    <div key={dim.label}>
+                                        <div className="flex justify-between text-sm mb-0.5">
+                                            <span className="text-muted-foreground">{dim.label} <span className="text-xs opacity-60">(peso {dim.peso})</span></span>
+                                            <span className="font-semibold">{Math.round(dim.score)}%</span>
+                                        </div>
+                                        <div className="h-2 rounded-full bg-black/5 overflow-hidden">
+                                            <div
+                                                className="h-full rounded-full transition-all duration-700"
+                                                style={{
+                                                    width: `${Math.round(dim.score)}%`,
+                                                    backgroundColor: dim.score >= 60 ? "#16a34a" : dim.score >= 30 ? "#eab308" : "#dc2626",
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-3 pt-2.5 border-t border-[rgba(16,82,144,.1)] grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                                 <div className="text-muted-foreground">Cobertura obrigatórios</div><div className="text-right font-semibold">{Math.round(item.mandatoryCoverage ?? 100)}%</div>
                                 <div className="text-muted-foreground">Obrigatórios faltando</div><div className="text-right font-semibold">{Math.round(item.missingMandatoryCount ?? 0)}</div>
-                                <div className="text-muted-foreground">Penalidade rígida</div><div className="text-right font-semibold">-{Math.round(item.hardPenalty ?? 0)}</div>
+                                {(item.hardPenalty ?? 0) > 0 && <><div className="text-muted-foreground">Penalidade rígida</div><div className="text-right font-semibold text-red-600">-{Math.round(item.hardPenalty ?? 0)}</div></>}
                             </div>
                             {item.justificativa && <div className="text-muted-foreground text-xs mt-3 border-t pt-2"><span className="font-semibold">Justificativa IA:</span> {item.justificativa}</div>}
                         </div>

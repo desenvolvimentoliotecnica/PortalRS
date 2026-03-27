@@ -133,6 +133,49 @@ public sealed class PreAdmissaoController : ControllerBase
         return await _service.DeleteDocumentoAsync(id, docId, ct) ? NoContent() : NotFound();
     }
 
+    /// <summary>RH define quais documentos solicitar ao candidato (checkbox).</summary>
+    [HttpPost("{id:guid}/documentos-solicitados")]
+    [ProducesResponseType(typeof(IReadOnlyList<DocumentoSolicitadoResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SalvarDocumentosSolicitados(
+        Guid id, [FromBody] SalvarDocumentosSolicitadosRequest request, CancellationToken ct)
+    {
+        try { return Ok(await _service.SalvarDocumentosSolicitadosAsync(id, request, ct)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>RH gera link de acesso externo para o candidato preencher dados e documentos.</summary>
+    [HttpPost("{id:guid}/gerar-link")]
+    [ProducesResponseType(typeof(GerarLinkResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GerarLink(
+        Guid id, [FromBody] GerarLinkRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.GerarLinkAsync(id, request, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>RH valida (aprova/rejeita) um documento individual da pré-admissão.</summary>
+    [HttpPatch("{id:guid}/documentos/{docId:guid}/validar")]
+    [ProducesResponseType(typeof(ValidarDocumentoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ValidarDocumento(
+        Guid id, Guid docId, [FromBody] ValidarDocumentoRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.ValidarDocumentoAsync(id, docId, request, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     // ── Admissão Manual ──
 
     /// <summary>

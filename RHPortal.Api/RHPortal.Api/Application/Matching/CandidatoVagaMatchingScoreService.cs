@@ -69,15 +69,19 @@ public sealed class CandidatoVagaMatchingScoreService : ICandidatoVagaMatchingSc
                     s.Score,
                     s.Score >= safeMin,
                     s.CalculatedAtUtc,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null))
+                    (string?)null,   // Source
+                    (int?)null,      // ScoreCompetencia
+                    (int?)null,      // ScoreExperiencia
+                    (int?)null,      // ScoreFormacao
+                    (int?)null,      // ScoreLocalidade
+                    (int?)null,      // ScoreFiltros
+                    (int?)null,      // ScoreRequisitos
+                    (string?)null,   // Justificativa
+                    (int?)null,      // MandatoryTotal
+                    (int?)null,      // MissingMandatoryCount
+                    (int?)null,      // MandatoryCoverage
+                    (int?)null,      // HardPenalty
+                    (string?)null))  // RuleVersion
             .ToListAsync(ct);
         return list;
     }

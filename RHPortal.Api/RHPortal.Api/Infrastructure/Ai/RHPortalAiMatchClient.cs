@@ -77,6 +77,10 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
                 var scoreFinal = item.TryGetProperty("score_final", out var sf) ? sf.GetInt32() : 0;
                 var scoreFiltros = item.TryGetProperty("score_filtros", out var sfl) ? sfl.GetInt32() : 0;
                 var scoreRequisitos = item.TryGetProperty("score_requisitos", out var sr) ? sr.GetInt32() : 0;
+                int? scoreCompetencia = item.TryGetProperty("score_competencia", out var sco) && sco.ValueKind == JsonValueKind.Number ? sco.GetInt32() : null;
+                int? scoreExperiencia = item.TryGetProperty("score_experiencia", out var sex) && sex.ValueKind == JsonValueKind.Number ? sex.GetInt32() : null;
+                int? scoreFormacao = item.TryGetProperty("score_formacao", out var sfo) && sfo.ValueKind == JsonValueKind.Number ? sfo.GetInt32() : null;
+                int? scoreLocalidade = item.TryGetProperty("score_localidade", out var slo) && slo.ValueKind == JsonValueKind.Number ? slo.GetInt32() : null;
                 var source = item.TryGetProperty("source", out var src) ? src.GetString() ?? "candidato" : "candidato";
                 var justificativa = item.TryGetProperty("justificativa", out var j) ? j.GetString() ?? "" : "";
                 int? mandatoryTotal = null;
@@ -106,6 +110,10 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
                     Pass: scoreFinal >= minScore,
                     LastMatchAtUtc: DateTimeOffset.UtcNow,
                     Source: source,
+                    ScoreCompetencia: scoreCompetencia,
+                    ScoreExperiencia: scoreExperiencia,
+                    ScoreFormacao: scoreFormacao,
+                    ScoreLocalidade: scoreLocalidade,
                     ScoreFiltros: scoreFiltros,
                     ScoreRequisitos: scoreRequisitos,
                     Justificativa: justificativa,

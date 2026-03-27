@@ -289,7 +289,10 @@
     <value>Regras de Aprovação</value>
   </data>
   <data name="Seed.Menu.NiveisHierarquicos" xml:space="preserve">
-    <value>Níveis Hierárquicos</value>
+    <value>Hierarquia</value>
+  </data>
+  <data name="Seed.Menu.ConfigAws" xml:space="preserve">
+    <value>Armazenamento AWS S3</value>
   </data>
   <data name="Seed.AgendaTypeInterview" xml:space="preserve">
     <value>Entrevista</value>
