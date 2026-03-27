@@ -65,7 +65,8 @@ public sealed class MenuAdministrationService
             ["emails.manage"] = "Seed.Menu.Emails",
             ["email-config.manage"] = "Seed.Menu.ConfigEmail",
             ["entra-config.manage"] = "Seed.Menu.ConfigEntraId",
-            ["localization-config.manage"] = "Seed.Menu.Idioma"
+            ["localization-config.manage"] = "Seed.Menu.Idioma",
+            ["aws-settings.manage"] = "Seed.Menu.ConfigAws"
         };
 
     /// <summary>Permission keys for tenant-config-only items; excluded from main menu (sidebar).</summary>
@@ -83,7 +84,10 @@ public sealed class MenuAdministrationService
         "emails.manage",
         "email-config.manage",
         "entra-config.manage",
-        "localization-config.manage"
+        "localization-config.manage",
+        // Hierarquia: mantém só admin.hierarquia.manage visível — os demais são aliases da mesma tela
+        "admin.gestores.manage",
+        "admin.regras-aprovacao.manage"
     };
 
     private static IReadOnlyList<MenuForCurrentUserResponse> ExcludeConfigOnlyMenus(IReadOnlyList<MenuForCurrentUserResponse> menus) =>
@@ -232,14 +236,24 @@ public sealed class MenuAdministrationService
     private const int OwnerFullMenuMinimumCount = 5;
 
     /// <summary>
-    /// Returns full menu list for Owner. Uses tenant DB when it has enough menus; otherwise returns a fixed template so Owner always sees everything.
+    /// Returns full menu list for Owner. Merges DB menus with the hardcoded template so new
+    /// descriptors always appear even before the seeder has run for the tenant.
     /// </summary>
     public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListFullMenuForOwnerAsync(CancellationToken ct)
     {
         var fromDb = await ListAllActiveForCurrentUserAsync(ct);
-        if (fromDb.Count >= OwnerFullMenuMinimumCount)
+        if (fromDb.Count < OwnerFullMenuMinimumCount)
+            return ExcludeConfigOnlyMenus(BuildFullMenuTemplate());
+
+        // Merge: inject any template descriptors missing from the DB (e.g. newly added items not yet seeded)
+        var template = BuildFullMenuTemplate();
+        var dbPermKeys = fromDb.Select(x => x.PermissionKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = template.Where(x => !dbPermKeys.Contains(x.PermissionKey)).ToList();
+        if (missing.Count == 0)
             return fromDb;
-        return ExcludeConfigOnlyMenus(BuildFullMenuTemplate());
+
+        var merged = fromDb.Concat(missing).OrderBy(x => x.Order).ThenBy(x => x.DisplayName).ToList();
+        return ExcludeConfigOnlyMenus(merged);
     }
 
     private static IReadOnlyList<MenuForCurrentUserResponse> BuildFullMenuTemplate()

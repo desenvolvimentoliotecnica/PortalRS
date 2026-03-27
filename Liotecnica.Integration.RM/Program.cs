@@ -56,7 +56,14 @@ builder.Services.AddSingleton<PortalTalentoSyncService>();
 builder.Services.AddSingleton<PortalCandidatoVagaSyncService>();
 builder.Services.AddSingleton<PortalIntegrationCleanupService>();
 builder.Services.AddSingleton<ImportCvToPortalService>();
-builder.Services.AddHttpClient<PortalApiClient>();
+builder.Services.AddHttpClient<PortalApiClient>()
+    .ConfigurePrimaryHttpMessageHandler(() =>
+    {
+        var handler = new HttpClientHandler();
+        if (builder.Environment.IsDevelopment())
+            handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        return handler;
+    });
 
 if (runSyncOnce || runSyncOne || runSyncClayton || runCleanCandidatosAndSync || runCleanCandidatosTalentosAndSync)
     builder.Services.AddSingleton<RmSyncWorker>();

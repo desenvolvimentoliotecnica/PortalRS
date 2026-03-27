@@ -20,3 +20,6 @@ google-genai>=1.0.0
 
 # Retry logic e resiliência
 tenacity>=8.2.0
+
+# Testes
+pytest>=8.0.0

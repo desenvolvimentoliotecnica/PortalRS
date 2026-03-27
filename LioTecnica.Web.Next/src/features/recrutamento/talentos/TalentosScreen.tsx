@@ -331,7 +331,7 @@ export default function TalentosScreen() {
   const emptyFilter = useMemo(() => !loading && items.length === 0, [loading, items]);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-5">
 
       {/* Header + fluxo */}
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -372,13 +372,33 @@ export default function TalentosScreen() {
         </div>
       </div>
 
+      {/* KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Total</div>
+          <div className="text-2xl font-bold mt-1.5 tabular-nums">{totalCount}</div>
+        </div>
+        <div className="rounded-xl border border-blue-100 bg-blue-50/50 shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-blue-600/70 uppercase tracking-widest">Email</div>
+          <div className="text-2xl font-bold mt-1.5 text-blue-600 tabular-nums">{items.filter(t => (t.origem ?? "").toLowerCase() === "email").length}</div>
+        </div>
+        <div className="rounded-xl border border-purple-100 bg-purple-50/50 shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-purple-600/70 uppercase tracking-widest">Site / Candidatura</div>
+          <div className="text-2xl font-bold mt-1.5 text-purple-600 tabular-nums">{items.filter(t => ["site", "candidatura"].includes((t.origem ?? "").toLowerCase())).length}</div>
+        </div>
+        <div className="rounded-xl border border-amber-100 bg-amber-50/50 shadow-sm p-4">
+          <div className="text-[10px] font-semibold text-amber-600/70 uppercase tracking-widest">Manual / Pasta</div>
+          <div className="text-2xl font-bold mt-1.5 text-amber-600 tabular-nums">{items.filter(t => ["manual", "pasta"].includes((t.origem ?? "").toLowerCase())).length}</div>
+        </div>
+      </div>
+
       {/* Filtros */}
       <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[220px] max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
             <Input
-              className="pl-8"
+              className="pl-9"
               placeholder="Buscar por nome, e-mail, CPF…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -449,7 +469,7 @@ export default function TalentosScreen() {
                     <TableCell className="text-sm hidden md:table-cell">{t.email ?? "—"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{cidadeUf}</TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${badge.cls}`}>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.cls}`}>
                         {badge.label}
                       </span>
                     </TableCell>
@@ -659,7 +679,7 @@ export default function TalentosScreen() {
                   if (!v) return null;
                   return (
                     <div key={k}>
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">{k}</div>
+                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-0.5">{k}</div>
                       <div className="font-medium">{v}</div>
                     </div>
                   );
@@ -667,7 +687,7 @@ export default function TalentosScreen() {
               </div>
               {str(detailData.resumoProfissional, "") && (
                 <div>
-                  <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Resumo profissional</div>
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Resumo profissional</div>
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">{str(detailData.resumoProfissional, "")}</p>
                 </div>
               )}

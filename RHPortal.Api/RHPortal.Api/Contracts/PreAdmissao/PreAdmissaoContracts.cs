@@ -17,7 +17,11 @@ public sealed record PreAdmissaoGridRow(
     DateOnly? DataAdmissao,
     decimal? Salario,
     PreenchidoPor PreenchidoPor,
-    DateTimeOffset CreatedAtUtc
+    DateTimeOffset CreatedAtUtc,
+    int TotalDocumentos,
+    int DocumentosPendentes,
+    int DocumentosValidados,
+    int DocumentosRejeitados
 );
 
 public sealed record PreAdmissaoListQuery(
@@ -132,6 +136,12 @@ public sealed record PreAdmissaoDetailResponse(
     // Documentos
     List<PreAdmissaoDocumentoResponse> Documentos,
 
+    // Documentos solicitados pelo RH
+    List<DocumentoSolicitadoResponse> DocumentosSolicitados,
+
+    // Portal candidato
+    string? AccessToken,
+
     // Integração TOTVS
     IntegracaoResultado? IntegracaoResultado,
     string? IntegracaoMensagem,
@@ -146,7 +156,9 @@ public sealed record PreAdmissaoDocumentoResponse(
     long TamanhoBytes,
     StatusDocumento Status,
     string? ObservacaoRh,
-    DateTimeOffset CreatedAtUtc
+    DateTimeOffset CreatedAtUtc,
+    /// <summary>Presigned URL S3 para download direto (expira em 15 min).</summary>
+    string PresignedUrl
 );
 
 // ── Create / Update ──
@@ -380,6 +392,29 @@ public sealed record DadosOcrComprovante(
     string? NivelConfiabilidade
 );
 
+// ── Admissão manual pelo RH (candidato aprovado no recrutamento) ──
+
+/// <summary>
+/// RH inicia admissão manual a partir de um candidato aprovado.
+/// A pré-admissão é criada em Rascunho pré-preenchida com os dados do candidato.
+/// </summary>
+public sealed record IniciarManualRequest(
+    /// <summary>ID do candidato aprovado no módulo de R&amp;S.</summary>
+    [Required] Guid CandidatoId,
+    /// <summary>Data prevista de admissão (opcional — pode ser preenchida no wizard).</summary>
+    DateOnly? DataAdmissao,
+    /// <summary>ID do cargo (opcional — pode ser preenchido no wizard).</summary>
+    Guid? JobPositionId,
+    /// <summary>ID da área/departamento (opcional).</summary>
+    Guid? AreaId,
+    /// <summary>ID da unidade/filial (opcional).</summary>
+    Guid? UnitId,
+    /// <summary>Salário proposto (opcional).</summary>
+    decimal? Salario,
+    /// <summary>Tipo de contratação (opcional).</summary>
+    TipoContratacaoAdmissao? TipoContratacao
+);
+
 // ── Readmissão ──
 
 public sealed record BuscaCpfResponse(
@@ -398,4 +433,41 @@ public sealed record BuscaCpfResponse(
     string? Cidade,
     string? Uf,
     DateTime? DataNascimento
+);
+
+// ── Solicitação de documentos pelo RH ──
+
+public sealed record SalvarDocumentosSolicitadosRequest(
+    List<DocumentoSolicitadoEntry> Documentos
+);
+
+public sealed record DocumentoSolicitadoEntry(
+    TipoDocumento TipoDocumento,
+    bool Obrigatorio
+);
+
+public sealed record DocumentoSolicitadoResponse(
+    TipoDocumento TipoDocumento,
+    string Label,
+    bool Obrigatorio
+);
+
+// ── Gerar link de acesso do candidato ──
+
+public sealed record GerarLinkRequest(string Cpf);
+
+public sealed record GerarLinkResponse(string AccessToken, string PublicUrl);
+
+// ── Validação de documento individual pelo RH ──
+
+public sealed record ValidarDocumentoRequest(
+    [Required] StatusDocumento Status,
+    string? ObservacaoRh
+);
+
+public sealed record ValidarDocumentoResponse(
+    Guid Id,
+    StatusDocumento Status,
+    string? ObservacaoRh,
+    DateTimeOffset UpdatedAtUtc
 );

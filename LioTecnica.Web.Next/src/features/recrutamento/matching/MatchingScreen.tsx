@@ -97,7 +97,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
 
   const pollRef = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollDelayRef = useRef(1200);
+  const pollDelayRef = useRef(3000);
   const loadSuggestionsRef = useRef<(id: string, force?: boolean) => void>(() => { });
   const detailAbortRef = useRef<AbortController | null>(null);
   const busyRef = useRef(false);
@@ -117,8 +117,13 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   const processingComputed = useMemo(() => {
     if (!processingProgress) return null;
     const elapsedMs = Math.max(0, processingNowMs - processingProgress.startedAtMs);
-    const expectedMs = Math.max(8000, processingProgress.expectedTotalMs);
-    return { elapsedMs, expectedMs, progressPct: clamp(Math.round((elapsedMs / expectedMs) * 100), 5, 95), remainingMs: Math.max(0, expectedMs - elapsedMs) };
+    const expectedMs = Math.max(30000, processingProgress.expectedTotalMs);
+    // Curva logarítmica: avança rápido até ~60%, desacelera gradualmente, nunca ultrapassa 95%
+    const ratio = elapsedMs / expectedMs;
+    const progressPct = ratio >= 1
+      ? clamp(Math.round(90 + 5 * (1 - Math.exp(-(ratio - 1) * 0.5))), 90, 95)
+      : clamp(Math.round(ratio * 90), 2, 90);
+    return { elapsedMs, expectedMs, progressPct };
   }, [processingNowMs, processingProgress]);
 
   // ─── API loaders ───
@@ -165,13 +170,13 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         if (typeof snap.cachedCount === "number") setCachedCount(snap.cachedCount);
         const s = Date.parse(pk(snap.startedAtUtc)), c = Date.parse(pk(snap.computedAtUtc));
         if (Number.isFinite(s) && Number.isFinite(c) && c > s) saveObservedDurationMs(id, c - s);
-        setProcessingProgress(null); pollDelayRef.current = 800;
+        setProcessingProgress(null); pollDelayRef.current = 3000;
       } else if (snap?.status === "processing") {
         const stale = mapItems(snap.staleItems); if (stale.length) { sugCacheRef.current = stale; setItems(stale); }
         setRankStatus("processing");
         const s = Date.parse(pk(snap.startedAtUtc)); setProcessingNowMs(Date.now());
         setProcessingProgress({ startedAtMs: Number.isFinite(s) ? s : Date.now(), expectedTotalMs: readExpectedTotalMs(id) });
-        const delay = pollDelayRef.current; pollDelayRef.current = Math.min(4000, Math.round(delay * 1.2));
+        const delay = pollDelayRef.current; pollDelayRef.current = Math.min(10000, Math.round(delay * 1.4));
         pollTimerRef.current = setTimeout(() => { if (pollRef.current === token) loadSuggestionsRef.current(id, true); }, delay);
       } else if (snap?.status === "failed") {
         const stale = mapItems(snap.staleItems); if (stale.length) { sugCacheRef.current = stale; setItems(stale); }
@@ -241,7 +246,6 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     await loadVagaDetail(id);
     if (nextTab === "rejected") await loadRejected(id);
     else if (nextTab === "approved") await loadApproved(id);
-    else if (nextTab === "pending") await loadPending(id);
     else await loadSuggestions(id);
   }, [tab, loadVagaDetail, loadSuggestions, loadRejected, loadApproved, loadPending]);
 
@@ -273,7 +277,6 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   function statusToTabKey(status: string): TabKey {
     if (status === "Aprovado") return "approved";
     if (status === "Reprovado") return "rejected";
-    if (status === "Pendente") return "pending";
     return "suggestions";
   }
 
@@ -307,20 +310,16 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
       fone: cand.fone ?? null,
       cidade: cand.cidade ?? null,
       uf: cand.uf ?? null,
+      linkedinUrl: cand.linkedinUrl ?? null,
       fonte: cand.fonte ?? "Site",
       status: newStatus,
       vagaId: cand.vagaId ?? vagaId,
+      trabalhandoAtualmente: cand.trabalhandoAtualmente ?? null,
+      pretensaoSalarial: cand.pretensaoSalarial ?? null,
       obs: obs ?? cand.obs ?? null,
       cvText: cand.cvText ?? null,
-      lastMatch: cand.lastMatch ?? null,
-      documentos: cand.documentos?.map((d: AnyRec) => ({
-        tipo: d.tipo,
-        nomeArquivo: d.nomeArquivo ?? d.fileName ?? "",
-        contentType: d.contentType ?? null,
-        descricao: d.descricao ?? null,
-        tamanhoBytes: d.tamanhoBytes ?? null,
-        url: d.url ?? null,
-      })) ?? [],
+      lastMatch: null,
+      documentos: null,
       talentoId: cand.talentoId ?? null,
     };
 
@@ -337,7 +336,6 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     const msgs: Record<string, string> = {
       Aprovado: "Candidato aprovado.",
       Reprovado: "Candidato reprovado.",
-      Pendente: "Candidato movido para pendentes.",
       Triagem: "Candidato movido para triagem.",
     };
 
@@ -361,10 +359,9 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     }
   }
 
-  function tabToStatus(t: TabKey): "Aprovado" | "Reprovado" | "Pendente" | "Triagem" {
+  function tabToStatus(t: TabKey): "Aprovado" | "Reprovado" | "Triagem" {
     if (t === "approved") return "Aprovado";
     if (t === "rejected") return "Reprovado";
-    if (t === "pending") return "Pendente";
     return "Triagem";
   }
 
@@ -471,7 +468,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   // ─── Effects ───
   useEffect(() => { return () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); if (detailAbortRef.current) detailAbortRef.current.abort(); }; }, []);
   useEffect(() => { if (initialVagaOptions.length > 0) return; const t = setTimeout(() => { void loadVagaOptions(); }, 0); return () => clearTimeout(t); }, [initialVagaOptions.length, loadVagaOptions]);
-  useEffect(() => { if (rankStatus !== "processing") return; const timer = setInterval(() => setProcessingNowMs(Date.now()), 1000); return () => clearInterval(timer); }, [rankStatus]);
+  useEffect(() => { if (rankStatus !== "processing") return; const timer = setInterval(() => setProcessingNowMs(Date.now()), 3000); return () => clearInterval(timer); }, [rankStatus]);
 
   // Auto-load: resolve vagaId and fetch ranking on first mount
   const didInit = useRef(false);
@@ -493,14 +490,12 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     { key: "suggestions", label: "Triagem IA" },
     { key: "approved", label: "Aprovados" },
     { key: "rejected", label: "Reprovados" },
-    { key: "pending", label: "Pendentes" },
   ];
 
   const tabCountMap: Partial<Record<TabKey, number>> = {
     suggestions: sugCacheRef.current?.length ?? (tab === "suggestions" ? items.length : undefined),
     approved: appCacheRef.current?.length ?? (tab === "approved" ? items.length : undefined),
     rejected: rejCacheRef.current?.length ?? (tab === "rejected" ? items.length : undefined),
-    pending: pendCacheRef.current?.length ?? (tab === "pending" ? items.length : undefined),
   };
 
   // Filtered items for search
@@ -566,81 +561,58 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
 
   return (
     <section className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="mb-2 inline-flex rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Matching IA
+      {/* Header + Vaga Context — unified */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          {vagaId && (
+            <Link href="/vagas" className="inline-flex items-center justify-center size-8 rounded-lg border border-border/60 bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0">
+              <ArrowLeft className="size-4" />
+            </Link>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold tracking-tight leading-tight truncate">
+              {vagaDetail?.titulo ?? "Matching IA"}
+            </h1>
+            {vagaDetail ? (
+              <div className="flex flex-wrap items-center gap-1 mt-1">
+                {vagaDetail.area && <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">{vagaDetail.area}</span>}
+                {vagaDetail.modalidade && <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">{vagaDetail.modalidade}</span>}
+                {vagaDetail.senioridade && <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">{vagaDetail.senioridade}</span>}
+                {(vagaDetail.cidade || vagaDetail.uf) && <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">{[vagaDetail.cidade, vagaDetail.uf].filter(Boolean).join("/")}</span>}
+                {(vagaDetail.quantidadeVagas ?? 0) > 0 && <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">{vagaDetail.quantidadeVagas} vaga(s)</span>}
+                <span className="inline-flex items-center rounded bg-blue-50 px-1.5 py-px text-[10px] font-semibold text-blue-600">Corte {vagaDetail.threshold}%</span>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-xs mt-0.5">Ranqueamento automático por inteligência artificial</p>
+            )}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {vagaDetail?.titulo ?? "Matching de Candidatos"}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Ranqueamento automático · priorize quem avança para triagem e processo seletivo
-          </p>
         </div>
-
-        {/* Action bar */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <Link
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            href="/vagas"
-          >
-            <ArrowLeft className="size-3.5" /> Vagas
-          </Link>
+        {/* Actions */}
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
           {vagaId && (
             <>
-              <Link
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                href={`/candidatos?vagaId=${encodeURIComponent(vagaId)}`}
-              >
-                <ClipboardList className="size-3.5" /> Candidatos
+              <Link className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" href={`/candidatos?vagaId=${encodeURIComponent(vagaId)}`}>
+                <ClipboardList className="size-3" /> Candidatos
               </Link>
-              <Link
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                href={`/gestao/projetos?vagaId=${encodeURIComponent(vagaId)}`}
-              >
-                <FolderOpen className="size-3.5" /> Rodadas
+              <Link className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" href={`/gestao/projetos?vagaId=${encodeURIComponent(vagaId)}`}>
+                <FolderOpen className="size-3" /> Rodadas
               </Link>
             </>
           )}
           {vagaId && vagaDetail && (
             <>
-              <button
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                type="button"
-                onClick={() => setShowFilterModal(true)}
-              >
-                <SlidersHorizontal className="size-3.5" /> Filtros IA
+              <button className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" type="button" onClick={() => setShowFilterModal(true)}>
+                <SlidersHorizontal className="size-3" /> Filtros IA
               </button>
-              {/* Top N — número direto, sem slider */}
-              <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">Top</span>
-                <input
-                  type="number"
-                  min={5}
-                  max={100}
-                  step={5}
-                  value={topN}
-                  className="w-12 bg-transparent text-sm font-semibold text-center focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  onChange={(e) => {
-                    const n = Math.min(100, Math.max(5, Number(e.target.value) || 20));
-                    setTopN(n);
-                  }}
-                />
-                {cachedCount > topN && (
-                  <span className="text-[10px] text-emerald-600 whitespace-nowrap">{cachedCount} cache</span>
-                )}
+              <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-card px-2.5 py-1.5">
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Top</span>
+                <input type="number" min={5} max={100} step={5} value={topN} className="w-10 bg-transparent text-xs font-semibold text-center focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" onChange={(e) => { setTopN(Math.min(100, Math.max(5, Number(e.target.value) || 20))); }} />
               </div>
             </>
           )}
           {vagaId && vagaDetail && vagaDetail.matchingFiltrosOriginaisRaw != null && vagaDetail.matchingFiltrosOriginaisRaw !== (vagaDetail.matchingFiltrosRaw ?? "") && (
-            <button
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              type="button"
-              onClick={() => void revertFiltros()}
-            >
-              <RotateCcw className="size-3.5" /> Reverter filtros
+            <button className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" type="button" onClick={() => void revertFiltros()}>
+              <RotateCcw className="size-3" /> Reverter
             </button>
           )}
         </div>
@@ -652,24 +624,48 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         </div>
       )}
 
+      {/* Pesos IA — barra horizontal compacta */}
+      {vagaId && vagaDetail && (
+        <div className="flex items-center gap-4 rounded-lg border border-border/40 bg-card px-4 py-2.5 shadow-sm">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest shrink-0">Pesos IA</span>
+          <div className="flex-1 flex items-center gap-4">
+            {([
+              { label: "Competência", value: vagaDetail.weightsCompetencia ?? 40, color: "#2563eb" },
+              { label: "Experiência", value: vagaDetail.weightsExperiencia ?? 30, color: "#7c3aed" },
+              { label: "Formação", value: vagaDetail.weightsFormacao ?? 15, color: "#0891b2" },
+              { label: "Localidade", value: vagaDetail.weightsLocalidade ?? 15, color: "#059669" },
+            ] as const).map(w => (
+              <div key={w.label} className="flex items-center gap-1.5 min-w-0">
+                <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: w.color }} />
+                <span className="text-[11px] text-slate-500 whitespace-nowrap">{w.label}</span>
+                <span className="text-[11px] font-bold tabular-nums text-slate-700">{w.value}%</span>
+              </div>
+            ))}
+          </div>
+          {vagaDetail.requisitos.length > 0 && (
+            <span className="text-[10px] text-muted-foreground shrink-0">{vagaDetail.requisitos.length} requisito(s)</span>
+          )}
+        </div>
+      )}
+
       {/* KPI Cards */}
-      {vagaId && (
+      {vagaId && kpiTotal > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total na aba</div>
-            <div className="text-2xl font-bold mt-1">{kpiTotal}</div>
+          <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Total na aba</div>
+            <div className="text-2xl font-bold mt-1.5 tabular-nums">{kpiTotal}</div>
           </div>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Acima do corte</div>
-            <div className="text-2xl font-bold mt-1 text-green-600">{kpiAboveThreshold}</div>
+          <div className="rounded-xl border border-green-100 bg-green-50/50 shadow-sm p-4">
+            <div className="text-[10px] font-semibold text-green-600/70 uppercase tracking-widest">Acima do corte</div>
+            <div className="text-2xl font-bold mt-1.5 text-green-600 tabular-nums">{kpiAboveThreshold}</div>
           </div>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Abaixo do corte</div>
-            <div className="text-2xl font-bold mt-1 text-amber-600">{kpiBelowThreshold}</div>
+          <div className="rounded-xl border border-amber-100 bg-amber-50/50 shadow-sm p-4">
+            <div className="text-[10px] font-semibold text-amber-600/70 uppercase tracking-widest">Abaixo do corte</div>
+            <div className="text-2xl font-bold mt-1.5 text-amber-600 tabular-nums">{kpiBelowThreshold}</div>
           </div>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Score médio</div>
-            <div className="text-2xl font-bold mt-1">{kpiAvgScore}%</div>
+          <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Score médio</div>
+            <div className="text-2xl font-bold mt-1.5 tabular-nums">{kpiAvgScore}%</div>
           </div>
         </div>
       )}
@@ -725,12 +721,12 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
           </div>
           {selectedIds.size > 0 && (
             <div className="flex gap-1.5">
-              {(tab === "suggestions" || tab === "pending") && (
+              {tab === "suggestions" && (
                 <button className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 font-semibold transition-colors" type="button" onClick={() => void batchAction("Aprovado")}>
                   <Check className="size-3" /> Aprovar {selectedIds.size}
                 </button>
               )}
-              {(tab === "suggestions" || tab === "pending" || tab === "approved") && (
+              {(tab === "suggestions" || tab === "approved") && (
                 <button className="inline-flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-md bg-red-50 text-red-700 hover:bg-red-100 font-semibold transition-colors" type="button" onClick={() => void batchAction("Reprovado")}>
                   <X className="size-3" /> Reprovar {selectedIds.size}
                 </button>
@@ -750,38 +746,53 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         </div>
       )}
 
-      {/* Processing banner */}
+      {/* Processing banner — sempre visível quando processando */}
       {rankStatus === "processing" && (
-        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium">Atualizando ranking…</span>
-            {processingComputed && <span className="text-xs font-semibold">{processingComputed.progressPct}% • {formatDuration(processingComputed.elapsedMs)} • ~{formatDuration(processingComputed.remainingMs)}</span>}
-          </div>
-          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
-            <div className="h-full rounded-full bg-blue-600 transition-all duration-500" style={{ width: `${processingComputed?.progressPct ?? 8}%` }} />
+        <div className="rounded-xl border border-blue-200/80 bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="size-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-blue-800">Processando matching com IA…</span>
+                {processingComputed && (
+                  <span className="text-xs font-medium text-blue-600 tabular-nums shrink-0">
+                    {processingComputed.progressPct}% &middot; {formatDuration(processingComputed.elapsedMs)} decorridos
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
+                <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-[2000ms] ease-out" style={{ width: `${processingComputed?.progressPct ?? 2}%` }} />
+              </div>
+              <p className="text-[11px] text-blue-500 mt-1.5">A IA está avaliando candidatos e talentos contra os critérios da vaga. Isso pode levar alguns minutos dependendo do volume.</p>
+            </div>
           </div>
         </div>
       )}
       {rankStatus === "failed" && items.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">Falha ao atualizar. Exibindo último resultado disponível.</div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">Falha ao atualizar. Exibindo último resultado disponível.</div>
       )}
 
       {/* Table */}
-      {rankStatus === "loading" && items.length === 0 ? (
-        <div className="rounded-xl border border-border/50 bg-card shadow-sm py-16 text-center">
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <div className="size-10 rounded-full border-2 border-current border-t-transparent animate-spin opacity-30" />
-            <p className="text-sm mt-2">Carregando candidatos…</p>
+      {(rankStatus === "loading" || rankStatus === "processing") && items.length === 0 ? (
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm py-20 text-center">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            {rankStatus === "loading" && <div className="size-8 rounded-full border-2 border-slate-300 border-t-transparent animate-spin" />}
+            <p className="text-sm font-medium">
+              {rankStatus === "processing" ? "Aguardando resultados da IA…" : "Carregando candidatos…"}
+            </p>
+            <p className="text-xs opacity-60 max-w-sm">
+              {rankStatus === "processing" ? "Os candidatos aparecerão aqui assim que a avaliação for concluída." : "Buscando dados do ranking…"}
+            </p>
           </div>
         </div>
-      ) : items.length === 0 && vagaId ? (
-        <div className="rounded-xl border border-border/50 bg-card shadow-sm py-16 text-center">
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <ClipboardList className="size-10 opacity-20" />
-            <p className="text-sm font-medium mt-1">
-              {tab === "rejected" ? "Nenhum candidato reprovado ainda." : tab === "approved" ? "Nenhum candidato aprovado ainda." : tab === "pending" ? "Nenhum candidato pendente." : "Nenhuma sugestão de matching encontrada."}
+      ) : items.length === 0 && vagaId && rankStatus !== "processing" ? (
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm py-20 text-center">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <ClipboardList className="size-10 opacity-15" />
+            <p className="text-sm font-medium">
+              {tab === "rejected" ? "Nenhum candidato reprovado ainda." : tab === "approved" ? "Nenhum candidato aprovado ainda." : "Nenhuma sugestão de matching encontrada."}
             </p>
-            <p className="text-xs opacity-60">
+            <p className="text-xs opacity-60 max-w-sm">
               {tab === "suggestions" ? "Verifique os filtros de IA ou aguarde o ranking ser processado." : "Os candidatos aparecerão aqui quando movidos para esta etapa."}
             </p>
           </div>
@@ -802,6 +813,8 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
                   </th>
                   <th className="text-left px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider">Nome</th>
                   <th className="text-center px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-16">Score</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-16 hidden xl:table-cell">Filtros</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-16 hidden xl:table-cell">Requis.</th>
                   <th className="text-left px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Observação</th>
                   <th className="text-center px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-24 hidden md:table-cell">Trab.?</th>
                   <th className="text-left px-3 py-2.5 font-semibold text-xs text-muted-foreground uppercase tracking-wider w-28 hidden md:table-cell">Cidade/UF</th>
@@ -834,7 +847,9 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-center"><ScoreCircle score={r.score} size={32} /></td>
+                      <td className="px-3 py-2 text-center" title={r.justificativa || undefined}><ScoreCircle score={r.score} size={32} /></td>
+                      <td className="px-3 py-2 text-center text-xs font-mono text-muted-foreground hidden xl:table-cell">{r.scoreFiltros != null ? `${r.scoreFiltros}%` : "—"}</td>
+                      <td className="px-3 py-2 text-center text-xs font-mono text-muted-foreground hidden xl:table-cell">{r.scoreRequisitos != null ? `${r.scoreRequisitos}%` : "—"}</td>
                       {/* Obs inline-edit */}
                       <td className="px-3 py-2 hidden lg:table-cell" onClick={e => e.stopPropagation()}>
                         {isEditingObs ? (
@@ -876,30 +891,23 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
                       <td className="px-3 py-2 text-center">
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[0.6rem] font-semibold ${tab === "approved" ? "bg-green-100 text-green-700" :
                           tab === "rejected" ? "bg-red-100 text-red-700" :
-                            tab === "pending" ? "bg-yellow-100 text-yellow-700" :
                               isPass ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
                           }`}>
-                          {tab === "approved" ? "Aprovado" : tab === "rejected" ? "Reprovado" : tab === "pending" ? "Pendente" : isPass ? "Dentro" : "Abaixo"}
+                          {tab === "approved" ? "Aprovado" : tab === "rejected" ? "Reprovado" : isPass ? "Dentro" : "Abaixo"}
                         </span>
                       </td>
                       {/* Ações */}
                       <td className="px-3 py-2 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           {tab === "suggestions" && <>
-                            <button className="p-1 rounded hover:bg-green-100 text-green-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Aprovado")} title="Aprovar"><Check className="size-3.5" /></button>
-                            <button className="p-1 rounded hover:bg-red-100 text-red-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Reprovado")} title="Reprovar"><X className="size-3.5" /></button>
-                            <button className="p-1 rounded hover:bg-yellow-100 text-yellow-700 transition-colors" type="button" onClick={() => promptPendente(r.id, r.source)} title="Pendente"><Clock className="size-3.5" /></button>
+                            <button className="p-1 rounded hover:bg-green-100 text-green-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Aprovado")} title="Aprovar → Avançar para processo seletivo"><Check className="size-3.5" /></button>
+                            <button className="p-1 rounded hover:bg-red-100 text-red-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Reprovado")} title="Reprovar candidato"><X className="size-3.5" /></button>
                           </>}
                           {tab === "approved" && <>
                             <button className="p-1 rounded hover:bg-amber-100 text-amber-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Triagem")} title="Mover para Triagem"><RotateCcw className="size-3.5" /></button>
                             <button className="p-1 rounded hover:bg-red-100 text-red-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Reprovado")} title="Reprovar"><X className="size-3.5" /></button>
                           </>}
                           {tab === "rejected" && <button className="p-1 rounded hover:bg-amber-100 text-amber-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Triagem")} title="Mover para Triagem"><RotateCcw className="size-3.5" /></button>}
-                          {tab === "pending" && <>
-                            <button className="p-1 rounded hover:bg-green-100 text-green-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Aprovado")} title="Aprovar"><Check className="size-3.5" /></button>
-                            <button className="p-1 rounded hover:bg-amber-100 text-amber-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Triagem")} title="Mover para Triagem"><RotateCcw className="size-3.5" /></button>
-                            <button className="p-1 rounded hover:bg-red-100 text-red-700 transition-colors" type="button" onClick={() => void changeStatus(r.id, r.source, "Reprovado")} title="Reprovar"><X className="size-3.5" /></button>
-                          </>}
                           <button className="p-1 rounded hover:bg-slate-100 text-slate-600 transition-colors" type="button" onClick={() => void onSelectCandidate(r.id)} title="Ver detalhes"><Eye className="size-3.5" /></button>
                         </div>
                       </td>
@@ -932,7 +940,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
           onApprove={() => void changeStatus(selected.id, selected.source, "Aprovado")}
           onReject={() => void changeStatus(selected.id, selected.source, "Reprovado")}
           onRestore={() => void changeStatus(selected.id, selected.source, "Triagem")}
-          onPending={() => promptPendente(selected.id, selected.source)}
+          onPending={() => {}}
           onSaveCv={() => void saveCvText()}
           onUpdateObs={(obs) => void saveObs(selected.id, obs)}
         />

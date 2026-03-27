@@ -266,6 +266,17 @@ public sealed class VagaService : IVagaService
         // Gera embedding da vaga em background (não bloqueia a resposta)
         TryGenerateVagaEmbeddingAsync(entity.Id, ct);
 
+        // Se matchingFiltrosRaw foi preenchido na criação, dispara matching em background.
+        if (!string.IsNullOrWhiteSpace(entity.MatchingFiltrosRaw))
+        {
+            try
+            {
+                if (_unifiedMatchingCache != null)
+                    _ = _unifiedMatchingCache.InvalidateAndStartAsync(entity.Id, take: 20, ct: CancellationToken.None);
+            }
+            catch { /* best-effort */ }
+        }
+
         return (await GetByIdAsync(entity.Id, ct))!;
     }
 

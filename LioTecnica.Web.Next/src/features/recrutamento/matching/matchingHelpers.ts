@@ -6,8 +6,8 @@ export type AnyRec = Record<string, any>;
 export const BASE = "/app";
 
 export interface VagaOption { id: string; titulo: string; codigo: string; label: string; createdAtUtc?: string; }
-export interface RankItem { id: string; nome: string; email: string; score: number; pass: boolean; source?: string; obs?: string; scoreFiltros?: number; scoreRequisitos?: number; justificativa?: string; mandatoryTotal?: number; missingMandatoryCount?: number; mandatoryCoverage?: number; hardPenalty?: number; ruleVersion?: string; trabalhando?: boolean | null; pretensaoSalarial?: string; linkedinUrl?: string; fone?: string; cidade?: string; uf?: string; }
-export interface VagaDetail { id: string; titulo: string; codigo: string; threshold: number; requisitos: Requisito[]; matchingFiltrosRaw?: string | null; matchingFiltrosOriginaisRaw?: string | null; }
+export interface RankItem { id: string; nome: string; email: string; score: number; pass: boolean; source?: string; obs?: string; scoreCompetencia?: number; scoreExperiencia?: number; scoreFormacao?: number; scoreLocalidade?: number; scoreFiltros?: number; scoreRequisitos?: number; justificativa?: string; mandatoryTotal?: number; missingMandatoryCount?: number; mandatoryCoverage?: number; hardPenalty?: number; ruleVersion?: string; trabalhando?: boolean | null; pretensaoSalarial?: string; linkedinUrl?: string; fone?: string; cidade?: string; uf?: string; }
+export interface VagaDetail { id: string; titulo: string; codigo: string; threshold: number; requisitos: Requisito[]; matchingFiltrosRaw?: string | null; matchingFiltrosOriginaisRaw?: string | null; area?: string; modalidade?: string; senioridade?: string; cidade?: string; uf?: string; quantidadeVagas?: number; weightsCompetencia?: number; weightsExperiencia?: number; weightsFormacao?: number; weightsLocalidade?: number; }
 export interface Requisito { id: string; termo: string; peso: number; obrigatorio: boolean; sinonimos: string[]; }
 export interface CandidatoFull { id: string; nome: string; email: string; source?: string; cvText?: string; resumoProfissional?: string; documentos?: { nome?: string; fileName?: string; url?: string; link?: string }[]; updatedAt?: string; linkedinUrl?: string; fone?: string; trabalhando?: boolean | null; pretensaoSalarial?: string; cidade?: string; uf?: string; }
 export interface MatchResult { score: number; pass: boolean; hits: Requisito[]; missMandatory: Requisito[]; totalPeso: number; hitPeso: number; threshold: number; }
@@ -16,13 +16,13 @@ export type TabKey = "suggestions" | "approved" | "rejected" | "pending";
 export function pk(v: unknown, fb = ""): string { return typeof v === "string" ? v : v == null ? fb : String(v); }
 export function pn(v: unknown, fb = 0): number { const n = typeof v === "number" ? v : Number(v); return Number.isFinite(n) ? n : fb; }
 export function clamp(n: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, n)); }
-export function formatDuration(ms: number) { const s = Math.max(0, Math.round(ms / 1000)); const m = Math.floor(s / 60); return m > 0 ? `${m}m ${(s % 60).toString().padStart(2, "0")}s` : `${s % 60}s`; }
+export function formatDuration(ms: number) { const s = Math.max(0, Math.round(ms / 1000)); const m = Math.floor(s / 60); return m > 0 ? `${m}min ${(s % 60).toString().padStart(2, "0")}s` : `${s}s`; }
 export function initials(name: string) { const p = name.trim().split(/\s+/).filter(Boolean); return ((p[0]?.[0] ?? "?") + (p.length > 1 ? p[p.length - 1]?.[0] ?? "" : "")).toUpperCase(); }
 
 export function timingStorageKey(vagaId: string) { return `matching_timing_${vagaId}`; }
 export function readExpectedTotalMs(vagaId: string) {
-    if (!vagaId || typeof window === "undefined") return 45000;
-    try { const raw = window.localStorage.getItem(timingStorageKey(vagaId)); const arr = raw ? (JSON.parse(raw) as number[]) : []; const valid = arr.filter(x => Number.isFinite(x) && x >= 5000 && x <= 300000); if (!valid.length) return 45000; return clamp(Math.round(valid.reduce((a, b) => a + b, 0) / valid.length), 8000, 120000); } catch { return 45000; }
+    if (!vagaId || typeof window === "undefined") return 180000;
+    try { const raw = window.localStorage.getItem(timingStorageKey(vagaId)); const arr = raw ? (JSON.parse(raw) as number[]) : []; const valid = arr.filter(x => Number.isFinite(x) && x >= 5000 && x <= 600000); if (!valid.length) return 180000; return clamp(Math.round(valid.reduce((a, b) => a + b, 0) / valid.length), 30000, 600000); } catch { return 180000; }
 }
 export function saveObservedDurationMs(vagaId: string, durationMs: number) {
     if (!vagaId || typeof window === "undefined") return;
@@ -56,15 +56,26 @@ export function mapVagas(raw: unknown): VagaOption[] {
 }
 
 export function mapRankItem(x: AnyRec): RankItem {
-    return { id: pk(x.candidatoId ?? x.id), nome: pk(x.nome), email: pk(x.email), score: clamp(pn(x.score), 0, 100), pass: typeof x.pass === "boolean" ? x.pass : pn(x.score) >= 70, source: pk(x.source, "candidato"), obs: pk(x.obs), scoreFiltros: pn(x.scoreFiltros), scoreRequisitos: pn(x.scoreRequisitos), justificativa: pk(x.justificativa), mandatoryTotal: pn(x.mandatoryTotal), missingMandatoryCount: pn(x.missingMandatoryCount), mandatoryCoverage: pn(x.mandatoryCoverage, 100), hardPenalty: pn(x.hardPenalty), ruleVersion: pk(x.ruleVersion), trabalhando: x.trabalhando ?? x.trabalhandoAtualmente ?? null, pretensaoSalarial: pk(x.pretensaoSalarial), linkedinUrl: pk(x.linkedinUrl), fone: pk(x.fone), cidade: pk(x.cidade), uf: pk(x.uf) };
+    return { id: pk(x.candidatoId ?? x.id), nome: pk(x.nome), email: pk(x.email), score: clamp(pn(x.score), 0, 100), pass: typeof x.pass === "boolean" ? x.pass : pn(x.score) >= 70, source: pk(x.source, "candidato"), obs: pk(x.obs), scoreCompetencia: pn(x.scoreCompetencia), scoreExperiencia: pn(x.scoreExperiencia), scoreFormacao: pn(x.scoreFormacao), scoreLocalidade: pn(x.scoreLocalidade), scoreFiltros: pn(x.scoreFiltros), scoreRequisitos: pn(x.scoreRequisitos), justificativa: pk(x.justificativa), mandatoryTotal: pn(x.mandatoryTotal), missingMandatoryCount: pn(x.missingMandatoryCount), mandatoryCoverage: pn(x.mandatoryCoverage, 100), hardPenalty: pn(x.hardPenalty), ruleVersion: pk(x.ruleVersion), trabalhando: x.trabalhando ?? x.trabalhandoAtualmente ?? null, pretensaoSalarial: pk(x.pretensaoSalarial), linkedinUrl: pk(x.linkedinUrl), fone: pk(x.fone), cidade: pk(x.cidade), uf: pk(x.uf) };
 }
 
 export function mapVagaDetail(d: AnyRec): VagaDetail {
     const reqs = Array.isArray(d.requisitos) ? d.requisitos : [];
+    const w = (d.weights ?? {}) as AnyRec;
     return {
         id: pk(d.id), titulo: pk(d.titulo), codigo: pk(d.codigo), threshold: clamp(pn(d.threshold ?? d.matchingThreshold ?? d.matchMinimoPercentual), 0, 100),
         requisitos: reqs.map((r: AnyRec) => ({ id: pk(r.id ?? r.nome ?? r.termo), termo: pk(r.termo ?? r.nome), peso: parsePeso(r.peso), obrigatorio: !!r.obrigatorio, sinonimos: Array.isArray(r.sinonimos) ? r.sinonimos.map(String) : pk(r.sinonimosRaw).split(/[;,]/).map(x => x.trim()).filter(Boolean) })),
-        matchingFiltrosRaw: d.matchingFiltrosRaw ?? null, matchingFiltrosOriginaisRaw: d.matchingFiltrosOriginaisRaw ?? null
+        matchingFiltrosRaw: d.matchingFiltrosRaw ?? null, matchingFiltrosOriginaisRaw: d.matchingFiltrosOriginaisRaw ?? null,
+        area: pk(d.areaName ?? d.area),
+        modalidade: pk(d.modalidade),
+        senioridade: pk(d.senioridade),
+        cidade: pk(d.cidade),
+        uf: pk(d.uf),
+        quantidadeVagas: pn(d.quantidadeVagas),
+        weightsCompetencia: pn(w.competencia ?? d.pesoCompetencia, 40),
+        weightsExperiencia: pn(w.experiencia ?? d.pesoExperiencia, 30),
+        weightsFormacao: pn(w.formacao ?? d.pesoFormacao, 15),
+        weightsLocalidade: pn(w.localidade ?? d.pesoLocalidade, 15),
     };
 }
 

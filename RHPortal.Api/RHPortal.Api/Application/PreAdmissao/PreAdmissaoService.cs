@@ -6,6 +6,7 @@ using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Storage;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
 
@@ -23,6 +24,9 @@ public interface IPreAdmissaoService
     Task<BuscaCpfResponse> BuscarPorCpfAsync(string cpf, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse> UploadDocumentoAsync(Guid preAdmissaoId, TipoDocumento tipo, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, Guid docId, CancellationToken ct);
+    Task<IReadOnlyList<DocumentoSolicitadoResponse>> SalvarDocumentosSolicitadosAsync(Guid preAdmissaoId, SalvarDocumentosSolicitadosRequest request, CancellationToken ct);
+    Task<GerarLinkResponse?> GerarLinkAsync(Guid preAdmissaoId, GerarLinkRequest request, CancellationToken ct);
+    Task<ValidarDocumentoResponse?> ValidarDocumentoAsync(Guid preAdmissaoId, Guid docId, ValidarDocumentoRequest request, CancellationToken ct);
     Task<IReadOnlyList<PreAdmissaoPendenteIntegracaoRow>> ListPendentesIntegracaoAsync(CancellationToken ct);
     Task<IReadOnlyList<PreAdmissaoPainelIntegracaoRow>> ListPainelIntegracaoAsync(IntegracaoResultado? filtro, CancellationToken ct);
     Task<(PreAdmissaoDetailResponse? Result, string? Error)> RegistrarResultadoIntegracaoAsync(Guid id, IntegracaoResultadoRequest request, CancellationToken ct);
@@ -39,6 +43,12 @@ public interface IPreAdmissaoService
     /// no registro de pré-admissão. Avança para EmRevisão quando RG + Comprovante chegam.
     /// </summary>
     Task<PreAdmissaoDetailResponse?> ReceberDocumentosExternosAsync(Guid id, DocumentoExternoRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// RH inicia admissão manual a partir de um candidato aprovado no recrutamento.
+    /// Cria pré-admissão em Rascunho pré-preenchida com os dados básicos do candidato.
+    /// </summary>
+    Task<PreAdmissaoDetailResponse> IniciarManualAsync(IniciarManualRequest request, CancellationToken ct);
 }
 
 public sealed class PreAdmissaoService : IPreAdmissaoService
@@ -48,6 +58,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IEmailQueueService _emailQueue;
     private readonly IItaloIntegrationService _italoService;
+    private readonly IS3StorageService _storage;
     private readonly ILogger<PreAdmissaoService> _logger;
 
     public PreAdmissaoService(
@@ -56,6 +67,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         UserManager<ApplicationUser> userManager,
         IEmailQueueService emailQueue,
         IItaloIntegrationService italoService,
+        IS3StorageService storage,
         ILogger<PreAdmissaoService> logger)
     {
         _db = db;
@@ -63,6 +75,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _userManager = userManager;
         _emailQueue = emailQueue;
         _italoService = italoService;
+        _storage = storage;
         _logger = logger;
     }
 
@@ -96,7 +109,11 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             x.JobPosition != null ? x.JobPosition.Name : null,
             x.Area != null ? x.Area.Name : null,
             x.Unit != null ? x.Unit.Name : null,
-            x.Status, x.DataAdmissao, x.Salario, x.PreenchidoPor, x.CreatedAtUtc
+            x.Status, x.DataAdmissao, x.Salario, x.PreenchidoPor, x.CreatedAtUtc,
+            x.Documentos.Count(),
+            x.Documentos.Count(d => d.Status == StatusDocumento.PendenteValidacao),
+            x.Documentos.Count(d => d.Status == StatusDocumento.Validado),
+            x.Documentos.Count(d => d.Status == StatusDocumento.Rejeitado)
         )).ToListAsync(ct);
     }
 
@@ -108,6 +125,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .Include(x => x.Unit).Include(x => x.Area).Include(x => x.JobPosition)
             .Include(x => x.RevisadoPor).Include(x => x.AprovadoPor)
             .Include(x => x.Documentos)
+            .Include(x => x.DocumentosSolicitados)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         return e is null ? null : MapDetail(e);
     }
@@ -356,11 +374,15 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     public async Task<PreAdmissaoDocumentoResponse> UploadDocumentoAsync(
         Guid preAdmissaoId, TipoDocumento tipo, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct)
     {
-        var storagePath = $"documentos/pre-admissao/{preAdmissaoId}/{Guid.NewGuid()}{Path.GetExtension(nomeArquivo)}";
-        var fullPath = Path.Combine("wwwroot", storagePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        using (var fs = File.Create(fullPath))
-            await stream.CopyToAsync(fs, ct);
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>().AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct)
+            ?? throw new InvalidOperationException("Pré-admissão não encontrada.");
+        var folder = pa.CandidatoId.HasValue
+            ? $"{_tenantContext.TenantId}/candidatos/{pa.CandidatoId.Value:N}"
+            : $"{_tenantContext.TenantId}/admissao/{preAdmissaoId:N}";
+        var ext = Path.GetExtension(nomeArquivo);
+        var storagePath = $"{folder}/{(int)tipo}_{Guid.NewGuid():N}{ext}";
+        await _storage.UploadAsync(stream, storagePath, contentType, ct);
 
         var doc = new PreAdmissaoDocumento
         {
@@ -378,19 +400,87 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         };
         _db.Set<PreAdmissaoDocumento>().Add(doc);
         await _db.SaveChangesAsync(ct);
-        return new PreAdmissaoDocumentoResponse(doc.Id, doc.Tipo, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes, doc.Status, null, doc.CreatedAtUtc);
+        return new PreAdmissaoDocumentoResponse(doc.Id, doc.Tipo, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes, doc.Status, null, doc.CreatedAtUtc, _storage.GetPresignedUrl(doc.StoragePath));
     }
 
     public async Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, Guid docId, CancellationToken ct)
     {
         var doc = await _db.Set<PreAdmissaoDocumento>().FirstOrDefaultAsync(d => d.Id == docId && d.PreAdmissaoId == preAdmissaoId, ct);
         if (doc is null) return false;
-        var fullPath = Path.Combine("wwwroot", doc.StoragePath);
-        if (File.Exists(fullPath)) File.Delete(fullPath);
+        await _storage.DeleteAsync(doc.StoragePath, ct);
         _db.Set<PreAdmissaoDocumento>().Remove(doc);
         await _db.SaveChangesAsync(ct);
         return true;
     }
+
+    // ── Solicitação de documentos / link / validação ──
+
+    public async Task<IReadOnlyList<DocumentoSolicitadoResponse>> SalvarDocumentosSolicitadosAsync(
+        Guid preAdmissaoId, SalvarDocumentosSolicitadosRequest request, CancellationToken ct)
+    {
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
+            .Include(x => x.DocumentosSolicitados)
+            .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct)
+            ?? throw new InvalidOperationException("Pré-admissão não encontrada.");
+
+        if (pa.Status != PreAdmissaoStatus.PreenchimentoPendente && pa.Status != PreAdmissaoStatus.Rascunho)
+            throw new InvalidOperationException("Só é possível configurar documentos quando status é Rascunho ou Preenchimento Pendente.");
+
+        _db.Set<PreAdmissaoDocumentoSolicitado>().RemoveRange(pa.DocumentosSolicitados);
+
+        var novos = request.Documentos.Select(d => new PreAdmissaoDocumentoSolicitado
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            PreAdmissaoId = preAdmissaoId,
+            TipoDocumento = d.TipoDocumento,
+            Obrigatorio = d.Obrigatorio,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+        }).ToList();
+
+        _db.Set<PreAdmissaoDocumentoSolicitado>().AddRange(novos);
+        await _db.SaveChangesAsync(ct);
+
+        return novos.Select(d => new DocumentoSolicitadoResponse(d.TipoDocumento, TipoDocumentoLabel(d.TipoDocumento), d.Obrigatorio)).ToList();
+    }
+
+    public async Task<GerarLinkResponse?> GerarLinkAsync(Guid preAdmissaoId, GerarLinkRequest request, CancellationToken ct)
+    {
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
+            .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct);
+        if (pa is null) return null;
+
+        if (pa.Status != PreAdmissaoStatus.PreenchimentoPendente && pa.Status != PreAdmissaoStatus.Rascunho)
+            throw new InvalidOperationException("Só é possível gerar link quando status é Rascunho ou Preenchimento Pendente.");
+
+        pa.Cpf = NormalizeCpf(request.Cpf);
+        pa.AccessToken ??= Guid.NewGuid().ToString("N");
+        pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        var url = $"/DocumentoAdmissao?tenantId={_tenantContext.TenantId}&preAdmissaoId={pa.Id}";
+        return new GerarLinkResponse(pa.AccessToken, url);
+    }
+
+    public async Task<ValidarDocumentoResponse?> ValidarDocumentoAsync(
+        Guid preAdmissaoId, Guid docId, ValidarDocumentoRequest request, CancellationToken ct)
+    {
+        var doc = await _db.Set<PreAdmissaoDocumento>()
+            .FirstOrDefaultAsync(d => d.Id == docId && d.PreAdmissaoId == preAdmissaoId, ct);
+        if (doc is null) return null;
+
+        if (request.Status == StatusDocumento.Rejeitado && string.IsNullOrWhiteSpace(request.ObservacaoRh))
+            throw new InvalidOperationException("Observação é obrigatória ao rejeitar um documento.");
+
+        doc.Status = request.Status;
+        doc.ObservacaoRh = request.ObservacaoRh?.Trim();
+        doc.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return new ValidarDocumentoResponse(doc.Id, doc.Status, doc.ObservacaoRh, doc.UpdatedAtUtc);
+    }
+
+    private static string NormalizeCpf(string cpf) => cpf.Replace(".", "").Replace("-", "").Replace(" ", "").Trim();
 
     // ── Integração TOTVS ──
 
@@ -474,6 +564,42 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
                 x.IntegracaoResultado, x.IntegracaoMensagem,
                 x.ApprovedAtUtc, x.IntegradaEmUtc))
             .ToListAsync(ct);
+    }
+
+    // ── Admissão Manual — RH inicia a partir de candidato aprovado ──
+
+    public async Task<PreAdmissaoDetailResponse> IniciarManualAsync(IniciarManualRequest request, CancellationToken ct)
+    {
+        var candidato = await _db.Set<Candidato>().AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == request.CandidatoId && c.TenantId == _tenantContext.TenantId, ct)
+            ?? throw new InvalidOperationException("Candidato não encontrado.");
+
+        if (candidato.Status != CandidateStatus.Aprovado)
+            throw new InvalidOperationException($"Candidato não está aprovado (status atual: {candidato.Status}).");
+
+        var entity = new Domain.Entities.PreAdmissao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            Status = PreAdmissaoStatus.Rascunho,
+            PreenchidoPor = PreenchidoPor.RH,
+            CandidatoId = candidato.Id,
+            Nome = candidato.Nome.Trim(),
+            Email = candidato.Email?.Trim(),
+            Celular = candidato.Fone?.Trim(),
+            JobPositionId = request.JobPositionId,
+            AreaId = request.AreaId,
+            UnitId = request.UnitId,
+            DataAdmissao = request.DataAdmissao,
+            Salario = request.Salario,
+            TipoContratacao = request.TipoContratacao,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+
+        _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
+        await _db.SaveChangesAsync(ct);
+        return (await GetByIdAsync(entity.Id, ct))!;
     }
 
     // ── Fluxo Ítalo — Gestor aprova contratação ──
@@ -566,11 +692,13 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
                     _ => Path.GetExtension(request.NomeArquivo ?? "") is { Length: > 0 } x ? x : ".bin",
                 };
                 var nomeArquivo = request.NomeArquivo ?? $"{tipoLower}{ext}";
-                var storagePath = $"documentos/pre-admissao/{id}/{Guid.NewGuid()}{ext}";
-                var fullPath = Path.Combine("wwwroot", storagePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+                var folder = e.CandidatoId.HasValue
+                    ? $"{_tenantContext.TenantId}/candidatos/{e.CandidatoId.Value:N}"
+                    : $"{_tenantContext.TenantId}/admissao/{id:N}";
+                var storagePath = $"{folder}/{(int)tipoDoc}_{Guid.NewGuid():N}{ext}";
                 var bytes = Convert.FromBase64String(request.DocumentoBase64);
-                await File.WriteAllBytesAsync(fullPath, bytes, ct);
+                using var ms = new MemoryStream(bytes);
+                await _storage.UploadAsync(ms, storagePath, request.ContentType ?? "application/octet-stream", ct);
 
                 var doc = new PreAdmissaoDocumento
                 {
@@ -642,7 +770,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         return digits[10] - '0' == d2;
     }
 
-    private static PreAdmissaoDetailResponse MapDetail(Domain.Entities.PreAdmissao e) => new(
+    private PreAdmissaoDetailResponse MapDetail(Domain.Entities.PreAdmissao e) => new(
         e.Id, e.Status, e.PreenchidoPor, e.CandidatoId,
         e.RevisadoPor?.Name, e.AprovadoPor?.Name,
         e.ObservacaoRh, e.MotivoRejeicao,
@@ -661,7 +789,33 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ReservistaNumero, e.CategoriaCnh, e.ValidadeCnh, e.Ctps, e.CtpsSerie, e.CtpsUf,
         e.ValidacaoCpfOk, e.ValidacaoCepOk, e.ValidacaoBancoOk, e.ValidacaoSalarioOk, e.ValidacaoSalarioJustificativa,
         e.CreatedAtUtc, e.SubmittedAtUtc, e.ApprovedAtUtc,
-        e.Documentos.Select(d => new PreAdmissaoDocumentoResponse(d.Id, d.Tipo, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.Status, d.ObservacaoRh, d.CreatedAtUtc)).ToList(),
+        e.Documentos.Select(d => new PreAdmissaoDocumentoResponse(
+            d.Id, d.Tipo, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.Status, d.ObservacaoRh,
+            d.CreatedAtUtc, _storage.GetPresignedUrl(d.StoragePath))).ToList(),
+        (e.DocumentosSolicitados ?? []).Select(ds => new DocumentoSolicitadoResponse(
+            ds.TipoDocumento, TipoDocumentoLabel(ds.TipoDocumento), ds.Obrigatorio)).ToList(),
+        e.AccessToken,
         e.IntegracaoResultado, e.IntegracaoMensagem, e.IntegradaEmUtc
     );
+
+    internal static string TipoDocumentoLabel(TipoDocumento tipo) => tipo switch
+    {
+        TipoDocumento.RG => "RG",
+        TipoDocumento.CPF => "CPF",
+        TipoDocumento.CNH => "CNH",
+        TipoDocumento.TituloEleitor => "Título de Eleitor",
+        TipoDocumento.Reservista => "Reservista",
+        TipoDocumento.ComprovanteResidencia => "Comprovante de Residência",
+        TipoDocumento.CertidaoNascimentoCasamento => "Certidão Nasc./Casamento",
+        TipoDocumento.PisPasep => "PIS/PASEP",
+        TipoDocumento.Outro => "Outro",
+        TipoDocumento.CarteiraTrabalhoCTPS => "Carteira de Trabalho (CTPS)",
+        TipoDocumento.DeclaracaoUniaoEstavel => "Declaração de União Estável",
+        TipoDocumento.RGFilho => "RG dos Filhos",
+        TipoDocumento.CertidaoNascimentoFilho => "Certidão de Nascimento dos Filhos",
+        TipoDocumento.CarteiraVacinacaoFilho => "Carteira de Vacinação dos Filhos",
+        TipoDocumento.ComprovanteBancario => "Comprovante Bancário",
+        TipoDocumento.Foto3x4 => "Foto 3x4",
+        _ => tipo.ToString(),
+    };
 }

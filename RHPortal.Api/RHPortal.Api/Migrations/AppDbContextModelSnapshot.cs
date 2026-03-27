@@ -4600,6 +4600,10 @@ namespace RHPortal.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AccessToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("Agencia")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
@@ -4892,6 +4896,9 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("UnitId");
 
+                    b.HasIndex("TenantId", "AccessToken")
+                        .HasFilter("\"AccessToken\" IS NOT NULL");
+
                     b.HasIndex("TenantId", "Cpf");
 
                     b.HasIndex("TenantId", "Status");
@@ -4954,6 +4961,38 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("TenantId", "PreAdmissaoId");
 
                     b.ToTable("PreAdmissaoDocumentos", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.PreAdmissaoDocumentoSolicitado", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Obrigatorio")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("PreAdmissaoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<short>("TipoDocumento")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PreAdmissaoId");
+
+                    b.HasIndex("TenantId", "PreAdmissaoId");
+
+                    b.ToTable("PreAdmissaoDocumentosSolicitados", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.ProjetoCandidato", b =>
@@ -5945,6 +5984,41 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("TenantId", "TalentoId");
 
                     b.ToTable("TalentoTreinamentos", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantAwsSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccessKeyIdEncrypted")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BucketName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("PresignedUrlExpirationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Region")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("SecretAccessKeyEncrypted")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("TenantAwsSettings");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Unit", b =>
@@ -7506,6 +7580,17 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("PreAdmissao");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.PreAdmissaoDocumentoSolicitado", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.PreAdmissao", "PreAdmissao")
+                        .WithMany("DocumentosSolicitados")
+                        .HasForeignKey("PreAdmissaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PreAdmissao");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.ProjetoCandidato", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.Candidato", "Candidato")
@@ -7948,6 +8033,8 @@ namespace RHPortal.Api.Migrations
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.PreAdmissao", b =>
                 {
                     b.Navigation("Documentos");
+
+                    b.Navigation("DocumentosSolicitados");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Survey", b =>

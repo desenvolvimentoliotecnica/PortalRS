@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 import {
     CheckCircle2, Clock, XCircle, FileText, User, Mail, Phone,
     ArrowLeft, Building2, Briefcase, CalendarDays, RefreshCw,
+    Upload, Eye, Trash2, Copy, Link,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ interface DocumentoResponse {
     status: number;
     observacaoRh: string | null;
     createdAtUtc: string;
+    presignedUrl: string;
 }
 
 interface PreAdmissaoDetail {
@@ -54,6 +56,8 @@ interface PreAdmissaoDetail {
     integracaoMensagem: string | null;
     integradaEmUtc: string | null;
     documentos: DocumentoResponse[];
+    documentosSolicitados: { tipoDocumento: number; label: string; obrigatorio: boolean }[];
+    accessToken: string | null;
 }
 
 /* ────── constants ────── */
@@ -68,9 +72,20 @@ const STATUS_STEPS = [
 const TIPO_DOC_LABEL: Record<number, string> = {
     0: "RG",
     1: "CPF",
-    2: "Comprovante de Residência",
-    3: "Foto",
-    4: "Outros",
+    2: "CNH",
+    3: "Titulo de Eleitor",
+    4: "Reservista",
+    5: "Comprovante de Residencia",
+    6: "Certidao Nasc./Casamento",
+    7: "PIS/PASEP",
+    8: "Outro",
+    9: "Carteira de Trabalho (CTPS)",
+    10: "Declaracao de Uniao Estavel",
+    11: "RG dos Filhos",
+    12: "Certidao de Nascimento dos Filhos",
+    13: "Carteira de Vacinacao dos Filhos",
+    14: "Comprovante Bancario",
+    15: "Foto 3x4",
 };
 
 const STATUS_DOC_LABEL: Record<number, string> = {
@@ -189,6 +204,25 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const [motivoRejeicao, setMotivoRejeicao] = useState("");
     const [rejeitarLoading, setRejeitarLoading] = useState(false);
 
+    /* document solicitation */
+    const [selectedDocs, setSelectedDocs] = useState<Map<number, { checked: boolean; obrigatorio: boolean }>>(new Map());
+    const [savingDocs, setSavingDocs] = useState(false);
+
+    /* link generation */
+    const [linkCpf, setLinkCpf] = useState("");
+    const [generatingLink, setGeneratingLink] = useState(false);
+    const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+
+    /* manual upload */
+    const [uploadTipo, setUploadTipo] = useState(0);
+    const [uploading, setUploading] = useState(false);
+    const fileRef = React.useRef<HTMLInputElement>(null);
+
+    /* document validation */
+    const [rejectDocId, setRejectDocId] = useState<string | null>(null);
+    const [rejectObs, setRejectObs] = useState("");
+    const [validatingDocId, setValidatingDocId] = useState<string | null>(null);
+
     const load = useCallback(async () => {
         setLoading(true);
         try {
@@ -202,6 +236,19 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     }, [id]);
 
     useEffect(() => { void load(); }, [load]);
+
+    /* Initialize selectedDocs from server data */
+    useEffect(() => {
+        if (data?.documentosSolicitados) {
+            const map = new Map<number, { checked: boolean; obrigatorio: boolean }>();
+            data.documentosSolicitados.forEach(ds => map.set(ds.tipoDocumento, { checked: true, obrigatorio: ds.obrigatorio }));
+            setSelectedDocs(map);
+            setLinkCpf(data.cpf ?? "");
+            if (data.accessToken) {
+                setGeneratedUrl(`${window.location.origin}/DocumentoAdmissao?preAdmissaoId=${data.id}`);
+            }
+        }
+    }, [data]);
 
     async function handleAprovar() {
         setAprovarLoading(true);
@@ -240,6 +287,101 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
         }
     }
 
+    async function handleSaveDocsSolicitados() {
+        setSavingDocs(true);
+        try {
+            const documentos: { tipoDocumento: number; obrigatorio: boolean }[] = [];
+            selectedDocs.forEach((val, key) => {
+                if (val.checked) documentos.push({ tipoDocumento: key, obrigatorio: val.obrigatorio });
+            });
+            await fetchJson(`/api/pre-admissao/${id}/documentos-solicitados`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ documentos }),
+            });
+            toast.success("Documentos solicitados salvos com sucesso!");
+            await load();
+        } catch (e) {
+            toast.error(`Falha ao salvar documentos: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setSavingDocs(false);
+        }
+    }
+
+    async function handleGerarLink() {
+        setGeneratingLink(true);
+        try {
+            const res = await fetchJson<{ url: string }>(`/api/pre-admissao/${id}/gerar-link`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cpf: linkCpf.trim() }),
+            });
+            setGeneratedUrl(res.url);
+            toast.success("Link gerado com sucesso!");
+        } catch (e) {
+            toast.error(`Falha ao gerar link: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setGeneratingLink(false);
+        }
+    }
+
+    async function handleUpload() {
+        const file = fileRef.current?.files?.[0];
+        if (!file) { toast.error("Selecione um arquivo."); return; }
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("tipo", String(uploadTipo));
+            const res = await apiFetch(`/api/pre-admissao/${id}/documentos`, {
+                method: "POST",
+                body: formData,
+                cache: "no-store",
+            });
+            if (!res.ok) {
+                const text = await res.text().catch(() => "");
+                throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+            }
+            toast.success("Documento enviado com sucesso!");
+            if (fileRef.current) fileRef.current.value = "";
+            await load();
+        } catch (e) {
+            toast.error(`Falha no upload: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    async function handleValidarDoc(docId: string, status: number, observacao?: string) {
+        setValidatingDocId(docId);
+        try {
+            await fetchJson(`/api/pre-admissao/${id}/documentos/${docId}/validar`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status, observacaoRh: observacao ?? null }),
+            });
+            toast.success(status === 1 ? "Documento aprovado!" : "Documento rejeitado.");
+            setRejectDocId(null);
+            setRejectObs("");
+            await load();
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setValidatingDocId(null);
+        }
+    }
+
+    async function handleDeleteDoc(docId: string) {
+        if (!confirm("Tem certeza que deseja excluir este documento?")) return;
+        try {
+            await fetchJson(`/api/pre-admissao/${id}/documentos/${docId}`, { method: "DELETE" });
+            toast.success("Documento excluído.");
+            await load();
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
     if (loading) {
         return (
             <div className="space-y-4">
@@ -261,6 +403,8 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
 
     const canApprove = data.status === 2;
     const canReject = data.status === 1 || data.status === 2;
+    const docsValidados = data.documentos.filter(d => d.status === 1).length;
+    const docsTotal = data.documentos.length;
 
     return (
         <section className="space-y-5 max-w-4xl mx-auto">
@@ -343,17 +487,165 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                 )}
             </div>
 
-            {/* Documentos */}
-            <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-                    Documentos Recebidos
-                    {data.documentos.length > 0 && (
-                        <span className="ml-2 inline-flex items-center justify-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-                            {data.documentos.length}
-                        </span>
+            {/* CARD A: Solicitar Documentos */}
+            {data.status === 1 && (
+                <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Solicitar Documentos</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {Object.entries(TIPO_DOC_LABEL).map(([key, label]) => {
+                            const tipo = Number(key);
+                            const entry = selectedDocs.get(tipo);
+                            const checked = entry?.checked ?? false;
+                            const obrigatorio = entry?.obrigatorio ?? false;
+                            return (
+                                <div key={tipo} className="flex items-center gap-2 rounded-lg border border-border/40 px-3 py-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={(e) => {
+                                            const next = new Map(selectedDocs);
+                                            next.set(tipo, { checked: e.target.checked, obrigatorio });
+                                            setSelectedDocs(next);
+                                        }}
+                                        className="size-4 rounded border-gray-300 accent-primary"
+                                    />
+                                    <span className="text-sm flex-1 min-w-0 truncate">{label}</span>
+                                    {checked && (
+                                        <label className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={obrigatorio}
+                                                onChange={(e) => {
+                                                    const next = new Map(selectedDocs);
+                                                    next.set(tipo, { checked, obrigatorio: e.target.checked });
+                                                    setSelectedDocs(next);
+                                                }}
+                                                className="size-3 rounded"
+                                            />
+                                            Obrig.
+                                        </label>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                        <Button size="sm" onClick={() => void handleSaveDocsSolicitados()} disabled={savingDocs}>
+                            {savingDocs ? "Salvando..." : "Salvar Solicitações"}
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* CARD B: Link de Acesso do Candidato */}
+            {data.status === 1 && (
+                <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+                        <Link className="size-4 inline-block mr-1 -mt-0.5" />
+                        Link de Acesso do Candidato
+                    </h2>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex-1">
+                            <label className="text-xs font-medium text-muted-foreground">CPF do Candidato</label>
+                            <Input
+                                value={linkCpf}
+                                onChange={(e) => setLinkCpf(e.target.value)}
+                                placeholder="000.000.000-00"
+                                className="mt-1"
+                            />
+                        </div>
+                        <div className="flex items-end">
+                            <Button size="sm" onClick={() => void handleGerarLink()} disabled={generatingLink || !linkCpf.trim()}>
+                                <Link className="size-4 mr-1" />
+                                {generatingLink ? "Gerando..." : "Gerar Link"}
+                            </Button>
+                        </div>
+                    </div>
+                    {generatedUrl && (
+                        <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/40 px-4 py-3">
+                            <code className="text-xs flex-1 min-w-0 truncate select-all">{generatedUrl}</code>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(generatedUrl);
+                                    toast.success("Link copiado!");
+                                }}
+                            >
+                                <Copy className="size-4 mr-1" /> Copiar
+                            </Button>
+                        </div>
                     )}
-                </h2>
-                {data.documentos.length === 0 ? (
+                </div>
+            )}
+
+            {/* CARD C: Upload Manual (RH) */}
+            {(data.status === 1 || data.status === 2) && (
+                <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+                        <Upload className="size-4 inline-block mr-1 -mt-0.5" />
+                        Upload Manual (RH)
+                    </h2>
+                    <div className="flex flex-col sm:flex-row gap-3 items-end">
+                        <div className="flex-1">
+                            <label className="text-xs font-medium text-muted-foreground">Tipo de Documento</label>
+                            <select
+                                value={uploadTipo}
+                                onChange={(e) => setUploadTipo(Number(e.target.value))}
+                                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                            >
+                                {Object.entries(TIPO_DOC_LABEL).map(([key, label]) => (
+                                    <option key={key} value={key}>{label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex-1">
+                            <label className="text-xs font-medium text-muted-foreground">Arquivo</label>
+                            <input
+                                ref={fileRef}
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                className="mt-1 w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                            />
+                        </div>
+                        <Button size="sm" onClick={() => void handleUpload()} disabled={uploading}>
+                            <Upload className="size-4 mr-1" />
+                            {uploading ? "Enviando..." : "Enviar"}
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Documentos Recebidos */}
+            <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                        Documentos Recebidos
+                        {docsTotal > 0 && (
+                            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                                {docsTotal}
+                            </span>
+                        )}
+                    </h2>
+                </div>
+
+                {/* Progress bar */}
+                {docsTotal > 0 && (
+                    <div className="mb-4">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                            <span>Validados</span>
+                            <span>{docsValidados}/{docsTotal}</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                            <div
+                                className="h-full rounded-full bg-green-500 transition-all"
+                                style={{ width: `${docsTotal > 0 ? (docsValidados / docsTotal) * 100 : 0}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {docsTotal === 0 ? (
                     <p className="text-sm text-muted-foreground">Nenhum documento recebido ainda.</p>
                 ) : (
                     <div className="space-y-2">
@@ -365,10 +657,61 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                                     <div className="text-xs text-muted-foreground">
                                         {TIPO_DOC_LABEL[doc.tipo] ?? `Tipo ${doc.tipo}`} · {formatBytes(doc.tamanhoBytes)} · {formatDate(doc.createdAtUtc)}
                                     </div>
+                                    {doc.status === 2 && doc.observacaoRh && (
+                                        <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                            Motivo: {doc.observacaoRh}
+                                        </div>
+                                    )}
                                 </div>
-                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_DOC_COLOR[doc.status] ?? "bg-muted text-muted-foreground"}`}>
-                                    {STATUS_DOC_LABEL[doc.status] ?? doc.status}
-                                </span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_DOC_COLOR[doc.status] ?? "bg-muted text-muted-foreground"}`}>
+                                        {STATUS_DOC_LABEL[doc.status] ?? doc.status}
+                                    </span>
+                                    {doc.presignedUrl && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                            onClick={() => window.open(doc.presignedUrl, "_blank")}
+                                            title="Visualizar"
+                                        >
+                                            <Eye className="size-4" />
+                                        </Button>
+                                    )}
+                                    {doc.status === 0 && data.status === 2 && (
+                                        <>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                onClick={() => void handleValidarDoc(doc.id, 1)}
+                                                disabled={validatingDocId === doc.id}
+                                                title="Validar"
+                                            >
+                                                <CheckCircle2 className="size-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                onClick={() => { setRejectDocId(doc.id); setRejectObs(""); }}
+                                                disabled={validatingDocId === doc.id}
+                                                title="Rejeitar"
+                                            >
+                                                <XCircle className="size-4" />
+                                            </Button>
+                                        </>
+                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                                        onClick={() => void handleDeleteDoc(doc.id)}
+                                        title="Excluir"
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </Button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -427,6 +770,39 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                         <Button variant="destructive" onClick={() => void handleRejeitar()} disabled={rejeitarLoading || !motivoRejeicao.trim()}>
                             <XCircle className="size-4 mr-2" />
                             {rejeitarLoading ? "Rejeitando..." : "Confirmar Rejeição"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Rejeitar documento dialog */}
+            <Dialog open={!!rejectDocId} onOpenChange={(open) => { if (!open) { setRejectDocId(null); setRejectObs(""); } }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Rejeitar Documento</DialogTitle>
+                        <DialogDescription>
+                            Informe o motivo da rejeição deste documento. O candidato poderá reenviar.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Observação *</label>
+                        <textarea
+                            placeholder="Ex: Documento ilegível, dados divergentes..."
+                            value={rejectObs}
+                            onChange={(e) => setRejectObs(e.target.value)}
+                            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-h-[80px] resize-y"
+                            maxLength={500}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setRejectDocId(null); setRejectObs(""); }} disabled={!!validatingDocId}>Cancelar</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => { if (rejectDocId) void handleValidarDoc(rejectDocId, 2, rejectObs.trim()); }}
+                            disabled={!!validatingDocId || !rejectObs.trim()}
+                        >
+                            <XCircle className="size-4 mr-2" />
+                            {validatingDocId ? "Rejeitando..." : "Confirmar Rejeição"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

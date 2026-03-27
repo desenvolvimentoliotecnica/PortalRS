@@ -34,11 +34,11 @@ const STATUS_LABEL: Record<number, string> = {
     2: "Reprovado",
     3: "Disponível",
 };
-const STATUS_VARIANT: Record<number, "default" | "secondary" | "destructive" | "outline"> = {
-    0: "default",
-    1: "secondary",
-    2: "destructive",
-    3: "outline",
+const STATUS_COLOR: Record<number, string> = {
+    0: "bg-blue-500/15 text-blue-700",
+    1: "bg-emerald-500/15 text-emerald-700",
+    2: "bg-red-500/15 text-red-700",
+    3: "bg-amber-500/15 text-amber-700",
 };
 
 /* ────── types ────── */
@@ -370,9 +370,9 @@ export default function ProcessoSeletivoScreen() {
                 </TableCell>
                 <TableCell><ScoreBadge score={c.score} /></TableCell>
                 <TableCell>
-                    <Badge variant={STATUS_VARIANT[c.status] ?? "outline"}>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[c.status] ?? "bg-zinc-400/15 text-zinc-600"}`}>
                         {STATUS_LABEL[c.status] ?? c.status}
-                    </Badge>
+                    </span>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{c.faseAtualNome ?? "—"}</TableCell>
                 <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate hidden md:table-cell">
@@ -400,10 +400,10 @@ export default function ProcessoSeletivoScreen() {
     }
 
     return (
-        <section className="space-y-4">
+        <section className="space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <div className="mb-2 inline-flex rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    <div className="mb-2 inline-flex rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                         Etapa de seleção
                     </div>
                     <h1 className="text-2xl font-semibold tracking-tight">Processo Seletivo</h1>
@@ -424,21 +424,21 @@ export default function ProcessoSeletivoScreen() {
 
             <div className="grid gap-3 md:grid-cols-3">
                 <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
-                    <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Entrada</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Entrada</div>
                     <div className="mt-2 text-sm font-semibold text-foreground">Candidatos da rodada</div>
                     <div className="mt-1 text-xs leading-5 text-muted-foreground">
                         Esta tela recebe os candidatos organizados na rodada anterior para distribuir por fase.
                     </div>
                 </div>
                 <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
-                    <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Execução</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Execução</div>
                     <div className="mt-2 text-sm font-semibold text-foreground">Fases e entrevistas</div>
                     <div className="mt-1 text-xs leading-5 text-muted-foreground">
                         Crie fases, mova candidatos entre elas e acompanhe score, status e observações do processo.
                     </div>
                 </div>
                 <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
-                    <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Próximo passo</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Próximo passo</div>
                     <div className="mt-2 text-sm font-semibold text-foreground">Pré-admissão</div>
                     <div className="mt-1 text-xs leading-5 text-muted-foreground">
                         Depois da aprovação final, o candidato segue para a etapa de pré-admissão e contratação.
@@ -447,10 +447,10 @@ export default function ProcessoSeletivoScreen() {
             </div>
 
             {/* Projeto selector */}
-            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+            <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur shadow-sm">
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Rodada</label>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Rodada</label>
                         <select
                             className="mt-1 block w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
                             value={selectedProjeto?.id ?? ""}
@@ -498,8 +498,8 @@ export default function ProcessoSeletivoScreen() {
                         {/* Filtros */}
                         <div className="flex flex-wrap gap-2">
                             <div className="relative flex-1 min-w-[160px]">
-                                <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input className="pl-8" placeholder="Buscar candidato..." value={q} onChange={(e) => setQ(e.target.value)} />
+                                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input className="pl-9" placeholder="Buscar candidato..." value={q} onChange={(e) => setQ(e.target.value)} />
                             </div>
                             <select
                                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -634,7 +634,7 @@ export default function ProcessoSeletivoScreen() {
                                     const isExpanded = expandedFase === f.id;
                                     const cs = candidatosComScore.filter((c) => c.faseAtualId === f.id);
                                     return (
-                                        <div key={f.id} className="card-soft rounded-xl border border-border/40 bg-card/60 backdrop-blur overflow-hidden">
+                                        <div key={f.id} className="rounded-xl border border-border/40 bg-card/60 backdrop-blur shadow-sm overflow-hidden">
                                             <div
                                                 className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition"
                                                 onClick={() => setExpandedFase(isExpanded ? null : f.id)}
@@ -687,9 +687,9 @@ export default function ProcessoSeletivoScreen() {
                                                                     </TableCell>
                                                                     <TableCell><ScoreBadge score={c.score} /></TableCell>
                                                                     <TableCell>
-                                                                        <Badge variant={STATUS_VARIANT[c.status] ?? "outline"}>
+                                                                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[c.status] ?? "bg-zinc-400/15 text-zinc-600"}`}>
                                                                             {STATUS_LABEL[c.status] ?? c.status}
-                                                                        </Badge>
+                                                                        </span>
                                                                     </TableCell>
                                                                     <TableCell className="text-right">
                                                                         <Button variant="outline" size="icon-xs" title="Mover para outra fase" onClick={() => openMove(c.id)}>
@@ -711,7 +711,7 @@ export default function ProcessoSeletivoScreen() {
                                     const noFase = candidatosComScore.filter((c) => !c.faseAtualId);
                                     if (noFase.length === 0) return null;
                                     return (
-                                        <div className="card-soft rounded-xl border border-dashed border-border/40 bg-card/30 p-4 backdrop-blur">
+                                        <div className="rounded-xl border border-dashed border-border/40 bg-card/30 p-4 backdrop-blur shadow-sm">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <Users className="size-4 text-muted-foreground" />
                                                 <span className="text-sm font-medium text-muted-foreground">Sem fase atribuída ({noFase.length})</span>
@@ -743,11 +743,11 @@ export default function ProcessoSeletivoScreen() {
                     </DialogHeader>
                     <div className="space-y-3 py-2">
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nome</label>
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Nome</label>
                             <Input placeholder="Ex: Triagem, Entrevista Gestor, Teste Técnico..." value={faseNome} onChange={(e) => setFaseNome(e.target.value)} maxLength={160} />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Responsável</label>
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Responsável</label>
                             <select className="mt-1 block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" value={faseResp} onChange={(e) => setFaseResp(Number(e.target.value))}>
                                 <option value={0}>RH</option>
                                 <option value={1}>Gestor</option>
@@ -774,15 +774,15 @@ export default function ProcessoSeletivoScreen() {
                     </DialogHeader>
                     <div className="space-y-3 py-2">
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nome</label>
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Nome</label>
                             <Input value={aprovarTarget?.candidatoNome ?? ""} readOnly className="bg-muted/30" />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">E-mail</label>
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">E-mail</label>
                             <Input value={aprovarTarget?.candidatoEmail ?? "—"} readOnly className="bg-muted/30" />
                         </div>
                         <div>
-                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Celular (opcional)</label>
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Celular (opcional)</label>
                             <Input
                                 placeholder="(11) 99999-0000"
                                 value={aprovarCelular}

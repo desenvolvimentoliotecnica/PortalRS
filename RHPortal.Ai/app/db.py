@@ -41,7 +41,8 @@ def get_vaga_perfil(vaga_id: str, tenant_id: str | None = None) -> dict[str, Any
                        "ExperienciaMinimaAnos", "FormacaoArea",
                        "QuantidadeVagas", "TipoContratacao",
                        "AceitaPcd", "ExigeCnh", "Urgente",
-                       "ResumoPitch"
+                       "ResumoPitch",
+                       "PesoCompetencia", "PesoExperiencia", "PesoFormacao", "PesoLocalidade"
                 FROM "Vagas"
                 WHERE "Id" = %s AND ("TenantId" = %s OR %s = '')
                 """,
