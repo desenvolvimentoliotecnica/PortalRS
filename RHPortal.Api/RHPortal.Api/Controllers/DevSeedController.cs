@@ -346,6 +346,209 @@ public sealed class DevSeedController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Cria pré-admissões com status Aprovada para teste de integração TOTVS.
+    /// Disponibiliza dados em GET /api/pre-admissao/integracao/pendentes
+    /// </summary>
+    [HttpPost("seed/pre-admissoes")]
+    public async Task<IActionResult> SeedPreAdmissoes(CancellationToken ct)
+    {
+        var t = _tenant.TenantId;
+        var now = DateTimeOffset.UtcNow;
+
+        var jaExiste = await _db.PreAdmissoes
+            .AsNoTracking()
+            .AnyAsync(p => p.Status == PreAdmissaoStatus.Aprovada
+                        && p.Nome == "Ana Clara Silva (Mock TOTVS)", ct);
+
+        if (jaExiste)
+            return Ok(new { message = "Mock TOTVS já existe. Use DELETE /api/dev/seed/pre-admissoes para limpar e recriar." });
+
+        var admissoes = new[]
+        {
+            new PreAdmissao
+            {
+                Id = Guid.NewGuid(), TenantId = t,
+                Status = PreAdmissaoStatus.Aprovada, PreenchidoPor = PreenchidoPor.RH,
+                Nome = "Ana Clara Silva (Mock TOTVS)",
+                Cpf = "11122233344", Rg = "11.222.333-4", RgOrgaoExpedidor = "SSP/SP",
+                RgDataExpedicao = new DateOnly(2018, 5, 10),
+                DataNascimento = new DateOnly(1990, 7, 22),
+                Sexo = Sexo.Feminino, EstadoCivil = EstadoCivil.Solteiro,
+                Nacionalidade = "Brasileira",
+                NomeMae = "Maria das Graças Silva", NomePai = "José Carlos Silva",
+                NaturalCidade = "São Paulo", NaturalUf = "SP",
+                Cep = "01310-100", Logradouro = "Avenida Paulista", Numero = "1000",
+                Bairro = "Bela Vista", Cidade = "São Paulo", Uf = "SP",
+                Email = "ana.silva.mock@testmail.com",
+                Telefone = "(11) 3344-5566", Celular = "(11) 99901-1001",
+                ContatoEmergenciaNome = "Carlos Silva", ContatoEmergenciaFone = "(11) 98800-0001",
+                BancoCodigo = "033", BancoNome = "Santander",
+                Agencia = "0001", Conta = "12345678", ContaDigito = "9",
+                TipoConta = TipoContaBancaria.ContaCorrente,
+                DataAdmissao = DateOnly.FromDateTime(DateTime.Today.AddDays(30)),
+                Salario = 9500.00m, TipoContratacao = TipoContratacaoAdmissao.CLT,
+                CargaHorariaSemanal = 44,
+                PisPasep = "123.45678.12-3", Ctps = "0001234", CtpsSerie = "001", CtpsUf = "SP",
+                ValidacaoCpfOk = true, ValidacaoCepOk = true, ValidacaoBancoOk = true, ValidacaoSalarioOk = true,
+                CreatedAtUtc = now.AddDays(-10), UpdatedAtUtc = now.AddDays(-2),
+                SubmittedAtUtc = now.AddDays(-5), ApprovedAtUtc = now.AddDays(-2),
+            },
+            new PreAdmissao
+            {
+                Id = Guid.NewGuid(), TenantId = t,
+                Status = PreAdmissaoStatus.Aprovada, PreenchidoPor = PreenchidoPor.RH,
+                Nome = "Bruno Henrique Costa (Mock TOTVS)",
+                Cpf = "22233344455", Rg = "22.333.444-5", RgOrgaoExpedidor = "SSP/SP",
+                RgDataExpedicao = new DateOnly(2016, 3, 20),
+                DataNascimento = new DateOnly(1988, 11, 5),
+                Sexo = Sexo.Masculino, EstadoCivil = EstadoCivil.Casado,
+                Nacionalidade = "Brasileira",
+                NomeMae = "Rosana Costa", NomePai = "Roberto Costa",
+                NaturalCidade = "Campinas", NaturalUf = "SP",
+                Cep = "13010-110", Logradouro = "Rua Barão de Jaguara", Numero = "500",
+                Bairro = "Centro", Cidade = "Campinas", Uf = "SP",
+                Email = "bruno.costa.mock@testmail.com",
+                Telefone = "(19) 3344-2002", Celular = "(19) 99802-2002",
+                ContatoEmergenciaNome = "Patricia Costa", ContatoEmergenciaFone = "(19) 98700-0002",
+                BancoCodigo = "001", BancoNome = "Banco do Brasil",
+                Agencia = "1234", Conta = "87654321", ContaDigito = "0",
+                TipoConta = TipoContaBancaria.ContaCorrente,
+                DataAdmissao = DateOnly.FromDateTime(DateTime.Today.AddDays(30)),
+                Salario = 7200.00m, TipoContratacao = TipoContratacaoAdmissao.CLT,
+                CargaHorariaSemanal = 44,
+                PisPasep = "234.56789.23-4", Ctps = "0004567", CtpsSerie = "002", CtpsUf = "SP",
+                ValidacaoCpfOk = true, ValidacaoCepOk = true, ValidacaoBancoOk = true, ValidacaoSalarioOk = true,
+                CreatedAtUtc = now.AddDays(-7), UpdatedAtUtc = now.AddDays(-1),
+                SubmittedAtUtc = now.AddDays(-3), ApprovedAtUtc = now.AddDays(-1),
+            },
+            new PreAdmissao
+            {
+                Id = Guid.NewGuid(), TenantId = t,
+                Status = PreAdmissaoStatus.Aprovada, PreenchidoPor = PreenchidoPor.Candidato,
+                Nome = "Carla Mendes Ferreira (Mock TOTVS)",
+                Cpf = "33344455566", Rg = "33.444.555-6", RgOrgaoExpedidor = "SSP/MG",
+                RgDataExpedicao = new DateOnly(2019, 8, 14),
+                DataNascimento = new DateOnly(1995, 4, 14),
+                Sexo = Sexo.Feminino, EstadoCivil = EstadoCivil.Solteiro,
+                Nacionalidade = "Brasileira",
+                NomeMae = "Simone Ferreira",
+                NaturalCidade = "Belo Horizonte", NaturalUf = "MG",
+                Cep = "30130-110", Logradouro = "Rua dos Carijós", Numero = "123",
+                Bairro = "Centro", Cidade = "Belo Horizonte", Uf = "MG",
+                Email = "carla.mendes.mock@testmail.com",
+                Celular = "(31) 99803-3003",
+                ContatoEmergenciaNome = "Simone Ferreira", ContatoEmergenciaFone = "(31) 98800-0003",
+                BancoCodigo = "104", BancoNome = "Caixa Econômica Federal",
+                Agencia = "0547", Conta = "12345678", ContaDigito = "1",
+                TipoConta = TipoContaBancaria.ContaSalario,
+                DataAdmissao = DateOnly.FromDateTime(DateTime.Today.AddDays(7)),
+                Salario = 2200.00m, TipoContratacao = TipoContratacaoAdmissao.Estagio,
+                CargaHorariaSemanal = 30,
+                ValidacaoCpfOk = true, ValidacaoCepOk = true, ValidacaoBancoOk = false, ValidacaoSalarioOk = true,
+                CreatedAtUtc = now.AddDays(-4), UpdatedAtUtc = now,
+                SubmittedAtUtc = now.AddDays(-2), ApprovedAtUtc = now,
+            },
+            new PreAdmissao
+            {
+                Id = Guid.NewGuid(), TenantId = t,
+                Status = PreAdmissaoStatus.Aprovada, PreenchidoPor = PreenchidoPor.RH,
+                Nome = "Diego Rocha Santos (Mock TOTVS)",
+                Cpf = "44455566677", Rg = "44.555.666-7", RgOrgaoExpedidor = "SSP/RJ",
+                RgDataExpedicao = new DateOnly(2017, 1, 30),
+                DataNascimento = new DateOnly(1992, 9, 18),
+                Sexo = Sexo.Masculino, EstadoCivil = EstadoCivil.Solteiro,
+                Nacionalidade = "Brasileira",
+                NomeMae = "Lucia Santos", NomePai = "Paulo Rocha",
+                NaturalCidade = "Rio de Janeiro", NaturalUf = "RJ",
+                Cep = "20040-020", Logradouro = "Rua da Assembleia", Numero = "77",
+                Bairro = "Centro", Cidade = "Rio de Janeiro", Uf = "RJ",
+                Email = "diego.rocha.mock@testmail.com",
+                Telefone = "(21) 3344-4004", Celular = "(21) 99804-4004",
+                ContatoEmergenciaNome = "Lucia Santos", ContatoEmergenciaFone = "(21) 98800-0004",
+                BancoCodigo = "237", BancoNome = "Bradesco",
+                Agencia = "2222", Conta = "55544433", ContaDigito = "2",
+                TipoConta = TipoContaBancaria.ContaCorrente,
+                DataAdmissao = DateOnly.FromDateTime(DateTime.Today.AddDays(14)),
+                Salario = 5800.00m, TipoContratacao = TipoContratacaoAdmissao.CLT,
+                CargaHorariaSemanal = 44,
+                PisPasep = "345.67890.34-5", Ctps = "0007890", CtpsSerie = "003", CtpsUf = "RJ",
+                ValidacaoCpfOk = true, ValidacaoCepOk = true, ValidacaoBancoOk = true, ValidacaoSalarioOk = true,
+                CreatedAtUtc = now.AddDays(-6), UpdatedAtUtc = now.AddDays(-1),
+                SubmittedAtUtc = now.AddDays(-4), ApprovedAtUtc = now.AddDays(-1),
+            },
+            new PreAdmissao
+            {
+                Id = Guid.NewGuid(), TenantId = t,
+                Status = PreAdmissaoStatus.Aprovada, PreenchidoPor = PreenchidoPor.RH,
+                Nome = "Elena Ribeiro Lima (Mock TOTVS)",
+                Cpf = "55566677788", Rg = "55.666.777-8", RgOrgaoExpedidor = "SSP/SP",
+                RgDataExpedicao = new DateOnly(2020, 11, 5),
+                DataNascimento = new DateOnly(1985, 2, 28),
+                Sexo = Sexo.Feminino, EstadoCivil = EstadoCivil.Casado,
+                Nacionalidade = "Brasileira",
+                NomeMae = "Teresa Ribeiro", NomePai = "Fernando Lima",
+                NaturalCidade = "São Paulo", NaturalUf = "SP",
+                Cep = "04552-050", Logradouro = "Rua Funchal", Numero = "263",
+                Complemento = "Apto 82", Bairro = "Vila Olímpia", Cidade = "São Paulo", Uf = "SP",
+                Email = "elena.ribeiro.mock@testmail.com",
+                Telefone = "(11) 3344-5005", Celular = "(11) 99905-5005",
+                ContatoEmergenciaNome = "Fernando Lima", ContatoEmergenciaFone = "(11) 98800-0005",
+                BancoCodigo = "341", BancoNome = "Itaú",
+                Agencia = "3333", Conta = "99988877", ContaDigito = "7",
+                TipoConta = TipoContaBancaria.ContaCorrente,
+                DataAdmissao = DateOnly.FromDateTime(DateTime.Today.AddDays(21)),
+                Salario = 14000.00m, TipoContratacao = TipoContratacaoAdmissao.PJ,
+                CargaHorariaSemanal = 44,
+                PisPasep = "456.78901.45-6", Ctps = "0009012", CtpsSerie = "004", CtpsUf = "SP",
+                ValidacaoCpfOk = true, ValidacaoCepOk = true, ValidacaoBancoOk = true, ValidacaoSalarioOk = true,
+                CreatedAtUtc = now.AddDays(-8), UpdatedAtUtc = now.AddDays(-3),
+                SubmittedAtUtc = now.AddDays(-5), ApprovedAtUtc = now.AddDays(-3),
+            },
+        };
+
+        _db.PreAdmissoes.AddRange(admissoes);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            message = $"5 pré-admissões com status Aprovada criadas no tenant '{t}'. Disponíveis em GET /api/pre-admissao/integracao/pendentes",
+            tenant = t,
+            preAdmissoes = admissoes.Select(a => new
+            {
+                a.Id,
+                a.Nome,
+                a.Cpf,
+                Contrato = a.TipoContratacao!.ToString(),
+                Salario = a.Salario,
+                Admissao = a.DataAdmissao!.Value.ToString("dd/MM/yyyy"),
+                Status = a.Status.ToString(),
+            }),
+            endpoints = new
+            {
+                fila = "GET /api/pre-admissao/integracao/pendentes",
+                resultado = "POST /api/pre-admissao/{id}/integracao/resultado",
+                limpar = "DELETE /api/dev/seed/pre-admissoes",
+            }
+        });
+    }
+
+    /// <summary>Remove os mocks de pré-admissão TOTVS criados pelo seed.</summary>
+    [HttpDelete("seed/pre-admissoes")]
+    public async Task<IActionResult> ClearPreAdmissoes(CancellationToken ct)
+    {
+        var mocks = await _db.PreAdmissoes
+            .Where(p => p.Nome.EndsWith("(Mock TOTVS)"))
+            .ToListAsync(ct);
+
+        if (mocks.Count == 0)
+            return Ok(new { message = "Nenhum mock TOTVS encontrado." });
+
+        _db.PreAdmissoes.RemoveRange(mocks);
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { message = $"{mocks.Count} mocks removidos.", removidos = mocks.Select(p => p.Nome) });
+    }
+
     /// <summary>Remove dados de teste criados pelo seed.</summary>
     [HttpDelete("seed")]
     public async Task<IActionResult> ClearSeed(CancellationToken ct)
