@@ -174,6 +174,13 @@ const ROUTE_MAP: Record<string, string> = {
   "/admissao": "/admissao",
   // Colaborador
   "/colaborador/dependentes": "/colaborador/dependentes",
+  "/colaborador/ferias": "/colaborador/ferias",
+  "/colaborador/beneficios": "/colaborador/beneficios",
+  "/colaborador/solicitacao-dependentes": "/colaborador/solicitacao-dependentes",
+  "/colaborador/endereco": "/colaborador/endereco",
+  // Gestão de Pessoas
+  "/gestao/desligamentos": "/gestao/desligamentos",
+  "/gestao/promocoes": "/gestao/promocoes",
   // Desempenho sub-routes
   "/desempenho/minhasavaliacoes": "/desempenho",
   // Admin
@@ -219,10 +226,12 @@ const RECRUTAMENTO_ROUTES = new Set<string>([
   RECRUITMENT_ROUTE_KEYS.dashboard,
   RECRUITMENT_ROUTE_KEYS.solicitacoes,
   RECRUITMENT_ROUTE_KEYS.vagas,
+  RECRUITMENT_ROUTE_KEYS.matching,
   RECRUITMENT_ROUTE_KEYS.candidatos,
   RECRUITMENT_ROUTE_KEYS.triagem,
   RECRUITMENT_ROUTE_KEYS.processoSeletivo,
   RECRUITMENT_ROUTE_KEYS.admissao,
+  RECRUITMENT_ROUTE_KEYS.integracao,
 ]);
 // Operacional (dia a dia)
 const OPERACIONAL_ROUTES = new Set([
@@ -233,18 +242,20 @@ const CADASTROS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
   "/unidades", "/funcionarios", "/pessoas",
   "/colaborador/dependentes",
+  "/colaborador/ferias", "/colaborador/beneficios",
+  "/colaborador/solicitacao-dependentes", "/colaborador/endereco",
 ]);
 // Gestão de Pessoas (people management, não recrutamento)
 const GESTAO_PESSOAS_ROUTES = new Set([
   "/gestao/dashboard", "/gestao/planosdesenvolvimento",
   "/gestao/humor", "/gestao/resumoatividades",
+  "/gestao/desligamentos", "/gestao/promocoes",
 ]);
 const HIDDEN_ROUTES = new Set([
   "/departamentos", "/gestao/pipeline",
   "/gestao/aprovacoes",
   "/portalvagas",
   "/talentos",
-  "/matching",
   "/gestao/projetos",
   // Pesquisas antigas removidas — unificadas em /feedback/pesquisas
   "/feedback/pesquisarapida",

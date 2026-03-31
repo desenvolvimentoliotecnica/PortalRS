@@ -30,4 +30,13 @@ public interface ICandidatoVagaMatchingScoreService
         IReadOnlyList<(Guid CandidatoId, int Score)> items,
         string? tenantId = null,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Remove todos os scores da vaga e insere os novos com sub-scores detalhados.
+    /// </summary>
+    Task ReplaceScoresForVagaAsync(
+        Guid vagaId,
+        IReadOnlyList<MatchingCandidateItemResponse> items,
+        string? tenantId = null,
+        CancellationToken ct = default);
 }

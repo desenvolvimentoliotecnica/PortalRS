@@ -35,7 +35,8 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { TableSkeleton } from "@/components/ui/ScreenSkeleton";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import NextStepBanner from "@/components/feedback/NextStepBanner";
 
 /* ── types ── */
 
@@ -71,6 +72,7 @@ const STATUS_MAP: Record<number, { label: string; color: string; icon: React.Ele
 
 export default function AdmissaoListScreen() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { data = [], isLoading } = useApiQuery<PreAdmissaoRow[]>(
         ["pre-admissao"],
         "/api/pre-admissao"
@@ -80,6 +82,7 @@ export default function AdmissaoListScreen() {
     const [readmissaoCpf, setReadmissaoCpf] = useState("");
     const [readmissaoOpen, setReadmissaoOpen] = useState(false);
     const [creating, setCreating] = useState(false);
+    const [showSubmittedBanner, setShowSubmittedBanner] = useState(() => searchParams.get("submitted") === "1");
 
     async function handleCreate() {
         if (creating) return;
@@ -168,6 +171,16 @@ export default function AdmissaoListScreen() {
                 </div>
             </div>
 
+            {/* ── next step banner ── */}
+            {showSubmittedBanner && (
+                <NextStepBanner
+                    variant="success"
+                    title="Admissão enviada para revisão!"
+                    description="O RH irá revisar os dados e documentos. Acompanhe o status na lista abaixo."
+                    onDismiss={() => setShowSubmittedBanner(false)}
+                />
+            )}
+
             {/* KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <KpiCard icon={Users} label="Total" value={kpis.total} color="bg-slate-500/15 text-slate-600" />
@@ -228,8 +241,8 @@ export default function AdmissaoListScreen() {
                                 <TableCell colSpan={9} className="py-16 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Users className="size-10 opacity-20" />
-                                        <p className="text-sm font-medium">Nenhuma pré-admissão encontrada</p>
-                                        <p className="text-xs opacity-70">Crie uma nova admissão ou ajuste os filtros.</p>
+                                        <p className="text-sm font-medium">Nenhuma admissão em andamento</p>
+                                        <p className="text-xs opacity-70">Aprove candidatos no Pipeline para iniciar o processo de admissão.</p>
                                     </div>
                                 </TableCell>
                             </TableRow>

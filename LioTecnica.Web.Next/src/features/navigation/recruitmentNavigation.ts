@@ -18,25 +18,25 @@ export const RECRUITMENT_ROUTE_KEYS = {
   integracao: "/admissao/integracao",
 } as const;
 
-/** Ordem linear do fluxo de recrutamento no sidebar (funil R&S). */
+/** Ordem linear do fluxo de recrutamento no sidebar (pipeline R&S).
+ *  Cada item representa uma etapa do funil: demanda → publicação → avaliação → contratação.
+ */
 export const RECRUITMENT_LINEAR_ORDER = [
   RECRUITMENT_ROUTE_KEYS.dashboard,        // 0. Dashboard
-  RECRUITMENT_ROUTE_KEYS.vagas,            // 1. Vagas
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // 2. Solicitações
-  RECRUITMENT_ROUTE_KEYS.aprovacoes,       // 3. Aprovações
-  RECRUITMENT_ROUTE_KEYS.portalVagas,      // 4. Portal de Vagas
-  RECRUITMENT_ROUTE_KEYS.candidatos,       // 5. Candidatos
-  RECRUITMENT_ROUTE_KEYS.matching,         // 6. Matching IA
-  RECRUITMENT_ROUTE_KEYS.triagem,          // 7. Triagem
-  RECRUITMENT_ROUTE_KEYS.processoSeletivo, // 8. Processo Seletivo
-  RECRUITMENT_ROUTE_KEYS.admissao,         // 9. Admissão
-  RECRUITMENT_ROUTE_KEYS.integracao,       // 10. Integração TOTVS
+  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // 1. Solicitações (criar demanda)
+  RECRUITMENT_ROUTE_KEYS.vagas,            // 2. Vagas (publicar posição)
+  RECRUITMENT_ROUTE_KEYS.matching,         // 3. Matching IA (ranquear após preencher vaga)
+  RECRUITMENT_ROUTE_KEYS.candidatos,       // 4. Candidatos (ver todos)
+  RECRUITMENT_ROUTE_KEYS.triagem,          // 5. Pipeline (triagem + seleção)
+  RECRUITMENT_ROUTE_KEYS.processoSeletivo, // 6. Processo Seletivo (entrevistas)
+  RECRUITMENT_ROUTE_KEYS.admissao,         // 7. Admissão (contratar)
+  RECRUITMENT_ROUTE_KEYS.integracao,       // 8. Integração TOTVS (enviar para folha)
 ] as const;
 
 export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.dashboard]: "Dashboard",
-  [RECRUITMENT_ROUTE_KEYS.vagas]: "Vagas",
   [RECRUITMENT_ROUTE_KEYS.solicitacoes]: "Solicitações",
+  [RECRUITMENT_ROUTE_KEYS.vagas]: "Vagas",
   [RECRUITMENT_ROUTE_KEYS.aprovacoes]: "Aprovações",
   [RECRUITMENT_ROUTE_KEYS.portalVagas]: "Portal de Vagas",
   [RECRUITMENT_ROUTE_KEYS.talentos]: "Banco de Talentos",
@@ -44,16 +44,16 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.matching]: "Matching IA",
   [RECRUITMENT_ROUTE_KEYS.rodadas]: "Rodadas de Seleção",
   [RECRUITMENT_ROUTE_KEYS.processoSeletivo]: "Processo Seletivo",
-  [RECRUITMENT_ROUTE_KEYS.triagem]: "Triagem",
+  [RECRUITMENT_ROUTE_KEYS.triagem]: "Pipeline",
   [RECRUITMENT_ROUTE_KEYS.admissao]: "Admissão",
   [RECRUITMENT_ROUTE_KEYS.integracao]: "Integração TOTVS",
 };
 
 export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.dashboard,
-  RECRUITMENT_ROUTE_KEYS.vagas,
   RECRUITMENT_ROUTE_KEYS.solicitacoes,
   RECRUITMENT_ROUTE_KEYS.aprovacoes,
+  RECRUITMENT_ROUTE_KEYS.vagas,
   RECRUITMENT_ROUTE_KEYS.portalVagas,
   RECRUITMENT_ROUTE_KEYS.talentos,
   RECRUITMENT_ROUTE_KEYS.candidatos,
@@ -64,6 +64,33 @@ export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.admissao,
   RECRUITMENT_ROUTE_KEYS.integracao,
 ] as const;
+
+/** Emoji por etapa do pipeline (usado no sidebar). */
+const PIPELINE_EMOJIS: Record<string, string> = {
+  [RECRUITMENT_ROUTE_KEYS.dashboard]: "📊",
+  [RECRUITMENT_ROUTE_KEYS.solicitacoes]: "📝",
+  [RECRUITMENT_ROUTE_KEYS.vagas]: "💼",
+  [RECRUITMENT_ROUTE_KEYS.matching]: "🤖",
+  [RECRUITMENT_ROUTE_KEYS.candidatos]: "👥",
+  [RECRUITMENT_ROUTE_KEYS.triagem]: "🔀",
+  [RECRUITMENT_ROUTE_KEYS.processoSeletivo]: "🎯",
+  [RECRUITMENT_ROUTE_KEYS.admissao]: "✅",
+  [RECRUITMENT_ROUTE_KEYS.integracao]: "🔗",
+};
+
+/** Retorna o emoji da etapa no pipeline ou null se não tem. */
+export function getPipelineEmoji(routeKey: string): string | null {
+  return PIPELINE_EMOJIS[routeKey] ?? null;
+}
+
+/** Retorna o número da etapa no pipeline (1-based) ou 0 se não é etapa do pipeline.
+ *  Dashboard (index 0) não recebe número — o pipeline começa em Solicitações.
+ */
+export function getPipelineStepNumber(routeKey: string): number {
+  const idx = RECRUITMENT_LINEAR_ORDER.indexOf(routeKey as typeof RECRUITMENT_LINEAR_ORDER[number]);
+  // Dashboard (idx 0) não recebe número
+  return idx > 0 ? idx : 0;
+}
 
 const ROUTE_KEY_ALIASES: Record<string, string> = {
   "/gestao/pipeline": RECRUITMENT_ROUTE_KEYS.rodadas,
@@ -111,11 +138,23 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
 
   const extras: BffNavItem[] = [
     createItem("nav-solicitacoes", "Solicitações", "/gestao/solicitacoes", "clipboardlist"),
+    createItem("nav-matching", "Matching IA", "/matching", "bi-stars"),
+    createItem("nav-triagem", "Pipeline", "/triagem", "bi-funnel"),
     createItem("nav-processo-seletivo", "Processo Seletivo", "/gestao/processo-seletivo", "listchecks"),
     createItem("nav-admissao", "Admissão", "/admissao", "usercheck"),
     createItem("nav-admissao-integracao", "Integração TOTVS", "/admissao/integracao", "arrow-right-left"),
     createItem("nav-batidaponto", "Batida de Ponto", "/gestao/batida-ponto", "bi-clock-history"),
     createItem("nav-comissoes", "Pagamento extra", "/gestao/comissoes", "bi-bar-chart"),
+    // Gestão de Pessoas — solicitações de desligamento e promoção
+    ...(isGestor ? [
+      createItem("nav-desligamentos", "Desligamentos", "/gestao/desligamentos", "bi-person-x"),
+      createItem("nav-promocoes", "Promoções", "/gestao/promocoes", "bi-graph-up"),
+    ] : []),
+    // Autoatendimento do colaborador
+    createItem("nav-colab-ferias", "Minhas Férias", "/colaborador/ferias", "bi-calendar-event"),
+    createItem("nav-colab-beneficios", "Meus Benefícios", "/colaborador/beneficios", "bi-journal-check"),
+    createItem("nav-colab-sol-dependentes", "Dependentes", "/colaborador/solicitacao-dependentes", "bi-people"),
+    createItem("nav-colab-endereco", "Meu Endereço", "/colaborador/endereco", "bi-house"),
   ];
 
   return extras.filter((item) => {

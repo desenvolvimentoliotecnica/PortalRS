@@ -42,7 +42,8 @@ def get_vaga_perfil(vaga_id: str, tenant_id: str | None = None) -> dict[str, Any
                        "QuantidadeVagas", "TipoContratacao",
                        "AceitaPcd", "ExigeCnh", "Urgente",
                        "ResumoPitch",
-                       "PesoCompetencia", "PesoExperiencia", "PesoFormacao", "PesoLocalidade"
+                       "PesoCompetencia", "PesoExperiencia", "PesoFormacao", "PesoLocalidade",
+                       "SalarioMinimo", "SalarioMaximo"
                 FROM "Vagas"
                 WHERE "Id" = %s AND ("TenantId" = %s OR %s = '')
                 """,
@@ -73,7 +74,7 @@ def get_vaga_perfil(vaga_id: str, tenant_id: str | None = None) -> dict[str, Any
 def get_candidato_perfil(candidato_id: str, tenant_id: str | None = None) -> dict[str, Any] | None:
     """
     Retorna um único candidato com perfil para matching:
-    id, Nome, Email, cv_text, resumo_profissional, cidade, uf, competencias (texto).
+    id, Nome, Email, cv_text, resumo_profissional, cidade, uf, pretensao_salarial, competencias (texto).
     """
     tid = tenant_id or TENANT_ID
     with _conn(tid) as conn:
@@ -82,7 +83,7 @@ def get_candidato_perfil(candidato_id: str, tenant_id: str | None = None) -> dic
             params: list[Any] = [candidato_id, tid] if tid else [candidato_id]
             cur.execute(
                 f"""
-                SELECT c."Id", c."Nome", c."Email", c."CvText", c."ResumoProfissional", c."Cidade", c."Uf"
+                SELECT c."Id", c."Nome", c."Email", c."CvText", c."ResumoProfissional", c."Cidade", c."Uf", c."PretensaoSalarial"
                 FROM "Candidatos" c
                 WHERE {where}
                 """,
@@ -96,6 +97,7 @@ def get_candidato_perfil(candidato_id: str, tenant_id: str | None = None) -> dic
             c["resumo_profissional"] = c.pop("ResumoProfissional", None) or ""
             c["cidade"] = c.pop("Cidade", None) or ""
             c["uf"] = c.pop("Uf", None) or ""
+            c["pretensao_salarial"] = c.pop("PretensaoSalarial", None)
             cur.execute(
                 """
                 SELECT "Nome" FROM "CandidatoCompetencias"

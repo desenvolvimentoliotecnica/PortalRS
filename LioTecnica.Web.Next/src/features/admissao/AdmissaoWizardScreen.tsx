@@ -187,7 +187,7 @@ export default function AdmissaoWizardScreen() {
             setSubmitting(true);
             await save();
             const res = await apiFetch(`/api/pre-admissao/${id}/submit`, { method: "POST" });
-            if (res.ok) { toast.success("Admissão enviada para revisão!"); router.push("/admissao"); }
+            if (res.ok) { toast.success("Admissão enviada para revisão do RH!"); router.push("/admissao?submitted=1"); }
             else toast.error("Erro ao submeter");
         } catch { toast.error("Erro de conexão"); }
         finally { setSubmitting(false); }

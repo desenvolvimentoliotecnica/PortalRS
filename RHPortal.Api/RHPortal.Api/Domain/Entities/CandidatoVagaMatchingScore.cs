@@ -17,6 +17,20 @@ public sealed class CandidatoVagaMatchingScore : ITenantEntity
     /// <summary>Score 0-100 (por critérios da vaga).</summary>
     public int Score { get; set; }
 
+    public int? ScoreCompetencia { get; set; }
+    public int? ScoreExperiencia { get; set; }
+    public int? ScoreFormacao { get; set; }
+    public int? ScoreLocalidade { get; set; }
+
+    [StringLength(20)]
+    public string? Source { get; set; }
+
+    [StringLength(2000)]
+    public string? Justificativa { get; set; }
+
+    [StringLength(30)]
+    public string? RuleVersion { get; set; }
+
     public DateTimeOffset CalculatedAtUtc { get; set; }
 
     [Required, StringLength(64)]

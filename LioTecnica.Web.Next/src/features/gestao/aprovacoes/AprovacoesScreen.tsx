@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
+import NextStepBanner from "@/components/feedback/NextStepBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -177,6 +178,9 @@ export default function AprovacoesScreen() {
     const [approvalObs, setApprovalObs] = useState("");
     const [acting, setActing] = useState(false);
 
+    /* ── next step banner ── */
+    const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
+
     /* ── data loading — only pending (status=1) ── */
     const syncList = useCallback(async () => {
         const data = await fetchJson<SolicitacaoGridRow[]>(`${API}?status=1`);
@@ -228,6 +232,9 @@ export default function AprovacoesScreen() {
                 body: JSON.stringify({ observacao: approvalObs || null }),
             });
             toast.success(`Solicitação: ${labels[action]}!`);
+            if (action === "approve" && detail) {
+                setLastApproved({ id: detail.id, titulo: detail.titulo });
+            }
             setDetailOpen(false);
             await syncList();
         } catch (e) {
@@ -262,6 +269,19 @@ export default function AprovacoesScreen() {
                     <span className="hidden sm:inline">Atualizar</span>
                 </Button>
             </div>
+
+            {/* ── next step banner ── */}
+            {lastApproved && (
+                <NextStepBanner
+                    variant="success"
+                    title="Solicitação aprovada!"
+                    description={`"${lastApproved.titulo}" foi aprovada. Crie a vaga para iniciar o recrutamento.`}
+                    actions={[
+                        { label: "Criar Vaga", href: `/vagas?newFromSolicitacao=${encodeURIComponent(lastApproved.id)}` },
+                    ]}
+                    onDismiss={() => setLastApproved(null)}
+                />
+            )}
 
             {/* ── KPI ── */}
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">

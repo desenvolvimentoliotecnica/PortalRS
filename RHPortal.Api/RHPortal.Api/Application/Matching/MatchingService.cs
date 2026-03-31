@@ -75,12 +75,59 @@ public sealed class MatchingService : IMatchingService
     }
 
     /// <summary>
+    /// Calcula score de compatibilidade salarial (0-100).
+    /// </summary>
+    public static int CalculateSalaryOverlapScore(decimal? pretensao, decimal? vagaMin, decimal? vagaMax)
+    {
+        if (!pretensao.HasValue || (!vagaMin.HasValue && !vagaMax.HasValue))
+            return 80; // neutro quando dados faltam
+
+        var p = pretensao.Value;
+        var min = vagaMin ?? 0m;
+        var max = vagaMax ?? min;
+        if (max <= 0) return 80;
+
+        if (p <= max && p >= min) return 100;
+        if (p < min) return 90; // candidato pede menos — positivo
+
+        var gap = p - max;
+        var tolerance10 = max * 0.10m;
+        var tolerance20 = max * 0.20m;
+
+        if (gap <= tolerance10) return 70;
+        if (gap <= tolerance20) return 40;
+        return 10;
+    }
+
+    /// <summary>
     /// Calcula score (0-100) e pass (score >= threshold). Mesma fórmula do frontend.
+    /// </summary>
+    /// <summary>
+    /// Calcula score (0-100) e pass (score >= threshold).
+    /// Overload com aliases adicionais da taxonomia de skills.
     /// </summary>
     public static (int Score, bool Pass) CalculateScore(
         string profileTextNormalized,
         IReadOnlyList<VagaRequisito> requisitos,
+        int matchMinimoPercentual,
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? skillAliasesBySkillId)
+    {
+        return CalculateScoreInternal(profileTextNormalized, requisitos, matchMinimoPercentual, skillAliasesBySkillId);
+    }
+
+    public static (int Score, bool Pass) CalculateScore(
+        string profileTextNormalized,
+        IReadOnlyList<VagaRequisito> requisitos,
         int matchMinimoPercentual)
+    {
+        return CalculateScoreInternal(profileTextNormalized, requisitos, matchMinimoPercentual, null);
+    }
+
+    private static (int Score, bool Pass) CalculateScoreInternal(
+        string profileTextNormalized,
+        IReadOnlyList<VagaRequisito> requisitos,
+        int matchMinimoPercentual,
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? skillAliasesBySkillId)
     {
         if (requisitos is null || requisitos.Count == 0)
             return (0, false);
@@ -96,6 +143,17 @@ public sealed class MatchingService : IMatchingService
 
             var termo = NormalizeText(r.Nome);
             var syns = SplitSinonimos(r.SinonimosRaw).Select(NormalizeText).Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+            // Enrich with taxonomy aliases when SkillId is set
+            if (r.SkillId.HasValue && skillAliasesBySkillId != null
+                && skillAliasesBySkillId.TryGetValue(r.SkillId.Value, out var taxonomyAliases))
+            {
+                var extraTerms = taxonomyAliases
+                    .Select(NormalizeText)
+                    .Where(s => !string.IsNullOrEmpty(s) && !syns.Contains(s) && s != termo);
+                syns.AddRange(extraTerms);
+            }
+
             var bag = new List<string>();
             if (!string.IsNullOrEmpty(termo)) bag.Add(termo);
             bag.AddRange(syns);
@@ -112,7 +170,10 @@ public sealed class MatchingService : IMatchingService
 
         var score = (int)Math.Round((hitPeso * 100.0) / totalPeso);
         if (missMandatoryCount > 0)
+        {
             score = Math.Max(0, score - Math.Min(40, missMandatoryCount * 15));
+            score = Math.Min(score, 60);
+        }
 
         var threshold = Math.Clamp(matchMinimoPercentual, 0, 100);
         var pass = score >= threshold;

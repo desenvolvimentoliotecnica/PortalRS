@@ -1517,6 +1517,95 @@ namespace RHPortal.Api.Migrations
                     b.ToTable("AvaliacaoRespostas", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.BatchMatchingRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FailedVagas")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("LastProcessedVagaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ProcessedVagas")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("TotalCandidatesScored")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalVagas")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "CreatedAtUtc");
+
+                    b.ToTable("BatchMatchingRuns", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.BatchMatchingRunVaga", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ScoresGenerated")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("VagaId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.ToTable("BatchMatchingRunVagas", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.CampoPersonalizadoVaga", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2744,8 +2833,32 @@ namespace RHPortal.Api.Migrations
                     b.Property<DateTimeOffset>("CalculatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Justificativa")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("RuleVersion")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<int>("Score")
                         .HasColumnType("integer");
+
+                    b.Property<int?>("ScoreCompetencia")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ScoreExperiencia")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ScoreFormacao")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ScoreLocalidade")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -5082,6 +5195,48 @@ namespace RHPortal.Api.Migrations
                     b.ToTable("ProjetosVaga", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RecruiterMatchingFeedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Action")
+                        .HasColumnType("smallint");
+
+                    b.Property<Guid>("CandidatoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("MatchScoreAtAction")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RankPositionAtAction")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RecruiterUserId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("VagaId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "VagaId");
+
+                    b.HasIndex("VagaId", "CandidatoId");
+
+                    b.ToTable("RecruiterMatchingFeedbacks", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.RegraAprovacaoVaga", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5310,6 +5465,603 @@ namespace RHPortal.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("RoleMenus", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Skill", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CanonicalName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ParentSkillId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentSkillId");
+
+                    b.HasIndex("TenantId", "CanonicalName")
+                        .IsUnique();
+
+                    b.ToTable("Skills", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SkillAlias", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AliasName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<Guid>("SkillId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SkillId");
+
+                    b.HasIndex("TenantId", "AliasName")
+                        .IsUnique();
+
+                    b.ToTable("SkillAliases", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoBeneficio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("Aprovador1DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("Aprovador1Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Aprovador1Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset?>("Aprovador2DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Aprovador2Habilitado")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("Aprovador2Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short?>("Aprovador2Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DependenteIdsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IncluirDependentes")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ObservacaoAprovador")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SolicitanteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<short>("TipoAlteracao")
+                        .HasColumnType("smallint");
+
+                    b.Property<short>("TipoBeneficio")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Aprovador1Id");
+
+                    b.HasIndex("Aprovador2Id");
+
+                    b.HasIndex("SolicitanteId");
+
+                    b.ToTable("SolicitacoesBeneficio");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDependente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("Aprovador1DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("Aprovador1Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Aprovador1Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset?>("Aprovador2DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Aprovador2Habilitado")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("Aprovador2Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short?>("Aprovador2Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Cpf")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("DataNascimento")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("DependenteIR")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("DependenteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsPcd")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NomeCompleto")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ObservacaoAprovador")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("text");
+
+                    b.Property<short>("Parentesco")
+                        .HasColumnType("smallint");
+
+                    b.Property<Guid>("SolicitanteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<short>("TipoSolicitacao")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Aprovador1Id");
+
+                    b.HasIndex("Aprovador2Id");
+
+                    b.HasIndex("DependenteId");
+
+                    b.HasIndex("SolicitanteId");
+
+                    b.ToTable("SolicitacoesDependente");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDesligamento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("Aprovador1DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("Aprovador1Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Aprovador1Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset?>("Aprovador2DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Aprovador2Habilitado")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("Aprovador2Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short?>("Aprovador2Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("DataDesligamento")
+                        .HasColumnType("date");
+
+                    b.Property<int>("DiasAvisoPrevio")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("ElegivelRecontratacao")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("FuncionarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MotivoDesligamento")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ObservacaoAprovador")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("SolicitacaoVagaGeradaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SolicitanteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<bool>("SubstituirPosicao")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<short>("TipoAvisoPrevio")
+                        .HasColumnType("smallint");
+
+                    b.Property<short>("TipoDesligamento")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Aprovador1Id");
+
+                    b.HasIndex("Aprovador2Id");
+
+                    b.HasIndex("FuncionarioId");
+
+                    b.HasIndex("SolicitanteId");
+
+                    b.ToTable("SolicitacoesDesligamento");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoEndereco", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("Aprovador1DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("Aprovador1Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Aprovador1Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset?>("Aprovador2DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Aprovador2Habilitado")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("Aprovador2Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short?>("Aprovador2Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Bairro")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Cep")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Cidade")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Complemento")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Logradouro")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Numero")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ObservacaoAprovador")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SolicitanteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Uf")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Aprovador1Id");
+
+                    b.HasIndex("Aprovador2Id");
+
+                    b.HasIndex("SolicitanteId");
+
+                    b.ToTable("SolicitacoesEndereco");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoFerias", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AbonoPecuniario")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Adiantamento13")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("Aprovador1DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("Aprovador1Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Aprovador1Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset?>("Aprovador2DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Aprovador2Habilitado")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("Aprovador2Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short?>("Aprovador2Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("DataFim")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("DataInicio")
+                        .HasColumnType("date");
+
+                    b.Property<int>("DiasAbono")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ObservacaoAprovador")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PeriodoAquisitivo")
+                        .HasColumnType("text");
+
+                    b.Property<int>("QtdDias")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SolicitanteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Aprovador1Id");
+
+                    b.HasIndex("Aprovador2Id");
+
+                    b.HasIndex("SolicitanteId");
+
+                    b.ToTable("SolicitacoesFerias");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoPromocao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("Aprovador1DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("Aprovador1Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Aprovador1Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset?>("Aprovador2DataUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("Aprovador2Habilitado")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("Aprovador2Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<short?>("Aprovador2Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<Guid?>("AreaAtualId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CargoAtualId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("DataEfetiva")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("FuncionarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Justificativa")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("NovaAreaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("NovoCargoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ObservacaoAprovador")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SolicitanteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Aprovador1Id");
+
+                    b.HasIndex("Aprovador2Id");
+
+                    b.HasIndex("AreaAtualId");
+
+                    b.HasIndex("CargoAtualId");
+
+                    b.HasIndex("FuncionarioId");
+
+                    b.HasIndex("NovaAreaId");
+
+                    b.HasIndex("NovoCargoId");
+
+                    b.HasIndex("SolicitanteId");
+
+                    b.ToTable("SolicitacoesPromocao");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoVaga", b =>
@@ -6843,6 +7595,17 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("Ciclo");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.BatchMatchingRunVaga", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.BatchMatchingRun", "Run")
+                        .WithMany("Vagas")
+                        .HasForeignKey("RunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Run");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.CampoPersonalizadoVaga", b =>
                 {
                     b.HasOne("RHPortal.Api.Domain.Entities.Vaga", "Vaga")
@@ -7721,6 +8484,213 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Skill", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Skill", "ParentSkill")
+                        .WithMany()
+                        .HasForeignKey("ParentSkillId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ParentSkill");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SkillAlias", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Skill", "Skill")
+                        .WithMany("Aliases")
+                        .HasForeignKey("SkillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Skill");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoBeneficio", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador1")
+                        .WithMany()
+                        .HasForeignKey("Aprovador1Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador2")
+                        .WithMany()
+                        .HasForeignKey("Aprovador2Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Solicitante")
+                        .WithMany()
+                        .HasForeignKey("SolicitanteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Aprovador1");
+
+                    b.Navigation("Aprovador2");
+
+                    b.Navigation("Solicitante");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDependente", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador1")
+                        .WithMany()
+                        .HasForeignKey("Aprovador1Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador2")
+                        .WithMany()
+                        .HasForeignKey("Aprovador2Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Dependente", "DependenteExistente")
+                        .WithMany()
+                        .HasForeignKey("DependenteId");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Solicitante")
+                        .WithMany()
+                        .HasForeignKey("SolicitanteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Aprovador1");
+
+                    b.Navigation("Aprovador2");
+
+                    b.Navigation("DependenteExistente");
+
+                    b.Navigation("Solicitante");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDesligamento", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador1")
+                        .WithMany()
+                        .HasForeignKey("Aprovador1Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador2")
+                        .WithMany()
+                        .HasForeignKey("Aprovador2Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Solicitante")
+                        .WithMany()
+                        .HasForeignKey("SolicitanteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Aprovador1");
+
+                    b.Navigation("Aprovador2");
+
+                    b.Navigation("Funcionario");
+
+                    b.Navigation("Solicitante");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoEndereco", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador1")
+                        .WithMany()
+                        .HasForeignKey("Aprovador1Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador2")
+                        .WithMany()
+                        .HasForeignKey("Aprovador2Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Solicitante")
+                        .WithMany()
+                        .HasForeignKey("SolicitanteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Aprovador1");
+
+                    b.Navigation("Aprovador2");
+
+                    b.Navigation("Solicitante");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoFerias", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador1")
+                        .WithMany()
+                        .HasForeignKey("Aprovador1Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador2")
+                        .WithMany()
+                        .HasForeignKey("Aprovador2Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Solicitante")
+                        .WithMany()
+                        .HasForeignKey("SolicitanteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Aprovador1");
+
+                    b.Navigation("Aprovador2");
+
+                    b.Navigation("Solicitante");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoPromocao", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador1")
+                        .WithMany()
+                        .HasForeignKey("Aprovador1Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador2")
+                        .WithMany()
+                        .HasForeignKey("Aprovador2Id");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Area", "AreaAtual")
+                        .WithMany()
+                        .HasForeignKey("AreaAtualId");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.JobPosition", "CargoAtual")
+                        .WithMany()
+                        .HasForeignKey("CargoAtualId");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Area", "NovaArea")
+                        .WithMany()
+                        .HasForeignKey("NovaAreaId");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.JobPosition", "NovoCargo")
+                        .WithMany()
+                        .HasForeignKey("NovoCargoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Solicitante")
+                        .WithMany()
+                        .HasForeignKey("SolicitanteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Aprovador1");
+
+                    b.Navigation("Aprovador2");
+
+                    b.Navigation("AreaAtual");
+
+                    b.Navigation("CargoAtual");
+
+                    b.Navigation("Funcionario");
+
+                    b.Navigation("NovaArea");
+
+                    b.Navigation("NovoCargo");
+
+                    b.Navigation("Solicitante");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoVaga", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Aprovador1")
@@ -7978,6 +8948,11 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("Respostas");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.BatchMatchingRun", b =>
+                {
+                    b.Navigation("Vagas");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Candidato", b =>
                 {
                     b.Navigation("Acessibilidade");
@@ -8035,6 +9010,11 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("Documentos");
 
                     b.Navigation("DocumentosSolicitados");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Skill", b =>
+                {
+                    b.Navigation("Aliases");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Survey", b =>

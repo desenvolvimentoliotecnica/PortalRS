@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 
 import SolicitacaoFormModal from "./SolicitacaoFormModal";
+import NextStepBanner from "@/components/feedback/NextStepBanner";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -195,6 +196,9 @@ export default function SolicitacoesScreen() {
     /* ── approval actions ── */
     const [approvalObs, setApprovalObs] = useState("");
 
+    /* ── next step banner after approval ── */
+    const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
+
     /* ── data loading ── */
     const syncList = useCallback(async () => {
         const [allData, pendingData] = await Promise.all([
@@ -280,6 +284,9 @@ export default function SolicitacoesScreen() {
                 body: JSON.stringify({ observacao: approvalObs || null }),
             });
             toast.success(`Solicitação: ${labels[action]}!`);
+            if (action === "approve" && detail) {
+                setLastApproved({ id: detail.id, titulo: detail.titulo });
+            }
             await syncList();
             setDetailOpen(false);
         } catch (e) {
@@ -335,6 +342,19 @@ export default function SolicitacoesScreen() {
                     </Button>
                 </div>
             </div>
+
+            {/* ── next step banner ── */}
+            {lastApproved && (
+                <NextStepBanner
+                    variant="success"
+                    title="Solicitação aprovada!"
+                    description={`"${lastApproved.titulo}" foi aprovada. Crie a vaga para iniciar o recrutamento.`}
+                    actions={[
+                        { label: "Criar Vaga", href: `/vagas?newFromSolicitacao=${encodeURIComponent(lastApproved.id)}` },
+                    ]}
+                    onDismiss={() => setLastApproved(null)}
+                />
+            )}
 
             {/* ── KPIs ── */}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -496,7 +516,7 @@ export default function SolicitacoesScreen() {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                                    Nenhuma solicitação encontrada.
+                                    Nenhuma solicitação ainda. Crie sua primeira solicitação de vaga para iniciar o processo.
                                 </TableCell>
                             </TableRow>
                         )}

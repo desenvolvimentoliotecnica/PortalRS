@@ -139,6 +139,9 @@ DEFAULT_RANKING_SIZE = max(10, min(100, int(os.getenv("DEFAULT_RANKING_SIZE", "2
 # Habilitar pgvector (busca vetorial)
 ENABLE_PGVECTOR = os.getenv("ENABLE_PGVECTOR", "true").strip().lower() in ("true", "1", "yes")
 
+# Embedding provider: "openai" (default) or "gemini"
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "openai").strip().lower()
+
 
 # Host e porta do servidor (podem vir do .env ou do appsettings da Integration.RM)
 _default_port = os.getenv("PORT", "").strip()

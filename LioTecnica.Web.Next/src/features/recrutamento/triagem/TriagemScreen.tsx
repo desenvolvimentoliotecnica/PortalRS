@@ -589,7 +589,11 @@ export default function TriagemScreen({
       setCands((list) => list.map((x) => (x.id === mapped.id ? mapped : x)));
       await loadHistory(mapped.id);
       setSelectedId(mapped.id);
-      toast.success(`Movido: ${stageLabel(prevStageId, pipeline)} → ${stageLabel(newStageId, pipeline)}`);
+      if (newStageId === "aprovado") {
+        toast.success(`${c.nome || "Candidato"} aprovado! Inicie a admissão pelo botão no card.`, { duration: 5000 });
+      } else {
+        toast.success(`Movido: ${stageLabel(prevStageId, pipeline)} → ${stageLabel(newStageId, pipeline)}`);
+      }
     } catch {
       toast.error("Falha ao salvar candidato.");
     }
@@ -946,10 +950,38 @@ export default function TriagemScreen({
                     const pass = m.pass;
                     const si = slaInfo(c);
                     const missCount = m.missMandatory.length;
+                    // ── Action color (Greenhouse pattern) ──
+                    const daysInStage = c.updatedAt
+                      ? Math.max(0, Math.floor((Date.now() - new Date(c.updatedAt).getTime()) / 86400000))
+                      : 0;
+                    const isApproved = stage.id === "aprovado";
+                    const isRejected = stage.id === "reprovado";
+                    const isNew = stage.id === "triagem" && daysInStage < 1;
+                    const isGestorStage = stage.label.toLowerCase().includes("gestor");
+                    // Red: recruiter action needed (new, or overdue)
+                    // Amber: waiting on someone else (gestor stage)
+                    // Green: approved
+                    // Default: neutral
+                    const actionBorder = isApproved
+                      ? "border-l-4 border-l-emerald-500"
+                      : isRejected
+                        ? "border-l-4 border-l-zinc-300"
+                        : isNew || (si.late)
+                          ? "border-l-4 border-l-red-500"
+                          : isGestorStage
+                            ? "border-l-4 border-l-amber-500"
+                            : "border-l-4 border-l-blue-400";
+                    // Days badge color
+                    const daysBadgeCls = daysInStage > 5
+                      ? "bg-red-500/15 text-red-700"
+                      : daysInStage > 2
+                        ? "bg-amber-500/15 text-amber-700"
+                        : "bg-emerald-500/15 text-emerald-700";
+
                     return (
                       <div
                         key={c.id}
-                        className="rounded-xl border border-border/50 bg-card shadow-sm p-3"
+                        className={`rounded-xl border border-border/50 bg-card shadow-sm p-3 ${actionBorder}`}
                         draggable
                         onDragStart={(ev) => {
                           setDragId(c.id);
@@ -964,9 +996,12 @@ export default function TriagemScreen({
                               <div className="text-muted-foreground text-xs truncate">{c.email || ""}</div>
                             </div>
                           </div>
-                          <Button variant="outline" size="sm" onClick={() => openDetail(c.id)} title="Detalhes">
-                            Detalhes
-                          </Button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ${daysBadgeCls}`} title={`${daysInStage} dia(s) nesta etapa`}>{daysInStage}d</span>
+                            <Button variant="outline" size="sm" onClick={() => openDetail(c.id)} title="Detalhes">
+                              Detalhes
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="mt-2 flex items-center justify-between gap-2">
@@ -1020,7 +1055,7 @@ export default function TriagemScreen({
                     );
                   })
                 ) : (
-                  <div className="text-muted-foreground text-sm py-6 text-center">-</div>
+                  <div className="text-muted-foreground text-xs py-6 text-center">Nenhum candidato nesta etapa</div>
                 )}
               </div>
             </div>

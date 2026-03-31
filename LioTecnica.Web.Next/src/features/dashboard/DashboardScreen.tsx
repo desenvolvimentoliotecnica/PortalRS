@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { toast } from "sonner";
-import { Folder, Mail, Search } from "lucide-react";
+import { AlertCircle, ArrowRight, Clock, Folder, Mail, Search } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { apiFetch } from "@/lib/api";
@@ -457,6 +458,36 @@ export default function DashboardScreen({
           </Button>
         </div>
       </div>
+
+      {/* ── O que fazer agora ── */}
+      {(kpis.pendentesMatch > 0 || kpis.vagasForaSla > 0) && (
+        <div className="rounded-xl border border-amber-200/60 bg-amber-50/50 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="size-4 text-amber-600" />
+            <h2 className="text-sm font-semibold text-amber-900">O que fazer agora</h2>
+          </div>
+          <div className="space-y-2">
+            {kpis.pendentesMatch > 0 && (
+              <Link href="/matching" className="flex items-center justify-between gap-2 rounded-lg bg-white/80 border border-amber-200/40 px-3 py-2 text-sm hover:bg-white transition-colors group">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="size-4 text-amber-600" />
+                  <span><strong>{kpis.pendentesMatch}</strong> candidatos pendentes de matching</span>
+                </div>
+                <ArrowRight className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </Link>
+            )}
+            {kpis.vagasForaSla > 0 && (
+              <Link href="/triagem?filter=late" className="flex items-center justify-between gap-2 rounded-lg bg-white/80 border border-red-200/40 px-3 py-2 text-sm hover:bg-white transition-colors group">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="size-4 text-red-600" />
+                  <span><strong>{kpis.vagasForaSla}</strong> vagas fora do SLA</span>
+                </div>
+                <ArrowRight className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
         <div
