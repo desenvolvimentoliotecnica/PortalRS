@@ -66,12 +66,24 @@ def search_all_by_similarity(
     Busca UNIFICADA: candidatos + talentos por similaridade vetorial com uma vaga.
     Retorna top N com campo `source` ("candidato" | "talento").
     """
+    from app.config import EMBEDDING_PROVIDER
     tid = tenant_id or TENANT_ID
+
+    # Select embedding columns based on provider
+    if EMBEDDING_PROVIDER == "gemini":
+        vaga_emb_col = "gemini_embedding"
+        cand_emb_col = "gemini_embedding"
+        tal_emb_col = '"GeminiEmbedding"'
+    else:
+        vaga_emb_col = "embedding"
+        cand_emb_col = "embedding"
+        tal_emb_col = '"Embedding"'
+
     try:
         with pgvector_conn(tid) as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    'SELECT embedding FROM "Vagas" WHERE "Id" = %s',
+                    f'SELECT {vaga_emb_col} FROM "Vagas" WHERE "Id" = %s',
                     (vaga_id,)
                 )
                 row = cur.fetchone()
@@ -82,17 +94,17 @@ def search_all_by_similarity(
                 vaga_embedding = row[0]
 
                 if tid:
-                    query = """
+                    query = f"""
                         WITH all_people AS (
                             SELECT
                                 c."Id" AS person_id,
                                 c."Nome" AS nome,
                                 c."Email" AS email,
-                                (1 - (c.embedding <=> %s::vector)) * 100 AS similaridade,
+                                (1 - (c.{cand_emb_col} <=> %s::vector)) * 100 AS similaridade,
                                 'candidato' AS source
                             FROM "Candidatos" c
                             WHERE c."TenantId" = %s
-                              AND c.embedding IS NOT NULL
+                              AND c.{cand_emb_col} IS NOT NULL
                               AND c."Status" != 3
 
                             UNION ALL
@@ -101,11 +113,11 @@ def search_all_by_similarity(
                                 t."Id" AS person_id,
                                 p."Nome" AS nome,
                                 p."Email" AS email,
-                                (1 - (t."Embedding" <=> %s::vector)) * 100 AS similaridade,
+                                (1 - (t.{tal_emb_col} <=> %s::vector)) * 100 AS similaridade,
                                 'talento' AS source
                             FROM "Talentos" t
                             JOIN "Pessoas" p ON p."Id" = t."PessoaId" AND p."TenantId" = t."TenantId"
-                            WHERE t."TenantId" = %s AND t."Embedding" IS NOT NULL
+                            WHERE t."TenantId" = %s AND t.{tal_emb_col} IS NOT NULL
                             AND NOT EXISTS (
                                 SELECT 1 FROM "Candidatos" cx
                                 WHERE cx."TalentoId" = t."Id"
@@ -119,16 +131,16 @@ def search_all_by_similarity(
                     """
                     params = [vaga_embedding, tid, vaga_embedding, tid, min_score, limit]
                 else:
-                    query = """
+                    query = f"""
                         WITH all_people AS (
                             SELECT
                                 c."Id" AS person_id,
                                 c."Nome" AS nome,
                                 c."Email" AS email,
-                                (1 - (c.embedding <=> %s::vector)) * 100 AS similaridade,
+                                (1 - (c.{cand_emb_col} <=> %s::vector)) * 100 AS similaridade,
                                 'candidato' AS source
                             FROM "Candidatos" c
-                            WHERE c.embedding IS NOT NULL
+                            WHERE c.{cand_emb_col} IS NOT NULL
                               AND c."Status" != 3
 
                             UNION ALL
@@ -137,11 +149,11 @@ def search_all_by_similarity(
                                 t."Id" AS person_id,
                                 p."Nome" AS nome,
                                 p."Email" AS email,
-                                (1 - (t."Embedding" <=> %s::vector)) * 100 AS similaridade,
+                                (1 - (t.{tal_emb_col} <=> %s::vector)) * 100 AS similaridade,
                                 'talento' AS source
                             FROM "Talentos" t
                             JOIN "Pessoas" p ON p."Id" = t."PessoaId"
-                            WHERE t."Embedding" IS NOT NULL
+                            WHERE t.{tal_emb_col} IS NOT NULL
                             AND NOT EXISTS (
                                 SELECT 1 FROM "Candidatos" cx
                                 WHERE cx."TalentoId" = t."Id"

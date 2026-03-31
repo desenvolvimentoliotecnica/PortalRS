@@ -3,8 +3,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RhPortal.Api.Contracts.Matching;
 using RhPortal.Api.Domain.Entities;
@@ -21,20 +19,23 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
 
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly MatchingRecomputeQueue _recomputeQueue;
+    private readonly ICandidatoVagaMatchingScoreService _scoreService;
     private readonly ILogger<VagaUnifiedMatchingCacheService> _logger;
     private readonly RhAiOptions _rhAiOptions;
 
     public VagaUnifiedMatchingCacheService(
         AppDbContext db,
         ITenantContext tenantContext,
-        IServiceScopeFactory scopeFactory,
+        MatchingRecomputeQueue recomputeQueue,
+        ICandidatoVagaMatchingScoreService scoreService,
         ILogger<VagaUnifiedMatchingCacheService> logger,
         IOptions<RhAiOptions> rhAiOptions)
     {
         _db = db;
         _tenantContext = tenantContext;
-        _scopeFactory = scopeFactory;
+        _recomputeQueue = recomputeQueue;
+        _scoreService = scoreService;
         _logger = logger;
         _rhAiOptions = rhAiOptions.Value;
     }
@@ -80,9 +81,14 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
             .AsTracking()
             .FirstOrDefaultAsync(x => x.VagaId == vagaId, ct);
 
+        // Stale items: ler da tabela de scores (fallback para JSON legado)
         IReadOnlyList<MatchingCandidateItemResponse> staleItems = Array.Empty<MatchingCandidateItemResponse>();
-        if (cache?.ItemsJson is { Length: > 0 })
-            staleItems = TryDeserializeItems(cache.ItemsJson) ?? Array.Empty<MatchingCandidateItemResponse>();
+        if (cache is not null)
+        {
+            staleItems = await _scoreService.GetRankingByVagaFromStoreAsync(vagaId, minScore: 0, take: safeTake, ct);
+            if (staleItems.Count == 0 && cache.ItemsJson is { Length: > 0 })
+                staleItems = TryDeserializeItems(cache.ItemsJson) ?? Array.Empty<MatchingCandidateItemResponse>();
+        }
 
         if (cache is null)
         {
@@ -118,13 +124,16 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
 
         var isReadyForDesiredHash =
             cache.Status == UnifiedMatchingCacheStatus.Ready &&
-            string.Equals(cache.CurrentFiltersHash, desiredHash, StringComparison.OrdinalIgnoreCase) &&
-            cache.ItemsJson is { Length: > 0 };
+            string.Equals(cache.CurrentFiltersHash, desiredHash, StringComparison.OrdinalIgnoreCase);
 
         if (!invalidate && isReadyForDesiredHash)
         {
             await _db.SaveChangesAsync(ct);
-            var items = TryDeserializeItems(cache.ItemsJson!) ?? Array.Empty<MatchingCandidateItemResponse>();
+            // Ler da tabela de scores (fonte primária)
+            var items = await _scoreService.GetRankingByVagaFromStoreAsync(vagaId, minScore: 0, take: safeTake, ct);
+            // Fallback para JSON legado durante migração
+            if (items.Count == 0 && cache.ItemsJson is { Length: > 0 })
+                items = TryDeserializeItems(cache.ItemsJson) ?? Array.Empty<MatchingCandidateItemResponse>();
             return new VagaUnifiedMatchingRankingSnapshot(
                 Status: UnifiedMatchingCacheStatus.Ready,
                 FiltersHash: desiredHash,
@@ -184,103 +193,11 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
 
     private void StartBackgroundRecompute(Guid vagaId, string tenantId, string filtersHash, int take, string ruleVersion)
     {
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var startedAt = DateTimeOffset.UtcNow;
-                using var scope = _scopeFactory.CreateScope();
-                var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
-                if (!string.IsNullOrWhiteSpace(tenantId))
-                    tenantCtx.SetTenantId(tenantId);
+        var enqueued = _recomputeQueue.Writer.TryWrite(
+            new MatchingRecomputeRequest(vagaId, tenantId, filtersHash, take, ruleVersion));
 
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var aiClient = scope.ServiceProvider.GetService<IRHPortalAiMatchClient>();
-                if (aiClient is null)
-                {
-                    await SetFailedAsync(db, vagaId, filtersHash, "RHPortal.Ai não configurado.", CancellationToken.None);
-                    return;
-                }
-
-                var unified = await aiClient.RunUnifiedMatchingAsync(vagaId, tenantId, minScore: 0, take: take, ct: CancellationToken.None)
-                    .ConfigureAwait(false);
-
-                if (unified is null)
-                {
-                    await SetFailedAsync(db, vagaId, filtersHash, "RHPortal.Ai indisponível ou falha ao calcular matching.", CancellationToken.None);
-                    return;
-                }
-
-                var json = JsonSerializer.Serialize(unified, JsonOptions);
-                var now = DateTimeOffset.UtcNow;
-
-                var cache = await db.VagaUnifiedMatchingCaches
-                    .AsTracking()
-                    .FirstOrDefaultAsync(x => x.VagaId == vagaId, CancellationToken.None);
-
-                if (cache is null)
-                {
-                    cache = new VagaUnifiedMatchingCache
-                    {
-                        VagaId = vagaId,
-                        TenantId = tenantId,
-                    };
-                    db.VagaUnifiedMatchingCaches.Add(cache);
-                }
-
-                cache.ItemsJson = json;
-                cache.Status = UnifiedMatchingCacheStatus.Ready;
-                cache.CurrentFiltersHash = filtersHash;
-                cache.PendingFiltersHash = null;
-                cache.ComputedAtUtc = now;
-                cache.LastError = null;
-
-                await db.SaveChangesAsync(CancellationToken.None).ConfigureAwait(false);
-                var elapsed = DateTimeOffset.UtcNow - startedAt;
-                _logger.LogInformation(
-                    "Unified matching recompute ready. Tenant={TenantId} VagaId={VagaId} Rule={RuleVersion} Take={Take} Items={Items} ElapsedMs={ElapsedMs}",
-                    tenantId,
-                    vagaId,
-                    ruleVersion,
-                    take,
-                    unified.Count,
-                    (long)elapsed.TotalMilliseconds
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Falha ao recalcular ranking unificado da vaga {VagaId}", vagaId);
-                try
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
-                    if (!string.IsNullOrWhiteSpace(tenantId))
-                        tenantCtx.SetTenantId(tenantId);
-                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    await SetFailedAsync(db, vagaId, filtersHash, "Erro ao recalcular ranking (ver logs).", CancellationToken.None);
-                }
-                catch
-                {
-                    // best-effort
-                }
-            }
-        }, CancellationToken.None);
-    }
-
-    private static async Task SetFailedAsync(AppDbContext db, Guid vagaId, string filtersHash, string message, CancellationToken ct)
-    {
-        var now = DateTimeOffset.UtcNow;
-        var cache = await db.VagaUnifiedMatchingCaches
-            .AsTracking()
-            .FirstOrDefaultAsync(x => x.VagaId == vagaId, ct);
-
-        if (cache is null) return;
-
-        cache.Status = UnifiedMatchingCacheStatus.Failed;
-        cache.PendingFiltersHash = filtersHash;
-        cache.StartedAtUtc ??= now;
-        cache.LastError = message;
-        await db.SaveChangesAsync(ct);
+        if (!enqueued)
+            _logger.LogWarning("Fila de recompute cheia. VagaId={VagaId} descartada.", vagaId);
     }
 
     private static IReadOnlyList<MatchingCandidateItemResponse>? TryDeserializeItems(string json)
@@ -313,4 +230,3 @@ public sealed class VagaUnifiedMatchingCacheService : IVagaUnifiedMatchingCacheS
         return s.Trim();
     }
 }
-

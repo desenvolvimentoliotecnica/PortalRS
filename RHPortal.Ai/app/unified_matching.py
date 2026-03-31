@@ -19,7 +19,7 @@ from typing import Any, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 
-from app.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL, DEFAULT_RANKING_SIZE
+from app.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL, DEFAULT_RANKING_SIZE, EMBEDDING_PROVIDER
 from app.log import matching as log
 from app.db import (
     get_vaga_perfil,
@@ -39,6 +39,8 @@ from app.embeddings import (
 )
 from app.vector_search import search_all_by_similarity
 from app.filtros import parse_matching_filtros_raw, criteria_to_prompt_text
+from app.keyword_scoring import normalize_text as kw_normalize, calculate_keyword_score, compute_hybrid_pre_score
+from app.location_scoring import calculate_location_score
 
 # ─── Regras de score ────────────────────────────────────────────────────────
 
@@ -46,15 +48,21 @@ RULE_V1 = "v1_80_20"
 RULE_V2 = "v2_65_35_strict"
 
 SUPPORTED_RULES = {RULE_V1, RULE_V2}
-DEFAULT_RULE = os.getenv("MATCHING_RULE_VERSION", RULE_V1).strip() or RULE_V1
+DEFAULT_RULE = os.getenv("MATCHING_RULE_VERSION", RULE_V2).strip() or RULE_V2
 
 DEFAULT_WEIGHTS = {"competencia": 40, "experiencia": 30, "formacao": 15, "localidade": 15}
+
+# Hybrid pre-filter config
+HYBRID_VECTOR_WEIGHT = float(os.getenv("HYBRID_VECTOR_WEIGHT", "0.6"))
+HYBRID_KEYWORD_WEIGHT = float(os.getenv("HYBRID_KEYWORD_WEIGHT", "0.4"))
+HYBRID_MIN_THRESHOLD = float(os.getenv("HYBRID_MIN_THRESHOLD", "15"))
+HYBRID_ENABLED = os.getenv("HYBRID_PRE_FILTER_ENABLED", "true").strip().lower() in ("true", "1", "yes")
 
 PENALTY_PER_MISSING_MANDATORY_V2 = 20
 PENALTY_MAX_V2 = 60
 MANDATORY_CAP_IF_MISSING_V2 = 89
 MANDATORY_CAP_IF_COVERAGE_LT_70_V2 = 79
-MANDATORY_CAP_IF_COVERAGE_LT_50_V2 = 69
+MANDATORY_CAP_IF_COVERAGE_LT_50_V2 = 60
 
 MAX_LLM_WORKERS = max(1, min(12, int(os.getenv("MATCHING_MAX_LLM_WORKERS", "5"))))
 VECTOR_LIMIT_MULTIPLIER = max(2, min(6, int(os.getenv("MATCHING_VECTOR_LIMIT_MULTIPLIER", "3"))))
@@ -120,6 +128,34 @@ def run_unified_matching(
     if not vector_results:
         return []
 
+    # 3.5 Hybrid pre-filter: keyword score + vector score → elimina candidatos fracos antes do LLM
+    requisitos = vaga.get("requisitos") or []
+    if HYBRID_ENABLED and requisitos:
+        pre_filtered = []
+        for person in vector_results:
+            profile_text = _get_person_profile_text(person["person_id"], person["source"], tenant_id)
+            if not profile_text:
+                continue
+            profile_normalized = kw_normalize(profile_text)
+            kw_score = calculate_keyword_score(profile_normalized, requisitos)
+            hybrid = compute_hybrid_pre_score(
+                person["similaridade"], kw_score,
+                HYBRID_VECTOR_WEIGHT, HYBRID_KEYWORD_WEIGHT)
+            person["keyword_score"] = kw_score
+            person["hybrid_pre_score"] = hybrid
+            if hybrid >= HYBRID_MIN_THRESHOLD:
+                pre_filtered.append(person)
+        saved = len(vector_results) - len(pre_filtered)
+        log.info(
+            "Hybrid pre-filter: %d -> %d candidates (%d filtered, %.0f%% saved)",
+            len(vector_results), len(pre_filtered), saved,
+            (saved / max(1, len(vector_results))) * 100)
+        pre_filtered.sort(key=lambda x: x["hybrid_pre_score"], reverse=True)
+        vector_results = pre_filtered
+
+    if not vector_results:
+        return []
+
     # 4. LLM avalia cada candidato/talento do top vetorial
     llm = ChatOpenAI(
         model=OPENAI_CHAT_MODEL,
@@ -145,14 +181,21 @@ def run_unified_matching(
     ranked = []
     t0 = time.time()
 
+    vaga_salary_min = vaga.get("SalarioMinimo")
+    vaga_salary_max = vaga.get("SalarioMaximo")
+    vaga_cidade = vaga.get("Cidade")
+    vaga_uf = vaga.get("Uf")
+    vaga_modalidade = vaga.get("Modalidade")
+
     def _evaluate_one_person(person: dict) -> dict | None:
         """Avalia uma pessoa com LLM (executada em thread paralela)."""
         person_id = person["person_id"]
         source = person["source"]
 
-        profile_text = _get_person_profile_text(person_id, source, tenant_id)
-        if not profile_text:
+        profile_result = _get_person_profile(person_id, source, tenant_id)
+        if not profile_result:
             return None
+        profile_text, pretensao_salarial, p_cidade, p_uf = profile_result
 
         # Cada thread cria seu próprio LLM client (thread-safe)
         thread_llm = ChatOpenAI(
@@ -168,6 +211,8 @@ def run_unified_matching(
         mandatory_total, mandatory_missing = _estimate_mandatory_coverage(
             profile_text, requisitos
         )
+        sal_score = _salary_overlap_score(pretensao_salarial, vaga_salary_min, vaga_salary_max)
+        det_loc = calculate_location_score(p_cidade, p_uf, vaga_cidade, vaga_uf, vaga_modalidade)
         score_meta = _compute_final_score(
             scores["score_competencia"],
             scores["score_experiencia"],
@@ -177,6 +222,8 @@ def run_unified_matching(
             mandatory_total,
             mandatory_missing,
             normalized_rule,
+            salary_score=sal_score,
+            deterministic_location_score=det_loc,
         )
 
         return {
@@ -254,9 +301,10 @@ def evaluate_single_person(
     if not vaga:
         return None
 
-    profile_text = _get_person_profile_text(person_id, source, tenant_id)
-    if not profile_text:
+    profile_result = _get_person_profile(person_id, source, tenant_id)
+    if not profile_result:
         return None
+    profile_text, pretensao_salarial, _p_cidade, _p_uf = profile_result
 
     llm = ChatOpenAI(
         model=OPENAI_CHAT_MODEL,
@@ -283,6 +331,8 @@ def evaluate_single_person(
     mandatory_total, mandatory_missing = _estimate_mandatory_coverage(
         profile_text, requisitos
     )
+    sal_score = _salary_overlap_score(pretensao_salarial, vaga.get("SalarioMinimo"), vaga.get("SalarioMaximo"))
+    det_loc = calculate_location_score(_p_cidade, _p_uf, vaga.get("Cidade"), vaga.get("Uf"), vaga.get("Modalidade"))
     score_meta = _compute_final_score(
         scores["score_competencia"],
         scores["score_experiencia"],
@@ -292,6 +342,8 @@ def evaluate_single_person(
         mandatory_total,
         mandatory_missing,
         normalized_rule,
+        salary_score=sal_score,
+        deterministic_location_score=det_loc,
     )
 
     return {
@@ -317,6 +369,14 @@ def evaluate_single_person(
 
 def _ensure_vaga_embedding(vaga_id: str, vaga: dict[str, Any], tenant_id: str | None = None) -> None:
     """Gera e salva embedding da vaga se não existir (no banco do tenant)."""
+    if EMBEDDING_PROVIDER == "gemini":
+        try:
+            from app.gemini_embeddings import generate_vaga_embedding_v2
+            generate_vaga_embedding_v2(vaga_id, tenant_id)
+            return
+        except Exception as e:
+            log.warning("Gemini vaga embedding failed, falling back to OpenAI: %s", e)
+
     from app.embeddings import get_vaga_embedding
     if get_vaga_embedding(vaga_id, tenant_id) is None:
         emb = generate_vaga_embedding(vaga)
@@ -332,6 +392,19 @@ def ensure_person_embedding(
     Gera e salva embedding de uma pessoa (candidato ou talento).
     Retorna True se o embedding foi gerado com sucesso.
     """
+    if EMBEDDING_PROVIDER == "gemini":
+        try:
+            from app.gemini_embeddings import generate_candidato_embedding_v2, generate_talento_embedding_v2
+            if source == "candidato":
+                generate_candidato_embedding_v2(person_id, tenant_id)
+                return True
+            elif source == "talento":
+                generate_talento_embedding_v2(person_id, tenant_id)
+                return True
+            return False
+        except Exception as e:
+            log.warning("Gemini person embedding failed, falling back to OpenAI: %s", e)
+
     try:
         if source == "candidato":
             from app.embeddings import get_candidato_embedding
@@ -365,16 +438,37 @@ def _get_person_profile_text(
     tenant_id: str | None = None,
 ) -> str | None:
     """Busca perfil completo e monta texto canônico para avaliação LLM."""
+    result = _get_person_profile(person_id, source, tenant_id)
+    return result[0] if result else None
+
+
+# Reexport for backward compatibility
+get_person_profile = _get_person_profile
+
+
+def _get_person_profile(
+    person_id: str,
+    source: str,
+    tenant_id: str | None = None,
+) -> tuple[str, float | None, str | None, str | None] | None:
+    """Retorna (profile_text, pretensao_salarial, cidade, uf) ou None."""
     if source == "candidato":
         perfil = get_candidato_perfil(person_id, tenant_id)
         if not perfil:
             return None
-        return _build_candidato_text_for_embedding(perfil)
+        text = _build_candidato_text_for_embedding(perfil)
+        pretensao = perfil.get("pretensao_salarial")
+        cidade = perfil.get("cidade")
+        uf = perfil.get("uf")
+        return (text, float(pretensao) if pretensao is not None else None, cidade, uf)
     elif source == "talento":
         perfil = get_talento_perfil(person_id, tenant_id)
         if not perfil:
             return None
-        return _build_talento_text_for_embedding(perfil)
+        pessoa = perfil.get("pessoa") or {}
+        cidade = pessoa.get("Cidade") or pessoa.get("cidade")
+        uf = pessoa.get("Uf") or pessoa.get("uf")
+        return (_build_talento_text_for_embedding(perfil), None, cidade, uf)
     return None
 
 
@@ -415,7 +509,7 @@ def _normalize_text(value: str) -> str:
 
 def _normalize_rule(rule_version: str | None) -> str:
     rv = (rule_version or DEFAULT_RULE).strip()
-    return rv if rv in SUPPORTED_RULES else RULE_V1
+    return rv if rv in SUPPORTED_RULES else RULE_V2
 
 
 def _extract_requisito_terms(requisito: dict[str, Any]) -> list[str]:
@@ -447,6 +541,27 @@ def _estimate_mandatory_coverage(profile_text: str, requisitos: list[dict[str, A
     return total, missing
 
 
+def _salary_overlap_score(pretensao, vaga_min, vaga_max) -> int:
+    """Score de compatibilidade salarial (0-100)."""
+    if pretensao is None or (vaga_min is None and vaga_max is None):
+        return 80
+    p = float(pretensao)
+    mn = float(vaga_min or 0)
+    mx = float(vaga_max or mn)
+    if mx <= 0:
+        return 80
+    if mn <= p <= mx:
+        return 100
+    if p < mn:
+        return 90
+    gap = p - mx
+    if gap <= mx * 0.10:
+        return 70
+    if gap <= mx * 0.20:
+        return 40
+    return 10
+
+
 def _compute_final_score(
     score_competencia: int,
     score_experiencia: int,
@@ -456,6 +571,8 @@ def _compute_final_score(
     mandatory_total: int,
     mandatory_missing: int,
     rule_version: str,
+    salary_score: int = 80,
+    deterministic_location_score: int | None = None,
 ) -> dict[str, int]:
     sc = max(0, min(100, int(score_competencia)))
     se = max(0, min(100, int(score_experiencia)))
@@ -498,6 +615,18 @@ def _compute_final_score(
         hard_penalty = 0
         score = max(0, min(100, base))
 
+    # Salary adjustment: ajusta score final com base na compatibilidade salarial
+    if salary_score != 80:  # 80 = neutro (sem dados)
+        salary_adj = round((salary_score - 80) * 0.05)  # +/- até 1 ponto
+        score = max(0, min(100, score + salary_adj))
+
+    # Location adjustment: blenda LLM location score com score determinístico
+    if deterministic_location_score is not None:
+        blended_loc = round(deterministic_location_score * 0.4 + sl * 0.6)
+        loc_diff = blended_loc - sl
+        loc_adj = round(loc_diff * (wl / total_w))
+        score = max(0, min(100, score + loc_adj))
+
     return {
         "score_final": score,
         "score_filtros": score_filtros_compat,
@@ -506,6 +635,8 @@ def _compute_final_score(
         "missing_mandatory_count": missing,
         "mandatory_coverage": coverage,
         "hard_penalty": hard_penalty,
+        "salary_score": salary_score,
+        "location_score": deterministic_location_score,
     }
 
 

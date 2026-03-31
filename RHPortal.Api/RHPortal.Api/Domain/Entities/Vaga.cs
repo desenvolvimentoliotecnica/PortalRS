@@ -263,6 +263,11 @@ namespace RHPortal.Api.Domain.Entities
 
         [StringLength(240)]
         public string? Observacoes { get; set; }            // req-obs
+
+        /// <summary>Link opcional para a taxonomia de skills.</summary>
+        public Guid? SkillId { get; set; }
+        public Skill? Skill { get; set; }
+
         public DateTimeOffset CreatedAtUtc { get; set; }
         public DateTimeOffset UpdatedAtUtc { get; set; }
     }

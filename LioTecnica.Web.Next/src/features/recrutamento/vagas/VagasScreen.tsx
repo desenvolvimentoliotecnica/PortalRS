@@ -48,6 +48,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import VagaFormModal from "./VagaFormModal";
 import SolicitacaoFormModal from "@/features/gestao/solicitacoes/SolicitacaoFormModal";
+import NextStepBanner from "@/components/feedback/NextStepBanner";
 
 const BASE = "/app";
 const MATCHING_LAST_VAGA_KEY = "renderrh.matching.lastVagaId";
@@ -330,6 +331,33 @@ export default function VagasScreen() {
     const [solicDetail, setSolicDetail] = useState<SolicitacaoDetail | null>(null);
     const [approvalObs, setApprovalObs] = useState("");
     const [approvalActing, setApprovalActing] = useState(false);
+
+    /* ── next step banner after vaga creation ── */
+    const [lastCreatedVagaId, setLastCreatedVagaId] = useState<string | null>(null);
+
+    /* ── prefill from solicitação (deep-link: ?newFromSolicitacao=ID) ── */
+    const [prefillFromSolic, setPrefillFromSolic] = useState<Record<string, unknown> | null>(null);
+    const fromSolicId = searchParams.get("newFromSolicitacao");
+    const fromSolicHandled = useRef(false);
+    useEffect(() => {
+        if (!fromSolicId || fromSolicHandled.current) return;
+        fromSolicHandled.current = true;
+        fetchJson<Record<string, unknown>>(`/api/solicitacoes-vaga/${encodeURIComponent(fromSolicId)}`)
+            .then((solic) => {
+                setPrefillFromSolic({
+                    titulo: solic.titulo ?? "",
+                    areaId: solic.areaId ?? "",
+                    areaName: solic.areaName ?? "",
+                    unitId: solic.unitId ?? "",
+                    descricaoInterna: solic.justificativa ?? "",
+                    prioridade: solic.urgencia === 3 ? "Crítica" : solic.urgencia === 2 ? "Alta" : solic.urgencia === 1 ? "Média" : "Normal",
+                    quantidadeVagas: solic.qtdPosicoes ?? 1,
+                });
+                setEditId(null);
+                setEditOpen(true);
+            })
+            .catch(() => toast.error("Falha ao carregar solicitação."));
+    }, [fromSolicId]);
 
     const syncList = useCallback(async () => {
         const endpoint = pendenciasMode ? `${BASE}/api/vagas/pendencias-rh` : `${BASE}/api/vagas`;
@@ -791,6 +819,19 @@ export default function VagasScreen() {
                 </div>
             </details>
 
+            {/* ── next step banner ── */}
+            {lastCreatedVagaId && (
+                <NextStepBanner
+                    variant="success"
+                    title="Vaga criada!"
+                    description="Configure as etapas de seleção e publique no portal para começar a receber candidatos."
+                    actions={[
+                        { label: "Abrir Vaga", href: `/vagas/hub?id=${encodeURIComponent(lastCreatedVagaId)}` },
+                    ]}
+                    onDismiss={() => setLastCreatedVagaId(null)}
+                />
+            )}
+
             {/* Main panel */}
             <div className="rounded-xl border border-border/50 bg-card shadow-sm">
                 {/* Filters bar */}
@@ -858,7 +899,7 @@ export default function VagasScreen() {
                                     ) : paged.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={6} className="py-14 text-center text-sm text-muted-foreground">
-                                                Nenhuma vaga encontrada com os filtros atuais.
+                                                Nenhuma vaga encontrada. Crie sua primeira vaga para começar a recrutar.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
@@ -871,7 +912,7 @@ export default function VagasScreen() {
                                                 <TableRow
                                                     key={vaga.id}
                                                     className="cursor-pointer hover:bg-muted/40"
-                                                    onClick={() => void openVagaDetail(vaga.id)}
+                                                    onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(vaga.id)}`)}
                                                 >
                                                     <TableCell>
                                                         <div className="flex items-start justify-between gap-3">
@@ -1027,7 +1068,7 @@ export default function VagasScreen() {
                                                         <div
                                                             key={vaga.id}
                                                             className="rounded-lg border border-border/50 bg-card p-3 shadow-sm cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
-                                                            onClick={() => void openVagaDetail(vaga.id)}
+                                                            onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(vaga.id)}`)}
                                                         >
                                                             <div className="text-sm font-medium leading-tight truncate">{vaga.titulo ?? "—"}</div>
                                                             {vaga.codigo && <div className="mt-1 text-[11px] font-mono text-muted-foreground">{vaga.codigo}</div>}
@@ -1427,11 +1468,13 @@ export default function VagasScreen() {
             <VagaFormModal
                 open={editOpen}
                 editId={editId}
+                prefill={prefillFromSolic as any}
                 defaultTab={editDefaultTab as any}
                 onClose={() => {
                     setEditOpen(false);
                     setEditId(null);
                     setEditDefaultTab(undefined);
+                    setPrefillFromSolic(null);
                 }}
                 onSaved={(savedVagaId) => {
                     const wasNew = !editId;
@@ -1440,7 +1483,7 @@ export default function VagasScreen() {
                     setEditDefaultTab(undefined);
                     void syncList();
                     if (wasNew && savedVagaId) {
-                        setTimeout(() => void openVagaDetail(savedVagaId), 350);
+                        setLastCreatedVagaId(savedVagaId);
                     }
                 }}
             />

@@ -1,0 +1,335 @@
+using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.Common;
+using RhPortal.Api.Contracts.SolicitacoesDependente;
+using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Tenancy;
+
+namespace RhPortal.Api.Application.SolicitacoesDependente;
+
+public interface ISolicitacaoDependenteService
+{
+    Task<IReadOnlyList<SolicitacaoDependenteGridRow>> ListAsync(SolicitacaoDependenteListQuery query, Guid? currentFuncionarioId, CancellationToken ct);
+    Task<SolicitacaoDependenteResponse?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoDependenteResponse> CreateAsync(SolicitacaoDependenteCreateRequest request, Guid? solicitanteId, CancellationToken ct);
+    Task<SolicitacaoDependenteResponse?> UpdateAsync(Guid id, SolicitacaoDependenteUpdateRequest request, CancellationToken ct);
+    Task<bool> SubmitAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoDependenteResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<SolicitacaoDependenteResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<SolicitacaoDependenteResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+}
+
+public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
+{
+    private readonly AppDbContext _db;
+    private readonly ITenantContext _tenantContext;
+    private readonly ICurrentUserContext _currentUser;
+    private readonly ApprovalWorkflowHelper _workflow;
+
+    public SolicitacaoDependenteService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        ICurrentUserContext currentUser,
+        ApprovalWorkflowHelper workflow)
+    {
+        _db = db;
+        _tenantContext = tenantContext;
+        _currentUser = currentUser;
+        _workflow = workflow;
+    }
+
+    public async Task<IReadOnlyList<SolicitacaoDependenteGridRow>> ListAsync(
+        SolicitacaoDependenteListQuery query, Guid? currentFuncionarioId, CancellationToken ct)
+    {
+        var q = _db.SolicitacoesDependente.AsNoTracking()
+            .Include(s => s.Solicitante)
+            .AsQueryable();
+
+        if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
+            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
+
+        if (query.Status.HasValue)
+            q = q.Where(s => s.Status == query.Status.Value);
+
+        if (!string.IsNullOrWhiteSpace(query.Q))
+        {
+            var term = query.Q.Trim().ToLower();
+            q = q.Where(s => s.NomeCompleto.ToLower().Contains(term)
+                          || (s.Solicitante != null && s.Solicitante.Name.ToLower().Contains(term)));
+        }
+
+        q = q.OrderByDescending(s => s.CreatedAtUtc);
+
+        var page = Math.Max(query.Page ?? 1, 1);
+        var pageSize = Math.Clamp(query.PageSize ?? 20, 1, 100);
+        q = q.Skip((page - 1) * pageSize).Take(pageSize);
+
+        return await q.Select(s => new SolicitacaoDependenteGridRow(
+            s.Id, s.Status,
+            s.Solicitante != null ? s.Solicitante.Name : null,
+            s.TipoSolicitacao, s.NomeCompleto,
+            s.Parentesco, s.CreatedAtUtc
+        )).ToListAsync(ct);
+    }
+
+    public async Task<SolicitacaoDependenteResponse?> GetByIdAsync(Guid id, CancellationToken ct)
+    {
+        var s = await _db.SolicitacoesDependente.AsNoTracking()
+            .Include(x => x.Solicitante)
+            .Include(x => x.Aprovador1)
+            .Include(x => x.Aprovador2)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        return s is null ? null : MapToResponse(s);
+    }
+
+    public async Task<SolicitacaoDependenteResponse> CreateAsync(
+        SolicitacaoDependenteCreateRequest request, Guid? solicitanteId, CancellationToken ct)
+    {
+        if (_currentUser.IsReadOnly)
+            throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível criar solicitações.");
+
+        var resolvedSolicitanteId = await _workflow.ResolveSolicitanteIdAsync(solicitanteId, ct);
+
+        var now = DateTimeOffset.UtcNow;
+        var entity = new SolicitacaoDependente
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            SolicitanteId = resolvedSolicitanteId,
+            TipoSolicitacao = request.TipoSolicitacao,
+            DependenteId = request.DependenteId,
+            NomeCompleto = request.NomeCompleto,
+            Parentesco = request.Parentesco,
+            Cpf = request.Cpf,
+            DataNascimento = request.DataNascimento,
+            IsPcd = request.IsPcd,
+            DependenteIR = request.DependenteIR,
+            Observacoes = request.Observacoes,
+            Status = SolicitacaoStatus.Rascunho,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+        };
+
+        _db.SolicitacoesDependente.Add(entity);
+        await _db.SaveChangesAsync(ct);
+
+        return (await GetByIdAsync(entity.Id, ct))!;
+    }
+
+    public async Task<SolicitacaoDependenteResponse?> UpdateAsync(
+        Guid id, SolicitacaoDependenteUpdateRequest request, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
+
+        entity.TipoSolicitacao = request.TipoSolicitacao;
+        entity.DependenteId = request.DependenteId;
+        entity.NomeCompleto = request.NomeCompleto;
+        entity.Parentesco = request.Parentesco;
+        entity.Cpf = request.Cpf;
+        entity.DataNascimento = request.DataNascimento;
+        entity.IsPcd = request.IsPcd;
+        entity.DependenteIR = request.DependenteIR;
+        entity.Observacoes = request.Observacoes;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<bool> SubmitAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return false;
+
+        ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
+
+        var resolution = await _workflow.ResolveApproversAsync(entity.SolicitanteId, entity.Aprovador2Habilitado, ct);
+
+        entity.Status = SolicitacaoStatus.PendenteAprovacao;
+        entity.Aprovador1Id = resolution.Aprovador1Id;
+        entity.Aprovador1Status = StatusAprovacao.Pendente;
+        entity.Aprovador2Habilitado = resolution.Aprovador2Habilitado;
+        entity.Aprovador2Id = resolution.Aprovador2Id;
+        if (resolution.Aprovador2Habilitado)
+            entity.Aprovador2Status = StatusAprovacao.Pendente;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        if (entity.Aprovador1Id.HasValue)
+        {
+            var solicitanteNome = (await _db.Set<Funcionario>().AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct))?.Name ?? "Alguém";
+
+            await _workflow.NotifyByFuncionarioIdAsync(
+                entity.Aprovador1Id.Value,
+                "Nova solicitação de dependente para aprovação",
+                $"{solicitanteNome} abriu uma solicitação de {entity.TipoSolicitacao.ToString().ToLower()} de dependente: {entity.NomeCompleto}.",
+                $"/colaborador/solicitacoes-dependente/{entity.Id}",
+                ct);
+        }
+
+        return true;
+    }
+
+    public async Task<SolicitacaoDependenteResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
+
+        entity.Status = SolicitacaoStatus.Aprovada;
+        entity.ObservacaoAprovador = observacao;
+        entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // ── Executar CRUD real na tabela Dependente ──
+        await ExecuteDependenteCrudAsync(entity, ct);
+
+        await _db.SaveChangesAsync(ct);
+
+        await _workflow.NotifyByFuncionarioIdAsync(
+            entity.SolicitanteId,
+            "Solicitação de dependente aprovada",
+            $"Sua solicitação de {entity.TipoSolicitacao.ToString().ToLower()} de dependente ({entity.NomeCompleto}) foi aprovada.",
+            $"/colaborador/solicitacoes-dependente/{entity.Id}",
+            ct);
+
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoDependenteResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
+
+        entity.Status = SolicitacaoStatus.Reprovada;
+        entity.ObservacaoAprovador = observacao;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        await _workflow.NotifyByFuncionarioIdAsync(
+            entity.SolicitanteId,
+            "Solicitação de dependente reprovada",
+            $"Sua solicitação de {entity.TipoSolicitacao.ToString().ToLower()} de dependente ({entity.NomeCompleto}) foi reprovada."
+                + (observacao is not null ? $" Motivo: {observacao}" : ""),
+            $"/colaborador/solicitacoes-dependente/{entity.Id}",
+            ct, "warning");
+
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoDependenteResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
+
+        entity.Status = SolicitacaoStatus.AjustesNecessarios;
+        entity.ObservacaoAprovador = observacao;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        await _workflow.NotifyByFuncionarioIdAsync(
+            entity.SolicitanteId,
+            "Ajustes necessários na solicitação de dependente",
+            $"Sua solicitação de dependente ({entity.NomeCompleto}) precisa de ajustes."
+                + (observacao is not null ? $" Observação: {observacao}" : ""),
+            $"/colaborador/solicitacoes-dependente/{entity.Id}",
+            ct, "warning");
+
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return false;
+
+        ApprovalWorkflowHelper.ValidateCanDelete(entity.Status);
+
+        _db.SolicitacoesDependente.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    /// <summary>
+    /// Executa o CRUD real na tabela Dependente conforme o TipoSolicitacao.
+    /// </summary>
+    private async Task ExecuteDependenteCrudAsync(SolicitacaoDependente sol, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        switch (sol.TipoSolicitacao)
+        {
+            case TipoSolicitacaoDependente.Inclusao:
+            {
+                var dep = new Dependente
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId,
+                    FuncionarioId = sol.SolicitanteId,
+                    NomeCompleto = sol.NomeCompleto,
+                    Parentesco = sol.Parentesco,
+                    Cpf = sol.Cpf,
+                    DataNascimento = sol.DataNascimento,
+                    IsPcd = sol.IsPcd,
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now,
+                };
+                _db.Set<Dependente>().Add(dep);
+                break;
+            }
+
+            case TipoSolicitacaoDependente.Alteracao when sol.DependenteId.HasValue:
+            {
+                var dep = await _db.Set<Dependente>()
+                    .FirstOrDefaultAsync(d => d.Id == sol.DependenteId.Value, ct);
+                if (dep is not null)
+                {
+                    dep.NomeCompleto = sol.NomeCompleto;
+                    dep.Parentesco = sol.Parentesco;
+                    dep.Cpf = sol.Cpf;
+                    dep.DataNascimento = sol.DataNascimento;
+                    dep.IsPcd = sol.IsPcd;
+                    dep.UpdatedAtUtc = now;
+                }
+                break;
+            }
+
+            case TipoSolicitacaoDependente.Exclusao when sol.DependenteId.HasValue:
+            {
+                var dep = await _db.Set<Dependente>()
+                    .FirstOrDefaultAsync(d => d.Id == sol.DependenteId.Value, ct);
+                if (dep is not null)
+                    _db.Set<Dependente>().Remove(dep);
+                break;
+            }
+        }
+    }
+
+    private static SolicitacaoDependenteResponse MapToResponse(SolicitacaoDependente s) => new(
+        s.Id, s.Status,
+        s.SolicitanteId, s.Solicitante?.Name,
+        s.TipoSolicitacao, s.DependenteId,
+        s.NomeCompleto, s.Parentesco, s.Cpf,
+        s.DataNascimento, s.IsPcd, s.DependenteIR,
+        s.Aprovador1Id, s.Aprovador1?.Name, s.Aprovador1Status, s.Aprovador1DataUtc,
+        s.Aprovador2Id, s.Aprovador2?.Name, s.Aprovador2Status, s.Aprovador2DataUtc,
+        s.Aprovador2Habilitado,
+        s.ObservacaoAprovador, s.Observacoes,
+        s.CreatedAtUtc, s.UpdatedAtUtc, s.ApprovedAtUtc
+    );
+}

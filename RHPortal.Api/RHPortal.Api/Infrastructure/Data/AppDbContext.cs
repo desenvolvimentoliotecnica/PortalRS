@@ -46,6 +46,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<TalentoCvImportJob> TalentoCvImportJobs => Set<TalentoCvImportJob>();
     public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
     public DbSet<SolicitacaoVaga> SolicitacoesVaga => Set<SolicitacaoVaga>();
+    public DbSet<SolicitacaoDesligamento> SolicitacoesDesligamento => Set<SolicitacaoDesligamento>();
+    public DbSet<SolicitacaoPromocao> SolicitacoesPromocao => Set<SolicitacaoPromocao>();
+    public DbSet<SolicitacaoFerias> SolicitacoesFerias => Set<SolicitacaoFerias>();
+    public DbSet<SolicitacaoBeneficio> SolicitacoesBeneficio => Set<SolicitacaoBeneficio>();
+    public DbSet<SolicitacaoDependente> SolicitacoesDependente => Set<SolicitacaoDependente>();
+    public DbSet<SolicitacaoEndereco> SolicitacoesEndereco => Set<SolicitacaoEndereco>();
     public DbSet<Dependente> Dependentes => Set<Dependente>();
     public DbSet<DocumentoColaborador> DocumentosColaborador => Set<DocumentoColaborador>();
     public DbSet<PreAdmissao> PreAdmissoes => Set<PreAdmissao>();
@@ -994,6 +1000,10 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.VagaId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+            // SkillId column may not exist yet (migration AddSkillsTaxonomy.sql pending).
+            // Ignore until migration is applied to avoid "column v1.SkillId does not exist".
+            b.Ignore(x => x.Skill);
+            b.Ignore(x => x.SkillId);
         });
 
         modelBuilder.Entity<VagaEtapa>(b =>
@@ -1408,6 +1418,13 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasKey(x => new { x.CandidatoId, x.VagaId });
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.Property(x => x.Score).IsRequired();
+            b.Property(x => x.ScoreCompetencia);
+            b.Property(x => x.ScoreExperiencia);
+            b.Property(x => x.ScoreFormacao);
+            b.Property(x => x.ScoreLocalidade);
+            b.Property(x => x.Source).HasMaxLength(20);
+            b.Property(x => x.Justificativa).HasMaxLength(2000);
+            b.Property(x => x.RuleVersion).HasMaxLength(30);
             b.Property(x => x.CalculatedAtUtc).IsRequired();
             b.HasOne(x => x.Candidato)
                 .WithMany()
@@ -1446,6 +1463,63 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.HasIndex(x => new { x.TenantId, x.VagaId }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Skill>(b =>
+        {
+            b.ToTable("Skills");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CanonicalName).HasMaxLength(180).IsRequired();
+            b.Property(x => x.Category).HasMaxLength(80);
+            b.HasOne(x => x.ParentSkill).WithMany().HasForeignKey(x => x.ParentSkillId).OnDelete(DeleteBehavior.SetNull);
+            b.HasMany(x => x.Aliases).WithOne(x => x.Skill).HasForeignKey(x => x.SkillId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.CanonicalName }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SkillAlias>(b =>
+        {
+            b.ToTable("SkillAliases");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.AliasName).HasMaxLength(180).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.AliasName }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RecruiterMatchingFeedback>(b =>
+        {
+            b.ToTable("RecruiterMatchingFeedbacks");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.RecruiterUserId).HasMaxLength(120);
+            b.Property(x => x.Action).HasConversion<short>();
+            b.HasIndex(x => new { x.VagaId, x.CandidatoId });
+            b.HasIndex(x => new { x.TenantId, x.VagaId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<BatchMatchingRun>(b =>
+        {
+            b.ToTable("BatchMatchingRuns");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Status).HasConversion<short>();
+            b.Property(x => x.LastError).HasMaxLength(2000);
+            b.HasMany(x => x.Vagas).WithOne(x => x.Run).HasForeignKey(x => x.RunId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<BatchMatchingRunVaga>(b =>
+        {
+            b.ToTable("BatchMatchingRunVagas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Status).HasConversion<short>();
+            b.Property(x => x.ErrorMessage).HasMaxLength(2000);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

@@ -237,6 +237,12 @@ builder.Services.AddSingleton<DbLoggerProvider>();
 builder.Services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<DbLoggerProvider>());
 builder.Services.AddHostedService<DbLogWriterService>();
 builder.Services.AddHostedService<VagaUnifiedMatchingCacheCleanupService>();
+builder.Services.AddSingleton<MatchingRecomputeQueue>();
+builder.Services.AddHostedService<MatchingRecomputeWorker>();
+builder.Services.Configure<BatchMatchingOptions>(builder.Configuration.GetSection(BatchMatchingOptions.SectionName));
+builder.Services.AddSingleton<BatchMatchingQueue>();
+builder.Services.AddHostedService<BatchMatchingRunnerService>();
+builder.Services.AddScoped<INdcgCalculationService, NdcgCalculationService>();
 
 // Inbox folder watcher
 builder.Services.Configure<InboxFolderOptions>(builder.Configuration.GetSection("InboxFolder"));
@@ -403,6 +409,13 @@ builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
 builder.Services.AddScoped<ISolicitacaoVagaService, SolicitacaoVagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Common.ApprovalWorkflowHelper>();
+builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesDesligamento.ISolicitacaoDesligamentoService, RhPortal.Api.Application.SolicitacoesDesligamento.SolicitacaoDesligamentoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesPromocao.ISolicitacaoPromocaoService, RhPortal.Api.Application.SolicitacoesPromocao.SolicitacaoPromocaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesFerias.ISolicitacaoFeriasService, RhPortal.Api.Application.SolicitacoesFerias.SolicitacaoFeriasService>();
+builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesBeneficio.ISolicitacaoBeneficioService, RhPortal.Api.Application.SolicitacoesBeneficio.SolicitacaoBeneficioService>();
+builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesDependente.ISolicitacaoDependenteService, RhPortal.Api.Application.SolicitacoesDependente.SolicitacaoDependenteService>();
+builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesEndereco.ISolicitacaoEnderecoService, RhPortal.Api.Application.SolicitacoesEndereco.SolicitacaoEnderecoService>();
 builder.Services.AddScoped<INivelHierarquicoService, NivelHierarquicoService>();
 builder.Services.AddScoped<IProjetoVagaService, ProjetoVagaService>();
 builder.Services.AddScoped<IFaseProcessoService, FaseProcessoService>();

@@ -13,7 +13,7 @@ public sealed class RhAiOptions
     /// <summary>
     /// Versão padrão da regra de matching (ex.: v1_80_20, v2_65_35_strict).
     /// </summary>
-    public string DefaultRuleVersion { get; set; } = "v1_80_20";
+    public string DefaultRuleVersion { get; set; } = "v2_65_35_strict";
 
     /// <summary>
     /// Override por tenant (tenantId -> versão da regra).
@@ -34,6 +34,6 @@ public sealed class RhAiOptions
                 }
             }
         }
-        return string.IsNullOrWhiteSpace(DefaultRuleVersion) ? "v1_80_20" : DefaultRuleVersion.Trim();
+        return string.IsNullOrWhiteSpace(DefaultRuleVersion) ? "v2_65_35_strict" : DefaultRuleVersion.Trim();
     }
 }

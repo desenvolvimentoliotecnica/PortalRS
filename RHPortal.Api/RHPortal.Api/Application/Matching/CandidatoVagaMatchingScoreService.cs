@@ -69,19 +69,19 @@ public sealed class CandidatoVagaMatchingScoreService : ICandidatoVagaMatchingSc
                     s.Score,
                     s.Score >= safeMin,
                     s.CalculatedAtUtc,
-                    (string?)null,   // Source
-                    (int?)null,      // ScoreCompetencia
-                    (int?)null,      // ScoreExperiencia
-                    (int?)null,      // ScoreFormacao
-                    (int?)null,      // ScoreLocalidade
+                    s.Source,
+                    s.ScoreCompetencia,
+                    s.ScoreExperiencia,
+                    s.ScoreFormacao,
+                    s.ScoreLocalidade,
                     (int?)null,      // ScoreFiltros
                     (int?)null,      // ScoreRequisitos
-                    (string?)null,   // Justificativa
+                    s.Justificativa,
                     (int?)null,      // MandatoryTotal
                     (int?)null,      // MissingMandatoryCount
                     (int?)null,      // MandatoryCoverage
                     (int?)null,      // HardPenalty
-                    (string?)null))  // RuleVersion
+                    s.RuleVersion))
             .ToListAsync(ct);
         return list;
     }
@@ -105,6 +105,38 @@ public sealed class CandidatoVagaMatchingScoreService : ICandidatoVagaMatchingSc
                 CandidatoId = candidatoId,
                 VagaId = vagaId,
                 Score = Math.Clamp(score, 0, 100),
+                CalculatedAtUtc = at,
+                TenantId = tenantIdVal,
+            });
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task ReplaceScoresForVagaAsync(
+        Guid vagaId,
+        IReadOnlyList<MatchingCandidateItemResponse> items,
+        string? tenantId = null,
+        CancellationToken ct = default)
+    {
+        var tenantIdVal = tenantId ?? _tenantContext.TenantId ?? "";
+        var existing = await _db.CandidatoVagaMatchingScores
+            .Where(x => x.VagaId == vagaId && x.TenantId == tenantIdVal)
+            .ToListAsync(ct);
+        if (existing.Count > 0)
+            _db.CandidatoVagaMatchingScores.RemoveRange(existing);
+        var at = DateTimeOffset.UtcNow;
+        foreach (var item in items)
+            _db.CandidatoVagaMatchingScores.Add(new CandidatoVagaMatchingScore
+            {
+                CandidatoId = item.CandidatoId,
+                VagaId = vagaId,
+                Score = Math.Clamp(item.Score, 0, 100),
+                ScoreCompetencia = item.ScoreCompetencia,
+                ScoreExperiencia = item.ScoreExperiencia,
+                ScoreFormacao = item.ScoreFormacao,
+                ScoreLocalidade = item.ScoreLocalidade,
+                Source = item.Source,
+                Justificativa = item.Justificativa,
+                RuleVersion = item.RuleVersion,
                 CalculatedAtUtc = at,
                 TenantId = tenantIdVal,
             });

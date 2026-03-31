@@ -962,7 +962,7 @@ export default function CandidatosScreen() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
-                    Nenhum candidato encontrado com os filtros atuais.
+                    Nenhum candidato encontrado. Publique vagas no portal ou adicione candidatos manualmente.
                   </TableCell>
                 </TableRow>
               )}

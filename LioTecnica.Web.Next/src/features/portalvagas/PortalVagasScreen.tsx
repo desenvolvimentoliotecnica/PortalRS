@@ -4,9 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import { CheckCircle2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { getPortalCandidateSession, portalCandidateFetch } from "@/features/portalvagas/publicApi";
 import PortalVagasAgendaScreen from "@/features/portalvagas/agenda/PortalVagasAgendaScreen";
+import MinhasCandidaturasSection from "@/features/portalvagas/MinhasCandidaturasSection";
 import { addAppToHistory } from "@/features/portalvagas/appsStorage";
 import {
   PortalVagasSkillsSection,
@@ -43,6 +45,7 @@ type JobItem = {
   createdAtUtc?: string | null;
   empresaNome?: string | null;
   tenantName?: string | null;
+  etapas?: { nome: string }[] | null;
 };
 
 type PagedJobs = {
@@ -72,7 +75,7 @@ type Profile = {
   trabalhandoAtualmente?: boolean | null;
 };
 
-type Tab = "vagas" | "agenda";
+type Tab = "vagas" | "agenda" | "candidaturas";
 type ProfileSection =
   | "perfil"
   | "skills"
@@ -322,16 +325,9 @@ export default function PortalVagasScreen() {
     if (
       !applyForm.fullName ||
       !applyForm.email ||
-      !applyForm.phone ||
-      !applyForm.currentRole ||
-      !applyForm.experienceYears ||
-      !applyForm.highlights ||
-      !applyForm.uf ||
-      !applyForm.city ||
-      !applyForm.salaryExpectation ||
-      !applyForm.availability
+      !applyForm.phone
     ) {
-      toast.error("Preencha os campos obrigatórios.");
+      toast.error("Preencha nome, e-mail e celular.");
       return;
     }
     // Validar campos personalizados obrigatórios
@@ -393,7 +389,7 @@ export default function PortalVagasScreen() {
         const err = await res.text().catch(() => "");
         throw new Error(err || `HTTP ${res.status}`);
       }
-      toast.success("Candidatura enviada com sucesso.");
+      toast.success("Candidatura enviada! Complete seu perfil para aumentar suas chances.", { duration: 6000 });
       addAppToHistory({
         title: selectedJob.titulo,
         company: (selectedJob.empresaNome || selectedJob.tenantName) ?? "",
@@ -537,13 +533,10 @@ export default function PortalVagasScreen() {
 
         {/* Action buttons */}
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm">
+          <Button variant={tab === "vagas" ? "default" : "ghost"} size="sm" onClick={() => setTab("vagas")}>Vagas</Button>
+          <Button variant={tab === "candidaturas" ? "default" : "ghost"} size="sm" onClick={() => setTab("candidaturas")}>Minhas Candidaturas</Button>
+          <Button variant={tab === "agenda" ? "default" : "ghost"} size="sm" onClick={() => setTab("agenda")}>Agenda</Button>
           <Button variant="ghost" size="sm" onClick={() => void openProfile()}>Meu perfil</Button>
-          {tab !== "agenda" && (
-            <Button variant="ghost" size="sm" onClick={() => setTab("agenda")}>Ver agenda</Button>
-          )}
-          {tab === "agenda" && (
-            <Button variant="ghost" size="sm" onClick={() => setTab("vagas")}>Ver vagas</Button>
-          )}
           {!tenantId && (
             <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-800">
               Link sem tenantId — use <code>?tenantId=...</code> para ver vagas
@@ -552,9 +545,27 @@ export default function PortalVagasScreen() {
         </div>
       </div>
 
+      {/* ── Admissão banner (if candidate has pending admission) ── */}
+      {candidateSession?.id && (
+        <div className="mx-auto max-w-6xl px-4 pt-4">
+          <div className="flex items-center gap-3 rounded-lg border border-emerald-300/40 bg-emerald-500/8 p-3 text-sm">
+            <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <span className="font-medium text-foreground">Aprovado em uma vaga?</span>{" "}
+              <span className="text-muted-foreground">Acesse o portal de documentos para enviar seus dados de admissão.</span>
+            </div>
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/DocumentoAdmissao?tenantId=${encodeURIComponent(tenantId)}`}>Enviar Documentos</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ── Content ── */}
       <div className="mx-auto max-w-6xl px-4 py-6">
-        {tab === "agenda" ? (
+        {tab === "candidaturas" ? (
+          <MinhasCandidaturasSection />
+        ) : tab === "agenda" ? (
           <PortalVagasAgendaScreen />
         ) : (
           <div className="space-y-5">
@@ -710,6 +721,24 @@ export default function PortalVagasScreen() {
                 </div>
               )}
             </div>
+            {/* Etapas do processo */}
+            {selectedJob.etapas && Array.isArray(selectedJob.etapas) && (selectedJob.etapas as { nome: string }[]).length > 0 && (
+              <div className="px-6 py-3 border-t border-border/30 bg-muted/20">
+                <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-semibold mb-2">
+                  Processo de seleção ({(selectedJob.etapas as unknown[]).length} etapas)
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(selectedJob.etapas as { nome: string }[]).map((e, i, arr) => (
+                    <span key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold">{i + 1}</span>
+                      <span>{e.nome}</span>
+                      {i < arr.length - 1 && <span className="text-border mx-0.5">→</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-border/40 bg-card px-6 py-4">
               <button
                 type="button"
@@ -748,9 +777,9 @@ export default function PortalVagasScreen() {
 
             {/* Body */}
             <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
-              {/* Dados pessoais */}
+              {/* Candidatura rápida — apenas o essencial */}
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Dados pessoais</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Candidatura rápida</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className={labelCls}>Nome completo *</label>
@@ -761,59 +790,76 @@ export default function PortalVagasScreen() {
                     <input className={inputCls} type="email" placeholder="seu@email.com" value={applyForm.email} onChange={(e) => setApplyForm((f) => ({ ...f, email: e.target.value }))} />
                   </div>
                   <div>
-                    <label className={labelCls}>Telefone</label>
+                    <label className={labelCls}>Celular *</label>
                     <input className={inputCls} placeholder="(11) 99999-9999" value={applyForm.phone} onChange={(e) => setApplyForm((f) => ({ ...f, phone: e.target.value }))} />
                   </div>
                   <div>
-                    <label className={labelCls}>LinkedIn</label>
-                    <input className={inputCls} placeholder="linkedin.com/in/seuperfil" value={applyForm.linkedin} onChange={(e) => setApplyForm((f) => ({ ...f, linkedin: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Cidade</label>
-                    <input className={inputCls} placeholder="São Paulo" value={applyForm.city} onChange={(e) => setApplyForm((f) => ({ ...f, city: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Estado</label>
-                    <select className={selectCls} value={applyForm.uf} onChange={(e) => setApplyForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))}>
-                      <option value="">Selecione</option>
-                      {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
-                    </select>
+                    <label className={labelCls}>Currículo (PDF, DOC, DOCX — máx. 5MB)</label>
+                    <input className={inputCls} type="file" accept=".pdf,.doc,.docx" onChange={(e) => onApplyFileChange(e.target.files?.[0] || null)} />
                   </div>
                 </div>
               </div>
 
-              {/* Experiência */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Experiência</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelCls}>Cargo atual</label>
-                    <input className={inputCls} placeholder="Desenvolvedor Pleno" value={applyForm.currentRole} onChange={(e) => setApplyForm((f) => ({ ...f, currentRole: e.target.value }))} />
+              {/* Mais informações — colapsável */}
+              <details className="group rounded-lg border border-border/30 bg-muted/20">
+                <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+                  <svg className="size-3.5 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z"/></svg>
+                  Completar perfil (opcional — aumenta suas chances)
+                </summary>
+                <div className="px-4 pb-4 pt-2 space-y-4">
+                  {/* Localização */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Cidade</label>
+                      <input className={inputCls} placeholder="São Paulo" value={applyForm.city} onChange={(e) => setApplyForm((f) => ({ ...f, city: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Estado</label>
+                      <select className={selectCls} value={applyForm.uf} onChange={(e) => setApplyForm((f) => ({ ...f, uf: e.target.value.toUpperCase() }))}>
+                        <option value="">Selecione</option>
+                        {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>LinkedIn</label>
+                      <input className={inputCls} placeholder="linkedin.com/in/seuperfil" value={applyForm.linkedin} onChange={(e) => setApplyForm((f) => ({ ...f, linkedin: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Portfolio</label>
+                      <input className={inputCls} placeholder="github.com/seuperfil" value={applyForm.portfolio} onChange={(e) => setApplyForm((f) => ({ ...f, portfolio: (e.target as HTMLInputElement).value }))} />
+                    </div>
                   </div>
-                  <div>
-                    <label className={labelCls}>Anos de experiência</label>
-                    <input className={inputCls} type="number" min={0} placeholder="3" value={applyForm.experienceYears} onChange={(e) => setApplyForm((f) => ({ ...f, experienceYears: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Pretensão salarial</label>
-                    <input className={inputCls} placeholder="R$ 8.000" value={applyForm.salaryExpectation} onChange={(e) => setApplyForm((f) => ({ ...f, salaryExpectation: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Disponibilidade</label>
-                    <select className={selectCls} value={applyForm.availability} onChange={(e) => setApplyForm((f) => ({ ...f, availability: e.target.value }))}>
-                      <option value="">Selecione</option>
-                      <option value="Imediata">Imediata</option>
-                      <option value="Até 15 dias">Até 15 dias</option>
-                      <option value="Até 30 dias">Até 30 dias</option>
-                      <option value="Mais de 30 dias">Mais de 30 dias</option>
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className={labelCls}>Resumo profissional</label>
-                    <textarea className={`${inputCls} resize-none`} rows={3} placeholder="Conte um pouco sobre você e seus diferenciais..." value={applyForm.highlights} onChange={(e) => setApplyForm((f) => ({ ...f, highlights: e.target.value }))} />
+                  {/* Experiência */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Cargo atual</label>
+                      <input className={inputCls} placeholder="Desenvolvedor Pleno" value={applyForm.currentRole} onChange={(e) => setApplyForm((f) => ({ ...f, currentRole: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Anos de experiência</label>
+                      <input className={inputCls} type="number" min={0} placeholder="3" value={applyForm.experienceYears} onChange={(e) => setApplyForm((f) => ({ ...f, experienceYears: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Pretensão salarial</label>
+                      <input className={inputCls} placeholder="R$ 8.000" value={applyForm.salaryExpectation} onChange={(e) => setApplyForm((f) => ({ ...f, salaryExpectation: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Disponibilidade</label>
+                      <select className={selectCls} value={applyForm.availability} onChange={(e) => setApplyForm((f) => ({ ...f, availability: e.target.value }))}>
+                        <option value="">Selecione</option>
+                        <option value="Imediata">Imediata</option>
+                        <option value="Até 15 dias">Até 15 dias</option>
+                        <option value="Até 30 dias">Até 30 dias</option>
+                        <option value="Mais de 30 dias">Mais de 30 dias</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className={labelCls}>Resumo profissional</label>
+                      <textarea className={`${inputCls} resize-none`} rows={3} placeholder="Conte um pouco sobre você e seus diferenciais..." value={applyForm.highlights} onChange={(e) => setApplyForm((f) => ({ ...f, highlights: e.target.value }))} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </details>
 
               {/* Campos personalizados */}
               {camposPersonalizados.length > 0 && (
@@ -854,19 +900,12 @@ export default function PortalVagasScreen() {
                 </div>
               )}
 
-              {/* Currículo + LGPD */}
+              {/* Consentimento LGPD */}
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Currículo e consentimento</p>
-                <div className="space-y-3">
-                  <div>
-                    <label className={labelCls}>Currículo (PDF, DOC, DOCX — máx. 5MB)</label>
-                    <input className={inputCls} type="file" accept=".pdf,.doc,.docx" onChange={(e) => onApplyFileChange(e.target.files?.[0] || null)} />
-                  </div>
-                  <label className="flex items-start gap-2 cursor-pointer">
-                    <input type="checkbox" className="mt-0.5 rounded" checked={applyForm.consent} onChange={(e) => setApplyForm((f) => ({ ...f, consent: e.target.checked }))} />
-                    <span className="text-sm text-muted-foreground">Concordo com o uso dos meus dados para fins de recrutamento e seleção *</span>
-                  </label>
-                </div>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" className="mt-0.5 rounded" checked={applyForm.consent} onChange={(e) => setApplyForm((f) => ({ ...f, consent: e.target.checked }))} />
+                  <span className="text-sm text-muted-foreground">Concordo com o uso dos meus dados para fins de recrutamento e seleção *</span>
+                </label>
               </div>
             </div>
 
