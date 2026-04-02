@@ -1,5 +1,12 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { RoleGuard } from "@/hooks/useAuth";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-    return <>{children}</>;
+    return (
+        <RoleGuard minRole="admin">
+            {children}
+        </RoleGuard>
+    );
 }

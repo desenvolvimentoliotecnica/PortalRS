@@ -26,9 +26,8 @@ namespace RHPortal.Api.Domain.Entities
 
         public VagaAreaTime? AreaTime { get; set; }         // vagaAreaTime
 
-        // ✅ agora vem de tabela (Areas), não enum
-        [Required]
-        public Guid AreaId { get; set; }                    // vagaAreaId *
+        // ✅ agora vem de tabela (Areas), não enum — nullable em rascunho
+        public Guid? AreaId { get; set; }                    // vagaAreaId
         public Area? Area { get; set; }                     // navigation
 
         public VagaModalidade? Modalidade { get; set; }     // vagaModalidade

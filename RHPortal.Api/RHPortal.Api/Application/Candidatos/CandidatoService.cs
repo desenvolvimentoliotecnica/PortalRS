@@ -277,14 +277,13 @@ public sealed class CandidatoService : ICandidatoService
 
             if (request.VagaId != Guid.Empty)
             {
-                await _matchingService.CalculateAndStoreAsync(existing.Id, request.VagaId, ct);
-                await TrySaveAiScoreAsync(existing.Id, request.VagaId, ct);
+                _ = Task.Run(async () => {
+                    try { await _matchingService.CalculateAndStoreAsync(existing.Id, request.VagaId, CancellationToken.None); } catch { }
+                    try { await TrySaveAiScoreAsync(existing.Id, request.VagaId, CancellationToken.None); } catch { }
+                });
             }
 
-            // Regenerate embedding in background for updated candidate
             TryGenerateCandidatoEmbeddingAsync(existing.Id, ct);
-
-            await NotifyNewCandidateAsync(existing, ct);
 
             return (await GetByIdAsync(existing.Id, ct))!;
         }
@@ -319,10 +318,104 @@ public sealed class CandidatoService : ICandidatoService
         _db.Candidatos.Add(entity);
         await _db.SaveChangesAsync(ct);
 
+        // ── Auto-criar Pessoa + Talento se não informado ──
+        if (entity.TalentoId == null && !string.IsNullOrWhiteSpace(entity.Email))
+        {
+            try
+            {
+                // Buscar pessoa existente pelo email
+                var pessoa = await _db.Set<Pessoa>()
+                    .FirstOrDefaultAsync(p => p.TenantId == tenantId && p.Email == normalizedEmail, ct);
+
+                if (pessoa == null)
+                {
+                    pessoa = new Pessoa
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        Nome = entity.Nome,
+                        Email = entity.Email,
+                        Fone = entity.Fone,
+                        Cidade = entity.Cidade,
+                        Uf = entity.Uf,
+                        Origem = OrigemPessoa.Candidatura,
+                        CreatedAtUtc = DateTimeOffset.UtcNow,
+                        UpdatedAtUtc = DateTimeOffset.UtcNow,
+                    };
+                    _db.Set<Pessoa>().Add(pessoa);
+                    await _db.SaveChangesAsync(ct);
+                }
+
+                // Buscar talento existente pela pessoa
+                var talento = await _db.Set<Talento>()
+                    .FirstOrDefaultAsync(t => t.TenantId == tenantId && t.PessoaId == pessoa.Id, ct);
+
+                if (talento == null)
+                {
+                    talento = new Talento
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        PessoaId = pessoa.Id,
+                        Origem = OrigemTalento.Candidatura,
+                        CreatedAtUtc = DateTimeOffset.UtcNow,
+                        UpdatedAtUtc = DateTimeOffset.UtcNow,
+                    };
+                    _db.Set<Talento>().Add(talento);
+                    await _db.SaveChangesAsync(ct);
+                }
+
+                entity.TalentoId = talento.Id;
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                // Não impedir criação do candidato se Pessoa/Talento falhar
+                Console.Error.WriteLine($"[CandidatoService] Auto-criar Pessoa/Talento falhou: {ex.Message}");
+            }
+        }
+
+        // ── Auto-vincular ao ProjetoVaga ativo (candidato aparece no Pipeline) ──
         if (request.VagaId != Guid.Empty)
         {
-            await _matchingService.CalculateAndStoreAsync(entity.Id, request.VagaId, ct);
-            await TrySaveAiScoreAsync(entity.Id, request.VagaId, ct);
+            var projeto = await _db.Set<ProjetoVaga>()
+                .Where(p => p.VagaId == request.VagaId && p.Status == StatusProjeto.Ativo)
+                .OrderByDescending(p => p.Numero)
+                .FirstOrDefaultAsync(ct);
+
+            if (projeto != null)
+            {
+                var jaExiste = await _db.Set<ProjetoCandidato>()
+                    .AnyAsync(pc => pc.ProjetoId == projeto.Id && pc.CandidatoId == entity.Id, ct);
+
+                if (!jaExiste)
+                {
+                    var primeiraFase = await _db.Set<FaseProcesso>()
+                        .Where(f => f.ProjetoId == projeto.Id)
+                        .OrderBy(f => f.Ordem)
+                        .Select(f => (Guid?)f.Id)
+                        .FirstOrDefaultAsync(ct);
+
+                    _db.Set<ProjetoCandidato>().Add(new ProjetoCandidato
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        ProjetoId = projeto.Id,
+                        CandidatoId = entity.Id,
+                        Status = StatusCandidatoProjeto.Ativo,
+                        FaseAtualId = primeiraFase,
+                        CreatedAtUtc = DateTimeOffset.UtcNow,
+                        UpdatedAtUtc = DateTimeOffset.UtcNow,
+                    });
+                    await _db.SaveChangesAsync(ct);
+                }
+            }
+
+            // Matching em background (não bloqueia criação)
+            _ = Task.Run(async () => {
+                try { await _matchingService.CalculateAndStoreAsync(entity.Id, request.VagaId, CancellationToken.None); } catch { }
+                try { await TrySaveAiScoreAsync(entity.Id, request.VagaId, CancellationToken.None); } catch { }
+            });
         }
 
         // Gera embedding do candidato em background (fire-and-forget)

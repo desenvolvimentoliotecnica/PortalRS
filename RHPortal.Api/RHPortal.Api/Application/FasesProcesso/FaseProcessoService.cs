@@ -8,9 +8,9 @@ namespace RhPortal.Api.Application.FasesProcesso;
 
 // ── DTOs ──
 
-public sealed record FaseProcessoResponse(Guid Id, Guid ProjetoId, string Nome, int Ordem, ResponsavelFaseTipo ResponsavelTipo, int TotalCandidatos);
+public sealed record FaseProcessoResponse(Guid Id, Guid ProjetoId, string Nome, int Ordem, ResponsavelFaseTipo ResponsavelTipo, string? Descricao, int? SlaDias, string? Observacoes, int TotalCandidatos);
 
-public sealed record FaseProcessoRequest(string Nome, ResponsavelFaseTipo ResponsavelTipo = ResponsavelFaseTipo.RH);
+public sealed record FaseProcessoRequest(string Nome, ResponsavelFaseTipo ResponsavelTipo = ResponsavelFaseTipo.RH, string? Descricao = null, int? SlaDias = null, string? Observacoes = null);
 
 public sealed record MoverCandidatoRequest(Guid FaseDestinoId);
 
@@ -46,6 +46,7 @@ public sealed class FaseProcessoService : IFaseProcessoService
             .OrderBy(f => f.Ordem)
             .Select(f => new FaseProcessoResponse(
                 f.Id, f.ProjetoId, f.Nome, f.Ordem, f.ResponsavelTipo,
+                f.Descricao, f.SlaDias, f.Observacoes,
                 _db.Set<ProjetoCandidato>().Count(pc => pc.FaseAtualId == f.Id)))
             .ToListAsync(ct);
     }
@@ -64,13 +65,16 @@ public sealed class FaseProcessoService : IFaseProcessoService
             Nome = request.Nome.Trim(),
             Ordem = maxOrdem + 1,
             ResponsavelTipo = request.ResponsavelTipo,
+            Descricao = request.Descricao?.Trim(),
+            SlaDias = request.SlaDias,
+            Observacoes = request.Observacoes?.Trim(),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
         _db.Set<FaseProcesso>().Add(entity);
         await _db.SaveChangesAsync(ct);
 
-        return new FaseProcessoResponse(entity.Id, entity.ProjetoId, entity.Nome, entity.Ordem, entity.ResponsavelTipo, 0);
+        return new FaseProcessoResponse(entity.Id, entity.ProjetoId, entity.Nome, entity.Ordem, entity.ResponsavelTipo, entity.Descricao, entity.SlaDias, entity.Observacoes, 0);
     }
 
     public async Task<FaseProcessoResponse?> UpdateAsync(Guid faseId, FaseProcessoRequest request, CancellationToken ct)
@@ -80,11 +84,14 @@ public sealed class FaseProcessoService : IFaseProcessoService
 
         entity.Nome = request.Nome.Trim();
         entity.ResponsavelTipo = request.ResponsavelTipo;
+        entity.Descricao = request.Descricao?.Trim();
+        entity.SlaDias = request.SlaDias;
+        entity.Observacoes = request.Observacoes?.Trim();
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
         var total = await _db.Set<ProjetoCandidato>().CountAsync(pc => pc.FaseAtualId == faseId, ct);
-        return new FaseProcessoResponse(entity.Id, entity.ProjetoId, entity.Nome, entity.Ordem, entity.ResponsavelTipo, total);
+        return new FaseProcessoResponse(entity.Id, entity.ProjetoId, entity.Nome, entity.Ordem, entity.ResponsavelTipo, entity.Descricao, entity.SlaDias, entity.Observacoes, total);
     }
 
     public async Task<bool> DeleteAsync(Guid faseId, CancellationToken ct)

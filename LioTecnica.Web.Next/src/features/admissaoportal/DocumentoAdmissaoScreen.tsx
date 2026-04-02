@@ -58,6 +58,7 @@ export default function DocumentoAdmissaoScreen() {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState<number | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [portalTab, setPortalTab] = useState<"docs" | "dados">("dados");
     const fileRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
     // Check existing session
@@ -155,10 +156,14 @@ export default function DocumentoAdmissaoScreen() {
 
     if (!tenantId || !preAdmissaoId) {
         return (
-            <div className="text-center py-20">
-                <AlertCircle className="size-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-lg font-medium">Link invalido</p>
-                <p className="text-sm text-muted-foreground mt-1">Verifique o link recebido do RH.</p>
+            <div className="max-w-md mx-auto py-16 px-4">
+                <div className="rounded-xl border border-border/40 bg-card p-8 shadow-sm text-center space-y-4">
+                    <div className="mx-auto size-16 rounded-full bg-red-500/10 flex items-center justify-center">
+                        <AlertCircle className="size-8 text-red-500" />
+                    </div>
+                    <p className="text-lg font-medium">Link inválido</p>
+                    <p className="text-sm text-muted-foreground">Verifique o link recebido do RH e tente novamente.</p>
+                </div>
             </div>
         );
     }
@@ -166,25 +171,30 @@ export default function DocumentoAdmissaoScreen() {
     /* LOGIN */
     if (phase === "login") {
         return (
-            <div className="max-w-sm mx-auto py-20 space-y-6">
-                <div className="text-center">
-                    <FileText className="size-12 text-primary mx-auto mb-3" />
-                    <h1 className="text-2xl font-bold">Portal de Admissao</h1>
-                    <p className="text-muted-foreground text-sm mt-1">Preencha seus dados e documentos para admissao</p>
-                </div>
-                <div className="space-y-3">
-                    <label className="text-sm font-medium">Informe seu CPF para acessar</label>
-                    <Input
-                        placeholder="000.000.000-00"
-                        value={cpfInput}
-                        onChange={e => setCpfInput(e.target.value)}
-                        onKeyDown={e => e.key === "Enter" && handleLogin()}
-                        maxLength={14}
-                    />
-                    <Button className="w-full" onClick={handleLogin} disabled={logging || !cpfInput.trim()}>
-                        {logging ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                        Acessar
-                    </Button>
+            <div className="max-w-md mx-auto py-16 px-4">
+                <div className="rounded-xl border border-border/40 bg-card p-8 shadow-sm space-y-6">
+                    <div className="text-center">
+                        <div className="mx-auto size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                            <FileText className="size-8 text-primary" />
+                        </div>
+                        <h1 className="text-2xl font-bold">Portal de Admissão</h1>
+                        <p className="text-muted-foreground text-sm mt-1">Preencha seus dados e envie os documentos solicitados</p>
+                    </div>
+                    <div className="space-y-3">
+                        <label className="text-sm font-medium">Informe seu CPF para acessar</label>
+                        <Input
+                            placeholder="000.000.000-00"
+                            value={cpfInput}
+                            onChange={e => setCpfInput(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && handleLogin()}
+                            maxLength={14}
+                            className="text-center text-lg tracking-wider"
+                        />
+                        <Button className="w-full" size="lg" onClick={handleLogin} disabled={logging || !cpfInput.trim()}>
+                            {logging ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                            Acessar Portal
+                        </Button>
+                    </div>
                 </div>
             </div>
         );
@@ -193,11 +203,15 @@ export default function DocumentoAdmissaoScreen() {
     /* SUBMITTED */
     if (phase === "submitted") {
         return (
-            <div className="max-w-md mx-auto py-20 text-center space-y-4">
-                <CheckCircle2 className="size-16 text-green-500 mx-auto" />
-                <h1 className="text-2xl font-bold">Dados Enviados!</h1>
-                <p className="text-muted-foreground">Seus documentos e dados foram enviados para revisao do RH. Voce sera contatado em breve.</p>
-                <Button variant="outline" onClick={handleLogout}>Voltar ao inicio</Button>
+            <div className="max-w-md mx-auto py-16 px-4">
+                <div className="rounded-xl border border-border/40 bg-card p-8 shadow-sm text-center space-y-4">
+                    <div className="mx-auto size-20 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                        <CheckCircle2 className="size-10 text-emerald-500" />
+                    </div>
+                    <h1 className="text-2xl font-bold">Dados Enviados!</h1>
+                    <p className="text-muted-foreground">Seus documentos e dados foram enviados com sucesso. O RH entrará em contato em breve.</p>
+                    <Button variant="outline" size="lg" onClick={handleLogout}>Voltar ao início</Button>
+                </div>
             </div>
         );
     }
@@ -205,8 +219,14 @@ export default function DocumentoAdmissaoScreen() {
     /* MAIN */
     const isSubmitted = data?.status === 2;
 
+    // Indicadores de preenchimento
+    const docsTotal = data?.documentosSolicitados.length ?? 0;
+    const docsEnviados = data?.documentosSolicitados.filter(ds => data.documentosEnviados.some(d => d.tipo === ds.tipo)).length ?? 0;
+    const docsOk = docsTotal > 0 && docsEnviados === docsTotal;
+    const dadosOk = data?.dadosPessoais && Object.values(data.dadosPessoais).some(v => v != null && v !== "");
+
     return (
-        <section className="space-y-6 pb-12">
+        <section className="space-y-6 pb-12 px-4 sm:px-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -228,7 +248,22 @@ export default function DocumentoAdmissaoScreen() {
                 <div className="flex justify-center py-12"><Loader2 className="size-8 animate-spin text-muted-foreground" /></div>
             ) : data ? (
                 <>
-                    {/* Documentos Solicitados */}
+                    {/* Tabs */}
+                    <div className="flex gap-1 border-b border-border/40">
+                        <button type="button" onClick={() => setPortalTab("dados")}
+                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${portalTab === "dados" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                            <span className={`size-2.5 rounded-full ${dadosOk ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                            Dados Pessoais
+                        </button>
+                        <button type="button" onClick={() => setPortalTab("docs")}
+                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${portalTab === "docs" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                            <span className={`size-2.5 rounded-full ${docsOk ? "bg-emerald-500" : docsEnviados > 0 ? "bg-amber-500" : "bg-muted-foreground/30"}`} />
+                            Documentos {docsTotal > 0 && <span className="text-[10px] bg-muted px-1.5 rounded-full">{docsEnviados}/{docsTotal}</span>}
+                        </button>
+                    </div>
+
+                    {/* Tab: Documentos */}
+                    {portalTab === "docs" && (
                     <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
                         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                             Documentos Solicitados
@@ -300,25 +335,23 @@ export default function DocumentoAdmissaoScreen() {
                             </div>
                         )}
                     </div>
+                    )}
 
-                    {/* Dados Pessoais */}
-                    <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-                            Dados Pessoais
-                        </h2>
+                    {/* Tab: Dados Pessoais */}
+                    {portalTab === "dados" && (
                         <DadosPessoaisForm
                             dados={data.dadosPessoais as any}
                             onSave={handleSaveDados as any}
                             disabled={isSubmitted}
                         />
-                    </div>
+                    )}
 
                     {/* Submit */}
                     {!isSubmitted && (
                         <div className="flex justify-end">
                             <Button size="lg" onClick={handleSubmit} disabled={submitting} className="bg-green-600 hover:bg-green-700 text-white">
                                 {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : <Send className="size-4 mr-2" />}
-                                Enviar para Revisao do RH
+                                Finalizar e Salvar
                             </Button>
                         </div>
                     )}

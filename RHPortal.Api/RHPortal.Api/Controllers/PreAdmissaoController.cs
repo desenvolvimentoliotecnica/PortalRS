@@ -83,8 +83,8 @@ public sealed class PreAdmissaoController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Approve(Guid id, [FromBody] PreAdmissaoApproveRequest request, CancellationToken ct)
     {
-        if (_userContext.FuncionarioId is not { } aprovadorId)
-            return Forbid();
+        // Admin pode aprovar mesmo sem FuncionarioId vinculado
+        var aprovadorId = _userContext.FuncionarioId ?? (_userContext.UserId ?? Guid.Empty);
         var result = await _service.ApproveAsync(id, aprovadorId, request, ct);
         return result is null ? NotFound() : Ok(result);
     }

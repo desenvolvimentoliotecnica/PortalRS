@@ -15,4 +15,9 @@ export const TIPO_DOC_LABELS: Record<number, string> = {
     13: "Carteira de Vacinação dos Filhos",
     14: "Comprovante Bancário",
     15: "Foto 3x4",
+    16: "Escolaridade",
+    20: "CNPJ",
+    21: "Contrato Social/MEI",
+    22: "Conta Bancária PJ",
+    23: "Certidões Negativas",
 };

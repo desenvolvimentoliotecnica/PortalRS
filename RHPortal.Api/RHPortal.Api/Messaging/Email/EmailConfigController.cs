@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Messaging.Email;
 
@@ -20,21 +21,32 @@ public sealed class EmailConfigController : ControllerBase
 {
     private readonly IEmailConfigService _service;
     private readonly IStringLocalizer<InfrastructureMessages> _localizer;
+    private readonly ITenantContext _tenantContext;
 
-    public EmailConfigController(IEmailConfigService service, IStringLocalizer<InfrastructureMessages> localizer)
+    public EmailConfigController(IEmailConfigService service, IStringLocalizer<InfrastructureMessages> localizer, ITenantContext tenantContext)
     {
         _service = service;
         _localizer = localizer;
+        _tenantContext = tenantContext;
+    }
+
+    private void EnsureTenantFromHeader()
+    {
+        if (!string.IsNullOrWhiteSpace(_tenantContext.TenantId)) return;
+        if (Request.Headers.TryGetValue("X-Tenant-Id", out var tid) && !string.IsNullOrWhiteSpace(tid))
+            _tenantContext.SetTenantId(tid!);
     }
 
     /// <summary>
     /// Obtém a configuração de e-mail atual (valores sensíveis mascarados).
     /// </summary>
+    [AllowAnonymous]
     [HttpGet]
     [ProducesResponseType(typeof(EmailConfigView), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EmailConfigView>> Get(CancellationToken ct)
     {
+        EnsureTenantFromHeader();
         var data = await _service.GetAsync(ct);
         if (data is null)
             return NotFound();
@@ -44,10 +56,12 @@ public sealed class EmailConfigController : ControllerBase
     /// <summary>
     /// Salva a configuração de e-mail (SMTP/IMAP).
     /// </summary>
+    [AllowAnonymous]
     [HttpPut]
     [ProducesResponseType(typeof(EmailConfigView), StatusCodes.Status200OK)]
     public async Task<ActionResult<EmailConfigView>> Save([FromBody] EmailConfigDto dto, CancellationToken ct)
     {
+        EnsureTenantFromHeader();
         var data = await _service.SaveAsync(dto, ct);
         return Ok(data);
     }
@@ -55,26 +69,23 @@ public sealed class EmailConfigController : ControllerBase
     /// <summary>
     /// Testa o envio via SMTP usando os dados informados (ou atuais).
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("test-smtp")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> TestSmtp([FromBody] EmailTestRequest request, CancellationToken ct)
     {
-        var config = await _service.GetDecryptedAsync(ct);
-        if (config is null)
-            return BadRequest(new { message = _localizer["InfrastructureEmail.SmtpNotConfigured"] });
-
-        var host = request.SmtpHost ?? config.SmtpHost;
-        var port = request.SmtpPort ?? config.SmtpPort;
-        var enableSsl = request.SmtpEnableSsl ?? config.SmtpEnableSsl;
-        var user = request.SmtpUserName ?? config.SmtpUserName;
-        var pass = string.IsNullOrWhiteSpace(request.SmtpPassword) ? config.SmtpPassword : request.SmtpPassword;
-        var fromAddress = request.FromAddress ?? config.SmtpFromAddress ?? user;
-        var fromName = request.FromName ?? config.SmtpFromName ?? _localizer["InfrastructureEmail.DefaultFromName"];
+        var host = request.SmtpHost;
+        var port = request.SmtpPort ?? 587;
+        var enableSsl = request.SmtpEnableSsl ?? true;
+        var user = request.SmtpUserName;
+        var pass = request.SmtpPassword;
+        var fromAddress = request.FromAddress ?? user;
+        var fromName = request.FromName ?? "Portal RH";
         var to = request.TestTo ?? fromAddress;
 
         if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(fromAddress) || string.IsNullOrWhiteSpace(to))
-            return BadRequest(new { message = _localizer["InfrastructureEmail.SmtpTestDataMissing"] });
+            return BadRequest(new { message = "Preencha Host, From Address e email de destino para testar." });
 
         using var client = new SmtpClient(host, port)
         {
@@ -87,14 +98,21 @@ public sealed class EmailConfigController : ControllerBase
         using var msg = new MailMessage
         {
             From = new MailAddress(fromAddress, fromName),
-            Subject = _localizer["InfrastructureEmail.SmtpTestSubject"],
-            Body = _localizer["InfrastructureEmail.SmtpTestBody"],
+            Subject = "Teste SMTP — Portal RH",
+            Body = "Este é um email de teste do Portal RH. Se você recebeu, o SMTP está funcionando!",
             IsBodyHtml = false
         };
         msg.To.Add(to);
 
-        await client.SendMailAsync(msg, ct);
-        return Ok(new { message = _localizer["InfrastructureEmail.SmtpOk"] });
+        try
+        {
+            await client.SendMailAsync(msg, ct);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = $"SMTP falhou: {ex.Message}" });
+        }
+        return Ok(new { message = "SMTP OK — email enviado com sucesso!" });
     }
 
     /// <summary>

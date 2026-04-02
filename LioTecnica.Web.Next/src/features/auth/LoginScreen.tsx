@@ -86,7 +86,7 @@ export default function LoginScreen({
   const entraError = error || sp.get("error") || "";
 
   /* ─── Form State ─── */
-  const [tenant, setTenant] = useState(tenantId ?? sp.get("tenantId") ?? "liotecnica");
+  const [tenant, setTenant] = useState(tenantId ?? sp.get("tenantId") ?? "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -196,7 +196,7 @@ export default function LoginScreen({
         headers: {
           "content-type": "application/json",
           Accept: "application/json",
-          ...(isOwner ? {} : { "X-Tenant-Id": t || "liotecnica" }),
+          ...(isOwner ? {} : { "X-Tenant-Id": t }),
         },
         body: JSON.stringify({ email, password }),
       });
@@ -265,13 +265,8 @@ export default function LoginScreen({
     <div className="relative min-h-dvh overflow-hidden">
       {/* ── Background layer ── */}
       <div className="absolute inset-0 -z-10">
-        {/* Hero image (right side on desktop, full on mobile) */}
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url(/app/images/login_background.jpg)" }}
-        />
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[rgb(var(--lt-primary)/0.92)] via-[rgb(var(--lt-brand)/0.85)] to-[rgb(var(--lt-primary)/0.75)]" />
+        {/* Gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800" />
         {/* Subtle pattern */}
         <div
           className="absolute inset-0 opacity-[0.04]"
@@ -303,7 +298,7 @@ export default function LoginScreen({
               <CardHeader>
                 <CardTitle className="text-lg text-white">Entrar</CardTitle>
                 <CardDescription className="text-white/50">
-                  Use seu tenant e credenciais para acessar o sistema.
+                  Acesse o portal de gestão de pessoas e recrutamento.
                 </CardDescription>
               </CardHeader>
 
@@ -323,7 +318,7 @@ export default function LoginScreen({
                       value={tenant}
                       onChange={(e) => setTenant(e.target.value)}
                       autoComplete="organization"
-                      placeholder="liotecnica ou owner"
+                      placeholder="nome do tenant"
                       disabled={submitting}
                       className="border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-white/30 focus-visible:ring-white/20"
                     />

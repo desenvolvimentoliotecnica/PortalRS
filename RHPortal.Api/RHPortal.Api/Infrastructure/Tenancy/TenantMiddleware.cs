@@ -30,7 +30,8 @@ public sealed class TenantMiddleware : IMiddleware
 
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
-        if (PublicPathsWithoutTenant.Any(path => context.Request.Path.StartsWithSegments(path, StringComparison.OrdinalIgnoreCase)))
+        var reqPath = context.Request.Path.Value ?? "";
+        if (PublicPathsWithoutTenant.Any(p => context.Request.Path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase)))
         {
             await next(context);
             return;
@@ -39,6 +40,16 @@ public sealed class TenantMiddleware : IMiddleware
         if (context.Request.Path.StartsWithSegments("/api/owner", StringComparison.OrdinalIgnoreCase))
         {
             _tenantContext.SetTenantId("owner");
+            await next(context);
+            return;
+        }
+
+        // email-config: resolve tenant do header sem exigir auth (owner gerencia tenant)
+        if (context.Request.Path.StartsWithSegments("/api/email-config", StringComparison.OrdinalIgnoreCase))
+        {
+            var tid = context.Request.Headers["X-Tenant-Id"].ToString().Trim();
+            if (!string.IsNullOrWhiteSpace(tid))
+                _tenantContext.SetTenantId(tid);
             await next(context);
             return;
         }

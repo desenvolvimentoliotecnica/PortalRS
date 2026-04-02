@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
@@ -21,11 +22,151 @@ public sealed class DevSeedController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public DevSeedController(AppDbContext db, ITenantContext tenant)
+    public DevSeedController(AppDbContext db, ITenantContext tenant, UserManager<ApplicationUser> userManager)
     {
         _db = db;
         _tenant = tenant;
+        _userManager = userManager;
+    }
+
+    /// <summary>
+    /// Cria 3 usuários de teste para o fluxo completo de admissão:
+    /// - Gestor: solicita vaga
+    /// - Diretor (Superior): aprova solicitação de vaga
+    /// - RH: preenche vaga, cadastra candidatos, conduz processo seletivo, aprova admissão
+    /// </summary>
+    [HttpPost("seed/usuarios-teste")]
+    public async Task<IActionResult> SeedUsuariosTeste(CancellationToken ct)
+    {
+        var t = _tenant.TenantId;
+        var now = DateTimeOffset.UtcNow;
+        const string senha = "Teste@123!";
+
+        // ── Verificar se já existem todos ──
+        var gestorExiste = await _userManager.FindByEmailAsync("gestor@teste.local");
+        var diretorExiste = await _userManager.FindByEmailAsync("diretor@teste.local");
+        var rhExiste = await _userManager.FindByEmailAsync("rh@teste.local");
+        if (gestorExiste != null && diretorExiste != null && rhExiste != null)
+            return Ok(new
+            {
+                message = "Usuários de teste já existem.",
+                gestor = new { email = "gestor@teste.local", senha, papel = "Gestor — solicita vaga" },
+                diretor = new { email = "diretor@teste.local", senha, papel = "Diretor — aprova solicitação" },
+                rh = new { email = "rh@teste.local", senha, papel = "RH — preenche vaga, candidatos, admissão" },
+            });
+
+        // ── Buscar roles ──
+        var adminRole = await _db.Roles.FirstOrDefaultAsync(r => r.Name == "Admin", ct);
+        var gestorRole = await _db.Roles.FirstOrDefaultAsync(r => r.Name == "Gestor", ct);
+        var recrutadorRole = await _db.Roles.FirstOrDefaultAsync(r => r.Name == "Recrutador", ct);
+
+        if (gestorRole is null || recrutadorRole is null || adminRole is null)
+            return BadRequest(new { message = "Roles 'Admin', 'Gestor' ou 'Recrutador' não encontradas. Execute o seed principal primeiro (suba a API com Seed:Enabled=true)." });
+
+        // ── Buscar/criar Área e Unidade ──
+        var area = await _db.Set<Area>().FirstOrDefaultAsync(a => a.IsActive, ct);
+        if (area is null)
+        {
+            area = new Area { Id = Guid.NewGuid(), TenantId = t, Code = "OPS", Name = "Operações", IsActive = true };
+            _db.Set<Area>().Add(area);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        var unit = await _db.Set<Unit>().FirstOrDefaultAsync(ct);
+        var cargo = await _db.Set<JobPosition>().FirstOrDefaultAsync(ct);
+
+        // ── 1. Funcionário Diretor (Superior / Aprovador) ──
+        var diretorFunc = await _db.Set<Funcionario>().FirstOrDefaultAsync(f => f.Email == "diretor@teste.local", ct);
+        if (diretorFunc is null)
+        {
+            diretorFunc = new Funcionario
+            {
+                Id = Guid.NewGuid(), TenantId = t,
+                Name = "Roberto Diretor", Email = "diretor@teste.local", Phone = "(11) 99999-0000",
+                Status = FuncionarioStatus.Active, AreaId = area.Id, UnitId = unit?.Id, JobPositionId = cargo?.Id,
+                CreatedAtUtc = now, UpdatedAtUtc = now,
+            };
+            _db.Set<Funcionario>().Add(diretorFunc);
+        }
+
+        // ── 2. Funcionário Gestor (subordinado do Diretor) ──
+        var gestorFunc = await _db.Set<Funcionario>().FirstOrDefaultAsync(f => f.Email == "gestor@teste.local", ct);
+        if (gestorFunc is null)
+        {
+            gestorFunc = new Funcionario
+            {
+                Id = Guid.NewGuid(), TenantId = t,
+                Name = "Carlos Gestor", Email = "gestor@teste.local", Phone = "(11) 99999-0001",
+                Status = FuncionarioStatus.Active, AreaId = area.Id, UnitId = unit?.Id, JobPositionId = cargo?.Id,
+                GestorDiretoId = diretorFunc.Id,
+                CreatedAtUtc = now, UpdatedAtUtc = now,
+            };
+            _db.Set<Funcionario>().Add(gestorFunc);
+        }
+
+        // ── 3. Funcionário RH ──
+        var rhFunc = await _db.Set<Funcionario>().FirstOrDefaultAsync(f => f.Email == "rh@teste.local", ct);
+        if (rhFunc is null)
+        {
+            rhFunc = new Funcionario
+            {
+                Id = Guid.NewGuid(), TenantId = t,
+                Name = "Ana RH", Email = "rh@teste.local", Phone = "(11) 99999-0002",
+                Status = FuncionarioStatus.Active, AreaId = area.Id, UnitId = unit?.Id, JobPositionId = cargo?.Id,
+                GestorDiretoId = diretorFunc.Id,
+                CreatedAtUtc = now, UpdatedAtUtc = now,
+            };
+            _db.Set<Funcionario>().Add(rhFunc);
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        // ── Criar Users ──
+        async Task<(bool ok, string? error)> CriarUserAsync(
+            ApplicationUser? existente, string email, string fullName, Guid funcId,
+            Funcionario func, string[] roles)
+        {
+            if (existente != null) return (true, null);
+            var user = new ApplicationUser
+            {
+                Id = Guid.NewGuid(), Email = email, UserName = email,
+                FullName = fullName, IsActive = true, FuncionarioId = funcId,
+                TenantId = t, CreatedAtUtc = now, UpdatedAtUtc = now,
+            };
+            var result = await _userManager.CreateAsync(user, senha);
+            if (!result.Succeeded)
+                return (false, string.Join("; ", result.Errors.Select(e => e.Description)));
+            foreach (var role in roles)
+                await _userManager.AddToRoleAsync(user, role);
+            func.UserId = user.Id;
+            await _db.SaveChangesAsync(ct);
+            return (true, null);
+        }
+
+        var (ok1, err1) = await CriarUserAsync(diretorExiste, "diretor@teste.local", "Roberto Diretor", diretorFunc.Id, diretorFunc, ["Admin"]);
+        if (!ok1) return BadRequest(new { message = "Erro ao criar user diretor", error = err1 });
+
+        var (ok2, err2) = await CriarUserAsync(gestorExiste, "gestor@teste.local", "Carlos Gestor", gestorFunc.Id, gestorFunc, ["Gestor", "Admin"]);
+        if (!ok2) return BadRequest(new { message = "Erro ao criar user gestor", error = err2 });
+
+        var (ok3, err3) = await CriarUserAsync(rhExiste, "rh@teste.local", "Ana RH", rhFunc.Id, rhFunc, ["Admin", "Recrutador"]);
+        if (!ok3) return BadRequest(new { message = "Erro ao criar user RH", error = err3 });
+
+        return Ok(new
+        {
+            message = "3 usuários de teste criados com sucesso!",
+            tenant = t,
+            senha,
+            usuarios = new[]
+            {
+                new { email = "gestor@teste.local", nome = "Carlos Gestor", papel = "Gestor — solicita vaga", funcionarioId = gestorFunc.Id },
+                new { email = "diretor@teste.local", nome = "Roberto Diretor", papel = "Diretor — aprova solicitação de vaga", funcionarioId = diretorFunc.Id },
+                new { email = "rh@teste.local", nome = "Ana RH", papel = "RH — preenche vaga, candidatos, processo seletivo, admissão", funcionarioId = rhFunc.Id },
+            },
+            proximoPasso = "Abra http://localhost:3000/app/login e faça login com cada perfil. Consulte TESTE_FLUXO_ADMISSAO.md para o passo a passo.",
+        });
     }
 
     /// <summary>Popula banco com dados de teste para fluxo completo de recrutamento.</summary>

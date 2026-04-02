@@ -60,6 +60,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly IItaloIntegrationService _italoService;
     private readonly IS3StorageService _storage;
     private readonly ILogger<PreAdmissaoService> _logger;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public PreAdmissaoService(
         AppDbContext db,
@@ -68,13 +69,15 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         IEmailQueueService emailQueue,
         IItaloIntegrationService italoService,
         IS3StorageService storage,
-        ILogger<PreAdmissaoService> logger)
+        ILogger<PreAdmissaoService> logger,
+        IHttpContextAccessor httpContextAccessor)
     {
         _db = db;
         _tenantContext = tenantContext;
         _userManager = userManager;
         _emailQueue = emailQueue;
         _italoService = italoService;
+        _httpContextAccessor = httpContextAccessor;
         _storage = storage;
         _logger = logger;
     }
@@ -110,9 +113,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             x.Area != null ? x.Area.Name : null,
             x.Unit != null ? x.Unit.Name : null,
             x.Status, x.DataAdmissao, x.Salario, x.PreenchidoPor, x.CreatedAtUtc,
-            x.Documentos.Count(),
-            x.Documentos.Count(d => d.Status == StatusDocumento.PendenteValidacao),
-            x.Documentos.Count(d => d.Status == StatusDocumento.Validado),
+            x.DocumentosSolicitados.Count(),
+            x.DocumentosSolicitados.Count() - x.Documentos.Select(d => d.Tipo).Distinct().Count(),
+            x.Documentos.Select(d => d.Tipo).Distinct().Count(),
             x.Documentos.Count(d => d.Status == StatusDocumento.Rejeitado)
         )).ToListAsync(ct);
     }
@@ -157,7 +160,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.PreenchimentoPendente)
+        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.Enviado)
             throw new InvalidOperationException("Só é possível editar pré-admissões em rascunho.");
 
         // Pessoal
@@ -215,7 +218,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.PreenchimentoPendente)
+        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.Enviado)
             throw new InvalidOperationException("Só rascunhos podem ser submetidos.");
 
         // Run validations
@@ -235,7 +238,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             e.ValidacaoSalarioOk = true;
         }
 
-        e.Status = PreAdmissaoStatus.EmRevisao;
+        e.Status = PreAdmissaoStatus.Preenchido;
         e.SubmittedAtUtc = DateTimeOffset.UtcNow;
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
@@ -248,11 +251,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.EmRevisao)
+        if (e.Status != PreAdmissaoStatus.Preenchido)
             throw new InvalidOperationException("Só é possível aprovar pré-admissões em revisão.");
 
         e.Status = PreAdmissaoStatus.Aprovada;
-        e.AprovadoPorId = aprovadorId;
+        // Só setar AprovadoPorId se é um FuncionarioId válido (existe na tabela Funcionarios)
+        if (aprovadorId != Guid.Empty)
+        {
+            var funcExists = await _db.Set<Funcionario>().AnyAsync(f => f.Id == aprovadorId, ct);
+            if (funcExists) e.AprovadoPorId = aprovadorId;
+        }
         e.ObservacaoRh = request.Observacao;
         e.ApprovedAtUtc = DateTimeOffset.UtcNow;
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -341,7 +349,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.EmRevisao)
+        if (e.Status != PreAdmissaoStatus.Preenchido)
             throw new InvalidOperationException("Só é possível rejeitar pré-admissões em revisão.");
 
         e.Status = PreAdmissaoStatus.Rejeitada;
@@ -423,7 +431,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct)
             ?? throw new InvalidOperationException("Pré-admissão não encontrada.");
 
-        if (pa.Status != PreAdmissaoStatus.PreenchimentoPendente && pa.Status != PreAdmissaoStatus.Rascunho)
+        if (pa.Status != PreAdmissaoStatus.Enviado && pa.Status != PreAdmissaoStatus.Rascunho)
             throw new InvalidOperationException("Só é possível configurar documentos quando status é Rascunho ou Preenchimento Pendente.");
 
         _db.Set<PreAdmissaoDocumentoSolicitado>().RemoveRange(pa.DocumentosSolicitados);
@@ -450,15 +458,37 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct);
         if (pa is null) return null;
 
-        if (pa.Status != PreAdmissaoStatus.PreenchimentoPendente && pa.Status != PreAdmissaoStatus.Rascunho)
+        if (pa.Status != PreAdmissaoStatus.Enviado && pa.Status != PreAdmissaoStatus.Rascunho)
             throw new InvalidOperationException("Só é possível gerar link quando status é Rascunho ou Preenchimento Pendente.");
 
         pa.Cpf = NormalizeCpf(request.Cpf);
         pa.AccessToken ??= Guid.NewGuid().ToString("N");
+        pa.Status = PreAdmissaoStatus.Enviado;
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        var url = $"/DocumentoAdmissao?tenantId={_tenantContext.TenantId}&preAdmissaoId={pa.Id}";
+        // Construir URL pública — usa o host do request mas porta 3000 (Next.js)
+        var httpCtx = _httpContextAccessor?.HttpContext;
+        var scheme = httpCtx?.Request.Scheme ?? "http";
+        var host = httpCtx?.Request.Host.Host ?? "localhost";
+        var url = $"{scheme}://{host}:3000/app/DocumentoAdmissao?tenantId={_tenantContext.TenantId}&preAdmissaoId={pa.Id}";
+
+        // Enviar email ao candidato
+        if (!string.IsNullOrWhiteSpace(pa.Email))
+        {
+            var subject = "Preencha seus dados para admissão";
+            var body = $@"<p>Olá <b>{pa.Nome}</b>,</p>
+<p>Você foi aprovado(a) e precisa preencher seus dados para admissão.</p>
+<p><a href=""{url}"" style=""background:#2563eb;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;"">Preencher meus dados</a></p>
+<p>Ou copie e cole este link no navegador:<br/><small>{url}</small></p>
+<p>Atenciosamente,<br/>Equipe RH</p>";
+            try
+            {
+                await _emailQueue.EnqueueRawAsync(pa.Email, subject, body, null, true, "pre-admissao-link", ct);
+            }
+            catch { /* best-effort: email pode não estar configurado */ }
+        }
+
         return new GerarLinkResponse(pa.AccessToken, url);
     }
 
@@ -570,12 +600,41 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     public async Task<PreAdmissaoDetailResponse> IniciarManualAsync(IniciarManualRequest request, CancellationToken ct)
     {
-        var candidato = await _db.Set<Candidato>().AsNoTracking()
+        var candidato = await _db.Set<Candidato>()
             .FirstOrDefaultAsync(c => c.Id == request.CandidatoId && c.TenantId == _tenantContext.TenantId, ct)
             ?? throw new InvalidOperationException("Candidato não encontrado.");
 
+        // Auto-aprovar candidato ao iniciar admissão
         if (candidato.Status != CandidateStatus.Aprovado)
-            throw new InvalidOperationException($"Candidato não está aprovado (status atual: {candidato.Status}).");
+        {
+            candidato.Status = CandidateStatus.Aprovado;
+            candidato.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+        }
+
+        // Reusar pré-admissão existente do candidato (evita duplicar)
+        var existing = await _db.Set<Domain.Entities.PreAdmissao>()
+            .Where(pa => pa.CandidatoId == candidato.Id
+                && pa.Status != PreAdmissaoStatus.Rejeitada
+                && pa.Status != PreAdmissaoStatus.Integrada)
+            .OrderByDescending(pa => pa.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+
+        Console.Error.WriteLine($"[IniciarManual] CandidatoId={candidato.Id}, existing={existing?.Id}, status={existing?.Status}");
+
+        if (existing != null)
+        {
+            if (request.TipoContratacao.HasValue)
+                existing.TipoContratacao = request.TipoContratacao;
+            existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            return (await GetByIdAsync(existing.Id, ct))!;
+        }
+
+        // Buscar dados da vaga do candidato para preencher automaticamente
+        var vaga = candidato.VagaId != Guid.Empty
+            ? await _db.Vagas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == candidato.VagaId, ct)
+            : null;
 
         var entity = new Domain.Entities.PreAdmissao
         {
@@ -588,17 +647,38 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Email = candidato.Email?.Trim(),
             Celular = candidato.Fone?.Trim(),
             JobPositionId = request.JobPositionId,
-            AreaId = request.AreaId,
+            AreaId = request.AreaId ?? vaga?.AreaId,
             UnitId = request.UnitId,
             DataAdmissao = request.DataAdmissao,
             Salario = request.Salario,
-            TipoContratacao = request.TipoContratacao,
+            TipoContratacao = request.TipoContratacao ?? (vaga?.TipoContratacao.HasValue == true ? (TipoContratacaoAdmissao?)(int)vaga.TipoContratacao.Value : null),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
 
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);
+
+        // Auto-criar documentos solicitados por tipo de contratação
+        var docsTipo = entity.TipoContratacao switch
+        {
+            TipoContratacaoAdmissao.PJ => new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas },
+            _ => new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario },
+        };
+        foreach (var tipo in docsTipo)
+        {
+            _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId,
+                PreAdmissaoId = entity.Id,
+                TipoDocumento = tipo,
+                Obrigatorio = true,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+            });
+        }
+        await _db.SaveChangesAsync(ct);
+
         return (await GetByIdAsync(entity.Id, ct))!;
     }
 
@@ -610,7 +690,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         {
             Id = Guid.NewGuid(),
             TenantId = _tenantContext.TenantId,
-            Status = PreAdmissaoStatus.PreenchimentoPendente,
+            Status = PreAdmissaoStatus.Enviado,
             PreenchidoPor = PreenchidoPor.Candidato,
             CandidatoId = request.CandidatoId,
             Nome = request.Nome.Trim(),
@@ -723,7 +803,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         }
 
         // Avança para EmRevisão quando RG + Comprovante de Residência chegaram
-        if (e.Status == PreAdmissaoStatus.PreenchimentoPendente)
+        if (e.Status == PreAdmissaoStatus.Enviado)
         {
             var tiposRecebidos = e.Documentos
                 .Select(d => d.Tipo)
@@ -741,7 +821,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
             if (tiposRecebidos.Contains(TipoDocumento.RG) && tiposRecebidos.Contains(TipoDocumento.ComprovanteResidencia))
             {
-                e.Status = PreAdmissaoStatus.EmRevisao;
+                e.Status = PreAdmissaoStatus.Preenchido;
                 e.SubmittedAtUtc = DateTimeOffset.UtcNow;
             }
         }

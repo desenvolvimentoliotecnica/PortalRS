@@ -119,7 +119,10 @@ public sealed record SolicitacaoVagaGridRow(
     string Titulo,
     SolicitacaoVagaUrgencia Urgencia,
     SolicitacaoVagaStatus Status,
+    Guid? SolicitanteId,
     string? SolicitanteNome,
+    Guid? AprovadorId,
+    string? AprovadorNome,
     string? AreaName,
     int QtdPosicoes,
     // Sprint 1

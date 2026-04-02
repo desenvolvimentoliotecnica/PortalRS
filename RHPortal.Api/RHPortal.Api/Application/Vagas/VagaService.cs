@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -20,6 +22,7 @@ public interface IVagaService
     Task<VagaResponse?> UpdateAsync(Guid id, VagaUpdateRequest request, CancellationToken ct);
     Task<VagaResponse?> UpdateMatchingFiltrosAsync(Guid id, string? matchingFiltrosRaw, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    Task<VagaResponse?> ChangeStatusAsync(Guid id, VagaStatus newStatus, CancellationToken ct);
 }
 
 public sealed class VagaService : IVagaService
@@ -148,7 +151,30 @@ public sealed class VagaService : IVagaService
             .Include(x => x.PerguntasTriagem)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
-        return entity is null ? null : MapToResponse(entity);
+        if (entity is null) return null;
+
+        var response = MapToResponse(entity);
+
+        // Rastreabilidade: buscar dados da SolicitacaoVaga vinculada
+        var solic = await _db.SolicitacoesVaga
+            .AsNoTracking()
+            .Include(s => s.Solicitante)
+            .Include(s => s.Aprovador1)
+            .Include(s => s.Aprovador)
+            .Where(s => s.VagaId == id)
+            .FirstOrDefaultAsync(ct);
+
+        if (solic != null)
+        {
+            response = response with
+            {
+                SolicitanteNome = solic.Solicitante?.Name,
+                AprovadorNome = solic.Aprovador1?.Name ?? solic.Aprovador?.Name,
+                DataAprovacao = solic.ApprovedAtUtc,
+            };
+        }
+
+        return response;
     }
 
     public async Task<VagaResponse> CreateAsync(VagaCreateRequest request, CancellationToken ct)
@@ -157,7 +183,8 @@ public sealed class VagaService : IVagaService
         if (_currentUser.IsReadOnly)
             throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível criar vagas.");
         // MatchingFiltrosRaw é opcional na criação (ex.: vaga auto-criada por solicitação aprovada)
-        await EnsureAreaAsync(request.AreaId, ct);
+        if (request.AreaId.HasValue && request.AreaId.Value != Guid.Empty)
+            await EnsureAreaAsync(request.AreaId.Value, ct);
         if (request.DepartmentId.HasValue && request.DepartmentId.Value != Guid.Empty)
             await EnsureDepartmentAsync(request.DepartmentId.Value, ct);
 
@@ -263,6 +290,24 @@ public sealed class VagaService : IVagaService
         _db.Vagas.Add(entity);
         await _db.SaveChangesAsync(ct);
 
+        // ── Auto-criar ProjetoVaga (Rodada 1) + 4 Fases default ──
+        var tenantId = _tenantContext.TenantId;
+        var now = DateTimeOffset.UtcNow;
+        var projetoId = Guid.NewGuid();
+        _db.Set<ProjetoVaga>().Add(new ProjetoVaga
+        {
+            Id = projetoId, TenantId = tenantId, VagaId = entity.Id,
+            Numero = 1, Descricao = "Rodada 1", Status = StatusProjeto.Ativo,
+            CreatedAtUtc = now, UpdatedAtUtc = now,
+        });
+        _db.Set<FaseProcesso>().AddRange(
+            new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Triagem", Ordem = 0, ResponsavelTipo = ResponsavelFaseTipo.RH, CreatedAtUtc = now, UpdatedAtUtc = now },
+            new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Entrevista RH", Ordem = 1, ResponsavelTipo = ResponsavelFaseTipo.RH, CreatedAtUtc = now, UpdatedAtUtc = now },
+            new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Entrevista Gestor", Ordem = 2, ResponsavelTipo = ResponsavelFaseTipo.Gestor, CreatedAtUtc = now, UpdatedAtUtc = now },
+            new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Aprovacao Final", Ordem = 3, ResponsavelTipo = ResponsavelFaseTipo.Gestor, CreatedAtUtc = now, UpdatedAtUtc = now }
+        );
+        await _db.SaveChangesAsync(ct);
+
         // Gera embedding da vaga em background (não bloqueia a resposta)
         TryGenerateVagaEmbeddingAsync(entity.Id, ct);
 
@@ -296,7 +341,8 @@ public sealed class VagaService : IVagaService
         if (entity is null) return null;
         EnsureTenantOwnership(entity);
 
-        await EnsureAreaAsync(request.AreaId, ct);
+        if (request.AreaId.HasValue && request.AreaId.Value != Guid.Empty)
+            await EnsureAreaAsync(request.AreaId.Value, ct);
         if (request.DepartmentId.HasValue && request.DepartmentId.Value != Guid.Empty)
             await EnsureDepartmentAsync(request.DepartmentId.Value, ct);
 
@@ -381,6 +427,32 @@ public sealed class VagaService : IVagaService
     {
         if (!string.IsNullOrWhiteSpace(matchingFiltrosRaw)) return;
         throw new InvalidOperationException($"MatchingFiltrosRaw é obrigatório na operação de {operation}.");
+    }
+
+    public async Task<VagaResponse?> ChangeStatusAsync(Guid id, VagaStatus newStatus, CancellationToken ct)
+    {
+        var entity = await _db.Vagas.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+        EnsureTenantOwnership(entity);
+
+        // Rascunho → Aberta: exigir campos obrigatórios
+        if (entity.Status == VagaStatus.Rascunho && newStatus == VagaStatus.Aberta)
+        {
+            var missing = new List<string>();
+            if (string.IsNullOrWhiteSpace(entity.Titulo)) missing.Add("Título");
+            if (!entity.AreaId.HasValue) missing.Add("Área");
+            if (entity.QuantidadeVagas < 1) missing.Add("Quantidade de vagas");
+            if (missing.Count > 0)
+                throw new InvalidOperationException($"Preencha os campos obrigatórios antes de abrir a vaga: {string.Join(", ", missing)}");
+        }
+
+        entity.Status = newStatus;
+        if (newStatus == VagaStatus.Aberta && entity.DataAbertura == null)
+            entity.DataAbertura = DateTimeOffset.UtcNow;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
@@ -494,7 +566,10 @@ public sealed class VagaService : IVagaService
             v.Etapas.OrderBy(x => x.Ordem).Select(MapEtapa).ToList(),
             v.PerguntasTriagem.OrderBy(x => x.Ordem).Select(MapPergunta).ToList(),
             v.CreatedAtUtc,
-            v.UpdatedAtUtc
+            v.UpdatedAtUtc,
+            null, // SolicitanteNome - preenchido em GetByIdAsync
+            null, // AprovadorNome
+            null  // DataAprovacao
         );
     }
 

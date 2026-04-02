@@ -42,6 +42,7 @@ public sealed class SmtpEmailSender : IEmailSender
             EnableSsl = config.SmtpEnableSsl
         };
 
+        Console.Error.WriteLine($"[SmtpSender] Host={config.SmtpHost}, Port={config.SmtpPort}, SSL={config.SmtpEnableSsl}, User={config.SmtpUserName}, PwLen={config.SmtpPassword?.Length ?? 0}");
         if (!string.IsNullOrWhiteSpace(config.SmtpUserName) && !string.IsNullOrWhiteSpace(config.SmtpPassword))
             client.Credentials = new NetworkCredential(config.SmtpUserName, config.SmtpPassword);
 

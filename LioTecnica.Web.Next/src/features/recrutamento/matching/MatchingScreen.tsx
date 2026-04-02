@@ -97,7 +97,8 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
 
   const pollRef = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollDelayRef = useRef(3000);
+  const pollDelayRef = useRef(2000);
+  const pollAttemptsRef = useRef(0);
   const loadSuggestionsRef = useRef<(id: string, force?: boolean) => void>(() => { });
   const detailAbortRef = useRef<AbortController | null>(null);
   const busyRef = useRef(false);
@@ -151,11 +152,14 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
     return ids;
   }, []);
 
+  const MAX_POLL_ATTEMPTS = 60;
+
   const loadSuggestions = useCallback(async (id: string, force = false) => {
     if (!force && sugCacheRef.current) { setItems(sugCacheRef.current); setRankStatus("ready"); setSelectedId(null); return; }
     if (busyRef.current) return;
     const token = ++pollRef.current;
     if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
+    if (force) { pollAttemptsRef.current = 0; pollDelayRef.current = 2000; }
     setRankStatus("loading");
     try {
       // Load ranking + excluded IDs in parallel
@@ -170,17 +174,26 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         if (typeof snap.cachedCount === "number") setCachedCount(snap.cachedCount);
         const s = Date.parse(pk(snap.startedAtUtc)), c = Date.parse(pk(snap.computedAtUtc));
         if (Number.isFinite(s) && Number.isFinite(c) && c > s) saveObservedDurationMs(id, c - s);
-        setProcessingProgress(null); pollDelayRef.current = 3000;
+        setProcessingProgress(null); pollDelayRef.current = 2000; pollAttemptsRef.current = 0;
       } else if (snap?.status === "processing") {
+        pollAttemptsRef.current++;
+        if (pollAttemptsRef.current > MAX_POLL_ATTEMPTS) {
+          const stale = mapItems(snap.staleItems); if (stale.length) { sugCacheRef.current = stale; setItems(stale); }
+          setRankStatus("failed"); setProcessingProgress(null);
+          toast.error("O cálculo não finalizou. Clique em Recalcular para tentar novamente.");
+          return;
+        }
         const stale = mapItems(snap.staleItems); if (stale.length) { sugCacheRef.current = stale; setItems(stale); }
         setRankStatus("processing");
         const s = Date.parse(pk(snap.startedAtUtc)); setProcessingNowMs(Date.now());
         setProcessingProgress({ startedAtMs: Number.isFinite(s) ? s : Date.now(), expectedTotalMs: readExpectedTotalMs(id) });
-        const delay = pollDelayRef.current; pollDelayRef.current = Math.min(10000, Math.round(delay * 1.4));
+        const delay = pollDelayRef.current; pollDelayRef.current = Math.min(8000, Math.round(delay * 1.25));
         pollTimerRef.current = setTimeout(() => { if (pollRef.current === token) loadSuggestionsRef.current(id, true); }, delay);
       } else if (snap?.status === "failed") {
         const stale = mapItems(snap.staleItems); if (stale.length) { sugCacheRef.current = stale; setItems(stale); }
-        setRankStatus("failed"); setProcessingProgress(null); toast.error(pk(snap.lastError, "Falha ao carregar ranking."));
+        setRankStatus("failed"); setProcessingProgress(null);
+        toast.error(pk(snap.lastError) || "Falha no cálculo do ranking. Clique em Recalcular para tentar novamente.");
+        console.error("[Matching] Backend retornou status failed:", snap.lastError);
       } else {
         const mapped = mapItems(snap?.items ?? snap); sugCacheRef.current = mapped.length ? mapped : null;
         setItems(mapped); setRankStatus(mapped.length ? "ready" : "failed"); setSelectedId(null); setProcessingProgress(null);
@@ -240,6 +253,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
   // ─── Select vaga ───
   const onSelectVaga = useCallback(async (id: string, nextTab: TabKey = tab) => {
     setVagaId(id); setSelectedId(null); setCandidatoFull(null); setItems([]); setRankStatus("idle"); setProcessingProgress(null);
+    pollAttemptsRef.current = 0; pollDelayRef.current = 2000;
     detailCacheRef.current.clear(); sugCacheRef.current = null; rejCacheRef.current = null; appCacheRef.current = null; pendCacheRef.current = null;
     if (detailAbortRef.current) detailAbortRef.current.abort();
     if (!id) return;
@@ -615,6 +629,16 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
               <RotateCcw className="size-3" /> Reverter
             </button>
           )}
+          {vagaId && tab === "suggestions" && (
+            <button
+              className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              type="button"
+              disabled={rankStatus === "processing" || rankStatus === "loading"}
+              onClick={() => { sugCacheRef.current = null; pollAttemptsRef.current = 0; void loadSuggestions(vagaId, true); }}
+            >
+              <RotateCcw className="size-3" /> Recalcular
+            </button>
+          )}
         </div>
       </div>
 
@@ -768,8 +792,17 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
           </div>
         </div>
       )}
+      {rankStatus === "processing" && items.length > 0 && (
+        <div className="rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-1.5 text-[11px] text-blue-600 flex items-center gap-1.5">
+          <Clock className="size-3 shrink-0" />
+          Exibindo resultado anterior enquanto o novo cálculo é processado.
+        </div>
+      )}
       {rankStatus === "failed" && items.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">Falha ao atualizar. Exibindo último resultado disponível.</div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 flex items-center justify-between gap-3">
+          <span>Falha ao atualizar. Exibindo último resultado disponível.</span>
+          <button className="shrink-0 text-xs font-semibold text-amber-800 underline hover:no-underline" type="button" onClick={() => { sugCacheRef.current = null; pollAttemptsRef.current = 0; void loadSuggestions(vagaId, true); }}>Tentar novamente</button>
+        </div>
       )}
 
       {/* Table */}
@@ -795,6 +828,15 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
             <p className="text-xs opacity-60 max-w-sm">
               {tab === "suggestions" ? "Verifique os filtros de IA ou aguarde o ranking ser processado." : "Os candidatos aparecerão aqui quando movidos para esta etapa."}
             </p>
+            {tab === "suggestions" && rankStatus === "failed" && (
+              <button
+                className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-[rgb(var(--lt-primary))] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+                type="button"
+                onClick={() => { sugCacheRef.current = null; pollAttemptsRef.current = 0; void loadSuggestions(vagaId, true); }}
+              >
+                <RotateCcw className="size-3" /> Tentar novamente
+              </button>
+            )}
           </div>
         </div>
       ) : filteredItems.length === 0 && searchQuery ? (

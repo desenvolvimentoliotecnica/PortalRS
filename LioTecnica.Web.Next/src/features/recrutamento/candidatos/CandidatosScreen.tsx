@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
@@ -203,6 +204,11 @@ function calcMatchForCv(args: { cvText: string; vaga: Record<string, unknown> | 
 }
 
 export default function CandidatosScreen() {
+  const searchParams = useSearchParams();
+  const paramVagaId = searchParams.get("vagaId") ?? "";
+  const paramNew = searchParams.get("new") === "1";
+  const autoOpenDone = useRef(false);
+
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const [items, setItems] = useState<Candidato[]>([]);
@@ -322,6 +328,7 @@ export default function CandidatosScreen() {
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -441,8 +448,20 @@ export default function CandidatosScreen() {
     }
   }
 
-  function openNew() {
-    const firstVagaId = vagas[0]?.id ?? "";
+  // Auto-abrir modal se veio de VagaHub com ?new=1&vagaId=X
+  useEffect(() => {
+    if (!ready || autoOpenDone.current) return;
+    if (paramNew && paramVagaId) {
+      autoOpenDone.current = true;
+      setVagaId(paramVagaId);
+      openNew(paramVagaId);
+    } else if (paramVagaId) {
+      setVagaId(paramVagaId);
+    }
+  }, [ready, paramNew, paramVagaId]);
+
+  function openNew(presetVagaId?: string) {
+    const firstVagaId = presetVagaId || (vagas[0]?.id ?? "");
     setPendingDocs([]);
     setDraftDocDescricao("");
     setDraftDocFile(null);
@@ -886,8 +905,8 @@ export default function CandidatosScreen() {
                 <TableHead style={{ minWidth: 260 }}>Candidato</TableHead>
                 <TableHead style={{ minWidth: 220 }}>Vaga</TableHead>
                 <TableHead style={{ minWidth: 150 }}>Status</TableHead>
-                <TableHead style={{ minWidth: 170 }}>Match</TableHead>
-                <TableHead className="text-end" style={{ minWidth: 230 }}>
+                <TableHead style={{ minWidth: 130 }}>Data</TableHead>
+                <TableHead className="text-end" style={{ minWidth: 200 }}>
                   Ações
                 </TableHead>
               </TableRow>
@@ -909,7 +928,7 @@ export default function CandidatosScreen() {
                   const pass = c.lastMatch?.pass ?? (thr ? score >= thr : false);
                   const matchText = thr ? `${score}% • ${pass ? "Dentro" : "Abaixo"}` : `${score}%`;
                   return (
-                    <TableRow key={c.id}>
+                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/40" onClick={() => void openDetail(c.id)}>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="size-10 rounded-xl grid place-items-center bg-[rgb(var(--lt-soft)/0.35)] border border-[rgb(var(--lt-brand)/0.18)] text-[rgb(var(--lt-primary))] font-black shrink-0">{initials(pickString(c.nome, ""))}</div>
@@ -934,27 +953,18 @@ export default function CandidatosScreen() {
                       <TableCell className="whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${tag.colorCls}`}>{statusLabelText}</span>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${pass ? "bg-emerald-500/15 text-emerald-700" : thr ? "bg-red-500/15 text-red-700" : "bg-zinc-400/15 text-zinc-600"}`}>
-                          <span className="tabular-nums font-mono">{matchText}</span>
-                        </span>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        {c.createdAtUtc ? new Date(c.createdAtUtc).toLocaleDateString("pt-BR") : "—"}
                       </TableCell>
                       <TableCell className="text-end whitespace-nowrap">
-                        <Button variant="outline" size="sm" type="button" onClick={() => void openDetail(c.id)}>
-                          Detalhes
-                        </Button>
-                        <Button variant="outline" size="sm" type="button" onClick={() => void openEdit(c.id)}>
-                          Editar
-                        </Button>
-                        <Button variant="outline" size="sm" type="button" onClick={() => void sendToBloqueio(c.id)}>
-                          Bloqueio de pessoa
-                        </Button>
-                        <Button variant="outline" size="sm" type="button" title="Recalcular match" onClick={() => void recalcMatch(c.id)}>
-                          ↻
-                        </Button>
-                        <Button variant="destructive" size="sm" type="button" onClick={() => void deleteCandidate(c.id)}>
-                          Excluir
-                        </Button>
+                        <div className="flex gap-1 justify-end">
+                          <Button variant="outline" size="sm" type="button" onClick={() => void openEdit(c.id)}>
+                            Editar
+                          </Button>
+                          <Button variant="destructive" size="sm" type="button" onClick={() => void deleteCandidate(c.id)}>
+                            Excluir
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -1038,9 +1048,8 @@ export default function CandidatosScreen() {
                               </div>
                               {v && <div className="mt-2 text-[11px] text-muted-foreground truncate">{v.label?.replace(/\s*\([^)]+\)\s*$/, "") ?? ""}</div>}
                               <div className="mt-2 flex items-center justify-between">
-                                <span className="text-[11px] text-muted-foreground">Match {score}%</span>
+                                <span className="text-[11px] text-muted-foreground">{c.createdAtUtc ? new Date(c.createdAtUtc).toLocaleDateString("pt-BR") : ""}</span>
                                 <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                  <Button variant="outline" size="sm" type="button" onClick={() => void openDetail(c.id)}>Detalhes</Button>
                                   <Button variant="outline" size="sm" type="button" onClick={() => void openEdit(c.id)}>Editar</Button>
                                 </div>
                               </div>
@@ -1058,8 +1067,8 @@ export default function CandidatosScreen() {
       </div>
 
       {detailOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-5xl p-4">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setDetailOpen(false)}>
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-5xl p-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
                 <div className="size-[52px] rounded-xl grid place-items-center bg-[rgb(var(--lt-soft)/0.35)] border border-[rgb(var(--lt-brand)/0.18)] text-[rgb(var(--lt-primary))] font-black shrink-0">
@@ -1330,8 +1339,8 @@ export default function CandidatosScreen() {
       ) : null}
 
       {editOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-3xl p-4">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setEditOpen(false)}>
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-3xl p-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
@@ -1342,100 +1351,12 @@ export default function CandidatosScreen() {
               </Button>
             </div>
 
-            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
-              <div className="md:col-span-8">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Nome</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.nome, "")} onChange={(e) => setDraft({ ...draft, nome: e.target.value })} />
-              </div>
-              <div className="md:col-span-4">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Status</label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.status, defaultEnumCode("candidatoStatus", "novo"))} onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
-                  {statusOptionsEffective.map((opt) => (
-                    <option key={opt.code} value={opt.code}>
-                      {opt.text}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-6">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Email</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.email, "")} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
-              </div>
-              <div className="md:col-span-6">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Fone</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.fone, "")} onChange={(e) => setDraft({ ...draft, fone: e.target.value })} />
-              </div>
-              <div className="md:col-span-6">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Cidade</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.cidade, "")} onChange={(e) => setDraft({ ...draft, cidade: e.target.value })} />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">UF</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.uf, "")} onChange={(e) => setDraft({ ...draft, uf: e.target.value })} />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Fonte</label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pickString((draft as Record<string, unknown>)?.fonte, defaultEnumCode("candidatoFonte", "email"))} onChange={(e) => setDraft({ ...draft, fonte: e.target.value })}>
-                  {enumOptions(enums, "candidatoFonte").map((opt) => (
-                    <option key={opt.code} value={opt.code}>
-                      {opt.text}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-8">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">LinkedIn URL</label>
-                <input
-                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                  type="url"
-                  placeholder="https://linkedin.com/in/..."
-                  value={draft.linkedinUrl ?? ""}
-                  onChange={(e) => setDraft({ ...draft, linkedinUrl: e.target.value || null })}
-                />
-              </div>
-              <div className="md:col-span-4 flex flex-col justify-end">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Trabalhando atualmente?</label>
-                <select
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  value={
-                    draft.trabalhandoAtualmente === true ? "sim"
-                    : draft.trabalhandoAtualmente === false ? "nao"
-                    : ""
-                  }
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      trabalhandoAtualmente:
-                        e.target.value === "sim" ? true : e.target.value === "nao" ? false : null,
-                    })
-                  }
-                >
-                  <option value="">Não informado</option>
-                  <option value="sim">Sim</option>
-                  <option value="nao">Não</option>
-                </select>
-              </div>
-              <div className="md:col-span-4">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Pretensão salarial (R$)</label>
-                <input
-                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                  type="number"
-                  min={0}
-                  step={100}
-                  placeholder="Ex: 5000"
-                  value={draft.pretensaoSalarial != null ? String(draft.pretensaoSalarial) : ""}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      pretensaoSalarial: e.target.value !== "" ? parseFloat(e.target.value) : null,
-                    })
-                  }
-                />
-              </div>
-              <div className="md:col-span-4">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Vaga</label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.vagaId, "")} onChange={(e) => setDraft({ ...draft, vagaId: e.target.value })}>
-                  <option value="">Sem vaga</option>
+            <div className="mt-4 space-y-4">
+              {/* ── Vaga (destaque) ── */}
+              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+                <label className="text-[10px] font-semibold text-blue-700 uppercase tracking-widest mb-1 block">Vaga *</label>
+                <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.vagaId, "")} onChange={(e) => setDraft({ ...draft, vagaId: e.target.value })}>
+                  <option value="">Selecione a vaga...</option>
                   {vagas.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.label}
@@ -1443,24 +1364,127 @@ export default function CandidatosScreen() {
                   ))}
                 </select>
               </div>
-              <div className="md:col-span-12">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Resumo / Observações</label>
-                <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={pickString((draft as Record<string, unknown>)?.obs, "")} onChange={(e) => setDraft({ ...draft, obs: e.target.value })} />
+
+              {/* ── Dados pessoais ── */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 border-b pb-1">Dados do Candidato</h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                  <div className="md:col-span-6">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Nome *</label>
+                    <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.nome, "")} onChange={(e) => setDraft({ ...draft, nome: e.target.value })} placeholder="Nome completo" />
+                  </div>
+                  <div className="md:col-span-6">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Email *</label>
+                    <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="email" value={pickString(draft.email, "")} onChange={(e) => setDraft({ ...draft, email: e.target.value })} placeholder="email@exemplo.com" />
+                  </div>
+                  <div className="md:col-span-4">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Telefone</label>
+                    <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.fone, "")} onChange={(e) => setDraft({ ...draft, fone: e.target.value })} placeholder="(11) 99999-0000" />
+                  </div>
+                  <div className="md:col-span-4">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Cidade</label>
+                    <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.cidade, "")} onChange={(e) => setDraft({ ...draft, cidade: e.target.value })} placeholder="São Paulo" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">UF</label>
+                    <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" maxLength={2} value={pickString(draft.uf, "")} onChange={(e) => setDraft({ ...draft, uf: e.target.value.toUpperCase() })} placeholder="SP" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Fonte</label>
+                    <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={pickString((draft as Record<string, unknown>)?.fonte, defaultEnumCode("candidatoFonte", "email"))} onChange={(e) => setDraft({ ...draft, fonte: e.target.value })}>
+                      {enumOptions(enums, "candidatoFonte").map((opt) => (
+                        <option key={opt.code} value={opt.code}>
+                          {opt.text}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              <div className="md:col-span-12">
-                <div className="mt-2 rounded-xl border border-[rgba(16,82,144,.14)] bg-white/60 p-3">
-                  <div className="font-medium mb-2">Documentos</div>
+              {/* ── Informações profissionais ── */}
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 border-b pb-1">Informações Profissionais</h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                  <div className="md:col-span-4">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Pretensão salarial (R$)</label>
+                    <input
+                      className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                      type="number"
+                      min={0}
+                      step={100}
+                      placeholder="Ex: 5000"
+                      value={draft.pretensaoSalarial != null ? String(draft.pretensaoSalarial) : ""}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          pretensaoSalarial: e.target.value !== "" ? parseFloat(e.target.value) : null,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="md:col-span-4">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Trabalhando atualmente?</label>
+                    <select
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={
+                        draft.trabalhandoAtualmente === true ? "sim"
+                        : draft.trabalhandoAtualmente === false ? "nao"
+                        : ""
+                      }
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          trabalhandoAtualmente:
+                            e.target.value === "sim" ? true : e.target.value === "nao" ? false : null,
+                        })
+                      }
+                    >
+                      <option value="">Não informado</option>
+                      <option value="sim">Sim</option>
+                      <option value="nao">Não</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-4">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Status</label>
+                    <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.status, defaultEnumCode("candidatoStatus", "novo"))} onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
+                      {statusOptionsEffective.map((opt) => (
+                        <option key={opt.code} value={opt.code}>
+                          {opt.text}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="md:col-span-8">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">LinkedIn</label>
+                    <input
+                      className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                      type="url"
+                      placeholder="https://linkedin.com/in/..."
+                      value={draft.linkedinUrl ?? ""}
+                      onChange={(e) => setDraft({ ...draft, linkedinUrl: e.target.value || null })}
+                    />
+                  </div>
+                  <div className="md:col-span-12">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Observações</label>
+                    <textarea className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} value={pickString((draft as Record<string, unknown>)?.obs, "")} onChange={(e) => setDraft({ ...draft, obs: e.target.value })} placeholder="Observações sobre o candidato..." />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="rounded-xl border border-[rgba(16,82,144,.14)] bg-white/60 p-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 border-b pb-1">Documentos</h3>
                   {!draft.id ? (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 p-3 text-sm mb-2">
                       Os documentos serão enviados ao salvar o candidato.
                     </div>
                   ) : null}
 
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-                    <div className="md:col-span-3">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <div>
                       <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Tipo</label>
-                      <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={draftDocTipo} onChange={(e) => setDraftDocTipo(e.target.value)}>
+                      <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draftDocTipo} onChange={(e) => setDraftDocTipo(e.target.value)}>
                         {(enumOptions(enums, "candidatoDocumentoTipo").length
                           ? enumOptions(enums, "candidatoDocumentoTipo")
                           : [
@@ -1475,13 +1499,13 @@ export default function CandidatosScreen() {
                         ))}
                       </select>
                     </div>
-                    <div className="md:col-span-5">
+                    <div>
                       <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Descrição</label>
-                      <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={draftDocDescricao} onChange={(e) => setDraftDocDescricao(e.target.value)} placeholder="Ex.: CV atualizado, Certificação, Portfólio" />
+                      <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={draftDocDescricao} onChange={(e) => setDraftDocDescricao(e.target.value)} placeholder="Ex.: CV atualizado" />
                     </div>
-                    <div className="md:col-span-4">
+                    <div className="overflow-hidden">
                       <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Arquivo</label>
-                      <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="file" onChange={(e) => setDraftDocFile(e.currentTarget.files?.[0] ?? null)} />
+                      <input className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-blue-700" type="file" onChange={(e) => setDraftDocFile(e.currentTarget.files?.[0] ?? null)} />
                     </div>
                   </div>
 
@@ -1594,8 +1618,8 @@ export default function CandidatosScreen() {
       ) : null}
 
       {suggestOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-3xl p-4">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setSuggestOpen(false)}>
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-3xl p-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Sugestões da IA</p>

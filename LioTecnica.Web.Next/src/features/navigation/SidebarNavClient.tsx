@@ -56,6 +56,7 @@ import type { BffNavItem } from "@/lib/schemas/bff";
 import { prefetchScreenData } from "@/lib/screenCache";
 import {
   RECRUITMENT_LINEAR_ORDER,
+  RECRUITMENT_MVP_ORDER,
   RECRUITMENT_ROUTE_KEYS,
   RECRUITMENT_ROUTE_LABELS,
   toNavRouteKey,
@@ -221,17 +222,16 @@ function normalizeHref(raw: string): string {
 type ModuleKey = "Recrutamento" | "Cadastros" | "Relatórios" | "Gestão de Pessoas" | "Operacional" | "Feedback" | "Admin" | "Owner";
 const MODULE_ORDER: ModuleKey[] = ["Recrutamento", "Operacional", "Gestão de Pessoas", "Cadastros", "Relatórios", "Feedback", "Admin", "Owner"];
 
-// Fluxo linear de recrutamento — Dashboard + 7 passos visíveis no sidebar
+// Fluxo linear de recrutamento — MVP + secundários (sem TOTVS, que vai pro header dropdown)
 const RECRUTAMENTO_ROUTES = new Set<string>([
   RECRUITMENT_ROUTE_KEYS.dashboard,
   RECRUITMENT_ROUTE_KEYS.solicitacoes,
   RECRUITMENT_ROUTE_KEYS.vagas,
-  RECRUITMENT_ROUTE_KEYS.matching,
   RECRUITMENT_ROUTE_KEYS.candidatos,
+  RECRUITMENT_ROUTE_KEYS.admissao,
+  RECRUITMENT_ROUTE_KEYS.matching,
   RECRUITMENT_ROUTE_KEYS.triagem,
   RECRUITMENT_ROUTE_KEYS.processoSeletivo,
-  RECRUITMENT_ROUTE_KEYS.admissao,
-  RECRUITMENT_ROUTE_KEYS.integracao,
 ]);
 // Operacional (dia a dia)
 const OPERACIONAL_ROUTES = new Set([
@@ -257,6 +257,7 @@ const HIDDEN_ROUTES = new Set([
   "/portalvagas",
   "/talentos",
   "/gestao/projetos",
+  "/admissao/integracao",
   // Pesquisas antigas removidas — unificadas em /feedback/pesquisas
   "/feedback/pesquisarapida",
   "/feedback/superpesquisa",
@@ -352,13 +353,18 @@ function buildRecruitmentSidebar(items: BffNavItem[]): BffNavItem[] {
 
   collect(items);
 
-  // Lista linear seguindo a ordem do fluxo
+  // Lista linear seguindo a ordem do fluxo — MVP primeiro, depois secundários com divisor
   const result: BffNavItem[] = [];
   const used = new Set<string>();
+  const mvpSet = new Set<string>(RECRUITMENT_MVP_ORDER as unknown as string[]);
 
   for (const routeKey of RECRUITMENT_LINEAR_ORDER) {
     const item = known.get(routeKey);
     if (!item) continue;
+    // Inserir divisor visual antes do primeiro item secundário
+    if (!mvpSet.has(routeKey) && result.length > 0 && !result.some(r => r.id === "__divider__")) {
+      result.push({ id: "__divider__", label: "", href: "#", icon: "", openInNewTab: false, children: [] });
+    }
     used.add(routeKey);
     result.push(cloneNavItem(item, { children: [] }));
   }
@@ -551,6 +557,9 @@ function NavItem({
   openGroups?: Record<string, boolean>;
   onGroupOpenChange?: (id: string, open: boolean) => void;
 }) {
+  if (item.id === "__divider__") {
+    return <li className="my-2 border-t border-white/10" />;
+  }
   const visibleChildren = (item.children ?? []).filter((c) => !isRouteHidden(c.href));
   if (visibleChildren.length > 0) {
     return (

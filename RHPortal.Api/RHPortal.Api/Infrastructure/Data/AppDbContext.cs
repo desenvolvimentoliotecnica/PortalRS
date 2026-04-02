@@ -932,9 +932,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.SalarioMinimo).HasPrecision(18, 2);
             b.Property(x => x.SalarioMaximo).HasPrecision(18, 2);
 
-            // ✅ AREA (FK + Navegação)
-            // Se você quer obrigar AreaId, deixe IsRequired()
-            b.Property(x => x.AreaId).IsRequired();
+            // ✅ AREA (FK + Navegação) — nullable para vagas em rascunho
+            b.Property(x => x.AreaId).IsRequired(false);
 
             b.Property(x => x.DepartmentId).IsRequired(false);
 

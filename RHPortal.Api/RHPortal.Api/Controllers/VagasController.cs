@@ -2,10 +2,13 @@ using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Application.Vagas.Handlers;
 using RhPortal.Api.Contracts.Matching;
 using RhPortal.Api.Contracts.Vagas;
+using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
+using Microsoft.EntityFrameworkCore;
 using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Controllers;
@@ -93,7 +96,102 @@ public sealed class VagasController : ControllerBase
         CancellationToken ct)
     {
         var items = await handler.HandleAsync(ct);
+        Console.Error.WriteLine($"[pendencias-rh] Retornando {items.Count} vagas");
         return Ok(items);
+    }
+
+    /// <summary>
+    /// Histórico de eventos da vaga (quem fez o quê, quando).
+    /// </summary>
+    [HttpGet("{id:guid}/historico")]
+    [ProducesResponseType(typeof(IReadOnlyList<VagaHistoricoEvent>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetHistorico(
+        [FromRoute] Guid id,
+        [FromServices] IVagaService vagaService,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var events = new List<VagaHistoricoEvent>();
+
+        // 1. Solicitação — quem solicitou, quem aprovou
+        var solic = await db.SolicitacoesVaga.AsNoTracking()
+            .Include(s => s.Solicitante).Include(s => s.Aprovador1).Include(s => s.Aprovador)
+            .Where(s => s.VagaId == id).FirstOrDefaultAsync(ct);
+
+        if (solic != null)
+        {
+            events.Add(new VagaHistoricoEvent("Solicitação de vaga criada", solic.Solicitante?.Name, solic.CreatedAtUtc, null, null));
+            if (solic.ApprovedAtUtc.HasValue)
+                events.Add(new VagaHistoricoEvent("Solicitação aprovada pelo gestor", solic.Aprovador1?.Name ?? solic.Aprovador?.Name, solic.ApprovedAtUtc.Value, null, null));
+        }
+
+        // 2. Vaga criada
+        var vaga = await db.Vagas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id, ct);
+        if (vaga != null)
+        {
+            events.Add(new VagaHistoricoEvent("Vaga criada automaticamente", null, vaga.CreatedAtUtc, null, null));
+            // Se dados foram preenchidos depois (UpdatedAt > CreatedAt + 1min)
+            if (vaga.UpdatedAtUtc > vaga.CreatedAtUtc.AddMinutes(1))
+                events.Add(new VagaHistoricoEvent("Dados da vaga atualizados pelo RH", null, vaga.UpdatedAtUtc, null, null));
+            // Status: se não é mais rascunho
+            if (vaga.Status != RHPortal.Api.Domain.Enums.VagaStatus.Rascunho && vaga.DataAbertura.HasValue)
+                events.Add(new VagaHistoricoEvent($"Vaga publicada (status: {vaga.Status})", null, vaga.DataAbertura.Value, null, null));
+        }
+
+        // 3. Audit trail — mudanças na vaga (quem fez o quê)
+        try
+        {
+            var auditChanges = await db.Set<RhPortal.Api.Auditing.Entities.AuditEntityChange>()
+                .AsNoTracking()
+                .Include(c => c.Transaction)
+                .Where(c => c.PrimaryKeyJson.Contains(id.ToString()) && c.EntityName == "Vaga")
+                .OrderBy(c => c.OccurredAt)
+                .ToListAsync(ct);
+
+            foreach (var change in auditChanges)
+            {
+                var user = change.Transaction?.UserName ?? "Sistema";
+                var action = change.State switch
+                {
+                    "Modified" => $"Vaga editada ({change.ChangedColumns ?? "dados"})",
+                    "Added" => "Vaga criada",
+                    _ => $"Vaga {change.State}"
+                };
+                // Evitar duplicar evento de criação
+                if (change.State != "Added")
+                    events.Add(new VagaHistoricoEvent(action, user, change.OccurredAt, null, null));
+            }
+        }
+        catch { /* Audit tables may not exist */ }
+
+        // 4. Candidatos adicionados individualmente
+        var candidatos = await db.Candidatos.AsNoTracking()
+            .Where(c => c.VagaId == id)
+            .OrderBy(c => c.CreatedAtUtc)
+            .Select(c => new { c.Id, c.Nome, c.Email, c.CreatedAtUtc })
+            .ToListAsync(ct);
+
+        foreach (var c in candidatos)
+            events.Add(new VagaHistoricoEvent($"Candidato adicionado: {c.Nome} ({c.Email})", null, c.CreatedAtUtc, c.Id, "candidato"));
+
+        // 5. Pré-admissões iniciadas
+        var candIds = candidatos.Select(c => c.Id).ToList();
+        if (candIds.Count > 0)
+        {
+            var admissoes = await db.Set<RhPortal.Api.Domain.Entities.PreAdmissao>().AsNoTracking()
+                .Where(pa => pa.CandidatoId.HasValue && candIds.Contains(pa.CandidatoId.Value))
+                .Select(pa => new { pa.Nome, pa.CreatedAtUtc, pa.Status, pa.Email })
+                .ToListAsync(ct);
+
+            foreach (var a in admissoes)
+            {
+                events.Add(new VagaHistoricoEvent($"Admissão iniciada para {a.Nome}", null, a.CreatedAtUtc, null, null));
+                if (a.Status >= RhPortal.Api.Domain.Enums.PreAdmissaoStatus.Preenchido)
+                    events.Add(new VagaHistoricoEvent($"Admissão preenchida por {a.Nome}", null, a.CreatedAtUtc.AddSeconds(1), null, null));
+            }
+        }
+
+        return Ok(events.OrderByDescending(e => e.DataHora).ToList());
     }
 
     /// <summary>
@@ -284,6 +382,32 @@ public sealed class VagasController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Altera o status de uma vaga. Rascunho→Aberta exige campos obrigatórios preenchidos.
+    /// </summary>
+    [HttpPatch("{id:guid}/status")]
+    [ProducesResponseType(typeof(VagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VagaResponse>> ChangeStatus(
+        [FromRoute] Guid id,
+        [FromBody] ChangeVagaStatusRequest request,
+        [FromServices] IVagaService vagaService,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && _userContext.IsReadOnly)
+            return Forbid();
+        try
+        {
+            var result = await vagaService.ChangeStatusAsync(id, request.Status, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
     }
 

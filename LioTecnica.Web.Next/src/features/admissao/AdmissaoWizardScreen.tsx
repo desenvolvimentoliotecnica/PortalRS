@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-    User, MapPin, Phone, CreditCard, Briefcase, FileUp, CheckCircle2,
+    User, MapPin, Phone, CreditCard, Briefcase, FileUp, CheckCircle2, Upload,
     ChevronLeft, ChevronRight, Save, Send, AlertTriangle, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -113,12 +113,34 @@ const BANCOS = [
     "741-Banco Ribeirão Preto", "745-Citibank", "748-Sicredi",
     "756-Sicoob", "097-CentralCred",
 ];
-const TIPO_DOC = [
+const TIPO_DOC_ALL = [
     { value: 0, label: "RG" }, { value: 1, label: "CPF" }, { value: 2, label: "CNH" },
-    { value: 3, label: "Comprovante Residência" }, { value: 4, label: "Comprovante Bancário" },
-    { value: 5, label: "Certidão Nascimento/Casamento" }, { value: 6, label: "CTPS" },
-    { value: 7, label: "Título Eleitor" }, { value: 8, label: "Reservista" }, { value: 9, label: "Outro" },
+    { value: 5, label: "Comprovante Residência" }, { value: 14, label: "Comprovante Bancário" },
+    { value: 6, label: "Certidão Nascimento/Casamento" }, { value: 9, label: "CTPS Digital" },
+    { value: 3, label: "Título Eleitor" }, { value: 4, label: "Reservista" }, { value: 7, label: "PIS/PASEP" },
+    { value: 15, label: "Foto 3x4" }, { value: 16, label: "Escolaridade" },
+    { value: 20, label: "CNPJ" }, { value: 21, label: "Contrato Social/MEI" },
+    { value: 22, label: "Conta Bancária PJ" }, { value: 23, label: "Certidões Negativas" },
+    { value: 8, label: "Outro" },
 ];
+const DOCS_CLT = new Set([0, 1, 5, 9, 3, 4, 7, 15, 6, 16, 14]);
+const DOCS_PJ = new Set([20, 21, 0, 1, 22, 23]);
+function getDocsPorTipo(tipo: number | null) {
+    if (tipo === 1) return TIPO_DOC_ALL.filter(d => DOCS_PJ.has(d.value));
+    return TIPO_DOC_ALL.filter(d => DOCS_CLT.has(d.value));
+}
+// Mapa string enum → number (API retorna enums como string via JsonStringEnumConverter)
+const TIPO_DOC_STR_MAP: Record<string, number> = {
+    RG: 0, CPF: 1, CNH: 2, TituloEleitor: 3, Reservista: 4, ComprovanteResidencia: 5,
+    CertidaoNascimentoCasamento: 6, PisPasep: 7, Outro: 8, CarteiraTrabalhoCTPS: 9,
+    ComprovanteBancario: 14, Foto3x4: 15, Escolaridade: 16,
+    CNPJ: 20, ContratoSocialMEI: 21, ContaBancariaPJ: 22, CertidoesNegativas: 23,
+};
+function resolveDocTipo(raw: number | string): number {
+    if (typeof raw === "number") return raw;
+    return TIPO_DOC_STR_MAP[raw] ?? -1;
+}
+const TIPO_DOC = TIPO_DOC_ALL; // fallback
 const UF_LIST = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
 /* ── component ── */
@@ -187,7 +209,7 @@ export default function AdmissaoWizardScreen() {
             setSubmitting(true);
             await save();
             const res = await apiFetch(`/api/pre-admissao/${id}/submit`, { method: "POST" });
-            if (res.ok) { toast.success("Admissão enviada para revisão do RH!"); router.push("/admissao?submitted=1"); }
+            if (res.ok) { toast.success("Admissão finalizada com sucesso!"); router.push("/admissao?submitted=1"); }
             else toast.error("Erro ao submeter");
         } catch { toast.error("Erro de conexão"); }
         finally { setSubmitting(false); }
@@ -431,35 +453,59 @@ export default function AdmissaoWizardScreen() {
                     </div>
                 )}
 
-                {/* Step 5: Documentos */}
+                {/* Step 5: Documentos — campo individual por tipo */}
                 {step === 5 && (
                     <div className="space-y-4">
-                        <h5 className="font-semibold text-sm flex items-center gap-2"><FileUp className="size-4" /> Upload de Documentos</h5>
-                        <div className="flex flex-wrap items-end gap-3">
-                            <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Tipo de Documento</label>
-                                <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={uploadTipo} onChange={e => setUploadTipo(Number(e.target.value))}>
-                                    {TIPO_DOC.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Arquivo (PDF, JPG, PNG — máx 10MB)</label>
-                                <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleUpload} className="text-sm" />
-                            </div>
-                        </div>
-                        {(form.documentos?.length ?? 0) > 0 && (
-                            <div className="space-y-2">
-                                {form.documentos!.map(d => (
-                                    <div key={d.id} className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/20 p-3">
-                                        <div>
-                                            <div className="text-sm font-medium">{d.nomeArquivo}</div>
-                                            <div className="text-xs text-muted-foreground">{TIPO_DOC.find(t => t.value === d.tipo)?.label} • {(d.tamanhoBytes / 1024).toFixed(0)} KB</div>
+                        <h5 className="font-semibold text-sm flex items-center gap-2"><FileUp className="size-4" /> Documentos — {form.tipoContratacao === 1 ? "PJ" : "CLT"}</h5>
+                        <div className="space-y-3">
+                            {getDocsPorTipo(form.tipoContratacao).map(docTipo => {
+                                const enviado = form.documentos?.find(d => resolveDocTipo(d.tipo) === docTipo.value);
+                                return (
+                                    <div key={docTipo.value} className="rounded-lg border border-border/40 p-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                {enviado ? (
+                                                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                                                ) : (
+                                                    <span className="size-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+                                                )}
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-medium">{docTipo.label}</div>
+                                                    {enviado && (
+                                                        <div className="text-xs text-muted-foreground truncate">{enviado.nomeArquivo} • {(enviado.tamanhoBytes / 1024).toFixed(0)} KB</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="shrink-0 flex items-center gap-2">
+                                                {enviado ? (
+                                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteDoc(enviado.id)}>Remover</Button>
+                                                ) : (
+                                                    <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors">
+                                                        <Upload className="size-3" /> Enviar
+                                                        <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+                                                            setUploadTipo(docTipo.value);
+                                                            // Simular o handleUpload com tipo específico
+                                                            const fd = new FormData();
+                                                            fd.append("file", file);
+                                                            fd.append("tipo", String(docTipo.value));
+                                                            try {
+                                                                const res = await apiFetch(`/api/pre-admissao/${id}/documentos`, { method: "POST", body: fd });
+                                                                if (!res.ok) throw new Error("Falha no upload");
+                                                                toast.success(`${docTipo.label} enviado!`);
+                                                                await loadData();
+                                                            } catch { toast.error(`Falha ao enviar ${docTipo.label}`); }
+                                                            e.target.value = "";
+                                                        }} />
+                                                    </label>
+                                                )}
+                                            </div>
                                         </div>
-                                        <Button variant="destructive" size="sm" onClick={() => handleDeleteDoc(d.id)}>Remover</Button>
                                     </div>
-                                ))}
-                            </div>
-                        )}
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
 
@@ -487,7 +533,7 @@ export default function AdmissaoWizardScreen() {
                             <Info label="Documentos" value={`${form.documentos?.length ?? 0} arquivo(s)`} />
                         </div>
                         <div className="rounded-md bg-sky-500/10 p-3 text-sm text-sky-700">
-                            Ao submeter, a admissão será enviada para revisão e aprovação do RH. Você não poderá editar após a submissão.
+                            Revise os dados antes de finalizar. Após finalizar, a admissão será processada.
                         </div>
                     </div>
                 )}
@@ -508,7 +554,7 @@ export default function AdmissaoWizardScreen() {
                         </Button>
                     ) : (
                         <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={submit} disabled={submitting}>
-                            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Submeter para Revisão
+                            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Finalizar Admissão
                         </Button>
                     )}
                 </div>
