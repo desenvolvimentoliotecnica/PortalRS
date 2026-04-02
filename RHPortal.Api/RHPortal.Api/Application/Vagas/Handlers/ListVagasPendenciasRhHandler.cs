@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Contracts.Vagas;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Domain.Enums;
@@ -14,37 +13,82 @@ public interface IListVagasPendenciasRhHandler
 
 public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
 {
-    private readonly IVagaService _vagaService;
     private readonly AppDbContext _db;
 
-    public ListVagasPendenciasRhHandler(IVagaService vagaService, AppDbContext db)
+    public ListVagasPendenciasRhHandler(AppDbContext db)
     {
-        _vagaService = vagaService;
         _db = db;
     }
 
     public async Task<IReadOnlyList<VagaListItemResponse>> HandleAsync(CancellationToken ct)
     {
-        // Vagas do RH: (1) já foram aprovadas pelos superiores e (2) ainda estão em rascunho
-        // para o RH preencher detalhes do portal.
-        var vagasRascunho = await _vagaService.ListAsync(
-            new VagaListQuery(Q: null, Status: VagaStatus.Rascunho, AreaId: null, DepartmentId: null, RecrutadorUserId: null),
-            ct);
+        try
+        {
+            // Passo 1: IDs de vagas de solicitações aprovadas
+            var vagaIdList = await _db.SolicitacoesVaga
+                .AsNoTracking()
+                .Where(s => (short)s.Status == 2 && s.VagaId != null)
+                .Select(s => s.VagaId!.Value)
+                .Distinct()
+                .ToListAsync(ct);
 
-        var aprovadasIds = await _db.SolicitacoesVaga
-            .AsNoTracking()
-            .Where(s => s.Status == SolicitacaoVagaStatus.Aprovada && s.VagaId != null)
-            .Select(s => s.VagaId!.Value)
-            .Distinct()
-            .ToListAsync(ct);
+            Console.Error.WriteLine($"[pendencias-rh] vagaIdList={vagaIdList.Count}");
 
-        if (aprovadasIds.Count == 0)
+            if (vagaIdList.Count == 0)
+                return Array.Empty<VagaListItemResponse>();
+
+            var vagaIdSet = vagaIdList.ToHashSet();
+
+            // Passo 2: Vagas em rascunho (status=1 hardcoded para evitar ambiguidade de enum)
+            var vagas = await _db.Vagas
+                .AsNoTracking()
+                .Where(v => (short)v.Status == 1)
+                .OrderByDescending(v => v.CreatedAtUtc)
+                .ToListAsync(ct);
+
+            Console.Error.WriteLine($"[pendencias-rh] vagasRascunho={vagas.Count}");
+
+            // Passo 3: Filtrar em memória
+            var result = vagas
+                .Where(v => vagaIdSet.Contains(v.Id))
+                .Select(v => new VagaListItemResponse(
+                    v.Id,
+                    v.Codigo,
+                    v.Titulo,
+                    v.Status,
+                    v.AreaId,
+                    null,
+                    null,
+                    v.DepartmentId,
+                    null,
+                    null,
+                    v.Modalidade,
+                    v.Senioridade,
+                    v.QuantidadeVagas,
+                    v.MatchMinimoPercentual,
+                    v.Confidencial,
+                    v.Urgente,
+                    v.AceitaPcd,
+                    v.DataInicio,
+                    v.DataEncerramento,
+                    v.DataAbertura,
+                    v.SlaDiasMetaFechamento,
+                    v.Cidade,
+                    v.Uf,
+                    0,
+                    0,
+                    v.CreatedAtUtc,
+                    v.UpdatedAtUtc
+                ))
+                .ToList();
+
+            Console.Error.WriteLine($"[pendencias-rh] RESULTADO FINAL={result.Count}");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[pendencias-rh] EXCEPTION: {ex}");
             return Array.Empty<VagaListItemResponse>();
-
-        var set = aprovadasIds.ToHashSet();
-        return vagasRascunho
-            .Where(v => set.Contains(v.Id))
-            .ToList();
+        }
     }
 }
-

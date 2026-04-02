@@ -64,9 +64,11 @@ MANDATORY_CAP_IF_MISSING_V2 = 89
 MANDATORY_CAP_IF_COVERAGE_LT_70_V2 = 79
 MANDATORY_CAP_IF_COVERAGE_LT_50_V2 = 60
 
-MAX_LLM_WORKERS = max(1, min(12, int(os.getenv("MATCHING_MAX_LLM_WORKERS", "5"))))
-VECTOR_LIMIT_MULTIPLIER = max(2, min(6, int(os.getenv("MATCHING_VECTOR_LIMIT_MULTIPLIER", "3"))))
+MAX_LLM_WORKERS = max(1, min(12, int(os.getenv("MATCHING_MAX_LLM_WORKERS", "10"))))
+VECTOR_LIMIT_MULTIPLIER = max(2, min(6, int(os.getenv("MATCHING_VECTOR_LIMIT_MULTIPLIER", "2"))))
 VECTOR_LIMIT_MAX = max(30, int(os.getenv("MATCHING_VECTOR_LIMIT_MAX", "300")))
+BATCH_SIZE = max(1, min(10, int(os.getenv("MATCHING_BATCH_SIZE", "6"))))
+PROFILE_MAX_CHARS = int(os.getenv("MATCHING_PROFILE_MAX_CHARS", "1200"))
 
 
 def _extract_weights(vaga: dict[str, Any]) -> dict[str, int]:
@@ -156,13 +158,7 @@ def run_unified_matching(
     if not vector_results:
         return []
 
-    # 4. LLM avalia cada candidato/talento do top vetorial
-    llm = ChatOpenAI(
-        model=OPENAI_CHAT_MODEL,
-        openai_api_key=OPENAI_API_KEY,
-        temperature=0,
-    )
-
+    # 4. LLM avalia candidatos em batches
     # Extrair pesos configurados pelo RH
     weights = _extract_weights(vaga)
 
@@ -187,78 +183,102 @@ def run_unified_matching(
     vaga_uf = vaga.get("Uf")
     vaga_modalidade = vaga.get("Modalidade")
 
-    def _evaluate_one_person(person: dict) -> dict | None:
-        """Avalia uma pessoa com LLM (executada em thread paralela)."""
-        person_id = person["person_id"]
-        source = person["source"]
-
-        profile_result = _get_person_profile(person_id, source, tenant_id)
-        if not profile_result:
+    # ── Fase 1: buscar todos os perfis em paralelo (DB, sem LLM) ────────────
+    def _fetch_profile_data(person: dict) -> dict | None:
+        result = _get_person_profile(person["person_id"], person["source"], tenant_id)
+        if not result:
             return None
-        profile_text, pretensao_salarial, p_cidade, p_uf = profile_result
+        profile_text, pretensao_salarial, p_cidade, p_uf = result
+        return {
+            "person": person,
+            "profile_text": profile_text[:PROFILE_MAX_CHARS],
+            "pretensao_salarial": pretensao_salarial,
+            "p_cidade": p_cidade,
+            "p_uf": p_uf,
+        }
 
-        # Cada thread cria seu próprio LLM client (thread-safe)
+    profiles_data: list[dict] = []
+    fetch_workers = min(MAX_LLM_WORKERS, len(vector_results))
+    with ThreadPoolExecutor(max_workers=fetch_workers) as pool:
+        fetch_futures = {pool.submit(_fetch_profile_data, p): p for p in vector_results}
+        for future in as_completed(fetch_futures):
+            try:
+                r = future.result()
+                if r:
+                    profiles_data.append(r)
+            except Exception as e:
+                person = fetch_futures[future]
+                log.error("fetch_profile_failed", extra={"ctx": {"person_id": person.get("person_id", "?"), "error": str(e)}})
+
+    if not profiles_data:
+        return []
+
+    # ── Fase 2: avaliar em batches (1 chamada LLM por BATCH_SIZE candidatos) ─
+    def _process_batch(batch_items: list[dict]) -> list[dict]:
+        """Avalia um batch de candidatos numa única chamada LLM."""
+        # Cada thread cria seu próprio client (thread-safe)
         thread_llm = ChatOpenAI(
             model=OPENAI_CHAT_MODEL,
             openai_api_key=OPENAI_API_KEY,
             temperature=0,
+            request_timeout=60,
+            max_retries=1,
         )
+        indexed = [(i + 1, item["profile_text"]) for i, item in enumerate(batch_items)]
+        scores_map = _evaluate_batch_with_llm(thread_llm, vaga_context, indexed)
+        results = []
+        for i, item in enumerate(batch_items):
+            scores = scores_map.get(i + 1)
+            if not scores:
+                continue
+            person = item["person"]
+            profile_text = item["profile_text"]
+            mandatory_total, mandatory_missing = _estimate_mandatory_coverage(profile_text, requisitos)
+            sal_score = _salary_overlap_score(item["pretensao_salarial"], vaga_salary_min, vaga_salary_max)
+            det_loc = calculate_location_score(item["p_cidade"], item["p_uf"], vaga_cidade, vaga_uf, vaga_modalidade)
+            score_meta = _compute_final_score(
+                scores["score_competencia"],
+                scores["score_experiencia"],
+                scores["score_formacao"],
+                scores["score_localidade"],
+                weights,
+                mandatory_total,
+                mandatory_missing,
+                normalized_rule,
+                salary_score=sal_score,
+                deterministic_location_score=det_loc,
+            )
+            results.append({
+                "person_id": person["person_id"],
+                "nome": person["nome"],
+                "email": person["email"],
+                "source": person["source"],
+                "similaridade_vetorial": person["similaridade"],
+                "score_competencia": scores["score_competencia"],
+                "score_experiencia": scores["score_experiencia"],
+                "score_formacao": scores["score_formacao"],
+                "score_localidade": scores["score_localidade"],
+                "score_filtros": score_meta["score_filtros"],
+                "score_requisitos": score_meta["score_requisitos"],
+                "score_final": score_meta["score_final"],
+                "justificativa": scores.get("justificativa", ""),
+                "mandatory_total": score_meta["mandatory_total"],
+                "missing_mandatory_count": score_meta["missing_mandatory_count"],
+                "mandatory_coverage": score_meta["mandatory_coverage"],
+                "hard_penalty": score_meta["hard_penalty"],
+                "rule_version": normalized_rule,
+            })
+        return results
 
-        scores = _evaluate_with_llm(thread_llm, vaga_context, profile_text)
-        if scores is None:
-            return None
-
-        mandatory_total, mandatory_missing = _estimate_mandatory_coverage(
-            profile_text, requisitos
-        )
-        sal_score = _salary_overlap_score(pretensao_salarial, vaga_salary_min, vaga_salary_max)
-        det_loc = calculate_location_score(p_cidade, p_uf, vaga_cidade, vaga_uf, vaga_modalidade)
-        score_meta = _compute_final_score(
-            scores["score_competencia"],
-            scores["score_experiencia"],
-            scores["score_formacao"],
-            scores["score_localidade"],
-            weights,
-            mandatory_total,
-            mandatory_missing,
-            normalized_rule,
-            salary_score=sal_score,
-            deterministic_location_score=det_loc,
-        )
-
-        return {
-            "person_id": person_id,
-            "nome": person["nome"],
-            "email": person["email"],
-            "source": source,
-            "similaridade_vetorial": person["similaridade"],
-            "score_competencia": scores["score_competencia"],
-            "score_experiencia": scores["score_experiencia"],
-            "score_formacao": scores["score_formacao"],
-            "score_localidade": scores["score_localidade"],
-            "score_filtros": score_meta["score_filtros"],
-            "score_requisitos": score_meta["score_requisitos"],
-            "score_final": score_meta["score_final"],
-            "justificativa": scores.get("justificativa", ""),
-            "mandatory_total": score_meta["mandatory_total"],
-            "missing_mandatory_count": score_meta["missing_mandatory_count"],
-            "mandatory_coverage": score_meta["mandatory_coverage"],
-            "hard_penalty": score_meta["hard_penalty"],
-            "rule_version": normalized_rule,
-        }
-
-    # Paralelizar avaliação LLM com limite configurável
-    max_workers = min(MAX_LLM_WORKERS, len(vector_results))
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(_evaluate_one_person, p): p for p in vector_results}
-        for future in as_completed(futures):
+    batches = [profiles_data[i:i + BATCH_SIZE] for i in range(0, len(profiles_data), BATCH_SIZE)]
+    batch_workers = min(MAX_LLM_WORKERS, len(batches))
+    with ThreadPoolExecutor(max_workers=batch_workers) as pool:
+        batch_futures = [pool.submit(_process_batch, b) for b in batches]
+        for future in as_completed(batch_futures):
             try:
-                result = future.result()
-                if result:
-                    ranked.append(result)
+                ranked.extend(future.result())
             except Exception as e:
-                person = futures[future]
-                log.error("eval_person_failed", extra={"ctx": {"person_id": person.get("person_id", "?"), "error": str(e)}})
+                log.error("batch_eval_failed", extra={"ctx": {"error": str(e)}})
 
     elapsed = time.time() - t0
     log.info("matching_done", extra={"ctx": {
@@ -267,7 +287,9 @@ def run_unified_matching(
         "rule": normalized_rule,
         "ranking_size": ranking_size,
         "vector_limit": vector_limit,
-        "workers": max_workers,
+        "batch_size": BATCH_SIZE,
+        "batches": len(batches),
+        "batch_workers": batch_workers,
         "avaliados": len(ranked),
         "total_vetorial": len(vector_results),
         "elapsed_s": round(elapsed, 1),
@@ -834,3 +856,95 @@ Responda APENAS com um JSON válido (sem markdown, sem comentários):
     except Exception as e:
         log.error("llm_eval_failed", extra={"ctx": {"error": str(e)}})
         return None
+
+
+def _evaluate_batch_with_llm(
+    llm: ChatOpenAI,
+    vaga_context: str,
+    batch_profiles: list[tuple[int, str]],
+) -> dict[int, dict[str, Any]]:
+    """
+    Avalia N candidatos em uma única chamada LLM.
+
+    Args:
+        batch_profiles: lista de (idx, profile_text) — idx começa em 1
+    Returns:
+        dict de idx -> scores dict (chaves ausentes = falha naquele candidato)
+    """
+    n = len(batch_profiles)
+    profiles_section = ""
+    for idx, profile_text in batch_profiles:
+        profiles_section += f"\n=== CANDIDATO {idx} ===\n{profile_text}\n"
+
+    prompt = f"""Você é um sistema de matching candidato-vaga do RenderRH.
+Avalie os {n} candidatos abaixo para a vaga descrita. Para cada candidato atribua 4 scores independentes.
+
+{vaga_context}
+
+CANDIDATOS:
+{profiles_section}
+INSTRUÇÕES DE AVALIAÇÃO (cada dimensão de 0 a 100, avalie cada candidato de forma independente):
+
+1. score_competencia: requisitos técnicos, skills, ferramentas
+   - Obrigatórios valem 70% do score; desejáveis valem 30%
+   - Sinônimos contam como match parcial; skills extras NÃO penalizam
+   - Sem informação → NÃO atende
+
+2. score_experiencia: senioridade e anos de experiência
+   - 100=match perfeito; 70=adjacente (±1 nível); 40=distante; 0=inviável
+
+3. score_formacao: escolaridade + área de formação
+   - 100=atinge/supera + área compatível; 70=próxima; 40=abaixo
+   - Sem critérios de formação na vaga → 80
+
+4. score_localidade: modalidade, localização, PCD, CNH
+   - Remoto → 100; mesma cidade → 100; distante para presencial → 30
+
+Regras gerais: sem informação suficiente → 20-30; sem critério na vaga → 80.
+
+Responda APENAS com um JSON array (sem markdown, sem comentários extras):
+[
+  {{"idx": 1, "score_competencia": <0-100>, "score_experiencia": <0-100>, "score_formacao": <0-100>, "score_localidade": <0-100>, "justificativa": "<1-2 frases sobre gaps>"}},
+  {{"idx": 2, ...}},
+  ...
+]"""
+
+    try:
+        msg = llm.invoke([HumanMessage(content=prompt)])
+        text = msg.content if hasattr(msg, "content") else str(msg)
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text
+        if text.endswith("```"):
+            text = text.rsplit("```", 1)[0]
+        text = text.strip()
+
+        items = json.loads(text)
+        if not isinstance(items, list):
+            log.error("llm_batch_bad_response", extra={"ctx": {"type": type(items).__name__}})
+            return {}
+
+        result: dict[int, dict[str, Any]] = {}
+        for item in items:
+            try:
+                idx = int(item.get("idx", 0))
+                if idx < 1:
+                    continue
+                result[idx] = {
+                    "score_competencia": max(0, min(100, int(item.get("score_competencia", 0)))),
+                    "score_experiencia": max(0, min(100, int(item.get("score_experiencia", 0)))),
+                    "score_formacao": max(0, min(100, int(item.get("score_formacao", 0)))),
+                    "score_localidade": max(0, min(100, int(item.get("score_localidade", 0)))),
+                    "justificativa": str(item.get("justificativa", "")),
+                }
+            except Exception:
+                continue
+
+        missing = [idx for idx, _ in batch_profiles if idx not in result]
+        if missing:
+            log.warning("llm_batch_partial", extra={"ctx": {"missing_idxs": missing, "total": n}})
+
+        return result
+    except Exception as e:
+        log.error("llm_batch_eval_failed", extra={"ctx": {"error": str(e), "batch_size": n}})
+        return {}

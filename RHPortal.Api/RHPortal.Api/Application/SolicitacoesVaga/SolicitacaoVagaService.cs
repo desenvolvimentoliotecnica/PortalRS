@@ -8,6 +8,7 @@ using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Application.SolicitacoesVaga;
@@ -85,12 +86,19 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var pageSize = Math.Clamp(query.PageSize ?? 20, 1, 100);
         q = q.Skip((page - 1) * pageSize).Take(pageSize);
 
-        return await q.Select(s => new SolicitacaoVagaGridRow(
+        return await q
+            .Include(s => s.Aprovador)
+            .Include(s => s.Aprovador1)
+            .Select(s => new SolicitacaoVagaGridRow(
             s.Id,
             s.Titulo,
             s.Urgencia,
             s.Status,
+            s.SolicitanteId,
             s.Solicitante != null ? s.Solicitante.Name : null,
+            // Aprovador1Id (workflow real) tem prioridade sobre AprovadorId (legado)
+            s.Aprovador1Id ?? s.AprovadorId,
+            s.Aprovador1 != null ? s.Aprovador1.Name : (s.Aprovador != null ? s.Aprovador.Name : null),
             s.Area != null ? s.Area.Name : null,
             s.QtdPosicoes,
             s.TipoSolicitacao,
@@ -412,111 +420,59 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        // ── Auto-criar vaga no módulo Recrutamento ──
-        if (entity.AreaId.HasValue)
+        // ── Auto-criar vaga diretamente no DB (sem VagaService para evitar side-effects) ──
         {
-            var vagaRequest = new VagaCreateRequest(
-                Titulo: entity.Titulo,
-                DepartmentId: null,
-                AreaId: entity.AreaId.Value,
-                // A vaga fica em "Rascunho" para o RH preencher detalhes do portal
-                // e só depois liberar via Vaga.Status = Aberta.
-                Status: VagaStatus.Rascunho,
-                Codigo: null,
-                AreaTime: null,
-                Modalidade: null,
-                Senioridade: null,
-                QuantidadeVagas: entity.QtdPosicoes,
-                TipoContratacao: null,
-                MatchMinimoPercentual: 0,
-                Weights: null,
-                MatchingFiltrosRaw: null,
-                DescricaoInterna: entity.Justificativa,
-                CodigoInterno: null,
-                CodigoCbo: null,
-                MotivoAbertura: null,
-                OrcamentoAprovado: null,
-                GestorRequisitante: entity.Solicitante?.Name,
-                RecrutadorResponsavel: null,
-                Prioridade: entity.Urgencia switch
-                {
-                    SolicitacaoVagaUrgencia.Critica => VagaPrioridade.Critica,
-                    SolicitacaoVagaUrgencia.Alta => VagaPrioridade.Alta,
-                    SolicitacaoVagaUrgencia.Media => VagaPrioridade.Media,
-                    _ => VagaPrioridade.Baixa
-                },
-                ResumoPitch: null,
-                TagsResponsabilidadesRaw: null,
-                TagsKeywordsRaw: null,
-                Confidencial: entity.IsConfidencial,
-                AceitaPcd: false,
-                Urgente: entity.Urgencia >= SolicitacaoVagaUrgencia.Alta,
-                GeneroPreferencia: null,
-                VagaAfirmativa: false,
-                LinguagemInclusiva: false,
-                PublicoAfirmativo: null,
-                ObservacoesPcd: null,
-                ProjetoNome: null,
-                ProjetoClienteAreaImpactada: null,
-                ProjetoPrazoPrevisto: null,
-                ProjetoDescricao: null,
-                Regime: null,
-                CargaSemanalHoras: null,
-                Escala: null,
-                HoraEntrada: null,
-                HoraSaida: null,
-                Intervalo: null,
-                Cep: null,
-                Logradouro: null,
-                Numero: null,
-                Bairro: null,
-                Cidade: null,
-                Uf: null,
-                PoliticaTrabalho: null,
-                ObservacoesDeslocamento: null,
-                Moeda: null,
-                SalarioMinimo: null,
-                SalarioMaximo: null,
-                Periodicidade: null,
-                BonusTipo: null,
-                BonusPercentual: null,
-                ObservacoesRemuneracao: null,
-                Escolaridade: null,
-                FormacaoArea: null,
-                ExperienciaMinimaAnos: null,
-                TagsStackRaw: null,
-                TagsIdiomasRaw: null,
-                Diferenciais: null,
-                ObservacoesProcesso: null,
-                Visibilidade: null,
-                DataInicio: null,
-                DataEncerramento: null,
-                CanalLinkedIn: false,
-                CanalSiteCarreiras: false,
-                CanalIndicacao: false,
-                CanalPortaisEmprego: false,
-                DescricaoPublica: null,
-                LgpdSolicitarConsentimentoExplicito: false,
-                LgpdCompartilharCurriculoInternamente: false,
-                LgpdRetencaoAtiva: false,
-                LgpdRetencaoMeses: null,
-                ExigeCnh: false,
-                DisponibilidadeParaViagens: false,
-                ChecagemAntecedentes: false,
-                SlaDiasMetaFechamento: null,
-                NomeEngessado: null,
-                Beneficios: null,
-                Requisitos: null,
-                Etapas: null,
-                PerguntasTriagem: null
-            );
-
-            // Need to load Solicitante name for GestorRequisitante
             if (entity.Solicitante is null)
                 await _db.Entry(entity).Reference(e => e.Solicitante).LoadAsync(ct);
 
-            var vaga = await _vagaService.CreateAsync(vagaRequest, ct);
-            entity.VagaId = vaga.Id;
+            var tenantId = _tenantContext.TenantId ?? "";
+            var now = DateTimeOffset.UtcNow;
+            var vagaId = Guid.NewGuid();
+            var prioridade = entity.Urgencia switch
+            {
+                SolicitacaoVagaUrgencia.Critica => VagaPrioridade.Critica,
+                SolicitacaoVagaUrgencia.Alta => VagaPrioridade.Alta,
+                SolicitacaoVagaUrgencia.Media => VagaPrioridade.Media,
+                _ => VagaPrioridade.Baixa
+            };
+
+            _db.Vagas.Add(new Vaga
+            {
+                Id = vagaId,
+                TenantId = tenantId,
+                Titulo = entity.Titulo,
+                AreaId = entity.AreaId,
+                Status = VagaStatus.Rascunho,
+                QuantidadeVagas = entity.QtdPosicoes,
+                DescricaoInterna = entity.Justificativa,
+                GestorRequisitante = entity.Solicitante?.Name,
+                Prioridade = prioridade,
+                Confidencial = entity.IsConfidencial,
+                Urgente = entity.Urgencia >= SolicitacaoVagaUrgencia.Alta,
+                PesoCompetencia = 40,
+                PesoExperiencia = 30,
+                PesoFormacao = 15,
+                PesoLocalidade = 15,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now,
+            });
+
+            // ProjetoVaga (Rodada 1) + 4 Fases
+            var projetoId = Guid.NewGuid();
+            _db.Set<ProjetoVaga>().Add(new ProjetoVaga
+            {
+                Id = projetoId, TenantId = tenantId, VagaId = vagaId,
+                Numero = 1, Descricao = "Rodada 1", Status = StatusProjeto.Ativo,
+                CreatedAtUtc = now, UpdatedAtUtc = now,
+            });
+            _db.Set<FaseProcesso>().AddRange(
+                new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Triagem", Ordem = 0, ResponsavelTipo = ResponsavelFaseTipo.RH, CreatedAtUtc = now, UpdatedAtUtc = now },
+                new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Entrevista RH", Ordem = 1, ResponsavelTipo = ResponsavelFaseTipo.RH, CreatedAtUtc = now, UpdatedAtUtc = now },
+                new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Entrevista Gestor", Ordem = 2, ResponsavelTipo = ResponsavelFaseTipo.Gestor, CreatedAtUtc = now, UpdatedAtUtc = now },
+                new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Aprovacao Final", Ordem = 3, ResponsavelTipo = ResponsavelFaseTipo.Gestor, CreatedAtUtc = now, UpdatedAtUtc = now }
+            );
+
+            entity.VagaId = vagaId;
         }
 
         await _db.SaveChangesAsync(ct);

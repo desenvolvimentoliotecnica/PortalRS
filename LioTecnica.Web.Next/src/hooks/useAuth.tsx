@@ -157,6 +157,27 @@ export function useAuth() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Permission hook                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Hierarquia: owner > admin > gestor > recrutador
+ * Cada nível superior inclui as permissões dos inferiores.
+ */
+export type AppRole = "owner" | "admin" | "gestor" | "recrutador";
+
+const ROLE_HIERARCHY: AppRole[] = ["owner", "admin", "gestor", "recrutador"];
+
+export function usePermission(minRole: AppRole): boolean {
+    const { me } = useAuth();
+    if (!me) return false;
+    const roles = me.roles.map((r) => r.toLowerCase());
+    const minIndex = ROLE_HIERARCHY.indexOf(minRole);
+    // User has permission if they have any role >= minRole in the hierarchy
+    return ROLE_HIERARCHY.slice(0, minIndex + 1).some((r) => roles.includes(r));
+}
+
+/* ------------------------------------------------------------------ */
 /*  Guard                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -186,6 +207,54 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     }
 
     if (!me) return null;
+
+    return <>{children}</>;
+}
+
+/* ------------------------------------------------------------------ */
+/*  RoleGuard                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Renderiza children apenas se o usuário tiver a role mínima exigida.
+ * Exibe `fallback` se não tiver permissão (padrão: tela "Acesso negado").
+ *
+ * @example
+ * <RoleGuard minRole="gestor">
+ *   <SolicitacoesScreen />
+ * </RoleGuard>
+ */
+export function RoleGuard({
+    children,
+    minRole,
+    fallback,
+}: {
+    children: ReactNode;
+    minRole: AppRole;
+    fallback?: ReactNode;
+}) {
+    const { loading } = useAuth();
+    const allowed = usePermission(minRole);
+
+    if (loading) {
+        return (
+            <div className="flex min-h-[50vh] items-center justify-center">
+                <div className="border-lt-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+            </div>
+        );
+    }
+
+    if (!allowed) {
+        return (
+            fallback ?? (
+                <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-muted-foreground">
+                    <div className="text-4xl">🔒</div>
+                    <p className="text-base font-semibold">Acesso negado</p>
+                    <p className="text-sm">Você não tem permissão para acessar esta área.</p>
+                </div>
+            )
+        );
+    }
 
     return <>{children}</>;
 }

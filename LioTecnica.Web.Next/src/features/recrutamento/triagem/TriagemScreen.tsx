@@ -922,7 +922,19 @@ export default function TriagemScreen({
                     <span className="tabular-nums font-mono">{(grouped[stage.id] ?? []).length}</span> candidatos
                   </div>
                 </div>
-                <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">arraste</span>
+                <div className="flex items-center gap-1.5">
+                  {stage.id === "aprovado" && (grouped["aprovado"] ?? []).length > 0 && (() => {
+                    const aprovados = grouped["aprovado"] ?? [];
+                    const vagaId = aprovados[0]?.vagaId ?? "";
+                    const ids = aprovados.map(a => a.id).join(",");
+                    return (
+                      <Button variant="outline" size="sm" className="text-[10px] px-2 py-1 h-auto" onClick={() => router.push(`/gestao/processo-seletivo?vagaId=${encodeURIComponent(vagaId)}&candidatoIds=${encodeURIComponent(ids)}`)}>
+                        Encaminhar todos
+                      </Button>
+                    );
+                  })()}
+                  <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">arraste</span>
+                </div>
               </div>
 
               <div
@@ -1038,7 +1050,7 @@ export default function TriagemScreen({
                           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${missCount ? "bg-red-500/15 text-red-700" : "bg-emerald-500/15 text-emerald-700"}`}>{missCount ? `${missCount} obrig.` : "Obrig. OK"}</span>
                           {c.applicationRecruiterUserName ? <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">{c.applicationRecruiterUserName}</span> : null}
                           {stage.id === "aprovado" && (
-                            <Button variant="outline" size="sm" onClick={() => router.push(`/gestao/processo-seletivo?vagaId=${encodeURIComponent(c.vagaId || "")}`)}>
+                            <Button variant="outline" size="sm" onClick={() => router.push(`/gestao/processo-seletivo?vagaId=${encodeURIComponent(c.vagaId || "")}&candidatoIds=${encodeURIComponent(c.id)}`)}>
                               Rodada
                             </Button>
                           )}

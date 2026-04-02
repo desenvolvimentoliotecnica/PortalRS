@@ -6,7 +6,7 @@ namespace RhPortal.Api.Contracts.Vagas;
 public sealed record VagaCreateRequest(
     [Required, MaxLength(160)] string Titulo,
     Guid? DepartmentId,
-    [Required] Guid AreaId,
+    Guid? AreaId,
     [Required] VagaStatus Status,
     [MaxLength(40)] string? Codigo,
     VagaAreaTime? AreaTime,
@@ -93,10 +93,12 @@ public sealed record VagaCreateRequest(
 
 public sealed record UpdateVagaMatchingFiltrosRequest(string? MatchingFiltrosRaw);
 
+public sealed record ChangeVagaStatusRequest([Required] VagaStatus Status);
+
 public sealed record VagaUpdateRequest(
     [Required, MaxLength(160)] string Titulo,
     Guid? DepartmentId,
-    [Required] Guid AreaId,
+    Guid? AreaId,
     [Required] VagaStatus Status,
     [MaxLength(40)] string? Codigo,
     VagaAreaTime? AreaTime,
@@ -189,7 +191,7 @@ public sealed record VagaResponse(
     string? DepartmentCode,
     string? DepartmentName,
     VagaAreaTime? AreaTime,
-    Guid AreaId,
+    Guid? AreaId,
     string? AreaCode,
     string? AreaName,
     VagaModalidade? Modalidade,
@@ -276,7 +278,10 @@ public sealed record VagaResponse(
     IReadOnlyList<VagaEtapaResponse> Etapas,
     IReadOnlyList<VagaPerguntaResponse> PerguntasTriagem,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+    string? SolicitanteNome,
+    string? AprovadorNome,
+    DateTimeOffset? DataAprovacao
 );
 
 public sealed record VagaBeneficioRequest(
@@ -385,4 +390,12 @@ public sealed record VagaPerguntaResponse(
     string? OpcoesRaw,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
+);
+
+public sealed record VagaHistoricoEvent(
+    string Acao,
+    string? QuemFez,
+    DateTimeOffset DataHora,
+    Guid? EntidadeId,
+    string? EntidadeTipo
 );

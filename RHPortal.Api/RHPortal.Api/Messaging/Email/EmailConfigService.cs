@@ -61,21 +61,28 @@ public sealed class EmailConfigService : IEmailConfigService
         _tenantContext = tenantContext;
     }
 
+    private async Task<EmailConfig?> FindConfigAsync(CancellationToken ct, bool tracking = false)
+    {
+        return tracking
+            ? await _db.EmailConfigs.FirstOrDefaultAsync(ct)
+            : await _db.EmailConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+    }
+
     public async Task<EmailConfigView?> GetAsync(CancellationToken ct)
     {
-        var entity = await _db.EmailConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+        var entity = await FindConfigAsync(ct);
         if (entity is null) return null;
         return MapView(entity);
     }
 
     public async Task<EmailConfig?> GetEntityAsync(CancellationToken ct)
     {
-        return await _db.EmailConfigs.FirstOrDefaultAsync(ct);
+        return await FindConfigAsync(ct, tracking: true);
     }
 
     public async Task<EmailConfigDto?> GetDecryptedAsync(CancellationToken ct)
     {
-        var entity = await _db.EmailConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+        var entity = await FindConfigAsync(ct);
         if (entity is null) return null;
 
         return new EmailConfigDto
@@ -87,7 +94,7 @@ public sealed class EmailConfigService : IEmailConfigService
             SmtpUserName = entity.SmtpUserName,
             SmtpPassword = string.IsNullOrWhiteSpace(entity.SmtpPasswordEncrypted)
                 ? null
-                : _protector.Decrypt(entity.SmtpPasswordEncrypted),
+                : TryDecrypt(entity.SmtpPasswordEncrypted, "SMTP"),
             SmtpFromName = entity.SmtpFromName,
             SmtpFromAddress = entity.SmtpFromAddress,
             ImapHost = entity.ImapHost,
@@ -96,13 +103,13 @@ public sealed class EmailConfigService : IEmailConfigService
             ImapUserName = entity.ImapUserName,
             ImapPassword = string.IsNullOrWhiteSpace(entity.ImapPasswordEncrypted)
                 ? null
-                : _protector.Decrypt(entity.ImapPasswordEncrypted)
+                : TryDecrypt(entity.ImapPasswordEncrypted, "IMAP")
         };
     }
 
     public async Task<EmailConfigView> SaveAsync(EmailConfigDto dto, CancellationToken ct)
     {
-        var entity = await _db.EmailConfigs.FirstOrDefaultAsync(ct);
+        var entity = await FindConfigAsync(ct, tracking: true);
         var now = DateTimeOffset.UtcNow;
         if (entity is null)
         {
@@ -131,12 +138,60 @@ public sealed class EmailConfigService : IEmailConfigService
         entity.UpdatedAtUtc = now;
 
         if (!string.IsNullOrWhiteSpace(dto.SmtpPassword))
-            entity.SmtpPasswordEncrypted = _protector.Encrypt(dto.SmtpPassword);
+        {
+            try
+            {
+                entity.SmtpPasswordEncrypted = _protector.Encrypt(dto.SmtpPassword);
+                Console.Error.WriteLine($"[EmailConfig] Senha SMTP criptografada: {entity.SmtpPasswordEncrypted?.Length ?? 0} chars");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[EmailConfig] FALHA ao criptografar senha SMTP: {ex.Message}");
+                // Salva sem criptografia como fallback temporário
+                entity.SmtpPasswordEncrypted = dto.SmtpPassword;
+            }
+        }
         if (!string.IsNullOrWhiteSpace(dto.ImapPassword))
-            entity.ImapPasswordEncrypted = _protector.Encrypt(dto.ImapPassword);
+        {
+            try { entity.ImapPasswordEncrypted = _protector.Encrypt(dto.ImapPassword); }
+            catch { entity.ImapPasswordEncrypted = dto.ImapPassword; }
+        }
 
         await _db.SaveChangesAsync(ct);
+
+        // O EF Core com IgnoreQueryFilters pode não gerar UPDATE correto para a senha.
+        // Forçar via SQL direto quando a senha mudou.
+        Console.Error.WriteLine($"[EmailConfig] Entity Id={entity.Id}, TenantId={entity.TenantId}, SmtpPwEnc={entity.SmtpPasswordEncrypted?.Length}chars");
+        if (!string.IsNullOrWhiteSpace(entity.SmtpPasswordEncrypted))
+        {
+            var rows = await _db.Database.ExecuteSqlRawAsync(
+                "UPDATE \"EmailConfigs\" SET \"SmtpPasswordEncrypted\" = {0}, \"UpdatedAtUtc\" = {1} WHERE \"Id\" = {2}",
+                entity.SmtpPasswordEncrypted, DateTimeOffset.UtcNow, entity.Id);
+            Console.Error.WriteLine($"[EmailConfig] SQL UPDATE SmtpPassword rows={rows}");
+        }
+        if (!string.IsNullOrWhiteSpace(entity.ImapPasswordEncrypted))
+        {
+            await _db.Database.ExecuteSqlRawAsync(
+                "UPDATE \"EmailConfigs\" SET \"ImapPasswordEncrypted\" = {0}, \"UpdatedAtUtc\" = {1} WHERE \"Id\" = {2}",
+                entity.ImapPasswordEncrypted, DateTimeOffset.UtcNow, entity.Id);
+        }
+
         return MapView(entity);
+    }
+
+    private string? TryDecrypt(string encrypted, string label)
+    {
+        try
+        {
+            var result = _protector.Decrypt(encrypted);
+            Console.Error.WriteLine($"[EmailConfig] {label} decriptação OK: {result?.Length ?? 0} chars");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[EmailConfig] {label} decriptação FALHOU: {ex.Message}");
+            return null;
+        }
     }
 
     private static EmailConfigView MapView(EmailConfig entity)

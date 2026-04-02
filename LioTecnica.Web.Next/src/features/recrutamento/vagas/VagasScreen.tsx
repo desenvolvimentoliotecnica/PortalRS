@@ -350,7 +350,7 @@ export default function VagasScreen() {
                     areaName: solic.areaName ?? "",
                     unitId: solic.unitId ?? "",
                     descricaoInterna: solic.justificativa ?? "",
-                    prioridade: solic.urgencia === 3 ? "Crítica" : solic.urgencia === 2 ? "Alta" : solic.urgencia === 1 ? "Média" : "Normal",
+                    prioridade: solic.urgencia === 3 || solic.urgencia === "Critica" ? "Critica" : solic.urgencia === 2 || solic.urgencia === "Alta" ? "Alta" : solic.urgencia === 1 || solic.urgencia === "Media" ? "Media" : "Baixa",
                     quantidadeVagas: solic.qtdPosicoes ?? 1,
                 });
                 setEditId(null);
@@ -368,6 +368,31 @@ export default function VagasScreen() {
         const areaSet = new Set(list.map((v) => (v.area ?? "").trim()).filter(Boolean));
         setAreas(Array.from(areaSet).sort((a, b) => a.localeCompare(b, "pt-BR")));
     }, [pendenciasMode]);
+
+    // ── Drag-drop status change ──
+    const STATUS_MAP_DND: Record<string, string> = { rascunho: "Rascunho", aberta: "Aberta", pausada: "Pausada", fechada: "Encerrada" };
+    const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+
+    async function handleDrop(vagaId: string, targetCol: string) {
+        setDragOverCol(null);
+        const newStatus = STATUS_MAP_DND[targetCol];
+        if (!newStatus) return;
+        try {
+            const res = await apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/status`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({})) as Record<string, string>;
+                throw new Error(body.message || `Erro ${res.status}`);
+            }
+            toast.success(`Status alterado para ${newStatus}`);
+            await syncList();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao alterar status");
+        }
+    }
 
     const loadSolicitacoes = useCallback(async () => {
         if (!showManagerSections) {
@@ -514,25 +539,8 @@ export default function VagasScreen() {
         setSolicitacaoOpen(true);
     }
 
-    async function openVagaDetail(id: string) {
-        setVagaDetailOpen(true);
-        setVagaDetailLoading(true);
-        setVagaCandidateCount(null);
-        try {
-            const [data, candData] = await Promise.all([
-                fetchJson<unknown>(`${BASE}/api/vagas/${encodeURIComponent(id)}`),
-                fetchJson<unknown>(`${BASE}/api/candidatos?vagaId=${encodeURIComponent(id)}&pageSize=1`).catch(() => null),
-            ]);
-            setVagaDetail(asRecord(data));
-            const rec = asRecord(candData);
-            const total = rec?.totalCount ?? rec?.total;
-            setVagaCandidateCount(typeof total === "number" ? total : null);
-        } catch (e) {
-            toast.error(e instanceof Error ? e.message : "Falha ao carregar detalhes da vaga.");
-            setVagaDetailOpen(false);
-        } finally {
-            setVagaDetailLoading(false);
-        }
+    function openVagaDetail(id: string) {
+        router.push(`/vagas/hub?id=${encodeURIComponent(id)}`);
     }
 
     async function openSolicitacaoDetail(id: string) {
@@ -833,7 +841,7 @@ export default function VagasScreen() {
             )}
 
             {/* Main panel */}
-            <div className="rounded-xl border border-border/50 bg-card shadow-sm">
+            <div className="rounded-xl border border-border/40 bg-card shadow-sm">
                 {/* Filters bar */}
                 <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2.5">
                     <div className="relative min-w-[180px] flex-1 max-w-sm">
@@ -873,14 +881,14 @@ export default function VagasScreen() {
 
                 {viewMode === "list" ? (
                     <>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto px-2 py-1">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
                                         <TableHead className="min-w-[260px]">Vaga</TableHead>
                                         <TableHead>Área</TableHead>
                                         <TableHead>Requisitos</TableHead>
-                                        <TableHead>Match mín.</TableHead>
+                                        <TableHead>Data criação</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="w-12" />
                                     </TableRow>
@@ -943,8 +951,8 @@ export default function VagasScreen() {
                                                             )}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="text-xs font-mono text-muted-foreground">
-                                                        {threshold}%
+                                                    <TableCell className="text-xs text-muted-foreground">
+                                                        {vaga.createdAtUtc ? new Date(vaga.createdAtUtc).toLocaleDateString("pt-BR") : vaga.updatedAt ? new Date(vaga.updatedAt).toLocaleDateString("pt-BR") : "—"}
                                                     </TableCell>
                                                     <TableCell onClick={(e) => { e.stopPropagation(); setStatus((vaga.status ?? "").toLowerCase() || "all"); }}>
                                                         <span className="cursor-pointer"><VagaStatusBadge status={vaga.status} /></span>
@@ -1051,7 +1059,13 @@ export default function VagasScreen() {
                                         return s === col;
                                     });
                                     return (
-                                        <div key={col} className="w-72 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
+                                        <div
+                                            key={col}
+                                            className={`w-72 shrink-0 flex flex-col rounded-xl border bg-muted/10 transition-colors ${dragOverCol === col ? "border-primary/60 bg-primary/5" : "border-border/50"}`}
+                                            onDragOver={(e) => { e.preventDefault(); setDragOverCol(col); }}
+                                            onDragLeave={() => setDragOverCol(null)}
+                                            onDrop={(e) => { e.preventDefault(); const vagaId = e.dataTransfer.getData("vagaId"); if (vagaId) void handleDrop(vagaId, col); }}
+                                        >
                                             <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
                                                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.cls}`}>{meta.label}</span>
                                                 <span className="text-xs text-muted-foreground ml-auto">{colVagas.length}</span>
@@ -1067,7 +1081,9 @@ export default function VagasScreen() {
                                                     return (
                                                         <div
                                                             key={vaga.id}
-                                                            className="rounded-lg border border-border/50 bg-card p-3 shadow-sm cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
+                                                            draggable
+                                                            onDragStart={(e) => { e.dataTransfer.setData("vagaId", vaga.id); e.dataTransfer.effectAllowed = "move"; }}
+                                                            className="rounded-lg border border-border/50 bg-card p-3 shadow-sm cursor-grab hover:border-primary/40 hover:shadow-md transition-all active:cursor-grabbing"
                                                             onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(vaga.id)}`)}
                                                         >
                                                             <div className="text-sm font-medium leading-tight truncate">{vaga.titulo ?? "—"}</div>

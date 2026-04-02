@@ -37,12 +37,23 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         var cpfNorm = NormalizeCpf(request.Cpf);
         if (string.IsNullOrWhiteSpace(cpfNorm) || cpfNorm.Length < 11) return null;
 
-        var pa = await _db.Set<Domain.Entities.PreAdmissao>().AsNoTracking()
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
             .FirstOrDefaultAsync(x => x.Id == request.PreAdmissaoId && x.AccessToken != null, ct);
 
         if (pa is null) return null;
         if (NormalizeCpf(pa.Cpf ?? "") != cpfNorm) return null;
-        if (pa.Status != PreAdmissaoStatus.PreenchimentoPendente && pa.Status != PreAdmissaoStatus.EmRevisao) return null;
+        if (pa.Status != PreAdmissaoStatus.Enviado
+            && pa.Status != PreAdmissaoStatus.Acessado
+            && pa.Status != PreAdmissaoStatus.PreenchidoParcial
+            && pa.Status != PreAdmissaoStatus.Preenchido) return null;
+
+        // Transição automática: Enviado → Acessado
+        if (pa.Status == PreAdmissaoStatus.Enviado)
+        {
+            pa.Status = PreAdmissaoStatus.Acessado;
+            pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+        }
 
         return new AdmissaoPortalLoginResponse(pa.Id, pa.Nome, _tenantContext.TenantId);
     }
@@ -108,6 +119,11 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         pa.CtpsSerie = r.CtpsSerie?.Trim(); pa.CtpsUf = r.CtpsUf?.Trim();
 
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Transição automática: Enviado/Acessado → PreenchidoParcial ao salvar dados
+        if (pa.Status == PreAdmissaoStatus.Enviado || pa.Status == PreAdmissaoStatus.Acessado)
+            pa.Status = PreAdmissaoStatus.PreenchidoParcial;
+
         await _db.SaveChangesAsync(ct);
         return true;
     }
@@ -142,6 +158,11 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
         _db.Set<PreAdmissaoDocumento>().Add(doc);
+
+        // Transição automática: Enviado/Acessado → PreenchidoParcial ao enviar doc
+        if (pa.Status == PreAdmissaoStatus.Enviado || pa.Status == PreAdmissaoStatus.Acessado)
+            pa.Status = PreAdmissaoStatus.PreenchidoParcial;
+
         await _db.SaveChangesAsync(ct);
 
         return new PreAdmissaoDocumentoResponse(
@@ -153,9 +174,10 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
     {
         var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
         if (pa is null) return false;
-        if (pa.Status != PreAdmissaoStatus.PreenchimentoPendente) return false;
+        var submitAllowed = new[] { PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado, PreAdmissaoStatus.PreenchidoParcial };
+        if (!submitAllowed.Contains(pa.Status)) return false;
 
-        pa.Status = PreAdmissaoStatus.EmRevisao;
+        pa.Status = PreAdmissaoStatus.Preenchido;
         pa.SubmittedAtUtc = DateTimeOffset.UtcNow;
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
@@ -172,7 +194,8 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             .Include(x => x.DocumentosSolicitados)
             .FirstOrDefaultAsync(x => x.Id == id && x.AccessToken != null, ct);
         if (pa is null || NormalizeCpf(pa.Cpf ?? "") != cpfNorm) return null;
-        if (pa.Status != PreAdmissaoStatus.PreenchimentoPendente && pa.Status != PreAdmissaoStatus.EmRevisao) return null;
+        var allowedStatuses = new[] { PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado, PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido };
+        if (!allowedStatuses.Contains(pa.Status)) return null;
         return pa;
     }
 
@@ -182,7 +205,8 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         var pa = await _db.Set<Domain.Entities.PreAdmissao>()
             .FirstOrDefaultAsync(x => x.Id == id && x.AccessToken != null, ct);
         if (pa is null || NormalizeCpf(pa.Cpf ?? "") != cpfNorm) return null;
-        if (pa.Status != PreAdmissaoStatus.PreenchimentoPendente && pa.Status != PreAdmissaoStatus.EmRevisao) return null;
+        var allowed = new[] { PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado, PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido };
+        if (!allowed.Contains(pa.Status)) return null;
         return pa;
     }
 

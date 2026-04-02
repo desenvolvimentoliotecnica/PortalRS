@@ -24,6 +24,17 @@ public sealed class FaseProcesso : ITenantEntity
     /// <summary>Quem conduz esta fase.</summary>
     public ResponsavelFaseTipo ResponsavelTipo { get; set; } = ResponsavelFaseTipo.RH;
 
+    /// <summary>Instruções ou descrição da fase.</summary>
+    [MaxLength(500)]
+    public string? Descricao { get; set; }
+
+    /// <summary>SLA em dias para completar a fase.</summary>
+    public int? SlaDias { get; set; }
+
+    /// <summary>Observações gerais.</summary>
+    [MaxLength(2000)]
+    public string? Observacoes { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

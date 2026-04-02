@@ -59,13 +59,24 @@ interface PreAdmissaoRow {
     documentosRejeitados: number;
 }
 
-const STATUS_MAP: Record<number, { label: string; color: string; icon: React.ElementType }> = {
+const STATUS_MAP: Record<number | string, { label: string; color: string; icon: React.ElementType }> = {
     0: { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileSpreadsheet },
-    1: { label: "Preenchimento", color: "bg-sky-500/15 text-sky-700", icon: Clock },
-    2: { label: "Em Revisão", color: "bg-amber-500/15 text-amber-700", icon: Eye },
-    3: { label: "Aprovada", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    1: { label: "Enviado", color: "bg-sky-500/15 text-sky-700", icon: Clock },
+    2: { label: "Preenchido", color: "bg-amber-500/15 text-amber-700", icon: CheckCircle2 },
+    3: { label: "Concluída", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
     4: { label: "Rejeitada", color: "bg-red-500/15 text-red-700", icon: XCircle },
     5: { label: "Integrada", color: "bg-blue-500/15 text-blue-700", icon: ShieldCheck },
+    6: { label: "Acessado", color: "bg-violet-500/15 text-violet-700", icon: Eye },
+    7: { label: "Preenchido Parcial", color: "bg-orange-500/15 text-orange-700", icon: Clock },
+    // String fallbacks (API retorna enums como strings)
+    Rascunho: { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileSpreadsheet },
+    Enviado: { label: "Enviado", color: "bg-sky-500/15 text-sky-700", icon: Clock },
+    Preenchido: { label: "Preenchido", color: "bg-amber-500/15 text-amber-700", icon: CheckCircle2 },
+    Aprovada: { label: "Concluída", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    Rejeitada: { label: "Rejeitada", color: "bg-red-500/15 text-red-700", icon: XCircle },
+    Integrada: { label: "Integrada", color: "bg-blue-500/15 text-blue-700", icon: ShieldCheck },
+    Acessado: { label: "Acessado", color: "bg-violet-500/15 text-violet-700", icon: Eye },
+    PreenchidoParcial: { label: "Preenchido Parcial", color: "bg-orange-500/15 text-orange-700", icon: Clock },
 };
 
 /* ── component ── */
@@ -73,7 +84,7 @@ const STATUS_MAP: Record<number, { label: string; color: string; icon: React.Ele
 export default function AdmissaoListScreen() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { data = [], isLoading } = useApiQuery<PreAdmissaoRow[]>(
+    const { data = [], isLoading, refetch: loadList } = useApiQuery<PreAdmissaoRow[]>(
         ["pre-admissao"],
         "/api/pre-admissao"
     );
@@ -191,7 +202,7 @@ export default function AdmissaoListScreen() {
             </div>
 
             {/* filters + table */}
-            <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+            <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
                 <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
                     <div className="flex gap-1">
                         {[
@@ -230,15 +241,16 @@ export default function AdmissaoListScreen() {
                             <TableHead className="text-center">Status</TableHead>
                             <TableHead className="text-center">Docs</TableHead>
                             <TableHead className="text-right">Criado em</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading && (
-                            <TableRow><TableCell colSpan={9} className="py-4"><TableSkeleton rows={5} /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={10} className="py-4"><TableSkeleton rows={5} /></TableCell></TableRow>
                         )}
                         {!isLoading && filtered.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={9} className="py-16 text-center">
+                                <TableCell colSpan={10} className="py-16 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Users className="size-10 opacity-20" />
                                         <p className="text-sm font-medium">Nenhuma admissão em andamento</p>
@@ -272,7 +284,7 @@ export default function AdmissaoListScreen() {
                                             <span className={`text-xs font-mono font-semibold ${
                                                 r.documentosRejeitados > 0 ? "text-red-600" :
                                                 r.documentosPendentes > 0 ? "text-amber-600" :
-                                                r.documentosValidados === r.totalDocumentos ? "text-green-600" :
+                                                r.documentosValidados >= r.totalDocumentos ? "text-green-600" :
                                                 "text-muted-foreground"
                                             }`}>
                                                 {r.documentosValidados}/{r.totalDocumentos}
@@ -283,6 +295,23 @@ export default function AdmissaoListScreen() {
                                     </TableCell>
                                     <TableCell className="text-right text-xs text-muted-foreground">
                                         {new Date(r.createdAtUtc).toLocaleDateString("pt-BR")}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {(r.status === 2 || String(r.status) === "Preenchido") && (
+                                            <Button size="sm" className="btn-approve" onClick={async (e) => {
+                                                e.stopPropagation();
+                                                try {
+                                                    const res = await apiFetch(`/api/pre-admissao/${r.id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+                                                    if (res.ok) { toast.success("Admissão concluída!"); void loadList(); }
+                                                    else { const b = await res.json().catch(() => ({})) as Record<string,string>; toast.error(b.message || "Erro ao concluir"); }
+                                                } catch { toast.error("Erro de conexão"); }
+                                            }}>
+                                                <CheckCircle2 className="size-3.5 mr-1" /> Concluir
+                                            </Button>
+                                        )}
+                                        {(r.status === 3 || String(r.status) === "Aprovada") && (
+                                            <span className="text-xs text-emerald-600 font-medium">Pendente TOTVS</span>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             );
@@ -316,7 +345,7 @@ export default function AdmissaoListScreen() {
 
 function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
     return (
-        <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+        <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
             <div className={`rounded-lg p-2.5 shrink-0 ${color}`}><Icon className="size-4" /></div>
             <div>
                 <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest leading-none mb-1">{label}</div>

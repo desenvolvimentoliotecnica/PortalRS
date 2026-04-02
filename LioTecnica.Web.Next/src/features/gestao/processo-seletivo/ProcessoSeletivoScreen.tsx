@@ -166,29 +166,102 @@ export default function ProcessoSeletivoScreen() {
     const [aprovarCelular, setAprovarCelular] = useState("");
     const [aprovarLoading, setAprovarLoading] = useState(false);
 
-    /* Load projetos (across recent vagas) */
+    /* vagas lookup para seletor + criar rodada */
+    const [vagasLookup, setVagasLookup] = useState<{ id: string; titulo: string }[]>([]);
+    const [selectedVagaId, setSelectedVagaId] = useState<string>("");
+    const [creatingRodada, setCreatingRodada] = useState(false);
+
+    /* adicionar candidato dialog */
+    const [addCandDialogOpen, setAddCandDialogOpen] = useState(false);
+    const [vagaCandidatos, setVagaCandidatos] = useState<{ id: string; nome: string; email: string }[]>([]);
+    const [addCandLoading, setAddCandLoading] = useState(false);
+
+    /* candidatos encaminhados da triagem */
+    const candidatoIdsFromTriagem = (searchParams.get("candidatoIds") ?? "").split(",").map(s => s.trim()).filter(Boolean);
+
+    /* Load vagas + projetos */
     useEffect(() => {
         fetchJson<any>("/api/vagas?fields=id,titulo").then((data) => {
             const items: any[] = Array.isArray(data) ? data : (data?.items ?? []);
-            Promise.all(items.slice(0, 10).map((v: any) =>
+            setVagasLookup(items.map((v: any) => ({ id: v.id, titulo: v.titulo })));
+            Promise.all(items.slice(0, 20).map((v: any) =>
                 fetchJson<ProjetoMin[]>(`/api/vagas/${v.id}/projetos`).catch(() => [] as ProjetoMin[])
             )).then((all) => setProjetos(all.flat()));
-        }).catch(() => { });
+        }).catch(() => { toast.error("Falha ao carregar vagas e projetos."); });
     }, []);
+
+    /* Criar nova rodada */
+    async function criarRodada() {
+        if (!selectedVagaId) return toast.error("Selecione uma vaga primeiro.");
+        setCreatingRodada(true);
+        try {
+            const proj = await fetchJson<ProjetoMin>(`/api/vagas/${selectedVagaId}/projetos`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ descricao: "Rodada inicial" }),
+            });
+            setProjetos((prev) => [...prev, proj]);
+            setSelectedProjeto(proj);
+            toast.success("Rodada criada! Agora adicione fases e candidatos.");
+        } catch (e) {
+            toast.error(`Falha ao criar rodada: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setCreatingRodada(false);
+        }
+    }
+
+    /* Adicionar candidato ao projeto */
+    async function openAddCandidato() {
+        if (!selectedProjeto) return;
+        setAddCandDialogOpen(true);
+        setAddCandLoading(true);
+        try {
+            const data = await fetchJson<any>(`/api/candidatos?vagaId=${selectedProjeto.vagaId}&pageSize=100`);
+            const items: any[] = Array.isArray(data) ? data : (data?.items ?? []);
+            const jaNosProjeto = new Set(candidatos.map((c) => c.candidatoId));
+            setVagaCandidatos(
+                items
+                    .filter((c: any) => !jaNosProjeto.has(c.id))
+                    .map((c: any) => ({ id: c.id, nome: c.nome, email: c.email }))
+            );
+        } catch {
+            toast.error("Falha ao buscar candidatos da vaga.");
+        } finally {
+            setAddCandLoading(false);
+        }
+    }
+
+    async function addCandidatoAoProjeto(candidatoId: string) {
+        if (!selectedProjeto) return;
+        try {
+            await fetchJson(`/api/projetos/${selectedProjeto.id}/candidatos`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ candidatoId }),
+            });
+            toast.success("Candidato adicionado ao projeto!");
+            setVagaCandidatos((prev) => prev.filter((c) => c.id !== candidatoId));
+            await loadFases(selectedProjeto);
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
 
     const loadFases = useCallback(async (projeto: ProjetoMin) => {
         setLoadingCandidatos(true);
         try {
+            let scoresFailed = false;
             const [f, c, s] = await Promise.all([
                 fetchJson<Fase[]>(`/api/projetos/${projeto.id}/fases`),
                 fetchJson<CandidatoFase[]>(`/api/projetos/${projeto.id}/candidatos`),
                 fetchJson<MatchingScore[]>(`/api/matching/scores?projetoId=${projeto.id}&vagaId=${projeto.vagaId}`)
-                    .catch(() => [] as MatchingScore[]),
+                    .catch((e) => { scoresFailed = true; console.warn("[ProcessoSeletivo] Falha ao carregar scores do matching:", e); return [] as MatchingScore[]; }),
             ]);
             setFases(f);
             setCandidatos(c);
             setScores(s);
             if (f.length > 0) setExpandedFase(f[0].id);
+            if (scoresFailed) toast.warning("Scores de matching indisponíveis. Os demais dados foram carregados.");
         } catch {
             toast.error("Falha ao carregar dados do projeto.");
         } finally {
@@ -446,37 +519,83 @@ export default function ProcessoSeletivoScreen() {
                 </div>
             </div>
 
-            {/* Projeto selector */}
-            <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur shadow-sm">
+            {candidatoIdsFromTriagem.length > 0 && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <UserCheck className="size-4 text-emerald-600 shrink-0" />
+                        <span className="text-sm font-medium text-emerald-800">
+                            {candidatoIdsFromTriagem.length} candidato(s) aprovado(s) na triagem aguardando serem adicionados a uma rodada.
+                        </span>
+                    </div>
+                    <span className="text-xs text-emerald-600 shrink-0">Selecione uma rodada abaixo para adicioná-los.</span>
+                </div>
+            )}
+
+            {/* Vaga + Rodada selector */}
+            <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur shadow-sm space-y-3">
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="flex-1 min-w-[200px]">
-                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Rodada</label>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Vaga</label>
                         <select
                             className="mt-1 block w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                            value={selectedProjeto?.id ?? ""}
+                            value={selectedVagaId}
                             onChange={(e) => {
-                                const p = projetos.find((x) => x.id === e.target.value) ?? null;
-                                setSelectedProjeto(p);
-                                setExpandedFase(null);
-                                setQ("");
-                                setFilterStatus("");
-                                setFilterFaseId("");
+                                setSelectedVagaId(e.target.value);
+                                setSelectedProjeto(null);
                             }}
                         >
-                            <option value="">Selecione uma rodada...</option>
-                            {projetos.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                    Rodada {p.numero}{p.descricao ? ` — ${p.descricao}` : ""}
-                                </option>
+                            <option value="">Selecione a vaga...</option>
+                            {vagasLookup.map((v) => (
+                                <option key={v.id} value={v.id}>{v.titulo}</option>
                             ))}
                         </select>
                     </div>
-                    {selectedProjeto && (
+                    {(() => {
+                        const projetosDaVaga = projetos.filter((p) => p.vagaId === selectedVagaId);
+                        if (!selectedVagaId) return null;
+                        if (projetosDaVaga.length === 0) {
+                            return (
+                                <Button size="sm" onClick={criarRodada} disabled={creatingRodada}>
+                                    <Plus className="size-4 mr-1" /> {creatingRodada ? "Criando..." : "Criar Rodada"}
+                                </Button>
+                            );
+                        }
+                        return (
+                            <div className="flex-1 min-w-[200px]">
+                                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Rodada</label>
+                                <select
+                                    className="mt-1 block w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                    value={selectedProjeto?.id ?? ""}
+                                    onChange={(e) => {
+                                        const p = projetos.find((x) => x.id === e.target.value) ?? null;
+                                        setSelectedProjeto(p);
+                                        setExpandedFase(null);
+                                        setQ("");
+                                        setFilterStatus("");
+                                        setFilterFaseId("");
+                                    }}
+                                >
+                                    <option value="">Selecione a rodada...</option>
+                                    {projetosDaVaga.map((p) => (
+                                        <option key={p.id} value={p.id}>
+                                            Rodada {p.numero}{p.descricao ? ` — ${p.descricao}` : ""}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        );
+                    })()}
+                </div>
+                {selectedProjeto && (
+                    <div className="flex flex-wrap gap-2">
                         <Button size="sm" onClick={openNewFase}>
                             <Plus className="size-4 mr-1" /> Nova Fase
                         </Button>
-                    )}
-                </div>
+                        <Button size="sm" variant="outline" onClick={openAddCandidato}>
+                            <Users className="size-4 mr-1" /> Adicionar Candidato
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {selectedProjeto && (
@@ -820,6 +939,37 @@ export default function ProcessoSeletivoScreen() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setMoveDialogOpen(false)}>Cancelar</Button>
                         <Button onClick={() => void moverCandidato()}>Mover</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* ── Dialog: Adicionar candidato ── */}
+            <Dialog open={addCandDialogOpen} onOpenChange={setAddCandDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Adicionar Candidato ao Projeto</DialogTitle>
+                        <DialogDescription>Candidatos da vaga que ainda não estão nesta rodada.</DialogDescription>
+                    </DialogHeader>
+                    {addCandLoading ? (
+                        <div className="flex justify-center py-6"><Skeleton className="h-6 w-32" /></div>
+                    ) : vagaCandidatos.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">Nenhum candidato disponível. Todos já estão no projeto ou não há candidatos cadastrados na vaga.</p>
+                    ) : (
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                            {vagaCandidatos.map((c) => (
+                                <div key={c.id} className="flex items-center justify-between rounded-lg border border-border/50 p-3">
+                                    <div>
+                                        <div className="font-medium text-sm">{c.nome}</div>
+                                        <div className="text-xs text-muted-foreground">{c.email}</div>
+                                    </div>
+                                    <Button size="sm" onClick={() => void addCandidatoAoProjeto(c.id)}>
+                                        <Plus className="size-4 mr-1" /> Adicionar
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAddCandDialogOpen(false)}>Fechar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

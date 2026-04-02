@@ -18,4 +18,10 @@ public enum TipoDocumento : short
     CarteiraVacinacaoFilho = 13,
     ComprovanteBancario = 14,
     Foto3x4 = 15,
+    Escolaridade = 16,
+    // PJ
+    CNPJ = 20,
+    ContratoSocialMEI = 21,
+    ContaBancariaPJ = 22,
+    CertidoesNegativas = 23,
 }

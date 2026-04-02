@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
@@ -20,6 +21,7 @@ import {
     FileText,
     Lock,
     UserMinus,
+    ClipboardList,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -50,12 +52,15 @@ import NextStepBanner from "@/components/feedback/NextStepBanner";
 interface SolicitacaoGridRow {
     id: string;
     titulo: string;
-    urgencia: number;
-    status: number;
+    urgencia: number | string;
+    status: number | string;
+    solicitanteId: string;
     solicitanteNome: string | null;
+    aprovadorId: string | null;
+    aprovadorNome: string | null;
     areaName: string | null;
     qtdPosicoes: number;
-    tipoSolicitacao: number;
+    tipoSolicitacao: number | string;
     isConfidencial: boolean;
     substituidoNome: string | null;
     createdAtUtc: string;
@@ -67,7 +72,7 @@ interface SolicitacaoDetail {
     justificativa: string | null;
     qtdPosicoes: number;
     urgencia: number;
-    status: number;
+    status: number | string;
     solicitanteId: string;
     solicitanteNome: string | null;
     aprovadorId: string | null;
@@ -89,8 +94,8 @@ interface SolicitacaoDetail {
     approvedAtUtc: string | null;
 }
 
-type StatusKey = 0 | 1 | 2 | 3 | 4;
-type UrgenciaKey = 0 | 1 | 2 | 3;
+type StatusKey = 0 | 1 | 2 | 3 | 4 | string;
+type UrgenciaKey = 0 | 1 | 2 | 3 | string;
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -110,7 +115,13 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     return (await res.json()) as T;
 }
 
-const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
+const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+    "Rascunho": { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
+    "PendenteAprovacao": { label: "Pendente", color: "bg-amber-500/15 text-amber-700", icon: Clock },
+    "Aprovada": { label: "Aprovada", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    "Reprovada": { label: "Reprovada", color: "bg-red-500/15 text-red-700", icon: XCircle },
+    "AjustesNecessarios": { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
+    // fallback numérico para compatibilidade
     0: { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
     1: { label: "Pendente", color: "bg-amber-500/15 text-amber-700", icon: Clock },
     2: { label: "Aprovada", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
@@ -118,15 +129,19 @@ const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.
     4: { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
 };
 
-const URGENCIA_MAP: Record<UrgenciaKey, { label: string; color: string }> = {
+const URGENCIA_MAP: Record<string, { label: string; color: string }> = {
+    "Baixa": { label: "Baixa", color: "bg-sky-500/15 text-sky-700" },
+    "Media": { label: "Média", color: "bg-amber-500/15 text-amber-700" },
+    "Alta": { label: "Alta", color: "bg-orange-500/15 text-orange-700" },
+    "Critica": { label: "Crítica", color: "bg-red-500/15 text-red-700" },
     0: { label: "Baixa", color: "bg-sky-500/15 text-sky-700" },
     1: { label: "Média", color: "bg-amber-500/15 text-amber-700" },
     2: { label: "Alta", color: "bg-orange-500/15 text-orange-700" },
     3: { label: "Crítica", color: "bg-red-500/15 text-red-700" },
 };
 
-function statusBadge(status: number) {
-    const s = STATUS_MAP[(status ?? 0) as StatusKey] ?? STATUS_MAP[0];
+function statusBadge(status: number | string) {
+    const s = STATUS_MAP[status] ?? STATUS_MAP["Rascunho"];
     const Icon = s.icon;
     return (
         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.color}`}>
@@ -136,8 +151,8 @@ function statusBadge(status: number) {
     );
 }
 
-function urgenciaBadge(urgencia: number) {
-    const u = URGENCIA_MAP[(urgencia ?? 1) as UrgenciaKey] ?? URGENCIA_MAP[1];
+function urgenciaBadge(urgencia: number | string) {
+    const u = URGENCIA_MAP[urgencia] ?? URGENCIA_MAP["Media"] ?? URGENCIA_MAP[1];
     return (
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${u.color}`}>
             {u.label}
@@ -160,17 +175,27 @@ function formatDate(iso: string | null | undefined) {
 
 /* ──────────────────────────── component ──────────────────────────── */
 
+interface VagaRascunhoRow {
+    id: string;
+    titulo: string;
+    areaName: string | null;
+    createdAtUtc: string;
+}
+
 export default function SolicitacoesScreen() {
     const { me } = useAuth();
+    const router = useRouter();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin") ?? false;
+    const isRH = isAdmin || (me?.roles?.some((r: string) => r.toLowerCase().includes("recrutador")) ?? false);
 
     /* ── tab ── */
-    const [activeTab, setActiveTab] = useState<"minhas" | "aprovacoes">("minhas");
+    const [activeTab, setActiveTab] = useState<"minhas" | "aprovacoes" | "triagem">("minhas");
 
     /* ── data ── */
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<SolicitacaoGridRow[]>([]);
     const [pendingRows, setPendingRows] = useState<SolicitacaoGridRow[]>([]);
+    const [vagasRascunho, setVagasRascunho] = useState<VagaRascunhoRow[]>([]);
 
     /* ── filters ── */
     const [q, setQ] = useState("");
@@ -199,15 +224,37 @@ export default function SolicitacoesScreen() {
     /* ── next step banner after approval ── */
     const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
 
+    /* ── resolve meu funcionarioId para filtrar aprovações ── */
+    const [myFuncionarioId, setMyFuncionarioId] = useState<string | null>(null);
+
     /* ── data loading ── */
     const syncList = useCallback(async () => {
-        const [allData, pendingData] = await Promise.all([
-            fetchJson<SolicitacaoGridRow[]>(API),
-            isAdmin ? fetchJson<SolicitacaoGridRow[]>(`${API}?status=1`) : Promise.resolve([]),
+        // Resolver funcionarioId do user logado (para filtrar aprovações)
+        let funcId = myFuncionarioId;
+        if (!funcId) {
+            try {
+                const meRes = await fetchJson<Record<string, unknown>>("/api/me");
+                if (meRes?.funcionarioId) {
+                    funcId = String(meRes.funcionarioId);
+                    setMyFuncionarioId(funcId);
+                }
+            } catch { /* ignore */ }
+        }
+
+        const [myData, allData, vagasData] = await Promise.all([
+            fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true`),
+            fetchJson<SolicitacaoGridRow[]>(API).catch(() => []),
+            fetchJson<VagaRascunhoRow[]>("/api/vagas/pendencias-rh").catch((e) => { console.warn("[pendencias-rh]", e); return []; }),
         ]);
-        setRows(Array.isArray(allData) ? allData : []);
-        setPendingRows(Array.isArray(pendingData) ? pendingData : []);
-    }, [isAdmin]);
+        setRows(Array.isArray(myData) ? myData : []);
+        const allItems = Array.isArray(allData) ? allData : [];
+        const isPendente = (s: number | string) => s === 1 || s === "PendenteAprovacao";
+        const pending = funcId
+            ? allItems.filter((r) => isPendente(r.status) && r.aprovadorId === funcId)
+            : allItems.filter((r) => isPendente(r.status));
+        setPendingRows(pending);
+        setVagasRascunho(Array.isArray(vagasData) ? vagasData : []);
+    }, [myFuncionarioId]);
 
     useEffect(() => {
         let alive = true;
@@ -231,12 +278,13 @@ export default function SolicitacoesScreen() {
 
     /* ── KPIs ── */
     const kpis = useMemo(() => {
-        const total = rows.length;
-        const pendentes = rows.filter((r) => r.status === 1).length;
-        const aprovadas = rows.filter((r) => r.status === 2).length;
-        const reprovadas = rows.filter((r) => r.status === 3).length;
+        const src = activeTab === "minhas" ? rows : pendingRows;
+        const total = src.length;
+        const pendentes = src.filter((r) => r.status === 1 || r.status === "PendenteAprovacao").length;
+        const aprovadas = src.filter((r) => r.status === 2 || r.status === "Aprovada").length;
+        const reprovadas = src.filter((r) => r.status === 3 || r.status === "Reprovada").length;
         return { total, pendentes, aprovadas, reprovadas };
-    }, [rows]);
+    }, [rows, pendingRows, activeTab]);
 
     /* ── actions ── */
     function openNew() {
@@ -284,11 +332,11 @@ export default function SolicitacoesScreen() {
                 body: JSON.stringify({ observacao: approvalObs || null }),
             });
             toast.success(`Solicitação: ${labels[action]}!`);
-            if (action === "approve" && detail) {
-                setLastApproved({ id: detail.id, titulo: detail.titulo });
-            }
             await syncList();
             setDetailOpen(false);
+            if (action === "approve") {
+                setActiveTab("triagem");
+            }
         } catch (e) {
             toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
         }
@@ -343,18 +391,7 @@ export default function SolicitacoesScreen() {
                 </div>
             </div>
 
-            {/* ── next step banner ── */}
-            {lastApproved && (
-                <NextStepBanner
-                    variant="success"
-                    title="Solicitação aprovada!"
-                    description={`"${lastApproved.titulo}" foi aprovada. Crie a vaga para iniciar o recrutamento.`}
-                    actions={[
-                        { label: "Criar Vaga", href: `/vagas?newFromSolicitacao=${encodeURIComponent(lastApproved.id)}` },
-                    ]}
-                    onDismiss={() => setLastApproved(null)}
-                />
-            )}
+            {/* Ao aprovar, troca direto para aba triagem */}
 
             {/* ── KPIs ── */}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -366,7 +403,7 @@ export default function SolicitacoesScreen() {
                 ].map((k) => (
                     <div
                         key={k.label}
-                        className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur"
+                        className="rounded-xl border border-border/40 bg-card p-4 shadow-sm"
                     >
                         <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
                             {k.label}
@@ -399,10 +436,70 @@ export default function SolicitacoesScreen() {
                         )}
                     </button>
                 )}
+                {isRH && (
+                    <button
+                        onClick={() => setActiveTab("triagem")}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "triagem" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                    >
+                        <ClipboardList className="size-3.5" />
+                        Triagem de Vagas
+                        {vagasRascunho.length > 0 && (
+                            <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold min-w-[20px] h-5 px-1.5">
+                                {vagasRascunho.length}
+                            </span>
+                        )}
+                    </button>
+                )}
             </div>
 
+            {/* ── Triagem de Vagas ── */}
+            {activeTab === "triagem" && (
+                <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm space-y-3">
+                    <div>
+                        <div className="font-semibold">Vagas aguardando preenchimento</div>
+                        <div className="text-muted-foreground text-sm">
+                            {loading ? "Carregando…" : `${vagasRascunho.length} vaga(s) em rascunho`}
+                        </div>
+                    </div>
+                    {loading ? (
+                        <div className="text-center py-6 text-muted-foreground text-sm">Carregando…</div>
+                    ) : vagasRascunho.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-border/40 py-10 text-center">
+                            <ClipboardList className="mx-auto size-8 text-muted-foreground/30 mb-2" />
+                            <p className="text-sm text-muted-foreground">Nenhuma vaga aguardando preenchimento.</p>
+                        </div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Título</TableHead>
+                                    <TableHead>Área</TableHead>
+                                    <TableHead>Data criação</TableHead>
+                                    <TableHead className="text-right">Ação</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {vagasRascunho.map((v) => (
+                                    <TableRow key={v.id}>
+                                        <TableCell className="font-medium">{v.titulo}</TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">{v.areaName ?? "—"}</TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">{formatDate(v.createdAtUtc)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button size="sm" onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(v.id)}`)}>
+                                                Completar Vaga →
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </div>
+            )}
+
             {/* ── filters + table ── */}
-            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+            {activeTab !== "triagem" && (
+            <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
                 <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                     <div>
                         <div className="font-semibold">{activeTab === "minhas" ? "Minhas solicitações" : "Aprovações pendentes"}</div>
@@ -426,11 +523,10 @@ export default function SolicitacoesScreen() {
                             onChange={(e) => setStatusFilter(e.target.value)}
                         >
                             <option value="all">Todos status</option>
-                            <option value="0">Rascunho</option>
-                            <option value="1">Pendente</option>
-                            <option value="2">Aprovada</option>
-                            <option value="3">Reprovada</option>
-                            <option value="4">Ajustes</option>
+                            <option value="Rascunho">Rascunho</option>
+                            <option value="PendenteAprovacao">Pendente</option>
+                            <option value="Aprovada">Aprovada</option>
+                            <option value="Reprovada">Reprovada</option>
                         </select>
                         <div className="flex items-center rounded-md border border-input bg-background p-0.5">
                             <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista"><List className="size-3.5" /></button>
@@ -494,7 +590,7 @@ export default function SolicitacoesScreen() {
                                             <Button variant="outline" size="icon-xs" title="Detalhes" onClick={() => void openDetail(r)}>
                                                 <Eye />
                                             </Button>
-                                            {(r.status === 0 || r.status === 4) && (
+                                            {(r.status === 0 || r.status === "Rascunho") && (
                                                 <>
                                                     <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
                                                         <Pencil />
@@ -504,7 +600,7 @@ export default function SolicitacoesScreen() {
                                                     </Button>
                                                 </>
                                             )}
-                                            {r.status === 0 && (
+                                            {(r.status === 0 || r.status === "Rascunho") && (
                                                 <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
                                                     <Trash2 />
                                                 </Button>
@@ -537,11 +633,11 @@ export default function SolicitacoesScreen() {
                             </div>
                         ) : (
                             <div className="flex gap-4 items-start">
-                                {([0, 1, 2, 3, 4] as const).map((col) => {
-                                    const meta = STATUS_MAP[col as StatusKey];
+                                {(["Rascunho", "PendenteAprovacao", "Aprovada", "Reprovada"] as const).map((col) => {
+                                    const meta = STATUS_MAP[col];
                                     const Icon = meta.icon;
                                     const sourceRows = activeTab === "minhas" ? filtered : pendingRows;
-                                    const colItems = sourceRows.filter((r) => r.status === col);
+                                    const colItems = sourceRows.filter((r) => String(r.status) === col);
                                     return (
                                         <div key={col} className="w-64 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
                                             <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
@@ -580,6 +676,7 @@ export default function SolicitacoesScreen() {
                     </div>
                 )}
             </div>
+            )} {/* end activeTab !== "triagem" */}
 
             {/* ── Form Modal ── */}
             <SolicitacaoFormModal
@@ -661,8 +758,8 @@ export default function SolicitacoesScreen() {
                                 </div>
                             )}
 
-                            {/* ── Approval actions (only for Admin when status=1 Pendente) ── */}
-                            {detail.status === 1 && isAdmin && (
+                            {/* ── Approval actions (only for Admin when status=Pendente) ── */}
+                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && isAdmin && (
                                 <div className="space-y-3 rounded-lg border border-border/60 p-3">
                                     <div className="text-sm font-semibold">Ações de aprovação</div>
                                     <textarea
@@ -673,21 +770,18 @@ export default function SolicitacoesScreen() {
                                         onChange={(e) => setApprovalObs(e.target.value)}
                                     />
                                     <div className="flex gap-2">
-                                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doApproval(detail.id, "approve")}>
+                                        <Button size="sm" className="btn-approve" onClick={() => void doApproval(detail.id, "approve")}>
                                             <CheckCircle2 className="size-4" /> Aprovar
                                         </Button>
-                                        <Button size="sm" variant="outline" className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doApproval(detail.id, "request-changes")}>
-                                            <AlertTriangle className="size-4" /> Ajustes
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => void doApproval(detail.id, "reject")}>
+                                        <Button size="sm" className="btn-reject" onClick={() => void doApproval(detail.id, "reject")}>
                                             <XCircle className="size-4" /> Reprovar
                                         </Button>
                                     </div>
                                 </div>
                             )}
 
-                            {/* ── Submit action (only for status=0 Rascunho or status=4 Ajustes) ── */}
-                            {(detail.status === 0 || detail.status === 4) && (
+                            {/* ── Submit action (only for Rascunho or Ajustes) ── */}
+                            {(detail.status === 0 || detail.status === "Rascunho") && (
                                 <div className="flex gap-2">
                                     <Button size="sm" onClick={() => void submitForApproval(detail.id)}>
                                         <Send className="size-4" /> Enviar para aprovação

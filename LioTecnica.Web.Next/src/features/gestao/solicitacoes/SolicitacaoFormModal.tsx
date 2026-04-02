@@ -88,6 +88,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved }:
     const [cargos, setCargos] = useState<LookupItem[]>([]);
     const [unidades, setUnidades] = useState<LookupItem[]>([]);
     const [funcionarios, setFuncionarios] = useState<LookupItem[]>([]);
+    const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
 
     const loadLookups = useCallback(async () => {
         const [areasRes, cargosRes, unidadesRes, funcsRes] = await Promise.all([
@@ -101,6 +102,19 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved }:
         setUnidades(Array.isArray(unidadesRes) ? unidadesRes : []);
         const funcItems = Array.isArray(funcsRes) ? funcsRes : Array.isArray((funcsRes as Record<string, unknown>)?.items) ? ((funcsRes as Record<string, unknown>).items as { id: string; nome: string }[]).map((f) => ({ id: f.id, name: f.nome })) : [];
         setFuncionarios(funcItems as LookupItem[]);
+
+        // Resolver gestor direto do usuario logado para pre-selecionar aprovador
+        try {
+            const meRes = await fetchJson<Record<string, unknown>>("/api/me");
+            const myFuncId = meRes?.funcionarioId as string | null;
+            if (myFuncId) {
+                const funcRes = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${myFuncId}`);
+                const gdId = funcRes?.gestorDiretoId as string | null;
+                if (gdId) {
+                    setGestorDiretoId(gdId);
+                }
+            }
+        } catch { /* ignore */ }
     }, []);
 
     useEffect(() => {
@@ -132,6 +146,13 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved }:
         }
     }, [open, editId, loadLookups]);
 
+    // Pre-selecionar gestor direto como aprovador quando disponivel
+    useEffect(() => {
+        if (gestorDiretoId && !editId && !draft.aprovadorId) {
+            setDraft((d) => ({ ...d, aprovadorId: gestorDiretoId }));
+        }
+    }, [gestorDiretoId, editId, draft.aprovadorId]);
+
     async function save() {
         if (!draft.titulo.trim()) {
             toast.error("O título é obrigatório.");
@@ -161,12 +182,24 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved }:
                 });
                 toast.success("Solicitação atualizada.");
             } else {
-                await fetchJson(API, {
+                const res = await apiFetch(API, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
                 });
-                toast.success("Solicitação criada.");
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const created = await res.json() as { id?: string };
+                // Auto-submit para aprovação (sem etapa intermediária de rascunho)
+                if (created?.id) {
+                    const submitRes = await apiFetch(`${API}/${created.id}/submit`, { method: "POST" });
+                    if (submitRes.ok || submitRes.status === 204) {
+                        toast.success("Solicitação criada e enviada para aprovação!");
+                    } else {
+                        toast.success("Solicitação criada (envie manualmente para aprovação).");
+                    }
+                } else {
+                    toast.success("Solicitação criada.");
+                }
             }
             onSaved();
         } catch (e) {
@@ -338,19 +371,40 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved }:
                                 </select>
                             </div>
 
-                            {/* Aprovador */}
+                            {/* Aprovador (gestor direto pre-selecionado) */}
                             <div>
                                 <label className={labelClass}>Aprovador</label>
-                                <select
-                                    className={selectClass}
-                                    value={draft.aprovadorId ?? ""}
-                                    onChange={(e) => setDraft((d) => ({ ...d, aprovadorId: e.target.value || null }))}
-                                >
-                                    <option value="">Selecione...</option>
-                                    {funcionarios.map((f) => (
-                                        <option key={f.id} value={f.id}>{f.name}</option>
-                                    ))}
-                                </select>
+                                {gestorDiretoId ? (
+                                    <>
+                                        <select
+                                            className={selectClass}
+                                            value={draft.aprovadorId ?? ""}
+                                            onChange={(e) => setDraft((d) => ({ ...d, aprovadorId: e.target.value || null }))}
+                                        >
+                                            <option value="">Selecione...</option>
+                                            {funcionarios
+                                                .filter((f) => f.id === gestorDiretoId)
+                                                .map((f) => (
+                                                    <option key={f.id} value={f.id}>{f.name}</option>
+                                                ))}
+                                        </select>
+                                        <p className="text-xs text-muted-foreground mt-1">Superior direto detectado automaticamente.</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <select
+                                            className={selectClass}
+                                            value={draft.aprovadorId ?? ""}
+                                            onChange={(e) => setDraft((d) => ({ ...d, aprovadorId: e.target.value || null }))}
+                                        >
+                                            <option value="">Selecione...</option>
+                                            {funcionarios.map((f) => (
+                                                <option key={f.id} value={f.id}>{f.name}</option>
+                                            ))}
+                                        </select>
+                                        <p className="text-xs text-amber-600 mt-1">Sem gestor direto cadastrado. Selecione manualmente.</p>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -361,7 +415,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved }:
                         Cancelar
                     </Button>
                     <Button onClick={() => void save()} disabled={saving || loadingEdit}>
-                        {saving ? "Salvando…" : editId ? "Salvar" : "Criar solicitação"}
+                        {saving ? "Enviando…" : editId ? "Salvar" : "Solicitar aprovação"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

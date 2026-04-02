@@ -8,7 +8,7 @@ public sealed record VagaListItemResponse(
     string Titulo,
     VagaStatus Status,
 
-    Guid AreaId,
+    Guid? AreaId,
     string? AreaCode,
     string? AreaName,
 

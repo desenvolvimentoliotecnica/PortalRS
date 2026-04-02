@@ -800,6 +800,20 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     if (!draft.titulo.trim()) { toast.error("Informe o título da vaga."); setTab("dados"); return; }
     if (!draft.areaId) { toast.error("Selecione a área da vaga."); setTab("dados"); return; }
     if (!draft.status) { toast.error("Selecione o status."); setTab("dados"); return; }
+
+    // Ao publicar, exige campos essenciais preenchidos
+    if (draft.status.toLowerCase() === "aberta") {
+      const campos: string[] = [];
+      if (!draft.tipoContratacao) campos.push("Tipo de Contratação");
+      if (!draft.modalidade) campos.push("Modalidade");
+      if (!draft.quantidadeVagas || draft.quantidadeVagas < 1) campos.push("Qtd. de Vagas");
+      if (campos.length > 0) {
+        toast.error(`Preencha antes de publicar: ${campos.join(", ")}`);
+        setTab("dados");
+        return;
+      }
+    }
+
     const mfRaw = buildMatchingFiltrosRaw(draft, enums);
     if (!draft.id && !mfRaw) { toast.error("Preencha os filtros de matching (IA) para criar a vaga."); setTab("matching"); return; }
 

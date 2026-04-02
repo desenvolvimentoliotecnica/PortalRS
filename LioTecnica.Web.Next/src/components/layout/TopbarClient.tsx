@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  ArrowRightLeft,
   Bell,
   Building2,
   ChevronDown,
@@ -302,6 +303,14 @@ export default function TopbarClient({
                     <Link href="/PortalVagas">
                       <Globe className="size-4 mr-2" />
                       Portal de Vagas
+                    </Link>
+                  </DropdownMenuItem>
+
+                  {/* Integração TOTVS */}
+                  <DropdownMenuItem asChild>
+                    <Link href="/admissao/integracao">
+                      <ArrowRightLeft className="size-4 mr-2" />
+                      Integração TOTVS
                     </Link>
                   </DropdownMenuItem>
 

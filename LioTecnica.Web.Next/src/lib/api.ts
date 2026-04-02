@@ -163,12 +163,15 @@ export async function apiFetch(
     clearTimeout(tid);
 
     if (res.status === 401 && !_redirecting401) {
-        _redirecting401 = true;
-        clearSession();
-        // Redirect to login unless this IS a login/auth call (avoid loop)
-        if (typeof window !== "undefined" && !/\/api\/(auth|owner\/auth)\//i.test(path)) {
-            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-            window.location.href = `/app/login?returnUrl=${returnUrl}`;
+        // Paths que podem retornar 401 legitimamente (owner, config, data endpoints opcionais)
+        const safePaths = /\/api\/(auth|owner|email-config|vagas\/pendencias|me)\b/i;
+        if (!safePaths.test(path)) {
+            _redirecting401 = true;
+            clearSession();
+            if (typeof window !== "undefined") {
+                const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+                window.location.href = `/app/login?returnUrl=${returnUrl}`;
+            }
         }
     }
     return res;

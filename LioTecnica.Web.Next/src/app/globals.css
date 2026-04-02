@@ -6,6 +6,46 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Tamanho base levemente reduzido para melhor aproveitamento de tela */
+html {
+  font-size: 14px;
+}
+
+/* ── Padronização visual MVP ── */
+
+/* Cards padrão */
+.card-mvp {
+  @apply rounded-xl border border-border/40 bg-card p-4 shadow-sm;
+}
+
+/* Botões de ação padronizados */
+.btn-approve {
+  @apply inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 transition-colors;
+}
+.btn-reject {
+  @apply inline-flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors;
+}
+.btn-action {
+  @apply inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted/50 transition-colors;
+}
+
+/* Status badges padronizados */
+.badge-success { @apply inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-700; }
+.badge-warning { @apply inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-700; }
+.badge-error { @apply inline-flex items-center rounded-full bg-red-500/15 px-2.5 py-0.5 text-xs font-semibold text-red-700; }
+.badge-info { @apply inline-flex items-center rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-semibold text-sky-700; }
+.badge-neutral { @apply inline-flex items-center rounded-full bg-zinc-400/15 px-2.5 py-0.5 text-xs font-semibold text-zinc-600; }
+
+/* Section headers */
+.section-title {
+  @apply text-xs font-semibold text-muted-foreground uppercase tracking-wider;
+}
+
+/* Portal de vagas */
+.portal-container {
+  @apply max-w-2xl mx-auto px-4 sm:px-6;
+}
+
 @theme inline {
   /* LioTecnica palette — enables bg-lt-primary, from-lt-brand, text-lt-soft, etc. */
   --color-lt-primary: rgb(var(--lt-primary));

@@ -21,16 +21,25 @@ export const RECRUITMENT_ROUTE_KEYS = {
 /** Ordem linear do fluxo de recrutamento no sidebar (pipeline R&S).
  *  Cada item representa uma etapa do funil: demanda → publicação → avaliação → contratação.
  */
-export const RECRUITMENT_LINEAR_ORDER = [
+/** Abas MVP — entregáveis prioritários */
+export const RECRUITMENT_MVP_ORDER = [
   RECRUITMENT_ROUTE_KEYS.dashboard,        // 0. Dashboard
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // 1. Solicitações (criar demanda)
-  RECRUITMENT_ROUTE_KEYS.vagas,            // 2. Vagas (publicar posição)
-  RECRUITMENT_ROUTE_KEYS.matching,         // 3. Matching IA (ranquear após preencher vaga)
-  RECRUITMENT_ROUTE_KEYS.candidatos,       // 4. Candidatos (ver todos)
-  RECRUITMENT_ROUTE_KEYS.triagem,          // 5. Pipeline (triagem + seleção)
-  RECRUITMENT_ROUTE_KEYS.processoSeletivo, // 6. Processo Seletivo (entrevistas)
-  RECRUITMENT_ROUTE_KEYS.admissao,         // 7. Admissão (contratar)
-  RECRUITMENT_ROUTE_KEYS.integracao,       // 8. Integração TOTVS (enviar para folha)
+  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // 1. Solicitações
+  RECRUITMENT_ROUTE_KEYS.vagas,            // 2. Vagas
+  RECRUITMENT_ROUTE_KEYS.candidatos,       // 3. Candidatos
+  RECRUITMENT_ROUTE_KEYS.admissao,         // 4. Admissão
+] as const;
+
+/** Abas secundárias — abaixo do divisor */
+export const RECRUITMENT_SECONDARY_ORDER = [
+  RECRUITMENT_ROUTE_KEYS.matching,         // Matching IA
+  RECRUITMENT_ROUTE_KEYS.triagem,          // Pipeline
+  RECRUITMENT_ROUTE_KEYS.processoSeletivo, // Processo Seletivo
+] as const;
+
+export const RECRUITMENT_LINEAR_ORDER = [
+  ...RECRUITMENT_MVP_ORDER,
+  ...RECRUITMENT_SECONDARY_ORDER,
 ] as const;
 
 export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
@@ -142,7 +151,6 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
     createItem("nav-triagem", "Pipeline", "/triagem", "bi-funnel"),
     createItem("nav-processo-seletivo", "Processo Seletivo", "/gestao/processo-seletivo", "listchecks"),
     createItem("nav-admissao", "Admissão", "/admissao", "usercheck"),
-    createItem("nav-admissao-integracao", "Integração TOTVS", "/admissao/integracao", "arrow-right-left"),
     createItem("nav-batidaponto", "Batida de Ponto", "/gestao/batida-ponto", "bi-clock-history"),
     createItem("nav-comissoes", "Pagamento extra", "/gestao/comissoes", "bi-bar-chart"),
     // Gestão de Pessoas — solicitações de desligamento e promoção
