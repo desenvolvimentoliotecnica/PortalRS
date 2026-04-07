@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { User, Users, FileText, Lock, MapPin, Heart, Palmtree, UserPlus } from "lucide-react";
+import { User, Users, FileText, Lock, MapPin, Heart, Palmtree } from "lucide-react";
 import PerfilScreen from "@/features/colaborador/perfil/PerfilScreen";
-import DependentesScreen from "@/features/colaborador/dependentes/DependentesScreen";
 import DocumentosScreen from "@/features/colaborador/documentos/DocumentosScreen";
 import SenhaScreen from "@/features/colaborador/senha/SenhaScreen";
 import EnderecoScreen from "@/features/colaborador/endereco/EnderecoScreen";
@@ -14,7 +13,6 @@ import FeriasScreen from "@/features/colaborador/ferias/FeriasScreen";
 const TABS = [
     { id: "perfil", label: "Dados Pessoais", icon: User },
     { id: "dependentes", label: "Dependentes", icon: Users },
-    { id: "solic-dependentes", label: "Solic. Dependentes", icon: UserPlus },
     { id: "endereco", label: "Endereço", icon: MapPin },
     { id: "beneficios", label: "Benefícios", icon: Heart },
     { id: "ferias", label: "Férias", icon: Palmtree },
@@ -63,8 +61,7 @@ export default function PerfilTabsPage() {
             {/* ── Tab content ── */}
             <div className="pt-2">
                 {activeTab === "perfil" && <PerfilScreen />}
-                {activeTab === "dependentes" && <DependentesScreen />}
-                {activeTab === "solic-dependentes" && <SolicitacaoDependentesScreen />}
+                {activeTab === "dependentes" && <SolicitacaoDependentesScreen />}
                 {activeTab === "endereco" && <EnderecoScreen />}
                 {activeTab === "beneficios" && <BeneficiosScreen />}
                 {activeTab === "ferias" && <FeriasScreen />}

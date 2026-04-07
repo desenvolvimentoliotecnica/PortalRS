@@ -241,15 +241,11 @@ const OPERACIONAL_ROUTES = new Set([
 const CADASTROS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
   "/unidades", "/funcionarios", "/pessoas",
-  "/colaborador/dependentes",
-  "/colaborador/ferias", "/colaborador/beneficios",
-  "/colaborador/solicitacao-dependentes", "/colaborador/endereco",
 ]);
 // Gestão de Pessoas (people management, não recrutamento)
 const GESTAO_PESSOAS_ROUTES = new Set([
   "/gestao/dashboard", "/gestao/planosdesenvolvimento",
   "/gestao/humor", "/gestao/resumoatividades",
-  "/gestao/desligamentos", "/gestao/promocoes",
 ]);
 const HIDDEN_ROUTES = new Set([
   "/departamentos", "/gestao/pipeline",
