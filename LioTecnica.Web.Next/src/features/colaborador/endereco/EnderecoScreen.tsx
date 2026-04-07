@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -182,20 +183,23 @@ export default function EnderecoScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <section className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Alteração de Endereço</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Solicite a atualização do seu endereço cadastral
-          </p>
+          <h4 className="text-lg font-bold">Alteração de Endereço</h4>
+          <div className="text-muted-foreground text-sm">Solicite a atualização do seu endereço cadastral</div>
         </div>
-        <Button onClick={() => setFormOpen(true)}>Solicitar Alteração</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => loadRows()}>
+            <RefreshCw className="size-4" />
+          </Button>
+          <Button size="sm" onClick={() => setFormOpen(true)}>Solicitar Alteração</Button>
+        </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
+      <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
         <Table>
           <TableHeader>
             <TableRow>
@@ -344,6 +348,6 @@ export default function EnderecoScreen() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </section>
   );
 }

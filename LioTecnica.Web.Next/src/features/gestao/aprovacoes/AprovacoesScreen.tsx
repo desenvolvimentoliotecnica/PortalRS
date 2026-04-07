@@ -11,6 +11,11 @@ import {
     Clock,
     FileText,
     Eye,
+    Briefcase,
+    Palmtree,
+    Heart,
+    Users,
+    MapPin,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -35,16 +40,8 @@ import {
 
 /* ──────────────────────────── types ──────────────────────────── */
 
-interface SolicitacaoGridRow {
-    id: string;
-    titulo: string;
-    urgencia: number;
-    status: number;
-    solicitanteNome: string | null;
-    areaName: string | null;
-    qtdPosicoes: number;
-    createdAtUtc: string;
-}
+type StatusKey = 0 | 1 | 2 | 3 | 4;
+type UrgenciaKey = 0 | 1 | 2 | 3;
 
 interface SolicitacaoDetail {
     id: string;
@@ -65,11 +62,9 @@ interface SolicitacaoDetail {
     unitName: string | null;
     vagaId: string | null;
     observacaoAprovador: string | null;
-    // Sprint 1
     tipoSolicitacao: number;
     isConfidencial: boolean;
     substituidoNome: string | null;
-    // Sprint 2 — Approval Chain
     aprovador1Id: string | null;
     aprovador1Nome: string | null;
     aprovador1Status: number;
@@ -84,12 +79,10 @@ interface SolicitacaoDetail {
     approvedAtUtc: string | null;
 }
 
-type StatusKey = 0 | 1 | 2 | 3 | 4;
-type UrgenciaKey = 0 | 1 | 2 | 3;
+// Generic row from any API
+type GenericRow = Record<string, unknown> & { id: string };
 
 /* ──────────────────────────── helpers ──────────────────────────── */
-
-const API = "/api/solicitacoes-vaga";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, {
@@ -103,6 +96,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     }
     if (res.status === 204) return null as T;
     return (await res.json()) as T;
+}
+
+function pick(row: GenericRow, key: string, fb = "—") {
+    const v = row[key];
+    if (v == null) return fb;
+    return String(v);
 }
 
 const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
@@ -149,6 +148,12 @@ function formatDate(iso: string | null | undefined) {
     }
 }
 
+function formatCurrency(v: unknown) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "—";
+    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 const APPROVAL_STATUS: Record<number, { label: string; color: string }> = {
     0: { label: "Pendente", color: "bg-amber-500/15 text-amber-700" },
     1: { label: "Aprovado", color: "bg-emerald-500/15 text-emerald-700" },
@@ -164,55 +169,170 @@ function approvalChainBadge(status: number) {
     );
 }
 
+function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+        <div>
+            <div className="text-xs text-muted-foreground uppercase">{label}</div>
+            <div className="text-sm mt-0.5">{value || "—"}</div>
+        </div>
+    );
+}
+
+/* ──────────────────────────── Tab definitions ──────────────────────────── */
+
+type TabId = "contratacao" | "ferias" | "beneficio" | "dependentes" | "endereco";
+
+interface TabDef {
+    id: TabId;
+    label: string;
+    icon: React.ElementType;
+    color: string;
+    bgColor: string;
+    api: string;
+    columns: { key: string; label: string; render?: (row: GenericRow) => React.ReactNode }[];
+}
+
+const TABS: TabDef[] = [
+    {
+        id: "contratacao", label: "Contratação", icon: Briefcase,
+        color: "text-violet-600", bgColor: "bg-violet-500/15",
+        api: "/api/solicitacoes-vaga?status=1",
+        columns: [
+            { key: "titulo", label: "Título" },
+            { key: "solicitanteNome", label: "Solicitante" },
+            { key: "areaName", label: "Área" },
+            { key: "qtdPosicoes", label: "Posições" },
+            { key: "urgencia", label: "Urgência", render: (r) => urgenciaBadge(Number(r.urgencia ?? 0)) },
+            { key: "createdAtUtc", label: "Data", render: (r) => formatDate(pick(r, "createdAtUtc")) },
+        ],
+    },
+    {
+        id: "ferias", label: "Férias", icon: Palmtree,
+        color: "text-sky-600", bgColor: "bg-sky-500/15",
+        api: "/api/colaborador/solicitacoes-ferias?status=1",
+        columns: [
+            { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
+            { key: "dataInicio", label: "Início", render: (r) => formatDate(pick(r, "dataInicio")) },
+            { key: "dataFim", label: "Fim", render: (r) => formatDate(pick(r, "dataFim")) },
+            { key: "dias", label: "Dias" },
+            { key: "abonoQtd", label: "Abono", render: (r) => { const v = Number(r.abonoQtd ?? 0); return v > 0 ? `${v}d` : "—"; } },
+            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
+        ],
+    },
+    {
+        id: "beneficio", label: "Benefício", icon: Heart,
+        color: "text-pink-600", bgColor: "bg-pink-500/15",
+        api: "/api/colaborador/solicitacoes-beneficio?status=1",
+        columns: [
+            { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
+            { key: "tipoBeneficio", label: "Tipo" },
+            { key: "tipoAlteracao", label: "Alteração" },
+            { key: "descricao", label: "Descrição" },
+            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
+        ],
+    },
+    {
+        id: "dependentes", label: "Dependentes", icon: Users,
+        color: "text-indigo-600", bgColor: "bg-indigo-500/15",
+        api: "/api/colaborador/solicitacoes-dependente?status=1",
+        columns: [
+            { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
+            { key: "dependenteNome", label: "Dependente", render: (r) => pick(r, "dependenteNome", pick(r, "nome", "—")) },
+            { key: "parentesco", label: "Parentesco" },
+            { key: "tipoSolicitacao", label: "Tipo" },
+            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
+        ],
+    },
+    {
+        id: "endereco", label: "Endereço", icon: MapPin,
+        color: "text-amber-600", bgColor: "bg-amber-500/15",
+        api: "/api/colaborador/solicitacoes-endereco?status=1",
+        columns: [
+            { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
+            { key: "logradouro", label: "Logradouro" },
+            { key: "cidade", label: "Cidade" },
+            { key: "uf", label: "UF" },
+            { key: "cep", label: "CEP" },
+            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
+        ],
+    },
+];
+
 /* ──────────────────────────── component ──────────────────────────── */
 
 export default function AprovacoesScreen() {
-    const [loading, setLoading] = useState(true);
-    const [rows, setRows] = useState<SolicitacaoGridRow[]>([]);
+    const [activeTab, setActiveTab] = useState<TabId>("contratacao");
     const [q, setQ] = useState("");
-
-    /* ── detail / approval ── */
-    const [detailOpen, setDetailOpen] = useState(false);
-    const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
-    const [detailLoading, setDetailLoading] = useState(false);
     const [approvalObs, setApprovalObs] = useState("");
     const [acting, setActing] = useState(false);
 
-    /* ── next step banner ── */
+    /* ── Data per tab ── */
+    const [dataMap, setDataMap] = useState<Record<TabId, GenericRow[]>>({
+        contratacao: [], ferias: [], beneficio: [], dependentes: [], endereco: [],
+    });
+    const [loadingMap, setLoadingMap] = useState<Record<TabId, boolean>>({
+        contratacao: true, ferias: true, beneficio: true, dependentes: true, endereco: true,
+    });
+
+    /* ── Contratação detail (real API) ── */
+    const [detailOpen, setDetailOpen] = useState(false);
+    const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
     const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
 
-    /* ── data loading — only pending (status=1) ── */
-    const syncList = useCallback(async () => {
-        const data = await fetchJson<SolicitacaoGridRow[]>(`${API}?status=1`);
-        setRows(Array.isArray(data) ? data : []);
+    /* ── Generic detail for other types ── */
+    const [genericDetailOpen, setGenericDetailOpen] = useState(false);
+    const [genericDetail, setGenericDetail] = useState<GenericRow | null>(null);
+
+    /* ── Fetch all tabs ── */
+    const fetchTab = useCallback(async (tab: TabDef) => {
+        try {
+            const data = await fetchJson<GenericRow[]>(tab.api);
+            setDataMap(prev => ({ ...prev, [tab.id]: Array.isArray(data) ? data : [] }));
+        } catch {
+            setDataMap(prev => ({ ...prev, [tab.id]: [] }));
+        } finally {
+            setLoadingMap(prev => ({ ...prev, [tab.id]: false }));
+        }
     }, []);
 
-    useEffect(() => {
-        let alive = true;
-        setLoading(true);
-        syncList()
-            .catch((e) => toast.error(`Falha ao carregar: ${e instanceof Error ? e.message : "erro"}`))
-            .finally(() => { if (alive) setLoading(false); });
-        return () => { alive = false; };
-    }, [syncList]);
+    const refreshAll = useCallback(() => {
+        setLoadingMap({ contratacao: true, ferias: true, beneficio: true, dependentes: true, endereco: true });
+        TABS.forEach(tab => void fetchTab(tab));
+    }, [fetchTab]);
 
-    /* ── filtering ── */
+    useEffect(() => {
+        refreshAll();
+    }, [refreshAll]);
+
+    /* ── Counts ── */
+    const counts = useMemo(() => {
+        const c: Record<TabId, number> = { contratacao: 0, ferias: 0, beneficio: 0, dependentes: 0, endereco: 0 };
+        for (const tab of TABS) c[tab.id] = dataMap[tab.id].length;
+        return c;
+    }, [dataMap]);
+
+    const totalPendente = Object.values(counts).reduce((a, b) => a + b, 0);
+
+    /* ── Filter ── */
+    const activeTabDef = TABS.find(t => t.id === activeTab)!;
     const filtered = useMemo(() => {
+        const rows = dataMap[activeTab];
         const term = q.trim().toLowerCase();
         if (!term) return rows;
-        return rows.filter((r) => {
-            const blob = [r.titulo, r.solicitanteNome, r.areaName].filter(Boolean).join(" ").toLowerCase();
+        return rows.filter(r => {
+            const blob = Object.values(r).filter(v => typeof v === "string").join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [q, rows]);
+    }, [dataMap, activeTab, q]);
 
-    /* ── actions ── */
-    async function openDetail(row: SolicitacaoGridRow) {
+    /* ── Contratação detail actions ── */
+    async function openContratacaoDetail(row: GenericRow) {
         setDetailOpen(true);
         setDetailLoading(true);
         setApprovalObs("");
         try {
-            const d = await fetchJson<SolicitacaoDetail>(`${API}/${row.id}`);
+            const d = await fetchJson<SolicitacaoDetail>(`/api/solicitacoes-vaga/${row.id}`);
             setDetail(d);
         } catch {
             toast.error("Falha ao carregar detalhes.");
@@ -222,11 +342,11 @@ export default function AprovacoesScreen() {
         }
     }
 
-    async function doAction(id: string, action: "approve" | "reject" | "request-changes") {
+    async function doContratacaoAction(id: string, action: "approve" | "reject" | "request-changes") {
         const labels = { approve: "Aprovada", reject: "Reprovada", "request-changes": "Ajustes solicitados" };
         setActing(true);
         try {
-            await fetchJson(`${API}/${id}/${action}`, {
+            await fetchJson(`/api/solicitacoes-vaga/${id}/${action}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ observacao: approvalObs || null }),
@@ -236,7 +356,35 @@ export default function AprovacoesScreen() {
                 setLastApproved({ id: detail.id, titulo: detail.titulo });
             }
             setDetailOpen(false);
-            await syncList();
+            refreshAll();
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setActing(false);
+        }
+    }
+
+    /* ── Generic detail for non-contratacao types ── */
+    function openGenericDetail(row: GenericRow) {
+        setGenericDetail(row);
+        setGenericDetailOpen(true);
+        setApprovalObs("");
+    }
+
+    async function doGenericAction(row: GenericRow, action: "approve" | "reject" | "request-changes") {
+        const tab = TABS.find(t => t.id === activeTab)!;
+        const baseApi = tab.api.split("?")[0];
+        const labels = { approve: "Aprovada", reject: "Reprovada", "request-changes": "Ajustes solicitados" };
+        setActing(true);
+        try {
+            await fetchJson(`${baseApi}/${row.id}/${action}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ observacao: approvalObs || null }),
+            });
+            toast.success(`Solicitação: ${labels[action]}!`);
+            setGenericDetailOpen(false);
+            refreshAll();
         } catch (e) {
             toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
@@ -245,32 +393,25 @@ export default function AprovacoesScreen() {
     }
 
     /* ──────────────────────────── render ──────────────────────────── */
+    const isLoading = loadingMap[activeTab];
+
     return (
         <section className="space-y-4">
             {/* ── header ── */}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h4 className="text-lg font-bold">Aprovações Pendentes</h4>
+                    <h4 className="text-lg font-bold">Minhas Aprovações</h4>
                     <div className="text-muted-foreground text-sm">
-                        Solicitações de vaga aguardando sua análise
+                        Todas as solicitações aguardando sua análise
                     </div>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                        setLoading(true);
-                        syncList()
-                            .catch(() => toast.error("Falha ao atualizar."))
-                            .finally(() => setLoading(false));
-                    }}
-                >
+                <Button variant="outline" size="sm" onClick={refreshAll}>
                     <RefreshCw className="size-4" />
                     <span className="hidden sm:inline">Atualizar</span>
                 </Button>
             </div>
 
-            {/* ── next step banner ── */}
+            {/* ── banner ── */}
             {lastApproved && (
                 <NextStepBanner
                     variant="success"
@@ -283,94 +424,111 @@ export default function AprovacoesScreen() {
                 />
             )}
 
-            {/* ── KPI ── */}
-            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                <div className="flex items-center gap-4">
-                    <div className="rounded-lg bg-amber-500/15 p-3">
-                        <Clock className="size-6 text-amber-600" />
-                    </div>
-                    <div>
-                        <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-                            Pendentes de aprovação
+            {/* ── KPI cards ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {/* Total */}
+                <div className="rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur">
+                    <div className="flex items-center gap-2">
+                        <div className="rounded-lg bg-amber-500/15 p-2">
+                            <Clock className="size-5 text-amber-600" />
                         </div>
-                        <div className="text-3xl font-bold text-amber-600">
-                            {loading ? "…" : rows.length}
+                        <div>
+                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Total</div>
+                            <div className="text-2xl font-bold text-amber-600">{totalPendente}</div>
                         </div>
                     </div>
                 </div>
+                {TABS.map(tab => {
+                    const Icon = tab.icon;
+                    const count = counts[tab.id];
+                    return (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`rounded-xl border p-3 backdrop-blur text-left transition-all ${
+                                activeTab === tab.id
+                                    ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                                    : "border-border/40 bg-card/60 hover:bg-muted/40"
+                            }`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <div className={`rounded-lg ${tab.bgColor} p-2`}>
+                                    <Icon className={`size-4 ${tab.color}`} />
+                                </div>
+                                <div>
+                                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium leading-tight">{tab.label}</div>
+                                    <div className={`text-lg font-bold ${count > 0 ? tab.color : "text-muted-foreground"}`}>
+                                        {loadingMap[tab.id] ? "…" : count}
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    );
+                })}
             </div>
 
-            {/* ── filters + table ── */}
+            {/* ── Table ── */}
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                 <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <div className="font-semibold">Solicitações pendentes</div>
+                        <div className="font-semibold flex items-center gap-2">
+                            {(() => {
+                                const Icon = activeTabDef.icon;
+                                return <><Icon className={`size-4 ${activeTabDef.color}`} />{activeTabDef.label}</>;
+                            })()}
+                        </div>
                         <div className="text-muted-foreground text-sm">
-                            {loading ? "Carregando…" : `${filtered.length} solicitações`}
+                            {isLoading ? "Carregando…" : `${filtered.length} solicitações`}
                         </div>
                     </div>
                     <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            className="w-[260px] pl-8"
-                            placeholder="Buscar título, solicitante, área…"
-                            value={q}
-                            onChange={(e) => setQ(e.target.value)}
-                        />
+                        <Input className="w-[260px] pl-8" placeholder="Buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
                     </div>
                 </div>
 
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Título</TableHead>
-                            <TableHead>Solicitante</TableHead>
-                            <TableHead>Área</TableHead>
-                            <TableHead>Posições</TableHead>
-                            <TableHead>Urgência</TableHead>
-                            <TableHead>Data</TableHead>
+                            {activeTabDef.columns.map(col => (
+                                <TableHead key={col.key}>{col.label}</TableHead>
+                            ))}
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {loading ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                                    Carregando…
-                                </TableCell>
-                            </TableRow>
+                        {isLoading ? (
+                            <TableRow><TableCell colSpan={activeTabDef.columns.length + 1} className="text-center text-muted-foreground py-8">Carregando…</TableCell></TableRow>
                         ) : filtered.length ? (
-                            filtered.map((r) => (
-                                <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => void openDetail(r)}>
-                                    <TableCell className="font-semibold">{r.titulo}</TableCell>
-                                    <TableCell className="text-sm">{r.solicitanteNome || "—"}</TableCell>
-                                    <TableCell className="text-sm">{r.areaName || "—"}</TableCell>
-                                    <TableCell className="text-sm font-mono">{r.qtdPosicoes}</TableCell>
-                                    <TableCell>{urgenciaBadge(r.urgencia)}</TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
+                            filtered.map((row) => (
+                                <TableRow
+                                    key={row.id}
+                                    className="cursor-pointer hover:bg-muted/40"
+                                    onClick={() => activeTab === "contratacao" ? void openContratacaoDetail(row) : openGenericDetail(row)}
+                                >
+                                    {activeTabDef.columns.map((col, i) => (
+                                        <TableCell key={col.key} className={i === 0 ? "font-semibold" : "text-sm"}>
+                                            {col.render ? col.render(row) : pick(row, col.key)}
+                                        </TableCell>
+                                    ))}
                                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex items-center justify-end gap-1">
-                                            <Button variant="outline" size="icon-xs" title="Ver detalhes" onClick={() => void openDetail(r)}>
+                                            <Button variant="outline" size="icon-xs" title="Ver detalhes" onClick={() => activeTab === "contratacao" ? void openContratacaoDetail(row) : openGenericDetail(row)}>
                                                 <Eye />
                                             </Button>
-                                            <Button
-                                                size="sm"
-                                                className="bg-emerald-600 hover:bg-emerald-700"
-                                                onClick={() => {
-                                                    setApprovalObs("");
-                                                    void doAction(r.id, "approve");
-                                                }}
-                                            >
+                                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => {
+                                                setApprovalObs("");
+                                                if (activeTab === "contratacao") void doContratacaoAction(row.id, "approve");
+                                                else void doGenericAction(row, "approve");
+                                            }}>
                                                 <CheckCircle2 className="size-3" />
                                             </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="destructive"
-                                                onClick={() => {
-                                                    setApprovalObs("");
-                                                    void doAction(r.id, "reject");
-                                                }}
-                                            >
+                                            <Button size="sm" variant="destructive" onClick={() => {
+                                                setApprovalObs("");
+                                                if (activeTab === "contratacao") void doContratacaoAction(row.id, "reject");
+                                                else void doGenericAction(row, "reject");
+                                            }}>
                                                 <XCircle className="size-3" />
                                             </Button>
                                         </div>
@@ -378,21 +536,17 @@ export default function AprovacoesScreen() {
                                 </TableRow>
                             ))
                         ) : (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                                    🎉 Nenhuma aprovação pendente!
-                                </TableCell>
-                            </TableRow>
+                            <TableRow><TableCell colSpan={activeTabDef.columns.length + 1} className="text-center text-muted-foreground py-8">Nenhuma aprovação pendente!</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
             </div>
 
-            {/* ── Detail + Approval Dialog ── */}
+            {/* ── Contratação Detail Dialog ── */}
             <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Analisar Solicitação</DialogTitle>
+                        <DialogTitle>Analisar Solicitação de Contratação</DialogTitle>
                         <DialogDescription>Revise os detalhes e tome uma ação.</DialogDescription>
                     </DialogHeader>
                     {detailLoading ? (
@@ -402,107 +556,50 @@ export default function AprovacoesScreen() {
                     ) : detail ? (
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Título</div>
-                                    <div className="font-semibold">{detail.titulo}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Status</div>
-                                    <div className="mt-0.5">{statusBadge(detail.status)}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Solicitante</div>
-                                    <div className="text-sm">{detail.solicitanteNome || "—"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Área</div>
-                                    <div className="text-sm">{detail.areaName || "—"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Cargo</div>
-                                    <div className="text-sm">{detail.jobPositionName || "—"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Unidade</div>
-                                    <div className="text-sm">{detail.unitName || "—"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Posições</div>
-                                    <div className="text-sm font-mono">{detail.qtdPosicoes}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Urgência</div>
-                                    <div className="mt-0.5">{urgenciaBadge(detail.urgencia)}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Data criação</div>
-                                    <div className="text-sm">{formatDate(detail.createdAtUtc)}</div>
-                                </div>
+                                <DetailField label="Título" value={<span className="font-semibold">{detail.titulo}</span>} />
+                                <DetailField label="Status" value={statusBadge(detail.status)} />
+                                <DetailField label="Solicitante" value={detail.solicitanteNome} />
+                                <DetailField label="Área" value={detail.areaName} />
+                                <DetailField label="Cargo" value={detail.jobPositionName} />
+                                <DetailField label="Unidade" value={detail.unitName} />
+                                <DetailField label="Posições" value={<span className="font-mono">{detail.qtdPosicoes}</span>} />
+                                <DetailField label="Urgência" value={urgenciaBadge(detail.urgencia)} />
+                                <DetailField label="Data criação" value={formatDate(detail.createdAtUtc)} />
                             </div>
-
                             {detail.justificativa && (
                                 <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Justificativa do Solicitante</div>
+                                    <div className="text-xs text-muted-foreground uppercase">Justificativa</div>
                                     <div className="mt-1 text-sm rounded-md bg-muted/30 p-3">{detail.justificativa}</div>
                                 </div>
                             )}
-
-                            {/* ── Sprint 1 Info ── */}
                             <div className="grid grid-cols-3 gap-3 rounded-lg border border-border/30 p-3">
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Tipo</div>
-                                    <div className="text-sm font-medium">{detail.tipoSolicitacao === 1 ? "Substituição" : "Vaga Nova"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Confidencial</div>
-                                    <div className="text-sm">{detail.isConfidencial ? "🔒 Sim" : "Não"}</div>
-                                </div>
-                                {detail.substituidoNome && (
-                                    <div>
-                                        <div className="text-xs text-muted-foreground uppercase">Substituído</div>
-                                        <div className="text-sm">{detail.substituidoNome}</div>
-                                    </div>
-                                )}
+                                <DetailField label="Tipo" value={detail.tipoSolicitacao === 1 ? "Substituição" : "Vaga Nova"} />
+                                <DetailField label="Confidencial" value={detail.isConfidencial ? "Sim" : "Não"} />
+                                {detail.substituidoNome && <DetailField label="Substituído" value={detail.substituidoNome} />}
                             </div>
-
-                            {/* ── Approval Chain (Sprint 2) ── */}
+                            {/* Approval chain */}
                             <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
                                 <div className="text-sm font-semibold text-primary">Cadeia de Aprovação</div>
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-medium">1ª Aprovação</span>
-                                            <span className="text-muted-foreground">(obrigatória)</span>
-                                        </div>
+                                        <span className="font-medium">1ª Aprovação <span className="text-muted-foreground">(obrigatória)</span></span>
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm">{detail.aprovador1Nome || "Aguardando"}</span>
                                             {approvalChainBadge(detail.aprovador1Status)}
                                         </div>
                                     </div>
-                                    {detail.aprovador1DataUtc && (
-                                        <div className="text-xs text-muted-foreground ml-4">{formatDate(detail.aprovador1DataUtc)}</div>
-                                    )}
                                     {detail.aprovador2Habilitado && (
-                                        <>
-                                            <div className="flex items-center justify-between text-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium">2ª Aprovação</span>
-                                                    <span className="text-muted-foreground">(opcional)</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm">{detail.aprovador2Nome || "Aguardando"}</span>
-                                                    {detail.aprovador2Status != null && approvalChainBadge(detail.aprovador2Status)}
-                                                </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="font-medium">2ª Aprovação <span className="text-muted-foreground">(opcional)</span></span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm">{detail.aprovador2Nome || "Aguardando"}</span>
+                                                {detail.aprovador2Status != null && approvalChainBadge(detail.aprovador2Status)}
                                             </div>
-                                            {detail.aprovador2DataUtc && (
-                                                <div className="text-xs text-muted-foreground ml-4">{formatDate(detail.aprovador2DataUtc)}</div>
-                                            )}
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             </div>
-
-                            {/* ── Approval actions ── */}
+                            {/* Actions */}
                             {detail.status === 1 && (
                                 <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
                                     <div className="text-sm font-semibold text-amber-700">Sua decisão</div>
@@ -514,43 +611,86 @@ export default function AprovacoesScreen() {
                                         onChange={(e) => setApprovalObs(e.target.value)}
                                     />
                                     <div className="flex gap-2">
-                                        <Button
-                                            size="sm"
-                                            disabled={acting}
-                                            className="bg-emerald-600 hover:bg-emerald-700"
-                                            onClick={() => void doAction(detail.id, "approve")}
-                                        >
+                                        <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doContratacaoAction(detail.id, "approve")}>
                                             <CheckCircle2 className="size-4" /> Aprovar
                                         </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            disabled={acting}
-                                            className="text-orange-600 border-orange-300 hover:bg-orange-50"
-                                            onClick={() => void doAction(detail.id, "request-changes")}
-                                        >
+                                        <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doContratacaoAction(detail.id, "request-changes")}>
                                             <AlertTriangle className="size-4" /> Pedir Ajustes
                                         </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            disabled={acting}
-                                            onClick={() => void doAction(detail.id, "reject")}
-                                        >
+                                        <Button size="sm" variant="destructive" disabled={acting} onClick={() => void doContratacaoAction(detail.id, "reject")}>
                                             <XCircle className="size-4" /> Reprovar
                                         </Button>
                                     </div>
                                 </div>
                             )}
-
-                            {/* ── Already acted ── */}
-                            {detail.status !== 1 && (
-                                <div className="rounded-md bg-muted/30 p-3 text-sm text-muted-foreground">
-                                    Esta solicitação já foi processada.
-                                </div>
-                            )}
                         </div>
                     ) : null}
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Generic Detail Dialog ── */}
+            <Dialog open={genericDetailOpen} onOpenChange={setGenericDetailOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Analisar Solicitação de {activeTabDef.label}</DialogTitle>
+                        <DialogDescription>Revise os detalhes e tome uma ação.</DialogDescription>
+                    </DialogHeader>
+                    {genericDetail && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                {activeTabDef.columns.map(col => (
+                                    <DetailField key={col.key} label={col.label} value={col.render ? col.render(genericDetail) : pick(genericDetail, col.key)} />
+                                ))}
+                                <DetailField label="Status" value={statusBadge(Number(genericDetail.status ?? 1))} />
+                            </div>
+                            {/* Approval chain if present */}
+                            {(genericDetail.aprovador1Nome || genericDetail.aprovador1Status != null) && (
+                                <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                                    <div className="text-sm font-semibold text-primary">Cadeia de Aprovação</div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="font-medium">1ª Aprovação</span>
+                                            <div className="flex items-center gap-2">
+                                                <span>{pick(genericDetail, "aprovador1Nome", "Aguardando")}</span>
+                                                {approvalChainBadge(Number(genericDetail.aprovador1Status ?? 0))}
+                                            </div>
+                                        </div>
+                                        {!!genericDetail.aprovador2Habilitado && (
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="font-medium">2ª Aprovação</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{pick(genericDetail, "aprovador2Nome", "Aguardando")}</span>
+                                                    {genericDetail.aprovador2Status != null && approvalChainBadge(Number(genericDetail.aprovador2Status))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            {/* Actions */}
+                            <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                                <div className="text-sm font-semibold text-amber-700">Sua decisão</div>
+                                <textarea
+                                    className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
+                                    rows={2}
+                                    placeholder="Observação (opcional)..."
+                                    value={approvalObs}
+                                    onChange={(e) => setApprovalObs(e.target.value)}
+                                />
+                                <div className="flex gap-2">
+                                    <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doGenericAction(genericDetail, "approve")}>
+                                        <CheckCircle2 className="size-4" /> Aprovar
+                                    </Button>
+                                    <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doGenericAction(genericDetail, "request-changes")}>
+                                        <AlertTriangle className="size-4" /> Pedir Ajustes
+                                    </Button>
+                                    <Button size="sm" variant="destructive" disabled={acting} onClick={() => void doGenericAction(genericDetail, "reject")}>
+                                        <XCircle className="size-4" /> Reprovar
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
         </section>

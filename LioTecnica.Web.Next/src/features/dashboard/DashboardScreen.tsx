@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { toast } from "sonner";
-import { AlertCircle, ArrowRight, Clock, Folder, Mail, Search } from "lucide-react";
+import { AlertCircle, ArrowRight, Clock, Folder, Mail, Search, Briefcase, Palmtree, Heart, Users, MapPin } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
@@ -305,6 +305,48 @@ export default function DashboardScreen({
   const [quickStatus, setQuickStatus] = useState("");
   const [quickKeywords, setQuickKeywords] = useState("");
 
+  /* ── Solicitações pendentes widget ── */
+  type PendingItem = { id: string; tipo: string; titulo: string; solicitante: string; data: string; icon: React.ElementType; color: string };
+  const [pendentes, setPendentes] = useState<PendingItem[]>([]);
+  const [pendentesLoading, setPendentesLoading] = useState(true);
+
+  useEffect(() => {
+    const APIS: { api: string; tipo: string; titleKey: string; solicitanteKey: string; dateKey: string; icon: React.ElementType; color: string }[] = [
+      { api: "/api/solicitacoes-vaga?status=1", tipo: "Contratação", titleKey: "titulo", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-violet-600" },
+      { api: "/api/solicitacoes-promocao?status=1", tipo: "Promoção", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-emerald-600" },
+      { api: "/api/solicitacoes-desligamento?status=1", tipo: "Desligamento", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-red-600" },
+      { api: "/api/colaborador/solicitacoes-ferias?status=1", tipo: "Férias", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Palmtree, color: "text-sky-600" },
+      { api: "/api/colaborador/solicitacoes-beneficio?status=1", tipo: "Benefício", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Heart, color: "text-pink-600" },
+      { api: "/api/colaborador/solicitacoes-dependente?status=1", tipo: "Dependentes", titleKey: "dependenteNome", solicitanteKey: "colaboradorNome", dateKey: "createdAtUtc", icon: Users, color: "text-indigo-600" },
+      { api: "/api/colaborador/solicitacoes-endereco?status=1", tipo: "Endereço", titleKey: "logradouro", solicitanteKey: "colaboradorNome", dateKey: "createdAtUtc", icon: MapPin, color: "text-amber-600" },
+    ];
+
+    void Promise.allSettled(
+      APIS.map(async (cfg) => {
+        try {
+          const data = await fetchJson<Record<string, unknown>[]>(cfg.api);
+          if (!Array.isArray(data)) return [];
+          return data.map((r): PendingItem => ({
+            id: pickString(r.id, ""),
+            tipo: cfg.tipo,
+            titulo: pickString(r[cfg.titleKey], pickString(r.titulo, "—")),
+            solicitante: pickString(r[cfg.solicitanteKey], "—"),
+            data: pickString(r[cfg.dateKey], ""),
+            icon: cfg.icon,
+            color: cfg.color,
+          }));
+        } catch {
+          return [];
+        }
+      })
+    ).then((results) => {
+      const all = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
+      all.sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+      setPendentes(all);
+      setPendentesLoading(false);
+    });
+  }, []);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
 
@@ -526,6 +568,63 @@ export default function DashboardScreen({
           <div className="text-muted-foreground text-xs mt-0.5">atenção</div>
         </div>
       </div>
+
+      {/* ── Solicitações pendentes widget ── */}
+      {(pendentesLoading || pendentes.length > 0) && (
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <Clock className="size-4 text-amber-600" />
+                Solicitações Pendentes
+              </div>
+              <div className="text-muted-foreground text-xs">{pendentesLoading ? "Carregando…" : `${pendentes.length} aguardando aprovação`}</div>
+            </div>
+            <Link href="/gestao/aprovacoes">
+              <Button variant="outline" size="sm">Ver todas</Button>
+            </Link>
+          </div>
+          {!pendentesLoading && pendentes.length > 0 && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Solicitante</TableHead>
+                    <TableHead>Data</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendentes.slice(0, 8).map((p, i) => {
+                    const Icon = p.icon;
+                    return (
+                      <TableRow key={`${p.tipo}-${p.id}-${i}`} className="cursor-pointer hover:bg-muted/40" onClick={() => { window.location.href = "/app/gestao/aprovacoes"; }}>
+                        <TableCell>
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${p.color}`}>
+                            <Icon className="size-3.5" />
+                            {p.tipo}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-medium text-sm">{p.titulo}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{p.solicitante}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatDate(p.data)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              {pendentes.length > 8 && (
+                <div className="text-center mt-2">
+                  <Link href="/gestao/aprovacoes" className="text-sm text-primary hover:underline">
+                    +{pendentes.length - 8} mais solicitações
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr]">
         <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">

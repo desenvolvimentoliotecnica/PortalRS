@@ -153,16 +153,6 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
     createItem("nav-admissao", "Admissão", "/admissao", "usercheck"),
     createItem("nav-batidaponto", "Batida de Ponto", "/gestao/batida-ponto", "bi-clock-history"),
     createItem("nav-comissoes", "Pagamento extra", "/gestao/comissoes", "bi-bar-chart"),
-    // Gestão de Pessoas — solicitações de desligamento e promoção
-    ...(isGestor ? [
-      createItem("nav-desligamentos", "Desligamentos", "/gestao/desligamentos", "bi-person-x"),
-      createItem("nav-promocoes", "Promoções", "/gestao/promocoes", "bi-graph-up"),
-    ] : []),
-    // Autoatendimento do colaborador
-    createItem("nav-colab-ferias", "Minhas Férias", "/colaborador/ferias", "bi-calendar-event"),
-    createItem("nav-colab-beneficios", "Meus Benefícios", "/colaborador/beneficios", "bi-journal-check"),
-    createItem("nav-colab-sol-dependentes", "Dependentes", "/colaborador/solicitacao-dependentes", "bi-people"),
-    createItem("nav-colab-endereco", "Meu Endereço", "/colaborador/endereco", "bi-house"),
   ];
 
   return extras.filter((item) => {

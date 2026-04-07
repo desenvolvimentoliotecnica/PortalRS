@@ -1,15 +1,21 @@
 "use client";
 
 import React, { useState } from "react";
-import { User, Users, FileText, Lock } from "lucide-react";
+import { User, Users, FileText, Lock, MapPin, Heart, Palmtree } from "lucide-react";
 import PerfilScreen from "@/features/colaborador/perfil/PerfilScreen";
-import DependentesScreen from "@/features/colaborador/dependentes/DependentesScreen";
 import DocumentosScreen from "@/features/colaborador/documentos/DocumentosScreen";
 import SenhaScreen from "@/features/colaborador/senha/SenhaScreen";
+import EnderecoScreen from "@/features/colaborador/endereco/EnderecoScreen";
+import SolicitacaoDependentesScreen from "@/features/colaborador/solicitacao-dependentes/SolicitacaoDependentesScreen";
+import BeneficiosScreen from "@/features/colaborador/beneficios/BeneficiosScreen";
+import FeriasScreen from "@/features/colaborador/ferias/FeriasScreen";
 
 const TABS = [
     { id: "perfil", label: "Dados Pessoais", icon: User },
     { id: "dependentes", label: "Dependentes", icon: Users },
+    { id: "endereco", label: "Endereço", icon: MapPin },
+    { id: "beneficios", label: "Benefícios", icon: Heart },
+    { id: "ferias", label: "Férias", icon: Palmtree },
     { id: "documentos", label: "Documentos", icon: FileText },
     { id: "senha", label: "Alterar Senha", icon: Lock },
 ] as const;
@@ -23,11 +29,11 @@ export default function PerfilTabsPage() {
         <section className="space-y-4">
             <div>
                 <h2 className="text-xl font-bold tracking-tight">Meu Perfil</h2>
-                <p className="text-muted-foreground text-sm">Gerencie suas informações pessoais, dependentes, documentos e segurança</p>
+                <p className="text-muted-foreground text-sm">Gerencie suas informações pessoais, solicitações, documentos e segurança</p>
             </div>
 
             {/* ── Tab bar ── */}
-            <div className="flex gap-1 border-b border-border/60 pb-0">
+            <div className="flex gap-1 border-b border-border/60 pb-0 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: "none" }}>
                 {TABS.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
@@ -37,7 +43,7 @@ export default function PerfilTabsPage() {
                             type="button"
                             onClick={() => setActiveTab(tab.id)}
                             className={`
-                                flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all
+                                flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all whitespace-nowrap
                                 border-b-2 -mb-[1px]
                                 ${isActive
                                     ? "border-violet-500 text-violet-700 bg-violet-50/50"
@@ -55,7 +61,10 @@ export default function PerfilTabsPage() {
             {/* ── Tab content ── */}
             <div className="pt-2">
                 {activeTab === "perfil" && <PerfilScreen />}
-                {activeTab === "dependentes" && <DependentesScreen />}
+                {activeTab === "dependentes" && <SolicitacaoDependentesScreen />}
+                {activeTab === "endereco" && <EnderecoScreen />}
+                {activeTab === "beneficios" && <BeneficiosScreen />}
+                {activeTab === "ferias" && <FeriasScreen />}
                 {activeTab === "documentos" && <DocumentosScreen />}
                 {activeTab === "senha" && <SenhaScreen />}
             </div>

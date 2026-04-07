@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { User, Save, Phone, Mail, Building2, Briefcase, MapPin, Camera, Trash2 } from "lucide-react";
+import { User, Save, Phone, Mail, Building2, Briefcase, MapPin, Camera, Trash2, RefreshCw } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,10 @@ interface Perfil {
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, { ...init, headers: { Accept: "application/json", ...(init?.headers || {}) }, cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `HTTP ${res.status}`);
+    }
     return (await res.json()) as T;
 }
 
@@ -38,10 +41,14 @@ export default function PerfilScreen() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const load = useCallback(async () => {
-        const p = await fetchJson<Perfil>(API);
-        setPerfil(p);
-        setNome(p.nome);
-        setTelefone(p.telefone || "");
+        try {
+            const p = await fetchJson<Perfil>(API);
+            setPerfil(p);
+            setNome(p.nome);
+            setTelefone(p.telefone || "");
+        } catch {
+            // Perfil não encontrado (404) ou sem funcionário vinculado — renderiza campos vazios
+        }
     }, []);
 
     useEffect(() => {
@@ -137,119 +144,93 @@ export default function PerfilScreen() {
     const avatarSrc = avatarPreview || (perfil?.avatarUrl ? `${perfil.avatarUrl}?v=${avatarVersion}` : null);
 
     return (
-        <section className="space-y-4 max-w-2xl">
-            <div>
-                <h4 className="text-lg font-bold">Meu Perfil</h4>
-                <div className="text-muted-foreground text-sm">Atualize seus dados pessoais</div>
+        <section className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h4 className="text-lg font-bold">Dados Pessoais</h4>
+                    <div className="text-muted-foreground text-sm">Visualize e atualize suas informações</div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => { setLoading(true); load().finally(() => setLoading(false)); }}>
+                    <RefreshCw className="size-4" />
+                </Button>
             </div>
 
-            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-6 backdrop-blur">
-                <div className="flex items-center gap-4 mb-6">
-                    {/* ── Avatar with upload ── */}
+            {/* ── Avatar + info ── */}
+            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                <div className="font-semibold mb-3">Foto e identificação</div>
+                <div className="flex items-center gap-4">
                     <div className="relative group">
                         <div
-                            className="flex items-center justify-center size-20 rounded-full bg-gradient-to-br from-violet-500/20 to-indigo-500/20 overflow-hidden cursor-pointer ring-2 ring-transparent hover:ring-violet-400/50 transition-all"
+                            className="flex items-center justify-center size-16 rounded-full bg-muted/40 overflow-hidden cursor-pointer ring-2 ring-transparent hover:ring-primary/30 transition-all"
                             onClick={() => !uploadingAvatar && fileInputRef.current?.click()}
                         >
                             {avatarSrc ? (
-                                <img
-                                    src={avatarSrc}
-                                    alt="Avatar"
-                                    className="size-full object-cover"
-                                />
+                                <img src={avatarSrc} alt="Avatar" className="size-full object-cover" />
                             ) : (
-                                <User className="size-10 text-violet-600" />
+                                <User className="size-8 text-muted-foreground" />
                             )}
-
-                            {/* Hover overlay */}
                             <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                 {uploadingAvatar ? (
-                                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                                 ) : (
-                                    <Camera className="size-5 text-white" />
+                                    <Camera className="size-4 text-white" />
                                 )}
                             </div>
                         </div>
-
-                        {/* Delete button */}
                         {perfil?.avatarUrl && !uploadingAvatar && (
-                            <button
-                                type="button"
-                                onClick={handleDeleteAvatar}
-                                className="absolute -bottom-1 -right-1 flex items-center justify-center size-6 rounded-full bg-red-500 hover:bg-red-600 text-white shadow transition-colors"
-                                title="Remover foto"
-                            >
-                                <Trash2 className="size-3" />
+                            <button type="button" onClick={handleDeleteAvatar}
+                                className="absolute -bottom-1 -right-1 flex items-center justify-center size-5 rounded-full bg-red-500 hover:bg-red-600 text-white shadow transition-colors" title="Remover foto">
+                                <Trash2 className="size-2.5" />
                             </button>
                         )}
-
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,image/gif"
-                            className="hidden"
-                            onChange={handleAvatarUpload}
-                        />
+                        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleAvatarUpload} />
                     </div>
-
                     <div>
-                        <div className="font-semibold text-lg">{perfil?.nome || "—"}</div>
+                        <div className="font-semibold">{perfil?.nome || "—"}</div>
                         <div className="text-sm text-muted-foreground">{perfil?.email || "—"}</div>
-                        <div className="text-xs text-muted-foreground/60 mt-0.5">
-                            Clique na foto para alterar
-                        </div>
                     </div>
                 </div>
+            </div>
 
-                {/* ── Read-only info ── */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="flex items-center gap-2 text-sm">
-                        <Building2 className="size-4 text-muted-foreground" />
-                        <div>
-                            <div className="text-xs text-muted-foreground uppercase">Área</div>
-                            <div>{perfil?.areaName || "—"}</div>
-                        </div>
+            {/* ── Informações da empresa ── */}
+            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                <div className="font-semibold mb-3">Informações da empresa</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <div className="text-xs text-muted-foreground uppercase">Área</div>
+                        <div className="text-sm mt-0.5">{perfil?.areaName || "—"}</div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                        <MapPin className="size-4 text-muted-foreground" />
-                        <div>
-                            <div className="text-xs text-muted-foreground uppercase">Unidade</div>
-                            <div>{perfil?.unitName || "—"}</div>
-                        </div>
+                    <div>
+                        <div className="text-xs text-muted-foreground uppercase">Unidade</div>
+                        <div className="text-sm mt-0.5">{perfil?.unitName || "—"}</div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                        <Briefcase className="size-4 text-muted-foreground" />
-                        <div>
-                            <div className="text-xs text-muted-foreground uppercase">Cargo</div>
-                            <div>{perfil?.jobPositionName || "—"}</div>
-                        </div>
+                    <div>
+                        <div className="text-xs text-muted-foreground uppercase">Cargo</div>
+                        <div className="text-sm mt-0.5">{perfil?.jobPositionName || "—"}</div>
                     </div>
                 </div>
+            </div>
 
-                <div className="border-t border-border/40 pt-4 space-y-4">
-                    <div className="text-sm font-semibold">Dados editáveis</div>
-                    <div className="space-y-3">
-                        <div>
-                            <label className="text-xs text-muted-foreground uppercase mb-1 block">
-                                <User className="inline size-3 mr-1" /> Nome completo
-                            </label>
-                            <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" />
-                        </div>
-                        <div>
-                            <label className="text-xs text-muted-foreground uppercase mb-1 block">
-                                <Phone className="inline size-3 mr-1" /> Telefone
-                            </label>
-                            <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(11) 99999-9999" />
-                        </div>
-                        <div>
-                            <label className="text-xs text-muted-foreground uppercase mb-1 block">
-                                <Mail className="inline size-3 mr-1" /> E-mail
-                            </label>
-                            <Input value={perfil?.email || ""} disabled className="opacity-60" />
-                            <div className="text-xs text-muted-foreground mt-1">E-mail não pode ser alterado.</div>
-                        </div>
+            {/* ── Dados editáveis ── */}
+            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                <div className="font-semibold mb-3">Dados editáveis</div>
+                <div className="space-y-3">
+                    <div>
+                        <label className="text-xs text-muted-foreground uppercase mb-1 block">Nome completo</label>
+                        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" />
                     </div>
-                    <Button disabled={saving || !nome.trim()} onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700">
+                    <div>
+                        <label className="text-xs text-muted-foreground uppercase mb-1 block">Telefone</label>
+                        <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(11) 99999-9999" />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground uppercase mb-1 block">E-mail</label>
+                        <Input value={perfil?.email || ""} disabled className="opacity-60" />
+                        <div className="text-xs text-muted-foreground mt-1">E-mail não pode ser alterado.</div>
+                    </div>
+                </div>
+                <div className="mt-4">
+                    <Button size="sm" disabled={saving || !nome.trim()} onClick={handleSave}>
                         <Save className="size-4" /> {saving ? "Salvando…" : "Salvar alterações"}
                     </Button>
                 </div>
