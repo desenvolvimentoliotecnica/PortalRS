@@ -22,6 +22,8 @@ public sealed class ColaboradorController : ControllerBase
         _userContext = userContext;
     }
 
+    private Guid? TryGetFuncionarioId() => _userContext.FuncionarioId;
+
     private Guid GetFuncionarioId() =>
         _userContext.FuncionarioId ?? throw new InvalidOperationException("Usuário não possui funcionário vinculado.");
 
@@ -32,7 +34,9 @@ public sealed class ColaboradorController : ControllerBase
     [ProducesResponseType(typeof(ColaboradorPerfilResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPerfil(CancellationToken ct)
     {
-        var perfil = await _service.GetPerfilAsync(GetFuncionarioId(), ct);
+        var fid = TryGetFuncionarioId();
+        if (fid is null) return NotFound(new { message = "Usuário não possui funcionário vinculado." });
+        var perfil = await _service.GetPerfilAsync(fid.Value, ct);
         return perfil is null ? NotFound() : Ok(perfil);
     }
 
@@ -41,7 +45,9 @@ public sealed class ColaboradorController : ControllerBase
     [ProducesResponseType(typeof(ColaboradorPerfilResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdatePerfil([FromBody] ColaboradorPerfilUpdateRequest request, CancellationToken ct)
     {
-        var perfil = await _service.UpdatePerfilAsync(GetFuncionarioId(), request, ct);
+        var fid = TryGetFuncionarioId();
+        if (fid is null) return NotFound(new { message = "Usuário não possui funcionário vinculado." });
+        var perfil = await _service.UpdatePerfilAsync(fid.Value, request, ct);
         return perfil is null ? NotFound() : Ok(perfil);
     }
 
@@ -50,8 +56,12 @@ public sealed class ColaboradorController : ControllerBase
     /// <summary>Lista os dependentes do colaborador logado.</summary>
     [HttpGet("dependentes")]
     [ProducesResponseType(typeof(IReadOnlyList<DependenteResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListDependentes(CancellationToken ct) =>
-        Ok(await _service.ListDependentesAsync(GetFuncionarioId(), ct));
+    public async Task<IActionResult> ListDependentes(CancellationToken ct)
+    {
+        var fid = TryGetFuncionarioId();
+        if (fid is null) return Ok(Array.Empty<DependenteResponse>());
+        return Ok(await _service.ListDependentesAsync(fid.Value, ct));
+    }
 
     /// <summary>Adiciona um dependente.</summary>
     [HttpPost("dependentes")]
@@ -87,8 +97,12 @@ public sealed class ColaboradorController : ControllerBase
     /// <summary>Lista os documentos do colaborador logado.</summary>
     [HttpGet("documentos")]
     [ProducesResponseType(typeof(IReadOnlyList<DocumentoResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> ListDocumentos(CancellationToken ct) =>
-        Ok(await _service.ListDocumentosAsync(GetFuncionarioId(), ct));
+    public async Task<IActionResult> ListDocumentos(CancellationToken ct)
+    {
+        var fid = TryGetFuncionarioId();
+        if (fid is null) return Ok(Array.Empty<DocumentoResponse>());
+        return Ok(await _service.ListDocumentosAsync(fid.Value, ct));
+    }
 
     /// <summary>Upload de documento (multipart/form-data).</summary>
     [HttpPost("documentos")]
@@ -151,7 +165,9 @@ public sealed class ColaboradorController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAvatar(CancellationToken ct)
     {
-        var result = await _service.GetAvatarAsync(GetFuncionarioId(), ct);
+        var fid = TryGetFuncionarioId();
+        if (fid is null) return NotFound();
+        var result = await _service.GetAvatarAsync(fid.Value, ct);
         if (result is null) return NotFound();
         var (stream, contentType, fileName) = result.Value;
         return File(stream, contentType, fileName);

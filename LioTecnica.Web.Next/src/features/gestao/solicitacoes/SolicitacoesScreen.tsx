@@ -22,7 +22,11 @@ import {
     Lock,
     UserMinus,
     ClipboardList,
+    Briefcase,
+    TrendingUp,
 } from "lucide-react";
+import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
+import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
@@ -182,7 +186,61 @@ interface VagaRascunhoRow {
     createdAtUtc: string;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   Wrapper com tabs: Vagas | Promoções | Desligamentos
+   ══════════════════════════════════════════════════════════════ */
+
+type TopTab = "vagas" | "promocoes" | "desligamentos";
+
+const TOP_TABS: { id: TopTab; label: string; icon: React.ElementType }[] = [
+    { id: "vagas", label: "Vagas", icon: Briefcase },
+    { id: "promocoes", label: "Promoções", icon: TrendingUp },
+    { id: "desligamentos", label: "Desligamentos", icon: UserMinus },
+];
+
 export default function SolicitacoesScreen() {
+    const [topTab, setTopTab] = useState<TopTab>("vagas");
+
+    return (
+        <section className="space-y-4">
+            <div>
+                <h4 className="text-lg font-bold">Solicitações</h4>
+                <div className="text-muted-foreground text-sm">
+                    Gerencie solicitações de vagas, promoções e desligamentos
+                </div>
+            </div>
+
+            {/* ── Top-level tabs ── */}
+            <div className="flex gap-1 border-b border-border/40">
+                {TOP_TABS.map(tab => {
+                    const Icon = tab.icon;
+                    const active = topTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setTopTab(tab.id)}
+                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-[1px] transition-colors ${
+                                active
+                                    ? "border-primary text-primary"
+                                    : "border-transparent text-muted-foreground hover:text-foreground"
+                            }`}
+                        >
+                            <Icon className="size-4" />
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {topTab === "vagas" && <SolicitacoesVagaContent />}
+            {topTab === "promocoes" && <PromocoesScreen />}
+            {topTab === "desligamentos" && <DesligamentosScreen />}
+        </section>
+    );
+}
+
+function SolicitacoesVagaContent() {
     const { me } = useAuth();
     const router = useRouter();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin") ?? false;
@@ -361,15 +419,10 @@ export default function SolicitacoesScreen() {
 
     /* ──────────────────────────── render ──────────────────────────── */
     return (
-        <section className="space-y-4">
-            {/* ── header ── */}
+        <div className="space-y-4">
+            {/* ── actions ── */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                    <h4 className="text-lg font-bold">Solicitações de Vaga</h4>
-                    <div className="text-muted-foreground text-sm">
-                        Solicite novas vagas e acompanhe aprovações
-                    </div>
-                </div>
+                <div className="text-sm text-muted-foreground">Solicite novas vagas e acompanhe aprovações</div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button
                         variant="outline"
@@ -815,6 +868,6 @@ export default function SolicitacoesScreen() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </section>
+        </div>
     );
 }
