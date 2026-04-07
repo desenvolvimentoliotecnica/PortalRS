@@ -458,8 +458,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct);
         if (pa is null) return null;
 
-        if (pa.Status != PreAdmissaoStatus.Enviado && pa.Status != PreAdmissaoStatus.Rascunho)
-            throw new InvalidOperationException("Só é possível gerar link quando status é Rascunho ou Preenchimento Pendente.");
+        // Permite gerar/reenviar link em qualquer status exceto já integrado/aprovado
+        if (pa.Status == PreAdmissaoStatus.Integrada)
+            throw new InvalidOperationException("Admissão já integrada. Não é possível reenviar o link.");
 
         pa.Cpf = NormalizeCpf(request.Cpf);
         pa.AccessToken ??= Guid.NewGuid().ToString("N");

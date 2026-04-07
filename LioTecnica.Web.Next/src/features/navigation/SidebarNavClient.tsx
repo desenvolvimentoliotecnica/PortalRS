@@ -288,12 +288,16 @@ function isRouteHidden(href: string): boolean {
   return HIDDEN_ROUTES.has(href.replace(/\/+$/, "").toLowerCase());
 }
 
-/** Check if a normalized pathname matches a given href — apenas correspondência exata para evitar múltiplos itens selecionados */
+/** Check if a normalized pathname matches a given href.
+ *  Exact match first; then prefix match only for known sub-routes (e.g. /vagas/editar → /vagas). */
 function isActive(normalized: string, href: string): boolean {
   const n = normalized.toLowerCase().replace(/\/+$/, "") || "/";
   const h = href.toLowerCase().replace(/\/+$/, "");
   if (h === "#" || h === "") return false;
-  return n === h;
+  if (n === h) return true;
+  // Prefix match apenas para rotas com segmento adicional (não raiz)
+  if (h !== "/" && h !== "" && n.startsWith(h + "/")) return true;
+  return false;
 }
 
 /** Check if any item or its children are active */

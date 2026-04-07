@@ -780,7 +780,7 @@ export default function VagasScreen() {
         <section className="space-y-4">
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <h1 className="text-lg font-bold tracking-tight">Vagas</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">Vagas</h1>
                 <div className="flex flex-wrap items-center gap-1.5">
                     <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" onClick={() => void syncList()}>
                         <RefreshCw className="mr-1 size-3" /> Atualizar
