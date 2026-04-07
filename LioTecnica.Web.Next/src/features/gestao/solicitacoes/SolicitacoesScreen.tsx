@@ -485,8 +485,8 @@ export default function SolicitacoesScreen() {
                                         <TableCell className="text-sm text-muted-foreground">{v.areaName ?? "—"}</TableCell>
                                         <TableCell className="text-sm text-muted-foreground">{formatDate(v.createdAtUtc)}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button size="sm" onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(v.id)}`)}>
-                                                Completar Vaga →
+                                            <Button size="sm" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(v.id)}`)}>
+                                                Preencher Dados →
                                             </Button>
                                         </TableCell>
                                     </TableRow>

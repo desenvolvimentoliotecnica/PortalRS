@@ -458,7 +458,7 @@ export default function AdmissaoWizardScreen() {
                     <div className="space-y-4">
                         <h5 className="font-semibold text-sm flex items-center gap-2"><FileUp className="size-4" /> Documentos — {form.tipoContratacao === 1 ? "PJ" : "CLT"}</h5>
                         <div className="space-y-3">
-                            {getDocsPorTipo(form.tipoContratacao).map(docTipo => {
+                            {getDocsPorTipo(form.tipoContratacao ?? null).map(docTipo => {
                                 const enviado = form.documentos?.find(d => resolveDocTipo(d.tipo) === docTipo.value);
                                 return (
                                     <div key={docTipo.value} className="rounded-lg border border-border/40 p-3">

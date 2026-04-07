@@ -803,7 +803,7 @@ export default function CandidatosScreen() {
           <Button variant="outline" size="sm" onClick={() => window.location.href = "/app/talentos"}>
             Banco de Talentos
           </Button>
-          <Button size="sm" onClick={openNew}>
+          <Button size="sm" onClick={() => openNew()}>
             Novo candidato
           </Button>
         </div>
