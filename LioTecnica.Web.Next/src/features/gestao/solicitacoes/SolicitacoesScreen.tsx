@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
+import AprovacoesScreen from "@/features/gestao/aprovacoes/AprovacoesScreen";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
@@ -190,23 +191,27 @@ interface VagaRascunhoRow {
    Wrapper com tabs: Vagas | Promoções | Desligamentos
    ══════════════════════════════════════════════════════════════ */
 
-type TopTab = "vagas" | "promocoes" | "desligamentos";
+type TopTab = "vagas" | "promocoes" | "desligamentos" | "aprovacoes";
 
 const TOP_TABS: { id: TopTab; label: string; icon: React.ElementType }[] = [
+    { id: "aprovacoes", label: "Minhas Aprovações", icon: CheckCircle2 },
     { id: "vagas", label: "Vagas", icon: Briefcase },
     { id: "promocoes", label: "Promoções", icon: TrendingUp },
     { id: "desligamentos", label: "Desligamentos", icon: UserMinus },
 ];
 
 export default function SolicitacoesScreen() {
-    const [topTab, setTopTab] = useState<TopTab>("vagas");
+    const searchParams = useSearchParams();
+    const initialTab = (searchParams.get("tab") as TopTab | null) ?? "aprovacoes";
+    const validTabs: TopTab[] = ["aprovacoes", "vagas", "promocoes", "desligamentos"];
+    const [topTab, setTopTab] = useState<TopTab>(validTabs.includes(initialTab) ? initialTab : "aprovacoes");
 
     return (
         <section className="space-y-4">
             <div>
                 <h4 className="text-lg font-bold">Solicitações</h4>
                 <div className="text-muted-foreground text-sm">
-                    Gerencie solicitações de vagas, promoções e desligamentos
+                    Gerencie solicitações de vagas, promoções, desligamentos e aprovações pendentes
                 </div>
             </div>
 
@@ -236,6 +241,7 @@ export default function SolicitacoesScreen() {
             {topTab === "vagas" && <SolicitacoesVagaContent />}
             {topTab === "promocoes" && <PromocoesScreen />}
             {topTab === "desligamentos" && <DesligamentosScreen />}
+            {topTab === "aprovacoes" && <AprovacoesScreen initialTab={searchParams.get("tipo") ?? undefined} />}
         </section>
     );
 }

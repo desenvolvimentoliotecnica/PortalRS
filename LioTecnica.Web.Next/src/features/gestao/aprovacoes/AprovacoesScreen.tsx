@@ -260,8 +260,11 @@ const TABS: TabDef[] = [
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-export default function AprovacoesScreen() {
-    const [activeTab, setActiveTab] = useState<TabId>("contratacao");
+const VALID_TAB_IDS: TabId[] = ["contratacao", "ferias", "beneficio", "dependentes", "endereco"];
+
+export default function AprovacoesScreen({ initialTab }: { initialTab?: string }) {
+    const resolvedInitial: TabId = VALID_TAB_IDS.includes(initialTab as TabId) ? (initialTab as TabId) : "contratacao";
+    const [activeTab, setActiveTab] = useState<TabId>(resolvedInitial);
     const [q, setQ] = useState("");
     const [approvalObs, setApprovalObs] = useState("");
     const [acting, setActing] = useState(false);
@@ -425,18 +428,12 @@ export default function AprovacoesScreen() {
             )}
 
             {/* ── KPI cards ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="flex flex-wrap gap-2">
                 {/* Total */}
-                <div className="rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur">
-                    <div className="flex items-center gap-2">
-                        <div className="rounded-lg bg-amber-500/15 p-2">
-                            <Clock className="size-5 text-amber-600" />
-                        </div>
-                        <div>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Total</div>
-                            <div className="text-2xl font-bold text-amber-600">{totalPendente}</div>
-                        </div>
-                    </div>
+                <div className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-card/60 px-3 py-1.5 backdrop-blur">
+                    <Clock className="size-3.5 text-amber-600" />
+                    <span className="text-[11px] text-muted-foreground font-medium">Total</span>
+                    <span className="text-sm font-bold text-amber-600">{totalPendente}</span>
                 </div>
                 {TABS.map(tab => {
                     const Icon = tab.icon;
@@ -446,23 +443,17 @@ export default function AprovacoesScreen() {
                             key={tab.id}
                             type="button"
                             onClick={() => setActiveTab(tab.id)}
-                            className={`rounded-xl border p-3 backdrop-blur text-left transition-all ${
+                            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 backdrop-blur text-left transition-all ${
                                 activeTab === tab.id
                                     ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
                                     : "border-border/40 bg-card/60 hover:bg-muted/40"
                             }`}
                         >
-                            <div className="flex items-center gap-2">
-                                <div className={`rounded-lg ${tab.bgColor} p-2`}>
-                                    <Icon className={`size-4 ${tab.color}`} />
-                                </div>
-                                <div>
-                                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium leading-tight">{tab.label}</div>
-                                    <div className={`text-lg font-bold ${count > 0 ? tab.color : "text-muted-foreground"}`}>
-                                        {loadingMap[tab.id] ? "…" : count}
-                                    </div>
-                                </div>
-                            </div>
+                            <Icon className={`size-3.5 ${tab.color}`} />
+                            <span className="text-[11px] text-muted-foreground font-medium">{tab.label}</span>
+                            <span className={`text-sm font-bold ${count > 0 ? tab.color : "text-muted-foreground"}`}>
+                                {loadingMap[tab.id] ? "…" : count}
+                            </span>
                         </button>
                     );
                 })}

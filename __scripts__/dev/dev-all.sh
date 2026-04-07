@@ -78,6 +78,14 @@ if [ -d "$INTEGRATION_DIR" ]; then
   INTEGRATION_PID=$!
 fi
 
+open_url() {
+  if command -v xdg-open &>/dev/null; then xdg-open "$1"
+  elif command -v open &>/dev/null; then open "$1"
+  elif command -v start &>/dev/null; then start "$1"
+  elif command -v cmd.exe &>/dev/null; then cmd.exe /c start "" "$1"
+  fi
+}
+
 # Espera a API ficar pronta (health em localhost:5056) antes de subir o Portal e o Next.js
 echo "▶ Aguardando API em http://localhost:5056 (máx. 120s)..."
 max=120
@@ -93,6 +101,9 @@ done
 if [ $max -le 0 ]; then
   echo "▶ Aviso: timeout aguardando API. Continuando mesmo assim..."
 fi
+
+echo "▶ Abrindo Swagger: http://localhost:5056/swagger"
+open_url "http://localhost:5056/swagger" 2>/dev/null &
 
 # --- Next.js: sobe DEPOIS da API (porta 3000)
 NEXT_DIR="$ROOT/LioTecnica.Web.Next"
@@ -113,15 +124,6 @@ if [ -d "$NEXT_DIR" ]; then
   ) &
   NEXT_PID=$!
 fi
-
-# Abre Next.js no browser (Swagger já abre sozinho ao subir a API)
-open_url() {
-  if command -v xdg-open &>/dev/null; then xdg-open "$1"
-  elif command -v open &>/dev/null; then open "$1"
-  elif command -v start &>/dev/null; then start "$1"
-  elif command -v cmd.exe &>/dev/null; then cmd.exe /c start "" "$1"
-  fi
-}
 
 # Aguarda o Next.js ficar pronto (porta 3000) antes de abrir
 echo "▶ Aguardando Next.js em http://localhost:3000 (máx. 90s)..."
