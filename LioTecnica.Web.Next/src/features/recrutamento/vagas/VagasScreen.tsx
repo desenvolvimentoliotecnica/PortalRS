@@ -517,13 +517,11 @@ export default function VagasScreen() {
     }
 
     function openNew() {
-        setEditId(null);
-        setEditOpen(true);
+        router.push("/vagas/editar");
     }
 
     function openEdit(id: string) {
-        setEditId(id);
-        setEditOpen(true);
+        router.push(`/vagas/editar?id=${encodeURIComponent(id)}`);
     }
 
     async function copyPortalLink(vagaId: string) {
@@ -952,7 +950,7 @@ export default function VagasScreen() {
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="text-xs text-muted-foreground">
-                                                        {vaga.createdAtUtc ? new Date(vaga.createdAtUtc).toLocaleDateString("pt-BR") : vaga.updatedAt ? new Date(vaga.updatedAt).toLocaleDateString("pt-BR") : "—"}
+                                                        {vaga.createdAtUtc ? new Date(vaga.createdAtUtc as string).toLocaleDateString("pt-BR") : vaga.updatedAt ? new Date(vaga.updatedAt as string).toLocaleDateString("pt-BR") : "—"}
                                                     </TableCell>
                                                     <TableCell onClick={(e) => { e.stopPropagation(); setStatus((vaga.status ?? "").toLowerCase() || "all"); }}>
                                                         <span className="cursor-pointer"><VagaStatusBadge status={vaga.status} /></span>

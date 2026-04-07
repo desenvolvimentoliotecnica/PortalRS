@@ -642,9 +642,11 @@ export type VagaFormProps = {
   defaultTab?: TabKey;
   onClose: () => void;
   onSaved: (vagaId?: string) => void;
+  /** Quando true, renderiza sem Dialog wrapper (para uso como tela full-page) */
+  embedded?: boolean;
 };
 
-export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTab, onClose, onSaved }: VagaFormProps) {
+export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTab, onClose, onSaved, embedded }: VagaFormProps) {
   const [tab, setTab] = useState<TabKey>("dados");
   const [draft, setDraft] = useState<VagaDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
@@ -861,10 +863,20 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
   if (!open) return null;
 
+  // Modo embutido (embedded): sem overlay, ocupa espaço na página
+  // Modo modal (default): overlay lateral direito
+  const outerCls = embedded
+    ? "rounded-xl border border-border/40 bg-card shadow-sm flex flex-col overflow-hidden min-h-[70vh]"
+    : "fixed inset-0 z-50 flex items-stretch justify-end bg-black/40";
+  const innerCls = embedded
+    ? "flex flex-col flex-1 overflow-hidden"
+    : "w-full max-w-5xl bg-white shadow-2xl flex flex-col overflow-hidden";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40" role="dialog" aria-modal="true">
-      <div className="w-full max-w-5xl bg-white shadow-2xl flex flex-col overflow-hidden">
-        {/* Header */}
+    <div className={outerCls} role={embedded ? undefined : "dialog"} aria-modal={embedded ? undefined : true} onClick={embedded ? undefined : onClose}>
+      <div className={innerCls} onClick={embedded ? undefined : (e) => e.stopPropagation()}>
+        {/* Header — oculto no modo embedded (VagaEditScreen já tem header) */}
+        {!embedded && (
         <div className="flex items-start justify-between gap-2 p-4 border-b border-black/10 shrink-0">
           <div>
             <h5 className="font-bold text-lg">{draft.id ? "Editar vaga" : "Nova vaga"}</h5>
@@ -872,6 +884,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           </div>
           <Button variant="outline" size="sm" onClick={onClose}>Fechar</Button>
         </div>
+        )}
 
         {/* Stepper wizard */}
         {wizardMode && (

@@ -289,7 +289,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               {(vaga?.createdAtUtc as string) && (
                 <>
                   <span className="text-border">|</span>
-                  <span>Criada em {new Date(vaga.createdAtUtc as string).toLocaleDateString("pt-BR")}</span>
+                  <span>Criada em {new Date(vaga!.createdAtUtc as string).toLocaleDateString("pt-BR")}</span>
                 </>
               )}
             </div>
@@ -298,7 +298,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         <div className="flex gap-2 shrink-0">
           <Button variant="outline" size="sm" onClick={() => void load()}><RefreshCw className="size-4" /></Button>
           {isRecrutador && (
-            <Button size="sm" onClick={() => setEditOpen(true)}><PenSquare className="size-4 mr-1" /> {isRascunho ? "Preencher Dados" : "Editar"}</Button>
+            <Button size="sm" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}><PenSquare className="size-4 mr-1" /> {isRascunho ? "Preencher Dados" : "Editar"}</Button>
           )}
         </div>
       </div>
@@ -536,7 +536,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               <div className="text-center py-4">
                 <p className="text-sm text-muted-foreground">Nenhuma etapa configurada.</p>
                 {isRecrutador && (
-                  <Button size="sm" variant="outline" className="mt-2" onClick={() => { setEditOpen(true); }}>
+                  <Button size="sm" variant="outline" className="mt-2" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}>
                     Configurar Etapas
                   </Button>
                 )}
