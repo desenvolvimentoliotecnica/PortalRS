@@ -197,6 +197,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.TipoContratacao = r.TipoContratacao; e.CargaHorariaSemanal = r.CargaHorariaSemanal;
         e.PisPasep = r.PisPasep?.Trim();
 
+        // Campos integração TOTVS
+        e.CodCargoTotvs = r.CodCargoTotvs;
+        e.CodVinculoEmpregaticio = r.CodVinculoEmpregaticio;
+        e.TipoFuncionario = r.TipoFuncionario;
+        e.CategoriaSalarial = r.CategoriaSalarial;
+        e.GrauInstrucao = r.GrauInstrucao;
+        e.CodTurno = r.CodTurno;
+        e.CentroCusto = r.CentroCusto?.Trim();
+        e.UnidadeLotacao = r.UnidadeLotacao?.Trim();
+
         // Docs avulsos
         e.TituloEleitorNumero = r.TituloEleitorNumero?.Trim();
         e.TituloEleitorZona = r.TituloEleitorZona?.Trim();
@@ -204,6 +214,21 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ReservistaNumero = r.ReservistaNumero?.Trim();
         e.CategoriaCnh = r.CategoriaCnh?.Trim(); e.ValidadeCnh = r.ValidadeCnh;
         e.Ctps = r.Ctps?.Trim(); e.CtpsSerie = r.CtpsSerie?.Trim(); e.CtpsUf = r.CtpsUf?.Trim();
+
+        // Saúde e docs complementares TOTVS
+        e.GrupoSanguineo = r.GrupoSanguineo;
+        e.FatorRh = r.FatorRh;
+        e.PossuiDeficiencia = r.PossuiDeficiencia?.Trim();
+        e.DocMilitarTipo = r.DocMilitarTipo;
+        e.DocMilitarNumero = r.DocMilitarNumero?.Trim();
+        e.DocMilitarSerie = r.DocMilitarSerie?.Trim();
+        e.DocMilitarRegiao = r.DocMilitarRegiao;
+        e.CartaoSus = r.CartaoSus?.Trim();
+        e.TituloEleitorCidade = r.TituloEleitorCidade?.Trim();
+        e.TituloEleitorUf = r.TituloEleitorUf?.Trim();
+        e.CtpsModelo = r.CtpsModelo;
+        e.Altura = r.Altura;
+        e.Peso = r.Peso;
 
         e.ValidacaoSalarioJustificativa = r.ValidacaoSalarioJustificativa?.Trim();
 
@@ -267,7 +292,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         await _db.SaveChangesAsync(ct);
 
         // ── Auto-create User + Funcionario ──
-        await CriarColaboradorAsync(e, ct);
+        try
+        {
+            await CriarColaboradorAsync(e, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao criar colaborador automaticamente para PreAdmissão {Id}. A aprovação foi concluída, mas o colaborador precisa ser criado manualmente.", id);
+        }
 
         return await GetByIdAsync(id, ct);
     }
@@ -458,8 +490,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct);
         if (pa is null) return null;
 
-        if (pa.Status != PreAdmissaoStatus.Enviado && pa.Status != PreAdmissaoStatus.Rascunho)
-            throw new InvalidOperationException("Só é possível gerar link quando status é Rascunho ou Preenchimento Pendente.");
+        // Permite gerar/reenviar link em qualquer status exceto já integrado/aprovado
+        if (pa.Status == PreAdmissaoStatus.Integrada)
+            throw new InvalidOperationException("Admissão já integrada. Não é possível reenviar o link.");
 
         pa.Cpf = NormalizeCpf(request.Cpf);
         pa.AccessToken ??= Guid.NewGuid().ToString("N");
@@ -865,8 +898,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.UnitId, e.Unit?.Name, e.AreaId, e.Area?.Name,
         e.JobPositionId, e.JobPosition?.Name, e.RequisitoCategoriaId,
         e.DataAdmissao, e.Salario, e.TipoContratacao, e.CargaHorariaSemanal, e.PisPasep,
+        e.CodCargoTotvs, e.CodVinculoEmpregaticio, e.TipoFuncionario, e.CategoriaSalarial,
+        e.GrauInstrucao, e.CodTurno, e.CentroCusto, e.UnidadeLotacao,
         e.TituloEleitorNumero, e.TituloEleitorZona, e.TituloEleitorSecao,
         e.ReservistaNumero, e.CategoriaCnh, e.ValidadeCnh, e.Ctps, e.CtpsSerie, e.CtpsUf,
+        e.GrupoSanguineo, e.FatorRh, e.PossuiDeficiencia,
+        e.DocMilitarTipo, e.DocMilitarNumero, e.DocMilitarSerie, e.DocMilitarRegiao,
+        e.CartaoSus, e.TituloEleitorCidade, e.TituloEleitorUf,
+        e.CtpsModelo, e.Altura, e.Peso,
         e.ValidacaoCpfOk, e.ValidacaoCepOk, e.ValidacaoBancoOk, e.ValidacaoSalarioOk, e.ValidacaoSalarioJustificativa,
         e.CreatedAtUtc, e.SubmittedAtUtc, e.ApprovedAtUtc,
         e.Documentos.Select(d => new PreAdmissaoDocumentoResponse(

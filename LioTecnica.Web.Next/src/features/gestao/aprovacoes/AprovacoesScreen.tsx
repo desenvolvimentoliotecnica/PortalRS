@@ -608,7 +608,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doContratacaoAction(detail.id, "request-changes")}>
                                             <AlertTriangle className="size-4" /> Pedir Ajustes
                                         </Button>
-                                        <Button size="sm" variant="destructive" disabled={acting} onClick={() => void doContratacaoAction(detail.id, "reject")}>
+                                        <Button size="sm" variant="outline" disabled={acting} className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => void doContratacaoAction(detail.id, "reject")}>
                                             <XCircle className="size-4" /> Reprovar
                                         </Button>
                                     </div>
@@ -675,7 +675,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                     <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doGenericAction(genericDetail, "request-changes")}>
                                         <AlertTriangle className="size-4" /> Pedir Ajustes
                                     </Button>
-                                    <Button size="sm" variant="destructive" disabled={acting} onClick={() => void doGenericAction(genericDetail, "reject")}>
+                                    <Button size="sm" variant="outline" disabled={acting} className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => void doGenericAction(genericDetail, "reject")}>
                                         <XCircle className="size-4" /> Reprovar
                                     </Button>
                                 </div>

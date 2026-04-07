@@ -110,6 +110,16 @@ public sealed record PreAdmissaoDetailResponse(
     short? CargaHorariaSemanal,
     string? PisPasep,
 
+    // Campos integração TOTVS
+    int? CodCargoTotvs,
+    int? CodVinculoEmpregaticio,
+    int? TipoFuncionario,
+    int? CategoriaSalarial,
+    int? GrauInstrucao,
+    int? CodTurno,
+    string? CentroCusto,
+    string? UnidadeLotacao,
+
     // Docs avulsos
     string? TituloEleitorNumero,
     string? TituloEleitorZona,
@@ -120,6 +130,21 @@ public sealed record PreAdmissaoDetailResponse(
     string? Ctps,
     string? CtpsSerie,
     string? CtpsUf,
+
+    // Saúde e docs complementares TOTVS
+    int? GrupoSanguineo,
+    int? FatorRh,
+    string? PossuiDeficiencia,
+    int? DocMilitarTipo,
+    string? DocMilitarNumero,
+    string? DocMilitarSerie,
+    int? DocMilitarRegiao,
+    string? CartaoSus,
+    string? TituloEleitorCidade,
+    string? TituloEleitorUf,
+    int? CtpsModelo,
+    int? Altura,
+    int? Peso,
 
     // Validações
     bool ValidacaoCpfOk,
@@ -229,6 +254,16 @@ public sealed record PreAdmissaoUpdateRequest(
     short? CargaHorariaSemanal,
     string? PisPasep,
 
+    // Campos integração TOTVS
+    int? CodCargoTotvs,
+    int? CodVinculoEmpregaticio,
+    int? TipoFuncionario,
+    int? CategoriaSalarial,
+    int? GrauInstrucao,
+    int? CodTurno,
+    string? CentroCusto,
+    string? UnidadeLotacao,
+
     // Docs avulsos
     string? TituloEleitorNumero,
     string? TituloEleitorZona,
@@ -239,6 +274,21 @@ public sealed record PreAdmissaoUpdateRequest(
     string? Ctps,
     string? CtpsSerie,
     string? CtpsUf,
+
+    // Saúde e docs complementares TOTVS
+    int? GrupoSanguineo,
+    int? FatorRh,
+    string? PossuiDeficiencia,
+    int? DocMilitarTipo,
+    string? DocMilitarNumero,
+    string? DocMilitarSerie,
+    int? DocMilitarRegiao,
+    string? CartaoSus,
+    string? TituloEleitorCidade,
+    string? TituloEleitorUf,
+    int? CtpsModelo,
+    int? Altura,
+    int? Peso,
 
     // Salário justificativa
     string? ValidacaoSalarioJustificativa

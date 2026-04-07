@@ -46,7 +46,12 @@ public sealed record PortalDadosPessoais(
     string? ContatoEmergenciaNome, string? ContatoEmergenciaFone,
     string? BancoCodigo, string? BancoNome, string? Agencia,
     string? AgenciaDigito, string? Conta, string? ContaDigito, int? TipoConta,
-    string? PisPasep, string? Ctps, string? CtpsSerie, string? CtpsUf
+    string? PisPasep, string? Ctps, string? CtpsSerie, string? CtpsUf,
+    // Saúde e docs complementares TOTVS
+    int? GrupoSanguineo, int? FatorRh, string? PossuiDeficiencia,
+    int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie, int? DocMilitarRegiao,
+    string? CartaoSus, string? TituloEleitorCidade, string? TituloEleitorUf,
+    int? CtpsModelo, int? Altura, int? Peso
 );
 
 // ── Salvar dados pessoais ──
@@ -61,7 +66,12 @@ public sealed record PortalSalvarDadosRequest(
     string? ContatoEmergenciaNome, string? ContatoEmergenciaFone,
     string? BancoCodigo, string? BancoNome, string? Agencia,
     string? AgenciaDigito, string? Conta, string? ContaDigito, int? TipoConta,
-    string? PisPasep, string? Ctps, string? CtpsSerie, string? CtpsUf
+    string? PisPasep, string? Ctps, string? CtpsSerie, string? CtpsUf,
+    // Saúde e docs complementares TOTVS
+    int? GrupoSanguineo, int? FatorRh, string? PossuiDeficiencia,
+    int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie, int? DocMilitarRegiao,
+    string? CartaoSus, string? TituloEleitorCidade, string? TituloEleitorUf,
+    int? CtpsModelo, int? Altura, int? Peso
 );
 
 // ── Upload de documento ──

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ChevronLeft, CheckCircle2, XCircle, AlertTriangle, FileText, User, MapPin,
-    CreditCard, Briefcase, Phone, ShieldCheck, Loader2,
+    CreditCard, Briefcase, Phone, ShieldCheck, Loader2, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +73,15 @@ interface PreAdmissao {
     tipoContratacao: number | null;
     cargaHorariaSemanal: number | null;
     pisPasep: string | null;
+    // Campos integração TOTVS
+    codCargoTotvs: number | null;
+    codVinculoEmpregaticio: number | null;
+    tipoFuncionario: number | null;
+    categoriaSalarial: number | null;
+    grauInstrucao: number | null;
+    codTurno: number | null;
+    centroCusto: string | null;
+    unidadeLotacao: string | null;
     tituloEleitorNumero: string | null;
     tituloEleitorZona: string | null;
     tituloEleitorSecao: string | null;
@@ -82,6 +91,20 @@ interface PreAdmissao {
     ctps: string | null;
     ctpsSerie: string | null;
     ctpsUf: string | null;
+    // Saúde e docs complementares TOTVS
+    grupoSanguineo: number | null;
+    fatorRh: number | null;
+    possuiDeficiencia: string | null;
+    docMilitarTipo: number | null;
+    docMilitarNumero: string | null;
+    docMilitarSerie: string | null;
+    docMilitarRegiao: number | null;
+    cartaoSus: string | null;
+    tituloEleitorCidade: string | null;
+    tituloEleitorUf: string | null;
+    ctpsModelo: number | null;
+    altura: number | null;
+    peso: number | null;
     validacaoCpfOk: boolean;
     validacaoCepOk: boolean;
     validacaoBancoOk: boolean;
@@ -283,16 +306,33 @@ export default function AdmissaoRevisaoScreen() {
                     <Info label="Contratação" value={data.tipoContratacao != null ? TIPO_CONT_L[data.tipoContratacao] : null} />
                     <Info label="Carga Hor." value={data.cargaHorariaSemanal != null ? `${data.cargaHorariaSemanal}h/sem` : null} />
                     <Info label="PIS/PASEP" value={data.pisPasep} />
+                    <Info label="Cargo TOTVS" value={data.codCargoTotvs != null ? String(data.codCargoTotvs) : null} />
+                    <Info label="Vínculo" value={data.codVinculoEmpregaticio != null ? String(data.codVinculoEmpregaticio) : null} />
+                    <Info label="Tipo Func." value={data.tipoFuncionario != null ? String(data.tipoFuncionario) : null} />
+                    <Info label="Cat. Salarial" value={data.categoriaSalarial != null ? String(data.categoriaSalarial) : null} />
+                    <Info label="Grau Instrução" value={data.grauInstrucao != null ? String(data.grauInstrucao) : null} />
+                    <Info label="Turno" value={data.codTurno != null ? String(data.codTurno) : null} />
+                    <Info label="Centro Custo" value={data.centroCusto} />
+                    <Info label="Unid. Lotação" value={data.unidadeLotacao} />
                 </Section>
 
                 <Section title="Documentação Complementar" icon={FileText}>
                     <Info label="Título Eleitor" value={data.tituloEleitorNumero} />
                     <Info label="Zona/Seção" value={[data.tituloEleitorZona, data.tituloEleitorSecao].filter(Boolean).join("/")} />
+                    <Info label="Cidade/UF Título" value={[data.tituloEleitorCidade, data.tituloEleitorUf].filter(Boolean).join("/")} />
                     <Info label="Reservista" value={data.reservistaNumero} />
                     <Info label="CNH Cat." value={data.categoriaCnh} />
                     <Info label="Val. CNH" value={data.validadeCnh} />
                     <Info label="CTPS" value={[data.ctps, data.ctpsSerie].filter(Boolean).join(" Série ")} />
                     <Info label="CTPS UF" value={data.ctpsUf} />
+                    <Info label="Modelo CTPS" value={data.ctpsModelo != null ? (data.ctpsModelo === 1 ? "Papel" : "Digital") : null} />
+                    <Info label="Grupo Sanguíneo" value={data.grupoSanguineo != null ? ["", "A", "B", "AB", "O"][data.grupoSanguineo] ?? String(data.grupoSanguineo) : null} />
+                    <Info label="Fator Rh" value={data.fatorRh != null ? (data.fatorRh === 1 ? "Positivo (+)" : "Negativo (-)") : null} />
+                    <Info label="Deficiência" value={data.possuiDeficiencia === "S" ? "Sim" : data.possuiDeficiencia === "N" ? "Não" : null} />
+                    <Info label="Cartão SUS" value={data.cartaoSus} />
+                    <Info label="Altura" value={data.altura != null ? `${data.altura} cm` : null} />
+                    <Info label="Peso" value={data.peso != null ? `${data.peso} kg` : null} />
+                    <Info label="Doc. Militar" value={data.docMilitarNumero ? `${data.docMilitarNumero} Série ${data.docMilitarSerie ?? ""}` : null} />
                 </Section>
 
                 {/* Documents */}
@@ -318,6 +358,9 @@ export default function AdmissaoRevisaoScreen() {
                         <label className="text-xs text-muted-foreground block mb-1">Observação do RH (opcional)</label>
                         <Input value={approveObs} onChange={e => setApproveObs(e.target.value)} placeholder="Comentários adicionais…" />
                     </div>
+                    <Button variant="outline" onClick={() => router.push(`/admissao/nova?id=${data.id}`)}>
+                        <Pencil className="size-4" /> Editar Dados
+                    </Button>
                     <Button variant="destructive" onClick={() => setRejectOpen(true)} disabled={processing}>
                         <XCircle className="size-4" /> Rejeitar
                     </Button>

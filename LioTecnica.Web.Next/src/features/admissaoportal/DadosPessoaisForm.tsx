@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, User, MapPin, Phone, CreditCard, Briefcase } from "lucide-react";
+import { Loader2, Save, User, MapPin, Phone, CreditCard, Briefcase, HeartPulse } from "lucide-react";
 
 interface DadosPessoais {
     nome?: string | null; cpf?: string | null; rg?: string | null; rgOrgaoExpedidor?: string | null;
@@ -16,6 +16,11 @@ interface DadosPessoais {
     bancoCodigo?: string | null; bancoNome?: string | null; agencia?: string | null;
     agenciaDigito?: string | null; conta?: string | null; contaDigito?: string | null; tipoConta?: number | null;
     pisPasep?: string | null; ctps?: string | null; ctpsSerie?: string | null; ctpsUf?: string | null;
+    // Saúde e docs complementares TOTVS
+    grupoSanguineo?: number | null; fatorRh?: number | null; possuiDeficiencia?: string | null;
+    docMilitarTipo?: number | null; docMilitarNumero?: string | null; docMilitarSerie?: string | null; docMilitarRegiao?: number | null;
+    cartaoSus?: string | null; tituloEleitorCidade?: string | null; tituloEleitorUf?: string | null;
+    ctpsModelo?: number | null; altura?: number | null; peso?: number | null;
 }
 
 interface Props {
@@ -37,7 +42,20 @@ const TIPO_CONTA_OPTIONS = [
     { value: 0, label: "Conta Corrente" }, { value: 1, label: "Conta Poupança" }, { value: 2, label: "Conta Salário" },
 ];
 
-type TabKey = "pessoais" | "endereco" | "contato" | "bancario" | "trabalhista";
+const GRUPO_SANGUINEO_OPTIONS = [
+    { value: 1, label: "A" }, { value: 2, label: "B" }, { value: 3, label: "AB" }, { value: 4, label: "O" },
+];
+const FATOR_RH_OPTIONS = [
+    { value: 1, label: "Positivo (+)" }, { value: 2, label: "Negativo (-)" },
+];
+const CTPS_MODELO_OPTIONS = [
+    { value: 1, label: "Papel" }, { value: 3, label: "Digital" },
+];
+const DOC_MILITAR_TIPO_OPTIONS = [
+    { value: 1, label: "Certificado de Reservista" }, { value: 2, label: "Certificado de Dispensa" }, { value: 3, label: "Certificado de Alistamento" },
+];
+
+type TabKey = "pessoais" | "endereco" | "contato" | "bancario" | "trabalhista" | "saude";
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType; fields: (keyof DadosPessoais)[] }[] = [
     { key: "pessoais", label: "Dados Pessoais", icon: User, fields: ["nome", "rg", "dataNascimento", "nacionalidade"] },
@@ -45,6 +63,7 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType; fields: (keyo
     { key: "contato", label: "Contato", icon: Phone, fields: ["email", "celular"] },
     { key: "bancario", label: "Dados Bancários", icon: CreditCard, fields: ["bancoCodigo", "conta"] },
     { key: "trabalhista", label: "Dados Trabalhistas", icon: Briefcase, fields: ["pisPasep", "ctps"] },
+    { key: "saude", label: "Saúde e Documentos", icon: HeartPulse, fields: ["grupoSanguineo", "cartaoSus", "altura"] },
 ];
 
 function checkFilled(form: DadosPessoais, fields: (keyof DadosPessoais)[]): "ok" | "partial" | "empty" {
@@ -181,6 +200,51 @@ export default function DadosPessoaisForm({ dados, onSave, disabled }: Props) {
                     <Field label="CTPS"><Input value={form.ctps ?? ""} onChange={e => set("ctps", e.target.value)} disabled={disabled} /></Field>
                     <Field label="Série CTPS"><Input value={form.ctpsSerie ?? ""} onChange={e => set("ctpsSerie", e.target.value)} disabled={disabled} /></Field>
                     <Field label="UF CTPS"><Input value={form.ctpsUf ?? ""} onChange={e => set("ctpsUf", e.target.value)} disabled={disabled} maxLength={2} /></Field>
+                </div>
+            )}
+
+            {/* Tab: Saúde e Documentos */}
+            {activeTab === "saude" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <Field label="Grupo Sanguíneo">
+                        <select className={selectCls} value={form.grupoSanguineo ?? ""} onChange={e => set("grupoSanguineo", e.target.value ? Number(e.target.value) : null)} disabled={disabled}>
+                            <option value="">Selecione</option>
+                            {GRUPO_SANGUINEO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                    </Field>
+                    <Field label="Fator Rh">
+                        <select className={selectCls} value={form.fatorRh ?? ""} onChange={e => set("fatorRh", e.target.value ? Number(e.target.value) : null)} disabled={disabled}>
+                            <option value="">Selecione</option>
+                            {FATOR_RH_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                    </Field>
+                    <Field label="Possui Deficiência">
+                        <select className={selectCls} value={form.possuiDeficiencia ?? ""} onChange={e => set("possuiDeficiencia", e.target.value || null)} disabled={disabled}>
+                            <option value="">Selecione</option>
+                            <option value="S">Sim</option>
+                            <option value="N">Não</option>
+                        </select>
+                    </Field>
+                    <Field label="Cartão SUS"><Input value={form.cartaoSus ?? ""} onChange={e => set("cartaoSus", e.target.value)} disabled={disabled} /></Field>
+                    <Field label="Altura (cm)"><Input type="number" value={form.altura ?? ""} onChange={e => set("altura", e.target.value ? Number(e.target.value) : null)} disabled={disabled} /></Field>
+                    <Field label="Peso (kg)"><Input type="number" value={form.peso ?? ""} onChange={e => set("peso", e.target.value ? Number(e.target.value) : null)} disabled={disabled} /></Field>
+                    <Field label="Modelo CTPS">
+                        <select className={selectCls} value={form.ctpsModelo ?? ""} onChange={e => set("ctpsModelo", e.target.value ? Number(e.target.value) : null)} disabled={disabled}>
+                            <option value="">Selecione</option>
+                            {CTPS_MODELO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                    </Field>
+                    <Field label="Tipo Doc. Militar">
+                        <select className={selectCls} value={form.docMilitarTipo ?? ""} onChange={e => set("docMilitarTipo", e.target.value ? Number(e.target.value) : null)} disabled={disabled}>
+                            <option value="">Selecione</option>
+                            {DOC_MILITAR_TIPO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                    </Field>
+                    <Field label="Nº Doc. Militar"><Input value={form.docMilitarNumero ?? ""} onChange={e => set("docMilitarNumero", e.target.value)} disabled={disabled} /></Field>
+                    <Field label="Série Doc. Militar"><Input value={form.docMilitarSerie ?? ""} onChange={e => set("docMilitarSerie", e.target.value)} disabled={disabled} /></Field>
+                    <Field label="Região Militar"><Input type="number" value={form.docMilitarRegiao ?? ""} onChange={e => set("docMilitarRegiao", e.target.value ? Number(e.target.value) : null)} disabled={disabled} /></Field>
+                    <Field label="Cidade Título Eleitor"><Input value={form.tituloEleitorCidade ?? ""} onChange={e => set("tituloEleitorCidade", e.target.value)} disabled={disabled} /></Field>
+                    <Field label="UF Título Eleitor"><Input value={form.tituloEleitorUf ?? ""} onChange={e => set("tituloEleitorUf", e.target.value)} disabled={disabled} maxLength={2} /></Field>
                 </div>
             )}
 

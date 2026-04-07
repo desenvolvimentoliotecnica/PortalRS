@@ -209,10 +209,10 @@ export default function SolicitacoesScreen() {
     return (
         <section className="space-y-4">
             <div>
-                <h4 className="text-lg font-bold">Solicitações</h4>
-                <div className="text-muted-foreground text-sm">
+                <h1 className="text-2xl font-semibold tracking-tight">Solicitações</h1>
+                <p className="text-muted-foreground text-sm mt-0.5">
                     Gerencie solicitações de vagas, promoções, desligamentos e aprovações pendentes
-                </div>
+                </p>
             </div>
 
             {/* ── Top-level tabs ── */}

@@ -187,7 +187,11 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved }:
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
                 });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                if (!res.ok) {
+                    let msg = `HTTP ${res.status}`;
+                    try { const j = await res.json(); msg = j?.message ?? j?.title ?? msg; } catch { /* ignore */ }
+                    throw new Error(msg);
+                }
                 const created = await res.json() as { id?: string };
                 // Auto-submit para aprovação (sem etapa intermediária de rascunho)
                 if (created?.id) {
