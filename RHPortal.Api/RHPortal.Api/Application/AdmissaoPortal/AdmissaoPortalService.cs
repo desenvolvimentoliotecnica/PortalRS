@@ -84,7 +84,11 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             pa.Cep, pa.Logradouro, pa.Numero, pa.Complemento, pa.Bairro, pa.Cidade, pa.Uf,
             pa.Email, pa.Telefone, pa.Celular, pa.ContatoEmergenciaNome, pa.ContatoEmergenciaFone,
             pa.BancoCodigo, pa.BancoNome, pa.Agencia, pa.AgenciaDigito, pa.Conta, pa.ContaDigito, (int?)pa.TipoConta,
-            pa.PisPasep, pa.Ctps, pa.CtpsSerie, pa.CtpsUf);
+            pa.PisPasep, pa.Ctps, pa.CtpsSerie, pa.CtpsUf,
+            pa.GrupoSanguineo, pa.FatorRh, pa.PossuiDeficiencia,
+            pa.DocMilitarTipo, pa.DocMilitarNumero, pa.DocMilitarSerie, pa.DocMilitarRegiao,
+            pa.CartaoSus, pa.TituloEleitorCidade, pa.TituloEleitorUf,
+            pa.CtpsModelo, pa.Altura, pa.Peso);
 
         return new AdmissaoPortalDataResponse(pa.Id, pa.Nome, (int)pa.Status, solicitados, enviados, dados);
     }
@@ -117,6 +121,21 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         pa.PisPasep = r.PisPasep?.Trim(); pa.Ctps = r.Ctps?.Trim();
         pa.CtpsSerie = r.CtpsSerie?.Trim(); pa.CtpsUf = r.CtpsUf?.Trim();
+
+        // Saúde e docs complementares TOTVS
+        pa.GrupoSanguineo = r.GrupoSanguineo;
+        pa.FatorRh = r.FatorRh;
+        pa.PossuiDeficiencia = r.PossuiDeficiencia?.Trim();
+        pa.DocMilitarTipo = r.DocMilitarTipo;
+        pa.DocMilitarNumero = r.DocMilitarNumero?.Trim();
+        pa.DocMilitarSerie = r.DocMilitarSerie?.Trim();
+        pa.DocMilitarRegiao = r.DocMilitarRegiao;
+        pa.CartaoSus = r.CartaoSus?.Trim();
+        pa.TituloEleitorCidade = r.TituloEleitorCidade?.Trim();
+        pa.TituloEleitorUf = r.TituloEleitorUf?.Trim();
+        pa.CtpsModelo = r.CtpsModelo;
+        pa.Altura = r.Altura;
+        pa.Peso = r.Peso;
 
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
 

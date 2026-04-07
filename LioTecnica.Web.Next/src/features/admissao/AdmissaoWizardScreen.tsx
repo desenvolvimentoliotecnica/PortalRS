@@ -70,6 +70,29 @@ interface PreAdmissao {
     ctps: string | null;
     ctpsSerie: string | null;
     ctpsUf: string | null;
+    // Campos integração TOTVS
+    codCargoTotvs: number | null;
+    codVinculoEmpregaticio: number | null;
+    tipoFuncionario: number | null;
+    categoriaSalarial: number | null;
+    grauInstrucao: number | null;
+    codTurno: number | null;
+    centroCusto: string | null;
+    unidadeLotacao: string | null;
+    // Saúde e docs complementares TOTVS
+    grupoSanguineo: number | null;
+    fatorRh: number | null;
+    possuiDeficiencia: string | null;
+    docMilitarTipo: number | null;
+    docMilitarNumero: string | null;
+    docMilitarSerie: string | null;
+    docMilitarRegiao: number | null;
+    cartaoSus: string | null;
+    tituloEleitorCidade: string | null;
+    tituloEleitorUf: string | null;
+    ctpsModelo: number | null;
+    altura: number | null;
+    peso: number | null;
     validacaoSalarioJustificativa: string | null;
     status: number;
     documentos: { id: string; tipo: number; nomeArquivo: string; contentType: string; tamanhoBytes: number; status: number; createdAtUtc: string }[];
@@ -112,6 +135,39 @@ const BANCOS = [
     "453-Banco Rural", "633-Banco Rendimento", "707-Banco Daycoval",
     "741-Banco Ribeirão Preto", "745-Citibank", "748-Sicredi",
     "756-Sicoob", "097-CentralCred",
+];
+const VINCULO_EMPREGATICIO = [
+    { value: 10, label: "CLT (Prazo Indeterminado)" },
+    { value: 20, label: "CLT (Prazo Determinado)" },
+    { value: 30, label: "Estagiário" },
+    { value: 40, label: "Temporário" },
+    { value: 50, label: "Diretor Sem Vínculo" },
+    { value: 55, label: "Diretor Com Vínculo" },
+    { value: 60, label: "Aprendiz" },
+    { value: 70, label: "Autônomo" },
+    { value: 80, label: "Cooperado" },
+];
+const TIPO_FUNCIONARIO_TOTVS = [
+    { value: 1, label: "Mensalista" },
+    { value: 2, label: "Horista" },
+    { value: 3, label: "Diarista" },
+    { value: 4, label: "Tarefeiro" },
+];
+const GRAU_INSTRUCAO = [
+    { value: 1, label: "Analfabeto" },
+    { value: 2, label: "Fundamental Incompleto" },
+    { value: 3, label: "Fundamental Completo" },
+    { value: 4, label: "Médio Incompleto" },
+    { value: 5, label: "Médio Completo" },
+    { value: 6, label: "Superior Incompleto" },
+    { value: 7, label: "Superior Completo" },
+    { value: 8, label: "Pós-Graduação" },
+    { value: 9, label: "Mestrado" },
+    { value: 10, label: "Doutorado" },
+];
+const CATEGORIA_SALARIAL = [
+    { value: 1, label: "A" }, { value: 2, label: "B" }, { value: 3, label: "C" },
+    { value: 4, label: "D" }, { value: 5, label: "E" },
 ];
 const TIPO_DOC_ALL = [
     { value: 0, label: "RG" }, { value: 1, label: "CPF" }, { value: 2, label: "CNH" },
@@ -439,6 +495,17 @@ export default function AdmissaoWizardScreen() {
                             <Field label="Carga Horária Semanal" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => set("cargaHorariaSemanal", v ? parseInt(v) : null)} type="number" />
                             <Field label="PIS/PASEP" value={form.pisPasep} onChange={v => set("pisPasep", v)} />
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border/30 pt-3 mt-2">
+                            <div className="col-span-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">Integração TOTVS</div>
+                            <Field label="Cód. Cargo TOTVS" value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : ""} onChange={v => set("codCargoTotvs", v ? parseInt(v) : null)} type="number" placeholder="Ex: 299" />
+                            <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
+                            <Select label="Tipo Funcionário" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
+                            <Select label="Categoria Salarial" value={form.categoriaSalarial} options={CATEGORIA_SALARIAL} onChange={v => set("categoriaSalarial", Number(v))} />
+                            <Select label="Grau de Instrução" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
+                            <Field label="Cód. Turno" value={form.codTurno != null ? String(form.codTurno) : ""} onChange={v => set("codTurno", v ? parseInt(v) : null)} type="number" placeholder="Ex: 1" />
+                            <Field label="Centro de Custo" value={form.centroCusto} onChange={v => set("centroCusto", v)} placeholder="Ex: 99999" />
+                            <Field label="Unidade Lotação" value={form.unidadeLotacao} onChange={v => set("unidadeLotacao", v)} placeholder="Ex: 00001001" />
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-border/30 pt-3 mt-2">
                             <Field label="Título Eleitor Nº" value={form.tituloEleitorNumero} onChange={v => set("tituloEleitorNumero", v)} />
                             <Field label="Zona" value={form.tituloEleitorZona} onChange={v => set("tituloEleitorZona", v)} />
@@ -530,6 +597,12 @@ export default function AdmissaoWizardScreen() {
                             <Info label="Data Admissão" value={form.dataAdmissao} />
                             <Info label="Salário" value={form.salario != null ? fmtBrl(form.salario) : null} />
                             <Info label="Tipo Contratação" value={TIPO_CONTRATACAO.find(t => t.value === form.tipoContratacao)?.label} />
+                            <Info label="Cargo TOTVS" value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : null} />
+                            <Info label="Vínculo" value={VINCULO_EMPREGATICIO.find(v => v.value === form.codVinculoEmpregaticio)?.label} />
+                            <Info label="Tipo Func." value={TIPO_FUNCIONARIO_TOTVS.find(v => v.value === form.tipoFuncionario)?.label} />
+                            <Info label="Grau Instrução" value={GRAU_INSTRUCAO.find(v => v.value === form.grauInstrucao)?.label} />
+                            <Info label="Centro Custo" value={form.centroCusto} />
+                            <Info label="Unid. Lotação" value={form.unidadeLotacao} />
                             <Info label="Documentos" value={`${form.documentos?.length ?? 0} arquivo(s)`} />
                         </div>
                         <div className="rounded-md bg-sky-500/10 p-3 text-sm text-sky-700">

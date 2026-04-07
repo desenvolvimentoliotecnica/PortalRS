@@ -13,6 +13,7 @@ import {
     Eye,
     Users,
     Loader2,
+    Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -296,7 +297,10 @@ export default function AdmissaoListScreen() {
                                     <TableCell className="text-right text-xs text-muted-foreground">
                                         {new Date(r.createdAtUtc).toLocaleDateString("pt-BR")}
                                     </TableCell>
-                                    <TableCell className="text-right">
+                                    <TableCell className="text-right flex items-center justify-end gap-1">
+                                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/admissao/nova?id=${r.id}`); }} title="Editar dados">
+                                            <Pencil className="size-3.5" />
+                                        </Button>
                                         {(r.status === 2 || String(r.status) === "Preenchido") && (
                                             <Button size="sm" className="btn-approve" onClick={async (e) => {
                                                 e.stopPropagation();

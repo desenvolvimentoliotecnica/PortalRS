@@ -175,6 +175,21 @@ public sealed class PreAdmissao : ITenantEntity
     [StringLength(20)]
     public string? PisPasep { get; set; }
 
+    // ── Campos integração TOTVS (fp1500) ──
+
+    public int? CodCargoTotvs { get; set; }
+    public int? CodVinculoEmpregaticio { get; set; }
+    public int? TipoFuncionario { get; set; }
+    public int? CategoriaSalarial { get; set; }
+    public int? GrauInstrucao { get; set; }
+    public int? CodTurno { get; set; }
+
+    [StringLength(30)]
+    public string? CentroCusto { get; set; }
+
+    [StringLength(30)]
+    public string? UnidadeLotacao { get; set; }
+
     // ── Documentos complementares (campos avulsos) ──
 
     [StringLength(20)]
@@ -202,6 +217,37 @@ public sealed class PreAdmissao : ITenantEntity
 
     [StringLength(2)]
     public string? CtpsUf { get; set; }
+
+    // ── Saúde e docs complementares TOTVS ──
+
+    public int? GrupoSanguineo { get; set; }
+    public int? FatorRh { get; set; }
+
+    [StringLength(1)]
+    public string? PossuiDeficiencia { get; set; }
+
+    public int? DocMilitarTipo { get; set; }
+
+    [StringLength(30)]
+    public string? DocMilitarNumero { get; set; }
+
+    [StringLength(20)]
+    public string? DocMilitarSerie { get; set; }
+
+    public int? DocMilitarRegiao { get; set; }
+
+    [StringLength(30)]
+    public string? CartaoSus { get; set; }
+
+    [StringLength(120)]
+    public string? TituloEleitorCidade { get; set; }
+
+    [StringLength(2)]
+    public string? TituloEleitorUf { get; set; }
+
+    public int? CtpsModelo { get; set; }
+    public int? Altura { get; set; }
+    public int? Peso { get; set; }
 
     // ── Validações snapshot ──
 
