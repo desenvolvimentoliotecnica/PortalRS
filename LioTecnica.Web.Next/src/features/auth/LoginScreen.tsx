@@ -482,11 +482,6 @@ export default function LoginScreen({
               </div>
             </div>
 
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/[0.08] px-4 py-2 backdrop-blur">
-              <span className="text-xs font-medium tracking-[0.1em] text-white/50">
-                LOGÍSTICA & ALIMENTOS LIOFILIZADOS
-              </span>
-            </div>
           </div>
         </aside>
       </div>

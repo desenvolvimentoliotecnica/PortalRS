@@ -306,19 +306,19 @@ export default function DashboardScreen({
   const [quickKeywords, setQuickKeywords] = useState("");
 
   /* ── Solicitações pendentes widget ── */
-  type PendingItem = { id: string; tipo: string; titulo: string; solicitante: string; data: string; icon: React.ElementType; color: string };
+  type PendingItem = { id: string; tipo: string; titulo: string; solicitante: string; data: string; icon: React.ElementType; color: string; href: string };
   const [pendentes, setPendentes] = useState<PendingItem[]>([]);
   const [pendentesLoading, setPendentesLoading] = useState(true);
 
   useEffect(() => {
-    const APIS: { api: string; tipo: string; titleKey: string; solicitanteKey: string; dateKey: string; icon: React.ElementType; color: string }[] = [
-      { api: "/api/solicitacoes-vaga?status=1", tipo: "Contratação", titleKey: "titulo", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-violet-600" },
-      { api: "/api/solicitacoes-promocao?status=1", tipo: "Promoção", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-emerald-600" },
-      { api: "/api/solicitacoes-desligamento?status=1", tipo: "Desligamento", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-red-600" },
-      { api: "/api/colaborador/solicitacoes-ferias?status=1", tipo: "Férias", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Palmtree, color: "text-sky-600" },
-      { api: "/api/colaborador/solicitacoes-beneficio?status=1", tipo: "Benefício", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Heart, color: "text-pink-600" },
-      { api: "/api/colaborador/solicitacoes-dependente?status=1", tipo: "Dependentes", titleKey: "dependenteNome", solicitanteKey: "colaboradorNome", dateKey: "createdAtUtc", icon: Users, color: "text-indigo-600" },
-      { api: "/api/colaborador/solicitacoes-endereco?status=1", tipo: "Endereço", titleKey: "logradouro", solicitanteKey: "colaboradorNome", dateKey: "createdAtUtc", icon: MapPin, color: "text-amber-600" },
+    const APIS: { api: string; tipo: string; titleKey: string; solicitanteKey: string; dateKey: string; icon: React.ElementType; color: string; href: string }[] = [
+      { api: "/api/solicitacoes-vaga?status=1", tipo: "Contratação", titleKey: "titulo", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-violet-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=contratacao" },
+      { api: "/api/solicitacoes-promocao?status=1", tipo: "Promoção", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-emerald-600", href: "/gestao/solicitacoes?tab=promocoes" },
+      { api: "/api/solicitacoes-desligamento?status=1", tipo: "Desligamento", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-red-600", href: "/gestao/solicitacoes?tab=desligamentos" },
+      { api: "/api/colaborador/solicitacoes-ferias?status=1", tipo: "Férias", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Palmtree, color: "text-sky-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=ferias" },
+      { api: "/api/colaborador/solicitacoes-beneficio?status=1", tipo: "Benefício", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Heart, color: "text-pink-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=beneficio" },
+      { api: "/api/colaborador/solicitacoes-dependente?status=1", tipo: "Dependentes", titleKey: "dependenteNome", solicitanteKey: "colaboradorNome", dateKey: "createdAtUtc", icon: Users, color: "text-indigo-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=dependentes" },
+      { api: "/api/colaborador/solicitacoes-endereco?status=1", tipo: "Endereço", titleKey: "logradouro", solicitanteKey: "colaboradorNome", dateKey: "createdAtUtc", icon: MapPin, color: "text-amber-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=endereco" },
     ];
 
     void Promise.allSettled(
@@ -334,6 +334,7 @@ export default function DashboardScreen({
             data: pickString(r[cfg.dateKey], ""),
             icon: cfg.icon,
             color: cfg.color,
+            href: cfg.href,
           }));
         } catch {
           return [];
@@ -569,62 +570,6 @@ export default function DashboardScreen({
         </div>
       </div>
 
-      {/* ── Solicitações pendentes widget ── */}
-      {(pendentesLoading || pendentes.length > 0) && (
-        <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <div className="text-sm font-semibold flex items-center gap-2">
-                <Clock className="size-4 text-amber-600" />
-                Solicitações Pendentes
-              </div>
-              <div className="text-muted-foreground text-xs">{pendentesLoading ? "Carregando…" : `${pendentes.length} aguardando aprovação`}</div>
-            </div>
-            <Link href="/gestao/aprovacoes">
-              <Button variant="outline" size="sm">Ver todas</Button>
-            </Link>
-          </div>
-          {!pendentesLoading && pendentes.length > 0 && (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Solicitante</TableHead>
-                    <TableHead>Data</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pendentes.slice(0, 8).map((p, i) => {
-                    const Icon = p.icon;
-                    return (
-                      <TableRow key={`${p.tipo}-${p.id}-${i}`} className="cursor-pointer hover:bg-muted/40" onClick={() => { window.location.href = "/app/gestao/aprovacoes"; }}>
-                        <TableCell>
-                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${p.color}`}>
-                            <Icon className="size-3.5" />
-                            {p.tipo}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-medium text-sm">{p.titulo}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{p.solicitante}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatDate(p.data)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              {pendentes.length > 8 && (
-                <div className="text-center mt-2">
-                  <Link href="/gestao/aprovacoes" className="text-sm text-primary hover:underline">
-                    +{pendentes.length - 8} mais solicitações
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr]">
         <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
@@ -673,6 +618,57 @@ export default function DashboardScreen({
           </div>
         </div>
       </div>
+
+      {/* ── Aprovações Pendentes widget ── */}
+      {(pendentesLoading || pendentes.length > 0) && (
+        <div className="rounded-xl border border-border/50 bg-card shadow-sm p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Clock className="size-3.5 text-amber-600" />
+              <span className="text-sm font-semibold">Aprovações Pendentes</span>
+              {!pendentesLoading && (
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                  {pendentes.length}
+                </span>
+              )}
+            </div>
+            <Link href="/gestao/solicitacoes?tab=aprovacoes">
+              <Button variant="ghost" size="sm" className="text-xs h-7 px-2">Ver todas →</Button>
+            </Link>
+          </div>
+          {!pendentesLoading && pendentes.length > 0 && (
+            <div className="divide-y divide-border/30">
+              {pendentes.slice(0, 6).map((p, i) => {
+                const Icon = p.icon;
+                return (
+                  <div
+                    key={`${p.tipo}-${p.id}-${i}`}
+                    className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
+                    onClick={() => { window.location.href = `/app${p.href}`; }}
+                  >
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold w-28 shrink-0 ${p.color}`}>
+                      <Icon className="size-3" />
+                      {p.tipo}
+                    </span>
+                    <span className="text-sm truncate flex-1">{p.titulo}</span>
+                    <span className="text-[11px] text-muted-foreground shrink-0">{formatDate(p.data)}</span>
+                  </div>
+                );
+              })}
+              {pendentes.length > 6 && (
+                <div className="pt-1.5 text-center">
+                  <Link href="/gestao/solicitacoes?tab=aprovacoes" className="text-xs text-primary hover:underline">
+                    +{pendentes.length - 6} mais
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+          {pendentesLoading && (
+            <div className="text-xs text-muted-foreground py-2">Carregando…</div>
+          )}
+        </div>
+      )}
 
       <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
