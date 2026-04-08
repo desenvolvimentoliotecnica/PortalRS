@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { CargoAutocomplete } from "@/components/autocomplete/CargoAutocomplete";
 
 /* ── types ── */
 
@@ -497,7 +498,17 @@ export default function AdmissaoWizardScreen() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border/30 pt-3 mt-2">
                             <div className="col-span-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">Integração TOTVS</div>
-                            <Field label="Cód. Cargo TOTVS" value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : ""} onChange={v => set("codCargoTotvs", v ? parseInt(v) : null)} type="number" placeholder="Ex: 299" />
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Cargo TOTVS *</label>
+                                <CargoAutocomplete
+                                  value={form.codCargoTotvs || ""}
+                                  onChange={(code) => {
+                                    // Converter o código (string) para número se possível
+                                    const numCode = code ? parseInt(code, 10) : null;
+                                    set("codCargoTotvs", isNaN(numCode as any) ? null : numCode);
+                                  }}
+                                />
+                            </div>
                             <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
                             <Select label="Tipo Funcionário" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
                             <Select label="Categoria Salarial" value={form.categoriaSalarial} options={CATEGORIA_SALARIAL} onChange={v => set("categoriaSalarial", Number(v))} />
