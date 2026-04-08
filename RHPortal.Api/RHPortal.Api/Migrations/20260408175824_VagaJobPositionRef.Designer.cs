@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RhPortal.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using RhPortal.Api.Infrastructure.Data;
 namespace RHPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260408175824_VagaJobPositionRef")]
+    partial class VagaJobPositionRef
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -149,12 +152,6 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<int?>("CargaSemanalHoras")
                         .HasColumnType("integer");
-
-                    b.Property<Guid?>("CategoriaSalarialId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("CentroCustoId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("Cep")
                         .HasMaxLength(12)
@@ -404,15 +401,9 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
 
-                    b.Property<Guid?>("TurnoId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Uf")
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
-
-                    b.Property<Guid?>("UnidadeLotacaoId")
-                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -430,19 +421,11 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("AreaId");
 
-                    b.HasIndex("CategoriaSalarialId");
-
-                    b.HasIndex("CentroCustoId");
-
                     b.HasIndex("DepartmentId");
 
                     b.HasIndex("JobPositionId");
 
                     b.HasIndex("RecrutadorResponsavelUserId");
-
-                    b.HasIndex("TurnoId");
-
-                    b.HasIndex("UnidadeLotacaoId");
 
                     b.HasIndex("TenantId", "AreaId");
 
@@ -4217,10 +4200,6 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<string>("FullDescription")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -4234,10 +4213,6 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<int>("Seniority")
                         .HasColumnType("integer");
-
-                    b.Property<string>("SimilarityIndicator")
-                        .HasMaxLength(1)
-                        .HasColumnType("character varying(1)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -7732,14 +7707,6 @@ namespace RHPortal.Api.Migrations
                         .HasForeignKey("AreaId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("RhPortal.Api.Domain.Entities.CategoriaSalarial", "CategoriaSalarial")
-                        .WithMany()
-                        .HasForeignKey("CategoriaSalarialId");
-
-                    b.HasOne("RhPortal.Api.Domain.Entities.CentroCusto", "CentroCusto")
-                        .WithMany()
-                        .HasForeignKey("CentroCustoId");
-
                     b.HasOne("RhPortal.Api.Domain.Entities.Department", "Department")
                         .WithMany()
                         .HasForeignKey("DepartmentId")
@@ -7754,29 +7721,13 @@ namespace RHPortal.Api.Migrations
                         .HasForeignKey("RecrutadorResponsavelUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("RhPortal.Api.Domain.Entities.Turno", "Turno")
-                        .WithMany()
-                        .HasForeignKey("TurnoId");
-
-                    b.HasOne("RhPortal.Api.Domain.Entities.UnidadeLotacao", "UnidadeLotacao")
-                        .WithMany()
-                        .HasForeignKey("UnidadeLotacaoId");
-
                     b.Navigation("Area");
-
-                    b.Navigation("CategoriaSalarial");
-
-                    b.Navigation("CentroCusto");
 
                     b.Navigation("Department");
 
                     b.Navigation("JobPosition");
 
                     b.Navigation("RecrutadorResponsavelUser");
-
-                    b.Navigation("Turno");
-
-                    b.Navigation("UnidadeLotacao");
                 });
 
             modelBuilder.Entity("RHPortal.Api.Domain.Entities.VagaBeneficio", b =>

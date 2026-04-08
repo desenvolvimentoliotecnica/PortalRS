@@ -5,123 +5,114 @@ import { apiFetch } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Loader2, X } from "lucide-react";
 
-export interface CargoLookup {
+export interface TurnoLookup {
   id: string;
   code: string;
-  name: string;
-  areaId?: string;
-  areaName?: string;
-  seniority?: string;
+  description: string;
 }
 
-interface CargoAutocompleteProps {
+interface TurnoAutocompleteProps {
   value: string | number | null;
   onChange: (code: string) => void;
   onSelectId?: (id: string) => void;
-  onSelect?: (item: CargoLookup) => void;
-  defaultCargoLabel?: { code: string; name: string };
+  onSelectItem?: (item: TurnoLookup) => void;
+  defaultLabel?: { code: string; description: string };
   placeholder?: string;
 }
 
-export function CargoAutocomplete({
+export function TurnoAutocomplete({
   value,
   onChange,
   onSelectId,
-  onSelect,
-  defaultCargoLabel,
-  placeholder = "Digite código ou nome do cargo...",
-}: CargoAutocompleteProps) {
+  onSelectItem,
+  defaultLabel,
+  placeholder = "Buscar turno...",
+}: TurnoAutocompleteProps) {
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<CargoLookup[]>([]);
+  const [results, setResults] = useState<TurnoLookup[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [selectedCargo, setSelectedCargo] = useState<CargoLookup | null>(null);
+  const [selected, setSelected] = useState<TurnoLookup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Buscar cargos quando o search mudar
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (search.trim().length < 1) {
         setResults([]);
         return;
       }
-
       try {
         setLoading(true);
-        const res = await apiFetch(`/api/job-positions/lookup?search=${encodeURIComponent(search)}`, {
-          method: "GET",
-        });
-
+        const res = await apiFetch(`/api/turnos/lookup?search=${encodeURIComponent(search)}`);
         if (res.ok) {
           const data = await res.json();
-          setResults(Array.isArray(data) ? data : []);
+          const raw = Array.isArray(data) ? data : [];
+          const mapped: TurnoLookup[] = raw.map((x: Record<string, unknown>) => ({
+            id: String(x.id ?? x.Id ?? ""),
+            code: String(x.code ?? x.Code ?? ""),
+            description: String(x.description ?? x.Description ?? ""),
+          }));
+          setResults(mapped);
           setOpen(true);
         }
       } catch (err) {
-        console.error("Erro ao buscar cargos:", err);
+        console.error("Erro ao buscar turnos:", err);
         setResults([]);
       } finally {
         setLoading(false);
       }
     }, 300);
-
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Carregar cargo selecionado quando value mudar (modo edição)
   useEffect(() => {
-    if (value && !selectedCargo) {
+    if (value && !selected) {
       const strValue = String(value);
-      const cargo = results.find(c => c.code === strValue || c.id === strValue);
-      if (cargo) {
-        setSelectedCargo(cargo);
-      } else if (search === "" && defaultCargoLabel) {
-        setSelectedCargo({
-          id: "",
-          code: defaultCargoLabel.code,
-          name: defaultCargoLabel.name,
-        });
+      const found = results.find((c) => c.code === strValue || c.id === strValue);
+      if (found) {
+        setSelected(found);
+      } else if (search === "" && defaultLabel) {
+        setSelected({ id: "", code: defaultLabel.code, description: defaultLabel.description });
+      } else if (search === "" && strValue) {
+        setSelected({ id: "", code: strValue, description: `Turno ${strValue}` });
       }
     }
-  }, [value, results, selectedCargo, search, defaultCargoLabel]);
+  }, [value, results, selected, search, defaultLabel]);
 
-  // Fechar dropdown quando clicar fora
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelect = (cargo: CargoLookup) => {
-    setSelectedCargo(cargo);
-    onChange(cargo.code);
-    onSelectId?.(cargo.id);
-    onSelect?.(cargo);
+  const handleSelect = (item: TurnoLookup) => {
+    setSelected(item);
+    onChange(item.code);
+    onSelectId?.(item.id);
+    onSelectItem?.(item);
     setSearch("");
     setResults([]);
     setOpen(false);
   };
 
   const handleClear = () => {
-    setSelectedCargo(null);
+    setSelected(null);
     setSearch("");
     setResults([]);
     onChange("");
     onSelectId?.("");
-    onSelect?.({ id: "", code: "", name: "" });
+    onSelectItem?.({ id: "", code: "", description: "" });
   };
 
   return (
     <div ref={containerRef} className="relative">
-      {selectedCargo ? (
+      {selected ? (
         <div className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm flex items-center justify-between">
           <div className="flex flex-col gap-0.5">
-            <div className="font-medium">{selectedCargo.name}</div>
-            <div className="text-xs text-muted-foreground font-mono">{selectedCargo.code}</div>
+            <div className="font-medium">{selected.description}</div>
+            <div className="text-xs text-muted-foreground font-mono">{selected.code}</div>
           </div>
           <button
             type="button"
@@ -149,19 +140,15 @@ export function CargoAutocomplete({
       {open && results.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-input bg-popover p-0 shadow-md">
           <div className="max-h-64 overflow-y-auto">
-            {results.map((cargo) => (
+            {results.map((item) => (
               <button
-                key={cargo.id}
+                key={item.id}
                 type="button"
-                onClick={() => handleSelect(cargo)}
+                onClick={() => handleSelect(item)}
                 className="w-full px-3 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/30 last:border-0"
               >
-                <div className="font-medium">{cargo.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  <span className="font-mono">{cargo.code}</span>
-                  {cargo.areaName && <span className="ml-2">· {cargo.areaName}</span>}
-                  {cargo.seniority && <span className="ml-2">· {cargo.seniority}</span>}
-                </div>
+                <div className="font-medium">{item.description}</div>
+                <div className="text-xs text-muted-foreground font-mono">{item.code}</div>
               </button>
             ))}
           </div>
@@ -170,7 +157,7 @@ export function CargoAutocomplete({
 
       {open && search.trim().length > 0 && results.length === 0 && !loading && (
         <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-input bg-popover p-3 shadow-md text-sm text-muted-foreground text-center">
-          Nenhum cargo encontrado
+          Nenhum turno encontrado
         </div>
       )}
     </div>

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { CargoAutocomplete } from "@/components/autocomplete/CargoAutocomplete";
+import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
 
 /* ── types ── */
 
@@ -511,7 +512,16 @@ export default function AdmissaoWizardScreen() {
                             </div>
                             <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
                             <Select label="Tipo Funcionário" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
-                            <Select label="Categoria Salarial" value={form.categoriaSalarial} options={CATEGORIA_SALARIAL} onChange={v => set("categoriaSalarial", Number(v))} />
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial *</label>
+                                <CategoriaSalarialAutocomplete
+                                  value={form.categoriaSalarial || ""}
+                                  onChange={(code) => {
+                                    const numCode = code ? parseInt(code, 10) : null;
+                                    set("categoriaSalarial", isNaN(numCode as any) ? null : numCode);
+                                  }}
+                                />
+                            </div>
                             <Select label="Grau de Instrução" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
                             <Field label="Cód. Turno" value={form.codTurno != null ? String(form.codTurno) : ""} onChange={v => set("codTurno", v ? parseInt(v) : null)} type="number" placeholder="Ex: 1" />
                             <Field label="Centro de Custo" value={form.centroCusto} onChange={v => set("centroCusto", v)} placeholder="Ex: 99999" />

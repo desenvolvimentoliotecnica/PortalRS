@@ -1,12 +1,17 @@
 "use client";
 
-import { AuthGuard } from "@/hooks/useAuth";
-import CargoCadastroScreen from "@/features/cadastros/totvs/CargoCadastroScreen";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function Page() {
-  return (
-    <AuthGuard>
-      <CargoCadastroScreen />
-    </AuthGuard>
-  );
+/** Compatibilidade: export estático não aplica `redirects` do next.config — redireciona no cliente para `/cargos`. */
+export default function TotvsCargosRedirectPage() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace("/cargos");
+    }, [router]);
+    return (
+        <p className="p-4 text-sm text-muted-foreground">
+            Redirecionando para Cargos…
+        </p>
+    );
 }

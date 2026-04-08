@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RhPortal.Api.Infrastructure.Data;
@@ -11,9 +12,11 @@ using RhPortal.Api.Infrastructure.Data;
 namespace RHPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260408191717_AddVagaCadastroFKs")]
+    partial class AddVagaCadastroFKs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4217,10 +4220,6 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<string>("FullDescription")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -4234,10 +4233,6 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<int>("Seniority")
                         .HasColumnType("integer");
-
-                    b.Property<string>("SimilarityIndicator")
-                        .HasMaxLength(1)
-                        .HasColumnType("character varying(1)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");

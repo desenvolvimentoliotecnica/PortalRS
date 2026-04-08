@@ -241,6 +241,9 @@ const OPERACIONAL_ROUTES = new Set([
 const CADASTROS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
   "/unidades", "/funcionarios", "/pessoas",
+  // Cadastros TOTVS
+  "/totvs-categorias-salariais", "/totvs-turnos",
+  "/totvs-centros-custo", "/totvs-unidades-lotacao",
 ]);
 // Gestão de Pessoas (people management, não recrutamento)
 const GESTAO_PESSOAS_ROUTES = new Set([

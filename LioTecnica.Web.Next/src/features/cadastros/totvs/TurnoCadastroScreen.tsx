@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, Plus, RefreshCw, Pencil, Trash2, Download } from "lucide-react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, Download, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,15 @@ import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
+
+interface ImportRow {
+    code: string;
+    description: string;
+    startTime: string;
+    endTime: string;
+    notes: string;
+    isActive: boolean;
+}
 
 interface Item {
     id: string;
@@ -62,6 +72,12 @@ export default function TurnoCadastroScreen() {
     const [draft, setDraft] = useState<Draft>({ ...emptyDraft });
     const [saving, setSaving] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [importRows, setImportRows] = useState<ImportRow[]>([]);
+    const [importOpen, setImportOpen] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [importResult, setImportResult] = useState<{ created: number; updated: number; errors: number } | null>(null);
 
     const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(rows.length, {
         initialPageSize: 20,
@@ -136,9 +152,114 @@ export default function TurnoCadastroScreen() {
         }
     };
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = "";
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: "array" });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+
+                if (raw.length === 0) {
+                    toast.error("Planilha vazia ou sem dados reconhecidos.");
+                    return;
+                }
+
+                const norm = (s: string) =>
+                    String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+                const parsed: ImportRow[] = raw.map((r) => {
+                    const key = (variants: string[]) => {
+                        const found = Object.keys(r).find((k) => variants.some((v) => norm(k) === norm(v)));
+                        return found ? String(r[found] ?? "").trim() : "";
+                    };
+                    const statusStr = key(["status", "ativo", "ativa"]).toLowerCase();
+                    const isActive = statusStr === "" || statusStr === "ativo" || statusStr === "ativa" || statusStr === "true" || statusStr === "1";
+                    return {
+                        code: key(["codigo", "code"]),
+                        description: key(["descricao", "description"]),
+                        startTime: key(["inicio", "start", "starttime", "hora inicio"]),
+                        endTime: key(["fim", "end", "endtime", "hora fim"]),
+                        notes: key(["observacoes", "observacao", "notes", "obs"]),
+                        isActive,
+                    };
+                }).filter((r) => r.code && r.description);
+
+                if (parsed.length === 0) {
+                    toast.error("Nenhuma linha válida. Inclua colunas Código e Descrição.");
+                    return;
+                }
+
+                setImportRows(parsed);
+                setImportResult(null);
+                setImportOpen(true);
+            } catch (err) {
+                console.error("Erro ao ler planilha:", err);
+                toast.error("Erro ao ler o arquivo. Use .xlsx, .xls ou .csv.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    const runImport = async () => {
+        if (importRows.length === 0) return;
+        setImporting(true);
+
+        const existingMap = new Map(rows.map((r) => [r.code.toLowerCase(), r.id]));
+
+        let created = 0, updated = 0, errors = 0;
+
+        for (const row of importRows) {
+            const payload = {
+                code: row.code,
+                description: row.description,
+                startTime: row.startTime?.trim() || null,
+                endTime: row.endTime?.trim() || null,
+                notes: row.notes?.trim() || null,
+                isActive: row.isActive,
+            };
+            try {
+                const existingId = existingMap.get(row.code.toLowerCase());
+                if (existingId) {
+                    await fetchJson(`/api/turnos/${existingId}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    });
+                    updated++;
+                } else {
+                    await fetchJson("/api/turnos", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    });
+                    created++;
+                }
+            } catch {
+                errors++;
+            }
+        }
+
+        setImportResult({ created, updated, errors });
+        setImporting(false);
+        await syncList();
+    };
+
     const exportToExcel = () => {
-        const header = ["Código", "Descrição", "Início", "Fim", "Status"];
-        const data = rows.map((x) => [x.code, x.description, x.startTime || "", x.endTime || "", x.isActive ? "Ativo" : "Inativo"]);
+        const header = ["Código", "Descrição", "Início", "Fim", "Observações", "Status"];
+        const data = rows.map((x) => [
+            x.code,
+            x.description,
+            x.startTime || "",
+            x.endTime || "",
+            x.notes || "",
+            x.isActive ? "Ativo" : "Inativo",
+        ]);
         const csv = [header.join("\t"), ...data.map((row) => row.join("\t"))].join("\n");
         const blob = new Blob([csv], { type: "text/plain;charset=utf-8;" });
         const link = document.createElement("a");
@@ -181,6 +302,17 @@ export default function TurnoCadastroScreen() {
                         <Download className="h-4 w-4 mr-2" />
                         Exportar
                     </Button>
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Importar
+                    </Button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                    />
                     <Button size="sm" onClick={() => { setDraft({ ...emptyDraft }); setEditOpen(true); }}>
                         <Plus className="h-4 w-4 mr-2" />
                         Novo
@@ -280,6 +412,68 @@ export default function TurnoCadastroScreen() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
                         <Button onClick={save} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={importOpen} onOpenChange={(open) => { if (!importing) { setImportOpen(open); if (!open) setImportRows([]); } }}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Importar Turnos</DialogTitle>
+                        <DialogDescription>
+                            {importResult
+                                ? `Importação concluída: ${importResult.created} criados, ${importResult.updated} atualizados${importResult.errors > 0 ? `, ${importResult.errors} erros` : ""}.`
+                                : `${importRows.length} registro(s). Códigos já existentes serão atualizados.`}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {!importResult && (
+                        <div className="max-h-64 overflow-y-auto border rounded-md">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted sticky top-0">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-medium">Código</th>
+                                        <th className="px-3 py-2 text-left font-medium">Descrição</th>
+                                        <th className="px-3 py-2 text-left font-medium">Início</th>
+                                        <th className="px-3 py-2 text-left font-medium">Fim</th>
+                                        <th className="px-3 py-2 text-left font-medium">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {importRows.slice(0, 50).map((r, i) => (
+                                        <tr key={i} className="border-t">
+                                            <td className="px-3 py-1.5 font-mono">{r.code}</td>
+                                            <td className="px-3 py-1.5">{r.description}</td>
+                                            <td className="px-3 py-1.5 text-muted-foreground">{r.startTime || "—"}</td>
+                                            <td className="px-3 py-1.5 text-muted-foreground">{r.endTime || "—"}</td>
+                                            <td className="px-3 py-1.5">
+                                                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${r.isActive ? "bg-emerald-500/15 text-emerald-700" : "bg-zinc-400/15 text-zinc-600"}`}>
+                                                    {r.isActive ? "Ativo" : "Inativo"}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {importRows.length > 50 && (
+                                        <tr className="border-t">
+                                            <td colSpan={5} className="px-3 py-2 text-center text-muted-foreground text-xs">
+                                                … e mais {importRows.length - 50} registro(s)
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setImportOpen(false); setImportRows([]); setImportResult(null); }} disabled={importing}>
+                            {importResult ? "Fechar" : "Cancelar"}
+                        </Button>
+                        {!importResult && (
+                            <Button onClick={runImport} disabled={importing}>
+                                {importing ? "Importando..." : `Importar ${importRows.length} registro(s)`}
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

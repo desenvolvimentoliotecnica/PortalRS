@@ -123,8 +123,12 @@ builder.Services.AddOutputCache(options =>
 {
     options.AddPolicy("lookup", b => b
         .Expire(TimeSpan.FromMinutes(5))
-        .VaryByValue(ctx => new KeyValuePair<string, string>(
-            "tenant", ctx.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "")));
+        .VaryByValue(ctx =>
+        {
+            var tenant = ctx.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? string.Empty;
+            var qs = ctx.Request.QueryString.Value ?? string.Empty;
+            return new KeyValuePair<string, string>("key", $"{tenant}:{qs}");
+        }));
 });
 builder.Services.AddRateLimiter(options =>
 {

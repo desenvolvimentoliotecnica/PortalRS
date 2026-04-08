@@ -145,6 +145,11 @@ public sealed class VagaService : IVagaService
             .AsNoTracking()
             .Include(x => x.Area)
             .Include(x => x.Department)
+            .Include(x => x.JobPosition)
+            .Include(x => x.CategoriaSalarial)
+            .Include(x => x.CentroCusto)
+            .Include(x => x.Turno)
+            .Include(x => x.UnidadeLotacao)
             .Include(x => x.Beneficios)
             .Include(x => x.Requisitos)
             .Include(x => x.Etapas)
@@ -212,6 +217,11 @@ public sealed class VagaService : IVagaService
             DescricaoInterna = TrimOrNull(request.DescricaoInterna),
             CodigoInterno = TrimOrNull(request.CodigoInterno),
             CodigoCbo = TrimOrNull(request.CodigoCbo),
+            JobPositionId = request.JobPositionId,
+            CategoriaSalarialId = request.CategoriaSalarialId,
+            CentroCustoId = request.CentroCustoId,
+            TurnoId = request.TurnoId,
+            UnidadeLotacaoId = request.UnidadeLotacaoId,
             MotivoAbertura = request.MotivoAbertura,
             OrcamentoAprovado = request.OrcamentoAprovado,
             GestorRequisitante = TrimOrNull(request.GestorRequisitante),
@@ -561,6 +571,21 @@ public sealed class VagaService : IVagaService
             v.DisponibilidadeParaViagens,
             v.ChecagemAntecedentes,
             v.NomeEngessado,
+            v.JobPositionId,
+            v.JobPosition?.Code,
+            v.JobPosition?.Name,
+            v.CategoriaSalarialId,
+            v.CategoriaSalarial?.Code,
+            v.CategoriaSalarial?.Description,
+            v.CentroCustoId,
+            v.CentroCusto?.Code,
+            v.CentroCusto?.Description,
+            v.TurnoId,
+            v.Turno?.Code,
+            v.Turno?.Description,
+            v.UnidadeLotacaoId,
+            v.UnidadeLotacao?.Code,
+            v.UnidadeLotacao?.Description,
             v.Beneficios.OrderBy(x => x.Ordem).Select(MapBeneficio).ToList(),
             v.Requisitos.OrderBy(x => x.Ordem).Select(MapRequisito).ToList(),
             v.Etapas.OrderBy(x => x.Ordem).Select(MapEtapa).ToList(),
@@ -829,6 +854,11 @@ public sealed class VagaService : IVagaService
         entity.DescricaoInterna = TrimOrNull(request.DescricaoInterna);
         entity.CodigoInterno = TrimOrNull(request.CodigoInterno);
         entity.CodigoCbo = TrimOrNull(request.CodigoCbo);
+        entity.JobPositionId = request.JobPositionId;
+        entity.CategoriaSalarialId = request.CategoriaSalarialId;
+        entity.CentroCustoId = request.CentroCustoId;
+        entity.TurnoId = request.TurnoId;
+        entity.UnidadeLotacaoId = request.UnidadeLotacaoId;
         entity.MotivoAbertura = request.MotivoAbertura;
         entity.OrcamentoAprovado = request.OrcamentoAprovado;
         entity.GestorRequisitante = TrimOrNull(request.GestorRequisitante);

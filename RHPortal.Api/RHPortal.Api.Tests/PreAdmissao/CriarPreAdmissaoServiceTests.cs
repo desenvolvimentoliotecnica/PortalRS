@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -48,6 +49,7 @@ public sealed class CriarPreAdmissaoServiceTests
         storage.Setup(x => x.GetPresignedUrl(It.IsAny<string>(), It.IsAny<TimeSpan?>()))
                .Returns("https://s3.mock/presigned");
         var logger = new Mock<ILogger<PreAdmissaoService>>();
+        var httpAccessor = new Mock<IHttpContextAccessor>();
 
         var service = new PreAdmissaoService(
             db,
@@ -56,7 +58,8 @@ public sealed class CriarPreAdmissaoServiceTests
             emailQueue.Object,
             italoService.Object,
             storage.Object,
-            logger.Object);
+            logger.Object,
+            httpAccessor.Object);
 
         return (db, service);
     }

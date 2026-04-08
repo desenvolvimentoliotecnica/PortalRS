@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, Plus, RefreshCw, Pencil, Trash2, Download } from "lucide-react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, Download, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,12 @@ function statusBadge(active: boolean) {
 
 const emptyDraft: Draft = { code: "", description: "", isActive: true };
 
+interface ImportRow {
+    code: string;
+    description: string;
+    isActive: boolean;
+}
+
 export default function CategoriaSalarialCadastroScreen() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<Item[]>([]);
@@ -66,6 +73,13 @@ export default function CategoriaSalarialCadastroScreen() {
     const [draft, setDraft] = useState<Draft>({ ...emptyDraft });
     const [saving, setSaving] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
+
+    // Import state
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [importRows, setImportRows] = useState<ImportRow[]>([]);
+    const [importOpen, setImportOpen] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [importResult, setImportResult] = useState<{ created: number; updated: number; errors: number } | null>(null);
 
     const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(rows.length, {
         initialPageSize: 20,
@@ -160,6 +174,98 @@ export default function CategoriaSalarialCadastroScreen() {
         }
     };
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = "";
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: "array" });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+
+                if (raw.length === 0) {
+                    toast.error("Planilha vazia ou sem dados reconhecidos.");
+                    return;
+                }
+
+                const norm = (s: string) =>
+                    String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+                const parsed: ImportRow[] = raw.map((r) => {
+                    const key = (variants: string[]) => {
+                        const found = Object.keys(r).find((k) => variants.some((v) => norm(k) === norm(v)));
+                        return found ? String(r[found] ?? "").trim() : "";
+                    };
+                    const statusStr = key(["status", "ativo", "ativa"]).toLowerCase();
+                    const isActive = statusStr !== "inativo" && statusStr !== "inactive";
+                    return {
+                        code: key(["codigo", "code"]),
+                        description: key(["descricao", "description"]),
+                        isActive,
+                    };
+                }).filter((r) => r.code && r.description);
+
+                if (parsed.length === 0) {
+                    toast.error("Nenhuma linha válida encontrada. Verifique se as colunas Código e Descrição estão presentes.");
+                    return;
+                }
+
+                setImportRows(parsed);
+                setImportResult(null);
+                setImportOpen(true);
+            } catch (err) {
+                console.error("Erro ao ler planilha:", err);
+                toast.error("Erro ao ler o arquivo. Use .xlsx, .xls ou .csv.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    const runImport = async () => {
+        if (importRows.length === 0) return;
+        setImporting(true);
+
+        const existingMap = new Map(rows.map((r) => [r.code.toLowerCase(), r.id]));
+
+        let created = 0, updated = 0, errors = 0;
+
+        for (const row of importRows) {
+            const payload = {
+                code: row.code,
+                description: row.description,
+                isActive: row.isActive,
+            };
+            try {
+                const existingId = existingMap.get(row.code.toLowerCase());
+                if (existingId) {
+                    await fetchJson(`/api/categorias-salariais/${existingId}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    });
+                    updated++;
+                } else {
+                    await fetchJson("/api/categorias-salariais", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    });
+                    created++;
+                }
+            } catch {
+                errors++;
+            }
+        }
+
+        setImportResult({ created, updated, errors });
+        setImporting(false);
+        await syncList();
+    };
+
     const exportToExcel = () => {
         const header = ["Código", "Descrição", "Status"];
         const data = rows.map((x) => [x.code, x.description, x.isActive ? "Ativo" : "Inativo"]);
@@ -201,6 +307,17 @@ export default function CategoriaSalarialCadastroScreen() {
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Atualizar
                     </Button>
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Importar
+                    </Button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                    />
                     <Button variant="outline" size="sm" onClick={exportToExcel}>
                         <Download className="h-4 w-4 mr-2" />
                         Exportar
@@ -317,6 +434,65 @@ export default function CategoriaSalarialCadastroScreen() {
                         <Button onClick={save} disabled={saving}>
                             {saving ? "Salvando..." : "Salvar"}
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Import Dialog */}
+            <Dialog open={importOpen} onOpenChange={(open) => { if (!importing) { setImportOpen(open); if (!open) setImportRows([]); } }}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Importar Categorias Salariais</DialogTitle>
+                        <DialogDescription>
+                            {importResult
+                                ? `Importação concluída: ${importResult.created} criados, ${importResult.updated} atualizados${importResult.errors > 0 ? `, ${importResult.errors} erros` : ""}.`
+                                : `${importRows.length} registro(s) encontrado(s). Categorias com código já existente serão atualizadas.`}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {!importResult && (
+                        <div className="max-h-64 overflow-y-auto border rounded-md">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted sticky top-0">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-medium">Código</th>
+                                        <th className="px-3 py-2 text-left font-medium">Descrição</th>
+                                        <th className="px-3 py-2 text-left font-medium">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {importRows.slice(0, 50).map((r, i) => (
+                                        <tr key={i} className="border-t">
+                                            <td className="px-3 py-1.5 font-mono">{r.code}</td>
+                                            <td className="px-3 py-1.5">{r.description}</td>
+                                            <td className="px-3 py-1.5">
+                                                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${r.isActive ? "bg-emerald-500/15 text-emerald-700" : "bg-zinc-400/15 text-zinc-600"}`}>
+                                                    {r.isActive ? "Ativo" : "Inativo"}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {importRows.length > 50 && (
+                                        <tr className="border-t">
+                                            <td colSpan={3} className="px-3 py-2 text-center text-muted-foreground text-xs">
+                                                ... e mais {importRows.length - 50} registro(s)
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setImportOpen(false); setImportRows([]); setImportResult(null); }} disabled={importing}>
+                            {importResult ? "Fechar" : "Cancelar"}
+                        </Button>
+                        {!importResult && (
+                            <Button onClick={runImport} disabled={importing}>
+                                {importing ? "Importando..." : `Importar ${importRows.length} registro(s)`}
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

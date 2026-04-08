@@ -358,6 +358,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.Property(x => x.Type).HasMaxLength(180);
             b.Property(x => x.Description).HasMaxLength(1000);
+            b.Property(x => x.SimilarityIndicator).HasMaxLength(1);
+            b.Property(x => x.FullDescription).HasMaxLength(500);
 
             b.HasOne(x => x.Area)
                 .WithMany()
