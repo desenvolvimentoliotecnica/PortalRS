@@ -153,6 +153,7 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
     createItem("nav-admissao", "Admissão", "/admissao", "usercheck"),
     createItem("nav-batidaponto", "Batida de Ponto", "/gestao/batida-ponto", "bi-clock-history"),
     createItem("nav-comissoes", "Pagamento extra", "/gestao/comissoes", "bi-bar-chart"),
+    createItem("nav-desligamentos", "Desligamentos", "/gestao/desligamentos", "bi-person-x"),
   ];
 
   return extras.filter((item) => {
