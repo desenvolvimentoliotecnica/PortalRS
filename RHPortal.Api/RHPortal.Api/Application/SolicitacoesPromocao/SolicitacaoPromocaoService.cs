@@ -339,6 +339,9 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         s.Observacoes,
         s.CreatedAtUtc,
         s.UpdatedAtUtc,
-        s.ApprovedAtUtc
+        s.ApprovedAtUtc,
+        s.IntegracaoResultado,
+        s.IntegracaoMensagem,
+        s.IntegradaEmUtc
     );
 }

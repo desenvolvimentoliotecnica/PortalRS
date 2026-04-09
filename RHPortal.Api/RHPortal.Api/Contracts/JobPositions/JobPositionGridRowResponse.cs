@@ -10,5 +10,6 @@ public sealed record JobPositionGridRowResponse(
     Guid AreaId,
     SeniorityLevel Seniority,
     int FuncionariosCount,
-    CargoStatus Status
+    CargoStatus Status,
+    DateTimeOffset UpdatedAtUtc
 );

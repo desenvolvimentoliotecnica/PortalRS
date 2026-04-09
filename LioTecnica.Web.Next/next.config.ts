@@ -44,6 +44,15 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  /**
+   * URLs antigas de cargos TOTVS → tela unificada /cargos (export estático: usar também rewrite no host se necessário).
+   */
+  async redirects() {
+    return [
+      { source: "/totvs-cargos", destination: "/cargos", permanent: true },
+    ];
+  },
+
   async rewrites() {
     // Dev-only proxy to avoid CORS when API runs on a different port.
     // In production, /api, /health and /bff are routed by reverse proxy/edge.

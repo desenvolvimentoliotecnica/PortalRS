@@ -1,5 +1,6 @@
 using LioTecnica.Api.Contracts.Lookups;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Common;
@@ -487,10 +488,32 @@ public sealed class LookupController : ControllerBase
                 ("needs_validation", triagemReasonNeedsValidation),
                 ("low_experience", triagemReasonLowExperience),
                 ("location_availability", triagemReasonLocationAvailability)
-            )
+            ),
+
+            ["tipoIntegracao"] = BuildEnumOptions<TipoIntegracao>(),
+            ["tipoPagamentoExtra"] = BuildEnumOptions<TipoPagamentoExtra>()
         };
 
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Lista tipos de integração TOTVS com o procedure (.p) correspondente.
+    /// </summary>
+    [HttpGet("tipos-integracao")]
+    [OutputCache(PolicyName = "lookup")]
+    [ProducesResponseType(typeof(IReadOnlyList<TipoIntegracaoMapResponse>), StatusCodes.Status200OK)]
+    public ActionResult<IReadOnlyList<TipoIntegracaoMapResponse>> TiposIntegracao()
+    {
+        var items = Enum.GetValues<TipoIntegracao>()
+            .Select(t => new TipoIntegracaoMapResponse(
+                (short)t,
+                t.ToString(),
+                t.ToDescription(),
+                t.ToProcedureName()))
+            .ToList();
+
+        return Ok(items);
     }
 
     private static IReadOnlyList<EnumOptionResponse> BuildEnumOptions<TEnum>(

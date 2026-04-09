@@ -1,5 +1,5 @@
-import AdmissaoIntegracaoScreen from "@/features/admissao/AdmissaoIntegracaoScreen";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-    return <AdmissaoIntegracaoScreen />;
+    redirect("/integracao-totvs");
 }

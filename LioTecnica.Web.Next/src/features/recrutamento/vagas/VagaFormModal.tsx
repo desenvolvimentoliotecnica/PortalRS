@@ -5,6 +5,11 @@ import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
+import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
+import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
+import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
+import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
 
 const BASE = "/app";
 const UF_LIST = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
@@ -55,6 +60,11 @@ type VagaDraft = {
   areaTime: string; modalidade: string; status: string; senioridade: string;
   quantidadeVagas: number; tipoContratacao: string; matchMinimoPercentual: number;
   descricaoInterna: string; codigoInterno: string; codigoCbo: string;
+  cargoId: string; cargoCode: string; cargoName: string;
+  categoriaSalarialId: string; categoriaSalarialCode: string; categoriaSalarialDescription: string;
+  centroCustoId: string; centroCustoCode: string; centroCustoDescription: string;
+  turnoId: string; turnoCode: string; turnoDescription: string;
+  unidadeLotacaoId: string; unidadeLotacaoCode: string; unidadeLotacaoDescription: string;
   motivoAbertura: string; orcamentoAprovado: string; gestorRequisitante: string;
   recrutadorResponsavel: string; prioridade: string; resumoPitch: string;
   tagsResponsabilidades: string; tagsKeywords: string;
@@ -96,6 +106,11 @@ function emptyDraft(): VagaDraft {
     areaTime: "", modalidade: "presencial", status: "aberta", senioridade: "",
     quantidadeVagas: 1, tipoContratacao: "", matchMinimoPercentual: 70,
     descricaoInterna: "", codigoInterno: "", codigoCbo: "",
+    cargoId: "", cargoCode: "", cargoName: "",
+    categoriaSalarialId: "", categoriaSalarialCode: "", categoriaSalarialDescription: "",
+    centroCustoId: "", centroCustoCode: "", centroCustoDescription: "",
+    turnoId: "", turnoCode: "", turnoDescription: "",
+    unidadeLotacaoId: "", unidadeLotacaoCode: "", unidadeLotacaoDescription: "",
     motivoAbertura: "", orcamentoAprovado: "", gestorRequisitante: "",
     recrutadorResponsavel: "", prioridade: "", resumoPitch: "",
     tagsResponsabilidades: "", tagsKeywords: "",
@@ -303,6 +318,11 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     descricaoInterna: emptyToNull(d.descricaoInterna),
     codigoInterno: emptyToNull(d.codigoInterno),
     codigoCbo: emptyToNull(d.codigoCbo),
+    jobPositionId: emptyToNull(d.cargoId) || null,
+    categoriaSalarialId: emptyToNull(d.categoriaSalarialId) || null,
+    centroCustoId: emptyToNull(d.centroCustoId) || null,
+    turnoId: emptyToNull(d.turnoId) || null,
+    unidadeLotacaoId: emptyToNull(d.unidadeLotacaoId) || null,
     motivoAbertura: emptyToNull(d.motivoAbertura),
     orcamentoAprovado: emptyToNull(d.orcamentoAprovado),
     gestorRequisitante: emptyToNull(d.gestorRequisitante),
@@ -734,7 +754,21 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         quantidadeVagas: pickNum(v.quantidadeVagas, 1), tipoContratacao: pick(v.tipoContratacao),
         matchMinimoPercentual: clamp(pickNum(v.matchMinimoPercentual, 70), 0, 100),
         descricaoInterna: pick(v.descricaoInterna), codigoInterno: pick(v.codigoInterno),
-        codigoCbo: pick(v.codigoCbo), motivoAbertura: pick(v.motivoAbertura),
+        codigoCbo: pick(v.codigoCbo),
+        cargoId: pick(v.jobPositionId), cargoCode: pick(v.jobPositionCode), cargoName: pick(v.jobPositionName),
+        categoriaSalarialId: pick(v.categoriaSalarialId),
+        categoriaSalarialCode: pick(v.categoriaSalarialCode),
+        categoriaSalarialDescription: pick(v.categoriaSalarialDescription),
+        centroCustoId: pick(v.centroCustoId),
+        centroCustoCode: pick(v.centroCustoCode),
+        centroCustoDescription: pick(v.centroCustoDescription),
+        turnoId: pick(v.turnoId),
+        turnoCode: pick(v.turnoCode),
+        turnoDescription: pick(v.turnoDescription),
+        unidadeLotacaoId: pick(v.unidadeLotacaoId),
+        unidadeLotacaoCode: pick(v.unidadeLotacaoCode),
+        unidadeLotacaoDescription: pick(v.unidadeLotacaoDescription),
+        motivoAbertura: pick(v.motivoAbertura),
         orcamentoAprovado: pick(v.orcamentoAprovado), gestorRequisitante: pick(v.gestorRequisitante),
         recrutadorResponsavel: pick(v.recrutadorResponsavel), prioridade: pick(v.prioridade),
         resumoPitch: pick(v.resumoPitch),
@@ -802,6 +836,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     if (!draft.titulo.trim()) { toast.error("Informe o título da vaga."); setTab("dados"); return; }
     if (!draft.areaId) { toast.error("Selecione a área da vaga."); setTab("dados"); return; }
     if (!draft.status) { toast.error("Selecione o status."); setTab("dados"); return; }
+    if (!draft.cargoId) { toast.error("Selecione o cargo."); setTab("dados"); return; }
 
     // Ao publicar, exige campos essenciais preenchidos
     if (draft.status.toLowerCase() === "aberta") {
@@ -996,6 +1031,95 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
               {/* Seção: Códigos */}
               <SectionHeader title="Referências / Códigos" />
+              <Field label="Cargo" required span="col-span-12 md:col-span-8">
+                <CargoAutocomplete
+                  value={draft.cargoCode || draft.cargoId}
+                  defaultCargoLabel={draft.cargoCode ? { code: draft.cargoCode, name: draft.cargoName } : undefined}
+                  onChange={(code) => set("cargoCode", code)}
+                  onSelectId={(id) => set("cargoId", id)}
+                  onSelect={(item: CargoLookup) => {
+                    setDraft(d => ({
+                      ...d,
+                      cargoId: item.id,
+                      cargoCode: item.code,
+                      cargoName: item.name,
+                      // auto-preenche área se ainda não preenchida
+                      areaId: d.areaId || item.areaId || d.areaId,
+                      // auto-preenche senioridade se ainda não preenchida
+                      senioridade: d.senioridade || (item.seniority ? item.seniority.toLowerCase() : ""),
+                    }));
+                  }}
+                  placeholder="Digite código ou nome do cargo..."
+                />
+              </Field>
+              <Field label="Categoria salarial" span="col-span-12 md:col-span-6">
+                <CategoriaSalarialAutocomplete
+                  value={draft.categoriaSalarialCode || draft.categoriaSalarialId}
+                  defaultLabel={draft.categoriaSalarialCode ? { code: draft.categoriaSalarialCode, description: draft.categoriaSalarialDescription } : undefined}
+                  onChange={(code) => set("categoriaSalarialCode", code)}
+                  onSelectId={(id) => set("categoriaSalarialId", id)}
+                  onSelectItem={(item) => {
+                    setDraft((d) => ({
+                      ...d,
+                      categoriaSalarialId: item.id,
+                      categoriaSalarialCode: item.code,
+                      categoriaSalarialDescription: item.description,
+                    }));
+                  }}
+                  placeholder="Buscar categoria salarial..."
+                />
+              </Field>
+              <Field label="Centro de custo" span="col-span-12 md:col-span-6">
+                <CentroCustoAutocomplete
+                  value={draft.centroCustoCode || draft.centroCustoId}
+                  defaultLabel={draft.centroCustoCode ? { code: draft.centroCustoCode, description: draft.centroCustoDescription } : undefined}
+                  onChange={(code) => set("centroCustoCode", code)}
+                  onSelectId={(id) => set("centroCustoId", id)}
+                  onSelectItem={(item) => {
+                    setDraft((d) => ({
+                      ...d,
+                      centroCustoId: item.id,
+                      centroCustoCode: item.code,
+                      centroCustoDescription: item.description,
+                    }));
+                  }}
+                  placeholder="Buscar centro de custo..."
+                />
+              </Field>
+              <Field label="Turno" span="col-span-12 md:col-span-6">
+                <TurnoAutocomplete
+                  value={draft.turnoCode || draft.turnoId}
+                  defaultLabel={draft.turnoCode ? { code: draft.turnoCode, description: draft.turnoDescription } : undefined}
+                  onChange={(code) => set("turnoCode", code)}
+                  onSelectId={(id) => set("turnoId", id)}
+                  onSelectItem={(item) => {
+                    setDraft((d) => ({
+                      ...d,
+                      turnoId: item.id,
+                      turnoCode: item.code,
+                      turnoDescription: item.description,
+                    }));
+                  }}
+                  placeholder="Buscar turno..."
+                />
+              </Field>
+              <Field label="Unidade de lotação" span="col-span-12 md:col-span-6">
+                <UnidadeLotacaoAutocomplete
+                  value={draft.unidadeLotacaoCode || draft.unidadeLotacaoId}
+                  defaultLabel={draft.unidadeLotacaoCode ? { code: draft.unidadeLotacaoCode, description: draft.unidadeLotacaoDescription } : undefined}
+                  onChange={(code) => set("unidadeLotacaoCode", code)}
+                  onSelectId={(id) => set("unidadeLotacaoId", id)}
+                  onSelectItem={(item) => {
+                    setDraft((d) => ({
+                      ...d,
+                      unidadeLotacaoId: item.id,
+                      unidadeLotacaoCode: item.code,
+                      unidadeLotacaoDescription: item.description,
+                    }));
+                  }}
+                  placeholder="Buscar unidade de lotação..."
+                />
+              </Field>
               <Field label="Código interno" span="col-span-6 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="VAG-2025-0012" maxLength={40} value={draft.codigoInterno} onChange={(e) => set("codigoInterno", e.target.value)} /></Field>
               <Field label="Código CBO" span="col-span-6 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0000-00" value={draft.codigoCbo} onChange={(e) => set("codigoCbo", e.target.value)} /></Field>
 

@@ -76,6 +76,15 @@ public sealed class JobPositionResponse
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
+    [JsonPropertyName("occupationalClassification")]
+    public string? OccupationalClassification { get; set; }
+
+    [JsonPropertyName("similarityIndicator")]
+    public string? SimilarityIndicator { get; set; }
+
+    [JsonPropertyName("fullDescription")]
+    public string? FullDescription { get; set; }
+
     [JsonPropertyName("createdAtUtc")]
     public DateTimeOffset CreatedAtUtc { get; set; }
 
@@ -91,7 +100,10 @@ public sealed class JobPositionCreateRequest
     public Guid? AreaId { get; set; }
     public string? Seniority { get; set; }
     public string? Type { get; set; }
+    public string? OccupationalClassification { get; set; }
     public string? Description { get; set; }
+    public string? SimilarityIndicator { get; set; }
+    public string? FullDescription { get; set; }
 }
 
 public sealed class JobPositionUpdateRequest
@@ -102,7 +114,10 @@ public sealed class JobPositionUpdateRequest
     public Guid? AreaId { get; set; }
     public string? Seniority { get; set; }
     public string? Type { get; set; }
+    public string? OccupationalClassification { get; set; }
     public string? Description { get; set; }
+    public string? SimilarityIndicator { get; set; }
+    public string? FullDescription { get; set; }
 }
 
 public sealed class JobPositionLookupItem

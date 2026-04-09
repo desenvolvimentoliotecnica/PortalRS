@@ -314,6 +314,9 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         s.Observacoes,
         s.CreatedAtUtc,
         s.UpdatedAtUtc,
-        s.ApprovedAtUtc
+        s.ApprovedAtUtc,
+        s.IntegracaoResultado,
+        s.IntegracaoMensagem,
+        s.IntegradaEmUtc
     );
 }

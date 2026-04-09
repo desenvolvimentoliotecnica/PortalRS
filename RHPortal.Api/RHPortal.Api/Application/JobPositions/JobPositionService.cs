@@ -67,6 +67,7 @@ public sealed class JobPositionService : IJobPositionService
             AreaName = x.Area != null ? x.Area.Name : string.Empty,
             x.Seniority,
             x.Status,
+            x.UpdatedAtUtc,
             FuncionariosCount = _db.Funcionarios.Count(m => m.JobPositionId != null && m.JobPositionId == x.Id)
         });
 
@@ -116,7 +117,8 @@ public sealed class JobPositionService : IJobPositionService
                 x.AreaId,
                 x.Seniority,
                 x.FuncionariosCount,
-                x.Status
+                x.Status,
+                x.UpdatedAtUtc
             ))
             .ToListAsync(ct);
 
@@ -147,7 +149,10 @@ public sealed class JobPositionService : IJobPositionService
                 x.Area != null ? x.Area.Name : string.Empty,
                 x.Seniority,
                 x.Type,
+                x.OccupationalClassification,
                 x.Description,
+                x.SimilarityIndicator,
+                x.FullDescription,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc
             ))
@@ -176,7 +181,10 @@ public sealed class JobPositionService : IJobPositionService
             AreaId = request.AreaId,
             Seniority = request.Seniority,
             Type = TrimOrNull(request.Type),
-            Description = TrimOrNull(request.Description)
+            OccupationalClassification = TrimOrNull(request.OccupationalClassification),
+            Description = TrimOrNull(request.Description),
+            SimilarityIndicator = TrimSimilarityIndicator(request.SimilarityIndicator),
+            FullDescription = TrimFullDescription(request.FullDescription)
         };
 
         _db.JobPositions.Add(entity);
@@ -207,7 +215,10 @@ public sealed class JobPositionService : IJobPositionService
         entity.AreaId = request.AreaId;
         entity.Seniority = request.Seniority;
         entity.Type = TrimOrNull(request.Type);
+        entity.OccupationalClassification = TrimOrNull(request.OccupationalClassification);
         entity.Description = TrimOrNull(request.Description);
+        entity.SimilarityIndicator = TrimSimilarityIndicator(request.SimilarityIndicator);
+        entity.FullDescription = TrimFullDescription(request.FullDescription);
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
@@ -224,11 +235,18 @@ public sealed class JobPositionService : IJobPositionService
     }
 
     private static string NormalizeCode(string code)
-        => (code ?? string.Empty).Trim().ToUpperInvariant();
+    {
+        var trimmed = (code ?? string.Empty).Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(trimmed))
+            return trimmed;
+        if (!trimmed.StartsWith("CAR-", StringComparison.Ordinal))
+            trimmed = "CAR-" + trimmed;
+        return trimmed;
+    }
 
     private void ValidateCode(string code)
     {
-        if (!code.StartsWith("CAR-"))
+        if (!code.StartsWith("CAR-", StringComparison.Ordinal))
             throw new InvalidOperationException(_localizer["ServiceErrors.JobCodePrefix"]);
 
         if (code.Length < 6)
@@ -237,4 +255,19 @@ public sealed class JobPositionService : IJobPositionService
 
     private static string? TrimOrNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? TrimSimilarityIndicator(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var t = value.Trim();
+        return t.Length == 0 ? null : t[..1];
+    }
+
+    private static string? TrimFullDescription(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var t = value.Trim();
+        if (t.Length <= 500) return t;
+        return t[..500];
+    }
 }

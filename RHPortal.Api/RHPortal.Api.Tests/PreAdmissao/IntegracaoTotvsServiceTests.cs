@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -53,6 +54,7 @@ public sealed class IntegracaoTotvsServiceTests
         storage.Setup(x => x.GetPresignedUrl(It.IsAny<string>(), It.IsAny<TimeSpan?>()))
                .Returns("https://s3.mock/presigned");
         var logger = new Mock<ILogger<PreAdmissaoService>>();
+        var httpAccessor = new Mock<IHttpContextAccessor>();
 
         var service = new PreAdmissaoService(
             db,
@@ -61,7 +63,8 @@ public sealed class IntegracaoTotvsServiceTests
             emailQueue.Object,
             italoService.Object,
             storage.Object,
-            logger.Object);
+            logger.Object,
+            httpAccessor.Object);
 
         return (db, service);
     }
@@ -104,7 +107,7 @@ public sealed class IntegracaoTotvsServiceTests
         var (db, service) = CreateService(TenantA);
 
         var aprovada = SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Aprovada);
-        SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.EmRevisao);      // não aparece
+        SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Preenchido);      // não aparece
         SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Integrada);      // não aparece
         SeedPreAdmissao(db, TenantB, PreAdmissaoStatus.Aprovada);       // outro tenant
 
@@ -308,7 +311,7 @@ public sealed class IntegracaoTotvsServiceTests
 
         SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Aprovada);
         SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Integrada, integracaoResultado: IntegracaoResultado.Sucesso);
-        SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.EmRevisao);     // não aparece
+        SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Preenchido);     // não aparece
         SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Rejeitada);     // não aparece
         SeedPreAdmissao(db, TenantB, PreAdmissaoStatus.Aprovada);      // outro tenant
 
@@ -362,7 +365,7 @@ public sealed class IntegracaoTotvsServiceTests
         SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Aprovada);
         SeedPreAdmissao(db, TenantB, PreAdmissaoStatus.Aprovada);
         SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Integrada, integracaoResultado: IntegracaoResultado.Sucesso);
-        SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.EmRevisao); // não aparece
+        SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Preenchido); // não aparece
 
         var resultado = await service.OwnerListPainelIntegracaoAsync(null, null, CancellationToken.None);
 

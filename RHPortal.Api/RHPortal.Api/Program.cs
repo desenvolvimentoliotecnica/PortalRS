@@ -123,8 +123,12 @@ builder.Services.AddOutputCache(options =>
 {
     options.AddPolicy("lookup", b => b
         .Expire(TimeSpan.FromMinutes(5))
-        .VaryByValue(ctx => new KeyValuePair<string, string>(
-            "tenant", ctx.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? "")));
+        .VaryByValue(ctx =>
+        {
+            var tenant = ctx.Request.Headers["X-Tenant-Id"].FirstOrDefault() ?? string.Empty;
+            var qs = ctx.Request.QueryString.Value ?? string.Empty;
+            return new KeyValuePair<string, string>("key", $"{tenant}:{qs}");
+        }));
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -416,6 +420,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesFerias.ISolicita
 builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesBeneficio.ISolicitacaoBeneficioService, RhPortal.Api.Application.SolicitacoesBeneficio.SolicitacaoBeneficioService>();
 builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesDependente.ISolicitacaoDependenteService, RhPortal.Api.Application.SolicitacoesDependente.SolicitacaoDependenteService>();
 builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesEndereco.ISolicitacaoEnderecoService, RhPortal.Api.Application.SolicitacoesEndereco.SolicitacaoEnderecoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesPagamentoExtra.ISolicitacaoPagamentoExtraService, RhPortal.Api.Application.SolicitacoesPagamentoExtra.SolicitacaoPagamentoExtraService>();
 builder.Services.AddScoped<INivelHierarquicoService, NivelHierarquicoService>();
 builder.Services.AddScoped<IProjetoVagaService, ProjetoVagaService>();
 builder.Services.AddScoped<IFaseProcessoService, FaseProcessoService>();
@@ -431,6 +436,7 @@ builder.Services.Configure<RhPortal.Api.Infrastructure.Storage.AwsOptions>(build
 builder.Services.AddScoped<RhPortal.Api.Application.AwsSettings.IAwsSettingsService, RhPortal.Api.Application.AwsSettings.AwsSettingsService>();
 builder.Services.AddScoped<RhPortal.Api.Infrastructure.Storage.IS3StorageService, RhPortal.Api.Infrastructure.Storage.S3StorageService>();
 builder.Services.AddScoped<IPreAdmissaoService, PreAdmissaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.IntegracaoTotvs.IIntegracaoTotvsService, RhPortal.Api.Application.IntegracaoTotvs.IntegracaoTotvsService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.IAdmissaoPortalService, RhPortal.Api.Application.AdmissaoPortal.AdmissaoPortalService>();
 builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService>(client =>
 {

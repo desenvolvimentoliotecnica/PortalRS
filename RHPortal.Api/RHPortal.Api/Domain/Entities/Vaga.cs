@@ -58,6 +58,23 @@ namespace RHPortal.Api.Domain.Entities
         [StringLength(20)]
         public string? CodigoCbo { get; set; }               // vagaCbo
 
+        // FK para cargo interno (JobPosition)
+        public Guid? JobPositionId { get; set; }
+        public JobPosition? JobPosition { get; set; }
+
+        // FK para cadastros TOTVS
+        public Guid? CategoriaSalarialId { get; set; }
+        public CategoriaSalarial? CategoriaSalarial { get; set; }
+
+        public Guid? CentroCustoId { get; set; }
+        public CentroCusto? CentroCusto { get; set; }
+
+        public Guid? TurnoId { get; set; }
+        public Turno? Turno { get; set; }
+
+        public Guid? UnidadeLotacaoId { get; set; }
+        public UnidadeLotacao? UnidadeLotacao { get; set; }
+
         public VagaMotivoAbertura? MotivoAbertura { get; set; }   // vagaMotivoAbertura
         public VagaOrcamentoAprovado? OrcamentoAprovado { get; set; } // vagaOrcamento
 

@@ -246,6 +246,18 @@
   <data name="Seed.Menu.BloqueioPessoa" xml:space="preserve">
     <value>Pessoa</value>
   </data>
+  <data name="Seed.Menu.CategoriasSalariais" xml:space="preserve">
+    <value>Categoria Salarial</value>
+  </data>
+  <data name="Seed.Menu.Turnos" xml:space="preserve">
+    <value>Turno</value>
+  </data>
+  <data name="Seed.Menu.CentrosCusto" xml:space="preserve">
+    <value>Centro de Custo</value>
+  </data>
+  <data name="Seed.Menu.UnidadesLotacao" xml:space="preserve">
+    <value>Unidade de Lotação</value>
+  </data>
   <data name="Seed.Menu.Usuarios" xml:space="preserve">
     <value>Usuarios</value>
   </data>

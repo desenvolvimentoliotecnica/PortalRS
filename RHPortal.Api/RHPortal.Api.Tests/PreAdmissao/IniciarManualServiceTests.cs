@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -62,10 +63,12 @@ public sealed class IniciarManualServiceTests
             .Returns(Task.CompletedTask);
 
         var logger = new Mock<ILogger<PreAdmissaoService>>();
+        var httpAccessor = new Mock<IHttpContextAccessor>();
 
         var service = new PreAdmissaoService(
             db, tenantMock.Object, userManager.Object,
-            emailQueue.Object, italoService.Object, storageMock.Object, logger.Object);
+            emailQueue.Object, italoService.Object, storageMock.Object, logger.Object,
+            httpAccessor.Object);
 
         return (db, service, storageMock);
     }
@@ -121,15 +124,18 @@ public sealed class IniciarManualServiceTests
     }
 
     [Fact]
-    public async Task IniciarManual_CandidatoNaoAprovado_LancaInvalidOperationException()
+    public async Task IniciarManual_CandidatoNaoAprovado_AutoAprovaECriaPreAdmissao()
     {
         var (db, svc, _) = CriarServico();
         var candidatoId = SeedCandidato(db, CandidateStatus.Triagem);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => svc.IniciarManualAsync(
-                new IniciarManualRequest(candidatoId, null, null, null, null, null, null),
-                CancellationToken.None));
+        var result = await svc.IniciarManualAsync(
+            new IniciarManualRequest(candidatoId, null, null, null, null, null, null),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        var c = await db.Candidatos.IgnoreQueryFilters().FirstAsync(x => x.Id == candidatoId);
+        Assert.Equal(CandidateStatus.Aprovado, c.Status);
     }
 
     [Fact]
@@ -206,7 +212,7 @@ public sealed class IniciarManualServiceTests
 
         storageMock.Verify(x => x.UploadAsync(
             It.IsAny<Stream>(),
-            It.Is<string>(k => k.StartsWith($"admissao/{TenantTeste}/{preAdmissao.Id}/")),
+            It.Is<string>(k => k.StartsWith($"{TenantTeste}/admissao/{preAdmissao.Id:N}/")),
             "application/pdf",
             It.IsAny<CancellationToken>()), Times.Once);
     }

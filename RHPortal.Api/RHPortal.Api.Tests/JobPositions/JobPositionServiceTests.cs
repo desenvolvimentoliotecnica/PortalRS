@@ -66,7 +66,7 @@ public sealed class JobPositionServiceTests
     }
 
     private static JobPositionCreateRequest RequestMinimo(Guid areaId, string code = "CAR-001") =>
-        new(code, "Cargo Teste", CargoStatus.Active, areaId, SeniorityLevel.Pleno, null, null);
+        new(code, "Cargo Teste", CargoStatus.Active, areaId, SeniorityLevel.Pleno, null, null, null, null, null);
 
     // ── Criação ───────────────────────────────────────────────────────────────
 
@@ -87,14 +87,14 @@ public sealed class JobPositionServiceTests
     }
 
     [Fact]
-    public async Task Create_SemPrefixoCAR_LancaInvalidOperationException()
+    public async Task Create_CodigoSemPrefixoCAR_PrefixaAutomaticamente()
     {
         var (db, svc) = CriarServico();
         var areaId = SeedArea(db);
 
-        // Código sem prefixo "CAR-"
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => svc.CreateAsync(RequestMinimo(areaId, "TI-001"), CancellationToken.None));
+        var result = await svc.CreateAsync(RequestMinimo(areaId, "TI-001"), CancellationToken.None);
+
+        Assert.Equal("CAR-TI-001", result.Code);
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public sealed class JobPositionServiceTests
 
         var request = new JobPositionCreateRequest(
             "CAR-002", "Desenvolvedor Senior", CargoStatus.Active, areaId,
-            SeniorityLevel.Senior, "Técnico", "Desenvolve sistemas web");
+            SeniorityLevel.Senior, "Técnico", null, "Desenvolve sistemas web", null, null);
 
         var result = await svc.CreateAsync(request, CancellationToken.None);
 
@@ -184,7 +184,7 @@ public sealed class JobPositionServiceTests
         var areaId = SeedArea(db);
 
         var request = new JobPositionUpdateRequest(
-            "CAR-X01", "Nome", CargoStatus.Active, areaId, SeniorityLevel.Junior, null, null);
+            "CAR-X01", "Nome", CargoStatus.Active, areaId, SeniorityLevel.Junior, null, null, null, null, null);
 
         var result = await svc.UpdateAsync(Guid.NewGuid(), request, CancellationToken.None);
 
@@ -201,7 +201,7 @@ public sealed class JobPositionServiceTests
         var cargo2 = await svc.CreateAsync(RequestMinimo(areaId, "CAR-B02"), CancellationToken.None);
 
         var request = new JobPositionUpdateRequest(
-            "CAR-A01", "Novo Nome", CargoStatus.Active, areaId, SeniorityLevel.Pleno, null, null);
+            "CAR-A01", "Novo Nome", CargoStatus.Active, areaId, SeniorityLevel.Pleno, null, null, null, null, null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.UpdateAsync(cargo2.Id, request, CancellationToken.None));
@@ -217,7 +217,7 @@ public sealed class JobPositionServiceTests
 
         var request = new JobPositionUpdateRequest(
             "CAR-UPD", "Nome Atualizado", CargoStatus.Inactive, areaId,
-            SeniorityLevel.Senior, "Técnico", "Descrição nova");
+            SeniorityLevel.Senior, "Técnico", null, "Descrição nova", null, null);
 
         var result = await svc.UpdateAsync(created.Id, request, CancellationToken.None);
 
@@ -280,10 +280,10 @@ public sealed class JobPositionServiceTests
         var areaId = SeedArea(db);
 
         await svc.CreateAsync(
-            new JobPositionCreateRequest("CAR-AT1", "Ativo", CargoStatus.Active, areaId, SeniorityLevel.Pleno, null, null),
+            new JobPositionCreateRequest("CAR-AT1", "Ativo", CargoStatus.Active, areaId, SeniorityLevel.Pleno, null, null, null, null, null),
             CancellationToken.None);
         await svc.CreateAsync(
-            new JobPositionCreateRequest("CAR-IN1", "Inativo", CargoStatus.Inactive, areaId, SeniorityLevel.Pleno, null, null),
+            new JobPositionCreateRequest("CAR-IN1", "Inativo", CargoStatus.Inactive, areaId, SeniorityLevel.Pleno, null, null, null, null, null),
             CancellationToken.None);
 
         var query = new JobPositionListQuery(null, CargoStatus.Active, null, null);
@@ -300,10 +300,10 @@ public sealed class JobPositionServiceTests
         var areaId = SeedArea(db);
 
         await svc.CreateAsync(
-            new JobPositionCreateRequest("CAR-JN1", "Junior", CargoStatus.Active, areaId, SeniorityLevel.Junior, null, null),
+            new JobPositionCreateRequest("CAR-JN1", "Junior", CargoStatus.Active, areaId, SeniorityLevel.Junior, null, null, null, null, null),
             CancellationToken.None);
         await svc.CreateAsync(
-            new JobPositionCreateRequest("CAR-SR1", "Senior", CargoStatus.Active, areaId, SeniorityLevel.Senior, null, null),
+            new JobPositionCreateRequest("CAR-SR1", "Senior", CargoStatus.Active, areaId, SeniorityLevel.Senior, null, null, null, null, null),
             CancellationToken.None);
 
         var query = new JobPositionListQuery(null, null, null, SeniorityLevel.Senior);

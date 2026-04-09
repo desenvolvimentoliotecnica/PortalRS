@@ -308,7 +308,7 @@ export default function TopbarClient({
 
                   {/* Integração TOTVS */}
                   <DropdownMenuItem asChild>
-                    <Link href="/admissao/integracao">
+                    <Link href="/integracao-totvs">
                       <ArrowRightLeft className="size-4 mr-2" />
                       Integração TOTVS
                     </Link>

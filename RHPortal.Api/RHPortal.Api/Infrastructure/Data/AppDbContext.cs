@@ -52,6 +52,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<SolicitacaoBeneficio> SolicitacoesBeneficio => Set<SolicitacaoBeneficio>();
     public DbSet<SolicitacaoDependente> SolicitacoesDependente => Set<SolicitacaoDependente>();
     public DbSet<SolicitacaoEndereco> SolicitacoesEndereco => Set<SolicitacaoEndereco>();
+    public DbSet<SolicitacaoPagamentoExtra> SolicitacoesPagamentoExtra => Set<SolicitacaoPagamentoExtra>();
     public DbSet<Dependente> Dependentes => Set<Dependente>();
     public DbSet<DocumentoColaborador> DocumentosColaborador => Set<DocumentoColaborador>();
     public DbSet<PreAdmissao> PreAdmissoes => Set<PreAdmissao>();
@@ -130,6 +131,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<TenantAwsSettings> TenantAwsSettings => Set<TenantAwsSettings>();
     public DbSet<CandidatoVagaMatchingScore> CandidatoVagaMatchingScores => Set<CandidatoVagaMatchingScore>();
     public DbSet<VagaUnifiedMatchingCache> VagaUnifiedMatchingCaches => Set<VagaUnifiedMatchingCache>();
+    public DbSet<Cargo> Cargos => Set<Cargo>();
+    public DbSet<CategoriaSalarial> CategoriasSalariais => Set<CategoriaSalarial>();
+    public DbSet<Turno> Turnos => Set<Turno>();
+    public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();
+    public DbSet<UnidadeLotacao> UnidadesLotacao => Set<UnidadeLotacao>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -353,6 +359,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.Property(x => x.Type).HasMaxLength(180);
             b.Property(x => x.Description).HasMaxLength(1000);
+            b.Property(x => x.SimilarityIndicator).HasMaxLength(1);
+            b.Property(x => x.FullDescription).HasMaxLength(500);
 
             b.HasOne(x => x.Area)
                 .WithMany()
@@ -361,6 +369,88 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
 
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Cargo>(b =>
+        {
+            b.ToTable("Cargos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(120).IsRequired();
+            b.Property(x => x.OccupationalClassification).HasMaxLength(30);
+            b.Property(x => x.CargoType).HasMaxLength(30);
+            b.Property(x => x.SimilarityIndicator).HasMaxLength(1);
+            b.Property(x => x.FullDescription).HasMaxLength(500);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasIndex(x => x.IsActive);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CategoriaSalarial>(b =>
+        {
+            b.ToTable("CategoriasSalariais");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(10).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(120).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasIndex(x => x.IsActive);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Turno>(b =>
+        {
+            b.ToTable("Turnos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(120).IsRequired();
+            b.Property(x => x.StartTime).HasMaxLength(5);
+            b.Property(x => x.EndTime).HasMaxLength(5);
+            b.Property(x => x.Notes).HasMaxLength(500);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasIndex(x => x.IsActive);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CentroCusto>(b =>
+        {
+            b.ToTable("CentrosCusto");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Manager).HasMaxLength(120);
+            b.Property(x => x.Notes).HasMaxLength(500);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasIndex(x => x.IsActive);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<UnidadeLotacao>(b =>
+        {
+            b.ToTable("UnidadesLotacao");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Location).HasMaxLength(120);
+            b.Property(x => x.Manager).HasMaxLength(120);
+            b.Property(x => x.Notes).HasMaxLength(500);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasIndex(x => x.IsActive);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

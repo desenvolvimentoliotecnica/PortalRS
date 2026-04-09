@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -61,10 +62,12 @@ public sealed class PreAdmissaoWorkflowTests
         storage.Setup(x => x.GetPresignedUrl(It.IsAny<string>(), It.IsAny<TimeSpan?>()))
                .Returns("https://s3.mock/presigned");
         var logger = new Mock<ILogger<PreAdmissaoService>>();
+        var httpAccessor = new Mock<IHttpContextAccessor>();
 
         var service = new PreAdmissaoService(
             db, tenantMock.Object, userManager.Object,
-            emailQueue.Object, italoService.Object, storage.Object, logger.Object);
+            emailQueue.Object, italoService.Object, storage.Object, logger.Object,
+            httpAccessor.Object);
 
         return (db, service);
     }
@@ -113,10 +116,10 @@ public sealed class PreAdmissaoWorkflowTests
         return pessoa.Id;
     }
 
-    // ── Submit (Rascunho → EmRevisão) ─────────────────────────────────────────
+    // ── Submit (Rascunho/Enviado → Preenchido) ────────────────────────────────
 
     [Fact]
-    public async Task Submit_StatusRascunho_TransicionaParaEmRevisao()
+    public async Task Submit_StatusRascunho_TransicionaParaPreenchido()
     {
         var (db, svc) = CriarServico();
         var id = SeedPreAdmissao(db, PreAdmissaoStatus.Rascunho);
@@ -124,28 +127,27 @@ public sealed class PreAdmissaoWorkflowTests
         var result = await svc.SubmitAsync(id, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(PreAdmissaoStatus.EmRevisao, result.Status);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
         Assert.NotNull(result.SubmittedAtUtc);
     }
 
     [Fact]
-    public async Task Submit_StatusPreenchimentoPendente_TransicionaParaEmRevisao()
+    public async Task Submit_StatusEnviado_TransicionaParaPreenchido()
     {
-        // Fluxo Ítalo: candidato preenche e submete via link externo
         var (db, svc) = CriarServico();
-        var id = SeedPreAdmissao(db, PreAdmissaoStatus.PreenchimentoPendente);
+        var id = SeedPreAdmissao(db, PreAdmissaoStatus.Enviado);
 
         var result = await svc.SubmitAsync(id, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(PreAdmissaoStatus.EmRevisao, result.Status);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
     }
 
     [Fact]
-    public async Task Submit_StatusEmRevisao_LancaInvalidOperationException()
+    public async Task Submit_StatusPreenchido_LancaInvalidOperationException()
     {
         var (db, svc) = CriarServico();
-        var id = SeedPreAdmissao(db, PreAdmissaoStatus.EmRevisao);
+        var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.SubmitAsync(id, CancellationToken.None));
@@ -175,14 +177,14 @@ public sealed class PreAdmissaoWorkflowTests
         Assert.False(result.ValidacaoCpfOk);
     }
 
-    // ── Approve (EmRevisão → Aprovada) ────────────────────────────────────────
+    // ── Approve (Preenchido → Aprovada) ───────────────────────────────────────
 
     [Fact]
-    public async Task Approve_StatusEmRevisao_TransicionaParaAprovada()
+    public async Task Approve_StatusPreenchido_TransicionaParaAprovada()
     {
         // Sem email → CriarColaboradorAsync retorna early, sem chamar UserManager
         var (db, svc) = CriarServico();
-        var id = SeedPreAdmissao(db, PreAdmissaoStatus.EmRevisao, email: null);
+        var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido, email: null);
         var aprovadorId = Guid.NewGuid();
 
         var result = await svc.ApproveAsync(
@@ -220,13 +222,13 @@ public sealed class PreAdmissaoWorkflowTests
         Assert.Null(result);
     }
 
-    // ── Reject (EmRevisão → Rejeitada) ────────────────────────────────────────
+    // ── Reject (Preenchido → Rejeitada) ───────────────────────────────────────
 
     [Fact]
-    public async Task Reject_StatusEmRevisao_TransicionaParaRejeitada()
+    public async Task Reject_StatusPreenchido_TransicionaParaRejeitada()
     {
         var (db, svc) = CriarServico();
-        var id = SeedPreAdmissao(db, PreAdmissaoStatus.EmRevisao);
+        var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido);
 
         var result = await svc.RejectAsync(
             id, new PreAdmissaoRejectRequest("Documentos incompletos"),
@@ -318,7 +320,7 @@ public sealed class PreAdmissaoWorkflowTests
     public async Task RegistrarIntegracao_StatusNaoAprovado_RetornaErro()
     {
         var (db, svc) = CriarServico();
-        var id = SeedPreAdmissao(db, PreAdmissaoStatus.EmRevisao);
+        var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido);
 
         var (result, error) = await svc.RegistrarResultadoIntegracaoAsync(
             id, new IntegracaoResultadoRequest("sucesso", null),

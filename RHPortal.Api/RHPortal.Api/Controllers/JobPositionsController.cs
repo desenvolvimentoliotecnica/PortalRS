@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.JobPositions.Handlers;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.JobPositions;
+using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Data;
 
 namespace RhPortal.Api.Controllers;
 
@@ -24,6 +27,44 @@ public sealed class JobPositionsController : ControllerBase
         [FromServices] IListJobPositionsHandler handler,
         CancellationToken ct)
         => Ok(await handler.HandleAsync(query, ct));
+
+    /// <summary>
+    /// Retorna lista simplificada de cargos para autocomplete/lookup.
+    /// </summary>
+    [HttpGet("lookup")]
+    [ProducesResponseType(typeof(List<JobPositionLookupItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<JobPositionLookupItem>>> Lookup(
+        [FromQuery] string? search,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var query = db.JobPositions
+            .AsNoTracking()
+            .Include(x => x.Area)
+            .Where(x => x.Status == CargoStatus.Active);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            query = query.Where(x =>
+                x.Name.ToLower().Contains(s) ||
+                x.Code.ToLower().Contains(s));
+        }
+
+        var items = await query
+            .OrderBy(x => x.Name)
+            .Take(50)
+            .Select(x => new JobPositionLookupItem(
+                x.Id,
+                x.Code,
+                x.Name,
+                x.AreaId,
+                x.Area != null ? x.Area.Name : null,
+                x.Seniority.ToString()))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
 
     /// <summary>
     /// Consulta um cargo pelo ID.

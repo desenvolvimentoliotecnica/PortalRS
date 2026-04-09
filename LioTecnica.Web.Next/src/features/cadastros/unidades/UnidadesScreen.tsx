@@ -16,6 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CategoriaSalarialCadastroScreen from "@/features/cadastros/totvs/CategoriaSalarialCadastroScreen";
+import TurnoCadastroScreen from "@/features/cadastros/totvs/TurnoCadastroScreen";
+import CentroCustoCadastroScreen from "@/features/cadastros/totvs/CentroCustoCadastroScreen";
+import UnidadeLotacaoCadastroScreen from "@/features/cadastros/totvs/UnidadeLotacaoCadastroScreen";
 
 /* ------------------------------------------------------------------ */
 /*  Types – match the RHPortal.Api contracts                           */
@@ -135,7 +140,7 @@ const emptyDraft: UnidadeDraft = {
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function UnidadesScreen() {
+function UnidadesUnidadesTab() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<UnitGridRow[]>([]);
     const [q, setQ] = useState("");
@@ -267,7 +272,7 @@ export default function UnidadesScreen() {
     }
 
     return (
-        <section className="space-y-4">
+        <div className="space-y-4">
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-lg font-bold">Unidades e filiais</h4>
@@ -444,6 +449,37 @@ export default function UnidadesScreen() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+        </div>
+    );
+}
+
+export default function UnidadesScreen() {
+    return (
+        <section className="space-y-4">
+            <Tabs defaultValue="unidades" className="w-full">
+                <TabsList className="mb-3 flex h-auto min-h-10 w-full flex-wrap justify-start gap-1">
+                    <TabsTrigger value="unidades">Unidades</TabsTrigger>
+                    <TabsTrigger value="categoria-salarial">Categoria salarial</TabsTrigger>
+                    <TabsTrigger value="turno">Turno</TabsTrigger>
+                    <TabsTrigger value="centro-custo">Centro de custo</TabsTrigger>
+                    <TabsTrigger value="unidade-lotacao">Unidade de lotação</TabsTrigger>
+                </TabsList>
+                <TabsContent value="unidades" className="!mt-0">
+                    <UnidadesUnidadesTab />
+                </TabsContent>
+                <TabsContent value="categoria-salarial" className="!mt-0">
+                    <CategoriaSalarialCadastroScreen />
+                </TabsContent>
+                <TabsContent value="turno" className="!mt-0">
+                    <TurnoCadastroScreen />
+                </TabsContent>
+                <TabsContent value="centro-custo" className="!mt-0">
+                    <CentroCustoCadastroScreen />
+                </TabsContent>
+                <TabsContent value="unidade-lotacao" className="!mt-0">
+                    <UnidadeLotacaoCadastroScreen />
+                </TabsContent>
+            </Tabs>
         </section>
     );
 }

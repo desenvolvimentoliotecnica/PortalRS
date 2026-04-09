@@ -19,6 +19,7 @@ import {
   ClipboardList,
   Clock,
   CloudUpload,
+  Coins,
   FileUp,
   Filter,
   Gauge,
@@ -32,9 +33,11 @@ import {
   LayoutDashboard,
   ListChecks,
   Mail,
+  MapPin,
   MessageSquare,
   Network,
   NotebookPen,
+  Receipt,
   Search,
   SearchCheck,
   Send,
@@ -43,6 +46,7 @@ import {
   Smile,
   Sparkles,
   Tags,
+  Timer,
   TrendingUp,
   Trophy,
   UserCheck,
@@ -91,6 +95,11 @@ const ICONS: Record<string, LucideIcon> = {
   "bi-journal-check": BookCheck,
   "bi-emoji-smile": Smile,
   "bi-activity": Activity,
+  // Cadastros TOTVS
+  "bi-cash-coin": Coins,
+  "bi-clock": Timer,
+  "bi-receipt": Receipt,
+  "bi-geo-alt": MapPin,
   // Cadastros
   "bi-graph-up": TrendingUp,
   "bi-diagram-2": Network,
@@ -237,10 +246,13 @@ const RECRUTAMENTO_ROUTES = new Set<string>([
 const OPERACIONAL_ROUTES = new Set([
   "/agendas", "/entradaemailpasta",
   "/gestao/batida-ponto", "/gestao/comissoes",
+  "/gestao/desligamentos",
 ]);
 const CADASTROS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
   "/unidades", "/funcionarios", "/pessoas",
+  "/categorias-salariais", "/turnos",
+  "/centros-custo", "/unidades-lotacao",
 ]);
 // Gestão de Pessoas (people management, não recrutamento)
 const GESTAO_PESSOAS_ROUTES = new Set([

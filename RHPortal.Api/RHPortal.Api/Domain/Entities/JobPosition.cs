@@ -1,4 +1,4 @@
-﻿using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Domain.Entities;
 
@@ -17,8 +17,9 @@ public sealed class JobPosition : ITenantEntity
 
     public SeniorityLevel Seniority { get; set; } = SeniorityLevel.Pleno;
 
-    public string? Type { get; set; }              // "Operacional, Liderança..."
-    public string? Description { get; set; }       // "Resumo do escopo"
+    public string? Type { get; set; }                          // "Operacional, Liderança..."
+    public string? OccupationalClassification { get; set; }   // cod_classific_ocupac
+    public string? Description { get; set; }                  // "Resumo do escopo"
 
     /// <summary>Descrição editável pelo RH para publicação de vaga. Pode ser diferente do Description interno.</summary>
     public string? DescricaoPublicacao { get; set; }
@@ -26,6 +27,12 @@ public sealed class JobPosition : ITenantEntity
     /// <summary>Nível hierárquico do cargo (Diretor, Gerente, Analista etc.). Opcional.</summary>
     public Guid? NivelHierarquicoId { get; set; }
     public NivelHierarquico? NivelHierarquico { get; set; }
+
+    /// <summary>Indicador de similaridade (legado TOTVS idi_similaridad).</summary>
+    public string? SimilarityIndicator { get; set; }
+
+    /// <summary>Descrição completa do cargo (legado TOTVS dsl_complet_cargo).</summary>
+    public string? FullDescription { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
