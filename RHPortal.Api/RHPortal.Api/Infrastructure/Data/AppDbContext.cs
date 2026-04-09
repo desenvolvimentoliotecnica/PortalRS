@@ -52,6 +52,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<SolicitacaoBeneficio> SolicitacoesBeneficio => Set<SolicitacaoBeneficio>();
     public DbSet<SolicitacaoDependente> SolicitacoesDependente => Set<SolicitacaoDependente>();
     public DbSet<SolicitacaoEndereco> SolicitacoesEndereco => Set<SolicitacaoEndereco>();
+    public DbSet<SolicitacaoPagamentoExtra> SolicitacoesPagamentoExtra => Set<SolicitacaoPagamentoExtra>();
     public DbSet<Dependente> Dependentes => Set<Dependente>();
     public DbSet<DocumentoColaborador> DocumentosColaborador => Set<DocumentoColaborador>();
     public DbSet<PreAdmissao> PreAdmissoes => Set<PreAdmissao>();

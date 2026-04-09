@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Domain.Entities;
@@ -48,4 +49,13 @@ public sealed class SolicitacaoEndereco : ITenantEntity
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public DateTimeOffset? ApprovedAtUtc { get; set; }
+
+    // ── Integração TOTVS ──
+
+    public IntegracaoResultado? IntegracaoResultado { get; set; }
+
+    [StringLength(2000)]
+    public string? IntegracaoMensagem { get; set; }
+
+    public DateTimeOffset? IntegradaEmUtc { get; set; }
 }

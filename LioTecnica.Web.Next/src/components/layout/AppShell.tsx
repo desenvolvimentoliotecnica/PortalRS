@@ -17,10 +17,23 @@ const OWNER_NAV_ITEMS: BffNavItem[] = [
   { id: "__owner_integracao", label: "Integração", href: "/Owner/Integracao", icon: "arrow-right-left", openInNewTab: false, children: [] },
 ];
 
+/* Cadastros extras — injetados estaticamente para garantir que apareçam no menu
+   mesmo antes do seeder do backend ter inserido os registros no banco. */
+const STATIC_CADASTROS_EXTRAS: BffNavItem[] = [
+  { id: "__cat_sal", label: "Categoria Salarial", href: "/Categorias-Salariais", icon: "bi-cash-coin", openInNewTab: false, children: [] },
+  { id: "__turnos", label: "Turno", href: "/Turnos", icon: "bi-clock", openInNewTab: false, children: [] },
+  { id: "__cc", label: "Centro de Custo", href: "/Centros-Custo", icon: "bi-receipt", openInNewTab: false, children: [] },
+  { id: "__ul", label: "Unidade de Lotação", href: "/Unidades-Lotacao", icon: "bi-geo-alt", openInNewTab: false, children: [] },
+];
+
 function mergeTenantExtras(tree: BffNavItem[], me: BffMe): BffNavItem[] {
   const existingKeys = collectNavRouteKeys(tree);
   const extras = buildTenantExtraNavItems(me).filter((item) => !existingKeys.has(toNavRouteKey(item.href)));
-  return [...tree, ...extras];
+  // Inject static cadastros if not already present from DB
+  const staticExtras = STATIC_CADASTROS_EXTRAS.filter(
+    (item) => !existingKeys.has(toNavRouteKey(item.href))
+  );
+  return [...tree, ...extras, ...staticExtras];
 }
 
 function AppShellInner({ children }: { children: ReactNode }) {

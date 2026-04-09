@@ -299,6 +299,7 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
         s.Aprovador2Id, s.Aprovador2?.Name, s.Aprovador2Status, s.Aprovador2DataUtc,
         s.Aprovador2Habilitado,
         s.ObservacaoAprovador, s.Observacoes,
-        s.CreatedAtUtc, s.UpdatedAtUtc, s.ApprovedAtUtc
+        s.CreatedAtUtc, s.UpdatedAtUtc, s.ApprovedAtUtc,
+        s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc
     );
 }

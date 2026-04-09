@@ -90,7 +90,10 @@ public sealed record SolicitacaoPromocaoResponse(
     string? Observacoes,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
-    DateTimeOffset? ApprovedAtUtc
+    DateTimeOffset? ApprovedAtUtc,
+    IntegracaoResultado? IntegracaoResultado,
+    string? IntegracaoMensagem,
+    DateTimeOffset? IntegradaEmUtc
 );
 
 public sealed record SolicitacaoPromocaoGridRow(

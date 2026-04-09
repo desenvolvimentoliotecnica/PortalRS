@@ -41,7 +41,8 @@ public sealed record SolicitacaoDependenteResponse(
     Guid? Aprovador2Id, string? Aprovador2Nome, StatusAprovacao? Aprovador2Status, DateTimeOffset? Aprovador2DataUtc,
     bool Aprovador2Habilitado,
     string? ObservacaoAprovador, string? Observacoes,
-    DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, DateTimeOffset? ApprovedAtUtc
+    DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, DateTimeOffset? ApprovedAtUtc,
+    IntegracaoResultado? IntegracaoResultado, string? IntegracaoMensagem, DateTimeOffset? IntegradaEmUtc
 );
 
 public sealed class SolicitacaoDependenteApprovalRequest

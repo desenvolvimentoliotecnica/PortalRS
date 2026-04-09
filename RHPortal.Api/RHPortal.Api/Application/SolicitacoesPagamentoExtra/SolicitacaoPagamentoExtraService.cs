@@ -1,34 +1,34 @@
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Common;
-using RhPortal.Api.Contracts.SolicitacoesDesligamento;
+using RhPortal.Api.Contracts.SolicitacoesPagamentoExtra;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
-namespace RhPortal.Api.Application.SolicitacoesDesligamento;
+namespace RhPortal.Api.Application.SolicitacoesPagamentoExtra;
 
-public interface ISolicitacaoDesligamentoService
+public interface ISolicitacaoPagamentoExtraService
 {
-    Task<IReadOnlyList<SolicitacaoDesligamentoGridRow>> ListAsync(SolicitacaoDesligamentoListQuery query, Guid? currentFuncionarioId, CancellationToken ct);
-    Task<SolicitacaoDesligamentoResponse?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<SolicitacaoDesligamentoResponse> CreateAsync(SolicitacaoDesligamentoCreateRequest request, Guid? solicitanteId, CancellationToken ct);
-    Task<SolicitacaoDesligamentoResponse?> UpdateAsync(Guid id, SolicitacaoDesligamentoUpdateRequest request, CancellationToken ct);
+    Task<IReadOnlyList<SolicitacaoPagamentoExtraGridRow>> ListAsync(SolicitacaoPagamentoExtraListQuery query, Guid? currentFuncionarioId, CancellationToken ct);
+    Task<SolicitacaoPagamentoExtraResponse?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoPagamentoExtraResponse> CreateAsync(SolicitacaoPagamentoExtraCreateRequest request, Guid? solicitanteId, CancellationToken ct);
+    Task<SolicitacaoPagamentoExtraResponse?> UpdateAsync(Guid id, SolicitacaoPagamentoExtraUpdateRequest request, CancellationToken ct);
     Task<bool> SubmitAsync(Guid id, CancellationToken ct);
-    Task<SolicitacaoDesligamentoResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct);
-    Task<SolicitacaoDesligamentoResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct);
-    Task<SolicitacaoDesligamentoResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<SolicitacaoPagamentoExtraResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<SolicitacaoPagamentoExtraResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<SolicitacaoPagamentoExtraResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
 }
 
-public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoService
+public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtraService
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
 
-    public SolicitacaoDesligamentoService(
+    public SolicitacaoPagamentoExtraService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
@@ -40,10 +40,10 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         _workflow = workflow;
     }
 
-    public async Task<IReadOnlyList<SolicitacaoDesligamentoGridRow>> ListAsync(
-        SolicitacaoDesligamentoListQuery query, Guid? currentFuncionarioId, CancellationToken ct)
+    public async Task<IReadOnlyList<SolicitacaoPagamentoExtraGridRow>> ListAsync(
+        SolicitacaoPagamentoExtraListQuery query, Guid? currentFuncionarioId, CancellationToken ct)
     {
-        var q = _db.SolicitacoesDesligamento.AsNoTracking()
+        var q = _db.SolicitacoesPagamentoExtra.AsNoTracking()
             .Include(s => s.Solicitante)
             .Include(s => s.Funcionario)
             .AsQueryable();
@@ -62,7 +62,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             var term = query.Q.Trim().ToLower();
             q = q.Where(s =>
                 (s.Funcionario != null && s.Funcionario.Name.ToLower().Contains(term)) ||
-                s.MotivoDesligamento.ToLower().Contains(term));
+                s.Descricao.ToLower().Contains(term));
         }
 
         q = q.OrderByDescending(s => s.CreatedAtUtc);
@@ -71,20 +71,19 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         var pageSize = Math.Clamp(query.PageSize ?? 20, 1, 100);
         q = q.Skip((page - 1) * pageSize).Take(pageSize);
 
-        return await q.Select(s => new SolicitacaoDesligamentoGridRow(
-            s.Id,
-            s.Status,
+        return await q.Select(s => new SolicitacaoPagamentoExtraGridRow(
+            s.Id, s.Status,
             s.Solicitante != null ? s.Solicitante.Name : null,
             s.Funcionario != null ? s.Funcionario.Name : null,
-            s.TipoDesligamento,
-            s.DataDesligamento,
+            s.TipoPagamentoExtra,
+            s.Valor, s.DataPagamento,
             s.CreatedAtUtc
         )).ToListAsync(ct);
     }
 
-    public async Task<SolicitacaoDesligamentoResponse?> GetByIdAsync(Guid id, CancellationToken ct)
+    public async Task<SolicitacaoPagamentoExtraResponse?> GetByIdAsync(Guid id, CancellationToken ct)
     {
-        var s = await _db.SolicitacoesDesligamento.AsNoTracking()
+        var s = await _db.SolicitacoesPagamentoExtra.AsNoTracking()
             .Include(x => x.Solicitante)
             .Include(x => x.Funcionario)
             .Include(x => x.Aprovador1)
@@ -94,55 +93,52 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         return s is null ? null : MapToResponse(s);
     }
 
-    public async Task<SolicitacaoDesligamentoResponse> CreateAsync(
-        SolicitacaoDesligamentoCreateRequest request, Guid? solicitanteId, CancellationToken ct)
+    public async Task<SolicitacaoPagamentoExtraResponse> CreateAsync(
+        SolicitacaoPagamentoExtraCreateRequest request, Guid? solicitanteId, CancellationToken ct)
     {
         if (_currentUser.IsReadOnly)
             throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível criar solicitações.");
 
         var resolvedSolicitanteId = await _workflow.ResolveSolicitanteIdAsync(solicitanteId, ct);
 
-        var entity = new SolicitacaoDesligamento
+        var now = DateTimeOffset.UtcNow;
+        var entity = new SolicitacaoPagamentoExtra
         {
             Id = Guid.NewGuid(),
             TenantId = _tenantContext.TenantId,
             SolicitanteId = resolvedSolicitanteId,
             FuncionarioId = request.FuncionarioId,
-            DataDesligamento = request.DataDesligamento,
-            TipoDesligamento = request.TipoDesligamento,
-            MotivoDesligamento = request.MotivoDesligamento,
-            TipoAvisoPrevio = request.TipoAvisoPrevio,
-            DiasAvisoPrevio = request.DiasAvisoPrevio,
-            ElegivelRecontratacao = request.ElegivelRecontratacao,
-            SubstituirPosicao = request.SubstituirPosicao,
+            TipoPagamentoExtra = request.TipoPagamentoExtra,
+            Valor = request.Valor,
+            Descricao = request.Descricao,
+            DataPagamento = request.DataPagamento,
+            Competencia = request.Competencia,
             Observacoes = request.Observacoes,
             Status = SolicitacaoStatus.Rascunho,
-            CreatedAtUtc = DateTimeOffset.UtcNow,
-            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
         };
 
-        _db.SolicitacoesDesligamento.Add(entity);
+        _db.SolicitacoesPagamentoExtra.Add(entity);
         await _db.SaveChangesAsync(ct);
 
         return (await GetByIdAsync(entity.Id, ct))!;
     }
 
-    public async Task<SolicitacaoDesligamentoResponse?> UpdateAsync(
-        Guid id, SolicitacaoDesligamentoUpdateRequest request, CancellationToken ct)
+    public async Task<SolicitacaoPagamentoExtraResponse?> UpdateAsync(
+        Guid id, SolicitacaoPagamentoExtraUpdateRequest request, CancellationToken ct)
     {
-        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var entity = await _db.SolicitacoesPagamentoExtra.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
         entity.FuncionarioId = request.FuncionarioId;
-        entity.DataDesligamento = request.DataDesligamento;
-        entity.TipoDesligamento = request.TipoDesligamento;
-        entity.MotivoDesligamento = request.MotivoDesligamento;
-        entity.TipoAvisoPrevio = request.TipoAvisoPrevio;
-        entity.DiasAvisoPrevio = request.DiasAvisoPrevio;
-        entity.ElegivelRecontratacao = request.ElegivelRecontratacao;
-        entity.SubstituirPosicao = request.SubstituirPosicao;
+        entity.TipoPagamentoExtra = request.TipoPagamentoExtra;
+        entity.Valor = request.Valor;
+        entity.Descricao = request.Descricao;
+        entity.DataPagamento = request.DataPagamento;
+        entity.Competencia = request.Competencia;
         entity.Observacoes = request.Observacoes;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
@@ -152,7 +148,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
     public async Task<bool> SubmitAsync(Guid id, CancellationToken ct)
     {
-        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var entity = await _db.SolicitacoesPagamentoExtra.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
@@ -160,7 +156,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        // Resolve aprovadores via cadeia de GestorDireto
         var resolution = await _workflow.ResolveApproversAsync(
             entity.SolicitanteId, entity.Aprovador2Habilitado, ct);
 
@@ -176,7 +171,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
         await _db.SaveChangesAsync(ct);
 
-        // Notificar aprovador1 sobre nova solicitação pendente
         if (entity.Aprovador1Id.HasValue)
         {
             var solicitante = await _db.Set<Funcionario>().AsNoTracking()
@@ -188,18 +182,18 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
             await _workflow.NotifyByFuncionarioIdAsync(
                 entity.Aprovador1Id.Value,
-                "Nova solicitação de desligamento para aprovação",
-                $"{solicitanteNome} solicitou o desligamento de {funcionarioNome}.",
-                $"/rh/solicitacoes-desligamento/{entity.Id}",
+                "Nova solicitação de pagamento extra para aprovação",
+                $"{solicitanteNome} solicitou um pagamento extra para {funcionarioNome}.",
+                $"/colaborador/solicitacoes-pagamento-extra/{entity.Id}",
                 ct);
         }
 
         return true;
     }
 
-    public async Task<SolicitacaoDesligamentoResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct)
+    public async Task<SolicitacaoPagamentoExtraResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct)
     {
-        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var entity = await _db.SolicitacoesPagamentoExtra.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
         ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
@@ -209,25 +203,21 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        // Se SubstituirPosicao=true, registrar para criação futura de SolicitacaoVaga
-        // (campo SolicitacaoVagaGeradaId será preenchido quando a integração for implementada)
-
         await _db.SaveChangesAsync(ct);
 
-        // Notificar solicitante que a solicitação foi aprovada
         await _workflow.NotifyByFuncionarioIdAsync(
             entity.SolicitanteId,
-            "Solicitação de desligamento aprovada",
-            "Sua solicitação de desligamento foi aprovada." + (observacao is not null ? $" Observação: {observacao}" : ""),
-            $"/rh/solicitacoes-desligamento/{entity.Id}",
+            "Solicitação de pagamento extra aprovada",
+            "Sua solicitação de pagamento extra foi aprovada." + (observacao is not null ? $" Observação: {observacao}" : ""),
+            $"/colaborador/solicitacoes-pagamento-extra/{entity.Id}",
             ct);
 
         return await GetByIdAsync(id, ct);
     }
 
-    public async Task<SolicitacaoDesligamentoResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct)
+    public async Task<SolicitacaoPagamentoExtraResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct)
     {
-        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var entity = await _db.SolicitacoesPagamentoExtra.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
         ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
@@ -240,18 +230,18 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
         await _workflow.NotifyByFuncionarioIdAsync(
             entity.SolicitanteId,
-            "Solicitação de desligamento reprovada",
-            "Sua solicitação de desligamento foi reprovada." + (observacao is not null ? $" Motivo: {observacao}" : ""),
-            $"/rh/solicitacoes-desligamento/{entity.Id}",
+            "Solicitação de pagamento extra reprovada",
+            "Sua solicitação de pagamento extra foi reprovada." + (observacao is not null ? $" Motivo: {observacao}" : ""),
+            $"/colaborador/solicitacoes-pagamento-extra/{entity.Id}",
             ct,
             "warning");
 
         return await GetByIdAsync(id, ct);
     }
 
-    public async Task<SolicitacaoDesligamentoResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct)
+    public async Task<SolicitacaoPagamentoExtraResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct)
     {
-        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var entity = await _db.SolicitacoesPagamentoExtra.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
         ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
@@ -264,9 +254,9 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
         await _workflow.NotifyByFuncionarioIdAsync(
             entity.SolicitanteId,
-            "Ajustes necessários na solicitação de desligamento",
-            "Sua solicitação de desligamento precisa de ajustes." + (observacao is not null ? $" Observação: {observacao}" : ""),
-            $"/rh/solicitacoes-desligamento/{entity.Id}",
+            "Ajustes necessários na solicitação de pagamento extra",
+            "Sua solicitação de pagamento extra precisa de ajustes." + (observacao is not null ? $" Observação: {observacao}" : ""),
+            $"/colaborador/solicitacoes-pagamento-extra/{entity.Id}",
             ct,
             "warning");
 
@@ -275,48 +265,27 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
     {
-        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var entity = await _db.SolicitacoesPagamentoExtra.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
         ApprovalWorkflowHelper.ValidateCanDelete(entity.Status);
 
-        _db.SolicitacoesDesligamento.Remove(entity);
+        _db.SolicitacoesPagamentoExtra.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;
     }
 
-    private static SolicitacaoDesligamentoResponse MapToResponse(SolicitacaoDesligamento s) => new(
-        s.Id,
-        s.Status,
-        s.SolicitanteId,
-        s.Solicitante?.Name,
-        s.FuncionarioId,
-        s.Funcionario?.Name,
-        s.DataDesligamento,
-        s.TipoDesligamento,
-        s.MotivoDesligamento,
-        s.TipoAvisoPrevio,
-        s.DiasAvisoPrevio,
-        s.ElegivelRecontratacao,
-        s.SubstituirPosicao,
-        s.SolicitacaoVagaGeradaId,
-        // Approval chain
-        s.Aprovador1Id,
-        s.Aprovador1?.Name,
-        s.Aprovador1Status,
-        s.Aprovador1DataUtc,
-        s.Aprovador2Id,
-        s.Aprovador2?.Name,
-        s.Aprovador2Status,
-        s.Aprovador2DataUtc,
+    private static SolicitacaoPagamentoExtraResponse MapToResponse(SolicitacaoPagamentoExtra s) => new(
+        s.Id, s.Status,
+        s.SolicitanteId, s.Solicitante?.Name,
+        s.FuncionarioId, s.Funcionario?.Name,
+        s.TipoPagamentoExtra, s.Valor,
+        s.Descricao, s.DataPagamento, s.Competencia,
+        s.Aprovador1Id, s.Aprovador1?.Name, s.Aprovador1Status, s.Aprovador1DataUtc,
+        s.Aprovador2Id, s.Aprovador2?.Name, s.Aprovador2Status, s.Aprovador2DataUtc,
         s.Aprovador2Habilitado,
-        s.ObservacaoAprovador,
-        s.Observacoes,
-        s.CreatedAtUtc,
-        s.UpdatedAtUtc,
-        s.ApprovedAtUtc,
-        s.IntegracaoResultado,
-        s.IntegracaoMensagem,
-        s.IntegradaEmUtc
+        s.ObservacaoAprovador, s.Observacoes,
+        s.CreatedAtUtc, s.UpdatedAtUtc, s.ApprovedAtUtc,
+        s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc
     );
 }
