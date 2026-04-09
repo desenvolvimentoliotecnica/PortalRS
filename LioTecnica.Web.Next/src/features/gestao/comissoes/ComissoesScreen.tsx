@@ -77,7 +77,7 @@ interface CsvRow {
     observacao: string;
 }
 
-type TabId = "importacao" | "aprovacao" | "comunicacao";
+type TabId = "importacao" | "ajuste" | "aprovacao" | "comunicacao";
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -184,6 +184,14 @@ const SEED: Comissao[] = [
         mensagemComunicado: null, comunicadoEmUtc: null,
         createdAtUtc: new Date(Date.now() - 14 * 86400000).toISOString(),
     },
+    {
+        id: "a6", prestadorNome: "Fábio Augusto Nunes", prestadorCpf: "666.777.888-99",
+        competencia: "2025-03", percentual: 8, valorBase: 13000, valorBruto: 14040,
+        status: "AjustesNecessarios", observacao: "Percentual não confere com o contrato vigente.",
+        aprovadoPorNome: "Gestor RH", aprovadoEmUtc: new Date(Date.now() - 3 * 86400000).toISOString(),
+        mensagemComunicado: null, comunicadoEmUtc: null,
+        createdAtUtc: new Date(Date.now() - 6 * 86400000).toISOString(),
+    },
 ];
 
 const PAGE_SIZE = 10;
@@ -195,12 +203,18 @@ export default function ComissoesScreen() {
     const [activeTab, setActiveTab] = useState<TabId>("importacao");
 
     /* ── import modal ── */
+    const EMPTY_ROW: CsvRow = { prestadorNome: "", prestadorCpf: "", percentual: 0, valorBase: 0, valorBruto: 0, observacao: "" };
     const [importOpen, setImportOpen]       = useState(false);
     const [competencia, setCompetencia]     = useState("");
-    const [csvText, setCsvText]             = useState("");
-    const [csvRows, setCsvRows]             = useState<CsvRow[]>([]);
+    const [formRows, setFormRows]           = useState<CsvRow[]>([{ ...EMPTY_ROW }]);
     const [importLoading, setImportLoading] = useState(false);
     const fileInputRef                      = useRef<HTMLInputElement>(null);
+
+    function updateFormRow(idx: number, field: keyof CsvRow, value: string | number) {
+        setFormRows((prev) => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+    }
+    function addFormRow() { setFormRows((prev) => [...prev, { ...EMPTY_ROW }]); }
+    function removeFormRow(idx: number) { setFormRows((prev) => prev.filter((_, i) => i !== idx)); }
 
     /* ── approval modal ── */
     const [approvalOpen, setApprovalOpen]       = useState(false);
@@ -223,8 +237,20 @@ export default function ComissoesScreen() {
     const [approvalPage, setApprovalPage] = useState(1);
     const [commPage, setCommPage]         = useState(1);
 
+    /* ── adjust modal ── */
+    const [adjustOpen, setAdjustOpen]           = useState(false);
+    const [adjustItem, setAdjustItem]           = useState<Comissao | null>(null);
+    const [adjustPercentual, setAdjustPercentual] = useState(0);
+    const [adjustValorBase, setAdjustValorBase]   = useState(0);
+    const [adjustValorBruto, setAdjustValorBruto] = useState(0);
+    const [adjustLoading, setAdjustLoading]     = useState(false);
+
+    /* ── pagination ── */
+    const [adjustPage, setAdjustPage] = useState(1);
+
     /* ── search ── */
     const [importSearch, setImportSearch]     = useState("");
+    const [adjustSearch, setAdjustSearch]     = useState("");
     const [approvalSearch, setApprovalSearch] = useState("");
     const [commSearch, setCommSearch]         = useState("");
 
@@ -234,10 +260,15 @@ export default function ComissoesScreen() {
         return items.filter((i) => !q || i.prestadorNome.toLowerCase().includes(q) || i.prestadorCpf.includes(q));
     }, [items, importSearch]);
 
+    const adjustItems = useMemo(() => {
+        const q = adjustSearch.toLowerCase();
+        return items.filter((i) => i.status === "AjustesNecessarios" && (!q || i.prestadorNome.toLowerCase().includes(q)));
+    }, [items, adjustSearch]);
+
     const pendingItems = useMemo(() => {
         const q = approvalSearch.toLowerCase();
         return items.filter(
-            (i) => (i.status === "PendenteAprovacao" || i.status === "AjustesNecessarios") &&
+            (i) => i.status === "PendenteAprovacao" &&
                    (!q || i.prestadorNome.toLowerCase().includes(q)),
         );
     }, [items, approvalSearch]);
@@ -250,34 +281,31 @@ export default function ComissoesScreen() {
     /* ── KPIs ── */
     const kpi = useMemo(() => ({
         total:      items.length,
-        pendente:   items.filter((i) => i.status === "PendenteAprovacao" || i.status === "AjustesNecessarios").length,
+        ajuste:     items.filter((i) => i.status === "AjustesNecessarios").length,
+        pendente:   items.filter((i) => i.status === "PendenteAprovacao").length,
         aprovada:   items.filter((i) => i.status === "Aprovada").length,
         comunicada: items.filter((i) => i.status === "Comunicada").length,
     }), [items]);
 
-    /* ──────────────── CSV ──────────────── */
+    /* ──────────────── CSV upload (opcional) ──────────────── */
 
     const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (ev) => {
-            const text = ev.target?.result as string;
-            setCsvText(text);
-            setCsvRows(parseCsv(text));
+            const rows = parseCsv(ev.target?.result as string);
+            if (rows.length === 0) { toast.error("Nenhuma linha válida no arquivo."); return; }
+            setFormRows(rows);
+            toast.success(`${rows.length} linha(s) importadas do arquivo.`);
         };
         reader.readAsText(file, "utf-8");
-    }, []);
-
-    const handleCsvTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setCsvText(e.target.value);
-        setCsvRows(parseCsv(e.target.value));
+        if (fileInputRef.current) fileInputRef.current.value = "";
     }, []);
 
     function resetImportModal() {
         setCompetencia("");
-        setCsvText("");
-        setCsvRows([]);
+        setFormRows([{ ...EMPTY_ROW }]);
         if (fileInputRef.current) fileInputRef.current.value = "";
     }
 
@@ -285,22 +313,23 @@ export default function ComissoesScreen() {
 
     async function handleSubmitImport() {
         if (!competencia) { toast.error("Informe a competência."); return; }
-        if (csvRows.length === 0) { toast.error("Nenhum registro válido encontrado."); return; }
+        const validas = formRows.filter((r) => r.prestadorNome.trim() && r.prestadorCpf.trim() && r.valorBruto > 0);
+        if (validas.length === 0) { toast.error("Preencha ao menos um registro com nome, CPF e valor bruto."); return; }
         setImportLoading(true);
         try {
-            // TODO: POST /api/comissoes/importar  →  { competencia, linhas: csvRows }
+            // TODO: POST /api/comissoes/importar  →  { competencia, linhas: validas }
             await new Promise((r) => setTimeout(r, 800));
             const now = new Date().toISOString();
-            const novas: Comissao[] = csvRows.map((row) => ({
+            const novas: Comissao[] = validas.map((row) => ({
                 id: uid(),
-                prestadorNome: row.prestadorNome,
-                prestadorCpf: row.prestadorCpf,
+                prestadorNome: row.prestadorNome.trim(),
+                prestadorCpf: row.prestadorCpf.trim(),
                 competencia,
                 percentual: row.percentual,
                 valorBase: row.valorBase,
                 valorBruto: row.valorBruto,
                 status: "PendenteAprovacao",
-                observacao: row.observacao || null,
+                observacao: row.observacao.trim() || null,
                 aprovadoPorNome: null,
                 aprovadoEmUtc: null,
                 mensagemComunicado: null,
@@ -308,12 +337,12 @@ export default function ComissoesScreen() {
                 createdAtUtc: now,
             }));
             setItems((prev) => [...novas, ...prev]);
-            toast.success(`${novas.length} comissão(ões) importada(s) e enviada(s) para aprovação.`);
+            toast.success(`${novas.length} comissão(ões) enviada(s) para aprovação.`);
             setImportOpen(false);
             resetImportModal();
             setActiveTab("aprovacao");
         } catch (e) {
-            toast.error(`Falha na importação: ${e instanceof Error ? e.message : "erro desconhecido"}`);
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro desconhecido"}`);
         } finally {
             setImportLoading(false);
         }
@@ -382,6 +411,39 @@ export default function ComissoesScreen() {
         }
     }
 
+    /* ──────────────── adjust ──────────────── */
+
+    function openAdjust(item: Comissao) {
+        setAdjustItem(item);
+        setAdjustPercentual(item.percentual);
+        setAdjustValorBase(item.valorBase);
+        setAdjustValorBruto(item.valorBruto);
+        setAdjustOpen(true);
+    }
+
+    async function handleSubmitAjuste() {
+        if (!adjustItem) return;
+        if (adjustValorBruto <= 0) { toast.error("Informe o valor bruto."); return; }
+        setAdjustLoading(true);
+        try {
+            // TODO: PATCH /api/comissoes/{id}/ajuste  →  { percentual, valorBase, valorBruto }
+            await new Promise((r) => setTimeout(r, 600));
+            setItems((prev) => prev.map((i) =>
+                i.id === adjustItem.id
+                    ? { ...i, percentual: adjustPercentual, valorBase: adjustValorBase, valorBruto: adjustValorBruto, status: "PendenteAprovacao" }
+                    : i,
+            ));
+            toast.success("Comissão ajustada e reenviada para aprovação.");
+            setAdjustOpen(false);
+            setAdjustItem(null);
+            setActiveTab("aprovacao");
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setAdjustLoading(false);
+        }
+    }
+
     /* ──────────────── pagination ──────────────── */
 
     function paginate<T>(arr: T[], page: number) {
@@ -393,7 +455,8 @@ export default function ComissoesScreen() {
 
     const TABS: { id: TabId; label: string; badge?: number }[] = [
         { id: "importacao",  label: "Importação" },
-        { id: "aprovacao",   label: "Aprovação",   badge: kpi.pendente },
+        { id: "ajuste",      label: "Ajuste",       badge: kpi.ajuste },
+        { id: "aprovacao",   label: "Aprovação",    badge: kpi.pendente },
         { id: "comunicacao", label: "Comunicação",  badge: kpi.aprovada },
     ];
 
@@ -422,6 +485,7 @@ export default function ComissoesScreen() {
                 </div>
                 {(
                     [
+                        { label: "Ajustes",     value: kpi.ajuste,     color: "text-orange-600",  icon: AlertTriangle },
                         { label: "Pendentes",   value: kpi.pendente,   color: "text-amber-600",   icon: Clock },
                         { label: "Aprovadas",   value: kpi.aprovada,   color: "text-emerald-600", icon: CheckCircle2 },
                         { label: "Comunicadas", value: kpi.comunicada, color: "text-sky-600",      icon: Megaphone },
@@ -523,6 +587,69 @@ export default function ComissoesScreen() {
                         </TableBody>
                     </Table>
                     <PaginationBar page={importPage} pages={paginate(importItems, importPage).pages} total={importItems.length} onChange={setImportPage} />
+                </div>
+            )}
+
+            {/* ════════════ TAB: AJUSTE ════════════ */}
+            {activeTab === "ajuste" && (
+                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                    <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <div className="font-semibold flex items-center gap-2">
+                                <AlertTriangle className="size-4 text-orange-500" /> Comissões com Ajuste Solicitado
+                            </div>
+                            <div className="text-muted-foreground text-sm">{adjustItems.length} comissão(ões)</div>
+                        </div>
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                className="w-[260px] pl-8"
+                                placeholder="Buscar prestador…"
+                                value={adjustSearch}
+                                onChange={(e) => { setAdjustSearch(e.target.value); setAdjustPage(1); }}
+                            />
+                        </div>
+                    </div>
+
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Prestador</TableHead>
+                                <TableHead>Competência</TableHead>
+                                <TableHead className="text-right">%</TableHead>
+                                <TableHead className="text-right">Valor Base</TableHead>
+                                <TableHead className="text-right">Valor Bruto</TableHead>
+                                <TableHead>Observação do aprovador</TableHead>
+                                <TableHead className="text-right">Ações</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {adjustItems.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-muted-foreground py-10 text-sm">
+                                        Nenhuma comissão aguardando ajuste.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                paginate(adjustItems, adjustPage).rows.map((item) => (
+                                    <TableRow key={item.id} className="hover:bg-muted/40">
+                                        <TableCell className="font-medium">{item.prestadorNome}</TableCell>
+                                        <TableCell>{fmtCompetencia(item.competencia)}</TableCell>
+                                        <TableCell className="text-right">{item.percentual}%</TableCell>
+                                        <TableCell className="text-right">{fmtMoeda(item.valorBase)}</TableCell>
+                                        <TableCell className="text-right font-medium">{fmtMoeda(item.valorBruto)}</TableCell>
+                                        <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate">{item.observacao || "—"}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button size="sm" className="h-7 gap-1 bg-orange-600 hover:bg-orange-700 text-white" onClick={() => openAdjust(item)}>
+                                                <AlertTriangle className="size-3.5" /> Ajustar
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                    <PaginationBar page={adjustPage} pages={paginate(adjustItems, adjustPage).pages} total={adjustItems.length} onChange={setAdjustPage} />
                 </div>
             )}
 
@@ -662,117 +789,225 @@ export default function ComissoesScreen() {
 
             {/* ══════════ MODAL: IMPORTAÇÃO ══════════ */}
             <Dialog open={importOpen} onOpenChange={(o) => { if (!o) resetImportModal(); setImportOpen(o); }}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <Upload className="size-5 text-primary" /> Importar Comissões
+                            <Upload className="size-5 text-primary" /> Nova Importação de Comissões
                         </DialogTitle>
                         <DialogDescription>
-                            Faça o upload de um CSV ou cole os dados abaixo. As comissões serão enviadas automaticamente para aprovação.
+                            Preencha os dados de cada prestador ou importe via arquivo CSV. As comissões serão enviadas para aprovação.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="flex flex-col gap-5 py-2">
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-sm font-medium">Competência <span className="text-red-500">*</span></label>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="AAAA-MM"
-                                title="Competência no formato AAAA-MM"
-                                pattern="\d{4}-\d{2}"
-                                value={competencia}
-                                onChange={(e) => setCompetencia(e.target.value)}
-                                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48"
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-sm font-medium">Arquivo CSV</label>
-                            <div
-                                className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 p-6 cursor-pointer hover:border-primary/50 transition-colors"
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <FileSpreadsheet className="size-8 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">Clique para selecionar ou arraste um arquivo .csv</span>
-                                <span className="text-xs text-muted-foreground/70">Formato: Nome;CPF;Percentual;Valor Base;Valor Bruto;Observação</span>
+                        {/* Competência */}
+                        <div className="flex items-end gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium">Competência <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="Ex: 2025-04"
+                                    title="Competência no formato AAAA-MM"
+                                    pattern="\d{4}-\d{2}"
+                                    value={competencia}
+                                    onChange={(e) => setCompetencia(e.target.value)}
+                                    className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-40"
+                                />
                             </div>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".csv,.txt"
-                                title="Selecionar arquivo CSV"
-                                aria-label="Selecionar arquivo CSV"
-                                className="hidden"
-                                onChange={handleFileChange}
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-sm font-medium">Ou cole o conteúdo CSV</label>
-                            <textarea
-                                rows={4}
-                                title="Conteúdo CSV"
-                                placeholder={"Nome;CPF;Percentual;Valor Base;Valor Bruto;Observação\nJoão Silva;111.222.333-44;5;10000;10500;Projeto Beta"}
-                                value={csvText}
-                                onChange={handleCsvTextChange}
-                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring resize-y min-h-[90px]"
-                            />
-                        </div>
-
-                        {csvRows.length > 0 && (
-                            <div className="flex flex-col gap-2">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">Prévia — {csvRows.length} registro(s)</span>
-                                    <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => { setCsvRows([]); setCsvText(""); }}>
-                                        <X className="size-3.5" /> Limpar
-                                    </Button>
-                                </div>
-                                <div className="overflow-x-auto rounded-md border">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Prestador</TableHead>
-                                                <TableHead>CPF</TableHead>
-                                                <TableHead className="text-right">%</TableHead>
-                                                <TableHead className="text-right">Base</TableHead>
-                                                <TableHead className="text-right">Bruto</TableHead>
-                                                <TableHead>Obs.</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {csvRows.slice(0, 5).map((row, i) => (
-                                                <TableRow key={i}>
-                                                    <TableCell className="font-medium">{row.prestadorNome || <span className="text-red-500">—</span>}</TableCell>
-                                                    <TableCell className="text-muted-foreground">{row.prestadorCpf}</TableCell>
-                                                    <TableCell className="text-right">{row.percentual}%</TableCell>
-                                                    <TableCell className="text-right">{fmtMoeda(row.valorBase)}</TableCell>
-                                                    <TableCell className="text-right font-medium">{fmtMoeda(row.valorBruto)}</TableCell>
-                                                    <TableCell className="text-muted-foreground text-xs">{row.observacao || "—"}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                            {csvRows.length > 5 && (
-                                                <TableRow>
-                                                    <TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-2">
-                                                        + {csvRows.length - 5} registro(s) não exibido(s)
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </div>
+                            <div>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".csv,.txt"
+                                    title="Importar CSV"
+                                    aria-label="Importar CSV"
+                                    className="hidden"
+                                    onChange={handleFileChange}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5 h-9"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <FileSpreadsheet className="size-4" /> Importar CSV
+                                </Button>
                             </div>
-                        )}
+                        </div>
+
+                        {/* Registros */}
+                        <div className="flex flex-col gap-3">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">Prestadores <span className="text-muted-foreground font-normal">({formRows.length})</span></span>
+                                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={addFormRow}>
+                                    <Plus className="size-3.5" /> Adicionar prestador
+                                </Button>
+                            </div>
+
+                            <div className="flex flex-col gap-4">
+                                {formRows.map((row, idx) => (
+                                    <div key={idx} className="relative rounded-lg border border-border bg-muted/30 p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-xs font-medium text-muted-foreground">Prestador {idx + 1}</span>
+                                            <button
+                                                type="button"
+                                                title="Remover prestador"
+                                                disabled={formRows.length === 1}
+                                                onClick={() => removeFormRow(idx)}
+                                                className="flex items-center justify-center rounded-md p-1 text-muted-foreground hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                            >
+                                                <X className="size-3.5" />
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="flex flex-col gap-1.5 col-span-2">
+                                                <label className="text-xs font-medium text-muted-foreground">Nome do prestador</label>
+                                                <Input
+                                                    placeholder="Ex: João Silva"
+                                                    value={row.prestadorNome}
+                                                    onChange={(e) => updateFormRow(idx, "prestadorNome", e.target.value)}
+                                                    className="h-8 text-sm"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-xs font-medium text-muted-foreground">CPF</label>
+                                                <Input
+                                                    placeholder="Ex: 111.222.333-44"
+                                                    value={row.prestadorCpf}
+                                                    onChange={(e) => updateFormRow(idx, "prestadorCpf", e.target.value)}
+                                                    className="h-8 text-sm"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-xs font-medium text-muted-foreground">% Comissão</label>
+                                                <Input
+                                                    type="number"
+                                                    placeholder="Ex: 5"
+                                                    min={0}
+                                                    max={100}
+                                                    value={row.percentual || ""}
+                                                    onChange={(e) => updateFormRow(idx, "percentual", parseFloat(e.target.value) || 0)}
+                                                    className="h-8 text-sm"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-xs font-medium text-muted-foreground">Valor base (R$)</label>
+                                                <Input
+                                                    type="number"
+                                                    placeholder="Ex: 10000"
+                                                    min={0}
+                                                    value={row.valorBase || ""}
+                                                    onChange={(e) => updateFormRow(idx, "valorBase", parseFloat(e.target.value) || 0)}
+                                                    className="h-8 text-sm"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-xs font-medium text-muted-foreground">Valor bruto (R$)</label>
+                                                <Input
+                                                    type="number"
+                                                    placeholder="Ex: 10500"
+                                                    min={0}
+                                                    value={row.valorBruto || ""}
+                                                    onChange={(e) => updateFormRow(idx, "valorBruto", parseFloat(e.target.value) || 0)}
+                                                    className="h-8 text-sm"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-1.5 col-span-2">
+                                                <label className="text-xs font-medium text-muted-foreground">Observação</label>
+                                                <Input
+                                                    placeholder="Ex: Projeto X"
+                                                    value={row.observacao}
+                                                    onChange={(e) => updateFormRow(idx, "observacao", e.target.value)}
+                                                    className="h-8 text-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={() => setImportOpen(false)} disabled={importLoading}>
                             Cancelar
                         </Button>
-                        <Button onClick={() => void handleSubmitImport()} disabled={importLoading || csvRows.length === 0}>
+                        <Button onClick={() => void handleSubmitImport()} disabled={importLoading}>
                             {importLoading
-                                ? <><RefreshCw className="size-4 animate-spin mr-2" />Importando…</>
+                                ? <><RefreshCw className="size-4 animate-spin mr-2" />Enviando…</>
                                 : <><Send className="size-4 mr-2" />Enviar para Aprovação</>}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ══════════ MODAL: AJUSTE ══════════ */}
+            <Dialog open={adjustOpen} onOpenChange={(o) => { if (!o) setAdjustItem(null); setAdjustOpen(o); }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="size-5 text-orange-500" /> Ajustar Comissão
+                        </DialogTitle>
+                        <DialogDescription>
+                            Corrija os valores e reencaminhe para aprovação.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {adjustItem && (
+                        <div className="flex flex-col gap-4 py-1">
+                            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                                <div className="font-medium">{adjustItem.prestadorNome}</div>
+                                <div className="text-muted-foreground text-xs mt-0.5">{adjustItem.prestadorCpf} · {fmtCompetencia(adjustItem.competencia)}</div>
+                                {adjustItem.observacao && (
+                                    <div className="mt-2 text-xs text-orange-700 bg-orange-50 rounded px-2 py-1">
+                                        <span className="font-medium">Obs. do aprovador:</span> {adjustItem.observacao}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="flex flex-col gap-1.5 col-span-2">
+                                    <label className="text-xs font-medium text-muted-foreground">% Comissão</label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        value={adjustPercentual || ""}
+                                        onChange={(e) => setAdjustPercentual(parseFloat(e.target.value) || 0)}
+                                        className="h-8 text-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Valor base (R$)</label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        value={adjustValorBase || ""}
+                                        onChange={(e) => setAdjustValorBase(parseFloat(e.target.value) || 0)}
+                                        className="h-8 text-sm"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-muted-foreground">Valor bruto (R$)</label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        value={adjustValorBruto || ""}
+                                        onChange={(e) => setAdjustValorBruto(parseFloat(e.target.value) || 0)}
+                                        className="h-8 text-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAdjustOpen(false)} disabled={adjustLoading}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={() => void handleSubmitAjuste()} disabled={adjustLoading} className="bg-orange-600 hover:bg-orange-700 text-white">
+                            {adjustLoading
+                                ? <><RefreshCw className="size-4 animate-spin mr-2" />Enviando…</>
+                                : <><Send className="size-4 mr-2" />Reenviar para Aprovação</>}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -846,7 +1081,7 @@ export default function ComissoesScreen() {
                     )}
                     <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={() => setCommOpen(false)} disabled={commLoading}>Cancelar</Button>
-                        <Button className="gap-1.5 bg-sky-600 hover:bg-sky-700" onClick={() => void handleCommunicate()} disabled={commLoading || !commMsg.trim()}>
+                          <Button className="gap-1.5 bg-sky-600 hover:bg-sky-700" onClick={() => void handleCommunicate()} disabled={commLoading || !commMsg.trim()}>
                             {commLoading ? <RefreshCw className="size-4 animate-spin" /> : <Megaphone className="size-4" />} Comunicar
                         </Button>
                     </DialogFooter>

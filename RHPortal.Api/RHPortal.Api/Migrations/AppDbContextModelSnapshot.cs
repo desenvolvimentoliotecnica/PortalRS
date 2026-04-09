@@ -119,7 +119,7 @@ namespace RHPortal.Api.Migrations
                     b.Property<bool>("AceitaPcd")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid>("AreaId")
+                    b.Property<Guid?>("AreaId")
                         .HasColumnType("uuid");
 
                     b.Property<short?>("AreaTime")
@@ -3626,10 +3626,18 @@ namespace RHPortal.Api.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<int>("Ordem")
                         .HasColumnType("integer");
@@ -3639,6 +3647,9 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<short>("ResponsavelTipo")
                         .HasColumnType("smallint");
+
+                    b.Property<int?>("SlaDias")
+                        .HasColumnType("integer");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -4725,6 +4736,9 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
+                    b.Property<int?>("Altura")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset?>("ApprovedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -4752,13 +4766,24 @@ namespace RHPortal.Api.Migrations
                     b.Property<short?>("CargaHorariaSemanal")
                         .HasColumnType("smallint");
 
+                    b.Property<string>("CartaoSus")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<string>("CategoriaCnh")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<int?>("CategoriaSalarial")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Celular")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("CentroCusto")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.Property<string>("Cep")
                         .HasMaxLength(10)
@@ -4767,6 +4792,15 @@ namespace RHPortal.Api.Migrations
                     b.Property<string>("Cidade")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<int?>("CodCargoTotvs")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CodTurno")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CodVinculoEmpregaticio")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Complemento")
                         .HasMaxLength(120)
@@ -4799,6 +4833,9 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<int?>("CtpsModelo")
+                        .HasColumnType("integer");
+
                     b.Property<string>("CtpsSerie")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
@@ -4813,6 +4850,20 @@ namespace RHPortal.Api.Migrations
                     b.Property<DateOnly?>("DataNascimento")
                         .HasColumnType("date");
 
+                    b.Property<string>("DocMilitarNumero")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int?>("DocMilitarRegiao")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DocMilitarSerie")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("DocMilitarTipo")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Email")
                         .HasMaxLength(180)
                         .HasColumnType("character varying(180)");
@@ -4823,6 +4874,15 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<short>("EstadoCivil")
                         .HasColumnType("smallint");
+
+                    b.Property<int?>("FatorRh")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("GrauInstrucao")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("GrupoSanguineo")
+                        .HasColumnType("integer");
 
                     b.Property<string>("IntegracaoMensagem")
                         .HasMaxLength(2000)
@@ -4886,9 +4946,16 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<int?>("Peso")
+                        .HasColumnType("integer");
+
                     b.Property<string>("PisPasep")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("PossuiDeficiencia")
+                        .HasMaxLength(1)
+                        .HasColumnType("character varying(1)");
 
                     b.Property<short>("PreenchidoPor")
                         .HasColumnType("smallint");
@@ -4945,9 +5012,16 @@ namespace RHPortal.Api.Migrations
                     b.Property<short?>("TipoContratacao")
                         .HasColumnType("smallint");
 
+                    b.Property<int?>("TipoFuncionario")
+                        .HasColumnType("integer");
+
                     b.Property<string>("TipoVisto")
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
+
+                    b.Property<string>("TituloEleitorCidade")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("TituloEleitorNumero")
                         .HasMaxLength(20)
@@ -4957,6 +5031,10 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<string>("TituloEleitorUf")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
                     b.Property<string>("TituloEleitorZona")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
@@ -4964,6 +5042,10 @@ namespace RHPortal.Api.Migrations
                     b.Property<string>("Uf")
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
+
+                    b.Property<string>("UnidadeLotacao")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.Property<Guid?>("UnitId")
                         .HasColumnType("uuid");
@@ -7364,8 +7446,7 @@ namespace RHPortal.Api.Migrations
                     b.HasOne("RhPortal.Api.Domain.Entities.Area", "Area")
                         .WithMany()
                         .HasForeignKey("AreaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("RhPortal.Api.Domain.Entities.Department", "Department")
                         .WithMany()
