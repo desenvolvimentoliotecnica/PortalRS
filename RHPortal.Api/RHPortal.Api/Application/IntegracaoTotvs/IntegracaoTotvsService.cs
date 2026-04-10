@@ -255,6 +255,196 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         return new IntegracaoTotvsPainelResponse(items, total, pendentes, sucesso, falha);
     }
 
+    public async Task<object?> GetDetalheAsync(TipoIntegracao tipo, Guid id, CancellationToken ct)
+    {
+        switch (tipo)
+        {
+            case TipoIntegracao.Admissao:
+            {
+                var p = await _db.PreAdmissoes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (p is null) return null;
+                return new
+                {
+                    p.Id, tipoIntegracao = (short)TipoIntegracao.Admissao, tipoIntegracaoLabel = "Admissão",
+                    // Dados pessoais
+                    p.CodEmpresa, p.EstabelecimentoCodigo, p.MatriculaRM,
+                    p.Nome, p.NomeAbreviado, p.Cpf, p.Email, p.EmailAlternativo, p.Telefone, p.DddTelefone, p.Celular,
+                    p.DataNascimento, sexo = p.Sexo.ToString(), estadoCivil = p.EstadoCivil.ToString(),
+                    p.NomeMae, p.NomePai, p.Nacionalidade, p.PaisNascimento, p.NaturalCidade, p.NaturalUf,
+                    // Documentos
+                    p.Rg, p.RgOrgaoExpedidor, p.RgUfExpedidor, p.RgDataExpedicao,
+                    p.PisPasep,
+                    p.TituloEleitorNumero, p.TituloEleitorZona, p.TituloEleitorSecao, p.TituloEleitorCidade, p.TituloEleitorUf,
+                    p.Ctps, p.CtpsSerie, p.CtpsUf, p.CtpsModelo, p.CtpsSerieESocial,
+                    p.ReservistaNumero, p.DocMilitarTipo, p.DocMilitarNumero, p.DocMilitarSerie, p.DocMilitarRegiao,
+                    p.CnhNumero, p.CategoriaCnh, p.CnhUf, p.CnhOrgaoEmissor, p.CnhDataExpedicao, p.CnhPrimeiraHabilitacao, p.ValidadeCnh,
+                    p.CartaoSus, p.PossuiDeficiencia,
+                    // Características físicas
+                    p.GrauInstrucao, p.GrupoSanguineo, p.FatorRh, p.FuncDoador,
+                    p.Altura, p.Peso, p.Cutis, p.Cabelo, p.Olhos, p.Manequim, p.Sapato,
+                    // Endereço
+                    p.Cep, p.Logradouro, p.Numero, p.Complemento, p.Bairro, p.Cidade, p.Uf,
+                    p.PontoReferencia, p.TipoLogradouroESocial, p.MunicipioEnderecoIbge, p.MunicipioNascimentoIbge,
+                    // Contrato e salário
+                    p.DataAdmissao, p.Salario, p.SalarioSimulado, tipoContratacao = p.TipoContratacao.ToString(), p.CargaHorariaSemanal,
+                    p.CodCargoTotvs, p.CodNivel, p.CategoriaSalarial, p.CodTurno, p.CodTurma,
+                    p.CentroCusto, p.UnidadeLotacao, p.CodPlanoLotacao,
+                    p.CodVinculoEmpregaticio, p.TipoFuncionario, p.TipoMaoDeObra,
+                    p.FormaPagamento, p.DataTerminoContrato,
+                    // FGTS / INSS
+                    p.OptanteFgts, p.TipoAdmissaoFgts, p.RecolheFgts, p.RecolheInss,
+                    p.FuncQualificado, p.IndFuncVinculado,
+                    // Sindicato
+                    p.Sindicalizado, p.DescContribSindical, p.ContribSindicDia, p.CodSindicato,
+                    // Flags de cálculo
+                    p.CargaAutomTurno, p.RecebePericul, p.RecebeInsalub,
+                    p.RecebeAdiantamento, p.ConsidEmissRAIS, p.Calcula13, p.RecebeFerias,
+                    // Provisões 13º
+                    p.Avos13SalCalcAnterior, p.Avos13SalCalc,
+                    p.ProvAcum13Sal, p.ProvAcumInss13Sal, p.ProvAcumFgts13Sal,
+                    // Provisões férias
+                    p.DiasProvFeriasMesAnterior, p.DiasProvFeriasMesAtual,
+                    p.ProvAcumFerias, p.ProvAcumInssFerias, p.ProvAcumFgtsFerias, p.ProvAcumFerias13,
+                    // Ponto
+                    p.NumCartaoPonto, p.EmitCartPonto, p.CodLocalMarcacao, p.CodClassFuncPontoEletronico,
+                    // Banco
+                    p.BancoCodigo, p.BancoNome, p.Agencia, p.AgenciaDigito, p.Conta, p.ContaDigito, tipoConta = p.TipoConta.ToString(),
+                    // Contato emergência
+                    p.ContatoEmergenciaNome, p.ContatoEmergenciaFone, p.DddTelContato,
+                    // eSocial
+                    p.CategoriaTrabalhoESocial, p.IndAdmissao, p.NaturezaAtividade,
+                    p.TipoAdmissaoESocial, p.RegimeTrabalhista, p.RegimePrevidenciario, p.RegimeJornada,
+                    p.MatriculaESocial,
+                    // Localidade
+                    p.PaisLocalidade, p.CodLocalidade, p.CodFpas,
+                    // Diversos
+                    p.OrigemFuncionario, p.TipoVistoEstrangeiro, p.OcorrenciaCAGED,
+                    // Integração
+                    p.IntegracaoResultado, p.IntegracaoMensagem, p.IntegradaEmUtc, p.ApprovedAtUtc, p.CreatedAtUtc,
+                };
+            }
+            case TipoIntegracao.Desligamento:
+            {
+                var s = await _db.SolicitacoesDesligamento.AsNoTracking()
+                    .Include(x => x.Funcionario).Include(x => x.Solicitante)
+                    .FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (s is null) return null;
+                return new
+                {
+                    s.Id, tipoIntegracao = (short)TipoIntegracao.Desligamento, tipoIntegracaoLabel = "Desligamento",
+                    nome = s.Funcionario?.Name ?? "—", funcionarioId = s.FuncionarioId,
+                    solicitante = s.Solicitante?.Name ?? "—",
+                    s.DataDesligamento, tipoDesligamento = s.TipoDesligamento.ToString(),
+                    s.MotivoDesligamento, tipoAvisoPrevio = s.TipoAvisoPrevio.ToString(), s.DiasAvisoPrevio,
+                    s.ElegivelRecontratacao, s.SubstituirPosicao, s.Observacoes,
+                    status = s.Status.ToString(),
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                };
+            }
+            case TipoIntegracao.Promocao:
+            {
+                var s = await _db.SolicitacoesPromocao.AsNoTracking()
+                    .Include(x => x.Funcionario).Include(x => x.Solicitante)
+                    .Include(x => x.CargoAtual).Include(x => x.NovoCargo)
+                    .Include(x => x.AreaAtual).Include(x => x.NovaArea)
+                    .FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (s is null) return null;
+                return new
+                {
+                    s.Id, tipoIntegracao = (short)TipoIntegracao.Promocao, tipoIntegracaoLabel = "Promoção",
+                    nome = s.Funcionario?.Name ?? "—", funcionarioId = s.FuncionarioId,
+                    solicitante = s.Solicitante?.Name ?? "—",
+                    s.DataEfetiva, s.Justificativa,
+                    cargoAtual = s.CargoAtual?.Description, novoCargo = s.NovoCargo?.Description,
+                    areaAtual = s.AreaAtual?.Description, novaArea = s.NovaArea?.Description,
+                    s.Observacoes, status = s.Status.ToString(),
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                };
+            }
+            case TipoIntegracao.AlteracaoEndereco:
+            {
+                var s = await _db.SolicitacoesEndereco.AsNoTracking()
+                    .Include(x => x.Solicitante)
+                    .FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (s is null) return null;
+                return new
+                {
+                    s.Id, tipoIntegracao = (short)TipoIntegracao.AlteracaoEndereco, tipoIntegracaoLabel = "Alt. Endereço",
+                    nome = s.Solicitante?.Name ?? "—",
+                    s.Cep, s.Logradouro, s.Numero, s.Bairro, s.Complemento, s.Cidade, s.Uf,
+                    s.Observacoes, status = s.Status.ToString(),
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                };
+            }
+            case TipoIntegracao.Dependente:
+            {
+                var s = await _db.SolicitacoesDependente.AsNoTracking()
+                    .Include(x => x.Solicitante)
+                    .FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (s is null) return null;
+                return new
+                {
+                    s.Id, tipoIntegracao = (short)TipoIntegracao.Dependente, tipoIntegracaoLabel = "Dependente",
+                    nome = s.Solicitante?.Name ?? "—",
+                    tipoSolicitacao = s.TipoSolicitacao.ToString(),
+                    s.NomeCompleto, parentesco = s.Parentesco.ToString(), s.Cpf, s.DataNascimento,
+                    s.IsPcd, s.DependenteIR, s.Observacoes, status = s.Status.ToString(),
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                };
+            }
+            case TipoIntegracao.Beneficio:
+            {
+                var s = await _db.SolicitacoesBeneficio.AsNoTracking()
+                    .Include(x => x.Solicitante)
+                    .FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (s is null) return null;
+                return new
+                {
+                    s.Id, tipoIntegracao = (short)TipoIntegracao.Beneficio, tipoIntegracaoLabel = "Benefício",
+                    nome = s.Solicitante?.Name ?? "—",
+                    tipoBeneficio = s.TipoBeneficio.ToString(), tipoAlteracao = s.TipoAlteracao.ToString(),
+                    s.Descricao, s.IncluirDependentes, s.Observacoes, status = s.Status.ToString(),
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                };
+            }
+            case TipoIntegracao.Ferias:
+            {
+                var s = await _db.SolicitacoesFerias.AsNoTracking()
+                    .Include(x => x.Solicitante)
+                    .FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (s is null) return null;
+                return new
+                {
+                    s.Id, tipoIntegracao = (short)TipoIntegracao.Ferias, tipoIntegracaoLabel = "Férias",
+                    nome = s.Solicitante?.Name ?? "—",
+                    s.PeriodoAquisitivo, s.DataInicio, s.DataFim, s.QtdDias,
+                    s.AbonoPecuniario, s.DiasAbono, s.Adiantamento13,
+                    s.Observacoes, status = s.Status.ToString(),
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                };
+            }
+            case TipoIntegracao.PagamentoExtra:
+            {
+                var s = await _db.SolicitacoesPagamentoExtra.AsNoTracking()
+                    .Include(x => x.Funcionario).Include(x => x.Solicitante)
+                    .FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (s is null) return null;
+                return new
+                {
+                    s.Id, tipoIntegracao = (short)TipoIntegracao.PagamentoExtra, tipoIntegracaoLabel = "Pagamento Extra",
+                    nome = s.Funcionario?.Name ?? "—", funcionarioId = s.FuncionarioId,
+                    solicitante = s.Solicitante?.Name ?? "—",
+                    tipoPagamentoExtra = s.TipoPagamentoExtra.ToString(),
+                    s.Valor, s.Descricao, s.DataPagamento, s.Competencia,
+                    s.Observacoes, status = s.Status.ToString(),
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                };
+            }
+            default:
+                return null;
+        }
+    }
+
     public async Task RegistrarResultadoAsync(TipoIntegracao tipo, Guid id, IntegracaoTotvsResultadoRequest request, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
