@@ -221,14 +221,30 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             return funcionario.Id;
 
         var user = await _db.Set<ApplicationUser>()
-            .FirstOrDefaultAsync(u => u.Id == userId, ct)
-            ?? throw new InvalidOperationException("Usuário autenticado não encontrado para criar o solicitante.");
+            .FirstOrDefaultAsync(u => u.Id == userId, ct);
 
-        var email = (user.Email ?? string.Empty).Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(email))
-            throw new InvalidOperationException("Usuário autenticado sem e-mail válido para criar o solicitante.");
+        string email;
+        string fullName;
 
-        var fullName = string.IsNullOrWhiteSpace(user.FullName) ? email : user.FullName.Trim();
+        if (user is not null)
+        {
+            email = (user.Email ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(email))
+                throw new InvalidOperationException("Usuário autenticado sem e-mail válido para criar o solicitante.");
+            fullName = string.IsNullOrWhiteSpace(user.FullName) ? email : user.FullName.Trim();
+        }
+        else if (_currentUser.IsAdmin)
+        {
+            // Owner: não existe como ApplicationUser, usar dados do JWT
+            email = (_currentUser.Email ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(email))
+                throw new InvalidOperationException("Owner sem e-mail válido para criar o solicitante.");
+            fullName = "Owner";
+        }
+        else
+        {
+            throw new InvalidOperationException("Usuário autenticado não encontrado para criar o solicitante.");
+        }
         var pessoa = await _pessoaService.GetOrCreateByEmailAsync(
             email,
             fullName,
@@ -249,14 +265,15 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             PessoaId = pessoa.Id,
             Name = fullName,
             Email = email,
-            UserId = user.Id,
+            UserId = user is not null ? userId : null,
             Status = FuncionarioStatus.Active,
             CreatedAtUtc = now,
             UpdatedAtUtc = now,
         };
 
         _db.Set<Funcionario>().Add(funcionario);
-        user.FuncionarioId = funcionario.Id;
+        if (user is not null)
+            user.FuncionarioId = funcionario.Id;
         await _db.SaveChangesAsync(ct);
 
         return funcionario.Id;

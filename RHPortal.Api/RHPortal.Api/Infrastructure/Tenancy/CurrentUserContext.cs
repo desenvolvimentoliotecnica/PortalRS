@@ -21,6 +21,7 @@ public sealed class CurrentUserContext : ICurrentUserContext
     private ProfileVisibilityScope _visibilityScope;
     private VagasDataScope _vagasDataScope;
     private bool _isReadOnly;
+    private string? _email;
 
     public CurrentUserContext(IHttpContextAccessor httpContextAccessor, AppDbContext db)
     {
@@ -106,6 +107,15 @@ public sealed class CurrentUserContext : ICurrentUserContext
         }
     }
 
+    public string? Email
+    {
+        get
+        {
+            EnsureClaimsResolved();
+            return _email;
+        }
+    }
+
     public IReadOnlyList<Guid> UnitIds
     {
         get
@@ -134,6 +144,7 @@ public sealed class CurrentUserContext : ICurrentUserContext
         if (user is null)
             return;
         _roleNames = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        _email = user.FindFirstValue(ClaimTypes.Email);
         var funcionarioIdClaim = user.FindFirst("funcionario_id")?.Value;
         _funcionarioId = Guid.TryParse(funcionarioIdClaim, out var fid) ? fid : null;
         var areaIdClaim = user.FindFirst("area_id")?.Value;
