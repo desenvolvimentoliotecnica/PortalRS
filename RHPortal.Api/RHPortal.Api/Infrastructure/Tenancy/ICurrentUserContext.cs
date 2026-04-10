@@ -41,4 +41,7 @@ public interface ICurrentUserContext
 
     /// <summary>True quando o perfil é somente leitura (bloquear POST/PUT/DELETE).</summary>
     bool IsReadOnly { get; }
+
+    /// <summary>E-mail do usuário autenticado (extraído do JWT).</summary>
+    string? Email { get; }
 }
