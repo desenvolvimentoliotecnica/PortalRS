@@ -459,7 +459,7 @@ export default function LoginScreen({
                   <HealthDot status={dbStatus} label="DB" />
                 </div>
                 <div className="text-[10px] font-medium tracking-wider text-white/20 uppercase">
-                  v2.3
+                  v2.4
                 </div>
               </CardFooter>
             </Card>
