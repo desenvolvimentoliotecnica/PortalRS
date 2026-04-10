@@ -19,6 +19,7 @@ import {
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { TableSkeleton } from "@/components/ui/ScreenSkeleton";
 import { useRouter } from "next/navigation";
+import { useComissoesIntegracaoStore } from "@/stores/comissoesIntegracaoStore";
 
 /* ── types ── */
 
@@ -47,15 +48,36 @@ export default function AdmissaoIntegracaoScreen() {
     const router = useRouter();
     const [filtro, setFiltro] = useState<Filtro>("all");
 
+    const comissoesItems = useComissoesIntegracaoStore((s) => s.items);
+
     const params = filtro === "all" || filtro === "pendente" ? "" : `?resultado=${filtro}`;
     const { data = [], isLoading } = useApiQuery<PainelIntegracaoRow[]>(
         ["pre-admissao", "integracao", "painel", filtro],
         `/api/pre-admissao/integracao/painel${params}`
     );
 
+    const comissoesRows: PainelIntegracaoRow[] = comissoesItems.map((c) => ({
+        id: c.id,
+        nome: c.nome,
+        cpf: c.cpf,
+        dataAdmissao: c.competencia,
+        status: 0,
+        integracaoResultado: c.integracaoResultado,
+        integracaoMensagem: c.integracaoMensagem,
+        approvedAtUtc: c.approvedAtUtc,
+        integradaEmUtc: c.comunicadoEmUtc,
+    }));
+
+    const merged = [
+        ...data,
+        ...comissoesRows.filter((c) => !data.some((d) => d.id === c.id)),
+    ];
+
     const rows = filtro === "pendente"
-        ? data.filter((r) => r.integracaoResultado === null)
-        : data;
+        ? merged.filter((r) => r.integracaoResultado === null)
+        : filtro === "1" || filtro === "2"
+        ? merged.filter((r) => r.integracaoResultado === Number(filtro))
+        : merged;
 
     return (
         <section className="space-y-6">
