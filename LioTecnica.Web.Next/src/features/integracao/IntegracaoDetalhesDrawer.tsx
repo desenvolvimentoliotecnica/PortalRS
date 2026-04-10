@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     CheckCircle2,
     XCircle,
@@ -9,12 +9,14 @@ import {
     Loader2,
 } from "lucide-react";
 import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetDescription,
-} from "@/components/ui/sheet";
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
 /* ── types ── */
@@ -50,6 +52,79 @@ const TIPO_COLORS: Record<number, string> = {
     8: "bg-amber-100 text-amber-800",
 };
 
+// Mapa de labels legíveis para campos
+const FIELD_LABELS: Record<string, string> = {
+    nome: "Nome", cpf: "CPF", email: "E-mail", telefone: "Telefone", celular: "Celular",
+    dataNascimento: "Data Nascimento", sexo: "Sexo", estadoCivil: "Estado Civil",
+    nomeMae: "Nome da Mãe", nomePai: "Nome do Pai", nacionalidade: "Nacionalidade",
+    naturalCidade: "Cidade Natal", naturalUf: "UF Natal",
+    rg: "RG", rgOrgaoExpedidor: "Órgão Expedidor RG", rgDataExpedicao: "Data Expedição RG",
+    pisPasep: "PIS/PASEP", tituloEleitorNumero: "Título Eleitor", tituloEleitorZona: "Zona",
+    tituloEleitorSecao: "Seção", tituloEleitorCidade: "Cidade Título", tituloEleitorUf: "UF Título",
+    ctps: "CTPS", ctpsSerie: "Série CTPS", ctpsUf: "UF CTPS", ctpsModelo: "Modelo CTPS",
+    reservistaNumero: "Reservista", docMilitarTipo: "Tipo Doc. Militar",
+    docMilitarNumero: "Nº Doc. Militar", docMilitarSerie: "Série Doc. Militar", docMilitarRegiao: "Região Militar",
+    categoriaCnh: "Categoria CNH", validadeCnh: "Validade CNH", cartaoSus: "Cartão SUS",
+    possuiDeficiencia: "Possui Deficiência", grauInstrucao: "Grau de Instrução",
+    grupoSanguineo: "Grupo Sanguíneo", fatorRh: "Fator RH", altura: "Altura (cm)", peso: "Peso (g)",
+    cep: "CEP", logradouro: "Logradouro", numero: "Número", complemento: "Complemento",
+    bairro: "Bairro", cidade: "Cidade", uf: "UF",
+    dataAdmissao: "Data Admissão", salario: "Salário", tipoContratacao: "Tipo Contratação",
+    cargaHorariaSemanal: "Carga Horária Semanal",
+    codCargoTotvs: "Código Cargo TOTVS", categoriaSalarial: "Categoria Salarial",
+    codTurno: "Código Turno", centroCusto: "Centro de Custo", unidadeLotacao: "Unidade de Lotação",
+    codVinculoEmpregaticio: "Cód. Vínculo Empregatício", tipoFuncionario: "Tipo Funcionário",
+    estabelecimentoCodigo: "Cód. Estabelecimento", matriculaRM: "Matrícula RM",
+    bancoCodigo: "Cód. Banco", bancoNome: "Banco", agencia: "Agência", agenciaDigito: "Dígito Agência",
+    conta: "Conta", contaDigito: "Dígito Conta", tipoConta: "Tipo Conta",
+    contatoEmergenciaNome: "Contato Emergência", contatoEmergenciaFone: "Fone Emergência",
+    // Desligamento
+    dataDesligamento: "Data Desligamento", tipoDesligamento: "Tipo Desligamento",
+    motivoDesligamento: "Motivo", tipoAvisoPrevio: "Tipo Aviso Prévio", diasAvisoPrevio: "Dias Aviso Prévio",
+    elegivelRecontratacao: "Elegível Recontratação", substituirPosicao: "Substituir Posição",
+    solicitante: "Solicitante",
+    // Promoção
+    dataEfetiva: "Data Efetiva", justificativa: "Justificativa",
+    cargoAtual: "Cargo Atual", novoCargo: "Novo Cargo", areaAtual: "Área Atual", novaArea: "Nova Área",
+    // Dependente
+    tipoSolicitacao: "Tipo Solicitação", nomeCompleto: "Nome Completo", parentesco: "Parentesco",
+    isPcd: "PCD", dependenteIR: "Dependente IR",
+    // Benefício
+    tipoBeneficio: "Tipo Benefício", tipoAlteracao: "Tipo Alteração",
+    descricao: "Descrição", incluirDependentes: "Incluir Dependentes",
+    // Férias
+    periodoAquisitivo: "Período Aquisitivo", dataInicio: "Data Início", dataFim: "Data Fim",
+    qtdDias: "Qtd. Dias", abonoPecuniario: "Abono Pecuniário", diasAbono: "Dias Abono",
+    adiantamento13: "Adiantamento 13º",
+    // Pagamento Extra
+    tipoPagamentoExtra: "Tipo Pgto Extra", valor: "Valor", dataPagamento: "Data Pagamento",
+    competencia: "Competência",
+    // Comuns
+    observacoes: "Observações", status: "Status",
+};
+
+// Campos que não devem aparecer no grid de detalhes (já estão no header/footer)
+const HIDDEN_FIELDS = new Set([
+    "id", "tipoIntegracao", "tipoIntegracaoLabel",
+    "integracaoResultado", "integracaoMensagem", "integradaEmUtc",
+    "approvedAtUtc", "createdAtUtc",
+]);
+
+function formatValue(key: string, value: unknown): string {
+    if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "boolean") return value ? "Sim" : "Não";
+    if (typeof value === "number") {
+        if (key === "salario" || key === "valor") return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+        return value.toString();
+    }
+    const str = String(value);
+    // Tentar formatar datas ISO
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+        try { return new Date(str).toLocaleDateString("pt-BR"); } catch { /* */ }
+    }
+    return str;
+}
+
 /* ── component ── */
 
 export default function IntegracaoDetalhesDrawer({
@@ -60,6 +135,25 @@ export default function IntegracaoDetalhesDrawer({
 }: IntegracaoDetalhesDrawerProps) {
     const [retrying, setRetrying] = useState(false);
     const [retryError, setRetryError] = useState<string | null>(null);
+    const [detalhe, setDetalhe] = useState<Record<string, unknown> | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!item || !open) { setDetalhe(null); return; }
+        let cancelled = false;
+        setLoading(true);
+        (async () => {
+            try {
+                const res = await apiFetch(`/api/integracao-totvs/${item.tipoIntegracao}/${item.id}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (!cancelled) setDetalhe(json as Record<string, unknown>);
+                }
+            } catch { /* fallback to item data */ }
+            finally { if (!cancelled) setLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, [item, open]);
 
     const handleRetry = async () => {
         if (!item) return;
@@ -86,48 +180,30 @@ export default function IntegracaoDetalhesDrawer({
 
     const resultado = item.integracaoResultado;
 
-    return (
-        <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-            <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-                <SheetHeader>
-                    <SheetTitle>Detalhes da Integracao</SheetTitle>
-                    <SheetDescription>
-                        Informacoes sobre a integracao TOTVS desta solicitacao.
-                    </SheetDescription>
-                </SheetHeader>
+    // Campos do detalhe, excluindo os hidden
+    const fields = detalhe
+        ? Object.entries(detalhe).filter(([k]) => !HIDDEN_FIELDS.has(k))
+        : [];
 
-                <div className="space-y-5 p-4 pt-2">
-                    {/* Tipo badge */}
-                    <div>
-                        <p className="text-xs text-muted-foreground font-medium mb-1">Tipo</p>
-                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${TIPO_COLORS[item.tipoIntegracao] ?? "bg-gray-100 text-gray-800"}`}>
+    return (
+        <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+            <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-3">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TIPO_COLORS[item.tipoIntegracao] ?? "bg-gray-100 text-gray-800"}`}>
                             {item.tipoIntegracaoLabel}
                         </span>
-                    </div>
+                        {item.nome}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Dados completos para integração TOTVS
+                    </DialogDescription>
+                </DialogHeader>
 
-                    {/* Nome */}
+                {/* Resultado + datas */}
+                <div className="flex flex-wrap items-center gap-4 py-2 border-b border-border">
                     <div>
-                        <p className="text-xs text-muted-foreground font-medium mb-1">Nome</p>
-                        <p className="text-sm font-semibold">{item.nome}</p>
-                    </div>
-
-                    {/* CPF */}
-                    {item.cpf && (
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium mb-1">CPF</p>
-                            <p className="text-sm font-mono">{item.cpf}</p>
-                        </div>
-                    )}
-
-                    {/* Descricao */}
-                    <div>
-                        <p className="text-xs text-muted-foreground font-medium mb-1">Descricao</p>
-                        <p className="text-sm">{item.descricao}</p>
-                    </div>
-
-                    {/* Resultado */}
-                    <div>
-                        <p className="text-xs text-muted-foreground font-medium mb-1">Resultado</p>
+                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Resultado</p>
                         {resultado === 1 ? (
                             <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/15 text-emerald-700">
                                 <CheckCircle2 className="size-3" /> Sucesso
@@ -142,59 +218,65 @@ export default function IntegracaoDetalhesDrawer({
                             </span>
                         )}
                     </div>
-
-                    {/* Mensagem */}
-                    {item.integracaoMensagem && (
-                        <div>
-                            <p className="text-xs text-muted-foreground font-medium mb-1">Mensagem da Integracao</p>
-                            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm whitespace-pre-wrap break-words">
-                                {item.integracaoMensagem}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Aprovada em */}
                     <div>
-                        <p className="text-xs text-muted-foreground font-medium mb-1">Aprovada em</p>
-                        <p className="text-sm">
-                            {item.approvedAtUtc
-                                ? new Date(item.approvedAtUtc).toLocaleString("pt-BR")
-                                : "\u2014"}
-                        </p>
+                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Aprovada em</p>
+                        <p className="text-sm">{item.approvedAtUtc ? new Date(item.approvedAtUtc).toLocaleString("pt-BR") : "—"}</p>
                     </div>
-
-                    {/* Integrada em */}
                     <div>
-                        <p className="text-xs text-muted-foreground font-medium mb-1">Integrada em</p>
-                        <p className="text-sm">
-                            {item.integradaEmUtc
-                                ? new Date(item.integradaEmUtc).toLocaleString("pt-BR")
-                                : "\u2014"}
-                        </p>
+                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Integrada em</p>
+                        <p className="text-sm">{item.integradaEmUtc ? new Date(item.integradaEmUtc).toLocaleString("pt-BR") : "—"}</p>
                     </div>
-
-                    {/* Retry button — shown when status is Falha or Sucesso (to allow re-send) */}
-                    {resultado !== null && (
-                        <div className="pt-2 border-t border-border">
-                            <button
-                                onClick={handleRetry}
-                                disabled={retrying}
-                                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                {retrying ? (
-                                    <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <RefreshCw className="size-4" />
-                                )}
-                                Reenviar
-                            </button>
-                            {retryError && (
-                                <p className="text-xs text-red-600 mt-2">{retryError}</p>
-                            )}
-                        </div>
-                    )}
                 </div>
-            </SheetContent>
-        </Sheet>
+
+                {/* Mensagem de integração */}
+                {item.integracaoMensagem && (
+                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm whitespace-pre-wrap break-words">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Mensagem da Integração</p>
+                        {item.integracaoMensagem}
+                    </div>
+                )}
+
+                {/* Dados completos */}
+                {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                    </div>
+                ) : fields.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 py-2">
+                        {fields.map(([key, value]) => {
+                            const label = FIELD_LABELS[key] ?? key;
+                            const formatted = formatValue(key, value);
+                            if (formatted === "—") return null;
+                            return (
+                                <div key={key}>
+                                    <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                                    <p className="text-sm break-words">{formatted}</p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : null}
+
+                {retryError && (
+                    <p className="text-xs text-red-600">{retryError}</p>
+                )}
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose}>
+                        Fechar
+                    </Button>
+                    {resultado !== null && (
+                        <Button onClick={handleRetry} disabled={retrying}>
+                            {retrying ? (
+                                <Loader2 className="size-4 mr-2 animate-spin" />
+                            ) : (
+                                <RefreshCw className="size-4 mr-2" />
+                            )}
+                            Reenviar
+                        </Button>
+                    )}
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

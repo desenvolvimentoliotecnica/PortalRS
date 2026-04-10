@@ -37,6 +37,19 @@ public sealed class IntegracaoTotvsController : ControllerBase
         return Ok(await _service.ListPainelAsync(query, ct));
     }
 
+    /// <summary>Retorna todos os dados de uma solicitação específica para integração.</summary>
+    [HttpGet("{tipo:int}/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDetalhe(int tipo, Guid id, CancellationToken ct)
+    {
+        if (!Enum.IsDefined(typeof(TipoIntegracao), (short)tipo))
+            return BadRequest(new { message = "Tipo de integração inválido." });
+
+        var result = await _service.GetDetalheAsync((TipoIntegracao)tipo, id, ct);
+        return result is null ? NotFound(new { message = "Registro não encontrado." }) : Ok(result);
+    }
+
     /// <summary>Registra o resultado de uma integração (sucesso ou falha).</summary>
     [HttpPost("{tipo:int}/{id:guid}/resultado")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

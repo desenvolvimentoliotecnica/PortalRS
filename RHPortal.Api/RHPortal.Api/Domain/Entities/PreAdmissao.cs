@@ -259,6 +259,148 @@ public sealed class PreAdmissao : ITenantEntity
     [StringLength(500)]
     public string? ValidacaoSalarioJustificativa { get; set; }
 
+    // ── TOTVS: Empresa ──
+    [StringLength(10)]
+    public string? CodEmpresa { get; set; }
+
+    // ── TOTVS: RG complemento ──
+    [StringLength(2)]
+    public string? RgUfExpedidor { get; set; }
+
+    // ── TOTVS: Origem ──
+    public int? OrigemFuncionario { get; set; }
+    [StringLength(10)]
+    public string? PaisNascimento { get; set; }
+
+    // ── TOTVS: Características Físicas ──
+    public int? Cutis { get; set; }
+    public int? Cabelo { get; set; }
+    public int? Olhos { get; set; }
+    public int? Manequim { get; set; }
+    public int? Sapato { get; set; }
+
+    // ── TOTVS: CTPS eSocial ──
+    [StringLength(10)]
+    public string? CtpsSerieESocial { get; set; }
+
+    // ── TOTVS: Contrato e Jornada ──
+    public int? CodPlanoLotacao { get; set; }
+    public int? CodTurma { get; set; }
+    public int? NumCartaoPonto { get; set; }
+    public int? CodNivel { get; set; }
+    [StringLength(10)]
+    public string? TipoMaoDeObra { get; set; }
+    public int? FormaPagamento { get; set; }
+    public decimal? SalarioSimulado { get; set; }
+
+    // ── TOTVS: FGTS / INSS ──
+    [StringLength(1)]
+    public string? OptanteFgts { get; set; }
+    public int? TipoAdmissaoFgts { get; set; }
+    [StringLength(1)]
+    public string? RecolheFgts { get; set; }
+    [StringLength(1)]
+    public string? RecolheInss { get; set; }
+    [StringLength(1)]
+    public string? FuncQualificado { get; set; }
+    public int? IndFuncVinculado { get; set; }
+    [StringLength(1)]
+    public string? FuncDoador { get; set; }
+
+    // ── TOTVS: Sindicato ──
+    [StringLength(1)]
+    public string? Sindicalizado { get; set; }
+    [StringLength(1)]
+    public string? DescContribSindical { get; set; }
+    [StringLength(1)]
+    public string? ContribSindicDia { get; set; }
+    public int? CodSindicato { get; set; }
+
+    // ── TOTVS: Flags de Cálculo ──
+    [StringLength(1)]
+    public string? CargaAutomTurno { get; set; }
+    [StringLength(1)]
+    public string? RecebePericul { get; set; }
+    [StringLength(1)]
+    public string? RecebeInsalub { get; set; }
+    [StringLength(1)]
+    public string? RecebeAdiantamento { get; set; }
+    [StringLength(1)]
+    public string? ConsidEmissRAIS { get; set; }
+    [StringLength(1)]
+    public string? Calcula13 { get; set; }
+    [StringLength(1)]
+    public string? RecebeFerias { get; set; }
+
+    // ── TOTVS: Provisões 13º ──
+    public int? Avos13SalCalcAnterior { get; set; }
+    public int? Avos13SalCalc { get; set; }
+    public decimal? ProvAcum13Sal { get; set; }
+    public decimal? ProvAcumInss13Sal { get; set; }
+    public decimal? ProvAcumFgts13Sal { get; set; }
+
+    // ── TOTVS: Provisões Férias ──
+    public decimal? DiasProvFeriasMesAnterior { get; set; }
+    public decimal? DiasProvFeriasMesAtual { get; set; }
+    public decimal? ProvAcumFerias { get; set; }
+    public decimal? ProvAcumInssFerias { get; set; }
+    public decimal? ProvAcumFgtsFerias { get; set; }
+    public decimal? ProvAcumFerias13 { get; set; }
+
+    // ── TOTVS: Ponto ──
+    [StringLength(1)]
+    public string? EmitCartPonto { get; set; }
+    public int? CodLocalMarcacao { get; set; }
+    public int? CodClassFuncPontoEletronico { get; set; }
+
+    // ── TOTVS: CNH Completo ──
+    [StringLength(20)]
+    public string? CnhNumero { get; set; }
+    [StringLength(2)]
+    public string? CnhUf { get; set; }
+    [StringLength(20)]
+    public string? CnhOrgaoEmissor { get; set; }
+    public int? CnhDataExpedicao { get; set; }
+    public int? CnhPrimeiraHabilitacao { get; set; }
+
+    // ── TOTVS: Nome Abreviado / Contrato ──
+    [StringLength(20)]
+    public string? NomeAbreviado { get; set; }
+    public int? DataTerminoContrato { get; set; }
+
+    // ── TOTVS: Localidade ──
+    [StringLength(10)]
+    public string? PaisLocalidade { get; set; }
+    public int? CodLocalidade { get; set; }
+    public int? CodFpas { get; set; }
+
+    // ── TOTVS: eSocial ──
+    public int? CategoriaTrabalhoESocial { get; set; }
+    public int? IndAdmissao { get; set; }
+    public int? NaturezaAtividade { get; set; }
+    public int? MunicipioNascimentoIbge { get; set; }
+    [StringLength(5)]
+    public string? TipoLogradouroESocial { get; set; }
+    public int? MunicipioEnderecoIbge { get; set; }
+    [StringLength(180)]
+    public string? EmailAlternativo { get; set; }
+    public int? TipoAdmissaoESocial { get; set; }
+    public int? RegimeTrabalhista { get; set; }
+    public int? RegimePrevidenciario { get; set; }
+    public int? RegimeJornada { get; set; }
+    [StringLength(30)]
+    public string? MatriculaESocial { get; set; }
+
+    // ── TOTVS: Visto / CAGED ──
+    public int? TipoVistoEstrangeiro { get; set; }
+    public int? OcorrenciaCAGED { get; set; }
+
+    // ── TOTVS: Ponto Referência / DDD ──
+    [StringLength(120)]
+    public string? PontoReferencia { get; set; }
+    public int? DddTelefone { get; set; }
+    public int? DddTelContato { get; set; }
+
     // ── Timestamps ──
 
     public DateTimeOffset CreatedAtUtc { get; set; }
