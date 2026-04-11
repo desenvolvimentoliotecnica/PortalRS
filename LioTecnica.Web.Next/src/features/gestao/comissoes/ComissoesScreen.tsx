@@ -22,6 +22,8 @@ import {
     ChevronRight,
 } from "lucide-react";
 
+import { useComissoesIntegracaoStore } from "@/stores/comissoesIntegracaoStore";
+import { useComissoesStore, type Comissao, type ComissaoStatus } from "@/stores/comissoesStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,31 +44,6 @@ import {
 } from "@/components/ui/dialog";
 
 /* ──────────────────────────── types ──────────────────────────── */
-
-type ComissaoStatus =
-    | "Rascunho"
-    | "PendenteAprovacao"
-    | "Aprovada"
-    | "Reprovada"
-    | "AjustesNecessarios"
-    | "Comunicada";
-
-interface Comissao {
-    id: string;
-    prestadorNome: string;
-    prestadorCpf: string;
-    competencia: string; // "2025-01"
-    percentual: number;
-    valorBase: number;
-    valorBruto: number;
-    status: ComissaoStatus;
-    observacao: string | null;
-    aprovadoPorNome: string | null;
-    aprovadoEmUtc: string | null;
-    mensagemComunicado: string | null;
-    comunicadoEmUtc: string | null;
-    createdAtUtc: string;
-}
 
 interface CsvRow {
     prestadorNome: string;
@@ -142,64 +119,17 @@ function statusBadge(status: ComissaoStatus) {
     );
 }
 
-/* ──────────────────────── seed data ──────────────────────── */
-
-const SEED: Comissao[] = [
-    {
-        id: "a1", prestadorNome: "Ana Clara Silva", prestadorCpf: "111.222.333-44",
-        competencia: "2025-03", percentual: 5, valorBase: 18000, valorBruto: 18900,
-        status: "PendenteAprovacao", observacao: null,
-        aprovadoPorNome: null, aprovadoEmUtc: null, mensagemComunicado: null, comunicadoEmUtc: null,
-        createdAtUtc: new Date(Date.now() - 2 * 86400000).toISOString(),
-    },
-    {
-        id: "a2", prestadorNome: "Bruno Henrique Costa", prestadorCpf: "222.333.444-55",
-        competencia: "2025-03", percentual: 7, valorBase: 12000, valorBruto: 12840,
-        status: "PendenteAprovacao", observacao: "Referente ao projeto Alpha.",
-        aprovadoPorNome: null, aprovadoEmUtc: null, mensagemComunicado: null, comunicadoEmUtc: null,
-        createdAtUtc: new Date(Date.now() - 2 * 86400000).toISOString(),
-    },
-    {
-        id: "a3", prestadorNome: "Carla Mendes Ferreira", prestadorCpf: "333.444.555-66",
-        competencia: "2025-02", percentual: 4, valorBase: 9500, valorBruto: 9880,
-        status: "Aprovada", observacao: null,
-        aprovadoPorNome: "Gestor RH", aprovadoEmUtc: new Date(Date.now() - 5 * 86400000).toISOString(),
-        mensagemComunicado: null, comunicadoEmUtc: null,
-        createdAtUtc: new Date(Date.now() - 10 * 86400000).toISOString(),
-    },
-    {
-        id: "a4", prestadorNome: "Diego Rocha Santos", prestadorCpf: "444.555.666-77",
-        competencia: "2025-02", percentual: 6, valorBase: 15000, valorBruto: 15900,
-        status: "Comunicada", observacao: null,
-        aprovadoPorNome: "Gestor RH", aprovadoEmUtc: new Date(Date.now() - 12 * 86400000).toISOString(),
-        mensagemComunicado: "Sua comissão ref. Fev/2025 foi processada. Verifique seu comprovante.",
-        comunicadoEmUtc: new Date(Date.now() - 8 * 86400000).toISOString(),
-        createdAtUtc: new Date(Date.now() - 15 * 86400000).toISOString(),
-    },
-    {
-        id: "a5", prestadorNome: "Elena Ribeiro Lima", prestadorCpf: "555.666.777-88",
-        competencia: "2025-02", percentual: 5, valorBase: 21000, valorBruto: 22050,
-        status: "Reprovada", observacao: "Valores divergentes com o relatório contábil.",
-        aprovadoPorNome: "Gestor RH", aprovadoEmUtc: new Date(Date.now() - 11 * 86400000).toISOString(),
-        mensagemComunicado: null, comunicadoEmUtc: null,
-        createdAtUtc: new Date(Date.now() - 14 * 86400000).toISOString(),
-    },
-    {
-        id: "a6", prestadorNome: "Fábio Augusto Nunes", prestadorCpf: "666.777.888-99",
-        competencia: "2025-03", percentual: 8, valorBase: 13000, valorBruto: 14040,
-        status: "AjustesNecessarios", observacao: "Percentual não confere com o contrato vigente.",
-        aprovadoPorNome: "Gestor RH", aprovadoEmUtc: new Date(Date.now() - 3 * 86400000).toISOString(),
-        mensagemComunicado: null, comunicadoEmUtc: null,
-        createdAtUtc: new Date(Date.now() - 6 * 86400000).toISOString(),
-    },
-];
-
 const PAGE_SIZE = 10;
 
 /* ══════════════════════════ MAIN SCREEN ══════════════════════════ */
 
 export default function ComissoesScreen() {
-    const [items, setItems] = useState<Comissao[]>(SEED);
+    const addApproved = useComissoesIntegracaoStore((s) => s.addApproved);
+    const markCommunicated = useComissoesIntegracaoStore((s) => s.markCommunicated);
+
+    const items = useComissoesStore((s) => s.items);
+    const updateItem = useComissoesStore((s) => s.updateItem);
+    const addItems = useComissoesStore((s) => s.addItems);
     const [activeTab, setActiveTab] = useState<TabId>("importacao");
 
     /* ── import modal ── */
@@ -336,7 +266,7 @@ export default function ComissoesScreen() {
                 comunicadoEmUtc: null,
                 createdAtUtc: now,
             }));
-            setItems((prev) => [...novas, ...prev]);
+            addItems(novas);
             toast.success(`${novas.length} comissão(ões) enviada(s) para aprovação.`);
             setImportOpen(false);
             resetImportModal();
@@ -365,11 +295,21 @@ export default function ComissoesScreen() {
             const nextStatus: ComissaoStatus =
                 action === "aprovar"  ? "Aprovada" :
                 action === "reprovar" ? "Reprovada" : "AjustesNecessarios";
-            setItems((prev) => prev.map((i) =>
-                i.id === selected.id
-                    ? { ...i, status: nextStatus, observacao: obsAprovador || null, aprovadoPorNome: "Gestor RH", aprovadoEmUtc: new Date().toISOString() }
-                    : i,
-            ));
+            const approvedAt = new Date().toISOString();
+            updateItem(selected.id, { status: nextStatus, observacao: obsAprovador || null, aprovadoPorNome: "Gestor RH", aprovadoEmUtc: approvedAt });
+            if (action === "aprovar") {
+                addApproved({
+                    id: selected.id,
+                    nome: selected.prestadorNome,
+                    cpf: selected.prestadorCpf,
+                    competencia: selected.competencia,
+                    valorBruto: selected.valorBruto,
+                    approvedAtUtc: approvedAt,
+                    integracaoResultado: null,
+                    integracaoMensagem: null,
+                    comunicadoEmUtc: null,
+                });
+            }
             toast.success({ aprovar: "Comissão aprovada.", reprovar: "Comissão reprovada.", ajustes: "Ajustes solicitados." }[action]);
             setApprovalOpen(false);
             setSelected(null);
@@ -395,11 +335,9 @@ export default function ComissoesScreen() {
         try {
             // TODO: POST /api/comissoes/{id}/comunicar  →  { mensagem }
             await new Promise((r) => setTimeout(r, 600));
-            setItems((prev) => prev.map((i) =>
-                i.id === commSelected.id
-                    ? { ...i, status: "Comunicada", mensagemComunicado: commMsg, comunicadoEmUtc: new Date().toISOString() }
-                    : i,
-            ));
+            const comunicadoAt = new Date().toISOString();
+            updateItem(commSelected.id, { status: "Comunicada", mensagemComunicado: commMsg, comunicadoEmUtc: comunicadoAt });
+            markCommunicated(commSelected.id, commMsg, comunicadoAt);
             toast.success(`Comissão comunicada ao prestador ${commSelected.prestadorNome}.`);
             setCommOpen(false);
             setCommSelected(null);
@@ -428,11 +366,7 @@ export default function ComissoesScreen() {
         try {
             // TODO: PATCH /api/comissoes/{id}/ajuste  →  { percentual, valorBase, valorBruto }
             await new Promise((r) => setTimeout(r, 600));
-            setItems((prev) => prev.map((i) =>
-                i.id === adjustItem.id
-                    ? { ...i, percentual: adjustPercentual, valorBase: adjustValorBase, valorBruto: adjustValorBruto, status: "PendenteAprovacao" }
-                    : i,
-            ));
+            updateItem(adjustItem.id, { percentual: adjustPercentual, valorBase: adjustValorBase, valorBruto: adjustValorBruto, status: "PendenteAprovacao" });
             toast.success("Comissão ajustada e reenviada para aprovação.");
             setAdjustOpen(false);
             setAdjustItem(null);
