@@ -144,7 +144,7 @@ public sealed class VagasController : ControllerBase
             var auditChanges = await db.Set<RhPortal.Api.Auditing.Entities.AuditEntityChange>()
                 .AsNoTracking()
                 .Include(c => c.Transaction)
-                .Where(c => c.PrimaryKeyJson.Contains(id.ToString()) && c.EntityName == "Vaga")
+                .Where(c => EF.Functions.JsonContains(c.PrimaryKeyJson, $"{{\"Id\":\"{id}\"}}") && c.EntityName == "Vaga")
                 .OrderBy(c => c.OccurredAt)
                 .ToListAsync(ct);
 

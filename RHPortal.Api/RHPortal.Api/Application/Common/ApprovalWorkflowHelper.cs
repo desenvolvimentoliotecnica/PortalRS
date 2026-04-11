@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -113,6 +114,146 @@ public sealed class ApprovalWorkflowHelper
                 tipo,
                 ct);
         }
+    }
+
+    /// <summary>
+    /// Valida que a solicitação pode ser aprovada (PendenteAprovacao ou PendenteAprovacaoRh).
+    /// </summary>
+    public static void ValidateCanApproveAny(SolicitacaoStatus status)
+    {
+        if (status != SolicitacaoStatus.PendenteAprovacao && status != SolicitacaoStatus.PendenteAprovacaoRh)
+            throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
+    }
+
+    /// <summary>
+    /// Resolve a cadeia de etapas de aprovação baseada na configuração do fluxo.
+    /// Retorna uma lista de (Ordem, Label, AprovadorId, RoleFilaId) para criação das SolicitacaoAprovacaoEtapas.
+    /// targetFuncionarioId = funcionário sobre quem a ação é (usado para resolver unidade de lotação).
+    /// </summary>
+    public async Task<IReadOnlyList<(int Ordem, string Label, Guid? AprovadorId, Guid? RoleFilaId)>>
+        ResolveEtapasAsync(
+            Guid solicitanteId,
+            Guid? targetFuncionarioId,
+            TipoFluxoAprovacao tipoFluxo,
+            CancellationToken ct)
+    {
+        // 1. Load config
+        var configEtapas = await _db.Set<EtapaConfigAprovacao>()
+            .AsNoTracking()
+            .Where(e => e.Ativo && e.TipoFluxo == tipoFluxo)
+            .OrderBy(e => e.Ordem)
+            .ToListAsync(ct);
+
+        // 2. Fallback if no config: GestorDireto single step
+        if (configEtapas.Count == 0)
+        {
+            var solicitante = await _db.Set<Funcionario>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == solicitanteId, ct);
+            return new[]
+            {
+                (1, "Aprovação", solicitante?.GestorDiretoId, (Guid?)null)
+            };
+        }
+
+        // 3. Load data needed for resolution
+        var targetFunc = targetFuncionarioId.HasValue
+            ? await _db.Set<Funcionario>()
+                .AsNoTracking()
+                .Include(f => f.GestorDireto)
+                .Include(f => f.UnidadeLotacao)
+                    .ThenInclude(u => u != null ? u.Parent : null)
+                .FirstOrDefaultAsync(f => f.Id == targetFuncionarioId.Value, ct)
+            : null;
+
+        var solicitanteFunc = await _db.Set<Funcionario>()
+            .AsNoTracking()
+            .Include(f => f.GestorDireto)
+            .FirstOrDefaultAsync(f => f.Id == solicitanteId, ct);
+
+        // Helper: walk UnidadeLotacao to root
+        async Task<Guid?> GetRootOwnerAsync(Guid? unidadeId)
+        {
+            if (!unidadeId.HasValue) return null;
+            var current = await _db.Set<UnidadeLotacao>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == unidadeId.Value, ct);
+            while (current?.ParentId is not null)
+            {
+                current = await _db.Set<UnidadeLotacao>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == current.ParentId.Value, ct);
+            }
+            return current?.OwnerFuncionarioId;
+        }
+
+        // 4. Resolve each step
+        var result = new List<(int Ordem, string Label, Guid? AprovadorId, Guid? RoleFilaId)>();
+
+        foreach (var etapa in configEtapas)
+        {
+            Guid? aprovadorId = null;
+            Guid? roleFilaId = null;
+
+            switch (etapa.TipoAprovador)
+            {
+                case TipoAprovador.GestorDireto:
+                    aprovadorId = solicitanteFunc?.GestorDiretoId;
+                    break;
+
+                case TipoAprovador.GestorDoGestor:
+                    aprovadorId = solicitanteFunc?.GestorDireto?.GestorDiretoId;
+                    break;
+
+                case TipoAprovador.ResponsavelUnidade:
+                    aprovadorId = (targetFunc ?? solicitanteFunc)?.UnidadeLotacao?.OwnerFuncionarioId;
+                    break;
+
+                case TipoAprovador.ResponsavelUnidadePai:
+                    aprovadorId = (targetFunc ?? solicitanteFunc)?.UnidadeLotacao?.Parent?.OwnerFuncionarioId;
+                    break;
+
+                case TipoAprovador.ResponsavelUnidadeRaiz:
+                    var unidadeId = (targetFunc ?? solicitanteFunc)?.UnidadeLotacaoId;
+                    aprovadorId = await GetRootOwnerAsync(unidadeId);
+                    break;
+
+                case TipoAprovador.FuncionarioFixo:
+                    aprovadorId = etapa.FuncionarioFixoId;
+                    break;
+
+                case TipoAprovador.FilaDePerfil:
+                    aprovadorId = null;
+                    roleFilaId = etapa.RoleFilaId;
+                    break;
+            }
+
+            result.Add((etapa.Ordem, etapa.Label, aprovadorId, roleFilaId));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Verifica se o usuário atual pode aprovar a etapa fornecida.
+    /// Admins sempre podem. Fila de perfil: qualquer usuário do role. Fixo: apenas o aprovador designado.
+    /// </summary>
+    public async Task<bool> CanApproveStepAsync(
+        SolicitacaoAprovacaoEtapa etapa,
+        ICurrentUserContext userContext,
+        CancellationToken ct)
+    {
+        if (userContext.IsAdmin) return true;
+
+        if (etapa.RoleFilaId.HasValue)
+        {
+            var userId = userContext.UserId;
+            if (!userId.HasValue) return false;
+            return await _db.Set<ApplicationUserRole>()
+                .AnyAsync(ur => ur.RoleId == etapa.RoleFilaId.Value && ur.UserId == userId.Value, ct);
+        }
+
+        return etapa.AprovadorId.HasValue && etapa.AprovadorId == userContext.FuncionarioId;
     }
 
     /// <summary>

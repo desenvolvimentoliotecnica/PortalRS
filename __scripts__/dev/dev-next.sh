@@ -2,6 +2,11 @@
 # Sobe o frontend Next.js integrado ao legado (BFF via cookies).
 set -euo pipefail
 
+# Carrega nvm se disponível (necessário quando invocado por ferramentas que não herdam o shell do usuário)
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+# shellcheck disable=SC1091
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck disable=SC1091

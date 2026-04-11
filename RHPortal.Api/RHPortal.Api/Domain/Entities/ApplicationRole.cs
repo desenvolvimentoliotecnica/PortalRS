@@ -19,4 +19,7 @@ public sealed class ApplicationRole : IdentityRole<Guid>, ITenantEntity
 
     /// <summary>Modo de acesso: completo ou somente leitura.</summary>
     public ProfileAccessMode AccessMode { get; set; } = ProfileAccessMode.Full;
+
+    /// <summary>Tipo/categoria do perfil: RH, Colaborador ou Gestor.</summary>
+    public RoleTipo Tipo { get; set; } = RoleTipo.Colaborador;
 }

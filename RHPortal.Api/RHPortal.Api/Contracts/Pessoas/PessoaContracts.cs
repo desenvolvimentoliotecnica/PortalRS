@@ -72,7 +72,9 @@ public sealed record PessoaResponse(
 public sealed record PessoaListQuery(
     string? Q,
     int Page = 1,
-    int PageSize = 20
+    int PageSize = 20,
+    string Sort = "nome",
+    string Dir = "asc"
 );
 
 public sealed record PessoaListItemResponse(

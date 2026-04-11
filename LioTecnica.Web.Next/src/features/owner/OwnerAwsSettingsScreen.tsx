@@ -45,7 +45,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 /* ── Component ── */
 
-export default function AdminAwsSettingsScreen() {
+export default function OwnerAwsSettingsScreen() {
     const [view, setView] = useState<AwsSettingsView | null>(null);
     const [form, setForm] = useState<AwsSettingsForm>(EMPTY);
     const [loading, setLoading] = useState(true);
@@ -55,7 +55,7 @@ export default function AdminAwsSettingsScreen() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await fetchJson<AwsSettingsView>("/api/aws-settings");
+            const data = await fetchJson<AwsSettingsView>("/api/owner/aws-settings");
             setView(data);
             setForm(prev => ({
                 ...prev,
@@ -75,7 +75,7 @@ export default function AdminAwsSettingsScreen() {
     async function handleSave() {
         setSaving(true);
         try {
-            const updated = await fetchJson<AwsSettingsView>("/api/aws-settings", {
+            const updated = await fetchJson<AwsSettingsView>("/api/owner/aws-settings", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(form),
@@ -93,7 +93,7 @@ export default function AdminAwsSettingsScreen() {
     async function handleTest() {
         setTesting(true);
         try {
-            const result = await fetchJson<{ message: string }>("/api/aws-settings/testar", { method: "POST" });
+            const result = await fetchJson<{ message: string }>("/api/owner/aws-settings/testar", { method: "POST" });
             toast.success(result.message);
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Falha no teste.");
@@ -118,7 +118,7 @@ export default function AdminAwsSettingsScreen() {
                 <div>
                     <h4 className="text-lg font-bold">Armazenamento AWS S3</h4>
                     <div className="text-muted-foreground text-sm">
-                        Configure o bucket S3 para armazenar documentos de admissão.
+                        Configure o bucket S3 global para armazenar documentos de todos os tenants.
                     </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => void load()}>

@@ -244,6 +244,7 @@ public static class MenuSeeder
         ("/Pessoas", "bi-person-x", 86, "bloqueio-pessoa.view", false, "Seed.Menu.BloqueioPessoa", null),
         ("/Categorias-Salariais", "bi-cash-coin", 87, "categorias-salariais.view", false, "Seed.Menu.CategoriasSalariais", null),
         ("/Turnos", "bi-clock", 88, "turnos.view", false, "Seed.Menu.Turnos", null),
+        ("/Nivel-Cargo", "bi-layers", 84, "nivel-cargo.view", false, "Seed.Menu.NivelCargo", null),
         ("/Centros-Custo", "bi-receipt", 89, "centros-custo.view", false, "Seed.Menu.CentrosCusto", null),
         ("/Unidades-Lotacao", "bi-geo-alt", 90, "unidades-lotacao.view", false, "Seed.Menu.UnidadesLotacao", null),
         ("/Admin/Users", "bi-people", 90, "users.read", false, "Seed.Menu.Usuarios", null),
@@ -261,7 +262,7 @@ public static class MenuSeeder
         ("/Admin/Gestores", "bi-people", 102, "admin.gestores.manage", false, "Seed.Menu.GestoresHierarquia", null),
         ("/Admin/RegrasAprovacaoVaga", "bi-check2-square", 103, "admin.regras-aprovacao.manage", false, "Seed.Menu.RegrasAprovacao", null),
         ("/Admin/Hierarquia", "bi-diagram-2", 104, "admin.hierarquia.manage", false, "Seed.Menu.NiveisHierarquicos", null),
-        ("/Admin/AwsSettings", "cloud-upload", 105, "aws-settings.manage", false, "Seed.Menu.ConfigAws", null)
+        ("/Owner/AwsSettings", "cloud-upload", 105, "aws-settings.manage", false, "Seed.Menu.ConfigAws", null)
     ];
 
     private static List<Menu> BuildDefaultMenus(IStringLocalizer<SeedMessages> localizer)

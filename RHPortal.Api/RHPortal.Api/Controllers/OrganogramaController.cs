@@ -7,9 +7,6 @@ using RhPortal.Api.Infrastructure.Data;
 
 namespace RhPortal.Api.Controllers;
 
-/// <summary>
-/// Organograma visual — retorna e atualiza a hierarquia de funcionários para o canvas drag-drop.
-/// </summary>
 [ApiController]
 [Route("api/organograma")]
 [Authorize]
@@ -23,35 +20,82 @@ public sealed class OrganogramaController : ControllerBase
     }
 
     /// <summary>
-    /// Retorna todos os funcionários ativos com seus dados hierárquicos.
-    /// O frontend constrói a árvore a partir da lista plana usando <c>gestorDiretoId</c>.
+    /// Retorna a estrutura organizacional: lotações ativas com seus funcionários agrupados.
+    /// Funcionários sem lotação são retornados em lista separada.
     /// </summary>
-    [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<OrganogramaNodeResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetTree(CancellationToken ct)
+    [HttpGet("estrutura")]
+    [ProducesResponseType(typeof(OrganogramaEstruturaResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetEstrutura(CancellationToken ct)
     {
-        var nodes = await _db.Funcionarios
+        // 1. Todas as lotações ativas
+        var lotacoes = await _db.UnidadesLotacao
             .AsNoTracking()
-            .Where(f => f.Status == FuncionarioStatus.Active)
-            .Select(f => new OrganogramaNodeResponse(
-                f.Id,
-                f.Name,
-                f.JobPosition != null ? f.JobPosition.Name : null,
-                f.NivelHierarquicoId,
-                f.NivelHierarquico != null ? f.NivelHierarquico.Nome : null,
-                f.GestorDiretoId,
-                f.AreaId,
-                f.Area != null ? f.Area.Name : null
-            ))
-            .OrderBy(n => n.NivelHierarquicoNome)
-            .ThenBy(n => n.Nome)
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.Level)
+            .ThenBy(u => u.Description)
+            .Select(u => new
+            {
+                u.Id,
+                Codigo = u.Code,
+                Descricao = u.Description,
+                u.Level,
+                u.ParentId,
+                u.OwnerFuncionarioId,
+            })
             .ToListAsync(ct);
 
-        return Ok(nodes);
+        // 2. Todos os funcionários ativos
+        var funcionarios = await _db.Funcionarios
+            .AsNoTracking()
+            .Where(f => f.Status == FuncionarioStatus.Active)
+            .OrderBy(f => f.NivelHierarquico != null ? f.NivelHierarquico.Ordem : (int?)null)
+            .ThenBy(f => f.Name)
+            .Select(f => new
+            {
+                f.Id,
+                Nome = f.Name,
+                Cargo = f.JobPosition != null ? f.JobPosition.Name : null,
+                NivelHierarquicoNome = f.NivelHierarquico != null ? f.NivelHierarquico.Nome : null,
+                NivelHierarquicoOrdem = f.NivelHierarquico != null ? f.NivelHierarquico.Ordem : (int?)null,
+                f.UnidadeLotacaoId,
+            })
+            .ToListAsync(ct);
+
+        // 3. Agrupar funcionários por lotação (em memória)
+        var byLotacao = funcionarios
+            .Where(f => f.UnidadeLotacaoId.HasValue)
+            .GroupBy(f => f.UnidadeLotacaoId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var semLotacao = funcionarios
+            .Where(f => f.UnidadeLotacaoId == null)
+            .Select(f => new OrganogramaFuncionarioDto(f.Id, f.Nome, f.Cargo, f.NivelHierarquicoNome, f.NivelHierarquicoOrdem))
+            .ToList();
+
+        var lotacoesDto = lotacoes.Select(u =>
+        {
+            var funcs = byLotacao.TryGetValue(u.Id, out var list) ? list : [];
+
+            var respRaw = u.OwnerFuncionarioId.HasValue
+                ? funcs.FirstOrDefault(f => f.Id == u.OwnerFuncionarioId.Value)
+                : null;
+
+            var responsavel = respRaw is not null
+                ? new OrganogramaFuncionarioDto(respRaw.Id, respRaw.Nome, respRaw.Cargo, respRaw.NivelHierarquicoNome, respRaw.NivelHierarquicoOrdem)
+                : null;
+
+            var funcionariosDto = funcs
+                .Select(f => new OrganogramaFuncionarioDto(f.Id, f.Nome, f.Cargo, f.NivelHierarquicoNome, f.NivelHierarquicoOrdem))
+                .ToList();
+
+            return new OrganogramaLotacaoDto(u.Id, u.Codigo, u.Descricao, u.Level, u.ParentId, responsavel, funcionariosDto);
+        }).ToList();
+
+        return Ok(new OrganogramaEstruturaResponse(lotacoesDto, semLotacao));
     }
 
     /// <summary>
-    /// Move um funcionário para um novo gestor direto (drag-drop no canvas).
+    /// Move um funcionário para um novo gestor direto.
     /// Apenas Admin ou Owner podem alterar a hierarquia.
     /// </summary>
     [HttpPatch("mover")]

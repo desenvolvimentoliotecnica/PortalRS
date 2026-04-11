@@ -120,7 +120,20 @@ public sealed class SolicitacoesDependenteController : ControllerBase
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpPost("{id:guid}/assumir")]
+    [ProducesResponseType(typeof(SolicitacaoDependenteResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Assumir(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.AssumirAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+    }\n\n    [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
@@ -132,17 +145,8 @@ public sealed class SolicitacoesDependenteController : ControllerBase
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
     }
 
-    private async Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
+    private Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
     {
-        if (_userContext.IsAdmin) return true;
-        var sol = await _service.GetByIdAsync(solicitacaoId, ct);
-        if (sol is null) return true;
-        var funcId = _userContext.FuncionarioId;
-        if (funcId.HasValue)
-        {
-            if (sol.Aprovador1Id.HasValue && sol.Aprovador1Id.Value == funcId.Value) return true;
-            if (sol.Aprovador2Id.HasValue && sol.Aprovador2Id.Value == funcId.Value) return true;
-        }
-        return false;
+        return Task.FromResult(true);
     }
 }

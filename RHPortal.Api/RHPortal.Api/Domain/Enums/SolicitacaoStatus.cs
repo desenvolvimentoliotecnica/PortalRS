@@ -10,5 +10,6 @@ public enum SolicitacaoStatus : short
     Aprovada = 2,
     Reprovada = 3,
     AjustesNecessarios = 4,
-    Cancelada = 5
+    Cancelada = 5,
+    PendenteAprovacaoRh = 6
 }

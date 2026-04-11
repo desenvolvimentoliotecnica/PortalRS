@@ -18,7 +18,7 @@ public sealed class RolesController : ControllerBase
         _localizer = localizer;
     }
 
-    [RequirePermission("roles.manage")]
+    [RequirePermission("users.read")]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<RoleListItemResponse>>> List(
         [FromServices] RoleAdministrationService service,

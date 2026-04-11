@@ -12,7 +12,7 @@ public sealed class JobPosition : ITenantEntity
 
     public CargoStatus Status { get; set; } = CargoStatus.Active;
 
-    public Guid AreaId { get; set; }
+    public Guid? AreaId { get; set; }
     public Area? Area { get; set; }
 
     public SeniorityLevel Seniority { get; set; } = SeniorityLevel.Pleno;
@@ -33,6 +33,20 @@ public sealed class JobPosition : ITenantEntity
 
     /// <summary>Descrição completa do cargo (legado TOTVS dsl_complet_cargo).</summary>
     public string? FullDescription { get; set; }
+
+    /// <summary>Nível de cargo TOTVS Datasul (FK → NivelCargo). Mapeado para cdn_niv_cargo na API SetCargo.</summary>
+    public Guid? NivelCargoId { get; set; }
+    public NivelCargo? NivelCargo { get; set; }
+
+    /// <summary>Descrição do envelope de pagamento (des_envel_pagto). Obrigatório na API SetCargo do Datasul. Se nulo, usa o Name.</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(40)]
+    public string? DesEnvelPagto { get; set; }
+
+    /// <summary>Código do cargo básico no TOTVS Datasul (cdn_cargo_basic). Usado na API SetCargo.</summary>
+    public int? TotvsCargoBasicId { get; set; }
+
+    /// <summary>Código do nível de cargo no TOTVS Datasul (cdn_niv_cargo). Usado na API SetCargo.</summary>
+    public int? TotvsNivCargoId { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }

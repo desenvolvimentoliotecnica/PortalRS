@@ -19,6 +19,7 @@ public interface ISolicitacaoFeriasService
     Task<SolicitacaoFeriasResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoFeriasResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoFeriasResponse?> AssumirAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
@@ -154,34 +155,71 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
         return await GetByIdAsync(id, ct);
     }
 
-    public async Task<bool> SubmitAsync(Guid id, CancellationToken ct)
+        public async Task<bool> SubmitAsync(Guid id, CancellationToken ct)
     {
         var entity = await _db.SolicitacoesFerias.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
-        var resolution = await _workflow.ResolveApproversAsync(entity.SolicitanteId, entity.Aprovador2Habilitado, ct);
-
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
-        entity.Aprovador1Id = resolution.Aprovador1Id;
-        entity.Aprovador1Status = StatusAprovacao.Pendente;
-        entity.Aprovador2Habilitado = resolution.Aprovador2Habilitado;
-        entity.Aprovador2Id = resolution.Aprovador2Id;
-        if (resolution.Aprovador2Habilitado)
-            entity.Aprovador2Status = StatusAprovacao.Pendente;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Remove etapas anteriores
+        var existingEtapas = _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias);
+        _db.SolicitacoesAprovacaoEtapa.RemoveRange(existingEtapas);
+
+        // Instancia as novas
+        var resolved = await _workflow.ResolveEtapasAsync(
+            entity.SolicitanteId, null, TipoFluxoAprovacao.Ferias, ct);
+
+        var novasEtapas = resolved.Select(r => new SolicitacaoAprovacaoEtapa
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId ?? "",
+            SolicitacaoId = entity.Id,
+            TipoFluxo = TipoFluxoAprovacao.Ferias,
+            Ordem = r.Ordem,
+            Label = r.Label,
+            AprovadorId = r.AprovadorId,
+            RoleFilaId = r.RoleFilaId,
+            Status = StatusAprovacao.Pendente,
+        }).ToList();
+
+        _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
+
+        var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
+        var segundaEtapa = novasEtapas.OrderBy(e => e.Ordem).Skip(1).FirstOrDefault();
+
+        if (primeiraEtapa is not null)
+        {
+            entity.Aprovador1Id = primeiraEtapa.AprovadorId;
+            entity.Aprovador1Status = primeiraEtapa.Status;
+        }
+
+        entity.Aprovador2Habilitado = segundaEtapa is not null;
+        if (segundaEtapa is not null)
+        {
+            entity.Aprovador2Id = segundaEtapa.AprovadorId;
+            entity.Aprovador2Status = segundaEtapa.Status;
+        }
+        else
+        {
+            entity.Aprovador2Id = null;
+            entity.Aprovador2Status = null;
+        }
 
         await _db.SaveChangesAsync(ct);
 
-        // Notificar aprovador1
-        if (entity.Aprovador1Id.HasValue)
+        // Notificar aprovador1 (ou fila)
+        if (primeiraEtapa is not null && primeiraEtapa.AprovadorId.HasValue)
         {
             var solicitanteNome = (await _db.Set<Funcionario>().AsNoTracking()
                 .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct))?.Name ?? "Alguém";
 
             await _workflow.NotifyByFuncionarioIdAsync(
-                entity.Aprovador1Id.Value,
+                primeiraEtapa.AprovadorId.Value,
                 "Nova solicitação de férias para aprovação",
                 $"{solicitanteNome} abriu uma solicitação de férias ({entity.DataInicio:dd/MM/yyyy} a {entity.DataFim:dd/MM/yyyy}).",
                 $"/colaborador/solicitacoes-ferias/{entity.Id}",
@@ -191,37 +229,115 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
         return true;
     }
 
-    public async Task<SolicitacaoFeriasResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct)
+        public async Task<SolicitacaoFeriasResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct)
     {
         var entity = await _db.SolicitacoesFerias.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
-        entity.Status = SolicitacaoStatus.Aprovada;
-        entity.ObservacaoAprovador = observacao;
-        entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
-        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
 
-        await _db.SaveChangesAsync(ct);
+        if (etapaAtual is null)
+            throw new InvalidOperationException("Nenhuma etapa de aprovação pendente encontrada.");
 
-        // Notificar solicitante
-        await _workflow.NotifyByFuncionarioIdAsync(
-            entity.SolicitanteId,
-            "Solicitação de férias aprovada",
-            $"Sua solicitação de férias ({entity.DataInicio:dd/MM/yyyy} a {entity.DataFim:dd/MM/yyyy}) foi aprovada.",
-            $"/colaborador/solicitacoes-ferias/{entity.Id}",
-            ct);
+        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+            throw new InvalidOperationException("Você não tem permissão para aprovar esta etapa.");
+
+        if (etapaAtual.RoleFilaId.HasValue && _currentUser.FuncionarioId.HasValue)
+            etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+
+        etapaAtual.Status = StatusAprovacao.Aprovado;
+        etapaAtual.DataUtc = DateTimeOffset.UtcNow;
+        etapaAtual.Observacao = observacao;
+
+        var todasEtapas = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias)
+            .OrderBy(e => e.Ordem)
+            .ToListAsync(ct);
+
+        var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
+
+        var indAtual = todasEtapas.IndexOf(etapaAtual);
+        if (indAtual == 0)
+        {
+            entity.Aprovador1Id = etapaAtual.AprovadorId;
+            entity.Aprovador1Status = etapaAtual.Status;
+            entity.Aprovador1DataUtc = etapaAtual.DataUtc;
+        }
+        else if (indAtual == 1)
+        {
+            entity.Aprovador2Id = etapaAtual.AprovadorId;
+            entity.Aprovador2Status = etapaAtual.Status;
+            entity.Aprovador2DataUtc = etapaAtual.DataUtc;
+        }
+
+        if (proximaEtapa is not null)
+        {
+            entity.Status = proximaEtapa.Label.Contains("RH") ? SolicitacaoStatus.PendenteAprovacaoRh : SolicitacaoStatus.PendenteAprovacao;
+            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            entity.ObservacaoAprovador = observacao;
+
+            await _db.SaveChangesAsync(ct);
+
+            if (proximaEtapa.AprovadorId.HasValue)
+            {
+                await _workflow.NotifyByFuncionarioIdAsync(
+                    proximaEtapa.AprovadorId.Value,
+                    "Solicitação de férias aguarda sua aprovação",
+                    $"A solicitação foi aprovada na etapa anterior e aguarda sua ação.",
+                    $"/colaborador/solicitacoes-ferias/{entity.Id}",
+                    ct);
+            }
+        }
+        else
+        {
+            entity.Status = SolicitacaoStatus.Aprovada;
+            entity.ObservacaoAprovador = observacao;
+            entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
+            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+            await _db.SaveChangesAsync(ct);
+
+            await _workflow.NotifyByFuncionarioIdAsync(
+                entity.SolicitanteId,
+                "Solicitação de férias aprovada",
+                $"Sua solicitação de férias ({entity.DataInicio:dd/MM/yyyy} a {entity.DataFim:dd/MM/yyyy}) foi aprovada.",
+                $"/colaborador/solicitacoes-ferias/{entity.Id}",
+                ct);
+        }
 
         return await GetByIdAsync(id, ct);
     }
 
-    public async Task<SolicitacaoFeriasResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct)
+        public async Task<SolicitacaoFeriasResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct)
     {
         var entity = await _db.SolicitacoesFerias.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
+
+        var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
+
+        if (etapaAtual is not null)
+        {
+            if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+                throw new InvalidOperationException("Você não tem permissão para reprovar esta etapa.");
+            
+            etapaAtual.Status = StatusAprovacao.Rejeitado;
+            etapaAtual.DataUtc = DateTimeOffset.UtcNow;
+            etapaAtual.Observacao = observacao;
+
+            var logIndex = await _db.SolicitacoesAprovacaoEtapa.Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias && e.Ordem < etapaAtual.Ordem).CountAsync(ct);
+            if (logIndex == 0) { entity.Aprovador1Status = StatusAprovacao.Rejeitado; }
+            else if (logIndex == 1) { entity.Aprovador2Status = StatusAprovacao.Rejeitado; }
+        }
 
         entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
@@ -240,12 +356,12 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
         return await GetByIdAsync(id, ct);
     }
 
-    public async Task<SolicitacaoFeriasResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct)
+        public async Task<SolicitacaoFeriasResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct)
     {
         var entity = await _db.SolicitacoesFerias.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
@@ -274,6 +390,38 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
         _db.SolicitacoesFerias.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;
+    }
+
+        public async Task<SolicitacaoFeriasResponse?> AssumirAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesFerias.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
+
+        var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
+
+        if (etapaAtual is null || !etapaAtual.RoleFilaId.HasValue)
+            throw new InvalidOperationException("Esta etapa não é uma fila de perfil para ser assumida.");
+
+        if (etapaAtual.AprovadorId.HasValue)
+            throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
+
+        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+            throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
+
+        etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        var logIndex = await _db.SolicitacoesAprovacaoEtapa.Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias && e.Ordem < etapaAtual.Ordem).CountAsync(ct);
+        if (logIndex == 0) { entity.Aprovador1Id = _currentUser.FuncionarioId; }
+        else if (logIndex == 1) { entity.Aprovador2Id = _currentUser.FuncionarioId; }
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
     }
 
     private static SolicitacaoFeriasResponse MapToResponse(SolicitacaoFerias s) => new(

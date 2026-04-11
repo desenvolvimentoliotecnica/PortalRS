@@ -47,6 +47,14 @@ export const ApiCurrentUserSchema = z.object({
 
 export type ApiCurrentUser = z.infer<typeof ApiCurrentUserSchema>;
 
+export const ApiAutoLoginResponseSchema = z.object({
+  accessToken: z.string(),
+  accessTokenExpirationMinutes: z.number().int().nonnegative(),
+  tenantId: z.string(),
+});
+
+export type ApiAutoLoginResponse = z.infer<typeof ApiAutoLoginResponseSchema>;
+
 export const ApiSwitchTenantResponseSchema = z.object({
   accessToken: z.string(),
   tenantId: z.string(),
@@ -66,4 +74,26 @@ export const ApiMenuForCurrentUserSchema = z.object({
 });
 
 export type ApiMenuForCurrentUser = z.infer<typeof ApiMenuForCurrentUserSchema>;
+
+export const ApiNivelCargoSchema = z.object({
+  id: z.string(),
+  cdnNivCargo: z.number().int(),
+  nomReduz: z.string(),
+  nomComplet: z.string(),
+  isActive: z.boolean(),
+  createdAtUtc: z.string(),
+  updatedAtUtc: z.string(),
+});
+
+export type ApiNivelCargo = z.infer<typeof ApiNivelCargoSchema>;
+
+export const ApiNivelCargoLookupSchema = z.object({
+  id: z.string(),
+  cdnNivCargo: z.number().int(),
+  nomReduz: z.string(),
+  nomComplet: z.string(),
+  displayLabel: z.string(),
+});
+
+export type ApiNivelCargoLookup = z.infer<typeof ApiNivelCargoLookupSchema>;
 

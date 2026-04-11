@@ -34,7 +34,8 @@ public sealed class RoleAdministrationService
                 x.IsActive,
                 x.VisibilityScope,
                 x.VagasDataScope,
-                x.AccessMode))
+                x.AccessMode,
+                x.Tipo))
             .ToListAsync(ct);
     }
 
@@ -51,6 +52,7 @@ public sealed class RoleAdministrationService
                 x.VisibilityScope,
                 x.VagasDataScope,
                 x.AccessMode,
+                x.Tipo,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
             .FirstOrDefaultAsync(ct);
@@ -74,7 +76,8 @@ public sealed class RoleAdministrationService
             IsActive = request.IsActive,
             VisibilityScope = request.VisibilityScope,
             VagasDataScope = request.VagasDataScope,
-            AccessMode = request.AccessMode
+            AccessMode = request.AccessMode,
+            Tipo = request.Tipo
         };
 
         var result = await _roleManager.CreateAsync(role);
@@ -105,6 +108,7 @@ public sealed class RoleAdministrationService
         role.VisibilityScope = request.VisibilityScope;
         role.VagasDataScope = request.VagasDataScope;
         role.AccessMode = request.AccessMode;
+        role.Tipo = request.Tipo;
 
         var result = await _roleManager.UpdateAsync(role);
         if (!result.Succeeded)

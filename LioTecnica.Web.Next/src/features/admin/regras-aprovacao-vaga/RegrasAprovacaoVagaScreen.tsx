@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, RefreshCw, AlertTriangle } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
     Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
@@ -145,6 +146,20 @@ export default function RegrasAprovacaoVagaScreen() {
 
     return (
         <div className="p-6 space-y-4">
+            {/* Deprecation banner */}
+            <div className="flex items-start gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="size-5 flex-shrink-0 mt-0.5" />
+                <div>
+                    <p className="font-semibold">Esta tela está depreciada</p>
+                    <p className="mt-0.5 text-xs">
+                        Configure as aprovações de todos os fluxos (Requisição de Pessoal, Movimentação de Pessoal e Desligamento) na nova tela{" "}
+                        <Link href="/admin/configuracao-aprovacoes" className="underline font-medium hover:opacity-80">
+                            Configuração de Aprovações
+                        </Link>
+                        .
+                    </p>
+                </div>
+            </div>
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold">Regras de Aprovação de Vaga</h1>

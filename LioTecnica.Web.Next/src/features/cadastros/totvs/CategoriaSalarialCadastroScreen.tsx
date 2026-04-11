@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, Plus, RefreshCw, Pencil, Trash2, Download, Upload } from "lucide-react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, Download, Upload, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImportGuide } from "@/components/ImportGuide";
+import { EmpresaAutocomplete } from "@/components/autocomplete/EmpresaAutocomplete";
+import { EstabelecimentoAutocomplete } from "@/components/autocomplete/EstabelecimentoAutocomplete";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -24,6 +27,11 @@ interface Item {
   isActive: boolean;
   createdAtUtc: string;
   updatedAtUtc: string;
+  empresaId?: string | null;
+  empresaCode?: string | null;
+  estabelecimentoId?: string | null;
+  estabelecimentoCode?: string | null;
+  estabelecimentoName?: string | null;
 }
 
 interface Draft {
@@ -31,9 +39,17 @@ interface Draft {
   code: string;
   description: string;
   isActive: boolean;
+  empresaId: string | null;
+  empresaCode: string | null;
+  empresaDescription: string | null;
+  estabelecimentoId: string | null;
+  estabelecimentoCode: string | null;
+  estabelecimentoName: string | null;
 }
 
 interface ImportRow {
+  empresaCodigo: string;
+  estabelecimentoCodigo: string;
   code: string;
   description: string;
   isActive: boolean;
@@ -54,7 +70,11 @@ function statusBadge(active: boolean) {
   );
 }
 
-const emptyDraft: Draft = { code: "", description: "", isActive: true };
+const emptyDraft: Draft = {
+  code: "", description: "", isActive: true,
+  empresaId: null, empresaCode: null, empresaDescription: null,
+  estabelecimentoId: null, estabelecimentoCode: null, estabelecimentoName: null,
+};
 
 export default function CategoriaSalarialCadastroScreen() {
   const [loading, setLoading] = useState(true);
@@ -75,7 +95,7 @@ export default function CategoriaSalarialCadastroScreen() {
   const syncList = useCallback(async () => {
     try {
       setLoading(true);
-      const items = await fetchJson<Item[]>("/api/categorias-salariais");
+      const items = await fetchJson<Item[]>("/api/categorias-salariais?take=5000");
       setRows(Array.isArray(items) ? items : []);
     } catch {
       toast.error("Erro ao carregar categorias salariais");
@@ -86,19 +106,42 @@ export default function CategoriaSalarialCadastroScreen() {
 
   useEffect(() => { syncList(); }, [syncList]);
 
+  type SortKey = "empresa" | "estab" | "code" | "description" | "status";
+  const [sortKey, setSortKey] = useState<SortKey>("code");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronsUpDown className="inline size-3 ml-1 text-muted-foreground/50" />;
+    return sortDir === "asc" ? <ChevronUp className="inline size-3 ml-1" /> : <ChevronDown className="inline size-3 ml-1" />;
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((x) => {
+    const f = rows.filter((x) => {
       if (statusFilter === "ativo" && !x.isActive) return false;
       if (statusFilter === "inativo" && x.isActive) return false;
       if (!q) return true;
       return x.code.toLowerCase().includes(q) || x.description.toLowerCase().includes(q);
     });
-  }, [search, statusFilter, rows]);
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...f].sort((a, b) => {
+      switch (sortKey) {
+        case "empresa":     return dir * (a.empresaCode ?? "").localeCompare(b.empresaCode ?? "", "pt-BR");
+        case "estab":       return dir * (a.estabelecimentoCode ?? "").localeCompare(b.estabelecimentoCode ?? "", "pt-BR");
+        case "code":        return dir * a.code.localeCompare(b.code, "pt-BR");
+        case "description": return dir * a.description.localeCompare(b.description, "pt-BR");
+        case "status":      return dir * (Number(b.isActive) - Number(a.isActive));
+        default: return 0;
+      }
+    });
+  }, [search, statusFilter, rows, sortKey, sortDir]);
 
   const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
     initialPageSize: 20,
-    resetDeps: [search, statusFilter],
+    resetDeps: [search, statusFilter, sortKey, sortDir],
   });
   const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.start, slice.end]);
 
@@ -108,10 +151,18 @@ export default function CategoriaSalarialCadastroScreen() {
   }), [rows]);
 
   const save = async () => {
+    if (!draft.empresaId) { toast.error("Empresa é obrigatória"); return; }
+    if (!draft.estabelecimentoId) { toast.error("Estabelecimento é obrigatório"); return; }
     if (!draft.code.trim() || !draft.description.trim()) { toast.error("Código e descrição são obrigatórios"); return; }
     try {
       setSaving(true);
-      const payload = { code: draft.code.trim(), description: draft.description.trim(), isActive: draft.isActive };
+      const payload = {
+        code: draft.code.trim(),
+        description: draft.description.trim(),
+        isActive: draft.isActive,
+        empresaId: draft.empresaId,
+        estabelecimentoId: draft.estabelecimentoId,
+      };
       if (draft.id) {
         await fetchJson(`/api/categorias-salariais/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         toast.success("Categoria atualizada");
@@ -121,7 +172,7 @@ export default function CategoriaSalarialCadastroScreen() {
       }
       setEditOpen(false);
       await syncList();
-    } catch { toast.error("Erro ao salvar categoria"); }
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Erro ao salvar categoria"); }
     finally { setSaving(false); }
   };
 
@@ -133,16 +184,23 @@ export default function CategoriaSalarialCadastroScreen() {
     reader.onload = (evt) => {
       try {
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        if (sheet["!ref"]) { const range = XLSX.utils.decode_range(sheet["!ref"]); for (let R = range.s.r; R <= range.e.r; R++) { for (let C = range.s.c; C <= range.e.c; C++) { const ref = XLSX.utils.encode_cell({ r: R, c: C }); const cell = sheet[ref]; if (cell && cell.t === "d" && cell.v instanceof Date) { const d = cell.v as Date; cell.t = "s"; cell.v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; } else if (cell && cell.t === "n") { cell.t = "s"; cell.v = cell.w ?? String(cell.v); } } } }
         const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
         if (raw.length === 0) { toast.error("Planilha vazia."); return; }
         const norm = (s: string) => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const parsed: ImportRow[] = raw.map((r) => {
           const key = (variants: string[]) => { const f = Object.keys(r).find((k) => variants.some((v) => norm(k) === norm(v))); return f ? String(r[f] ?? "").trim() : ""; };
           const statusStr = key(["status", "ativo", "ativa"]).toLowerCase();
-          return { code: key(["codigo", "code"]), description: key(["descricao", "description"]), isActive: statusStr !== "inativo" && statusStr !== "inactive" };
-        }).filter((r) => r.code && r.description);
+          return {
+            empresaCodigo: key(["empresacodigo", "empresacod", "cdn_empresa", "empresa"]),
+            estabelecimentoCodigo: key(["estabelecimentocodigo", "estabelecimentocod", "cdn_estab", "estabelecimento"]),
+            code: key(["codigo", "code", "cdn_categ_sal"]),
+            description: key(["descricao", "description", "des_categ_sal"]),
+            isActive: statusStr !== "inativo" && statusStr !== "inactive",
+          };
+        }).filter((r) => r.empresaCodigo && r.estabelecimentoCodigo && r.code && r.description);
         if (parsed.length === 0) { toast.error("Nenhuma linha válida encontrada."); return; }
         setImportRows(parsed); setImportResult(null); setImportOpen(true);
       } catch { toast.error("Erro ao ler o arquivo. Use .xlsx, .xls ou .csv."); }
@@ -153,23 +211,31 @@ export default function CategoriaSalarialCadastroScreen() {
   const runImport = async () => {
     if (importRows.length === 0) return;
     setImporting(true);
-    const existingMap = new Map(rows.map((r) => [r.code.toLowerCase(), r.id]));
-    let created = 0, updated = 0, errors = 0;
-    for (const row of importRows) {
-      const payload = { code: row.code, description: row.description, isActive: row.isActive };
-      try {
-        const existingId = existingMap.get(row.code.toLowerCase());
-        if (existingId) { await fetchJson(`/api/categorias-salariais/${existingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); updated++; }
-        else { await fetchJson("/api/categorias-salariais", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); created++; }
-      } catch { errors++; }
+    try {
+      const payload = importRows.map((row) => ({
+        code: row.code,
+        description: row.description,
+        isActive: row.isActive,
+        empresaCodigo: row.empresaCodigo || null,
+        estabelecimentoCodigo: row.estabelecimentoCodigo || null,
+      }));
+      const result = await fetchJson<{ created: number; updated: number; skipped: number; errors: string[] }>(
+        "/api/categorias-salariais/import",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+      );
+      setImportResult({ created: result.created, updated: result.updated, errors: result.skipped + result.errors.length });
+      await syncList();
+    } catch (e) {
+      toast.error(`Falha na importação: ${e instanceof Error ? e.message : "erro"}`);
+    } finally {
+      setImporting(false);
     }
-    setImportResult({ created, updated, errors });
-    setImporting(false);
-    await syncList();
   };
 
   const exportTsv = () => {
-    const csv = [["Código", "Descrição", "Status"].join("\t"), ...rows.map((x) => [x.code, x.description, x.isActive ? "Ativo" : "Inativo"].join("\t"))].join("\n");
+    const csv = [["Empresa", "Estabelecimento", "Código", "Descrição", "Status"].join("\t"),
+      ...rows.map((x) => [x.empresaCode || "", x.estabelecimentoCode || "", x.code, x.description, x.isActive ? "Ativo" : "Inativo"].join("\t"))
+    ].join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/plain;charset=utf-8;" }));
     link.download = "categorias-salariais.tsv";
@@ -181,7 +247,7 @@ export default function CategoriaSalarialCadastroScreen() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="text-lg font-bold">💰 Categorias Salariais</h4>
+          <h4 className="text-lg font-bold">Categorias Salariais</h4>
           <div className="text-muted-foreground text-sm">Cadastro de categorias salariais.</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -239,24 +305,43 @@ export default function CategoriaSalarialCadastroScreen() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Categoria</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("empresa")}>Empresa<SortIcon col="empresa" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("estab")}>Cód. Estab.<SortIcon col="estab" /></TableHead>
+              <TableHead>Estabelecimento</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("code")}>Código<SortIcon col="code" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("description")}>Descrição<SortIcon col="description" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>Status<SortIcon col="status" /></TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
             ) : paged.length ? paged.map((item) => (
               <TableRow key={item.id}>
-                <TableCell>
-                  <div className="font-semibold">{item.description}</div>
-                  <div className="text-xs text-muted-foreground font-mono">{item.code}</div>
-                </TableCell>
+                <TableCell className="text-sm text-muted-foreground font-mono">{item.empresaCode || "—"}</TableCell>
+                <TableCell className="text-sm font-mono text-muted-foreground">{item.estabelecimentoCode || "—"}</TableCell>
+                <TableCell className="text-sm">{item.estabelecimentoName || "—"}</TableCell>
+                <TableCell className="font-mono text-sm">{item.code}</TableCell>
+                <TableCell className="text-sm">{item.description}</TableCell>
                 <TableCell>{statusBadge(item.isActive)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => { setDraft({ id: item.id, code: item.code, description: item.description, isActive: item.isActive }); setEditOpen(true); }}>
+                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => {
+                      setDraft({
+                        id: item.id,
+                        code: item.code,
+                        description: item.description,
+                        isActive: item.isActive,
+                        empresaId: item.empresaId ?? null,
+                        empresaCode: item.empresaCode ?? null,
+                        empresaDescription: null,
+                        estabelecimentoId: item.estabelecimentoId ?? null,
+                        estabelecimentoCode: item.estabelecimentoCode ?? null,
+                        estabelecimentoName: item.estabelecimentoName ?? null,
+                      });
+                      setEditOpen(true);
+                    }}>
                       <Pencil />
                     </Button>
                     <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(item)}>
@@ -266,7 +351,7 @@ export default function CategoriaSalarialCadastroScreen() {
                 </TableCell>
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">Nenhuma categoria encontrada.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Nenhuma categoria encontrada.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -282,6 +367,25 @@ export default function CategoriaSalarialCadastroScreen() {
             <DialogDescription>Preencha os dados da categoria salarial.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Empresa *</label>
+              <EmpresaAutocomplete
+                value={draft.empresaId}
+                onChange={(id) => setDraft((d) => ({ ...d, empresaId: id, empresaCode: null, empresaDescription: null, estabelecimentoId: null, estabelecimentoCode: null, estabelecimentoName: null }))}
+                defaultLabel={draft.empresaCode ? { code: draft.empresaCode, description: draft.empresaDescription ?? "" } : undefined}
+                placeholder="Selecione a empresa..."
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Estabelecimento *</label>
+              <EstabelecimentoAutocomplete
+                value={draft.estabelecimentoId}
+                onChange={(id) => setDraft((d) => ({ ...d, estabelecimentoId: id }))}
+                empresaId={draft.empresaId}
+                defaultLabel={draft.estabelecimentoCode && draft.estabelecimentoName ? { code: draft.estabelecimentoCode, name: draft.estabelecimentoName } : undefined}
+                placeholder="Selecione o estabelecimento..."
+              />
+            </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Código *</label>
               <Input placeholder="Ex: A" value={draft.code} onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))} maxLength={10} />
@@ -314,21 +418,36 @@ export default function CategoriaSalarialCadastroScreen() {
               {importResult ? `Concluído: ${importResult.created} criados, ${importResult.updated} atualizados${importResult.errors > 0 ? `, ${importResult.errors} erros` : ""}.` : `${importRows.length} registro(s) encontrado(s). Códigos existentes serão atualizados.`}
             </DialogDescription>
           </DialogHeader>
+          <ImportGuide entity="CategoriasSalariais" columns={[
+            { name: "EmpresaCodigo", hint: "Ex: 1 (cdn_empresa)", required: true },
+            { name: "EstabelecimentoCodigo", hint: "Ex: 1 (cdn_estab)", required: true },
+            { name: "Codigo", hint: "Ex: A (cdn_categ_sal)", required: true },
+            { name: "Descricao", hint: "Ex: Analista Pleno (des_categ_sal)", required: true },
+            { name: "Status", hint: "Ativo / Inativo" },
+          ]} />
           {!importResult && (
             <div className="max-h-64 overflow-y-auto border rounded-md">
               <table className="w-full text-sm">
                 <thead className="bg-muted sticky top-0">
-                  <tr><th className="px-3 py-2 text-left font-medium">Código</th><th className="px-3 py-2 text-left font-medium">Descrição</th><th className="px-3 py-2 text-left font-medium">Status</th></tr>
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Empresa</th>
+                    <th className="px-3 py-2 text-left font-medium">Estabelecimento</th>
+                    <th className="px-3 py-2 text-left font-medium">Código</th>
+                    <th className="px-3 py-2 text-left font-medium">Descrição</th>
+                    <th className="px-3 py-2 text-left font-medium">Status</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {importRows.slice(0, 50).map((r, i) => (
                     <tr key={i} className="border-t">
+                      <td className="px-3 py-1.5 font-mono text-muted-foreground">{r.empresaCodigo}</td>
+                      <td className="px-3 py-1.5 font-mono text-muted-foreground">{r.estabelecimentoCodigo}</td>
                       <td className="px-3 py-1.5 font-mono">{r.code}</td>
                       <td className="px-3 py-1.5">{r.description}</td>
                       <td className="px-3 py-1.5"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${r.isActive ? "bg-emerald-500/15 text-emerald-700" : "bg-zinc-400/15 text-zinc-600"}`}>{r.isActive ? "Ativo" : "Inativo"}</span></td>
                     </tr>
                   ))}
-                  {importRows.length > 50 && <tr className="border-t"><td colSpan={3} className="px-3 py-2 text-center text-muted-foreground text-xs">… e mais {importRows.length - 50} registro(s)</td></tr>}
+                  {importRows.length > 50 && <tr className="border-t"><td colSpan={5} className="px-3 py-2 text-center text-muted-foreground text-xs">… e mais {importRows.length - 50} registro(s)</td></tr>}
                 </tbody>
               </table>
             </div>

@@ -132,6 +132,25 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
+    /// <summary>Assume a solicitação de uma fila de perfil para o usuário logado.</summary>
+    [HttpPost("{id:guid}/assumir")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Assumir(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.AssumirAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Reprova a solicitação com observação (somente aprovador designado ou Admin).</summary>
     [HttpPost("{id:guid}/reject")]
     [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
@@ -176,6 +195,24 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
+    /// <summary>Cancela uma solicitação (somente pelo solicitante, enquanto não aprovada).</summary>
+    [HttpPost("{id:guid}/cancel")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.CancelAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Exclui uma solicitação (somente rascunho).</summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -196,24 +233,9 @@ public sealed class SolicitacoesVagaController : ControllerBase
 
     // ── helpers ──
 
-    /// <summary>
-    /// Returns true if the current user is Admin or the designated approver for this solicitação.
-    /// </summary>
-    private async Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
+    private Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
     {
-        if (_userContext.IsAdmin) return true;
-
-        var sol = await _service.GetByIdAsync(solicitacaoId, ct);
-        if (sol is null) return true; // will 404 downstream
-
-        // If there's a designated approver, only they can act
-        if (sol.AprovadorId.HasValue && _userContext.FuncionarioId.HasValue)
-            return sol.AprovadorId.Value == _userContext.FuncionarioId.Value;
-
-        // Fallback: area-based — user with same area can approve
-        if (_userContext.AreaId.HasValue && sol.AreaId.HasValue)
-            return _userContext.AreaId.Value == sol.AreaId.Value;
-
-        return false;
+        // Delegação da autorização fina (Role, Gestor Direto, etc.) para o Serviço.
+        return Task.FromResult(true);
     }
 }

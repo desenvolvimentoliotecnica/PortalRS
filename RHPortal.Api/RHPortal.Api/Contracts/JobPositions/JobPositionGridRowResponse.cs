@@ -7,9 +7,14 @@ public sealed record JobPositionGridRowResponse(
     string Name,
     string Code,
     string AreaName,
-    Guid AreaId,
+    Guid? AreaId,
     SeniorityLevel Seniority,
     int FuncionariosCount,
     CargoStatus Status,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+    int? TotvsCargoBasicId,
+    int? TotvsNivCargoId,
+    string? NivelCargoNomReduz,
+    string? DesEnvelPagto,
+    string? OccupationalClassification
 );

@@ -2,35 +2,17 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "Next.js (Frontend)",
-      "runtimeExecutable": "pnpm.cmd",
-      "runtimeArgs": ["dev"],
+      "name": "Next.js",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["/Users/victoralves/Projects/Voltage.RenderRH/__scripts__/dev/dev-next-preview.sh"],
+      "cwd": "/Users/victoralves/Projects/Voltage.RenderRH",
       "port": 3000,
-      "cwd": "LioTecnica.Web.Next",
+      "autoPort": false,
       "env": {
-        "NODE_OPTIONS": "--max-old-space-size=2048",
-        "LEGACY_ORIGIN": "http://localhost:5051",
-        "DEV_API_ORIGIN": "http://localhost:5056"
+        "HOME": "/Users/victoralves",
+        "PATH": "/Users/victoralves/.nvm/versions/node/v20.19.3/bin:/usr/local/bin:/usr/bin:/bin",
+        "NVM_DIR": "/Users/victoralves/.nvm"
       }
-    },
-    {
-      "name": "RHPortal.Api (C# REST API)",
-      "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj", "--launch-profile", "http"],
-      "port": 5056
-    },
-    {
-      "name": "LioTecnica.Web (Legacy BFF / MVC)",
-      "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "LioTecnica.Web/LioTecnica.Web.csproj", "--launch-profile", "http"],
-      "port": 5051
-    },
-    {
-      "name": "RHPortal.Ai (Python FastAPI / IA)",
-      "runtimeExecutable": "uvicorn",
-      "runtimeArgs": ["app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
-      "port": 8000,
-      "cwd": "RHPortal.Ai"
     }
   ]
 }

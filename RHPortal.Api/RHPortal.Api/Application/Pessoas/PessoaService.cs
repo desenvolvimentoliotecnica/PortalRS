@@ -32,10 +32,21 @@ public sealed class PessoaService : IPessoaService
                 EF.Functions.Like(p.Email, like) ||
                 (p.Fone != null && EF.Functions.Like(p.Fone, like)) ||
                 (p.Cidade != null && EF.Functions.Like(p.Cidade, like)) ||
-                (p.Uf != null && EF.Functions.Like(p.Uf, like)));
+                (p.Uf != null && EF.Functions.Like(p.Uf, like)) ||
+                (p.Cpf != null && EF.Functions.Like(p.Cpf, like)) ||
+                (p.Rg != null && EF.Functions.Like(p.Rg, like)));
         }
 
-        var ordered = q.OrderBy(p => p.Nome).ThenBy(p => p.Email);
+        var asc = !string.Equals(query.Dir, "desc", StringComparison.OrdinalIgnoreCase);
+        IQueryable<Pessoa> ordered = (query.Sort?.ToLowerInvariant() switch
+        {
+            "email"   => asc ? q.OrderBy(p => p.Email).ThenBy(p => p.Nome)   : q.OrderByDescending(p => p.Email).ThenByDescending(p => p.Nome),
+            "fone"    => asc ? q.OrderBy(p => p.Fone).ThenBy(p => p.Nome)    : q.OrderByDescending(p => p.Fone).ThenByDescending(p => p.Nome),
+            "cidade"  => asc ? q.OrderBy(p => p.Cidade).ThenBy(p => p.Nome)  : q.OrderByDescending(p => p.Cidade).ThenByDescending(p => p.Nome),
+            "criado"  => asc ? q.OrderBy(p => p.CreatedAtUtc).ThenBy(p => p.Nome) : q.OrderByDescending(p => p.CreatedAtUtc).ThenByDescending(p => p.Nome),
+            _         => asc ? q.OrderBy(p => p.Nome).ThenBy(p => p.Email)   : q.OrderByDescending(p => p.Nome).ThenByDescending(p => p.Email),
+        });
+
         var totalCount = await ordered.CountAsync(ct);
 
         var page = Math.Max(1, query.Page);
@@ -279,6 +290,17 @@ public sealed class PessoaService : IPessoaService
     {
         var entity = await _db.Pessoas.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
+
+        var hasFuncionarioAtivo = await _db.Funcionarios
+            .AnyAsync(x => x.PessoaId == id && x.Status == Domain.Enums.FuncionarioStatus.Active, ct);
+        if (hasFuncionarioAtivo)
+            throw new InvalidOperationException("Não é possível excluir: a pessoa possui um funcionário ativo vinculado.");
+
+        var hasCandidaturaAtiva = await _db.Candidatos
+            .AnyAsync(x => x.Talento!.PessoaId == id && x.Status != Domain.Enums.CandidateStatus.Reprovado, ct);
+        if (hasCandidaturaAtiva)
+            throw new InvalidOperationException("Não é possível excluir: a pessoa possui candidaturas ativas em processos seletivos.");
+
         _db.Pessoas.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;

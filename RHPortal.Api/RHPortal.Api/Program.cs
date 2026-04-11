@@ -414,6 +414,7 @@ builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
 builder.Services.AddScoped<ISolicitacaoVagaService, SolicitacaoVagaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Common.ApprovalWorkflowHelper>();
+builder.Services.AddScoped<RhPortal.Api.Application.EtapasConfigAprovacao.IEtapaConfigAprovacaoService, RhPortal.Api.Application.EtapasConfigAprovacao.EtapaConfigAprovacaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesDesligamento.ISolicitacaoDesligamentoService, RhPortal.Api.Application.SolicitacoesDesligamento.SolicitacaoDesligamentoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesPromocao.ISolicitacaoPromocaoService, RhPortal.Api.Application.SolicitacoesPromocao.SolicitacaoPromocaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesFerias.ISolicitacaoFeriasService, RhPortal.Api.Application.SolicitacoesFerias.SolicitacaoFeriasService>();
@@ -428,6 +429,7 @@ builder.Services.AddScoped<ICampoPersonalizadoService, CampoPersonalizadoService
 builder.Services.AddScoped<IComunicacaoService, ComunicacaoService>();
 builder.Services.AddScoped<IAprovacaoFaixaService, AprovacaoFaixaService>();
 builder.Services.AddScoped<IRegraAprovacaoVagaService, RegraAprovacaoVagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.TenantConfiguracao.ITenantConfiguracaoService, RhPortal.Api.Application.TenantConfiguracao.TenantConfiguracaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.NineBox.INineBoxService, RhPortal.Api.Application.NineBox.NineBoxService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Metas.IMetaService, RhPortal.Api.Application.Metas.MetaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoService, RhPortal.Api.Application.Avaliacao.AvaliacaoService>();

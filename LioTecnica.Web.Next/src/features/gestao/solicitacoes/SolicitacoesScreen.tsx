@@ -21,13 +21,13 @@ import {
     FileText,
     Lock,
     UserMinus,
-    ClipboardList,
     Briefcase,
     TrendingUp,
+    Activity,
+    Ban,
 } from "lucide-react";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
-import AprovacoesScreen from "@/features/gestao/aprovacoes/AprovacoesScreen";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/dialog";
 
 import SolicitacaoFormModal from "./SolicitacaoFormModal";
+import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
 
 /* ──────────────────────────── types ──────────────────────────── */
@@ -97,6 +98,14 @@ interface SolicitacaoDetail {
     createdAtUtc: string;
     updatedAtUtc: string;
     approvedAtUtc: string | null;
+    aprovador1Nome?: string | null;
+    aprovador1Status?: number | string;
+    aprovador2Nome?: string | null;
+    aprovador2Status?: number | string | null;
+    aprovador2Habilitado?: boolean;
+    aprovador3Nome?: string | null;
+    aprovador3Status?: number | string | null;
+    aprovador3Habilitado?: boolean;
 }
 
 type StatusKey = 0 | 1 | 2 | 3 | 4 | string;
@@ -126,12 +135,16 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Ele
     "Aprovada": { label: "Aprovada", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
     "Reprovada": { label: "Reprovada", color: "bg-red-500/15 text-red-700", icon: XCircle },
     "AjustesNecessarios": { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
+    "PendenteAprovacaoRh": { label: "Aguarda RH", color: "bg-purple-500/15 text-purple-700", icon: Clock },
+    "Cancelada": { label: "Cancelada", color: "bg-zinc-500/15 text-zinc-500", icon: XCircle },
     // fallback numérico para compatibilidade
     0: { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
     1: { label: "Pendente", color: "bg-amber-500/15 text-amber-700", icon: Clock },
     2: { label: "Aprovada", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
     3: { label: "Reprovada", color: "bg-red-500/15 text-red-700", icon: XCircle },
     4: { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
+    5: { label: "Aguarda RH", color: "bg-purple-500/15 text-purple-700", icon: Clock },
+    6: { label: "Cancelada", color: "bg-zinc-500/15 text-zinc-500", icon: XCircle },
 };
 
 const URGENCIA_MAP: Record<string, { label: string; color: string }> = {
@@ -180,38 +193,30 @@ function formatDate(iso: string | null | undefined) {
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-interface VagaRascunhoRow {
-    id: string;
-    titulo: string;
-    areaName: string | null;
-    createdAtUtc: string;
-}
-
 /* ══════════════════════════════════════════════════════════════
    Wrapper com tabs: Vagas | Promoções | Desligamentos
    ══════════════════════════════════════════════════════════════ */
 
-type TopTab = "vagas" | "promocoes" | "desligamentos" | "aprovacoes";
+type TopTab = "vagas" | "promocoes" | "desligamentos";
 
 const TOP_TABS: { id: TopTab; label: string; icon: React.ElementType }[] = [
-    { id: "aprovacoes", label: "Minhas Aprovações", icon: CheckCircle2 },
-    { id: "vagas", label: "Vagas", icon: Briefcase },
-    { id: "promocoes", label: "Promoções", icon: TrendingUp },
-    { id: "desligamentos", label: "Desligamentos", icon: UserMinus },
+    { id: "vagas", label: "Requisição de Pessoal", icon: Briefcase },
+    { id: "promocoes", label: "Movimentação de Pessoal", icon: TrendingUp },
+    { id: "desligamentos", label: "Desligamento", icon: UserMinus },
 ];
 
 export default function SolicitacoesScreen() {
     const searchParams = useSearchParams();
-    const initialTab = (searchParams.get("tab") as TopTab | null) ?? "aprovacoes";
-    const validTabs: TopTab[] = ["aprovacoes", "vagas", "promocoes", "desligamentos"];
-    const [topTab, setTopTab] = useState<TopTab>(validTabs.includes(initialTab) ? initialTab : "aprovacoes");
+    const initialTab = (searchParams.get("tab") as TopTab | null) ?? "vagas";
+    const validTabs: TopTab[] = ["vagas", "promocoes", "desligamentos"];
+    const [topTab, setTopTab] = useState<TopTab>(validTabs.includes(initialTab) ? initialTab : "vagas");
 
     return (
         <section className="space-y-4">
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight">Solicitações</h1>
                 <p className="text-muted-foreground text-sm mt-0.5">
-                    Gerencie solicitações de vagas, promoções, desligamentos e aprovações pendentes
+                    Gerencie solicitações de vagas, promoções e desligamentos
                 </p>
             </div>
 
@@ -241,7 +246,6 @@ export default function SolicitacoesScreen() {
             {topTab === "vagas" && <SolicitacoesVagaContent />}
             {topTab === "promocoes" && <PromocoesScreen />}
             {topTab === "desligamentos" && <DesligamentosScreen />}
-            {topTab === "aprovacoes" && <AprovacoesScreen initialTab={searchParams.get("tipo") ?? undefined} />}
         </section>
     );
 }
@@ -250,16 +254,11 @@ function SolicitacoesVagaContent() {
     const { me } = useAuth();
     const router = useRouter();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin") ?? false;
-    const isRH = isAdmin || (me?.roles?.some((r: string) => r.toLowerCase().includes("recrutador")) ?? false);
-
-    /* ── tab ── */
-    const [activeTab, setActiveTab] = useState<"minhas" | "aprovacoes" | "triagem">("minhas");
 
     /* ── data ── */
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<SolicitacaoGridRow[]>([]);
     const [pendingRows, setPendingRows] = useState<SolicitacaoGridRow[]>([]);
-    const [vagasRascunho, setVagasRascunho] = useState<VagaRascunhoRow[]>([]);
 
     /* ── filters ── */
     const [q, setQ] = useState("");
@@ -273,6 +272,13 @@ function SolicitacoesVagaContent() {
     /* ── form modal ── */
     const [formOpen, setFormOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
+    const [viewId, setViewId] = useState<string | null>(null);
+    const [resubmit, setResubmit] = useState(false);
+
+    /* ── timeline modal ── */
+    const [timelineOpen, setTimelineOpen] = useState(false);
+    const [timelineSteps, setTimelineSteps] = useState<AprovacaoStep[]>([]);
+    const [timelineLoading, setTimelineLoading] = useState(false);
 
     /* ── detail dialog ── */
     const [detailOpen, setDetailOpen] = useState(false);
@@ -305,10 +311,9 @@ function SolicitacoesVagaContent() {
             } catch { /* ignore */ }
         }
 
-        const [myData, allData, vagasData] = await Promise.all([
+        const [myData, allData] = await Promise.all([
             fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true`),
             fetchJson<SolicitacaoGridRow[]>(API).catch(() => []),
-            fetchJson<VagaRascunhoRow[]>("/api/vagas/pendencias-rh").catch((e) => { console.warn("[pendencias-rh]", e); return []; }),
         ]);
         setRows(Array.isArray(myData) ? myData : []);
         const allItems = Array.isArray(allData) ? allData : [];
@@ -317,7 +322,6 @@ function SolicitacoesVagaContent() {
             ? allItems.filter((r) => isPendente(r.status) && r.aprovadorId === funcId)
             : allItems.filter((r) => isPendente(r.status));
         setPendingRows(pending);
-        setVagasRascunho(Array.isArray(vagasData) ? vagasData : []);
     }, [myFuncionarioId]);
 
     useEffect(() => {
@@ -342,23 +346,87 @@ function SolicitacoesVagaContent() {
 
     /* ── KPIs ── */
     const kpis = useMemo(() => {
-        const src = activeTab === "minhas" ? rows : pendingRows;
+        const src = rows;
         const total = src.length;
         const pendentes = src.filter((r) => r.status === 1 || r.status === "PendenteAprovacao").length;
         const aprovadas = src.filter((r) => r.status === 2 || r.status === "Aprovada").length;
         const reprovadas = src.filter((r) => r.status === 3 || r.status === "Reprovada").length;
         return { total, pendentes, aprovadas, reprovadas };
-    }, [rows, pendingRows, activeTab]);
+    }, [rows]);
 
     /* ── actions ── */
     function openNew() {
+        setViewId(null);
         setEditId(null);
+        setResubmit(false);
         setFormOpen(true);
     }
 
     function openEdit(row: SolicitacaoGridRow) {
+        setViewId(null);
         setEditId(row.id);
+        setResubmit(false);
         setFormOpen(true);
+    }
+
+    function openEditForApproval(row: SolicitacaoGridRow) {
+        setViewId(null);
+        setEditId(row.id);
+        setResubmit(true);
+        setFormOpen(true);
+    }
+
+    function openView(row: SolicitacaoGridRow) {
+        setViewId(row.id);
+        setEditId(null);
+        setResubmit(false);
+        setFormOpen(true);
+    }
+
+    async function openTimeline(row: SolicitacaoGridRow) {
+        setTimelineOpen(true);
+        setTimelineLoading(true);
+        setTimelineSteps([]);
+        try {
+            const d = await fetchJson<SolicitacaoDetail>(`${API}/${row.id}`);
+            const steps: AprovacaoStep[] = [
+                {
+                    label: "Criado",
+                    nome: d.solicitanteNome,
+                    status: 1,
+                    habilitado: true,
+                    date: d.createdAtUtc,
+                },
+                {
+                    label: "Aprovação — Gestor",
+                    nome: d.aprovador1Nome ?? null,
+                    status: d.aprovador1Status != null ? Number(d.aprovador1Status) : null,
+                    habilitado: true,
+                },
+            ];
+            if (d.aprovador2Habilitado) {
+                steps.push({
+                    label: "Aprovação — Nível 2",
+                    nome: d.aprovador2Nome ?? null,
+                    status: d.aprovador2Status != null ? Number(d.aprovador2Status) : null,
+                    habilitado: true,
+                });
+            }
+            if (d.aprovador3Habilitado) {
+                steps.push({
+                    label: "Aprovação — RH",
+                    nome: d.aprovador3Nome ?? "Qualquer recrutador",
+                    status: d.aprovador3Status != null ? Number(d.aprovador3Status) : null,
+                    habilitado: true,
+                });
+            }
+            setTimelineSteps(steps);
+        } catch {
+            toast.error("Falha ao carregar acompanhamento.");
+            setTimelineOpen(false);
+        } finally {
+            setTimelineLoading(false);
+        }
     }
 
     async function openDetail(row: SolicitacaoGridRow) {
@@ -373,6 +441,18 @@ function SolicitacoesVagaContent() {
             setDetailOpen(false);
         } finally {
             setDetailLoading(false);
+        }
+    }
+
+    async function cancelSolicitacao(id: string) {
+        if (!confirm("Tem certeza que deseja cancelar esta solicitação?")) return;
+        try {
+            await fetchJson(`${API}/${id}/cancel`, { method: "POST" });
+            toast.success("Solicitação cancelada.");
+            await syncList();
+            setDetailOpen(false);
+        } catch (e) {
+            toast.error(`Falha ao cancelar: ${e instanceof Error ? e.message : "erro"}`);
         }
     }
 
@@ -399,7 +479,6 @@ function SolicitacoesVagaContent() {
             await syncList();
             setDetailOpen(false);
             if (action === "approve") {
-                setActiveTab("triagem");
             }
         } catch (e) {
             toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
@@ -418,8 +497,16 @@ function SolicitacoesVagaContent() {
         }
     }
 
+    function handleFormClose() {
+        setFormOpen(false);
+        setViewId(null);
+        setResubmit(false);
+    }
+
     function handleFormSaved() {
         setFormOpen(false);
+        setViewId(null);
+        setResubmit(false);
         syncList().catch(() => { });
     }
 
@@ -474,96 +561,13 @@ function SolicitacoesVagaContent() {
                 ))}
             </div>
 
-            {/* ── tabs ── */}
-            <div className="flex gap-1 border-b border-border/40">
-                <button
-                    onClick={() => setActiveTab("minhas")}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "minhas" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                >
-                    Minhas Solicitações
-                </button>
-                {isAdmin && (
-                    <button
-                        onClick={() => setActiveTab("aprovacoes")}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "aprovacoes" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                    >
-                        Aprovações Pendentes
-                        {pendingRows.length > 0 && (
-                            <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold min-w-[20px] h-5 px-1.5">
-                                {pendingRows.length}
-                            </span>
-                        )}
-                    </button>
-                )}
-                {isRH && (
-                    <button
-                        onClick={() => setActiveTab("triagem")}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "triagem" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                    >
-                        <ClipboardList className="size-3.5" />
-                        Triagem de Vagas
-                        {vagasRascunho.length > 0 && (
-                            <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold min-w-[20px] h-5 px-1.5">
-                                {vagasRascunho.length}
-                            </span>
-                        )}
-                    </button>
-                )}
-            </div>
-
-            {/* ── Triagem de Vagas ── */}
-            {activeTab === "triagem" && (
-                <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm space-y-3">
-                    <div>
-                        <div className="font-semibold">Vagas aguardando preenchimento</div>
-                        <div className="text-muted-foreground text-sm">
-                            {loading ? "Carregando…" : `${vagasRascunho.length} vaga(s) em rascunho`}
-                        </div>
-                    </div>
-                    {loading ? (
-                        <div className="text-center py-6 text-muted-foreground text-sm">Carregando…</div>
-                    ) : vagasRascunho.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-border/40 py-10 text-center">
-                            <ClipboardList className="mx-auto size-8 text-muted-foreground/30 mb-2" />
-                            <p className="text-sm text-muted-foreground">Nenhuma vaga aguardando preenchimento.</p>
-                        </div>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Título</TableHead>
-                                    <TableHead>Área</TableHead>
-                                    <TableHead>Data criação</TableHead>
-                                    <TableHead className="text-right">Ação</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {vagasRascunho.map((v) => (
-                                    <TableRow key={v.id}>
-                                        <TableCell className="font-medium">{v.titulo}</TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">{v.areaName ?? "—"}</TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">{formatDate(v.createdAtUtc)}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button size="sm" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(v.id)}`)}>
-                                                Preencher Dados →
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                </div>
-            )}
-
             {/* ── filters + table ── */}
-            {activeTab !== "triagem" && (
             <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
                 <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <div className="font-semibold">{activeTab === "minhas" ? "Minhas solicitações" : "Aprovações pendentes"}</div>
+                        <div className="font-semibold">Minhas solicitações</div>
                         <div className="text-muted-foreground text-sm">
-                            {loading ? "Carregando…" : `${activeTab === "minhas" ? filtered.length : pendingRows.length} solicitações`}
+                            {loading ? "Carregando…" : `${filtered.length} solicitações`}
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -615,9 +619,9 @@ function SolicitacoesVagaContent() {
                                     Carregando…
                                 </TableCell>
                             </TableRow>
-                        ) : (activeTab === "minhas" ? filtered : pendingRows).length ? (
-                            (activeTab === "minhas" ? filtered : pendingRows).map((r) => (
-                                <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => void openDetail(r)}>
+                        ) : filtered.length ? (
+                            filtered.map((r) => (
+                                <TableRow key={r.id} className="hover:bg-muted/40">
                                     <TableCell>
                                         <div className="flex items-center gap-1.5">
                                             <span className="font-semibold">{r.titulo}</span>
@@ -646,10 +650,22 @@ function SolicitacoesVagaContent() {
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                            <Button variant="outline" size="icon-xs" title="Detalhes" onClick={() => void openDetail(r)}>
-                                                <Eye />
-                                            </Button>
+                                            {/* Rascunho: editar, enviar, excluir */}
                                             {(r.status === 0 || r.status === "Rascunho") && (
+                                                <>
+                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
+                                                        <Pencil />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
+                                                        <Send />
+                                                    </Button>
+                                                    <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
+                                                        <Trash2 />
+                                                    </Button>
+                                                </>
+                                            )}
+                                            {/* AjustesNecessarios: editar, enviar */}
+                                            {(r.status === 4 || r.status === "AjustesNecessarios") && (
                                                 <>
                                                     <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
                                                         <Pencil />
@@ -659,11 +675,29 @@ function SolicitacoesVagaContent() {
                                                     </Button>
                                                 </>
                                             )}
-                                            {(r.status === 0 || r.status === "Rascunho") && (
-                                                <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
-                                                    <Trash2 />
+                                            {/* Pendente: editar e reenviar + cancelar */}
+                                            {(r.status === 1 || r.status === "PendenteAprovacao") && (
+                                                <>
+                                                    <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
+                                                        <Pencil />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
+                                                        <Ban />
+                                                    </Button>
+                                                </>
+                                            )}
+                                            {/* Aprovada/Reprovada/AguardaRH: visualizar */}
+                                            {(r.status === 2 || r.status === "Aprovada" ||
+                                              r.status === 3 || r.status === "Reprovada" ||
+                                              r.status === 5 || r.status === "PendenteAprovacaoRh") && (
+                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                                    <Eye />
                                                 </Button>
                                             )}
+                                            {/* Acompanhamento: todas as linhas */}
+                                            <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
+                                                <Activity />
+                                            </Button>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -695,8 +729,7 @@ function SolicitacoesVagaContent() {
                                 {(["Rascunho", "PendenteAprovacao", "Aprovada", "Reprovada"] as const).map((col) => {
                                     const meta = STATUS_MAP[col];
                                     const Icon = meta.icon;
-                                    const sourceRows = activeTab === "minhas" ? filtered : pendingRows;
-                                    const colItems = sourceRows.filter((r) => String(r.status) === col);
+                                    const colItems = filtered.filter((r) => String(r.status) === col);
                                     return (
                                         <div key={col} className="w-64 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
                                             <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
@@ -713,8 +746,7 @@ function SolicitacoesVagaContent() {
                                                 ) : colItems.map((r) => (
                                                     <div
                                                         key={r.id}
-                                                        className="rounded-lg border border-border/50 bg-card p-3 shadow-sm cursor-pointer hover:border-primary/40 hover:shadow-md transition-all"
-                                                        onClick={() => void openDetail(r)}
+                                                        className="rounded-lg border border-border/50 bg-card p-3 shadow-sm"
                                                     >
                                                         <div className="text-sm font-medium leading-tight truncate">{r.titulo}</div>
                                                         {r.solicitanteNome && <div className="mt-1 text-[11px] text-muted-foreground">{r.solicitanteNome}</div>}
@@ -735,14 +767,23 @@ function SolicitacoesVagaContent() {
                     </div>
                 )}
             </div>
-            )} {/* end activeTab !== "triagem" */}
 
             {/* ── Form Modal ── */}
             <SolicitacaoFormModal
                 open={formOpen}
-                editId={editId}
-                onClose={() => setFormOpen(false)}
+                editId={viewId ?? editId}
+                onClose={handleFormClose}
                 onSaved={handleFormSaved}
+                viewOnly={!!viewId}
+                resubmitAfterSave={resubmit}
+            />
+
+            {/* ── Timeline Modal ── */}
+            <AcompanhamentoModal
+                open={timelineOpen}
+                loading={timelineLoading}
+                steps={timelineSteps}
+                onClose={() => setTimelineOpen(false)}
             />
 
             {/* ── Detail Dialog ── */}
@@ -808,6 +849,20 @@ function SolicitacoesVagaContent() {
                                 </div>
                             )}
 
+                            {detail.aprovador3Habilitado && (
+                                <div className="rounded-md border border-purple-200 bg-purple-50/60 dark:bg-purple-950/20 dark:border-purple-800 p-3 text-sm">
+                                    <div className="text-xs font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wider mb-1">Etapa de Aprovação RH</div>
+                                    <div className="text-purple-800 dark:text-purple-300">
+                                        {detail.aprovador3Nome || "Qualquer recrutador"} —{" "}
+                                        {detail.aprovador3Status === 1 || detail.aprovador3Status === "Aprovado"
+                                            ? "✓ Aprovado"
+                                            : detail.aprovador3Status === 2 || detail.aprovador3Status === "Reprovado"
+                                                ? "✗ Reprovado"
+                                                : "⏳ Aguardando"}
+                                    </div>
+                                </div>
+                            )}
+
                             {detail.observacaoAprovador && (
                                 <div>
                                     <div className="text-xs text-muted-foreground uppercase">Observação do Aprovador</div>
@@ -847,6 +902,20 @@ function SolicitacoesVagaContent() {
                                     </Button>
                                     <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); setEditId(detail.id); setFormOpen(true); }}>
                                         <Pencil className="size-4" /> Editar
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(detail.id)}>
+                                        <Ban className="size-4" /> Cancelar
+                                    </Button>
+                                </div>
+                            )}
+                            {/* ── Cancelar (pendente) ── */}
+                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && (
+                                <div className="flex gap-2">
+                                    <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); setEditId(detail.id); setResubmit(true); setFormOpen(true); }}>
+                                        <Pencil className="size-4" /> Editar e reenviar
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(detail.id)}>
+                                        <Ban className="size-4" /> Cancelar
                                     </Button>
                                 </div>
                             )}

@@ -38,3 +38,15 @@ public sealed record TurnoLookupItem(
     string Description,
     string DisplayLabel
 );
+
+/// <summary>Item para importação em lote de turnos.</summary>
+public sealed record TurnoImportItem(
+    [Required, MaxLength(30)] string Code,
+    [Required, MaxLength(120)] string Description,
+    [MaxLength(5)] string? StartTime,
+    [MaxLength(5)] string? EndTime,
+    [MaxLength(500)] string? Notes,
+    bool IsActive
+);
+
+public sealed record TurnoImportResult(int Created, int Updated, int Skipped, IReadOnlyList<string> Errors);

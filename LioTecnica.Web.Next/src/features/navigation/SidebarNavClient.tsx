@@ -14,6 +14,7 @@ import {
   Building,
   Building2,
   Calendar,
+  CheckCheck,
   CheckSquare,
   ChevronRight,
   ClipboardList,
@@ -30,8 +31,10 @@ import {
   Key,
   KeyRound,
   Languages,
+  Layers,
   LayoutDashboard,
   ListChecks,
+  LockKeyhole,
   Mail,
   MapPin,
   MessageSquare,
@@ -65,11 +68,41 @@ import {
   RECRUITMENT_ROUTE_LABELS,
   toNavRouteKey,
 } from "@/features/navigation/recruitmentNavigation";
+import { usePendencias } from "@/contexts/PendenciasContext";
 
 /* ═══════════════════════════════════════════════════════════════════
    ICON MAP: Bootstrap Icon name → Lucide equivalent
    ═══════════════════════════════════════════════════════════════════ */
 const DEFAULT_ICON: LucideIcon = BarChart3;
+
+/* Rotas que aparecem como bloqueadas no menu (ícone de cadeado, sem link) */
+const LOCKED_NAV_PREFIXES: string[] = ["/feedback", "/desempenho"];
+
+const LOCKED_NAV_HREFS = new Set([
+  // Já existentes
+  "/areas",
+  "/funcoes",
+  "/cadastro/funcoes",
+  // Gestão de Pessoas (todos os filhos)
+  "/gestao/dashboard",
+  "/gestao/planosdesenvolvimento",
+  "/gestao/humor",
+  "/gestao/resumoatividades",
+  // Operacional — itens não utilizados
+  "/agendas",
+  "/gestao/batida-ponto",
+  // Feedback — leaf sem prefixo /feedback
+  "/pesquisas",
+  // Recrutamento — itens ainda não liberados
+  "/matching",
+  "/triagem",
+  "/gestao/processo-seletivo",
+]);
+
+function isNavLocked(href: string): boolean {
+  if (LOCKED_NAV_HREFS.has(href)) return true;
+  return LOCKED_NAV_PREFIXES.some((p) => href === p || href.startsWith(p + "/"));
+}
 const ICONS: Record<string, LucideIcon> = {
   // Recrutamento
   "bi-speedometer2": Gauge,
@@ -96,6 +129,7 @@ const ICONS: Record<string, LucideIcon> = {
   "bi-emoji-smile": Smile,
   "bi-activity": Activity,
   // Cadastros TOTVS
+  "bi-layers": Layers,
   "bi-cash-coin": Coins,
   "bi-clock": Timer,
   "bi-receipt": Receipt,
@@ -132,6 +166,7 @@ const ICONS: Record<string, LucideIcon> = {
   clipboardlist: ClipboardList,
   listchecks: ListChecks,
   usercheck: UserCheck,
+  checkcheck: CheckCheck,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -202,7 +237,7 @@ const ROUTE_MAP: Record<string, string> = {
   "/admin/operationallogs": "/admin/operational-logs",
   "/admin/emails": "/admin/emails",
   "/admin/emailconfig": "/admin/email-config",
-  "/admin/awssettings": "/admin/aws-settings",
+  "/admin/awssettings": "/Owner/AwsSettings",
   "/admin/emailtemplates": "/admin/email-templates",
   "/admin/apikeys": "/admin/api-keys",
   "/admin/entraidconfig": "/admin/entra-id",
@@ -228,12 +263,13 @@ function normalizeHref(raw: string): string {
 /* ═══════════════════════════════════════════════════════════════════
    MODULE CLASSIFICATION (mirrors Razor GetModuleKey)
    ═══════════════════════════════════════════════════════════════════ */
-type ModuleKey = "Recrutamento" | "Cadastros" | "Relatórios" | "Gestão de Pessoas" | "Operacional" | "Feedback" | "Admin" | "Owner";
-const MODULE_ORDER: ModuleKey[] = ["Recrutamento", "Operacional", "Gestão de Pessoas", "Cadastros", "Relatórios", "Feedback", "Admin", "Owner"];
+type ModuleKey = "Recrutamento" | "Cadastros Pessoas" | "Cadastros Operacionais" | "Relatórios" | "Gestão de Pessoas" | "Operacional" | "Feedback" | "Admin" | "Owner";
+const MODULE_ORDER: ModuleKey[] = ["Recrutamento", "Operacional", "Gestão de Pessoas", "Cadastros Pessoas", "Cadastros Operacionais", "Relatórios", "Feedback", "Admin", "Owner"];
 
 // Fluxo linear de recrutamento — MVP + secundários (sem TOTVS, que vai pro header dropdown)
 const RECRUTAMENTO_ROUTES = new Set<string>([
   RECRUITMENT_ROUTE_KEYS.dashboard,
+  RECRUITMENT_ROUTE_KEYS.aprovacoes,
   RECRUITMENT_ROUTE_KEYS.solicitacoes,
   RECRUITMENT_ROUTE_KEYS.vagas,
   RECRUITMENT_ROUTE_KEYS.candidatos,
@@ -248,11 +284,14 @@ const OPERACIONAL_ROUTES = new Set([
   "/gestao/batida-ponto", "/gestao/comissoes",
   "/gestao/desligamentos",
 ]);
-const CADASTROS_ROUTES = new Set([
+const CADASTROS_PESSOAS_ROUTES = new Set([
+  "/pessoas", "/funcionarios",
+]);
+const CADASTROS_OPERACIONAIS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
-  "/unidades", "/funcionarios", "/pessoas",
-  "/categorias-salariais", "/turnos",
-  "/centros-custo", "/unidades-lotacao",
+  "/unidades", "/categorias-salariais", "/turnos",
+  "/centros-custo", "/unidades-lotacao", "/empresas",
+  "/nivel-cargo",
 ]);
 // Gestão de Pessoas (people management, não recrutamento)
 const GESTAO_PESSOAS_ROUTES = new Set([
@@ -261,7 +300,6 @@ const GESTAO_PESSOAS_ROUTES = new Set([
 ]);
 const HIDDEN_ROUTES = new Set([
   "/departamentos", "/gestao/pipeline",
-  "/gestao/aprovacoes",
   "/portalvagas",
   "/talentos",
   "/gestao/projetos",
@@ -269,6 +307,8 @@ const HIDDEN_ROUTES = new Set([
   // Pesquisas antigas removidas — unificadas em /feedback/pesquisas
   "/feedback/pesquisarapida",
   "/feedback/superpesquisa",
+  // AWS Settings movido para Owner — não deve aparecer no menu de tenant
+  "/admin/awssettings",
 ]);
 
 function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
@@ -290,7 +330,8 @@ function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
   if (RECRUTAMENTO_ROUTES.has(r)) return "Recrutamento";
   if (OPERACIONAL_ROUTES.has(r)) return "Operacional";
   if (GESTAO_PESSOAS_ROUTES.has(r)) return "Gestão de Pessoas";
-  if (CADASTROS_ROUTES.has(r) || r.startsWith("/cadastro/")) return "Cadastros";
+  if (CADASTROS_PESSOAS_ROUTES.has(r)) return "Cadastros Pessoas";
+  if (CADASTROS_OPERACIONAIS_ROUTES.has(r) || r.startsWith("/cadastro/")) return "Cadastros Operacionais";
   // Fallback: any /gestao/* not matched goes to Recrutamento (new screens)
   if (r.startsWith("/gestao")) return "Recrutamento";
   return "Recrutamento";
@@ -413,10 +454,12 @@ function NavLeaf({
   item,
   normalized,
   indent = false,
+  isCollapsed = false,
 }: {
   item: BffNavItem;
   normalized: string;
   indent?: boolean;
+  isCollapsed?: boolean;
 }) {
   const href = normalizeHref(item.href || "#");
   const active = isActive(normalized, href);
@@ -425,31 +468,71 @@ function NavLeaf({
   const target = item.openInNewTab ? "_blank" : undefined;
   const rel = item.openInNewTab ? "noopener noreferrer" : undefined;
 
+  // Pendências badge
+  const isPendencias = href === "/gestao/aprovacoes";
+  const { count: pendenciasCount } = usePendencias();
+  const showBadge = isPendencias && pendenciasCount > 0;
+
+  if (isNavLocked(href)) {
+    return (
+      <li>
+        <span
+          title="Em breve"
+          className={cn(
+            "group flex items-center gap-3 px-3 py-2 rounded-xl text-[0.88rem] leading-snug",
+            "text-white/35 cursor-not-allowed select-none",
+            indent && !isCollapsed && "ml-5 text-[0.82rem] py-1.5",
+            isCollapsed && "justify-center px-2",
+          )}
+        >
+          <LockKeyhole
+            aria-hidden
+            className={cn("shrink-0 opacity-40", indent && !isCollapsed ? "size-[18px]" : "size-5")}
+          />
+          {!isCollapsed && <span className="truncate">{item.label}</span>}
+        </span>
+      </li>
+    );
+  }
+
   return (
-    <li>
+    <li className={showBadge && isCollapsed ? "relative" : undefined}>
       <Link
         className={cn(
           "group flex items-center gap-3 px-3 py-2 rounded-xl text-[0.88rem] leading-snug text-white/80",
           "border border-transparent transition-all duration-200",
           "hover:bg-white/10 hover:border-white/12 hover:text-white",
           active && "bg-white/[.16] border-white/[.22] text-white font-medium",
-          indent && "ml-5 text-[0.82rem] py-1.5",
+          indent && !isCollapsed && "ml-5 text-[0.82rem] py-1.5",
+          isCollapsed && "justify-center px-2",
         )}
         href={href}
         rel={rel}
         target={target}
+        title={isCollapsed ? `${item.label}${showBadge ? ` (${pendenciasCount})` : ""}` : undefined}
         onMouseEnter={() => void prefetchScreenData(href)}
       >
         <Icon
           aria-hidden
           className={cn(
             "shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100",
-            indent ? "size-[18px]" : "size-5",
+            indent && !isCollapsed ? "size-[18px]" : "size-5",
             active && "opacity-100",
           )}
         />
-        <span className="truncate">{item.label}</span>
+        {!isCollapsed && <span className="truncate flex-1">{item.label}</span>}
+        {!isCollapsed && showBadge && (
+          <span className="pointer-events-none ml-auto flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white leading-none">
+            {pendenciasCount > 99 ? "99+" : pendenciasCount}
+          </span>
+        )}
       </Link>
+      {showBadge && isCollapsed && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-white/20"
+        />
+      )}
     </li>
   );
 }
@@ -462,11 +545,13 @@ function NavGroup({
   normalized,
   openGroups,
   onGroupOpenChange,
+  isCollapsed = false,
 }: {
   item: BffNavItem;
   normalized: string;
   openGroups?: Record<string, boolean>;
   onGroupOpenChange?: (id: string, open: boolean) => void;
+  isCollapsed?: boolean;
 }) {
   const href = normalizeHref(item.href || "#");
   const iconKey = (item.icon ?? "").toLowerCase();
@@ -476,16 +561,46 @@ function NavGroup({
 
   const visibleChildren = (item.children ?? []).filter((c) => !isRouteHidden(c.href));
   if (visibleChildren.length === 0) {
-    return <NavLeaf item={item} normalized={normalized} />;
+    return <NavLeaf item={item} normalized={normalized} isCollapsed={isCollapsed} />;
   }
 
   const hasActive = hasActiveDescendant(item, normalized);
   const canNavigate = href !== "#";
-  const isOpen = openGroups?.[item.id] ?? hasActive;
+  const isOpen = isCollapsed ? true : (openGroups?.[item.id] ?? hasActive);
 
   const handleToggle = () => {
     onGroupOpenChange?.(item.id, !isOpen);
   };
+
+  // In collapsed mode: render icon-only, no label, no chevron
+  if (isCollapsed) {
+    const collapsedClass = cn(
+      "group flex w-full items-center justify-center rounded-xl px-2 py-2 text-[0.88rem] leading-snug text-white/80",
+      "border border-transparent transition-all duration-200",
+      "hover:bg-white/10 hover:border-white/12 hover:text-white",
+      hasActive && "bg-white/[.08] border-white/[.14] text-white/95",
+    );
+    return (
+      <li>
+        {canNavigate ? (
+          <Link
+            className={collapsedClass}
+            href={href}
+            rel={rel}
+            target={target}
+            title={item.label}
+            onMouseEnter={() => void prefetchScreenData(href)}
+          >
+            <Icon aria-hidden className="size-5 shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100" />
+          </Link>
+        ) : (
+          <button type="button" className={collapsedClass} title={item.label} onClick={handleToggle}>
+            <Icon aria-hidden className="size-5 shrink-0 opacity-80 transition-opacity duration-200 group-hover:opacity-100" />
+          </button>
+        )}
+      </li>
+    );
+  }
 
   const headerClass = cn(
     "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[0.88rem] leading-snug text-white/80",
@@ -544,9 +659,9 @@ function NavGroup({
         <ul className="mt-0.5 space-y-0.5">
           {visibleChildren.map((c) =>
             c.children?.length ? (
-              <NavGroup key={c.id} item={c} normalized={normalized} openGroups={openGroups} onGroupOpenChange={onGroupOpenChange} />
+              <NavGroup key={c.id} item={c} normalized={normalized} openGroups={openGroups} onGroupOpenChange={onGroupOpenChange} isCollapsed={isCollapsed} />
             ) : (
-              <NavLeaf key={c.id} item={c} normalized={normalized} indent />
+              <NavLeaf key={c.id} item={c} normalized={normalized} indent isCollapsed={isCollapsed} />
             ),
           )}
         </ul>
@@ -563,14 +678,16 @@ function NavItem({
   normalized,
   openGroups,
   onGroupOpenChange,
+  isCollapsed = false,
 }: {
   item: BffNavItem;
   normalized: string;
   openGroups?: Record<string, boolean>;
   onGroupOpenChange?: (id: string, open: boolean) => void;
+  isCollapsed?: boolean;
 }) {
   if (item.id === "__divider__") {
-    return <li className="my-2 border-t border-white/10" />;
+    return isCollapsed ? null : <li className="my-2 border-t border-white/10" />;
   }
   const visibleChildren = (item.children ?? []).filter((c) => !isRouteHidden(c.href));
   if (visibleChildren.length > 0) {
@@ -580,10 +697,11 @@ function NavItem({
         normalized={normalized}
         openGroups={openGroups}
         onGroupOpenChange={onGroupOpenChange}
+        isCollapsed={isCollapsed}
       />
     );
   }
-  return <NavLeaf item={item} normalized={normalized} />;
+  return <NavLeaf item={item} normalized={normalized} isCollapsed={isCollapsed} />;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -597,6 +715,7 @@ function ModuleSection({
   onModuleOpenChange,
   openGroups,
   onGroupOpenChange,
+  isCollapsed = false,
 }: {
   label: string;
   items: BffNavItem[];
@@ -605,33 +724,36 @@ function ModuleSection({
   onModuleOpenChange: (open: boolean) => void;
   openGroups?: Record<string, boolean>;
   onGroupOpenChange?: (id: string, open: boolean) => void;
+  isCollapsed?: boolean;
 }) {
   if (items.length === 0) return null;
 
   return (
     <div className="mt-1">
-      {/* Module header */}
-      <button
-        type="button"
-        className={cn(
-          "flex w-full items-center justify-between rounded-lg px-3 py-2",
-          "text-[0.72rem] font-bold tracking-[0.16em] text-white/85 uppercase",
-          "transition-colors duration-200 hover:bg-white/[.08] hover:text-white",
-        )}
-        onClick={() => onModuleOpenChange(!moduleOpen)}
-      >
-        <span>{label}</span>
-        <ChevronRight
-          aria-hidden
+      {/* Module header — hidden when collapsed */}
+      {!isCollapsed && (
+        <button
+          type="button"
           className={cn(
-            "size-3.5 opacity-60 transition-transform duration-250",
-            moduleOpen && "rotate-90",
+            "flex w-full items-center justify-between rounded-lg px-3 py-2",
+            "text-[0.72rem] font-bold tracking-[0.16em] text-white/85 uppercase",
+            "transition-colors duration-200 hover:bg-white/[.08] hover:text-white",
           )}
-        />
-      </button>
+          onClick={() => onModuleOpenChange(!moduleOpen)}
+        >
+          <span>{label}</span>
+          <ChevronRight
+            aria-hidden
+            className={cn(
+              "size-3.5 opacity-60 transition-transform duration-250",
+              moduleOpen && "rotate-90",
+            )}
+          />
+        </button>
+      )}
 
-      {/* Module body */}
-      <Collapsible open={moduleOpen}>
+      {/* Module body — always open when collapsed */}
+      <Collapsible open={isCollapsed ? true : moduleOpen}>
         <ul className="space-y-0.5 pb-1">
           {items.map((item) => (
             <NavItem
@@ -640,6 +762,7 @@ function ModuleSection({
               normalized={normalized}
               openGroups={openGroups}
               onGroupOpenChange={onGroupOpenChange}
+              isCollapsed={isCollapsed}
             />
           ))}
         </ul>
@@ -652,7 +775,7 @@ function ModuleSection({
 /* ═══════════════════════════════════════════════════════════════════
    SIDEBAR NAV — main export (optimised: synchronous state, no flash)
    ═══════════════════════════════════════════════════════════════════ */
-export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
+export default function SidebarNavClient({ items, isCollapsed = false }: { items: BffNavItem[]; isCollapsed?: boolean }) {
   const pathname = usePathname();
   const normalized = pathname.replace(/^\/app(?=\/|$)/, "") || "/";
 
@@ -662,12 +785,21 @@ export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
       Recrutamento: [],
       "Operacional": [],
       "Gestão de Pessoas": [],
-      Cadastros: [],
+      "Cadastros Pessoas": [],
+      "Cadastros Operacionais": [],
       "Relatórios": [],
       Feedback: [],
       Admin: [],
       Owner: [],
     };
+
+    // Collect top-level hrefs so we can strip duplicate children.
+    // If a route appears both as a top-level item AND as a child of a group
+    // (e.g. "Categoria Salarial" inside "Unidade"), keep only the top-level entry.
+    const topLevelHrefs = new Set(
+      items.map((i) => (i.href || "").replace(/\/+$/, "").toLowerCase()),
+    );
+
     for (const item of items) {
       if (isRouteHidden(item.href)) continue;
       const key = getModuleKey(item.href, item.children);
@@ -680,9 +812,31 @@ export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
           }
         }
       } else {
-        map[key].push(item);
+        // Strip children that also exist as top-level items to avoid duplicates.
+        const deduped =
+          item.children.length > 0
+            ? {
+                ...item,
+                children: item.children.filter(
+                  (c) => !topLevelHrefs.has((c.href || "").replace(/\/+$/, "").toLowerCase()),
+                ),
+              }
+            : item;
+        // Override label for specific routes whose display name comes from the DB
+        const hrefLower = (deduped.href || "").replace(/\/+$/, "").toLowerCase();
+        const labeled = hrefLower === "/unidades"
+          ? { ...deduped, label: "Estabelecimentos" }
+          : deduped;
+        map[key].push(labeled);
       }
     }
+    // Sort both Cadastros sections alphabetically by label regardless of DB order
+    map["Cadastros Pessoas"] = [...map["Cadastros Pessoas"]].sort((a, b) =>
+      a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }),
+    );
+    map["Cadastros Operacionais"] = [...map["Cadastros Operacionais"]].sort((a, b) =>
+      a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }),
+    );
     map.Recrutamento = buildRecruitmentSidebar(map.Recrutamento);
     return map;
   }, [items]);
@@ -772,6 +926,7 @@ export default function SidebarNavClient({ items }: { items: BffNavItem[] }) {
           onModuleOpenChange={handleModuleOpenChange(mod)}
           openGroups={resolvedOpenGroups}
           onGroupOpenChange={handleGroupOpenChange}
+          isCollapsed={isCollapsed}
         />
       ))}
     </nav>

@@ -23,6 +23,17 @@ public sealed class SolicitacaoDesligamento : ITenantEntity
     public Guid FuncionarioId { get; set; }
     public Funcionario? Funcionario { get; set; }
 
+    /// <summary>Empresa da solicitação (A.RH.015).</summary>
+    public Guid? EmpresaId { get; set; }
+    public Empresa? Empresa { get; set; }
+
+    /// <summary>Estabelecimento/Local conforme A.RH.015. Mesmo padrão de UnitId em SolicitacaoVaga.</summary>
+    public Guid? UnitId { get; set; }
+    public Unit? Unit { get; set; }
+
+    /// <summary>Funcionário possui histórico de medidas disciplinares? null = não informado.</summary>
+    public bool? HistoricoMedidasDisciplinares { get; set; }
+
     public DateOnly DataDesligamento { get; set; }
 
     public TipoDesligamento TipoDesligamento { get; set; }
@@ -34,6 +45,9 @@ public sealed class SolicitacaoDesligamento : ITenantEntity
 
     /// <summary>Dias de aviso prévio (calculado conforme CLT: 30 + 3 por ano trabalhado, máx 90).</summary>
     public int DiasAvisoPrevio { get; set; } = 30;
+
+    /// <summary>Indica se o funcionário possui estabilidade de emprego.</summary>
+    public bool PossuiEstabilidade { get; set; }
 
     /// <summary>Indica se o funcionário é elegível para recontratação futura.</summary>
     public bool ElegivelRecontratacao { get; set; }

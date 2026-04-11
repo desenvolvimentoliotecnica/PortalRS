@@ -82,6 +82,10 @@ interface SolicitacaoDetail extends SolicitacaoRow {
     aprovador2Status?: number | string | null;
     aprovador2DataUtc?: string | null;
     aprovador2Habilitado?: boolean;
+    aprovador3Nome?: string | null;
+    aprovador3Status?: number | string | null;
+    aprovador3DataUtc?: string | null;
+    aprovador3Habilitado?: boolean;
     approvedAtUtc?: string | null;
     updatedAtUtc?: string | null;
 }
@@ -189,6 +193,7 @@ const SOLIC_STATUS: Record<number, { label: string; cls: string }> = {
     2: { label: "Aprovada", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
     3: { label: "Reprovada", cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
     4: { label: "Ajustes Necessários", cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" },
+    5: { label: "Aguarda RH", cls: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" },
 };
 
 const SOLIC_URGENCIA: Record<number, { label: string; cls: string }> = {
@@ -223,6 +228,7 @@ function resolveSolicStatusMeta(status: unknown) {
     if (key === "2" || key === "aprovada") return SOLIC_STATUS[2];
     if (key === "3" || key === "reprovada") return SOLIC_STATUS[3];
     if (key === "4" || key === "ajustesnecessarios") return SOLIC_STATUS[4];
+    if (key === "5" || key === "pendenteaprovacaorh") return SOLIC_STATUS[5];
     return SOLIC_STATUS[0];
 }
 
@@ -247,8 +253,10 @@ function resolveApprovalStatusLabel(status: unknown) {
     return APROVACAO_STATUS[0];
 }
 
-function isSolicStatus(status: unknown, expected: "rascunho" | "pendenteaprovacao" | "aprovada" | "reprovada" | "ajustesnecessarios") {
-    return normalizeEnumKey(status) === expected;
+function isSolicStatus(status: unknown, expected: "rascunho" | "pendenteaprovacao" | "aprovada" | "reprovada" | "ajustesnecessarios" | "pendenteaprovacaorh") {
+    const key = normalizeEnumKey(status);
+    if (expected === "pendenteaprovacaorh") return key === "5" || key === "pendenteaprovacaorh";
+    return key === expected;
 }
 
 function VagaStatusBadge({ status }: { status: string | null | undefined }) {
@@ -334,6 +342,22 @@ export default function VagasScreen() {
 
     /* ── next step banner after vaga creation ── */
     const [lastCreatedVagaId, setLastCreatedVagaId] = useState<string | null>(null);
+
+    /* ── Fila de Análise RH ── */
+    interface FilaRhItem { id: string; titulo: string; areaName: string | null; createdAtUtc: string; }
+    const [filaRh, setFilaRh] = useState<FilaRhItem[]>([]);
+    const [filaRhLoading, setFilaRhLoading] = useState(false);
+
+    const loadFilaRh = useCallback(async () => {
+        if (!isRecrutador) return;
+        setFilaRhLoading(true);
+        try {
+            const data = await fetchJson<FilaRhItem[]>("/api/vagas/pendencias-rh");
+            setFilaRh(Array.isArray(data) ? data : []);
+        } catch { /* silencioso */ } finally {
+            setFilaRhLoading(false);
+        }
+    }, [isRecrutador]);
 
     /* ── prefill from solicitação (deep-link: ?newFromSolicitacao=ID) ── */
     const [prefillFromSolic, setPrefillFromSolic] = useState<Record<string, unknown> | null>(null);
@@ -450,7 +474,8 @@ export default function VagasScreen() {
     useEffect(() => {
         void loadSolicitacoes();
         void loadApprovals();
-    }, [loadSolicitacoes, loadApprovals]);
+        void loadFilaRh();
+    }, [loadSolicitacoes, loadApprovals, loadFilaRh]);
 
     useEffect(() => {
         if (deeplinkHandled.current) return;
@@ -574,9 +599,29 @@ export default function VagasScreen() {
             );
             setSolicDetailOpen(false);
             setSolicDetail(null);
-            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals()]);
+            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals(), loadFilaRh()]);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "Falha ao processar aprovação.");
+        } finally {
+            setApprovalActing(false);
+        }
+    }
+
+    async function executeApproveRh() {
+        if (!solicDetail?.id) return;
+        setApprovalActing(true);
+        try {
+            await fetchJson(`/api/solicitacoes-vaga/${encodeURIComponent(solicDetail.id)}/approve-rh`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ observacao: approvalObs.trim() || null }),
+            });
+            toast.success("Aprovação RH registrada. Vaga gerada em rascunho.");
+            setSolicDetailOpen(false);
+            setSolicDetail(null);
+            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals(), loadFilaRh()]);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao aprovar como RH.");
         } finally {
             setApprovalActing(false);
         }
@@ -836,6 +881,55 @@ export default function VagasScreen() {
                     ]}
                     onDismiss={() => setLastCreatedVagaId(null)}
                 />
+            )}
+
+            {/* ── Fila de Análise RH ── */}
+            {isRecrutador && (filaRhLoading || filaRh.length > 0) && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm space-y-3">
+                    <div className="flex items-center gap-2">
+                        <svg className="size-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+                        <div>
+                            <span className="font-semibold text-sm text-amber-900">Fila de Análise</span>
+                            {!filaRhLoading && (
+                                <span className="ml-2 inline-flex items-center rounded-full bg-amber-200 text-amber-800 text-xs font-semibold px-2 py-0.5">
+                                    {filaRh.length} {filaRh.length === 1 ? "vaga" : "vagas"} aguardando preenchimento
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    {filaRhLoading ? (
+                        <div className="text-sm text-amber-700 animate-pulse">Carregando…</div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent border-amber-200">
+                                    <TableHead className="text-amber-800">Título</TableHead>
+                                    <TableHead className="text-amber-800">Área</TableHead>
+                                    <TableHead className="text-amber-800">Criada em</TableHead>
+                                    <TableHead className="text-right text-amber-800">Ação</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filaRh.map((v) => (
+                                    <TableRow key={v.id} className="border-amber-100 hover:bg-amber-100/40">
+                                        <TableCell className="font-medium text-amber-900">{v.titulo}</TableCell>
+                                        <TableCell className="text-sm text-amber-700">{v.areaName ?? "—"}</TableCell>
+                                        <TableCell className="text-sm text-amber-700">{formatDate(v.createdAtUtc)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button
+                                                size="sm"
+                                                className="bg-amber-600 hover:bg-amber-700 text-white"
+                                                onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(v.id)}`)}
+                                            >
+                                                Preencher →
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </div>
             )}
 
             {/* Main panel */}
@@ -1402,6 +1496,12 @@ export default function VagasScreen() {
                                 <DetailField label="Vaga gerada" value={solicDetail.vagaId || "Ainda não gerada"} />
                                 <DetailField label="Aprovador 1" value={`${solicDetail.aprovador1Nome || "—"} · ${resolveApprovalStatusLabel(solicDetail.aprovador1Status)}`} />
                                 <DetailField label="Aprovador 2" value={solicDetail.aprovador2Habilitado ? `${solicDetail.aprovador2Nome || "—"} · ${resolveApprovalStatusLabel(solicDetail.aprovador2Status)}` : "Não habilitado"} />
+                                {solicDetail.aprovador3Habilitado && (
+                                    <DetailField
+                                        label="Aprovação RH"
+                                        value={`${solicDetail.aprovador3Nome || "Qualquer recrutador"} · ${resolveApprovalStatusLabel(solicDetail.aprovador3Status)}`}
+                                    />
+                                )}
                             </div>
 
                             <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
@@ -1458,6 +1558,12 @@ export default function VagasScreen() {
                                             Reprovar
                                         </Button>
                                     </>
+                                )}
+                                {isSolicStatus(solicDetail.status, "pendenteaprovacaorh") && isRecrutador && (
+                                    <Button disabled={approvalActing} onClick={() => void executeApproveRh()}>
+                                        <CheckCircle2 className="mr-1 size-4" />
+                                        Aprovar como RH
+                                    </Button>
                                 )}
                             </div>
                         </div>

@@ -14,6 +14,7 @@ public interface IJobPositionService
     Task<JobPositionResponse> CreateAsync(JobPositionCreateRequest request, CancellationToken ct);
     Task<JobPositionResponse?> UpdateAsync(Guid id, JobPositionUpdateRequest request, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    Task<JobPositionImportResult> ImportAsync(IReadOnlyList<JobPositionImportItem> items, CancellationToken ct);
 }
 
 public sealed class JobPositionService : IJobPositionService
@@ -31,7 +32,7 @@ public sealed class JobPositionService : IJobPositionService
     {
         var page = query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize < 1 ? 20 : query.PageSize;
-        if (pageSize > 100) pageSize = 100;
+        if (pageSize > 5000) pageSize = 5000;
 
         var search = (query.Search ?? string.Empty).Trim();
 
@@ -68,7 +69,12 @@ public sealed class JobPositionService : IJobPositionService
             x.Seniority,
             x.Status,
             x.UpdatedAtUtc,
-            FuncionariosCount = _db.Funcionarios.Count(m => m.JobPositionId != null && m.JobPositionId == x.Id)
+            FuncionariosCount = _db.Funcionarios.Count(m => m.JobPositionId != null && m.JobPositionId == x.Id),
+            x.TotvsCargoBasicId,
+            x.TotvsNivCargoId,
+            NivelCargoNomReduz = x.NivelCargo != null ? x.NivelCargo.NomReduz : null,
+            x.DesEnvelPagto,
+            x.OccupationalClassification
         });
 
         // Ordenação (whitelist)
@@ -118,7 +124,12 @@ public sealed class JobPositionService : IJobPositionService
                 x.Seniority,
                 x.FuncionariosCount,
                 x.Status,
-                x.UpdatedAtUtc
+                x.UpdatedAtUtc,
+                x.TotvsCargoBasicId,
+                x.TotvsNivCargoId,
+                x.NivelCargoNomReduz,
+                x.DesEnvelPagto,
+                x.OccupationalClassification
             ))
             .ToListAsync(ct);
 
@@ -139,6 +150,7 @@ public sealed class JobPositionService : IJobPositionService
         return await _db.JobPositions
             .AsNoTracking()
             .Include(x => x.Area)
+            .Include(x => x.NivelCargo)
             .Where(x => x.Id == id)
             .Select(x => new JobPositionResponse(
                 x.Id,
@@ -153,6 +165,12 @@ public sealed class JobPositionService : IJobPositionService
                 x.Description,
                 x.SimilarityIndicator,
                 x.FullDescription,
+                x.NivelCargoId,
+                x.NivelCargo != null ? x.NivelCargo.NomReduz : null,
+                x.NivelCargo != null ? x.NivelCargo.NomComplet : null,
+                x.DesEnvelPagto,
+                x.TotvsCargoBasicId,
+                x.TotvsNivCargoId,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc
             ))
@@ -184,7 +202,11 @@ public sealed class JobPositionService : IJobPositionService
             OccupationalClassification = TrimOrNull(request.OccupationalClassification),
             Description = TrimOrNull(request.Description),
             SimilarityIndicator = TrimSimilarityIndicator(request.SimilarityIndicator),
-            FullDescription = TrimFullDescription(request.FullDescription)
+            FullDescription = TrimFullDescription(request.FullDescription),
+            NivelCargoId = request.NivelCargoId,
+            DesEnvelPagto = TrimOrNull(request.DesEnvelPagto),
+            TotvsCargoBasicId = request.TotvsCargoBasicId,
+            TotvsNivCargoId = request.TotvsNivCargoId,
         };
 
         _db.JobPositions.Add(entity);
@@ -219,6 +241,10 @@ public sealed class JobPositionService : IJobPositionService
         entity.Description = TrimOrNull(request.Description);
         entity.SimilarityIndicator = TrimSimilarityIndicator(request.SimilarityIndicator);
         entity.FullDescription = TrimFullDescription(request.FullDescription);
+        entity.NivelCargoId = request.NivelCargoId;
+        entity.DesEnvelPagto = TrimOrNull(request.DesEnvelPagto);
+        entity.TotvsCargoBasicId = request.TotvsCargoBasicId;
+        entity.TotvsNivCargoId = request.TotvsNivCargoId;
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
@@ -269,5 +295,119 @@ public sealed class JobPositionService : IJobPositionService
         var t = value.Trim();
         if (t.Length <= 500) return t;
         return t[..500];
+    }
+
+    public async Task<JobPositionImportResult> ImportAsync(IReadOnlyList<JobPositionImportItem> items, CancellationToken ct)
+    {
+        // Índice por (TotvsCargoBasicId, TotvsNivCargoId) — PK real do TOTVS
+        var existingByTotvs = await _db.JobPositions
+            .AsNoTracking()
+            .Where(x => x.TotvsCargoBasicId != null && x.TotvsNivCargoId != null)
+            .Select(x => new { x.Id, x.TotvsCargoBasicId, x.TotvsNivCargoId, x.Code })
+            .ToListAsync(ct);
+
+        var totvs = existingByTotvs.ToDictionary(
+            x => (x.TotvsCargoBasicId!.Value, x.TotvsNivCargoId!.Value), x => x.Id);
+
+        // Índice fallback por código (para registros sem IDs TOTVS)
+        var existingCodes = existingByTotvs
+            .ToDictionary(x => x.Code.ToUpperInvariant(), x => x.Id);
+
+        // Complementa com registros sem IDs TOTVS
+        var noTotvs = await _db.JobPositions
+            .AsNoTracking()
+            .Where(x => x.TotvsCargoBasicId == null || x.TotvsNivCargoId == null)
+            .Select(x => new { x.Id, x.Code })
+            .ToListAsync(ct);
+        foreach (var r in noTotvs)
+            existingCodes.TryAdd(r.Code.ToUpperInvariant(), r.Id);
+
+        int created = 0, updated = 0, skipped = 0;
+        var errors = new List<string>();
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+
+            if (string.IsNullOrWhiteSpace(item.Name))
+            {
+                errors.Add($"Linha {i + 1}: Nome é obrigatório.");
+                skipped++;
+                continue;
+            }
+
+            var code = NormalizeCode(string.IsNullOrWhiteSpace(item.Code)
+                ? item.Name[..Math.Min(item.Name.Length, 30)]
+                : item.Code);
+
+            // Resolve existingId: prioridade TOTVS ID pair → fallback código
+            Guid existingId = Guid.Empty;
+            bool found = item.TotvsCargoBasicId.HasValue && item.TotvsNivCargoId.HasValue
+                ? totvs.TryGetValue((item.TotvsCargoBasicId.Value, item.TotvsNivCargoId.Value), out existingId)
+                : existingCodes.TryGetValue(code.ToUpperInvariant(), out existingId);
+
+            try
+            {
+                if (found)
+                {
+                    // Atualização
+                    var entity = await _db.JobPositions.FindAsync([existingId], ct);
+                    if (entity is null) { skipped++; continue; }
+
+                    entity.Code = code;
+                    entity.Name = item.Name.Trim();
+                    if (item.AreaId.HasValue) entity.AreaId = item.AreaId.Value;
+                    entity.Seniority = item.Seniority ?? entity.Seniority;
+                    entity.Type = TrimOrNull(item.Type) ?? entity.Type;
+                    entity.OccupationalClassification = TrimOrNull(item.OccupationalClassification) ?? entity.OccupationalClassification;
+                    entity.FullDescription = TrimFullDescription(item.FullDescription) ?? entity.FullDescription;
+                    entity.DesEnvelPagto = TrimOrNull(item.DesEnvelPagto) ?? entity.DesEnvelPagto;
+                    entity.NivelCargoId = item.NivelCargoId ?? entity.NivelCargoId;
+                    entity.SimilarityIndicator = TrimSimilarityIndicator(item.SimilarityIndicator) ?? entity.SimilarityIndicator;
+                    if (item.TotvsCargoBasicId.HasValue) entity.TotvsCargoBasicId = item.TotvsCargoBasicId;
+                    if (item.TotvsNivCargoId.HasValue) entity.TotvsNivCargoId = item.TotvsNivCargoId;
+                    entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                    await _db.SaveChangesAsync(ct);
+                    updated++;
+                }
+                else
+                {
+                    // Criação
+                    var entity = new Domain.Entities.JobPosition
+                    {
+                        Id = Guid.NewGuid(),
+                        Code = code,
+                        Name = item.Name.Trim(),
+                        Status = Domain.Enums.CargoStatus.Active,
+                        AreaId = item.AreaId,
+                        Seniority = item.Seniority ?? Domain.Enums.SeniorityLevel.Pleno,
+                        Type = TrimOrNull(item.Type),
+                        OccupationalClassification = TrimOrNull(item.OccupationalClassification),
+                        FullDescription = TrimFullDescription(item.FullDescription),
+                        DesEnvelPagto = TrimOrNull(item.DesEnvelPagto),
+                        NivelCargoId = item.NivelCargoId,
+                        SimilarityIndicator = TrimSimilarityIndicator(item.SimilarityIndicator),
+                        TotvsCargoBasicId = item.TotvsCargoBasicId,
+                        TotvsNivCargoId = item.TotvsNivCargoId,
+                    };
+                    _db.JobPositions.Add(entity);
+                    await _db.SaveChangesAsync(ct);
+                    // Atualiza índices em memória
+                    existingCodes[code.ToUpperInvariant()] = entity.Id;
+                    if (item.TotvsCargoBasicId.HasValue && item.TotvsNivCargoId.HasValue)
+                        totvs[(item.TotvsCargoBasicId.Value, item.TotvsNivCargoId.Value)] = entity.Id;
+                    created++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _db.ChangeTracker.Clear();
+                var msg = ex.InnerException?.Message ?? ex.Message;
+                errors.Add($"Linha {i + 1} ({code}): {msg}");
+                skipped++;
+            }
+        }
+
+        return new JobPositionImportResult(created, updated, skipped, errors);
     }
 }

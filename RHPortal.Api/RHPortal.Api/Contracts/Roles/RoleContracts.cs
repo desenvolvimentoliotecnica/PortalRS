@@ -10,7 +10,8 @@ public sealed record RoleListItemResponse(
     bool IsActive,
     ProfileVisibilityScope VisibilityScope,
     VagasDataScope VagasDataScope,
-    ProfileAccessMode AccessMode
+    ProfileAccessMode AccessMode,
+    RoleTipo Tipo
 );
 
 public sealed record RoleResponse(
@@ -21,6 +22,7 @@ public sealed record RoleResponse(
     ProfileVisibilityScope VisibilityScope,
     VagasDataScope VagasDataScope,
     ProfileAccessMode AccessMode,
+    RoleTipo Tipo,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );
@@ -31,7 +33,8 @@ public sealed record RoleCreateRequest(
     bool IsActive,
     ProfileVisibilityScope VisibilityScope,
     VagasDataScope VagasDataScope,
-    ProfileAccessMode AccessMode
+    ProfileAccessMode AccessMode,
+    RoleTipo Tipo
 );
 
 public sealed record RoleUpdateRequest(
@@ -40,7 +43,8 @@ public sealed record RoleUpdateRequest(
     bool IsActive,
     ProfileVisibilityScope VisibilityScope,
     VagasDataScope VagasDataScope,
-    ProfileAccessMode AccessMode
+    ProfileAccessMode AccessMode,
+    RoleTipo Tipo
 );
 
 public sealed record RoleMenuAssignmentRequest(

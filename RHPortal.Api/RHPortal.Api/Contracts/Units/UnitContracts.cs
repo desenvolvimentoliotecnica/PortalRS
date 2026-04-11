@@ -17,7 +17,11 @@ public sealed record UnitCreateRequest(
     [MaxLength(140)] string? ResponsibleName,
     [MaxLength(120)] string? Type,
     int Headcount,
-    [MaxLength(1000)] string? Notes
+    [MaxLength(1000)] string? Notes,
+    [MaxLength(60)] string? NomAbrevPessoaJurid = null,
+    [MaxLength(150)] string? NomPessoaJurid = null,
+    [MaxLength(60)] string? NomAbrevPessoaFisic = null,
+    Guid? EmpresaId = null
 );
 
 public sealed record UnitUpdateRequest(
@@ -34,7 +38,18 @@ public sealed record UnitUpdateRequest(
     [MaxLength(140)] string? ResponsibleName,
     [MaxLength(120)] string? Type,
     int Headcount,
-    [MaxLength(1000)] string? Notes
+    [MaxLength(1000)] string? Notes,
+    [MaxLength(60)] string? NomAbrevPessoaJurid = null,
+    [MaxLength(150)] string? NomPessoaJurid = null,
+    [MaxLength(60)] string? NomAbrevPessoaFisic = null,
+    Guid? EmpresaId = null
+);
+
+public sealed record UnitLookupItem(
+    Guid Id,
+    string Code,
+    string Name,
+    string DisplayLabel
 );
 
 public sealed record UnitResponse(
@@ -54,5 +69,11 @@ public sealed record UnitResponse(
     int Headcount,
     string? Notes,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+    string? NomAbrevPessoaJurid = null,
+    string? NomPessoaJurid = null,
+    string? NomAbrevPessoaFisic = null,
+    Guid? EmpresaId = null,
+    string? EmpresaCode = null,
+    string? EmpresaDescription = null
 );

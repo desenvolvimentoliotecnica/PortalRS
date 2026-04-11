@@ -129,13 +129,18 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<SurveyAnswer> SurveyAnswers => Set<SurveyAnswer>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<TenantAwsSettings> TenantAwsSettings => Set<TenantAwsSettings>();
+    public DbSet<TenantConfiguracao> TenantConfiguracoes => Set<TenantConfiguracao>();
     public DbSet<CandidatoVagaMatchingScore> CandidatoVagaMatchingScores => Set<CandidatoVagaMatchingScore>();
     public DbSet<VagaUnifiedMatchingCache> VagaUnifiedMatchingCaches => Set<VagaUnifiedMatchingCache>();
     public DbSet<Cargo> Cargos => Set<Cargo>();
+    public DbSet<NivelCargo> NiveisCargo => Set<NivelCargo>();
     public DbSet<CategoriaSalarial> CategoriasSalariais => Set<CategoriaSalarial>();
     public DbSet<Turno> Turnos => Set<Turno>();
     public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();
     public DbSet<UnidadeLotacao> UnidadesLotacao => Set<UnidadeLotacao>();
+    public DbSet<Empresa> Empresas => Set<Empresa>();
+    public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
+    public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -178,6 +183,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.VisibilityScope).HasDefaultValue(RHPortal.Api.Domain.Enums.ProfileVisibilityScope.FullStructure);
             b.Property(x => x.VagasDataScope).HasDefaultValue(RHPortal.Api.Domain.Enums.VagasDataScope.All);
             b.Property(x => x.AccessMode).HasDefaultValue(RHPortal.Api.Domain.Enums.ProfileAccessMode.Full);
+            b.Property(x => x.Tipo).HasDefaultValue(RHPortal.Api.Domain.Enums.RoleTipo.Colaborador);
 
             b.HasIndex(x => x.NormalizedName)
                 .HasDatabaseName("RoleNameIndex")
@@ -325,6 +331,24 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.Property(x => x.Notes).HasMaxLength(1000);
 
+            b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.Code })
+             .IsUnique()
+             .HasFilter("\"EmpresaId\" IS NOT NULL");
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+
+            b.HasOne(x => x.Empresa)
+             .WithMany()
+             .HasForeignKey(x => x.EmpresaId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Empresa>(b =>
+        {
+            b.ToTable("Empresas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(120).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
@@ -362,12 +386,18 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.SimilarityIndicator).HasMaxLength(1);
             b.Property(x => x.FullDescription).HasMaxLength(500);
 
+            b.Property(x => x.AreaId).IsRequired(false);
+
             b.HasOne(x => x.Area)
                 .WithMany()
                 .HasForeignKey(x => x.AreaId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.SetNull);
 
             b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+
+            b.HasIndex(x => new { x.TenantId, x.TotvsCargoBasicId, x.TotvsNivCargoId })
+                .IsUnique()
+                .HasFilter("\"TotvsCargoBasicId\" IS NOT NULL AND \"TotvsNivCargoId\" IS NOT NULL");
 
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
@@ -399,8 +429,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Code).HasMaxLength(10).IsRequired();
             b.Property(x => x.Description).HasMaxLength(120).IsRequired();
 
-            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.EstabelecimentoId, x.Code })
+             .IsUnique()
+             .HasFilter("\"EmpresaId\" IS NOT NULL AND \"EstabelecimentoId\" IS NOT NULL");
             b.HasIndex(x => x.IsActive);
+            b.HasOne(x => x.Empresa).WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.Estabelecimento).WithMany().HasForeignKey(x => x.EstabelecimentoId).OnDelete(DeleteBehavior.SetNull);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -432,9 +466,16 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Manager).HasMaxLength(120);
             b.Property(x => x.Notes).HasMaxLength(500);
 
-            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.Code })
+             .IsUnique()
+             .HasFilter("\"EmpresaId\" IS NOT NULL");
             b.HasIndex(x => x.IsActive);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+
+            b.HasOne(x => x.Empresa)
+             .WithMany()
+             .HasForeignKey(x => x.EmpresaId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<UnidadeLotacao>(b =>
@@ -443,14 +484,29 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasKey(x => x.Id);
 
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CdnPlanoLotac).HasMaxLength(10).IsRequired();
             b.Property(x => x.Code).HasMaxLength(30).IsRequired();
             b.Property(x => x.Description).HasMaxLength(120).IsRequired();
             b.Property(x => x.Location).HasMaxLength(120);
-            b.Property(x => x.Manager).HasMaxLength(120);
             b.Property(x => x.Notes).HasMaxLength(500);
+            b.Property(x => x.Level).HasDefaultValue(1);
 
-            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            // Hierarquia pai-filho
+            b.HasOne(x => x.Parent)
+                .WithMany(x => x.Children)
+                .HasForeignKey(x => x.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Responsável da unidade
+            b.HasOne(x => x.OwnerFuncionario)
+                .WithMany()
+                .HasForeignKey(x => x.OwnerFuncionarioId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.CdnPlanoLotac, x.Code }).IsUnique();
             b.HasIndex(x => x.IsActive);
+            b.HasIndex(x => x.ParentId);
+            b.HasIndex(x => x.OwnerFuncionarioId);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -652,7 +708,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.Property(x => x.Name).HasMaxLength(160).IsRequired();
-            b.Property(x => x.Email).HasMaxLength(180).IsRequired();
+            b.Property(x => x.Email).HasMaxLength(180);
             b.Property(x => x.Phone).HasMaxLength(40);
             b.Property(x => x.Notes).HasMaxLength(1000);
             b.Property(x => x.Headcount);
@@ -698,7 +754,21 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.GestorDiretoId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            b.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+            b.HasOne(x => x.UnidadeLotacao)
+                .WithMany()
+                .HasForeignKey(x => x.UnidadeLotacaoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Chaves de integração TOTVS Datasul
+            b.Property(x => x.CdnFuncionario).HasMaxLength(12);
+            b.Property(x => x.CdnEmpresa).HasMaxLength(3);
+            b.Property(x => x.CdnEstab).HasMaxLength(5);
+
+            b.HasIndex(x => new { x.TenantId, x.Email })
+                .HasFilter("\"Email\" IS NOT NULL");
+            b.HasIndex(x => new { x.TenantId, x.CdnEmpresa, x.CdnEstab, x.CdnFuncionario })
+                .IsUnique()
+                .HasFilter("\"CdnFuncionario\" IS NOT NULL");
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -754,6 +824,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Aprovador2)
                 .WithMany()
                 .HasForeignKey(x => x.Aprovador2Id)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.Aprovador3)
+                .WithMany()
+                .HasForeignKey(x => x.Aprovador3Id)
                 .OnDelete(DeleteBehavior.SetNull);
 
             b.HasIndex(x => new { x.TenantId, x.Status });
@@ -1671,6 +1746,62 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.IsEnabled).IsRequired();
 
             b.HasIndex(x => new { x.TenantId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<TenantConfiguracao>(b =>
+        {
+            b.ToTable("TenantConfiguracoes");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+
+            b.HasOne(x => x.AprovadorRh)
+                .WithMany()
+                .HasForeignKey(x => x.AprovadorRhId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => x.TenantId).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EtapaConfigAprovacao>(b =>
+        {
+            b.ToTable("EtapasConfigAprovacao");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Label).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Ativo).IsRequired();
+
+            b.HasOne(x => x.FuncionarioFixo)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioFixoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.RoleFila)
+                .WithMany()
+                .HasForeignKey(x => x.RoleFilaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.TipoFluxo, x.Ordem }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SolicitacaoAprovacaoEtapa>(b =>
+        {
+            b.ToTable("SolicitacoesAprovacaoEtapas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Label).HasMaxLength(120).IsRequired();
+
+            b.HasOne(x => x.Aprovador)
+                .WithMany()
+                .HasForeignKey(x => x.AprovadorId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.SolicitacaoId, x.TipoFluxo });
+            b.HasIndex(x => new { x.TenantId, x.RoleFilaId, x.Status })
+                .HasFilter("\"RoleFilaId\" IS NOT NULL");
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

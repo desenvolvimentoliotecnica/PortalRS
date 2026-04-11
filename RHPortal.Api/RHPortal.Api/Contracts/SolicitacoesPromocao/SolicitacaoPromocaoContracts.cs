@@ -28,6 +28,24 @@ public sealed class SolicitacaoPromocaoCreateRequest
 
     public Guid? NovaAreaId { get; set; }
 
+    public Guid? NovaUnidadeId { get; set; }
+
+    public Guid? EmpresaId { get; set; }
+    public Guid? UnitId { get; set; }
+    public Guid? CentroCustoId { get; set; }
+    public Guid? UnidadeLotacaoId { get; set; }
+
+    [MaxLength(120)]
+    public string? NovaLocalidade { get; set; }
+    public decimal? NovoSalario { get; set; }
+    [MaxLength(60)]
+    public string? NovaPericulosidade { get; set; }
+    public decimal? NovaRemuneracao { get; set; }
+    [MaxLength(200)]
+    public string? HorarioProposto { get; set; }
+
+    public MotivoMovimentacaoPessoal? MotivoMovimentacao { get; set; }
+
     [Required, MaxLength(2000)]
     public string Justificativa { get; set; } = string.Empty;
 
@@ -52,6 +70,24 @@ public sealed class SolicitacaoPromocaoUpdateRequest
 
     public Guid? NovaAreaId { get; set; }
 
+    public Guid? NovaUnidadeId { get; set; }
+
+    public Guid? EmpresaId { get; set; }
+    public Guid? UnitId { get; set; }
+    public Guid? CentroCustoId { get; set; }
+    public Guid? UnidadeLotacaoId { get; set; }
+
+    [MaxLength(120)]
+    public string? NovaLocalidade { get; set; }
+    public decimal? NovoSalario { get; set; }
+    [MaxLength(60)]
+    public string? NovaPericulosidade { get; set; }
+    public decimal? NovaRemuneracao { get; set; }
+    [MaxLength(200)]
+    public string? HorarioProposto { get; set; }
+
+    public MotivoMovimentacaoPessoal? MotivoMovimentacao { get; set; }
+
     [Required, MaxLength(2000)]
     public string Justificativa { get; set; } = string.Empty;
 
@@ -75,6 +111,22 @@ public sealed record SolicitacaoPromocaoResponse(
     string? AreaAtualNome,
     Guid? NovaAreaId,
     string? NovaAreaNome,
+    Guid? NovaUnidadeId,
+    string? NovaUnidadeNome,
+    Guid? EmpresaId,
+    string? EmpresaNome,
+    Guid? UnitId,
+    string? UnitNome,
+    Guid? CentroCustoId,
+    string? CentroCustoNome,
+    Guid? UnidadeLotacaoId,
+    string? UnidadeLotacaoNome,
+    string? NovaLocalidade,
+    decimal? NovoSalario,
+    string? NovaPericulosidade,
+    decimal? NovaRemuneracao,
+    string? HorarioProposto,
+    MotivoMovimentacaoPessoal? MotivoMovimentacao,
     string Justificativa,
     // Approval chain
     Guid? Aprovador1Id,
@@ -93,7 +145,8 @@ public sealed record SolicitacaoPromocaoResponse(
     DateTimeOffset? ApprovedAtUtc,
     IntegracaoResultado? IntegracaoResultado,
     string? IntegracaoMensagem,
-    DateTimeOffset? IntegradaEmUtc
+    DateTimeOffset? IntegradaEmUtc,
+    IReadOnlyList<RhPortal.Api.Contracts.Common.EtapaAprovacaoResponse> Etapas
 );
 
 public sealed record SolicitacaoPromocaoGridRow(

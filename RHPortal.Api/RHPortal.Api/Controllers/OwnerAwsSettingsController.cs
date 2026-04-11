@@ -9,22 +9,22 @@ using RhPortal.Api.Application.AwsSettings;
 namespace RhPortal.Api.Controllers;
 
 /// <summary>
-/// Configuração de armazenamento AWS S3 do tenant.
+/// Configuração global de armazenamento AWS S3 (Owner — compartilhada por todos os tenants).
 /// </summary>
 [ApiController]
-[Route("api/aws-settings")]
-[Authorize]
-public sealed class AwsSettingsController : ControllerBase
+[Route("api/owner/aws-settings")]
+[Authorize(Policy = "Owner")]
+public sealed class OwnerAwsSettingsController : ControllerBase
 {
     private readonly IAwsSettingsService _service;
 
-    public AwsSettingsController(IAwsSettingsService service)
+    public OwnerAwsSettingsController(IAwsSettingsService service)
     {
         _service = service;
     }
 
     /// <summary>
-    /// Obtém a configuração AWS S3 atual (credenciais mascaradas).
+    /// Obtém a configuração AWS S3 global (credenciais mascaradas).
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(AwsSettingsView), StatusCodes.Status200OK)]
@@ -32,8 +32,8 @@ public sealed class AwsSettingsController : ControllerBase
         => Ok(await _service.GetViewAsync(ct));
 
     /// <summary>
-    /// Salva a configuração AWS S3 do tenant.
-    /// Campos em branco mantêm o valor anterior (útil para não reexibir o secret).
+    /// Salva a configuração AWS S3 global.
+    /// Campos em branco mantêm o valor anterior.
     /// </summary>
     [HttpPut]
     [ProducesResponseType(typeof(AwsSettingsView), StatusCodes.Status200OK)]

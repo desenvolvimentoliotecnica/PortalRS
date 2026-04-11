@@ -58,6 +58,17 @@ export default function TopbarClient({
   const [mounted, setMounted] = useState(false);
   const [locale, setLocale] = useState("pt-BR");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+
+  useEffect(() => {
+    if (!me) return;
+    apiFetch("/api/aprovacoes/pendentes/count")
+      .then((res) => {
+        const count = (res as { count?: number }).count ?? 0;
+        setPendingApprovals(count);
+      })
+      .catch(() => {});
+  }, [me]);
 
   /* ─── Actions ─── */
 
@@ -104,8 +115,10 @@ export default function TopbarClient({
       setAccessToken(parsed.data.accessToken);
       setTenantId(parsed.data.tenantId);
 
-      router.replace("/Owner/Tenants");
-      router.refresh();
+      // Full page reload so AuthProvider re-reads the new owner JWT and the
+      // sidebar switches back to owner menu items. router.replace() is not
+      // enough because the (app) layout stays mounted and useAuth won't re-run.
+      window.location.replace("/app/Owner/Tenants");
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "Falha ao trocar tenant.",
@@ -208,8 +221,8 @@ export default function TopbarClient({
           )}
 
           {/* Brand title */}
-          <span className="text-sm font-semibold text-lt-primary tracking-wide whitespace-nowrap hidden sm:inline">
-            Portal RH
+          <span className="text-sm font-semibold text-lt-primary tracking-[0.18em] uppercase whitespace-nowrap hidden sm:inline">
+            Render
           </span>
         </div>
 
@@ -244,6 +257,11 @@ export default function TopbarClient({
                     title="Notificações"
                   >
                     <Bell className="size-4" />
+                    {pendingApprovals > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+                        {pendingApprovals > 99 ? "99+" : pendingApprovals}
+                      </span>
+                    )}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
@@ -251,12 +269,24 @@ export default function TopbarClient({
                     <div className="font-semibold text-sm">Notificações</div>
                     <div className="text-xs text-muted-foreground">Últimas atualizações</div>
                   </div>
-                  <div className="py-3 px-3 text-sm text-muted-foreground text-center">
-                    Sem notificações recentes.
-                  </div>
-                  <div className="border-t p-2">
+                  {pendingApprovals > 0 ? (
+                    <div className="py-3 px-3 text-sm text-center">
+                      <span className="font-medium text-foreground">{pendingApprovals}</span>
+                      <span className="text-muted-foreground"> {pendingApprovals === 1 ? "aprovação pendente" : "aprovações pendentes"}</span>
+                    </div>
+                  ) : (
+                    <div className="py-3 px-3 text-sm text-muted-foreground text-center">
+                      Sem notificações recentes.
+                    </div>
+                  )}
+                  <div className="border-t p-2 flex flex-col gap-1">
+                    {pendingApprovals > 0 && (
+                      <Button variant="default" size="sm" className="w-full" asChild>
+                        <Link href="/gestao/aprovacoes">Ver aprovações pendentes</Link>
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" className="w-full" asChild>
-                      <Link href="/notificacoes">Ver todas</Link>
+                      <Link href="/notificacoes">Ver todas as notificações</Link>
                     </Button>
                   </div>
                 </DropdownMenuContent>

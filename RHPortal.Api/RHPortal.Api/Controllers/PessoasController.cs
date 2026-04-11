@@ -24,9 +24,11 @@ public sealed class PessoasController : ControllerBase
         [FromQuery] string? q,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string sort = "nome",
+        [FromQuery] string dir = "asc",
         CancellationToken ct = default)
     {
-        var query = new PessoaListQuery(q, page, pageSize);
+        var query = new PessoaListQuery(q, page, pageSize, sort, dir);
         var result = await service.ListAsync(query, ct);
         return Ok(result);
     }
@@ -86,16 +88,24 @@ public sealed class PessoasController : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
-    /// <summary>Remove uma pessoa.</summary>
+    /// <summary>Remove uma pessoa (bloqueado se houver funcionário ativo ou candidaturas ativas).</summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] IPessoaService service,
         CancellationToken ct)
     {
-        var deleted = await service.DeleteAsync(id, ct);
-        return deleted ? NoContent() : NotFound();
+        try
+        {
+            var deleted = await service.DeleteAsync(id, ct);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 }

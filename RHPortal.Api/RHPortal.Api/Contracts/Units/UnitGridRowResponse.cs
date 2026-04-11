@@ -18,5 +18,10 @@ public sealed record UnitGridRowResponse(
     string? Neighborhood,
     string? ZipCode,
     string? ResponsibleName,
-    string? Notes
+    string? Notes,
+    string? NomAbrevPessoaJurid = null,
+    string? NomPessoaJurid = null,
+    string? NomAbrevPessoaFisic = null,
+    Guid? EmpresaId = null,
+    string? EmpresaCode = null
 );

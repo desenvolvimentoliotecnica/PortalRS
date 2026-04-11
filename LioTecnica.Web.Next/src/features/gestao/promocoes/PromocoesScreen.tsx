@@ -17,6 +17,8 @@ import {
     AlertTriangle,
     FileText,
     ArrowRight,
+    Users,
+    Activity,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -40,8 +42,21 @@ import {
 } from "@/components/ui/dialog";
 
 import PromocaoFormModal from "./PromocaoFormModal";
+import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 
 /* ──────────────────────────── types ──────────────────────────── */
+
+interface EtapaAprovacaoResponse {
+    ordem: number;
+    label: string;
+    aprovadorId: string | null;
+    aprovadorNome: string | null;
+    roleFilaId: string | null;
+    roleFilaNome: string | null;
+    status: string; // "Pendente" | "Aprovado" | "Reprovado"
+    dataUtc: string | null;
+    observacao: string | null;
+}
 
 interface SolicitacaoPromocaoGridRow {
     id: string;
@@ -71,9 +86,10 @@ interface SolicitacaoPromocaoResponse {
     observacaoAprovador: string | null;
     observacoes: string | null;
     createdAtUtc: string;
+    etapas?: EtapaAprovacaoResponse[];
 }
 
-type StatusKey = 0 | 1 | 2 | 3 | 4;
+type StatusKey = 0 | 1 | 2 | 3 | 4 | 6;
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -99,13 +115,32 @@ const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.
     2: { label: "Aprovada", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
     3: { label: "Reprovada", color: "bg-red-500/15 text-red-700", icon: XCircle },
     4: { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
+    6: { label: "Aguarda Fila", color: "bg-violet-500/15 text-violet-700", icon: Users },
+};
+
+const ETAPA_STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+    pendente: { label: "Pendente", color: "bg-amber-500/15 text-amber-700", icon: Clock },
+    aprovado: { label: "Aprovado", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    reprovado: { label: "Reprovado", color: "bg-red-500/15 text-red-700", icon: XCircle },
 };
 
 function statusBadge(status: number) {
-    const s = STATUS_MAP[(status ?? 0) as StatusKey] ?? STATUS_MAP[0];
+    const s = STATUS_MAP[(status ?? 0) as StatusKey] ?? STATUS_MAP[1];
     const Icon = s.icon;
     return (
         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.color}`}>
+            <Icon className="size-3" />
+            {s.label}
+        </span>
+    );
+}
+
+function etapaStatusBadge(status: string) {
+    const key = (status ?? "pendente").toLowerCase();
+    const s = ETAPA_STATUS_MAP[key] ?? ETAPA_STATUS_MAP.pendente;
+    const Icon = s.icon;
+    return (
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.color}`}>
             <Icon className="size-3" />
             {s.label}
         </span>
@@ -130,6 +165,8 @@ function formatDate(iso: string | null | undefined) {
 export default function PromocoesScreen() {
     const { me } = useAuth();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin") ?? false;
+    const myFuncionarioId = (me as { funcionarioId?: string } | null)?.funcionarioId;
+    const myRoles: string[] = (me?.roles ?? []) as string[];
 
     /* ── data ── */
     const [loading, setLoading] = useState(true);
@@ -142,6 +179,13 @@ export default function PromocoesScreen() {
     /* ── form modal ── */
     const [formOpen, setFormOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
+    const [viewId, setViewId] = useState<string | null>(null);
+    const [resubmit, setResubmit] = useState(false);
+
+    /* ── timeline modal ── */
+    const [timelineOpen, setTimelineOpen] = useState(false);
+    const [timelineSteps, setTimelineSteps] = useState<AprovacaoStep[]>([]);
+    const [timelineLoading, setTimelineLoading] = useState(false);
 
     /* ── detail dialog ── */
     const [detailOpen, setDetailOpen] = useState(false);
@@ -183,7 +227,7 @@ export default function PromocoesScreen() {
     /* ── KPIs ── */
     const kpis = useMemo(() => {
         const total = rows.length;
-        const pendentes = rows.filter((r) => r.status === 1).length;
+        const pendentes = rows.filter((r) => r.status === 1 || r.status === 6).length;
         const aprovadas = rows.filter((r) => r.status === 2).length;
         const reprovadas = rows.filter((r) => r.status === 3).length;
         return { total, pendentes, aprovadas, reprovadas };
@@ -191,13 +235,69 @@ export default function PromocoesScreen() {
 
     /* ── actions ── */
     function openNew() {
+        setViewId(null);
         setEditId(null);
+        setResubmit(false);
         setFormOpen(true);
     }
 
     function openEdit(row: SolicitacaoPromocaoGridRow) {
+        setViewId(null);
         setEditId(row.id);
+        setResubmit(false);
         setFormOpen(true);
+    }
+
+    function openEditForApproval(row: SolicitacaoPromocaoGridRow) {
+        setViewId(null);
+        setEditId(row.id);
+        setResubmit(true);
+        setFormOpen(true);
+    }
+
+    function openView(row: SolicitacaoPromocaoGridRow) {
+        setViewId(row.id);
+        setEditId(null);
+        setResubmit(false);
+        setFormOpen(true);
+    }
+
+    async function openTimeline(row: SolicitacaoPromocaoGridRow) {
+        setTimelineOpen(true);
+        setTimelineLoading(true);
+        setTimelineSteps([]);
+        try {
+            const d = await fetchJson<SolicitacaoPromocaoResponse>(`${API}/${row.id}`);
+            const steps: AprovacaoStep[] = [
+                {
+                    label: "Criado",
+                    nome: d.solicitanteNome,
+                    status: 1,
+                    habilitado: true,
+                    date: d.createdAtUtc,
+                },
+                {
+                    label: "Aprovação — Gestor",
+                    nome: d.aprovador1Nome,
+                    status: d.aprovador1Status,
+                    habilitado: true,
+                },
+            ];
+            if (d.aprovador2Nome) {
+                steps.push({
+                    label: "Aprovação — Nível 2",
+                    nome: d.aprovador2Nome,
+                    status: d.aprovador2Status,
+                    habilitado: true,
+                });
+            }
+            setTimelineSteps(steps);
+        } catch {
+            toast.error("Falha ao carregar acompanhamento.");
+            setTimelineOpen(false);
+        } finally {
+            setTimelineLoading(false);
+        }
     }
 
     async function openDetail(row: SolicitacaoPromocaoGridRow) {
@@ -254,20 +354,49 @@ export default function PromocoesScreen() {
         }
     }
 
+    function handleFormClose() {
+        setFormOpen(false);
+        setViewId(null);
+        setResubmit(false);
+    }
+
     function handleFormSaved() {
         setFormOpen(false);
+        setViewId(null);
+        setResubmit(false);
         syncList().catch(() => { });
     }
 
-    const isAprovador = useMemo(() => {
-        if (!detail || !me) return false;
-        const myId = (me as { funcionarioId?: string }).funcionarioId;
-        if (!myId) return false;
-        return (
-            (detail as unknown as { aprovador1Id?: string }).aprovador1Id === myId ||
-            (detail as unknown as { aprovador2Id?: string }).aprovador2Id === myId
-        );
-    }, [detail, me]);
+    /* Determine if current user can approve the current pending step */
+    const { canApprove, isQueueStep, currentEtapa } = useMemo(() => {
+        if (!detail || !me) return { canApprove: false, isQueueStep: false, currentEtapa: null };
+        if (detail.status !== 1 && detail.status !== 6) return { canApprove: false, isQueueStep: false, currentEtapa: null };
+        if (isAdmin) return { canApprove: true, isQueueStep: false, currentEtapa: null };
+
+        // Use etapas array if available
+        const etapas = detail.etapas;
+        if (etapas && etapas.length > 0) {
+            const pending = etapas.find((e) => e.status.toLowerCase() === "pendente");
+            if (!pending) return { canApprove: false, isQueueStep: false, currentEtapa: null };
+            const isQueue = pending.roleFilaId != null;
+            if (isQueue) {
+                // Check if user's roles include the queue role name
+                const roleMatch = myRoles.some((r) =>
+                    r.toLowerCase() === (pending.roleFilaNome ?? "").toLowerCase()
+                );
+                return { canApprove: roleMatch, isQueueStep: true, currentEtapa: pending };
+            } else {
+                // Fixed approver check
+                const isFixed = pending.aprovadorId != null && pending.aprovadorId === myFuncionarioId;
+                return { canApprove: isFixed, isQueueStep: false, currentEtapa: pending };
+            }
+        }
+
+        // Fallback: check legacy aprovador1Id / aprovador2Id
+        const d = detail as unknown as { aprovador1Id?: string; aprovador2Id?: string };
+        const isAprov = d.aprovador1Id === myFuncionarioId || d.aprovador2Id === myFuncionarioId;
+        return { canApprove: isAprov, isQueueStep: false, currentEtapa: null };
+    }, [detail, me, isAdmin, myFuncionarioId, myRoles]);
 
     /* ──────────────────────────── render ──────────────────────────── */
     return (
@@ -353,6 +482,7 @@ export default function PromocoesScreen() {
                             <option value="2">Aprovada</option>
                             <option value="3">Reprovada</option>
                             <option value="4">Ajustes</option>
+                            <option value="6">Aguarda Fila</option>
                         </select>
                     </div>
                 </div>
@@ -377,7 +507,7 @@ export default function PromocoesScreen() {
                             </TableRow>
                         ) : filtered.length ? (
                             filtered.map((r) => (
-                                <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => void openDetail(r)}>
+                                <TableRow key={r.id} className="hover:bg-muted/40">
                                     <TableCell>
                                         <div className="font-semibold">{r.funcionarioNome || "—"}</div>
                                         {r.solicitanteNome && (
@@ -396,10 +526,22 @@ export default function PromocoesScreen() {
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                            <Button variant="outline" size="icon-xs" title="Detalhes" onClick={() => void openDetail(r)}>
-                                                <Eye />
-                                            </Button>
-                                            {(r.status === 0 || r.status === 4) && (
+                                            {/* Rascunho: editar, enviar, excluir */}
+                                            {r.status === 0 && (
+                                                <>
+                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
+                                                        <Pencil />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
+                                                        <Send />
+                                                    </Button>
+                                                    <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
+                                                        <Trash2 />
+                                                    </Button>
+                                                </>
+                                            )}
+                                            {/* AjustesNecessarios: editar, enviar */}
+                                            {r.status === 4 && (
                                                 <>
                                                     <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
                                                         <Pencil />
@@ -409,11 +551,22 @@ export default function PromocoesScreen() {
                                                     </Button>
                                                 </>
                                             )}
-                                            {r.status === 0 && (
-                                                <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
-                                                    <Trash2 />
+                                            {/* Pendente: editar e reenviar */}
+                                            {r.status === 1 && (
+                                                <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
+                                                    <Pencil />
                                                 </Button>
                                             )}
+                                            {/* Aprovada/Reprovada: visualizar */}
+                                            {(r.status === 2 || r.status === 3) && (
+                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                                    <Eye />
+                                                </Button>
+                                            )}
+                                            {/* Acompanhamento: todas as linhas */}
+                                            <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
+                                                <Activity />
+                                            </Button>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -432,9 +585,17 @@ export default function PromocoesScreen() {
             {/* ── Form Modal ── */}
             <PromocaoFormModal
                 open={formOpen}
-                editId={editId}
-                onClose={() => setFormOpen(false)}
+                editId={viewId ?? editId}
+                onClose={handleFormClose}
                 onSaved={handleFormSaved}
+            />
+
+            {/* ── Timeline Modal ── */}
+            <AcompanhamentoModal
+                open={timelineOpen}
+                loading={timelineLoading}
+                steps={timelineSteps}
+                onClose={() => setTimelineOpen(false)}
             />
 
             {/* ── Detail Dialog ── */}
@@ -489,27 +650,71 @@ export default function PromocoesScreen() {
                                 </div>
                             </div>
 
-                            {/* ── Approval chain ── */}
+                            {/* ── Approval chain (dynamic etapas) ── */}
                             <div className="rounded-lg border border-border/40 p-3 space-y-2">
                                 <div className="text-xs font-semibold text-muted-foreground uppercase">Cadeia de Aprovação</div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <div className="text-xs text-muted-foreground">Aprovador 1</div>
-                                        <div className="text-sm font-medium">{detail.aprovador1Nome || "—"}</div>
-                                        {detail.aprovador1Status != null && (
-                                            <div className="mt-0.5">{statusBadge(detail.aprovador1Status)}</div>
-                                        )}
+                                {detail.etapas && detail.etapas.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {detail.etapas.map((etapa) => {
+                                            const isPendente = etapa.status.toLowerCase() === "pendente";
+                                            const isQueue = etapa.roleFilaId != null;
+                                            return (
+                                                <div
+                                                    key={etapa.ordem}
+                                                    className={`flex items-start justify-between gap-2 rounded-md p-2 ${isPendente ? "bg-amber-500/5 border border-amber-500/20" : "bg-muted/20"}`}
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-mono rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">{etapa.ordem}</span>
+                                                            <span className="text-xs font-semibold">{etapa.label}</span>
+                                                            {isQueue && (
+                                                                <span className="text-[10px] rounded-full bg-violet-500/10 text-violet-600 px-1.5 py-0.5 flex items-center gap-1">
+                                                                    <Users className="size-2.5" /> Fila: {etapa.roleFilaNome}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground mt-0.5">
+                                                            {etapa.aprovadorNome
+                                                                ? etapa.aprovadorNome
+                                                                : isPendente && isQueue
+                                                                    ? "Aguardando assumir…"
+                                                                    : "—"}
+                                                        </div>
+                                                        {etapa.observacao && (
+                                                            <div className="text-xs text-muted-foreground mt-0.5 italic">{etapa.observacao}</div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-shrink-0">
+                                                        {etapaStatusBadge(etapa.status)}
+                                                        {etapa.dataUtc && (
+                                                            <div className="text-[10px] text-muted-foreground mt-0.5 text-right">{formatDate(etapa.dataUtc)}</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                    {detail.aprovador2Nome && (
+                                ) : (
+                                    /* Fallback to legacy view */
+                                    <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <div className="text-xs text-muted-foreground">Aprovador 2</div>
-                                            <div className="text-sm font-medium">{detail.aprovador2Nome}</div>
-                                            {detail.aprovador2Status != null && (
-                                                <div className="mt-0.5">{statusBadge(detail.aprovador2Status)}</div>
+                                            <div className="text-xs text-muted-foreground">Aprovador 1</div>
+                                            <div className="text-sm font-medium">{detail.aprovador1Nome || "—"}</div>
+                                            {detail.aprovador1Status != null && (
+                                                <div className="mt-0.5">{statusBadge(detail.aprovador1Status)}</div>
                                             )}
                                         </div>
-                                    )}
-                                </div>
+                                        {detail.aprovador2Nome && (
+                                            <div>
+                                                <div className="text-xs text-muted-foreground">Aprovador 2</div>
+                                                <div className="text-sm font-medium">{detail.aprovador2Nome}</div>
+                                                {detail.aprovador2Status != null && (
+                                                    <div className="mt-0.5">{statusBadge(detail.aprovador2Status)}</div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {detail.justificativa && (
@@ -536,9 +741,15 @@ export default function PromocoesScreen() {
                             )}
 
                             {/* ── Approval actions ── */}
-                            {detail.status === 1 && (isAdmin || isAprovador) && (
+                            {(detail.status === 1 || detail.status === 6) && (isAdmin || canApprove) && (
                                 <div className="space-y-3 rounded-lg border border-border/60 p-3">
                                     <div className="text-sm font-semibold">Ações de aprovação</div>
+                                    {currentEtapa && (
+                                        <div className="text-xs text-muted-foreground">
+                                            Etapa atual: <strong>{currentEtapa.label}</strong>
+                                            {isQueueStep && " (Fila de perfil — você irá assumir e aprovar)"}
+                                        </div>
+                                    )}
                                     <textarea
                                         className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
                                         rows={2}
@@ -548,7 +759,8 @@ export default function PromocoesScreen() {
                                     />
                                     <div className="flex gap-2">
                                         <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doApproval(detail.id, "approve")}>
-                                            <CheckCircle2 className="size-4" /> Aprovar
+                                            <CheckCircle2 className="size-4" />
+                                            {isQueueStep ? "Assumir e Aprovar" : "Aprovar"}
                                         </Button>
                                         <Button size="sm" variant="outline" className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doApproval(detail.id, "request-changes")}>
                                             <AlertTriangle className="size-4" /> Ajustes

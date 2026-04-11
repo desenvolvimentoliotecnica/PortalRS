@@ -16,8 +16,10 @@ import {
     Heart,
     Users,
     MapPin,
+    UserCheck,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { usePendencias } from "@/contexts/PendenciasContext";
 
 import NextStepBanner from "@/components/feedback/NextStepBanner";
 import { Button } from "@/components/ui/button";
@@ -139,6 +141,14 @@ function urgenciaBadge(urgencia: number) {
     );
 }
 
+function FilaBadge() {
+    return (
+        <span className="inline-flex items-center rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-700 shrink-0">
+            FILA
+        </span>
+    );
+}
+
 function formatDate(iso: string | null | undefined) {
     if (!iso) return "—";
     try {
@@ -146,12 +156,6 @@ function formatDate(iso: string | null | undefined) {
     } catch {
         return "—";
     }
-}
-
-function formatCurrency(v: unknown) {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return "—";
-    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 const APPROVAL_STATUS: Record<number, { label: string; color: string }> = {
@@ -178,6 +182,15 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
     );
 }
 
+/**
+ * Determines if a row is in "Fila de Perfil" mode:
+ * aprovador1Id is null/empty → no specific approver assigned yet, open for claiming.
+ */
+function isFilaRow(row: GenericRow | SolicitacaoDetail): boolean {
+    const a1 = (row as Record<string, unknown>).aprovador1Id;
+    return a1 === null || a1 === undefined || a1 === "";
+}
+
 /* ──────────────────────────── Tab definitions ──────────────────────────── */
 
 type TabId = "contratacao" | "ferias" | "beneficio" | "dependentes" | "endereco";
@@ -189,6 +202,7 @@ interface TabDef {
     color: string;
     bgColor: string;
     api: string;
+    assumirApi: string;
     columns: { key: string; label: string; render?: (row: GenericRow) => React.ReactNode }[];
 }
 
@@ -197,6 +211,7 @@ const TABS: TabDef[] = [
         id: "contratacao", label: "Contratação", icon: Briefcase,
         color: "text-violet-600", bgColor: "bg-violet-500/15",
         api: "/api/solicitacoes-vaga?status=1",
+        assumirApi: "/api/solicitacoes-vaga",
         columns: [
             { key: "titulo", label: "Título" },
             { key: "solicitanteNome", label: "Solicitante" },
@@ -210,6 +225,7 @@ const TABS: TabDef[] = [
         id: "ferias", label: "Férias", icon: Palmtree,
         color: "text-sky-600", bgColor: "bg-sky-500/15",
         api: "/api/colaborador/solicitacoes-ferias?status=1",
+        assumirApi: "/api/colaborador/solicitacoes-ferias",
         columns: [
             { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
             { key: "dataInicio", label: "Início", render: (r) => formatDate(pick(r, "dataInicio")) },
@@ -223,6 +239,7 @@ const TABS: TabDef[] = [
         id: "beneficio", label: "Benefício", icon: Heart,
         color: "text-pink-600", bgColor: "bg-pink-500/15",
         api: "/api/colaborador/solicitacoes-beneficio?status=1",
+        assumirApi: "/api/colaborador/solicitacoes-beneficio",
         columns: [
             { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
             { key: "tipoBeneficio", label: "Tipo" },
@@ -235,6 +252,7 @@ const TABS: TabDef[] = [
         id: "dependentes", label: "Dependentes", icon: Users,
         color: "text-indigo-600", bgColor: "bg-indigo-500/15",
         api: "/api/colaborador/solicitacoes-dependente?status=1",
+        assumirApi: "/api/colaborador/solicitacoes-dependente",
         columns: [
             { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
             { key: "dependenteNome", label: "Dependente", render: (r) => pick(r, "dependenteNome", pick(r, "nome", "—")) },
@@ -247,6 +265,7 @@ const TABS: TabDef[] = [
         id: "endereco", label: "Endereço", icon: MapPin,
         color: "text-amber-600", bgColor: "bg-amber-500/15",
         api: "/api/colaborador/solicitacoes-endereco?status=1",
+        assumirApi: "/api/colaborador/solicitacoes-endereco",
         columns: [
             { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
             { key: "logradouro", label: "Logradouro" },
@@ -263,11 +282,24 @@ const TABS: TabDef[] = [
 const VALID_TAB_IDS: TabId[] = ["contratacao", "ferias", "beneficio", "dependentes", "endereco"];
 
 export default function AprovacoesScreen({ initialTab }: { initialTab?: string }) {
+    const pendencias = usePendencias();
+
     const resolvedInitial: TabId = VALID_TAB_IDS.includes(initialTab as TabId) ? (initialTab as TabId) : "contratacao";
     const [activeTab, setActiveTab] = useState<TabId>(resolvedInitial);
     const [q, setQ] = useState("");
     const [approvalObs, setApprovalObs] = useState("");
     const [acting, setActing] = useState(false);
+
+    /* ── My identity (to filter nominated tasks) ── */
+    const [myFuncionarioId, setMyFuncionarioId] = useState<string | null>(null);
+    const [meLoaded, setMeLoaded] = useState(false);
+
+    useEffect(() => {
+        fetchJson<Record<string, unknown>>("/api/me")
+            .then((d) => { if (d?.funcionarioId) setMyFuncionarioId(String(d.funcionarioId)); })
+            .catch(() => {})
+            .finally(() => setMeLoaded(true));
+    }, []);
 
     /* ── Data per tab ── */
     const [dataMap, setDataMap] = useState<Record<TabId, GenericRow[]>>({
@@ -304,30 +336,42 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         TABS.forEach(tab => void fetchTab(tab));
     }, [fetchTab]);
 
-    useEffect(() => {
-        refreshAll();
-    }, [refreshAll]);
+    useEffect(() => { refreshAll(); }, [refreshAll]);
 
-    /* ── Counts ── */
+    /* ── Row relevance: show only tasks assigned to me OR open fila items ── */
+    const isMyRow = useCallback((row: GenericRow): boolean => {
+        // Fila de perfil — unclaimed, any profile member can take it
+        if (isFilaRow(row)) return true;
+        // Nominated directly to me
+        if (myFuncionarioId) {
+            return row.aprovador1Id === myFuncionarioId || row.aprovador2Id === myFuncionarioId;
+        }
+        // While me data is still loading, show everything
+        return !meLoaded;
+    }, [myFuncionarioId, meLoaded]);
+
+    /* ── Counts (per-tab, filtered to relevant items) ── */
     const counts = useMemo(() => {
         const c: Record<TabId, number> = { contratacao: 0, ferias: 0, beneficio: 0, dependentes: 0, endereco: 0 };
-        for (const tab of TABS) c[tab.id] = dataMap[tab.id].length;
+        for (const tab of TABS) {
+            c[tab.id] = dataMap[tab.id].filter(isMyRow).length;
+        }
         return c;
-    }, [dataMap]);
+    }, [dataMap, isMyRow]);
 
     const totalPendente = Object.values(counts).reduce((a, b) => a + b, 0);
 
-    /* ── Filter ── */
+    /* ── Filtered list for active tab ── */
     const activeTabDef = TABS.find(t => t.id === activeTab)!;
     const filtered = useMemo(() => {
-        const rows = dataMap[activeTab];
+        const rows = dataMap[activeTab].filter(isMyRow);
         const term = q.trim().toLowerCase();
         if (!term) return rows;
         return rows.filter(r => {
             const blob = Object.values(r).filter(v => typeof v === "string").join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [dataMap, activeTab, q]);
+    }, [dataMap, activeTab, q, isMyRow]);
 
     /* ── Contratação detail actions ── */
     async function openContratacaoDetail(row: GenericRow) {
@@ -359,6 +403,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 setLastApproved({ id: detail.id, titulo: detail.titulo });
             }
             setDetailOpen(false);
+            pendencias.refresh();
             refreshAll();
         } catch (e) {
             toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
@@ -387,9 +432,34 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             });
             toast.success(`Solicitação: ${labels[action]}!`);
             setGenericDetailOpen(false);
+            pendencias.refresh();
             refreshAll();
         } catch (e) {
             toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setActing(false);
+        }
+    }
+
+    /* ── Assumir (Fila de Perfil) — atomically claim the task ── */
+    async function doAssumir(row: GenericRow) {
+        const tab = TABS.find(t => t.id === activeTab)!;
+        setActing(true);
+        try {
+            await fetchJson(`${tab.assumirApi}/${row.id}/assumir`, { method: "POST" });
+            toast.success("Tarefa assumida! Você agora é o aprovador desta solicitação.");
+            setDetailOpen(false);
+            setGenericDetailOpen(false);
+            pendencias.refresh();
+            refreshAll();
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "";
+            if (msg.includes("409")) {
+                toast.warning("Esta tarefa já foi assumida por outro usuário. Atualizando lista...");
+                refreshAll();
+            } else {
+                toast.error(`Falha ao assumir: ${msg || "erro"}`);
+            }
         } finally {
             setActing(false);
         }
@@ -403,9 +473,9 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             {/* ── header ── */}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h4 className="text-lg font-bold">Minhas Aprovações</h4>
-                    <div className="text-muted-foreground text-sm">
-                        Todas as solicitações aguardando sua análise
+                    <h1 className="text-2xl font-semibold tracking-tight">Minhas Pendências</h1>
+                    <div className="text-muted-foreground text-sm mt-0.5">
+                        Solicitações que aguardam sua aprovação
                     </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={refreshAll}>
@@ -426,6 +496,18 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                     onDismiss={() => setLastApproved(null)}
                 />
             )}
+
+            {/* ── legend ── */}
+            <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+                    Direcionada a você
+                </span>
+                <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-full bg-violet-500" />
+                    Fila de perfil — qualquer membro pode assumir
+                </span>
+            </div>
 
             {/* ── KPI cards ── */}
             <div className="flex flex-wrap gap-2">
@@ -470,7 +552,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                             })()}
                         </div>
                         <div className="text-muted-foreground text-sm">
-                            {isLoading ? "Carregando…" : `${filtered.length} solicitações`}
+                            {isLoading ? "Carregando…" : `${filtered.length} pendência${filtered.length !== 1 ? "s" : ""}`}
                         </div>
                     </div>
                     <div className="relative">
@@ -490,44 +572,96 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow><TableCell colSpan={activeTabDef.columns.length + 1} className="text-center text-muted-foreground py-8">Carregando…</TableCell></TableRow>
+                            <TableRow>
+                                <TableCell colSpan={activeTabDef.columns.length + 1} className="text-center text-muted-foreground py-8">
+                                    Carregando…
+                                </TableCell>
+                            </TableRow>
                         ) : filtered.length ? (
-                            filtered.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    className="cursor-pointer hover:bg-muted/40"
-                                    onClick={() => activeTab === "contratacao" ? void openContratacaoDetail(row) : openGenericDetail(row)}
-                                >
-                                    {activeTabDef.columns.map((col, i) => (
-                                        <TableCell key={col.key} className={i === 0 ? "font-semibold" : "text-sm"}>
-                                            {col.render ? col.render(row) : pick(row, col.key)}
+                            filtered.map((row) => {
+                                const isFila = isFilaRow(row);
+                                return (
+                                    <TableRow
+                                        key={row.id}
+                                        className={`cursor-pointer hover:bg-muted/40 ${isFila ? "border-l-[3px] border-l-violet-400" : ""}`}
+                                        onClick={() => activeTab === "contratacao" ? void openContratacaoDetail(row) : openGenericDetail(row)}
+                                    >
+                                        {activeTabDef.columns.map((col, i) => (
+                                            <TableCell key={col.key} className={i === 0 ? "font-semibold" : "text-sm"}>
+                                                {i === 0 ? (
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <span>{col.render ? col.render(row) : pick(row, col.key)}</span>
+                                                        {isFila && <FilaBadge />}
+                                                    </div>
+                                                ) : (
+                                                    col.render ? col.render(row) : pick(row, col.key)
+                                                )}
+                                            </TableCell>
+                                        ))}
+                                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon-xs"
+                                                    title="Ver detalhes"
+                                                    onClick={() => activeTab === "contratacao" ? void openContratacaoDetail(row) : openGenericDetail(row)}
+                                                >
+                                                    <Eye />
+                                                </Button>
+                                                {isFila ? (
+                                                    /* Fila de Perfil: only Assumir available */
+                                                    <Button
+                                                        size="sm"
+                                                        disabled={acting}
+                                                        className="bg-violet-600 hover:bg-violet-700 gap-1"
+                                                        onClick={() => void doAssumir(row)}
+                                                        title="Assumir esta tarefa como aprovador"
+                                                    >
+                                                        <UserCheck className="size-3" />
+                                                        <span className="hidden sm:inline">Assumir</span>
+                                                    </Button>
+                                                ) : (
+                                                    /* Nominated: Approve / Reject inline */
+                                                    <>
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-emerald-600 hover:bg-emerald-700"
+                                                            title="Aprovar"
+                                                            onClick={() => {
+                                                                setApprovalObs("");
+                                                                if (activeTab === "contratacao") void doContratacaoAction(row.id, "approve");
+                                                                else void doGenericAction(row, "approve");
+                                                            }}
+                                                        >
+                                                            <CheckCircle2 className="size-3" />
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="destructive"
+                                                            title="Reprovar"
+                                                            onClick={() => {
+                                                                setApprovalObs("");
+                                                                if (activeTab === "contratacao") void doContratacaoAction(row.id, "reject");
+                                                                else void doGenericAction(row, "reject");
+                                                            }}
+                                                        >
+                                                            <XCircle className="size-3" />
+                                                        </Button>
+                                                    </>
+                                                )}
+                                            </div>
                                         </TableCell>
-                                    ))}
-                                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button variant="outline" size="icon-xs" title="Ver detalhes" onClick={() => activeTab === "contratacao" ? void openContratacaoDetail(row) : openGenericDetail(row)}>
-                                                <Eye />
-                                            </Button>
-                                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => {
-                                                setApprovalObs("");
-                                                if (activeTab === "contratacao") void doContratacaoAction(row.id, "approve");
-                                                else void doGenericAction(row, "approve");
-                                            }}>
-                                                <CheckCircle2 className="size-3" />
-                                            </Button>
-                                            <Button size="sm" variant="destructive" onClick={() => {
-                                                setApprovalObs("");
-                                                if (activeTab === "contratacao") void doContratacaoAction(row.id, "reject");
-                                                else void doGenericAction(row, "reject");
-                                            }}>
-                                                <XCircle className="size-3" />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
+                                    </TableRow>
+                                );
+                            })
                         ) : (
-                            <TableRow><TableCell colSpan={activeTabDef.columns.length + 1} className="text-center text-muted-foreground py-8">Nenhuma aprovação pendente!</TableCell></TableRow>
+                            <TableRow>
+                                <TableCell colSpan={activeTabDef.columns.length + 1} className="text-center text-muted-foreground py-8">
+                                    {meLoaded
+                                        ? "Nenhuma pendência encontrada para você."
+                                        : "Carregando seus dados…"}
+                                </TableCell>
+                            </TableRow>
                         )}
                     </TableBody>
                 </Table>
@@ -547,7 +681,12 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                     ) : detail ? (
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
-                                <DetailField label="Título" value={<span className="font-semibold">{detail.titulo}</span>} />
+                                <DetailField label="Título" value={
+                                    <span className="flex items-center gap-1.5 font-semibold">
+                                        {detail.titulo}
+                                        {isFilaRow(detail) && <FilaBadge />}
+                                    </span>
+                                } />
                                 <DetailField label="Status" value={statusBadge(detail.status)} />
                                 <DetailField label="Solicitante" value={detail.solicitanteNome} />
                                 <DetailField label="Área" value={detail.areaName} />
@@ -592,27 +731,51 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                             </div>
                             {/* Actions */}
                             {detail.status === 1 && (
-                                <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-                                    <div className="text-sm font-semibold text-amber-700">Sua decisão</div>
-                                    <textarea
-                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
-                                        rows={2}
-                                        placeholder="Observação (opcional)..."
-                                        value={approvalObs}
-                                        onChange={(e) => setApprovalObs(e.target.value)}
-                                    />
-                                    <div className="flex gap-2">
-                                        <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doContratacaoAction(detail.id, "approve")}>
-                                            <CheckCircle2 className="size-4" /> Aprovar
-                                        </Button>
-                                        <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doContratacaoAction(detail.id, "request-changes")}>
-                                            <AlertTriangle className="size-4" /> Pedir Ajustes
-                                        </Button>
-                                        <Button size="sm" variant="outline" disabled={acting} className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => void doContratacaoAction(detail.id, "reject")}>
-                                            <XCircle className="size-4" /> Reprovar
+                                isFilaRow(detail) ? (
+                                    /* Fila de Perfil — Assumir */
+                                    <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4">
+                                        <div className="text-sm font-semibold text-violet-700 flex items-center gap-2">
+                                            <FilaBadge />
+                                            Fila de Perfil
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                                            Esta solicitação está na fila e pode ser assumida por qualquer membro do perfil configurado.
+                                            Ao assumir, você se torna o aprovador designado e poderá aprovar ou reprovar.
+                                        </p>
+                                        <Button
+                                            size="sm"
+                                            disabled={acting}
+                                            className="mt-3 bg-violet-600 hover:bg-violet-700 gap-1.5"
+                                            onClick={() => void doAssumir(detail as unknown as GenericRow)}
+                                        >
+                                            <UserCheck className="size-4" />
+                                            {acting ? "Assumindo…" : "Assumir tarefa"}
                                         </Button>
                                     </div>
-                                </div>
+                                ) : (
+                                    /* Nominated — normal approval */
+                                    <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                                        <div className="text-sm font-semibold text-amber-700">Sua decisão</div>
+                                        <textarea
+                                            className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
+                                            rows={2}
+                                            placeholder="Observação (opcional)..."
+                                            value={approvalObs}
+                                            onChange={(e) => setApprovalObs(e.target.value)}
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doContratacaoAction(detail.id, "approve")}>
+                                                <CheckCircle2 className="size-4" /> Aprovar
+                                            </Button>
+                                            <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doContratacaoAction(detail.id, "request-changes")}>
+                                                <AlertTriangle className="size-4" /> Pedir Ajustes
+                                            </Button>
+                                            <Button size="sm" variant="outline" disabled={acting} className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => void doContratacaoAction(detail.id, "reject")}>
+                                                <XCircle className="size-4" /> Reprovar
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )
                             )}
                         </div>
                     ) : null}
@@ -630,7 +793,11 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 {activeTabDef.columns.map(col => (
-                                    <DetailField key={col.key} label={col.label} value={col.render ? col.render(genericDetail) : pick(genericDetail, col.key)} />
+                                    <DetailField
+                                        key={col.key}
+                                        label={col.label}
+                                        value={col.render ? col.render(genericDetail) : pick(genericDetail, col.key)}
+                                    />
                                 ))}
                                 <DetailField label="Status" value={statusBadge(Number(genericDetail.status ?? 1))} />
                             </div>
@@ -659,27 +826,50 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                 </div>
                             )}
                             {/* Actions */}
-                            <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-                                <div className="text-sm font-semibold text-amber-700">Sua decisão</div>
-                                <textarea
-                                    className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
-                                    rows={2}
-                                    placeholder="Observação (opcional)..."
-                                    value={approvalObs}
-                                    onChange={(e) => setApprovalObs(e.target.value)}
-                                />
-                                <div className="flex gap-2">
-                                    <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doGenericAction(genericDetail, "approve")}>
-                                        <CheckCircle2 className="size-4" /> Aprovar
-                                    </Button>
-                                    <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doGenericAction(genericDetail, "request-changes")}>
-                                        <AlertTriangle className="size-4" /> Pedir Ajustes
-                                    </Button>
-                                    <Button size="sm" variant="outline" disabled={acting} className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => void doGenericAction(genericDetail, "reject")}>
-                                        <XCircle className="size-4" /> Reprovar
+                            {isFilaRow(genericDetail) ? (
+                                /* Fila de Perfil — Assumir */
+                                <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4">
+                                    <div className="text-sm font-semibold text-violet-700 flex items-center gap-2">
+                                        <FilaBadge />
+                                        Fila de Perfil
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                                        Esta solicitação está na fila e pode ser assumida por qualquer membro do perfil configurado.
+                                    </p>
+                                    <Button
+                                        size="sm"
+                                        disabled={acting}
+                                        className="mt-3 bg-violet-600 hover:bg-violet-700 gap-1.5"
+                                        onClick={() => void doAssumir(genericDetail)}
+                                    >
+                                        <UserCheck className="size-4" />
+                                        {acting ? "Assumindo…" : "Assumir tarefa"}
                                     </Button>
                                 </div>
-                            </div>
+                            ) : (
+                                /* Nominated — normal approval */
+                                <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                                    <div className="text-sm font-semibold text-amber-700">Sua decisão</div>
+                                    <textarea
+                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
+                                        rows={2}
+                                        placeholder="Observação (opcional)..."
+                                        value={approvalObs}
+                                        onChange={(e) => setApprovalObs(e.target.value)}
+                                    />
+                                    <div className="flex gap-2">
+                                        <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doGenericAction(genericDetail, "approve")}>
+                                            <CheckCircle2 className="size-4" /> Aprovar
+                                        </Button>
+                                        <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doGenericAction(genericDetail, "request-changes")}>
+                                            <AlertTriangle className="size-4" /> Pedir Ajustes
+                                        </Button>
+                                        <Button size="sm" variant="outline" disabled={acting} className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => void doGenericAction(genericDetail, "reject")}>
+                                            <XCircle className="size-4" /> Reprovar
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </DialogContent>

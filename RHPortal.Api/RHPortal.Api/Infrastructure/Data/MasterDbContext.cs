@@ -15,6 +15,7 @@ public sealed class MasterDbContext : DbContext
     public DbSet<AiProviderKey> AiProviderKeys => Set<AiProviderKey>();
     public DbSet<AiModel> AiModels => Set<AiModel>();
     public DbSet<AiUsageRecord> AiUsageRecords => Set<AiUsageRecord>();
+    public DbSet<OwnerAwsSettings> OwnerAwsSettings => Set<OwnerAwsSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -100,6 +101,14 @@ public sealed class MasterDbContext : DbContext
             b.HasIndex(x => x.UserId);
             b.HasIndex(x => x.CreatedAtUtc);
             b.HasIndex(x => x.Module);
+        });
+
+        modelBuilder.Entity<OwnerAwsSettings>(b =>
+        {
+            b.ToTable("OwnerAwsSettings");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Region).HasMaxLength(50);
+            b.Property(x => x.BucketName).HasMaxLength(200);
         });
     }
 }

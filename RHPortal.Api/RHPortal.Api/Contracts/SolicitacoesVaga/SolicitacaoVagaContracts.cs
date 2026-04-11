@@ -38,6 +38,17 @@ public sealed class SolicitacaoVagaCreateRequest
     public Guid? SubstituidoFuncionarioId { get; set; }
     // Sprint 2
     public bool Aprovador2Habilitado { get; set; }
+
+    // A.RH.013
+    public TipoContratoVaga TipoContrato { get; set; } = TipoContratoVaga.CLT;
+    public int? PrazoDias { get; set; }
+    public MotivoRequisicaoVaga? MotivoRequisicao { get; set; }
+    public bool CnhObrigatoria { get; set; }
+    public bool DisponibilidadeViagens { get; set; }
+    public string? EscalaTrabalho { get; set; }
+    public Guid? EmpresaId { get; set; }
+    public Guid? CentroCustoId { get; set; }
+    public Guid? UnidadeLotacaoId { get; set; }
 }
 
 public sealed class SolicitacaoVagaUpdateRequest
@@ -63,6 +74,17 @@ public sealed class SolicitacaoVagaUpdateRequest
     public Guid? SubstituidoFuncionarioId { get; set; }
     // Sprint 2
     public bool Aprovador2Habilitado { get; set; }
+
+    // A.RH.013
+    public TipoContratoVaga TipoContrato { get; set; } = TipoContratoVaga.CLT;
+    public int? PrazoDias { get; set; }
+    public MotivoRequisicaoVaga? MotivoRequisicao { get; set; }
+    public bool CnhObrigatoria { get; set; }
+    public bool DisponibilidadeViagens { get; set; }
+    public string? EscalaTrabalho { get; set; }
+    public Guid? EmpresaId { get; set; }
+    public Guid? CentroCustoId { get; set; }
+    public Guid? UnidadeLotacaoId { get; set; }
 }
 
 // ── Approval actions ──
@@ -99,6 +121,19 @@ public sealed record SolicitacaoVagaResponse(
     bool IsConfidencial,
     Guid? SubstituidoFuncionarioId,
     string? SubstituidoNome,
+    // A.RH.013
+    TipoContratoVaga TipoContrato,
+    int? PrazoDias,
+    MotivoRequisicaoVaga? MotivoRequisicao,
+    bool CnhObrigatoria,
+    bool DisponibilidadeViagens,
+    string? EscalaTrabalho,
+    Guid? EmpresaId,
+    string? EmpresaNome,
+    Guid? CentroCustoId,
+    string? CentroCustoNome,
+    Guid? UnidadeLotacaoId,
+    string? UnidadeLotacaoNome,
     // Sprint 2
     Guid? Aprovador1Id,
     string? Aprovador1Nome,
@@ -109,6 +144,11 @@ public sealed record SolicitacaoVagaResponse(
     StatusAprovacao? Aprovador2Status,
     DateTimeOffset? Aprovador2DataUtc,
     bool Aprovador2Habilitado,
+    Guid? Aprovador3Id,
+    string? Aprovador3Nome,
+    StatusAprovacao? Aprovador3Status,
+    DateTimeOffset? Aprovador3DataUtc,
+    bool Aprovador3Habilitado,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     DateTimeOffset? ApprovedAtUtc

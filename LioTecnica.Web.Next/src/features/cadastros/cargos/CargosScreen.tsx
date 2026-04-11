@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, Plus, RefreshCw, Pencil, Trash2, Upload, Download } from "lucide-react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, Upload, Download, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImportGuide } from "@/components/ImportGuide";
 import { cn } from "@/lib/utils";
 import {
     Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
@@ -18,6 +19,7 @@ import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
 import { getScreenCache, setScreenCache } from "@/lib/screenCache";
+import { NivelCargoAutocomplete } from "@/components/autocomplete/NivelCargoAutocomplete";
 
 
 
@@ -36,6 +38,11 @@ interface CargoItem {
     tipo?: string;
     description?: string;
     updatedAtUtc?: string;
+    totvsCargoBasicId?: number;
+    totvsNivCargoId?: number;
+    nivelCargoNomReduz?: string;
+    desEnvelPagto?: string;
+    occupationalClassification?: string;
 }
 
 interface CargoDraft {
@@ -50,6 +57,11 @@ interface CargoDraft {
     description: string;
     similarityIndicator: string;
     fullDescription: string;
+    nivelCargoId: string | null;
+    nivelCargoLabel?: string;
+    desEnvelPagto: string;
+    totvsCargoBasicId?: number;
+    totvsNivCargoId?: number;
     updatedAtUtc?: string;
 }
 
@@ -85,7 +97,7 @@ function statusBadge(s: string | null | undefined) {
 
 const emptyDraft: CargoDraft = {
     code: "", name: "", areaId: null, seniority: "", status: "ativo", tipo: "", occupationalClassification: "", description: "",
-    similarityIndicator: "", fullDescription: "",
+    similarityIndicator: "", fullDescription: "", nivelCargoId: null, desEnvelPagto: "",
 };
 
 const textareaClass = cn(
@@ -112,10 +124,10 @@ export default function CargosScreen() {
     const [importRows, setImportRows] = useState<CargoDraft[]>([]);
     const [importOpen, setImportOpen] = useState(false);
     const [importing, setImporting] = useState(false);
-    const [importResult, setImportResult] = useState<{ created: number; updated: number; errors: number } | null>(null);
+    const [importResult, setImportResult] = useState<{ created: number; updated: number; errors: number; errorMessages: string[] } | null>(null);
 
     const syncList = useCallback(async () => {
-        const payload = await fetchJson<{ items: Record<string, unknown>[] }>(`/api/job-positions`);
+        const payload = await fetchJson<{ items: Record<string, unknown>[] }>(`/api/job-positions?pageSize=5000`);
         const mapped: CargoItem[] = (Array.isArray(payload?.items) ? payload.items : []).map((i) => ({
             id: String(i.id ?? ""),
             codigo: String(i.code ?? ""),
@@ -127,6 +139,11 @@ export default function CargosScreen() {
             status: String(i.status ?? ""),
             description: i.description ? String(i.description) : undefined,
             updatedAtUtc: i.updatedAtUtc ? String(i.updatedAtUtc) : undefined,
+            totvsCargoBasicId: typeof i.totvsCargoBasicId === "number" ? i.totvsCargoBasicId : undefined,
+            totvsNivCargoId: typeof i.totvsNivCargoId === "number" ? i.totvsNivCargoId : undefined,
+            nivelCargoNomReduz: i.nivelCargoNomReduz ? String(i.nivelCargoNomReduz) : undefined,
+            desEnvelPagto: i.desEnvelPagto ? String(i.desEnvelPagto) : undefined,
+            occupationalClassification: i.occupationalClassification ? String(i.occupationalClassification) : undefined,
         }));
         setRows(mapped);
         setScreenCache("/cargos", mapped);
@@ -154,21 +171,50 @@ export default function CargosScreen() {
         return () => { alive = false; };
     }, [syncList, loadAreas]);
 
+    type SortKey = "codigo" | "nivel" | "nome" | "envelop" | "cbo" | "status";
+    const [sortKey, setSortKey] = useState<SortKey>("codigo");
+    const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+    function handleSort(key: SortKey) {
+        if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
+        else { setSortKey(key); setSortDir("asc"); }
+    }
+
+    function SortIcon({ col }: { col: SortKey }) {
+        if (sortKey !== col) return <ChevronsUpDown className="inline size-3 ml-1 text-muted-foreground/50" />;
+        return sortDir === "asc"
+            ? <ChevronUp className="inline size-3 ml-1" />
+            : <ChevronDown className="inline size-3 ml-1" />;
+    }
+
     const filtered = useMemo(() => {
         const qq = q.trim().toLowerCase();
-        return rows.filter((c) => {
+        const f = rows.filter((c) => {
             const st = (c.status ?? "").toLowerCase();
             if (statusFilter === "ativo" && st !== "ativo" && st !== "active") return false;
             if (statusFilter === "inativo" && st !== "inativo" && st !== "inactive") return false;
             if (!qq) return true;
-            return [c.codigo, c.nome, c.area, c.senioridade].filter(Boolean).join(" ").toLowerCase().includes(qq);
+            return [c.codigo, c.nome, c.area, c.desEnvelPagto, c.occupationalClassification].filter(Boolean).join(" ").toLowerCase().includes(qq);
         });
-    }, [q, rows, statusFilter]);
+
+        const dir = sortDir === "asc" ? 1 : -1;
+        return [...f].sort((a, b) => {
+            switch (sortKey) {
+                case "codigo": return dir * ((a.totvsCargoBasicId ?? 0) - (b.totvsCargoBasicId ?? 0));
+                case "nivel":  return dir * ((a.totvsNivCargoId ?? 0) - (b.totvsNivCargoId ?? 0));
+                case "nome":   return dir * a.nome.localeCompare(b.nome, "pt-BR");
+                case "envelop": return dir * (a.desEnvelPagto ?? "").localeCompare(b.desEnvelPagto ?? "", "pt-BR");
+                case "cbo":    return dir * (a.occupationalClassification ?? "").localeCompare(b.occupationalClassification ?? "", "pt-BR");
+                case "status": return dir * (a.status ?? "").localeCompare(b.status ?? "", "pt-BR");
+                default: return 0;
+            }
+        });
+    }, [q, rows, statusFilter, sortKey, sortDir]);
 
     /* pagination (client-side) */
     const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
         initialPageSize: 20,
-        resetDeps: [q, statusFilter],
+        resetDeps: [q, statusFilter, sortKey, sortDir],
     });
     const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.end, slice.start]);
 
@@ -199,6 +245,9 @@ export default function CargosScreen() {
                 description: String(detail?.description ?? detail?.Description ?? ""),
                 similarityIndicator: String(detail?.similarityIndicator ?? detail?.SimilarityIndicator ?? ""),
                 fullDescription: String(detail?.fullDescription ?? detail?.FullDescription ?? ""),
+                nivelCargoId: detail?.nivelCargoId ? String(detail.nivelCargoId) : null,
+                nivelCargoLabel: detail?.nivelCargoNomComplet ? String(detail.nivelCargoNomComplet) : undefined,
+                desEnvelPagto: String(detail?.desEnvelPagto ?? ""),
                 updatedAtUtc: detail?.updatedAtUtc ? String(detail.updatedAtUtc) : undefined,
             });
             setEditOpen(true);
@@ -207,6 +256,8 @@ export default function CargosScreen() {
 
     async function saveDraft() {
         if (!draft.name.trim()) { toast.error("Nome é obrigatório."); return; }
+        if (!draft.occupationalClassification.trim()) { toast.error("Classificação Ocupacional é obrigatória."); return; }
+        if (!draft.nivelCargoId) { toast.error("Nível de cargo é obrigatório."); return; }
         setSaving(true);
         const payload = {
             code: draft.code.trim() || null,
@@ -215,10 +266,12 @@ export default function CargosScreen() {
             seniority: draft.seniority.trim() || null,
             status: draft.status.toLowerCase() === "inativo" ? "Inactive" : "Active",
             tipo: draft.tipo.trim() || null,
-            occupationalClassification: draft.occupationalClassification.trim() || null,
+            occupationalClassification: draft.occupationalClassification.trim(),
             description: draft.description.trim() || null,
             similarityIndicator: draft.similarityIndicator.trim().slice(0, 1) || null,
             fullDescription: draft.fullDescription.trim() || null,
+            nivelCargoId: draft.nivelCargoId || null,
+            desEnvelPagto: draft.desEnvelPagto.trim() || null,
         };
         try {
             if (draft.id) {
@@ -261,7 +314,17 @@ export default function CargosScreen() {
         reader.onload = (evt) => {
             try {
                 const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-                const wb = XLSX.read(data, { type: "array" });
+                // Auto-detect semicolon delimiter for CSV exports (e.g. TOTVS Datasul)
+                const isCsv = file.name.toLowerCase().endsWith(".csv");
+                let wb: ReturnType<typeof XLSX.read>;
+                if (isCsv) {
+                    const text = new TextDecoder("utf-8").decode(data);
+                    const firstLine = text.split("\n")[0] ?? "";
+                    const sep = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
+                    wb = XLSX.read(text, { type: "string", FS: sep });
+                } else {
+                    wb = XLSX.read(data, { type: "array" });
+                }
                 const sheet = wb.Sheets[wb.SheetNames[0]];
                 const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
                 if (!raw.length) { toast.error("Planilha vazia."); return; }
@@ -276,21 +339,40 @@ export default function CargosScreen() {
                     const areaName = key(r, ["area", "area nome"]);
                     const areaMatch = areas.find((a) => a.name.toLowerCase() === areaName.toLowerCase());
                     const statusStr = key(r, ["status", "ativo"]).toLowerCase();
-                    const isInactive = statusStr === "inativo" || statusStr === "inactive";
+                    // TOTVS exports "S"/"N"; portal exports "ativo"/"inativo"
+                    const isInactive = statusStr === "inativo" || statusStr === "inactive" || statusStr === "n";
+                    // TOTVS: cargo = cargo_basic × niv_cargo. PK composta: (cdn_cargo_basic, cdn_niv_cargo)
+                    const cargoBasicRaw = key(r, ["cdn_cargo_basic", "codigo", "code"]);
+                    const nivCargoRaw = key(r, ["cdn_niv_cargo"]);
+                    // Strip leading apostrophe Excel uses to force text (e.g. '0 → 0)
+                    const stripApos = (s: string) => s.replace(/^'+/, "");
+                    const _cbParsed = cargoBasicRaw !== "" ? parseInt(stripApos(cargoBasicRaw), 10) : NaN;
+                    const totvsCargoBasicId = !isNaN(_cbParsed) ? _cbParsed : undefined;
+                    const _nvParsed = nivCargoRaw !== "" ? parseInt(stripApos(nivCargoRaw), 10) : NaN;
+                    const totvsNivCargoId = !isNaN(_nvParsed) ? _nvParsed : undefined;
+                    const cbClean = stripApos(cargoBasicRaw);
+                    const nvClean = stripApos(nivCargoRaw);
+                    const compositeCode = cbClean && nvClean ? `${cbClean}-${nvClean}` : cbClean;
+                    // des_cargo é o nome da combinação específica (cargo_basic + niv_cargo); des_cargo_basic é o nome base
+                    const name = key(r, ["des_cargo", "cargo", "nome", "name", "des_cargo_basic"]);
                     return {
-                        code: key(r, ["codigo", "code"]),
-                        name: key(r, ["cargo", "nome", "name"]),
+                        code: compositeCode,
+                        name,
                         areaId: areaMatch?.id ?? null,
                         seniority: key(r, ["senioridade", "seniority"]),
                         status: isInactive ? "inativo" : "ativo",
-                        tipo: key(r, ["tipo", "type", "tipo do cargo"]),
+                        tipo: key(r, ["tipo", "type", "tipo do cargo", "cdn_tip_cargo"]),
                         occupationalClassification: key(r, [
                             "classificacao ocupacional", "classificacao", "occupational classification",
-                            "cod_classific_ocupac", "occupationalclassification",
+                            "cod_classif_ocupac", "cod_classific_ocupac", "occupationalclassification",
                         ]),
                         description: key(r, ["descricao", "description", "descricao resumida"]),
-                        similarityIndicator: key(r, ["indicador similaridade", "similarity indicator", "idi_similaridad"]),
+                        similarityIndicator: key(r, ["indicador similaridade", "similarity indicator", "idi_similarid", "idi_similaridad"]),
                         fullDescription: key(r, ["descricao completa", "full description", "dsl_complet_cargo", "descricao longa"]),
+                        nivelCargoId: null,
+                        desEnvelPagto: key(r, ["des_envel_pagto", "envelopamento", "envelope"]),
+                        totvsCargoBasicId,
+                        totvsNivCargoId,
                     };
                 }).map((r) => ({
                     ...r,
@@ -337,35 +419,33 @@ export default function CargosScreen() {
     const runImport = async () => {
         if (!importRows.length) return;
         setImporting(true);
-        const existingMap = new Map(rows.map((r) => [r.codigo.toLowerCase(), r.id]));
-        let created = 0, updated = 0, errors = 0;
-        for (const row of importRows) {
-            const payload = {
+        try {
+            const payload = importRows.map((row) => ({
                 code: row.code || null,
                 name: row.name,
                 areaId: row.areaId || null,
                 seniority: row.seniority || null,
-                status: row.status === "inativo" ? "Inactive" : "Active",
                 tipo: row.tipo || null,
                 occupationalClassification: row.occupationalClassification || null,
                 description: row.description || null,
                 similarityIndicator: row.similarityIndicator ? row.similarityIndicator.slice(0, 1) : null,
                 fullDescription: row.fullDescription || null,
-            };
-            try {
-                const existingId = row.code ? existingMap.get(row.code.toLowerCase()) : undefined;
-                if (existingId) {
-                    await fetchJson(`/api/job-positions/${existingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-                    updated++;
-                } else {
-                    await fetchJson(`/api/job-positions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-                    created++;
-                }
-            } catch { errors++; }
+                nivelCargoId: row.nivelCargoId || null,
+                desEnvelPagto: row.desEnvelPagto || null,
+                totvsCargoBasicId: row.totvsCargoBasicId ?? null,
+                totvsNivCargoId: row.totvsNivCargoId ?? null,
+            }));
+            const result = await fetchJson<{ created: number; updated: number; skipped: number; errors: string[] }>(
+                `/api/job-positions/import`,
+                { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+            );
+            setImportResult({ created: result.created, updated: result.updated, errors: result.skipped + result.errors.length, errorMessages: result.errors ?? [] });
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha na importação: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setImporting(false);
         }
-        setImportResult({ created, updated, errors });
-        setImporting(false);
-        await syncList();
     };
 
     return (
@@ -384,7 +464,7 @@ export default function CargosScreen() {
                         <Upload className="size-4" /><span className="hidden sm:inline ml-1">Importar</span>
                     </Button>
                     <Button variant="outline" size="sm" onClick={exportFilteredTsv} disabled={!filtered.length}>
-                        <Download className="size-4" /><span className="hidden sm:inline ml-1">Exportar TSV</span>
+                        <Download className="size-4" /><span className="hidden sm:inline ml-1">Exportar</span>
                     </Button>
                     <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileSelect} />
                     <Button size="sm" onClick={openNew}><Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo cargo</span></Button>
@@ -426,16 +506,15 @@ export default function CargosScreen() {
                     </div>
                 </div>
 
-                {/* Razor columns: Cargo, Area, Senioridade, Funcionários, Status, Ações */}
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Cargo</TableHead>
-                            <TableHead>Área</TableHead>
-                            <TableHead>Senioridade</TableHead>
-                            <TableHead>Funcionários</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Atualização</TableHead>
+                            <TableHead className="w-20 cursor-pointer select-none" onClick={() => handleSort("codigo")}>Cód. Básico<SortIcon col="codigo" /></TableHead>
+                            <TableHead className="w-20 cursor-pointer select-none" onClick={() => handleSort("nivel")}>Nível<SortIcon col="nivel" /></TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("nome")}>Nome do Cargo<SortIcon col="nome" /></TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("envelop")}>Envelop.<SortIcon col="envelop" /></TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("cbo")}>CBO<SortIcon col="cbo" /></TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>Status<SortIcon col="status" /></TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -444,17 +523,16 @@ export default function CargosScreen() {
                             <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Carregando…</TableCell></TableRow>
                         ) : filtered.length ? paged.map((c) => (
                             <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => void openDetail(c)}>
-                                <TableCell>
-                                    <div className="font-semibold">{c.nome}</div>
-                                    <div className="text-muted-foreground text-xs font-mono">{c.codigo || "—"}</div>
+                                <TableCell className="font-mono font-medium text-sm">{c.totvsCargoBasicId ?? "—"}</TableCell>
+                                <TableCell className="font-mono text-sm">
+                                    {c.nivelCargoNomReduz
+                                        ? <span title={c.totvsNivCargoId !== undefined ? String(c.totvsNivCargoId) : ""}>{c.nivelCargoNomReduz}</span>
+                                        : c.totvsNivCargoId !== undefined ? c.totvsNivCargoId : "—"}
                                 </TableCell>
-                                <TableCell className="text-sm">{c.area || "—"}</TableCell>
-                                <TableCell className="text-sm">{c.senioridade || "—"}</TableCell>
-                                <TableCell className="font-mono text-sm">{c.funcionarios ?? c.gestores ?? 0}</TableCell>
+                                <TableCell className="font-semibold">{c.nome}</TableCell>
+                                <TableCell className="text-sm">{c.desEnvelPagto || "—"}</TableCell>
+                                <TableCell className="font-mono text-sm">{c.occupationalClassification || "—"}</TableCell>
                                 <TableCell>{statusBadge(c.status)}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                    {c.updatedAtUtc ? new Date(c.updatedAtUtc).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
-                                </TableCell>
                                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center justify-end gap-1">
                                         <Button variant="outline" size="icon-xs" title="Editar" onClick={() => void openEdit(c)}><Pencil /></Button>
@@ -494,8 +572,21 @@ export default function CargosScreen() {
                             <Input placeholder="Ex.: Gerente de Produção" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-muted-foreground">Classificação Ocupacional</label>
-                            <Input placeholder="Ex.: 0-00-00-00" value={draft.occupationalClassification} onChange={(e) => setDraft((d) => ({ ...d, occupationalClassification: e.target.value }))} maxLength={30} />
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">Classificação Ocupacional (CBO) *</label>
+                            <Input placeholder="Ex.: 0-00-00-00" value={draft.occupationalClassification} onChange={(e) => setDraft((d) => ({ ...d, occupationalClassification: e.target.value }))} maxLength={30} required />
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">Nível de cargo (TOTVS) *</label>
+                            <NivelCargoAutocomplete
+                                value={draft.nivelCargoId}
+                                onChange={(id) => setDraft((d) => ({ ...d, nivelCargoId: id || null }))}
+                                defaultLabel={draft.nivelCargoLabel}
+                                placeholder="Digite código ou nome do nível..."
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">Envelope de pagamento (TOTVS)</label>
+                            <Input placeholder="Deixe vazio para usar o nome do cargo" value={draft.desEnvelPagto} onChange={(e) => setDraft((d) => ({ ...d, desEnvelPagto: e.target.value }))} maxLength={40} />
                         </div>
                         <div>
                             <label className="mb-1 block text-xs font-medium text-muted-foreground">Tipo do cargo</label>
@@ -658,29 +749,44 @@ export default function CargosScreen() {
                         <DialogTitle>Importar Cargos</DialogTitle>
                         <DialogDescription>
                             {importResult
-                                ? `Concluído: ${importResult.created} criados, ${importResult.updated} atualizados${importResult.errors > 0 ? `, ${importResult.errors} erros` : ""}.`
+                                ? `Concluído: ${importResult.created} criados, ${importResult.updated} atualizados${importResult.errors > 0 ? `, ${importResult.errors} falhas` : ""}.`
                                 : `${importRows.length} registro(s) encontrado(s). Cargos com código já existente serão atualizados.`}
                         </DialogDescription>
                     </DialogHeader>
                     {!importResult && (
+                        <>
+                        <ImportGuide entity="Cargos" columns={[
+                            { name: "des_cargo_basic", hint: "Nome do cargo (obrigatório)", required: true },
+                            { name: "cdn_cargo_basic", hint: "Código numérico do cargo" },
+                            { name: "des_envel_pagto", hint: "Nome abreviado (envelopamento)" },
+                            { name: "cod_classif_ocupac", hint: "CBO — Ex: 141615" },
+                            { name: "idi_similarid", hint: "Indicador de similaridade (1 dígito)" },
+                            { name: "dsl_complet_cargo", hint: "Descrição completa / JD" },
+                            { name: "ativo", hint: "S = Ativo, N = Inativo" },
+                            { name: "area", hint: "Nome exato da área (opcional)" },
+                        ]} />
                         <div className="max-h-64 overflow-y-auto border rounded-md">
                             <table className="w-full text-sm">
                                 <thead className="bg-muted sticky top-0">
                                     <tr>
-                                        <th className="px-3 py-2 text-left font-medium">Código</th>
+                                        <th className="px-3 py-2 text-left font-medium">Cód. Básico</th>
+                                        <th className="px-3 py-2 text-left font-medium">Nível</th>
                                         <th className="px-3 py-2 text-left font-medium">Nome</th>
-                                        <th className="px-3 py-2 text-left font-medium">Área</th>
-                                        <th className="px-3 py-2 text-left font-medium">Senioridade</th>
+                                        <th className="px-3 py-2 text-left font-medium">Envelop.</th>
+                                        <th className="px-3 py-2 text-left font-medium">CBO</th>
+                                        <th className="px-3 py-2 text-left font-medium">Sim.</th>
                                         <th className="px-3 py-2 text-left font-medium">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {importRows.slice(0, 50).map((r, i) => (
                                         <tr key={i} className="border-t">
-                                            <td className="px-3 py-1.5 font-mono text-xs">{r.code || "—"}</td>
+                                            <td className="px-3 py-1.5 font-mono text-xs">{r.totvsCargoBasicId !== undefined ? r.totvsCargoBasicId : "—"}</td>
+                                            <td className="px-3 py-1.5 font-mono text-xs">{r.totvsNivCargoId !== undefined ? r.totvsNivCargoId : "—"}</td>
                                             <td className="px-3 py-1.5 font-medium">{r.name}</td>
-                                            <td className="px-3 py-1.5 text-muted-foreground text-xs">{areas.find((a) => a.id === r.areaId)?.name || "—"}</td>
-                                            <td className="px-3 py-1.5 text-muted-foreground text-xs">{r.seniority || "—"}</td>
+                                            <td className="px-3 py-1.5 text-muted-foreground text-xs">{r.desEnvelPagto || "—"}</td>
+                                            <td className="px-3 py-1.5 font-mono text-xs">{r.occupationalClassification || "—"}</td>
+                                            <td className="px-3 py-1.5 text-muted-foreground text-xs">{r.similarityIndicator || "—"}</td>
                                             <td className="px-3 py-1.5">
                                                 <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${r.status !== "inativo" ? "bg-emerald-500/15 text-emerald-700" : "bg-zinc-400/15 text-zinc-600"}`}>
                                                     {r.status !== "inativo" ? "Ativo" : "Inativo"}
@@ -689,10 +795,22 @@ export default function CargosScreen() {
                                         </tr>
                                     ))}
                                     {importRows.length > 50 && (
-                                        <tr className="border-t"><td colSpan={5} className="px-3 py-2 text-center text-xs text-muted-foreground">… e mais {importRows.length - 50} registro(s)</td></tr>
+                                        <tr className="border-t"><td colSpan={7} className="px-3 py-2 text-center text-xs text-muted-foreground">… e mais {importRows.length - 50} registro(s)</td></tr>
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+                        </>
+                    )}
+                    {importResult && importResult.errorMessages.length > 0 && (
+                        <div className="max-h-48 overflow-y-auto rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs space-y-0.5">
+                            <p className="font-semibold text-destructive mb-1">{importResult.errorMessages.length} falha(s) — itens não importados:</p>
+                            {importResult.errorMessages.slice(0, 100).map((e, i) => (
+                                <p key={i} className="text-destructive/80 font-mono">{e}</p>
+                            ))}
+                            {importResult.errorMessages.length > 100 && (
+                                <p className="text-muted-foreground">… e mais {importResult.errorMessages.length - 100}</p>
+                            )}
                         </div>
                     )}
                     <DialogFooter>

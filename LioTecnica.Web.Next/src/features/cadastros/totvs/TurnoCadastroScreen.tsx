@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, Plus, RefreshCw, Pencil, Trash2, Download, Upload } from "lucide-react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, Download, Upload, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImportGuide } from "@/components/ImportGuide";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -84,7 +85,7 @@ export default function TurnoCadastroScreen() {
   const syncList = useCallback(async () => {
     try {
       setLoading(true);
-      const items = await fetchJson<Item[]>("/api/turnos");
+      const items = await fetchJson<Item[]>("/api/turnos?take=5000");
       setRows(Array.isArray(items) ? items : []);
     } catch {
       toast.error("Erro ao carregar turnos");
@@ -95,19 +96,40 @@ export default function TurnoCadastroScreen() {
 
   useEffect(() => { syncList(); }, [syncList]);
 
+  type SortKey = "code" | "description" | "status";
+  const [sortKey, setSortKey] = useState<SortKey>("code");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronsUpDown className="inline size-3 ml-1 text-muted-foreground/50" />;
+    return sortDir === "asc" ? <ChevronUp className="inline size-3 ml-1" /> : <ChevronDown className="inline size-3 ml-1" />;
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((x) => {
+    const f = rows.filter((x) => {
       if (statusFilter === "ativo" && !x.isActive) return false;
       if (statusFilter === "inativo" && x.isActive) return false;
       if (!q) return true;
       return x.code.toLowerCase().includes(q) || x.description.toLowerCase().includes(q);
     });
-  }, [search, statusFilter, rows]);
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...f].sort((a, b) => {
+      switch (sortKey) {
+        case "code":        return dir * a.code.localeCompare(b.code, "pt-BR");
+        case "description": return dir * a.description.localeCompare(b.description, "pt-BR");
+        case "status":      return dir * (Number(b.isActive) - Number(a.isActive));
+        default: return 0;
+      }
+    });
+  }, [search, statusFilter, rows, sortKey, sortDir]);
 
   const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
     initialPageSize: 20,
-    resetDeps: [search, statusFilter],
+    resetDeps: [search, statusFilter, sortKey, sortDir],
   });
   const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.start, slice.end]);
 
@@ -149,8 +171,10 @@ export default function TurnoCadastroScreen() {
     reader.onload = (evt) => {
       try {
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        // Preserve leading zeros and convert date cells to ISO strings
+        if (sheet["!ref"]) { const range = XLSX.utils.decode_range(sheet["!ref"]); for (let R = range.s.r; R <= range.e.r; R++) { for (let C = range.s.c; C <= range.e.c; C++) { const ref = XLSX.utils.encode_cell({ r: R, c: C }); const cell = sheet[ref]; if (cell && cell.t === "d" && cell.v instanceof Date) { const d = cell.v as Date; cell.t = "s"; cell.v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; } else if (cell && cell.t === "n") { cell.t = "s"; cell.v = cell.w ?? String(cell.v); } } } }
         const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
         if (raw.length === 0) { toast.error("Planilha vazia."); return; }
         const norm = (s: string) => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -176,19 +200,26 @@ export default function TurnoCadastroScreen() {
   const runImport = async () => {
     if (importRows.length === 0) return;
     setImporting(true);
-    const existingMap = new Map(rows.map((r) => [r.code.toLowerCase(), r.id]));
-    let created = 0, updated = 0, errors = 0;
-    for (const row of importRows) {
-      const payload = { code: row.code, description: row.description, startTime: row.startTime || null, endTime: row.endTime || null, notes: row.notes || null, isActive: row.isActive };
-      try {
-        const existingId = existingMap.get(row.code.toLowerCase());
-        if (existingId) { await fetchJson(`/api/turnos/${existingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); updated++; }
-        else { await fetchJson("/api/turnos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); created++; }
-      } catch { errors++; }
+    try {
+      const payload = importRows.map((row) => ({
+        code: row.code,
+        description: row.description,
+        startTime: row.startTime || null,
+        endTime: row.endTime || null,
+        notes: row.notes || null,
+        isActive: row.isActive,
+      }));
+      const result = await fetchJson<{ created: number; updated: number; skipped: number; errors: string[] }>(
+        "/api/turnos/import",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+      );
+      setImportResult({ created: result.created, updated: result.updated, errors: result.skipped + result.errors.length });
+      await syncList();
+    } catch (e) {
+      toast.error(`Falha na importação: ${e instanceof Error ? e.message : "erro"}`);
+    } finally {
+      setImporting(false);
     }
-    setImportResult({ created, updated, errors });
-    setImporting(false);
-    await syncList();
   };
 
   const exportTsv = () => {
@@ -206,7 +237,7 @@ export default function TurnoCadastroScreen() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="text-lg font-bold">⏰ Turnos</h4>
+          <h4 className="text-lg font-bold">Turnos</h4>
           <div className="text-muted-foreground text-sm">Cadastro de turnos de trabalho.</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -264,24 +295,19 @@ export default function TurnoCadastroScreen() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Turno</TableHead>
-              <TableHead>Início</TableHead>
-              <TableHead>Fim</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("code")}>Código<SortIcon col="code" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("description")}>Descrição<SortIcon col="description" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>Status<SortIcon col="status" /></TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
             ) : paged.length ? paged.map((item) => (
               <TableRow key={item.id}>
-                <TableCell>
-                  <div className="font-semibold">{item.description}</div>
-                  <div className="text-xs text-muted-foreground font-mono">{item.code}</div>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{item.startTime || "—"}</TableCell>
-                <TableCell className="text-muted-foreground">{item.endTime || "—"}</TableCell>
+                <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
+                <TableCell className="font-semibold">{item.description}</TableCell>
                 <TableCell>{statusBadge(item.isActive)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
@@ -295,7 +321,7 @@ export default function TurnoCadastroScreen() {
                 </TableCell>
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Nenhum turno encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Nenhum turno encontrado.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -355,6 +381,14 @@ export default function TurnoCadastroScreen() {
               {importResult ? `Concluído: ${importResult.created} criados, ${importResult.updated} atualizados${importResult.errors > 0 ? `, ${importResult.errors} erros` : ""}.` : `${importRows.length} registro(s) encontrado(s). Códigos existentes serão atualizados.`}
             </DialogDescription>
           </DialogHeader>
+          <ImportGuide entity="Turnos" columns={[
+            { name: "Codigo", hint: "Ex: T1", required: true },
+            { name: "Descricao", hint: "Ex: Manhã", required: true },
+            { name: "Inicio", hint: "Ex: 08:00" },
+            { name: "Fim", hint: "Ex: 17:00" },
+            { name: "Observacoes", hint: "Texto livre" },
+            { name: "Status", hint: "Ativo / Inativo" },
+          ]} />
           {!importResult && (
             <div className="max-h-64 overflow-y-auto border rounded-md">
               <table className="w-full text-sm">

@@ -30,4 +30,16 @@ public sealed class CentroCusto : ITenantEntity
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>Data de início da vigência (opcional)</summary>
+    public DateOnly? ValidFrom { get; set; }
+
+    /// <summary>Data de fim da vigência. Se menor que hoje, o CC é tratado como inativo no lookup.</summary>
+    public DateOnly? ValidUntil { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool IsExpired => ValidUntil.HasValue && ValidUntil.Value < DateOnly.FromDateTime(DateTime.UtcNow);
+
+    public Guid? EmpresaId { get; set; }
+    public Empresa? Empresa { get; set; }
 }

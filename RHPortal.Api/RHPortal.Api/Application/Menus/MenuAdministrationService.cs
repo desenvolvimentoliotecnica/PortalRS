@@ -90,8 +90,17 @@ public sealed class MenuAdministrationService
         "admin.regras-aprovacao.manage"
     };
 
+    /// <summary>Permission keys visíveis apenas para o Owner — excluídos do sidebar de qualquer tenant.</summary>
+    private static readonly HashSet<string> OwnerOnlyPermissionKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "aws-settings.manage"
+    };
+
     private static IReadOnlyList<MenuForCurrentUserResponse> ExcludeConfigOnlyMenus(IReadOnlyList<MenuForCurrentUserResponse> menus) =>
         menus.Where(m => !ConfigOnlyPermissionKeys.Contains(m.PermissionKey)).ToList();
+
+    private static IReadOnlyList<MenuForCurrentUserResponse> ExcludeOwnerOnlyMenus(IReadOnlyList<MenuForCurrentUserResponse> menus) =>
+        menus.Where(m => !OwnerOnlyPermissionKeys.Contains(m.PermissionKey)).ToList();
 
     public MenuAdministrationService(
         AppDbContext db,
@@ -315,7 +324,7 @@ public sealed class MenuAdministrationService
 
         menus = await IncludeAncestorMenusAsync(menus, ct);
         var mapped = await MapMenusForCurrentUserAsync(menus, ct);
-        return ExcludeConfigOnlyMenus(mapped);
+        return ExcludeOwnerOnlyMenus(ExcludeConfigOnlyMenus(mapped));
     }
 
     public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForPermissionsAsync(
@@ -331,7 +340,7 @@ public sealed class MenuAdministrationService
 
         menus = await IncludeAncestorMenusAsync(menus, ct);
         var mapped = await MapMenusForCurrentUserAsync(menus, ct);
-        return ExcludeConfigOnlyMenus(mapped);
+        return ExcludeOwnerOnlyMenus(ExcludeConfigOnlyMenus(mapped));
     }
 
     private async Task<List<Menu>> IncludeAncestorMenusAsync(List<Menu> menus, CancellationToken ct)

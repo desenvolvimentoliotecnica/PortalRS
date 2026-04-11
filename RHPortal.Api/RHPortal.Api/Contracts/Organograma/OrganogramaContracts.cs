@@ -1,18 +1,36 @@
 namespace RhPortal.Api.Contracts.Organograma;
 
-/// <summary>Nó do organograma representando um funcionário.</summary>
-public sealed record OrganogramaNodeResponse(
+// ── Estrutura organizacional (endpoint /estrutura) ──────────────────────────
+
+/// <summary>Dados básicos de um funcionário para o organograma.</summary>
+public sealed record OrganogramaFuncionarioDto(
     Guid Id,
     string Nome,
     string? Cargo,
-    Guid? NivelHierarquicoId,
     string? NivelHierarquicoNome,
-    Guid? GestorDiretoId,
-    Guid? AreaId,
-    string? AreaNome
+    int? NivelHierarquicoOrdem
 );
 
-/// <summary>Move um funcionário para um novo gestor direto (drag-drop no organograma).</summary>
+/// <summary>Nó de uma unidade de lotação no organograma.</summary>
+public sealed record OrganogramaLotacaoDto(
+    Guid Id,
+    string Codigo,
+    string Descricao,
+    int Level,
+    Guid? ParentId,
+    OrganogramaFuncionarioDto? Responsavel,
+    IReadOnlyList<OrganogramaFuncionarioDto> Funcionarios
+);
+
+/// <summary>Resposta completa do organograma estrutural.</summary>
+public sealed record OrganogramaEstruturaResponse(
+    IReadOnlyList<OrganogramaLotacaoDto> Lotacoes,
+    IReadOnlyList<OrganogramaFuncionarioDto> SemLotacao
+);
+
+// ── Legado: mover funcionário ───────────────────────────────────────────────
+
+/// <summary>Move um funcionário para um novo gestor direto.</summary>
 public sealed record MoverFuncionarioRequest(
     Guid FuncionarioId,
     Guid? NovoGestorId

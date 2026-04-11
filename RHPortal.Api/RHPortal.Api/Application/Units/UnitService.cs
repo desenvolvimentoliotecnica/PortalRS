@@ -120,13 +120,16 @@ public sealed class UnitService : IUnitService
                 x.Type,
                 x.City,
                 x.Uf,
-
-                // ✅ novos campos
                 x.AddressLine,
                 x.Neighborhood,
                 x.ZipCode,
                 x.ResponsibleName,
-                x.Notes
+                x.Notes,
+                x.NomAbrevPessoaJurid,
+                x.NomPessoaJurid,
+                x.NomAbrevPessoaFisic,
+                x.EmpresaId,
+                x.Empresa != null ? x.Empresa.Code : null
             ))
             .ToListAsync(ct);
 
@@ -163,7 +166,13 @@ public sealed class UnitService : IUnitService
                 x.Headcount,
                 x.Notes,
                 x.CreatedAtUtc,
-                x.UpdatedAtUtc
+                x.UpdatedAtUtc,
+                x.NomAbrevPessoaJurid,
+                x.NomPessoaJurid,
+                x.NomAbrevPessoaFisic,
+                x.EmpresaId,
+                x.Empresa != null ? x.Empresa.Code : null,
+                x.Empresa != null ? x.Empresa.Description : null
             ))
             .FirstOrDefaultAsync(ct);
     }
@@ -177,9 +186,11 @@ public sealed class UnitService : IUnitService
         if (request.Headcount < 0)
             throw new InvalidOperationException(_localizer["ServiceErrors.UnitHeadcountNegative"]);
 
-        var codeAlreadyExists = await _db.Units.AnyAsync(x => x.Code == normalizedCode, ct);
+        var codeAlreadyExists = await _db.Units.AnyAsync(
+            x => x.EmpresaId == request.EmpresaId && x.Code == normalizedCode, ct);
         if (codeAlreadyExists)
-            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodeExists", normalizedCode]);
+            throw new InvalidOperationException(
+                $"Já existe um estabelecimento com o código '{normalizedCode}' nesta empresa.");
 
         var entity = new Domain.Entities.Unit
         {
@@ -202,7 +213,11 @@ public sealed class UnitService : IUnitService
             Type = TrimOrNull(request.Type),
 
             Headcount = request.Headcount,
-            Notes = TrimOrNull(request.Notes)
+            Notes = TrimOrNull(request.Notes),
+            NomAbrevPessoaJurid = TrimOrNull(request.NomAbrevPessoaJurid),
+            NomPessoaJurid = TrimOrNull(request.NomPessoaJurid),
+            NomAbrevPessoaFisic = TrimOrNull(request.NomAbrevPessoaFisic),
+            EmpresaId = request.EmpresaId
         };
 
         _db.Units.Add(entity);
@@ -223,9 +238,11 @@ public sealed class UnitService : IUnitService
         if (request.Headcount < 0)
             throw new InvalidOperationException(_localizer["ServiceErrors.UnitHeadcountNegative"]);
 
-        var codeConflict = await _db.Units.AnyAsync(x => x.Id != id && x.Code == normalizedCode, ct);
+        var codeConflict = await _db.Units.AnyAsync(
+            x => x.Id != id && x.EmpresaId == request.EmpresaId && x.Code == normalizedCode, ct);
         if (codeConflict)
-            throw new InvalidOperationException(_localizer["ServiceErrors.UnitCodeExistsOther", normalizedCode]);
+            throw new InvalidOperationException(
+                $"Já existe outro estabelecimento com o código '{normalizedCode}' nesta empresa.");
 
         entity.Code = normalizedCode;
         entity.Name = (request.Name ?? string.Empty).Trim();
@@ -246,6 +263,10 @@ public sealed class UnitService : IUnitService
 
         entity.Headcount = request.Headcount;
         entity.Notes = TrimOrNull(request.Notes);
+        entity.NomAbrevPessoaJurid = TrimOrNull(request.NomAbrevPessoaJurid);
+        entity.NomPessoaJurid = TrimOrNull(request.NomPessoaJurid);
+        entity.NomAbrevPessoaFisic = TrimOrNull(request.NomAbrevPessoaFisic);
+        entity.EmpresaId = request.EmpresaId;
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);

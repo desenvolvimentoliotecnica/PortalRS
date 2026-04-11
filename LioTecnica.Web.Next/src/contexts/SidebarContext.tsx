@@ -56,8 +56,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
 
   const setHovering = useCallback((v: boolean) => setIsHovering(v), []);
 
-  const isCollapsed =
-    userPreference === "collapsed" && !isHovering;
+  const isCollapsed = userPreference === "collapsed";
 
   return (
     <SidebarContext.Provider

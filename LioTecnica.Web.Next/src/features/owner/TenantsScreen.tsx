@@ -13,6 +13,7 @@ import {
     Sprout,
     Loader2,
     Search,
+    RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -41,7 +42,7 @@ import {
 } from "@/components/ui/table";
 import { apiFetch } from "@/lib/api";
 import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
-import { setAccessToken, setTenantId } from "@/lib/session";
+import { getAccessToken, setAccessToken, setTenantId, tryGetTenantIdFromJwt } from "@/lib/session";
 
 /* ─── Types ─── */
 
@@ -76,6 +77,29 @@ type ApiTenantMigrationStatus = {
 
 const BASE = "/app";
 
+/** When the owner previously accessed a tenant (switch-tenant), the JWT has a real
+ *  tenant claim instead of "owner". This causes 401 on /api/owner/* endpoints because
+ *  OnTokenValidated checks that the JWT tenant claim matches the TenantContext (set to
+ *  "owner" by TenantMiddleware). This function restores the owner JWT via switch-tenant. */
+async function tryRestoreOwnerJwt(): Promise<boolean> {
+    try {
+        const res = await apiFetch("/api/me/switch-tenant", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tenantId: "owner" }),
+        });
+        if (!res.ok) return false;
+        const json = await res.json().catch(() => null);
+        const parsed = ApiSwitchTenantResponseSchema.safeParse(json);
+        if (!parsed.success) return false;
+        setAccessToken(parsed.data.accessToken);
+        setTenantId(parsed.data.tenantId);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, {
         ...init,
@@ -87,7 +111,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
         let msg = `HTTP_${res.status}`;
         try {
             const j = JSON.parse(text);
-            msg = j?.error || j?.message || msg;
+            msg = j?.detail || j?.title || j?.error || j?.message || msg;
         } catch { /* plain text */ }
         throw new Error(msg);
     }
@@ -189,11 +213,34 @@ export default function TenantsScreen() {
     useEffect(() => {
         let alive = true;
         setLoading(true);
-        syncList()
-            .catch(() => toast.error("Falha ao carregar tenants."))
-            .finally(() => {
-                if (alive) setLoading(false);
-            });
+
+        (async () => {
+            // If the JWT tenant claim is not "owner" (e.g. after switch-tenant + back navigation),
+            // silently restore the owner session before loading.
+            const token = getAccessToken();
+            const jwtTenant = tryGetTenantIdFromJwt(token ?? "");
+            if (jwtTenant && jwtTenant.toLowerCase() !== "owner") {
+                const restored = await tryRestoreOwnerJwt();
+                if (!restored) {
+                    if (alive) {
+                        toast.error("Sessão expirada. Faça login novamente.");
+                        setLoading(false);
+                    }
+                    return;
+                }
+                // Reload so useAuth re-reads the new owner JWT and the sidebar
+                // switches back to the owner menu items.
+                window.location.replace(window.location.href);
+                return;
+            }
+
+            syncList()
+                .catch(() => toast.error("Falha ao carregar tenants."))
+                .finally(() => {
+                    if (alive) setLoading(false);
+                });
+        })();
+
         return () => {
             alive = false;
         };
@@ -252,6 +299,19 @@ export default function TenantsScreen() {
         try {
             await fetchJson(`/api/owner/tenants/${encodeURIComponent(tenantId)}`, { method: "DELETE" });
             toast.success(`Tenant "${tenantId}" desativado.`);
+            await syncList();
+        } catch (err) {
+            toast.error(`Erro: ${(err as Error).message}`);
+        } finally {
+            setBusy(null);
+        }
+    }
+
+    async function handleReactivate(tenantId: string) {
+        setBusy(tenantId);
+        try {
+            await fetchJson(`/api/owner/tenants/${encodeURIComponent(tenantId)}/reactivate`, { method: "POST" });
+            toast.success(`Tenant "${tenantId}" reativado.`);
             await syncList();
         } catch (err) {
             toast.error(`Erro: ${(err as Error).message}`);
@@ -370,7 +430,7 @@ export default function TenantsScreen() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-12">
+                                        <TableCell colSpan={6} className="text-center py-10">
                                             <Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" />
                                             <p className="text-muted-foreground text-sm mt-2">Carregando tenants...</p>
                                         </TableCell>
@@ -379,7 +439,7 @@ export default function TenantsScreen() {
                                     <TableRow>
                                         <TableCell
                                             colSpan={6}
-                                            className="text-center text-muted-foreground py-12"
+                                            className="text-center text-muted-foreground text-sm py-10"
                                         >
                                             {q ? "Nenhum tenant encontrado com esse filtro." : "Nenhum tenant cadastrado."}
                                         </TableCell>
@@ -387,7 +447,7 @@ export default function TenantsScreen() {
                                 ) : (
                                     filtered.map((t) => (
                                         <TableRow key={t.tenantId} className="group">
-                                            <TableCell className="font-mono text-sm font-medium">
+                                            <TableCell className="font-medium font-mono">
                                                 {t.tenantId}
                                             </TableCell>
                                             <TableCell>
@@ -404,7 +464,7 @@ export default function TenantsScreen() {
                                             <TableCell>
                                                 <MigrationBadge t={t} />
                                             </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                            <TableCell className="text-xs text-muted-foreground">
                                                 {new Date(t.createdAtUtc).toLocaleDateString("pt-BR", {
                                                     day: "2-digit",
                                                     month: "2-digit",
@@ -426,17 +486,33 @@ export default function TenantsScreen() {
                                                         </Link>
                                                     </Button>
 
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleAccessTenant(t.tenantId)}
-                                                        disabled={busy === t.tenantId}
-                                                        className="bg-emerald-600 text-white hover:bg-emerald-700"
-                                                    >
-                                                        <LogIn className="size-3.5" />
-                                                        <span className="hidden sm:inline">Acessar</span>
-                                                    </Button>
+                                                    {t.isActive ? (
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => handleAccessTenant(t.tenantId)}
+                                                            disabled={busy === t.tenantId}
+                                                            className="bg-emerald-600 text-white hover:bg-emerald-700"
+                                                        >
+                                                            <LogIn className="size-3.5" />
+                                                            <span className="hidden sm:inline">Acessar</span>
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleReactivate(t.tenantId)}
+                                                            disabled={busy === t.tenantId}
+                                                        >
+                                                            {busy === t.tenantId ? (
+                                                                <Loader2 className="size-3.5 animate-spin" />
+                                                            ) : (
+                                                                <RotateCcw className="size-3.5" />
+                                                            )}
+                                                            <span className="hidden sm:inline">Reativar</span>
+                                                        </Button>
+                                                    )}
 
-                                                    {t.isUpToDate === false &&
+                                                    {t.isActive && t.isUpToDate === false &&
                                                         t.pendingCount > 0 &&
                                                         !t.migrationError && (
                                                             <Button
