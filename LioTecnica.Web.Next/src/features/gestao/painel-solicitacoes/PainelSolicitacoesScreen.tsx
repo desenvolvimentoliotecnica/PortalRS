@@ -50,6 +50,7 @@ interface UnifiedRow {
     etapaLabel: string | null;
     etapaPendenteCom: string | null;
     etapaPendenteIsQueue: boolean;
+    etapaPendenteCanAssume: boolean;
     createdAtUtc: string;
     detailApi: string;
 }
@@ -119,6 +120,7 @@ const TIPO_CFG: Record<TipoKey, TipoCfg> = {
             status: parseVagaStatus(r.status), etapaLabel: r.etapaPendenteLabel as string | null,
             etapaPendenteCom: r.etapaPendenteCom as string | null,
             etapaPendenteIsQueue: (r.etapaPendenteIsQueue as boolean) ?? false,
+            etapaPendenteCanAssume: (r.etapaPendenteCanAssume as boolean) ?? false,
             createdAtUtc: s(r, "createdAtUtc"),
         }),
     },
@@ -130,6 +132,7 @@ const TIPO_CFG: Record<TipoKey, TipoCfg> = {
             status: parseStatus(r.status), etapaLabel: r.etapaPendenteLabel as string | null,
             etapaPendenteCom: r.etapaPendenteCom as string | null,
             etapaPendenteIsQueue: (r.etapaPendenteIsQueue as boolean) ?? false,
+            etapaPendenteCanAssume: (r.etapaPendenteCanAssume as boolean) ?? false,
             createdAtUtc: s(r, "createdAtUtc"),
         }),
     },
@@ -141,6 +144,7 @@ const TIPO_CFG: Record<TipoKey, TipoCfg> = {
             status: parseStatus(r.status), etapaLabel: r.etapaPendenteLabel as string | null,
             etapaPendenteCom: r.etapaPendenteCom as string | null,
             etapaPendenteIsQueue: (r.etapaPendenteIsQueue as boolean) ?? false,
+            etapaPendenteCanAssume: (r.etapaPendenteCanAssume as boolean) ?? false,
             createdAtUtc: s(r, "createdAtUtc"),
         }),
     },
@@ -153,6 +157,7 @@ const TIPO_CFG: Record<TipoKey, TipoCfg> = {
             status: parseStatus(r.status), etapaLabel: r.etapaPendenteLabel as string | null ?? null,
             etapaPendenteCom: r.etapaPendenteCom as string | null ?? null,
             etapaPendenteIsQueue: (r.etapaPendenteIsQueue as boolean) ?? false,
+            etapaPendenteCanAssume: (r.etapaPendenteCanAssume as boolean) ?? false,
             createdAtUtc: s(r, "createdAtUtc"),
         }),
     },
@@ -163,7 +168,7 @@ const TIPO_CFG: Record<TipoKey, TipoCfg> = {
             id: s(r, "id"), descricao: `${s(r, "colaboradorNome", s(r, "solicitanteNome"))} — ${s(r, "tipoBeneficio", "")}`,
             solicitante: s(r, "colaboradorNome", s(r, "solicitanteNome")),
             status: parseStatus(r.status), etapaLabel: null, etapaPendenteCom: null,
-            etapaPendenteIsQueue: false,
+            etapaPendenteIsQueue: false, etapaPendenteCanAssume: false,
             createdAtUtc: s(r, "createdAtUtc"),
         }),
     },
@@ -174,7 +179,7 @@ const TIPO_CFG: Record<TipoKey, TipoCfg> = {
             id: s(r, "id"), descricao: `${s(r, "colaboradorNome", s(r, "solicitanteNome"))} — ${s(r, "dependenteNome", s(r, "nome", ""))}`,
             solicitante: s(r, "colaboradorNome", s(r, "solicitanteNome")),
             status: parseStatus(r.status), etapaLabel: null, etapaPendenteCom: null,
-            etapaPendenteIsQueue: false,
+            etapaPendenteIsQueue: false, etapaPendenteCanAssume: false,
             createdAtUtc: s(r, "createdAtUtc"),
         }),
     },
@@ -185,7 +190,7 @@ const TIPO_CFG: Record<TipoKey, TipoCfg> = {
             id: s(r, "id"), descricao: `${s(r, "colaboradorNome", s(r, "solicitanteNome"))} — ${s(r, "cidade", "")}/${s(r, "uf", "")}`,
             solicitante: s(r, "colaboradorNome", s(r, "solicitanteNome")),
             status: parseStatus(r.status), etapaLabel: null, etapaPendenteCom: null,
-            etapaPendenteIsQueue: false,
+            etapaPendenteIsQueue: false, etapaPendenteCanAssume: false,
             createdAtUtc: s(r, "createdAtUtc"),
         }),
     },
@@ -311,19 +316,6 @@ export default function PainelSolicitacoesScreen() {
             setTimelineSteps([]);
         } finally {
             setTimelineLoading(false);
-        }
-    }
-
-    /* ── Debug etapa ── */
-    async function debugEtapa(row: UnifiedRow) {
-        const cfg = TIPO_CFG[row.tipo];
-        try {
-            const data = await fetchJson<unknown>(`${cfg.detailApiBase}/${row.id}/debug-etapa`);
-            const txt = JSON.stringify(data, null, 2);
-            console.log("[DEBUG ETAPA]", data);
-            alert(txt);
-        } catch (e) {
-            alert("Erro: " + String(e));
         }
     }
 
@@ -507,9 +499,17 @@ export default function PainelSolicitacoesScreen() {
                                         ) : "—"}
                                     </TableCell>
                                     <TableCell className="text-xs">
-                                        {row.etapaPendenteIsQueue ? (
+                                        {row.etapaPendenteIsQueue && row.etapaPendenteCom ? (
+                                            // Fila de grupo — nome do grupo conhecido
+                                            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-violet-500/15 text-violet-700">
+                                                <Users className="size-3" />
+                                                Grupo: {row.etapaPendenteCom}
+                                            </span>
+                                        ) : row.etapaPendenteIsQueue ? (
+                                            // Consenso sem grupo definido
                                             <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-amber-500/15 text-amber-700">
-                                                <Users className="size-3" />Fila / Consenso
+                                                <Users className="size-3" />
+                                                Aguardando consenso
                                             </span>
                                         ) : (
                                             row.etapaPendenteCom || "—"
@@ -518,21 +518,13 @@ export default function PainelSolicitacoesScreen() {
                                     <TableCell className="text-sm">{formatDate(row.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="gap-1 text-xs text-gray-400 border-gray-300"
-                                                onClick={() => void debugEtapa(row)}
-                                                title="Debug etapa"
-                                            >
-                                                dbg
-                                            </Button>
-                                            {row.etapaPendenteIsQueue && (
+                                            {row.etapaPendenteCanAssume && row.etapaPendenteCom && (
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="gap-1 border-amber-400 text-amber-700 hover:bg-amber-50"
+                                                    className="gap-1 border-violet-400 text-violet-700 hover:bg-violet-50"
                                                     disabled={acting}
+                                                    title={`Assumir esta tarefa do grupo "${row.etapaPendenteCom}" para você`}
                                                     onClick={() => void doAssumir(row)}
                                                 >
                                                     <UserCheck className="size-3" />

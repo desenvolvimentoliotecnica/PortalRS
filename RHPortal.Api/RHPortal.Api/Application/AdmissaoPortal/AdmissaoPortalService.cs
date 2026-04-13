@@ -104,7 +104,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         }).ToList();
 
         var enviados = pa.Documentos.Select(d => new PortalDocumentoEnviadoItem(
-            d.Id, (int)d.Tipo, d.NomeArquivo, d.TamanhoBytes,
+            d.Id, (int)d.Tipo, (int)d.Lado, d.NomeArquivo, d.TamanhoBytes,
             (int)d.Status, d.ObservacaoRh, _storage.GetPresignedUrl(d.StoragePath))).ToList();
 
         var dados = new PortalDadosPessoais(
@@ -259,7 +259,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
     }
 
     public async Task<PreAdmissaoDocumentoResponse?> UploadDocAsync(
-        Guid preAdmissaoId, string cpf, TipoDocumento tipo, string nomeArquivo,
+        Guid preAdmissaoId, string cpf, TipoDocumento tipo, LadoDocumento lado, string nomeArquivo,
         string contentType, long tamanho, Stream stream, CancellationToken ct)
     {
         var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
@@ -279,6 +279,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             TenantId = _tenantContext.TenantId,
             PreAdmissaoId = preAdmissaoId,
             Tipo = tipo,
+            Lado = lado,
             NomeArquivo = nomeArquivo,
             ContentType = contentType,
             TamanhoBytes = tamanho,
@@ -298,7 +299,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         await BroadcastProgressAsync(pa, "upload_doc", ct);
 
         return new PreAdmissaoDocumentoResponse(
-            doc.Id, doc.Tipo, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes,
+            doc.Id, doc.Tipo, doc.Lado, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes,
             doc.Status, null, doc.CreatedAtUtc, _storage.GetPresignedUrl(doc.StoragePath));
     }
 

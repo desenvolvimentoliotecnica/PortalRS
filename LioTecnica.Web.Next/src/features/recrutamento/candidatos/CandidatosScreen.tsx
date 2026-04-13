@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
+import { VagaAutocomplete } from "@/components/autocomplete/VagaAutocomplete";
 
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
 import PaginationBar from "@/components/pagination/PaginationBar";
@@ -221,7 +222,7 @@ export default function CandidatosScreen() {
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
   const [statuses, setStatuses] = useState<string[]>([]);
-  const [vagaId, setVagaId] = useState<string>("");
+  const [vagaId, setVagaId] = useState<string>(paramVagaId);
 
   const [vagas, setVagas] = useState<VagaOption[]>([]);
 
@@ -874,12 +875,13 @@ export default function CandidatosScreen() {
               </div>
             ) : null}
           </div>
-          <select className="h-9 rounded-md border border-input bg-background px-3 text-sm max-w-[280px]" value={vagaId} onChange={(e) => setVagaId(e.target.value)}>
-            <option value="">Todas as vagas</option>
-            {vagas.map((v) => (
-              <option key={v.id} value={v.id}>{v.label}</option>
-            ))}
-          </select>
+          <VagaAutocomplete
+            value={vagaId}
+            onChange={(id) => { setVagaId(id); setPage(1); }}
+            items={vagas}
+            placeholder="Buscar vaga..."
+            className="min-w-[220px] max-w-[300px]"
+          />
           <Button variant="outline" size="sm" type="button" onClick={() => { setPage(1); setLoading(true); sync().catch(() => toast.error("Falha ao aplicar filtros.")).finally(() => setLoading(false)); }}>
             Aplicar
           </Button>

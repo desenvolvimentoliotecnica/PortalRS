@@ -461,6 +461,23 @@ public sealed class ApprovalWorkflowHelper
     }
 
     /// <summary>
+    /// Verifica se o usuário atual pode ASSUMIR uma etapa de fila de grupo (role queue).
+    /// Diferente de <see cref="CanApproveStepAsync"/>, NÃO concede bypass para Admin —
+    /// Admin só pode assumir etapas stuck/unresolvable, nunca filas de grupos aos quais não pertence.
+    /// </summary>
+    public async Task<bool> CanAssumeRoleQueueAsync(
+        SolicitacaoAprovacaoEtapa etapa,
+        ICurrentUserContext userContext,
+        CancellationToken ct)
+    {
+        if (!etapa.RoleFilaId.HasValue) return false;
+        var userId = userContext.UserId;
+        if (!userId.HasValue) return false;
+        return await _db.Set<ApplicationUserRole>()
+            .AnyAsync(ur => ur.RoleId == etapa.RoleFilaId.Value && ur.UserId == userId.Value, ct);
+    }
+
+    /// <summary>
     /// Resolve FuncionarioId do usuário autenticado. Cria Funcionario se necessário.
     /// </summary>
     public async Task<Guid> ResolveSolicitanteIdAsync(Guid? funcionarioId, CancellationToken ct)
@@ -479,8 +496,9 @@ public sealed class ApprovalWorkflowHelper
     /// <summary>
     /// Snapshot da etapa pendente de uma solicitação, usado para exibição em listas.
     /// PendenteCom = nome do aprovador individual, ou nome da fila/role, conforme o caso.
+    /// CanAssume = true quando a etapa é uma fila de role E o usuário atual pertence a esse role.
     /// </summary>
-    public sealed record EtapaPendenteInfo(string? Label, string? PendenteCom, bool IsQueue, Guid? AprovadorId, Guid? AssumedByUserId = null);
+    public sealed record EtapaPendenteInfo(string? Label, string? PendenteCom, bool IsQueue, Guid? AprovadorId, Guid? AssumedByUserId = null, bool CanAssume = false);
 
     /// <summary>
     /// Busca em uma única query a etapa pendente (menor Ordem com Status=Pendente)
@@ -490,7 +508,8 @@ public sealed class ApprovalWorkflowHelper
     public async Task<Dictionary<Guid, EtapaPendenteInfo>> GetEtapasPendentesAsync(
         IReadOnlyList<Guid> solicitacaoIds,
         TipoFluxoAprovacao tipoFluxo,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? currentUserId = null)
     {
         if (solicitacaoIds.Count == 0)
             return new Dictionary<Guid, EtapaPendenteInfo>();
@@ -544,6 +563,18 @@ public sealed class ApprovalWorkflowHelper
 
             foreach (var row in userRows)
                 aprovadorUserMap[row.FuncId] = (row.Name, row.IsActive);
+        }
+
+        // Roles do usuário atual — usados para calcular CanAssume
+        var userRoleIds = new HashSet<Guid>();
+        if (currentUserId.HasValue)
+        {
+            var userRoles = await _db.Set<ApplicationUserRole>()
+                .AsNoTracking()
+                .Where(ur => ur.UserId == currentUserId.Value)
+                .Select(ur => ur.RoleId)
+                .ToListAsync(ct);
+            foreach (var rid in userRoles) userRoleIds.Add(rid);
         }
 
         var result = new Dictionary<Guid, EtapaPendenteInfo>();
@@ -605,7 +636,12 @@ public sealed class ApprovalWorkflowHelper
                 }
             }
 
-            result[group.Key] = new EtapaPendenteInfo(etapa.Label, pendenteCom, isQueue, etapa.AprovadorId, etapa.AssumedByUserId);
+            // CanAssume: apenas fila de role ainda não assumida E usuário pertence ao role
+            var canAssume = isQueue
+                && etapa.RoleFilaId.HasValue
+                && userRoleIds.Contains(etapa.RoleFilaId.Value);
+
+            result[group.Key] = new EtapaPendenteInfo(etapa.Label, pendenteCom, isQueue, etapa.AprovadorId, etapa.AssumedByUserId, canAssume);
         }
         return result;
     }

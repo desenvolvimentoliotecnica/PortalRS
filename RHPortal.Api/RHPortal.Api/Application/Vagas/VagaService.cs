@@ -473,6 +473,9 @@ public sealed class VagaService : IVagaService
         var entity = await _db.Vagas.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
+        if (entity.Status != VagaStatus.Rascunho)
+            throw new InvalidOperationException("Apenas vagas em rascunho podem ser excluídas. Utilize 'Cancelar' para vagas que já foram movimentadas.");
+
         _db.Vagas.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;

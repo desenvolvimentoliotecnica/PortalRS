@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+    Ban,
     Banknote,
     Briefcase,
     CalendarDays,
@@ -23,6 +24,7 @@ import {
     Search,
     ShieldCheck,
     Target,
+    Trash2,
     Users,
 } from "lucide-react";
 
@@ -659,22 +661,15 @@ export default function VagasScreen() {
         const v = rows.find((x) => x.id === id);
         const nome = (v?.titulo ?? "").trim();
 
-        if (nome) {
-            const typed = prompt(`Para confirmar, digite o nome exato da vaga:\n\n${nome}`, "");
-            if (typed == null) return;
-            if (typed.trim() !== nome) {
-                toast.error("Nome não confere. Exclusão cancelada.");
-                return;
-            }
-        } else {
-            const confirmed = await confirmDialog({
-                title: "Excluir vaga",
-                description: `Excluir vaga sem título (ID: ${id})?`,
-                confirmText: "Excluir",
-                destructive: true,
-            });
-            if (!confirmed) return;
-        }
+        const confirmed = await confirmDialog({
+            title: "Excluir vaga",
+            description: nome
+                ? `Tem certeza que deseja excluir a vaga "${nome}"? Esta ação não pode ser desfeita.`
+                : `Excluir vaga sem título (ID: ${id})?`,
+            confirmText: "Excluir",
+            destructive: true,
+        });
+        if (!confirmed) return;
 
         try {
             await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -685,13 +680,33 @@ export default function VagasScreen() {
             if (isVagaDeleteRestrictedByCandidates(msg)) {
                 const payload = await fetchJson<unknown>(`${BASE}/api/candidatos?vagaId=${encodeURIComponent(id)}&pageSize=1000`).catch(() => null);
                 const vinculados = mapCandidatosList(payload);
-                const confirmed = await confirmDialog({
-                    title: "Excluir vaga e candidatos",
-                    description: `Existem ${vinculados.length || "vários"} candidatos vinculados. Deseja excluir tudo?`,
+                const count = vinculados.length || "alguns";
+
+                // Opção 1: desvincular e manter como talentos (recomendado)
+                const manter = await confirmDialog({
+                    title: "Candidatos vinculados",
+                    description: `Existem ${count} candidato(s) vinculados a esta vaga. Deseja manter os dados como talentos na base?`,
+                    confirmText: "Manter como talentos",
+                    cancelText: "Excluir tudo",
+                    destructive: false,
+                });
+
+                if (manter) {
+                    await fetchJson(`${BASE}/api/candidatos/desvincular-da-vaga/${encodeURIComponent(id)}`, { method: "POST" });
+                    await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(id)}`, { method: "DELETE" });
+                    setRows((prev) => prev.filter((x) => x.id !== id));
+                    toast.success("Vaga excluída. Candidatos mantidos como talentos.");
+                    return;
+                }
+
+                // Opção 2: excluir tudo — pede segunda confirmação
+                const confirmaExcluir = await confirmDialog({
+                    title: "Excluir candidatos permanentemente",
+                    description: `Isso excluirá permanentemente ${count} candidato(s) e a vaga. Esta ação não pode ser desfeita.`,
                     confirmText: "Excluir tudo",
                     destructive: true,
                 });
-                if (!confirmed) return;
+                if (!confirmaExcluir) return;
 
                 let failed = 0;
                 for (const candidato of vinculados) {
@@ -714,6 +729,32 @@ export default function VagasScreen() {
             }
 
             toast.error(msg || "Falha ao excluir vaga.");
+        }
+    }
+
+    async function cancelVaga(id: string) {
+        const v = rows.find((x) => x.id === id);
+        const nome = (v?.titulo ?? "").trim();
+
+        const confirmed = await confirmDialog({
+            title: "Cancelar vaga",
+            description: `Tem certeza que deseja cancelar${nome ? ` a vaga "${nome}"` : " esta vaga"}? Os candidatos vinculados serão mantidos na base.`,
+            confirmText: "Cancelar vaga",
+            cancelText: "Voltar",
+            destructive: true,
+        });
+        if (!confirmed) return;
+
+        try {
+            await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(id)}/status`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: 8 }), // VagaStatus.Cancelada
+            });
+            setRows((prev) => prev.map((r) => r.id === id ? { ...(r as Record<string, unknown>), status: "Cancelada" } as typeof r : r));
+            toast.success("Vaga cancelada.");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao cancelar vaga.");
         }
     }
 
@@ -1056,14 +1097,11 @@ export default function VagasScreen() {
                                                                     <Eye className="mr-2 size-4" />
                                                                     Ver detalhes
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => router.push(`/gestao/projetos?vagaId=${encodeURIComponent(vaga.id)}`)}>
+                                                                <DropdownMenuItem disabled>
                                                                     <FolderOpen className="mr-2 size-4" />
                                                                     Rodadas
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => {
-                                                                    persistMatchingContext(vaga.id);
-                                                                    router.push(`/matching?vagaId=${encodeURIComponent(vaga.id)}`);
-                                                                }}>
+                                                                <DropdownMenuItem disabled>
                                                                     <ShieldCheck className="mr-2 size-4" />
                                                                     Matching IA
                                                                 </DropdownMenuItem>
@@ -1085,12 +1123,23 @@ export default function VagasScreen() {
                                                                     Duplicar
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
-                                                                <DropdownMenuItem
-                                                                    className="text-destructive focus:text-destructive"
-                                                                    onClick={() => void deleteVaga(vaga.id)}
-                                                                >
-                                                                    Excluir
-                                                                </DropdownMenuItem>
+                                                                {(vaga.status as string ?? "").toLowerCase() === "rascunho" ? (
+                                                                    <DropdownMenuItem
+                                                                        className="text-destructive focus:text-destructive"
+                                                                        onClick={() => void deleteVaga(vaga.id)}
+                                                                    >
+                                                                        <Trash2 className="mr-2 size-4" />
+                                                                        Excluir
+                                                                    </DropdownMenuItem>
+                                                                ) : !["cancelada", "encerrada"].includes((vaga.status as string ?? "").toLowerCase()) && (
+                                                                    <DropdownMenuItem
+                                                                        className="text-orange-600 focus:text-orange-600"
+                                                                        onClick={() => void cancelVaga(vaga.id)}
+                                                                    >
+                                                                        <Ban className="mr-2 size-4" />
+                                                                        Cancelar vaga
+                                                                    </DropdownMenuItem>
+                                                                )}
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
                                                     </TableCell>

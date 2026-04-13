@@ -28,7 +28,7 @@ import {
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
-interface DocEnviado { id: string; tipo: number; nomeArquivo: string; tamanhoBytes: number; status: number; observacaoRh: string | null; presignedUrl: string; }
+interface DocEnviado { id: string; tipo: number; lado: number; nomeArquivo: string; tamanhoBytes: number; status: number; observacaoRh: string | null; presignedUrl: string; }
 interface DadosPessoais { [key: string]: unknown; }
 interface DependenteData { id: string; nomeCompleto: string; parentesco: number; cpf: string | null; dataNascimento: string; isPcd: boolean; }
 interface PortalData {
@@ -84,15 +84,20 @@ export default function DocumentoAdmissaoScreen() {
             if (body.dependentes && body.dependentes.length > 0) store.setHasDependentes(true);
             hydratedRef.current = true;
 
-            // Hydrate uploaded docs
+            // Hydrate uploaded docs — roteia frente/verso para slots corretos
             for (const doc of body.documentosEnviados) {
-                store.setUploadedDoc(doc.tipo, {
+                const docData = {
                     tipo: doc.tipo,
                     nomeArquivo: doc.nomeArquivo,
                     tamanhoBytes: doc.tamanhoBytes,
                     status: doc.status,
                     presignedUrl: doc.presignedUrl,
-                });
+                };
+                if (doc.lado === 2) { // Verso = 2
+                    store.setUploadedDocVerso(doc.tipo, docData);
+                } else { // Frente = 1 ou Unico = 0
+                    store.setUploadedDoc(doc.tipo, docData);
+                }
             }
         } catch { toast.error("Erro de conexao."); }
         finally { setLoading(false); }

@@ -188,6 +188,8 @@ public sealed record PreAdmissaoDependenteDetailResponse(
 public sealed record PreAdmissaoDocumentoResponse(
     Guid Id,
     TipoDocumento Tipo,
+    /// <summary>Face do documento: 0=Único, 1=Frente, 2=Verso.</summary>
+    LadoDocumento Lado,
     string NomeArquivo,
     string ContentType,
     long TamanhoBytes,

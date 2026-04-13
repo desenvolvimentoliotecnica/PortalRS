@@ -340,7 +340,7 @@ export default function AdmissaoWizardScreen() {
     );
 
     return (
-        <section className="space-y-4 max-w-4xl mx-auto">
+        <section className="space-y-4">
             {/* header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -352,23 +352,25 @@ export default function AdmissaoWizardScreen() {
                 </Button>
             </div>
 
-            {/* step indicators */}
-            <div className="flex gap-1 overflow-x-auto pb-1">
-                {STEPS.map((s, i) => {
-                    const Icon = s.icon;
-                    return (
-                        <button key={s.key} onClick={() => setStep(i)}
-                            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${step === i ? "bg-blue-600 text-white" : i < step ? "bg-emerald-500/15 text-emerald-700" : "bg-muted/50 text-muted-foreground"
-                                }`}
-                        >
-                            <Icon className="size-3.5" /> {s.label}
-                        </button>
-                    );
-                })}
-            </div>
+            {/* card unificado: nav steps + conteúdo */}
+            <div className="rounded-xl border border-border/40 bg-card shadow-sm overflow-hidden">
+                {/* step indicators — barra de navegação */}
+                <div className="flex gap-1 overflow-x-auto px-4 py-3 border-b border-border/40 bg-muted/20">
+                    {STEPS.map((s, i) => {
+                        const Icon = s.icon;
+                        return (
+                            <button key={s.key} onClick={() => setStep(i)}
+                                className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${step === i ? "bg-blue-600 text-white shadow-sm" : i < step ? "bg-emerald-500/15 text-emerald-700" : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                                    }`}
+                            >
+                                <Icon className="size-3.5" /> {s.label}
+                            </button>
+                        );
+                    })}
+                </div>
 
-            {/* form card */}
-            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-6 backdrop-blur min-h-[400px]">
+            {/* conteúdo do step */}
+            <div className="p-6 min-h-[400px]">
 
                 {/* Step 0: Dados Pessoais */}
                 {step === 0 && (
@@ -633,8 +635,8 @@ export default function AdmissaoWizardScreen() {
                 )}
             </div>
 
-            {/* navigation buttons */}
-            <div className="flex items-center justify-between">
+            {/* navigation buttons — rodapé do card */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-border/40 bg-muted/10">
                 <Button variant="outline" disabled={step === 0} onClick={() => setStep(s => s - 1)}>
                     <ChevronLeft className="size-4" /> Anterior
                 </Button>
@@ -653,6 +655,7 @@ export default function AdmissaoWizardScreen() {
                     )}
                 </div>
             </div>
+            </div>{/* fim card unificado */}
         </section>
     );
 }

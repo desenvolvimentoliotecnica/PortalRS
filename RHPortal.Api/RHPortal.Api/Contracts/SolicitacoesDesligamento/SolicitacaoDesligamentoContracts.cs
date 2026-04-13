@@ -122,5 +122,6 @@ public sealed record SolicitacaoDesligamentoGridRow(
     string? EtapaPendenteLabel,
     string? EtapaPendenteCom,
     bool EtapaPendenteIsQueue,
-    Guid? EtapaPendenteAprovadorId
+    Guid? EtapaPendenteAprovadorId,
+    bool EtapaPendenteCanAssume
 );

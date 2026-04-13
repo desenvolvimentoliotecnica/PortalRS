@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import DocumentCard from "../components/DocumentCard";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
+import { TIPOS_COM_VERSO } from "../constants";
 import {
     admissaoPortalFetch,
     validateDocument,
@@ -43,7 +44,7 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
 
         // ── 1. Upload (caminho crítico) ──
         try {
-            await uploadFile(session, tipo, file);
+            await uploadFile(session, tipo, file, side);
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Erro ao enviar documento.";
             setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: msg, processing: false });
@@ -160,10 +161,13 @@ async function prepareImageForAi(file: File): Promise<{ base64: string; mediaTyp
     });
 }
 
-async function uploadFile(session: AdmissaoPortalSession, tipo: number, file: File) {
+async function uploadFile(session: AdmissaoPortalSession, tipo: number, file: File, side: "frente" | "verso") {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("tipo", String(tipo));
+    // lado: 0=Unico, 1=Frente, 2=Verso
+    const lado = side === "verso" ? 2 : TIPOS_COM_VERSO.has(tipo) ? 1 : 0;
+    fd.append("lado", String(lado));
     const res = await admissaoPortalFetch(
         session.tenantId,
         `/api/public/admissao-portal/${session.preAdmissaoId}/documentos`,

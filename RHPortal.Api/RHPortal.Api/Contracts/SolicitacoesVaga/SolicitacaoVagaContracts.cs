@@ -169,5 +169,6 @@ public sealed record SolicitacaoVagaGridRow(
     string? EtapaPendenteCom,
     bool EtapaPendenteIsQueue,
     Guid? EtapaPendenteAprovadorId,
-    Guid? EtapaPendenteAssumedByUserId
+    Guid? EtapaPendenteAssumedByUserId,
+    bool EtapaPendenteCanAssume
 );

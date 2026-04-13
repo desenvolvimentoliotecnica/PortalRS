@@ -99,6 +99,7 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   pausada: { label: "Pausada", cls: "bg-amber-500/15 text-amber-700" },
   fechada: { label: "Fechada", cls: "bg-zinc-500/15 text-zinc-700" },
   encerrada: { label: "Encerrada", cls: "bg-zinc-500/15 text-zinc-700" },
+  cancelada: { label: "Cancelada", cls: "bg-red-500/15 text-red-700" },
 };
 
 interface HistoricoEvent {
@@ -322,6 +323,9 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const status = statusRaw.toLowerCase();
   const statusMeta = STATUS_MAP[status] ?? STATUS_MAP.rascunho;
   const isRascunho = status === "rascunho";
+  const isCancelada = status === "cancelada";
+  const isEncerrada = status === "encerrada";
+  const isReadOnly = isCancelada || isEncerrada;
   const requisitos = Array.isArray(vaga?.requisitos) ? (vaga.requisitos as unknown[]) : [];
   const etapas = Array.isArray(vaga?.etapas) ? (vaga.etapas as { nome: string; responsavel?: string; slaDias?: number }[]) : [];
   const tags = pick(vaga, "tagsKeywordsRaw", "");
@@ -352,7 +356,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   }
 
   return (
-    <section className="space-y-4 max-w-6xl mx-auto px-4 sm:px-6">
+    <section className="space-y-4">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -378,7 +382,9 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         </div>
         <div className="flex gap-2 shrink-0">
           <Button variant="outline" size="sm" onClick={() => void load()}><RefreshCw className="size-4" /></Button>
-          <Button size="sm" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}><PenSquare className="size-4 mr-1" /> {isRascunho ? "Preencher Dados" : "Editar"}</Button>
+          {!isReadOnly && (
+            <Button size="sm" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}><PenSquare className="size-4 mr-1" /> {isRascunho ? "Preencher Dados" : "Editar"}</Button>
+          )}
           {isRascunho && (
             <Button size="sm" variant="default" className="bg-emerald-600 hover:bg-emerald-700" disabled={publishing} onClick={() => void publicarVaga()}>
               <Globe className="size-4 mr-1" /> {publishing ? "Publicando..." : "Publicar"}
@@ -391,6 +397,18 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       {isRascunho && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
           Vaga em <b>rascunho</b> — preencha os dados e mude o status para &quot;Aberta&quot; para publicar.
+        </div>
+      )}
+
+      {/* ── Indicador cancelada/encerrada ── */}
+      {isCancelada && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+          Esta vaga foi <b>cancelada</b> e não pode mais ser editada.
+        </div>
+      )}
+      {isEncerrada && (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/20 dark:text-zinc-400">
+          Esta vaga está <b>encerrada</b> e não pode mais ser editada.
         </div>
       )}
 
@@ -528,9 +546,11 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">{candidateCount} candidato(s) nesta vaga</p>
             <div className="flex gap-2">
-              <Button size="sm" onClick={() => setNewCandidateOpen(true)}>
-                <UserPlus className="size-3.5 mr-1" /> Candidato
-              </Button>
+              {!isReadOnly && (
+                <Button size="sm" onClick={() => setNewCandidateOpen(true)}>
+                  <UserPlus className="size-3.5 mr-1" /> Candidato
+                </Button>
+              )}
             </div>
           </div>
           {candidates.length === 0 ? (
@@ -561,16 +581,20 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                       <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(c.createdAtUtc).toLocaleDateString("pt-BR")}</td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex gap-1.5 justify-end">
-                          <Button size="sm" variant="ghost" onClick={() => void openEditCandidate(c.id)}>
-                            <PenSquare className="size-3.5" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => {
-                            const vagaTipo = pick(vaga, "tipoContratacao").toUpperCase();
-                            const tipo = (vagaTipo === "CLT" || vagaTipo === "PJ") ? vagaTipo as "CLT" | "PJ" : "CLT";
-                            setAdmissaoDialog({ open: true, candidate: c, modo: "manual", tipoContratacao: tipo, cpf: "", working: false, linkGerado: null, emailEnviado: false });
-                          }}>
-                            <Mail className="size-3.5 mr-1" /> {c.status === "Aprovado" ? "Reenviar" : "Aprovar Candidato"}
-                          </Button>
+                          {!isReadOnly && (
+                            <Button size="sm" variant="ghost" onClick={() => void openEditCandidate(c.id)}>
+                              <PenSquare className="size-3.5" />
+                            </Button>
+                          )}
+                          {!isReadOnly && (
+                            <Button size="sm" variant="outline" onClick={() => {
+                              const vagaTipo = pick(vaga, "tipoContratacao").toUpperCase();
+                              const tipo = (vagaTipo === "CLT" || vagaTipo === "PJ") ? vagaTipo as "CLT" | "PJ" : "CLT";
+                              setAdmissaoDialog({ open: true, candidate: c, modo: "manual", tipoContratacao: tipo, cpf: "", working: false, linkGerado: null, emailEnviado: false });
+                            }}>
+                              <Mail className="size-3.5 mr-1" /> {c.status === "Aprovado" ? "Reenviar" : "Aprovar Candidato"}
+                            </Button>
+                          )}
                           {c.status === "Aprovado" && (
                             <Button size="sm" variant="outline" onClick={async () => {
                               try {

@@ -143,7 +143,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         var ids = rawRows.Select(r => r.Id).ToList();
         var etapasPendentes = await _workflow.GetEtapasPendentesAsync(
-            ids, TipoFluxoAprovacao.RequisicaoPessoal, ct);
+            ids, TipoFluxoAprovacao.RequisicaoPessoal, ct, currentUserId: _currentUser.UserId);
 
         return rawRows.Select(r =>
         {
@@ -152,7 +152,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 r.Id, r.Titulo, r.Urgencia, r.Status, r.SolicitanteId, r.SolicitanteNome,
                 r.AprovadorId, r.AprovadorNome, r.AreaName, r.QtdPosicoes,
                 r.TipoSolicitacao, r.IsConfidencial, r.SubstituidoNome, r.CreatedAtUtc,
-                ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId);
+                ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId,
+                ep?.CanAssume ?? false);
         }).ToList();
     }
 
@@ -838,6 +839,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
+        if (entity.Status == SolicitacaoVagaStatus.Rascunho)
+            throw new InvalidOperationException("Rascunhos não podem ser cancelados — utilize Excluir.");
+
         if (entity.Status == SolicitacaoVagaStatus.Aprovada ||
             entity.Status == SolicitacaoVagaStatus.Cancelada)
             throw new InvalidOperationException("Solicitação não pode ser cancelada no status atual.");
@@ -915,7 +919,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         {
             if (etapaAtual.AprovadorId.HasValue)
                 throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
-            if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+            if (!await _workflow.CanAssumeRoleQueueAsync(etapaAtual, _currentUser, ct))
                 throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
         }
 

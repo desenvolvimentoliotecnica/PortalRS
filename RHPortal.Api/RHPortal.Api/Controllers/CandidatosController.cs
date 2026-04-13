@@ -155,6 +155,22 @@ public sealed class CandidatosController : ControllerBase
     }
 
     /// <summary>
+    /// Desvincula todos os candidatos de uma vaga (VagaId → null), mantendo os dados na base como talentos.
+    /// </summary>
+    [HttpPost("desvincular-da-vaga/{vagaId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> DesvincularDaVaga(
+        [FromRoute] Guid vagaId,
+        [FromServices] ICandidatoService service,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
+            return Forbid();
+        var count = await service.DesvincularDaVagaAsync(vagaId, ct);
+        return Ok(new { count });
+    }
+
+    /// <summary>
     /// Envia um documento do candidato (upload).
     /// </summary>
     [HttpPost("{id:guid}/documentos")]

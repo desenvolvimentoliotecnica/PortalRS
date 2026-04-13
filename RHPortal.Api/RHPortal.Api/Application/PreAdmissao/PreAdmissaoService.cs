@@ -531,7 +531,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         };
         _db.Set<PreAdmissaoDocumento>().Add(doc);
         await _db.SaveChangesAsync(ct);
-        return new PreAdmissaoDocumentoResponse(doc.Id, doc.Tipo, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes, doc.Status, null, doc.CreatedAtUtc, _storage.GetPresignedUrl(doc.StoragePath));
+        return new PreAdmissaoDocumentoResponse(doc.Id, doc.Tipo, doc.Lado, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes, doc.Status, null, doc.CreatedAtUtc, _storage.GetPresignedUrl(doc.StoragePath));
     }
 
     public async Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, Guid docId, CancellationToken ct)
@@ -1085,7 +1085,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.WizardCurrentStep, e.WizardCompletionPercent, e.LastActivityUtc,
         // Documentos
         e.Documentos.Select(d => new PreAdmissaoDocumentoResponse(
-            d.Id, d.Tipo, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.Status, d.ObservacaoRh,
+            d.Id, d.Tipo, d.Lado, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.Status, d.ObservacaoRh,
             d.CreatedAtUtc, _storage.GetPresignedUrl(d.StoragePath))).ToList(),
         (e.DocumentosSolicitados ?? []).Select(ds => new DocumentoSolicitadoResponse(
             ds.TipoDocumento, TipoDocumentoLabel(ds.TipoDocumento), ds.Obrigatorio)).ToList(),

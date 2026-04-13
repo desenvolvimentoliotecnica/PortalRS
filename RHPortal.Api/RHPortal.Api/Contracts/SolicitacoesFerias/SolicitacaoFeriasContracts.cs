@@ -51,5 +51,6 @@ public sealed record SolicitacaoFeriasGridRow(
     DateOnly DataInicio, DateOnly DataFim, int QtdDias,
     bool AbonoPecuniario, DateTimeOffset CreatedAtUtc,
     string? EtapaPendenteLabel, string? EtapaPendenteCom,
-    bool EtapaPendenteIsQueue, Guid? EtapaPendenteAprovadorId
+    bool EtapaPendenteIsQueue, Guid? EtapaPendenteAprovadorId,
+    bool EtapaPendenteCanAssume
 );
