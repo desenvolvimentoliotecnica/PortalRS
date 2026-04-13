@@ -542,7 +542,7 @@ function OrganogramaCanvasInner() {
         setNodes((prev) =>
             prev.map((n) => {
                 if (n.type !== "funcionarioNode") return n;
-                const prevData = n.data as FuncionarioNodeData;
+                const prevData = n.data as unknown as FuncionarioNodeData;
                 const shouldBeCurrent = n.id === currentNodeId;
                 if (prevData.isCurrent === shouldBeCurrent) return n;
                 return { ...n, data: { ...prevData, isCurrent: shouldBeCurrent } };
