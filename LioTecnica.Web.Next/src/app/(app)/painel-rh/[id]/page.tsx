@@ -1,15 +1,9 @@
-"use client";
+import PainelRhDetailPageClient from "./PainelRhDetailPageClient";
 
-import { Suspense } from "react";
-import { useParams } from "next/navigation";
+export function generateStaticParams() {
+  return [{ id: "__" }];
+}
 
-import WorkflowRHDetailScreen from "@/features/recrutamento/workflow-rh/WorkflowRHDetailScreen";
-
-export default function WorkflowRHDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  return (
-    <Suspense fallback={null}>
-      <WorkflowRHDetailScreen workflowId={id} />
-    </Suspense>
-  );
+export default function Page() {
+  return <PainelRhDetailPageClient />;
 }
