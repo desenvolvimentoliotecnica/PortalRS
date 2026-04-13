@@ -4,10 +4,11 @@ import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ChevronLeft, CheckCircle2, XCircle, AlertTriangle, FileText, User, MapPin,
-    CreditCard, Briefcase, Phone, ShieldCheck, Loader2, Pencil,
+    CreditCard, Briefcase, Phone, ShieldCheck, Loader2, Pencil, Download, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { useApiQuery } from "@/hooks/useApiQuery";
@@ -113,7 +114,8 @@ interface PreAdmissao {
     createdAtUtc: string;
     submittedAtUtc: string | null;
     approvedAtUtc: string | null;
-    documentos: { id: string; tipo: number; nomeArquivo: string; contentType: string; tamanhoBytes: number; status: number; observacaoRh: string | null; createdAtUtc: string }[];
+    documentos: { id: string; tipo: number | string; lado: number; nomeArquivo: string; contentType: string; tamanhoBytes: number; status: number; observacaoRh: string | null; createdAtUtc: string; presignedUrl: string }[];
+    documentosSolicitados: { tipoDocumento: number | string; label: string; obrigatorio: boolean }[];
 }
 
 const STATUS_MAP: Record<number, { label: string; color: string; icon: React.ElementType }> = {
@@ -146,6 +148,7 @@ export default function AdmissaoRevisaoScreen() {
     const [rejectMotivo, setRejectMotivo] = useState("");
     const [approveObs, setApproveObs] = useState("");
     const [processing, setProcessing] = useState(false);
+    const [expandedHistories, setExpandedHistories] = useState<Set<string>>(new Set());
 
     async function handleApprove() {
         try {
@@ -198,8 +201,31 @@ export default function AdmissaoRevisaoScreen() {
         { label: "Salário na faixa", ok: data.validacaoSalarioOk },
     ];
 
+    // Arquivos — agrupados por tipo, ordenados por data desc
+    const toggleHistory = (k: string) =>
+        setExpandedHistories(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
+    const byDate = (a: typeof data.documentos[0], b: typeof data.documentos[0]) =>
+        new Date(b.createdAtUtc).getTime() - new Date(a.createdAtUtc).getTime();
+    const docsByTipo = new Map<string, typeof data.documentos>();
+    for (const d of data.documentos) {
+        const k = String(d.tipo);
+        if (!docsByTipo.has(k)) docsByTipo.set(k, []);
+        docsByTipo.get(k)!.push(d);
+    }
+    const solicitadosKeys = new Set(data.documentosSolicitados.map(s => String(s.tipoDocumento)));
+    const solEnviados = data.documentosSolicitados.filter(s => docsByTipo.has(String(s.tipoDocumento)));
+    const solFaltando = data.documentosSolicitados.filter(s => !docsByTipo.has(String(s.tipoDocumento)));
+    const extras = data.documentos.filter(d => !solicitadosKeys.has(String(d.tipo)));
+
+    // Separa os arquivos de um grupo por lado (0=Unico, 1=Frente, 2=Verso)
+    const splitByLado = (arquivos: typeof data.documentos) => ({
+        frentes: arquivos.filter(d => d.lado === 1).sort(byDate),
+        versos:  arquivos.filter(d => d.lado === 2).sort(byDate),
+        unicos:  arquivos.filter(d => d.lado === 0 || d.lado == null).sort(byDate),
+    });
+
     return (
-        <section className="space-y-4 max-w-4xl mx-auto">
+        <section className="space-y-4">
             {/* header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -244,116 +270,312 @@ export default function AdmissaoRevisaoScreen() {
                 </div>
             )}
 
-            {/* Data sections */}
-            <div className="grid gap-4">
-                <Section title="Dados Pessoais" icon={User}>
-                    <Info label="Nome" value={data.nome} />
-                    <Info label="CPF" value={data.cpf} />
-                    <Info label="RG" value={data.rg} />
-                    <Info label="Órgão Exp." value={data.rgOrgaoExpedidor} />
-                    <Info label="Data Exp. RG" value={data.rgDataExpedicao} />
-                    <Info label="Nascimento" value={data.dataNascimento} />
-                    <Info label="Sexo" value={SEXO_L[data.sexo]} />
-                    <Info label="Est. Civil" value={EST_CIVIL_L[data.estadoCivil]} />
-                    <Info label="Nacionalidade" value={data.nacionalidade} />
-                    <Info label="Nome Mãe" value={data.nomeMae} />
-                    <Info label="Nome Pai" value={data.nomePai} />
-                    <Info label="Natural de" value={[data.naturalCidade, data.naturalUf].filter(Boolean).join("/")} />
-                </Section>
+            {/* Data sections — divididas em abas */}
+            <Tabs defaultValue="pessoal" className="rounded-xl border border-border/40 bg-card shadow-sm overflow-hidden">
+                <TabsList className="w-full justify-start rounded-none border-b border-border/40 bg-muted/20 px-2 h-auto py-1.5 gap-1">
+                    <TabsTrigger value="pessoal" className="gap-1.5 text-xs"><User className="size-3.5" /> Pessoal</TabsTrigger>
+                    <TabsTrigger value="endereco" className="gap-1.5 text-xs"><MapPin className="size-3.5" /> Endereço & Contato</TabsTrigger>
+                    <TabsTrigger value="bancario" className="gap-1.5 text-xs"><CreditCard className="size-3.5" /> Bancário</TabsTrigger>
+                    <TabsTrigger value="trabalhista" className="gap-1.5 text-xs"><Briefcase className="size-3.5" /> Trabalhista</TabsTrigger>
+                    <TabsTrigger value="documentos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Documentação</TabsTrigger>
+                    <TabsTrigger value="arquivos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Arquivos Enviados{docsByTipo.size > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{docsByTipo.size}</span>}</TabsTrigger>
+                </TabsList>
 
-                {data.nacionalidade && data.nacionalidade.toLowerCase() !== "brasileira" && (
-                    <Section title="Estrangeiro" icon={AlertTriangle}>
-                        <Info label="Passaporte" value={data.passaporte} />
-                        <Info label="RNM/RNE" value={data.rnmRne} />
-                        <Info label="Validade Visto" value={data.validadeVisto} />
-                        <Info label="Tipo Visto" value={data.tipoVisto} />
+                {/* Aba: Pessoal */}
+                <TabsContent value="pessoal" className="p-4 space-y-4 mt-0">
+                    <Section title="Dados Pessoais" icon={User}>
+                        <Info label="Nome" value={data.nome} />
+                        <Info label="CPF" value={data.cpf} />
+                        <Info label="RG" value={data.rg} />
+                        <Info label="Órgão Exp." value={data.rgOrgaoExpedidor} />
+                        <Info label="Data Exp. RG" value={data.rgDataExpedicao} />
+                        <Info label="Nascimento" value={data.dataNascimento} />
+                        <Info label="Sexo" value={SEXO_L[data.sexo]} />
+                        <Info label="Est. Civil" value={EST_CIVIL_L[data.estadoCivil]} />
+                        <Info label="Nacionalidade" value={data.nacionalidade} />
+                        <Info label="Nome Mãe" value={data.nomeMae} />
+                        <Info label="Nome Pai" value={data.nomePai} />
+                        <Info label="Natural de" value={[data.naturalCidade, data.naturalUf].filter(Boolean).join("/")} />
                     </Section>
-                )}
+                    {data.nacionalidade && data.nacionalidade.toLowerCase() !== "brasileira" && (
+                        <Section title="Estrangeiro" icon={AlertTriangle}>
+                            <Info label="Passaporte" value={data.passaporte} />
+                            <Info label="RNM/RNE" value={data.rnmRne} />
+                            <Info label="Validade Visto" value={data.validadeVisto} />
+                            <Info label="Tipo Visto" value={data.tipoVisto} />
+                        </Section>
+                    )}
+                </TabsContent>
 
-                <Section title="Endereço" icon={MapPin}>
-                    <Info label="CEP" value={data.cep} />
-                    <Info label="Logradouro" value={data.logradouro} />
-                    <Info label="Número" value={data.numero} />
-                    <Info label="Complemento" value={data.complemento} />
-                    <Info label="Bairro" value={data.bairro} />
-                    <Info label="Cidade" value={data.cidade} />
-                    <Info label="UF" value={data.uf} />
-                </Section>
+                {/* Aba: Endereço & Contato */}
+                <TabsContent value="endereco" className="p-4 space-y-4 mt-0">
+                    <Section title="Endereço" icon={MapPin}>
+                        <Info label="CEP" value={data.cep} />
+                        <Info label="Logradouro" value={data.logradouro} />
+                        <Info label="Número" value={data.numero} />
+                        <Info label="Complemento" value={data.complemento} />
+                        <Info label="Bairro" value={data.bairro} />
+                        <Info label="Cidade" value={data.cidade} />
+                        <Info label="UF" value={data.uf} />
+                    </Section>
+                    <Section title="Contato" icon={Phone}>
+                        <Info label="Email" value={data.email} />
+                        <Info label="Telefone" value={data.telefone} />
+                        <Info label="Celular" value={data.celular} />
+                        <Info label="Emerg. Nome" value={data.contatoEmergenciaNome} />
+                        <Info label="Emerg. Fone" value={data.contatoEmergenciaFone} />
+                    </Section>
+                </TabsContent>
 
-                <Section title="Contato" icon={Phone}>
-                    <Info label="Email" value={data.email} />
-                    <Info label="Telefone" value={data.telefone} />
-                    <Info label="Celular" value={data.celular} />
-                    <Info label="Emerg. Nome" value={data.contatoEmergenciaNome} />
-                    <Info label="Emerg. Fone" value={data.contatoEmergenciaFone} />
-                </Section>
+                {/* Aba: Bancário */}
+                <TabsContent value="bancario" className="p-4 mt-0">
+                    <Section title="Dados Bancários" icon={CreditCard}>
+                        <Info label="Banco" value={`${data.bancoCodigo || ""} — ${data.bancoNome || ""}`} />
+                        <Info label="Agência" value={`${data.agencia || ""}${data.agenciaDigito ? "-" + data.agenciaDigito : ""}`} />
+                        <Info label="Conta" value={`${data.conta || ""}${data.contaDigito ? "-" + data.contaDigito : ""}`} />
+                        <Info label="Tipo" value={data.tipoConta != null ? TIPO_CONTA_L[data.tipoConta] : null} />
+                    </Section>
+                </TabsContent>
 
-                <Section title="Dados Bancários" icon={CreditCard}>
-                    <Info label="Banco" value={`${data.bancoCodigo || ""} — ${data.bancoNome || ""}`} />
-                    <Info label="Agência" value={`${data.agencia || ""}${data.agenciaDigito ? "-" + data.agenciaDigito : ""}`} />
-                    <Info label="Conta" value={`${data.conta || ""}${data.contaDigito ? "-" + data.contaDigito : ""}`} />
-                    <Info label="Tipo" value={data.tipoConta != null ? TIPO_CONTA_L[data.tipoConta] : null} />
-                </Section>
+                {/* Aba: Trabalhista */}
+                <TabsContent value="trabalhista" className="p-4 mt-0">
+                    <Section title="Dados Trabalhistas" icon={Briefcase}>
+                        <Info label="Estab." value={data.estabelecimentoCodigo} />
+                        <Info label="Matrícula RM" value={data.matriculaRM} />
+                        <Info label="Unidade" value={data.unitNome} />
+                        <Info label="Área" value={data.areaNome} />
+                        <Info label="Cargo" value={data.jobPositionNome} />
+                        <Info label="Data Admissão" value={data.dataAdmissao} />
+                        <Info label="Salário" value={fmtBrl(data.salario)} />
+                        <Info label="Contratação" value={data.tipoContratacao != null ? TIPO_CONT_L[data.tipoContratacao] : null} />
+                        <Info label="Carga Hor." value={data.cargaHorariaSemanal != null ? `${data.cargaHorariaSemanal}h/sem` : null} />
+                        <Info label="PIS/PASEP" value={data.pisPasep} />
+                        <Info label="Cargo TOTVS" value={data.codCargoTotvs != null ? String(data.codCargoTotvs) : null} />
+                        <Info label="Vínculo" value={data.codVinculoEmpregaticio != null ? String(data.codVinculoEmpregaticio) : null} />
+                        <Info label="Tipo Func." value={data.tipoFuncionario != null ? String(data.tipoFuncionario) : null} />
+                        <Info label="Cat. Salarial" value={data.categoriaSalarial != null ? String(data.categoriaSalarial) : null} />
+                        <Info label="Grau Instrução" value={data.grauInstrucao != null ? String(data.grauInstrucao) : null} />
+                        <Info label="Turno" value={data.codTurno != null ? String(data.codTurno) : null} />
+                        <Info label="Centro Custo" value={data.centroCusto} />
+                        <Info label="Unid. Lotação" value={data.unidadeLotacao} />
+                    </Section>
+                </TabsContent>
 
-                <Section title="Dados Trabalhistas" icon={Briefcase}>
-                    <Info label="Estab." value={data.estabelecimentoCodigo} />
-                    <Info label="Matrícula RM" value={data.matriculaRM} />
-                    <Info label="Unidade" value={data.unitNome} />
-                    <Info label="Área" value={data.areaNome} />
-                    <Info label="Cargo" value={data.jobPositionNome} />
-                    <Info label="Data Admissão" value={data.dataAdmissao} />
-                    <Info label="Salário" value={fmtBrl(data.salario)} />
-                    <Info label="Contratação" value={data.tipoContratacao != null ? TIPO_CONT_L[data.tipoContratacao] : null} />
-                    <Info label="Carga Hor." value={data.cargaHorariaSemanal != null ? `${data.cargaHorariaSemanal}h/sem` : null} />
-                    <Info label="PIS/PASEP" value={data.pisPasep} />
-                    <Info label="Cargo TOTVS" value={data.codCargoTotvs != null ? String(data.codCargoTotvs) : null} />
-                    <Info label="Vínculo" value={data.codVinculoEmpregaticio != null ? String(data.codVinculoEmpregaticio) : null} />
-                    <Info label="Tipo Func." value={data.tipoFuncionario != null ? String(data.tipoFuncionario) : null} />
-                    <Info label="Cat. Salarial" value={data.categoriaSalarial != null ? String(data.categoriaSalarial) : null} />
-                    <Info label="Grau Instrução" value={data.grauInstrucao != null ? String(data.grauInstrucao) : null} />
-                    <Info label="Turno" value={data.codTurno != null ? String(data.codTurno) : null} />
-                    <Info label="Centro Custo" value={data.centroCusto} />
-                    <Info label="Unid. Lotação" value={data.unidadeLotacao} />
-                </Section>
+                {/* Aba: Documentação Complementar */}
+                <TabsContent value="documentos" className="p-4 mt-0">
+                    <Section title="Documentação Complementar" icon={FileText}>
+                        <Info label="Título Eleitor" value={data.tituloEleitorNumero} />
+                        <Info label="Zona/Seção" value={[data.tituloEleitorZona, data.tituloEleitorSecao].filter(Boolean).join("/")} />
+                        <Info label="Cidade/UF Título" value={[data.tituloEleitorCidade, data.tituloEleitorUf].filter(Boolean).join("/")} />
+                        <Info label="Reservista" value={data.reservistaNumero} />
+                        <Info label="CNH Cat." value={data.categoriaCnh} />
+                        <Info label="Val. CNH" value={data.validadeCnh} />
+                        <Info label="CTPS" value={[data.ctps, data.ctpsSerie].filter(Boolean).join(" Série ")} />
+                        <Info label="CTPS UF" value={data.ctpsUf} />
+                        <Info label="Modelo CTPS" value={data.ctpsModelo != null ? (data.ctpsModelo === 1 ? "Papel" : "Digital") : null} />
+                        <Info label="Grupo Sanguíneo" value={data.grupoSanguineo != null ? ["", "A", "B", "AB", "O"][data.grupoSanguineo] ?? String(data.grupoSanguineo) : null} />
+                        <Info label="Fator Rh" value={data.fatorRh != null ? (data.fatorRh === 1 ? "Positivo (+)" : "Negativo (-)") : null} />
+                        <Info label="Deficiência" value={data.possuiDeficiencia === "S" ? "Sim" : data.possuiDeficiencia === "N" ? "Não" : null} />
+                        <Info label="Cartão SUS" value={data.cartaoSus} />
+                        <Info label="Altura" value={data.altura != null ? `${data.altura} cm` : null} />
+                        <Info label="Peso" value={data.peso != null ? `${data.peso} kg` : null} />
+                        <Info label="Doc. Militar" value={data.docMilitarNumero ? `${data.docMilitarNumero} Série ${data.docMilitarSerie ?? ""}` : null} />
+                    </Section>
+                </TabsContent>
 
-                <Section title="Documentação Complementar" icon={FileText}>
-                    <Info label="Título Eleitor" value={data.tituloEleitorNumero} />
-                    <Info label="Zona/Seção" value={[data.tituloEleitorZona, data.tituloEleitorSecao].filter(Boolean).join("/")} />
-                    <Info label="Cidade/UF Título" value={[data.tituloEleitorCidade, data.tituloEleitorUf].filter(Boolean).join("/")} />
-                    <Info label="Reservista" value={data.reservistaNumero} />
-                    <Info label="CNH Cat." value={data.categoriaCnh} />
-                    <Info label="Val. CNH" value={data.validadeCnh} />
-                    <Info label="CTPS" value={[data.ctps, data.ctpsSerie].filter(Boolean).join(" Série ")} />
-                    <Info label="CTPS UF" value={data.ctpsUf} />
-                    <Info label="Modelo CTPS" value={data.ctpsModelo != null ? (data.ctpsModelo === 1 ? "Papel" : "Digital") : null} />
-                    <Info label="Grupo Sanguíneo" value={data.grupoSanguineo != null ? ["", "A", "B", "AB", "O"][data.grupoSanguineo] ?? String(data.grupoSanguineo) : null} />
-                    <Info label="Fator Rh" value={data.fatorRh != null ? (data.fatorRh === 1 ? "Positivo (+)" : "Negativo (-)") : null} />
-                    <Info label="Deficiência" value={data.possuiDeficiencia === "S" ? "Sim" : data.possuiDeficiencia === "N" ? "Não" : null} />
-                    <Info label="Cartão SUS" value={data.cartaoSus} />
-                    <Info label="Altura" value={data.altura != null ? `${data.altura} cm` : null} />
-                    <Info label="Peso" value={data.peso != null ? `${data.peso} kg` : null} />
-                    <Info label="Doc. Militar" value={data.docMilitarNumero ? `${data.docMilitarNumero} Série ${data.docMilitarSerie ?? ""}` : null} />
-                </Section>
+                {/* Aba: Arquivos Enviados */}
+                <TabsContent value="arquivos" className="p-4 mt-0 space-y-5">
+                    {/* ── Seção: Enviados ── */}
+                    {(solEnviados.length > 0 || (data.documentosSolicitados.length === 0 && data.documentos.length > 0)) && (
+                        <div className="space-y-2">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                <CheckCircle2 className="size-3.5 text-emerald-600" />
+                                Enviados ({solEnviados.length || docsByTipo.size})
+                            </p>
+                            {solEnviados.map(sol => {
+                                const k = String(sol.tipoDocumento);
+                                const { frentes, versos, unicos } = splitByLado(docsByTipo.get(k) ?? []);
+                                const hasSides = frentes.length > 0 || versos.length > 0;
 
-                {/* Documents */}
-                {data.documentos.length > 0 && (
-                    <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur space-y-2">
-                        <h6 className="text-sm font-semibold flex items-center gap-2"><FileText className="size-4" /> Documentos Enviados ({data.documentos.length})</h6>
-                        {data.documentos.map(d => (
-                            <div key={d.id} className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/10 p-3">
-                                <div>
-                                    <div className="text-sm font-medium">{d.nomeArquivo}</div>
-                                    <div className="text-xs text-muted-foreground">{TIPO_DOC_L[d.tipo] ?? "Outro"} • {(d.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(d.createdAtUtc)}</div>
+                                // Renderiza uma linha de arquivo (mais recente em destaque + histórico colapsável)
+                                const FileRow = ({ latest, older, histKey, sideLabel }: {
+                                    latest: typeof data.documentos[0];
+                                    older: typeof data.documentos[0][];
+                                    histKey: string;
+                                    sideLabel?: string;
+                                }) => {
+                                    const expanded = expandedHistories.has(histKey);
+                                    return (
+                                        <div className="divide-y divide-emerald-100 dark:divide-emerald-900/40">
+                                            <div className="flex items-center justify-between px-3 py-2 gap-2">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <FileText className="size-3.5 text-muted-foreground shrink-0" />
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            {sideLabel && (
+                                                                <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 shrink-0">
+                                                                    {sideLabel}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-sm truncate">{latest.nomeArquivo}</span>
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {(latest.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(latest.createdAtUtc)}
+                                                            {older.length > 0 && (
+                                                                <button onClick={() => toggleHistory(histKey)}
+                                                                    className="ml-2 underline underline-offset-2 hover:text-foreground transition-colors">
+                                                                    {expanded ? "ocultar histórico" : `ver ${older.length} anterior${older.length > 1 ? "es" : ""}`}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {latest.presignedUrl && <DocActions d={latest} />}
+                                            </div>
+                                            {expanded && older.map(d => (
+                                                <div key={d.id} className="flex items-center justify-between px-3 py-2 gap-2 bg-muted/20">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <FileText className="size-3.5 text-muted-foreground/50 shrink-0" />
+                                                        <div className="min-w-0">
+                                                            <div className="text-xs text-muted-foreground truncate">{d.nomeArquivo}</div>
+                                                            <div className="text-xs text-muted-foreground/70">{(d.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(d.createdAtUtc)}</div>
+                                                        </div>
+                                                    </div>
+                                                    {d.presignedUrl && <DocActions d={d} />}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                };
+
+                                return (
+                                    <div key={k} className="rounded-lg border border-emerald-200 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-900/10 overflow-hidden">
+                                        {/* cabeçalho do grupo */}
+                                        <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-200/60 dark:border-emerald-800/60">
+                                            <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                                            <span className="text-sm font-medium">{sol.label}</span>
+                                            {hasSides && (
+                                                <span className="ml-auto text-xs text-muted-foreground">
+                                                    {frentes.length > 0 && versos.length > 0 ? "Frente + Verso" : frentes.length > 0 ? "Frente" : "Verso"}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {/* Frente */}
+                                        {frentes.length > 0 && (
+                                            <FileRow
+                                                latest={frentes[0]} older={frentes.slice(1)}
+                                                histKey={`${k}-f`} sideLabel="Frente"
+                                            />
+                                        )}
+                                        {/* Verso */}
+                                        {versos.length > 0 && (
+                                            <div className={frentes.length > 0 ? "border-t border-emerald-200/60 dark:border-emerald-800/60" : ""}>
+                                                <FileRow
+                                                    latest={versos[0]} older={versos.slice(1)}
+                                                    histKey={`${k}-v`} sideLabel="Verso"
+                                                />
+                                            </div>
+                                        )}
+                                        {/* Unico (sem lados) */}
+                                        {!hasSides && unicos.length > 0 && (
+                                            <FileRow
+                                                latest={unicos[0]} older={unicos.slice(1)}
+                                                histKey={k}
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            {/* sem solicitados — exibe o mais recente de cada tipo */}
+                            {data.documentosSolicitados.length === 0 && Array.from(docsByTipo.entries()).map(([k, arquivos]) => {
+                                const { frentes, versos, unicos } = splitByLado(arquivos);
+                                const hasSides = frentes.length > 0 || versos.length > 0;
+                                const label = TIPO_DOC_L[Number(k)] ?? `Tipo ${k}`;
+                                const renderSideRow = (latest: typeof data.documentos[0], older: typeof data.documentos[0][], histKey: string, sideLabel?: string) => {
+                                    const exp = expandedHistories.has(histKey);
+                                    return (
+                                        <div key={histKey} className="flex items-center justify-between px-3 py-2 gap-2">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <FileText className="size-3.5 text-muted-foreground shrink-0" />
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        {sideLabel && <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground shrink-0">{sideLabel}</span>}
+                                                        <span className="text-sm truncate">{latest.nomeArquivo}</span>
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {(latest.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(latest.createdAtUtc)}
+                                                        {older.length > 0 && <button onClick={() => toggleHistory(histKey)} className="ml-2 underline underline-offset-2 hover:text-foreground transition-colors">{exp ? "ocultar" : `+${older.length} anterior${older.length > 1 ? "es" : ""}`}</button>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {latest.presignedUrl && <DocActions d={latest} />}
+                                        </div>
+                                    );
+                                };
+                                return (
+                                    <div key={k} className="rounded-lg border border-border/30 bg-muted/10 overflow-hidden">
+                                        <div className="px-3 py-1.5 border-b border-border/20 bg-muted/20">
+                                            <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+                                        </div>
+                                        {hasSides ? (
+                                            <>
+                                                {frentes.length > 0 && renderSideRow(frentes[0], frentes.slice(1), `${k}-f`, "Frente")}
+                                                {versos.length > 0 && <div className="border-t border-border/20">{renderSideRow(versos[0], versos.slice(1), `${k}-v`, "Verso")}</div>}
+                                            </>
+                                        ) : (
+                                            unicos.length > 0 && renderSideRow(unicos[0], unicos.slice(1), k)
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* ── Seção: Não enviados ── */}
+                    {solFaltando.length > 0 && (
+                        <div className="space-y-2">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                <XCircle className="size-3.5 text-red-500" />
+                                Não enviados ({solFaltando.length})
+                            </p>
+                            {solFaltando.map(sol => (
+                                <div key={String(sol.tipoDocumento)} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 ${sol.obrigatorio ? "border-red-200 bg-red-50/40 dark:border-red-800 dark:bg-red-900/10" : "border-amber-200 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-900/10"}`}>
+                                    <XCircle className={`size-4 shrink-0 ${sol.obrigatorio ? "text-red-500" : "text-amber-500"}`} />
+                                    <span className="text-sm font-medium flex-1">{sol.label}</span>
+                                    <span className={`text-xs font-medium ${sol.obrigatorio ? "text-red-600" : "text-amber-600"}`}>{sol.obrigatorio ? "Obrigatório" : "Opcional"}</span>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* ── Seção: Extras (fora do solicitado) ── */}
+                    {extras.length > 0 && (
+                        <div className="space-y-2">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Outros arquivos enviados</p>
+                            {extras.map(d => (
+                                <div key={d.id} className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/10 p-3 gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <FileText className="size-4 text-muted-foreground shrink-0" />
+                                        <div className="min-w-0">
+                                            <div className="text-sm font-medium truncate">{d.nomeArquivo}</div>
+                                            <div className="text-xs text-muted-foreground">{TIPO_DOC_L[Number(d.tipo)] ?? String(d.tipo)} • {(d.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(d.createdAtUtc)}</div>
+                                        </div>
+                                    </div>
+                                    {d.presignedUrl && <DocActions d={d} />}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {data.documentos.length === 0 && data.documentosSolicitados.length === 0 && (
+                        <div className="text-center py-8 text-sm text-muted-foreground">Nenhum arquivo enviado.</div>
+                    )}
+                </TabsContent>
+            </Tabs>
 
             {/* Action buttons — only for EmRevisao */}
             {data.status === 2 && (
-                <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-border/40 bg-card/60 backdrop-blur">
+                <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-border/40 bg-card shadow-sm">
                     <div className="flex-1 min-w-[200px]">
                         <label className="text-xs text-muted-foreground block mb-1">Observação do RH (opcional)</label>
                         <Input value={approveObs} onChange={e => setApproveObs(e.target.value)} placeholder="Comentários adicionais…" />
@@ -394,9 +616,26 @@ export default function AdmissaoRevisaoScreen() {
 
 /* ── sub-components ── */
 
+type DocumentoItem = PreAdmissao["documentos"][number];
+
+function DocActions({ d }: { d: DocumentoItem }) {
+    return (
+        <div className="flex gap-1.5 shrink-0">
+            <a href={d.presignedUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-xs font-medium hover:bg-muted transition-colors">
+                <Eye className="size-3.5" /> Visualizar
+            </a>
+            <a href={d.presignedUrl} download={d.nomeArquivo}
+                className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-xs font-medium hover:bg-muted transition-colors">
+                <Download className="size-3.5" /> Baixar
+            </a>
+        </div>
+    );
+}
+
 function Section({ title, icon: SIcon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
     return (
-        <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+        <div className="rounded-xl border border-border/40 bg-muted/5 p-4">
             <h6 className="text-sm font-semibold flex items-center gap-2 mb-3"><SIcon className="size-4" /> {title}</h6>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">{children}</div>
         </div>

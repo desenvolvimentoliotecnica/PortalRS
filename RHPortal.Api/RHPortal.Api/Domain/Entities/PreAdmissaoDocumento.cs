@@ -14,6 +14,9 @@ public sealed class PreAdmissaoDocumento : ITenantEntity
 
     public TipoDocumento Tipo { get; set; }
 
+    /// <summary>Face do documento (Unico, Frente ou Verso). Padrão: Unico.</summary>
+    public LadoDocumento Lado { get; set; } = LadoDocumento.Unico;
+
     [Required, StringLength(260)]
     public string NomeArquivo { get; set; } = string.Empty;
 

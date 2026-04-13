@@ -407,7 +407,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const docsTotal = data.documentos.length;
 
     return (
-        <section className="space-y-5 max-w-4xl mx-auto">
+        <section className="space-y-5">
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
                 <div>

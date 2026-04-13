@@ -32,6 +32,8 @@ public sealed record PortalDocumentoSolicitadoItem(
 public sealed record PortalDocumentoEnviadoItem(
     Guid Id,
     int Tipo,
+    /// <summary>Face do documento: 0=Único, 1=Frente, 2=Verso.</summary>
+    int Lado,
     string NomeArquivo,
     long TamanhoBytes,
     int Status,
@@ -151,6 +153,8 @@ public sealed class PortalUploadDocumentoRequest
 {
     public IFormFile File { get; set; } = null!;
     public TipoDocumento Tipo { get; set; }
+    /// <summary>Face do documento: Unico (0, padrão), Frente (1) ou Verso (2).</summary>
+    public LadoDocumento Lado { get; set; } = LadoDocumento.Unico;
 }
 
 // ── Dependentes ──

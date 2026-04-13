@@ -85,7 +85,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
 
         var ids = rawRows.Select(r => r.Id).ToList();
         var etapasPendentes = await _workflow.GetEtapasPendentesAsync(
-            ids, TipoFluxoAprovacao.MovimentacaoPessoal, ct);
+            ids, TipoFluxoAprovacao.MovimentacaoPessoal, ct, currentUserId: _currentUser.UserId);
 
         return rawRows.Select(r =>
         {
@@ -93,7 +93,8 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             return new SolicitacaoPromocaoGridRow(
                 r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome,
                 r.NovoCargoNome, r.DataEfetiva, r.CreatedAtUtc,
-                ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId);
+                ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
+                ep?.CanAssume ?? false);
         }).ToList();
     }
 
@@ -439,7 +440,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         if (etapaAtual.AprovadorId.HasValue)
             throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
 
-        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+        if (!await _workflow.CanAssumeRoleQueueAsync(etapaAtual, _currentUser, ct))
             throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
 
         etapaAtual.AprovadorId = _currentUser.FuncionarioId;

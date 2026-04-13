@@ -27,6 +27,8 @@ public interface ICandidatoService
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     /// <summary>Remove todos os candidatos do tenant atual (inclui documentos em disco). Retorna o número removido.</summary>
     Task<int> DeleteAllForTenantAsync(CancellationToken ct);
+    /// <summary>Desvincula todos os candidatos de uma vaga (VagaId = null), mantendo os dados na base como talentos.</summary>
+    Task<int> DesvincularDaVagaAsync(Guid vagaId, CancellationToken ct);
     Task<IReadOnlyList<CandidateStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct);
     Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct);
     /// <summary>Upload de currículo (PDF), extração de texto e opcionalmente dados sugeridos pela LLM para o usuário revisar na tela.</summary>
@@ -72,6 +74,19 @@ public sealed class CandidatoService : ICandidatoService
         _cvGptExtractor = cvGptExtractor;
         _aiMatchClient = aiMatchClient;
         _matchingScoreService = matchingScoreService;
+    }
+
+    public async Task<int> DesvincularDaVagaAsync(Guid vagaId, CancellationToken ct)
+    {
+        var candidatos = await _db.Candidatos
+            .Where(c => c.VagaId == vagaId)
+            .ToListAsync(ct);
+
+        foreach (var c in candidatos)
+            c.VagaId = null;
+
+        await _db.SaveChangesAsync(ct);
+        return candidatos.Count;
     }
 
     public async Task<CandidatePagedResponse> ListAsync(CandidateListQuery query, CancellationToken ct)

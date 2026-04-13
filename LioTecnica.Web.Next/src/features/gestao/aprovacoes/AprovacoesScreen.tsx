@@ -549,8 +549,9 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const isMyRow = useCallback((row: GenericRow): boolean => {
         // Never show my own requests as pendências for me
         if (myFuncionarioId && row.solicitanteId === myFuncionarioId) return false;
-        // Fila de perfil — unclaimed, any profile member can take it
-        if (isFilaRow(row)) return true;
+        // Fila de perfil — unclaimed AND current user belongs to the role
+        // etapaPendenteCanAssume is computed server-side based on user's role membership
+        if (row.etapaPendenteCanAssume === true) return true;
         // Assumed by me directly (admin without Funcionario link)
         if (myUserId && row.etapaPendenteAssumedByUserId === myUserId) return true;
         // Nominated directly to me via Funcionario

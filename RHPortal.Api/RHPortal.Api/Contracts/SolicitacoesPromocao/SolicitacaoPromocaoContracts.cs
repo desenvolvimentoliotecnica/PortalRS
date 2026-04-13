@@ -150,5 +150,6 @@ public sealed record SolicitacaoPromocaoGridRow(
     string? EtapaPendenteLabel,
     string? EtapaPendenteCom,
     bool EtapaPendenteIsQueue,
-    Guid? EtapaPendenteAprovadorId
+    Guid? EtapaPendenteAprovadorId,
+    bool EtapaPendenteCanAssume
 );

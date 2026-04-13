@@ -79,7 +79,7 @@ public sealed class AdmissaoPortalController : ControllerBase
         {
             using var stream = request.File.OpenReadStream();
             var result = await _service.UploadDocAsync(
-                preAdmissaoId, cpf, request.Tipo,
+                preAdmissaoId, cpf, request.Tipo, request.Lado,
                 request.File.FileName, request.File.ContentType, request.File.Length, stream, ct);
 
             return result is null

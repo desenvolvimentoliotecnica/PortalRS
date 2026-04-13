@@ -353,7 +353,7 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
         if (etapaAtual.AprovadorId.HasValue)
             throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
 
-        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+        if (!await _workflow.CanAssumeRoleQueueAsync(etapaAtual, _currentUser, ct))
             throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
 
         etapaAtual.AprovadorId = _currentUser.FuncionarioId;

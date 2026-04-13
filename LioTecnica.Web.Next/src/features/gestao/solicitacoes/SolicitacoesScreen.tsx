@@ -915,9 +915,6 @@ function SolicitacoesVagaContent() {
                                     <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); setEditId(detail.id); setFormOpen(true); }}>
                                         <Pencil className="size-4" /> Editar
                                     </Button>
-                                    <Button size="sm" variant="outline" className="text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(detail.id)}>
-                                        <Ban className="size-4" /> Cancelar
-                                    </Button>
                                 </div>
                             )}
                             {/* ── Cancelar (pendente) ── */}
