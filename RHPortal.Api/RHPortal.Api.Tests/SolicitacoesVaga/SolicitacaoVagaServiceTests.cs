@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using RhPortal.Api.Application.Common;
 using RhPortal.Api.Application.Pessoas;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Application.Vagas;
@@ -67,10 +68,12 @@ public sealed class SolicitacaoVagaServiceTests
         currentUserMock.Setup(x => x.UserId).Returns((Guid?)null);
 
         var pessoaMock = new Mock<IPessoaService>();
+        var workflow = new ApprovalWorkflowHelper(db, tenantMock.Object, notifications);
+        var workflowRHMock = new Mock<RhPortal.Api.Application.WorkflowRH.IWorkflowRHService>();
 
         var service = new SolicitacaoVagaService(
             db, tenantMock.Object, vagaMock.Object, currentUserMock.Object,
-            pessoaMock.Object, notifications);
+            pessoaMock.Object, notifications, workflow, workflowRHMock.Object);
 
         return (db, service, vagaMock);
     }
@@ -117,7 +120,6 @@ public sealed class SolicitacaoVagaServiceTests
             Status = status,
             TipoSolicitacao = TipoSolicitacaoVaga.VagaNova,
             IsConfidencial = false,
-            Aprovador2Habilitado = false,
             AreaId = areaId,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
@@ -207,7 +209,6 @@ public sealed class SolicitacaoVagaServiceTests
             Urgencia = SolicitacaoVagaUrgencia.Critica,
             TipoSolicitacao = TipoSolicitacaoVaga.Substituicao,
             IsConfidencial = true,
-            Aprovador2Habilitado = true,
         };
 
         var result = await svc.UpdateAsync(id, updateRequest, CancellationToken.None);
@@ -257,8 +258,11 @@ public sealed class SolicitacaoVagaServiceTests
             .IgnoreQueryFilters()
             .FirstAsync(x => x.Id == id);
         Assert.Equal(SolicitacaoVagaStatus.PendenteAprovacao, entity.Status);
-        Assert.Equal(aprovadorFakeId, entity.Aprovador1Id);
-        Assert.Equal(StatusAprovacao.Pendente, entity.Aprovador1Status);
+        var etapa = await db.SolicitacoesAprovacaoEtapa.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.SolicitacaoId == id);
+        Assert.NotNull(etapa);
+        Assert.Equal(aprovadorFakeId, etapa.AprovadorId);
+        Assert.Equal(StatusAprovacao.Pendente, etapa.Status);
     }
 
     [Fact]

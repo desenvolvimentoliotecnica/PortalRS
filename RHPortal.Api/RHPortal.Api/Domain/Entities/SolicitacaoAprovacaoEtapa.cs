@@ -34,7 +34,19 @@ public sealed class SolicitacaoAprovacaoEtapa : ITenantEntity
     /// </summary>
     public Guid? RoleFilaId { get; set; }
 
+    /// <summary>Snapshot da ação configurada para esta etapa.</summary>
+    public AcaoEtapa AcaoEtapa { get; set; } = AcaoEtapa.Nenhuma;
+
+    /// <summary>Snapshot do momento em que a ação deve executar.</summary>
+    public MomentoAcao MomentoAcao { get; set; } = MomentoAcao.AoChegar;
+
     public StatusAprovacao Status { get; set; } = StatusAprovacao.Pendente;
     public string? Observacao { get; set; }
     public DateTimeOffset? DataUtc { get; set; }
+
+    /// <summary>
+    /// Usuário que assumiu a etapa via consenso (quando não há AprovadorId resolvido).
+    /// Permite que admins sem Funcionario vinculado assumam tarefas de consenso.
+    /// </summary>
+    public Guid? AssumedByUserId { get; set; }
 }

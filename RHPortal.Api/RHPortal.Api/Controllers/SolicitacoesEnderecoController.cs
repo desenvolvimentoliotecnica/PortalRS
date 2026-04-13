@@ -133,7 +133,9 @@ public sealed class SolicitacoesEnderecoController : ControllerBase
             return result is null ? NotFound() : Ok(result);
         }
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
-    }\n\n    [HttpDelete("{id:guid}")]
+    }
+
+    [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {

@@ -126,6 +126,7 @@ namespace RHPortal.Api.Domain.Entities
         public VagaRegimeJornada? Regime { get; set; }     // vagaRegime
         public int? CargaSemanalHoras { get; set; }        // vagaCargaSemanal
         public VagaEscalaTrabalho? Escala { get; set; }    // vagaEscala
+        public string? EscalaTrabalhoRaw { get; set; }     // JSON from HorarioEditor (escala + grid)
 
         public TimeOnly? HoraEntrada { get; set; }         // vagaHoraEntrada (08:00)
         public TimeOnly? HoraSaida { get; set; }           // vagaHoraSaida (17:00)

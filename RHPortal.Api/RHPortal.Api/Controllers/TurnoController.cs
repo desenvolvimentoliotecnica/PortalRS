@@ -57,7 +57,6 @@ public sealed class TurnoController : ControllerBase
     }
 
     [HttpGet("lookup")]
-    [OutputCache(PolicyName = "lookup")]
     [ProducesResponseType(typeof(List<TurnoLookupItem>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<TurnoLookupItem>>> Lookup(
         [FromServices] AppDbContext db,

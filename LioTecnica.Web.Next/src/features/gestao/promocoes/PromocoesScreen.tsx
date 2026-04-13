@@ -43,20 +43,9 @@ import {
 
 import PromocaoFormModal from "./PromocaoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
+import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
 
 /* ──────────────────────────── types ──────────────────────────── */
-
-interface EtapaAprovacaoResponse {
-    ordem: number;
-    label: string;
-    aprovadorId: string | null;
-    aprovadorNome: string | null;
-    roleFilaId: string | null;
-    roleFilaNome: string | null;
-    status: string; // "Pendente" | "Aprovado" | "Reprovado"
-    dataUtc: string | null;
-    observacao: string | null;
-}
 
 interface SolicitacaoPromocaoGridRow {
     id: string;
@@ -66,6 +55,8 @@ interface SolicitacaoPromocaoGridRow {
     novoCargoNome: string | null;
     dataEfetiva: string | null;
     createdAtUtc: string;
+    etapaPendenteLabel: string | null;
+    etapaPendenteCom: string | null;
 }
 
 interface SolicitacaoPromocaoResponse {
@@ -79,17 +70,13 @@ interface SolicitacaoPromocaoResponse {
     areaAtualNome: string | null;
     novaAreaNome: string | null;
     justificativa: string | null;
-    aprovador1Nome: string | null;
-    aprovador1Status: number | null;
-    aprovador2Nome: string | null;
-    aprovador2Status: number | null;
     observacaoAprovador: string | null;
     observacoes: string | null;
     createdAtUtc: string;
     etapas?: EtapaAprovacaoResponse[];
 }
 
-type StatusKey = 0 | 1 | 2 | 3 | 4 | 6;
+type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -110,11 +97,12 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
-    0: { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
-    1: { label: "Pendente", color: "bg-amber-500/15 text-amber-700", icon: Clock },
-    2: { label: "Aprovada", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    3: { label: "Reprovada", color: "bg-red-500/15 text-red-700", icon: XCircle },
-    4: { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
+    0: { label: "Rascunho",    color: "bg-zinc-400/15 text-zinc-600",   icon: FileText },
+    1: { label: "Pendente",    color: "bg-amber-500/15 text-amber-700", icon: Clock },
+    2: { label: "Aprovada",    color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    3: { label: "Reprovada",   color: "bg-red-500/15 text-red-700",     icon: XCircle },
+    4: { label: "Ajustes",     color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
+    5: { label: "Cancelada",   color: "bg-zinc-500/15 text-zinc-500",   icon: XCircle },
     6: { label: "Aguarda Fila", color: "bg-violet-500/15 text-violet-700", icon: Users },
 };
 
@@ -164,7 +152,7 @@ function formatDate(iso: string | null | undefined) {
 
 export default function PromocoesScreen() {
     const { me } = useAuth();
-    const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin") ?? false;
+    const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
     const myFuncionarioId = (me as { funcionarioId?: string } | null)?.funcionarioId;
     const myRoles: string[] = (me?.roles ?? []) as string[];
 
@@ -186,6 +174,7 @@ export default function PromocoesScreen() {
     const [timelineOpen, setTimelineOpen] = useState(false);
     const [timelineSteps, setTimelineSteps] = useState<AprovacaoStep[]>([]);
     const [timelineLoading, setTimelineLoading] = useState(false);
+    const [timelineStatus, setTimelineStatus] = useState<number | string | null>(null);
 
     /* ── detail dialog ── */
     const [detailOpen, setDetailOpen] = useState(false);
@@ -266,32 +255,13 @@ export default function PromocoesScreen() {
         setTimelineOpen(true);
         setTimelineLoading(true);
         setTimelineSteps([]);
+        setTimelineStatus(null);
         try {
             const d = await fetchJson<SolicitacaoPromocaoResponse>(`${API}/${row.id}`);
-            const steps: AprovacaoStep[] = [
-                {
-                    label: "Criado",
-                    nome: d.solicitanteNome,
-                    status: 1,
-                    habilitado: true,
-                    date: d.createdAtUtc,
-                },
-                {
-                    label: "Aprovação — Gestor",
-                    nome: d.aprovador1Nome,
-                    status: d.aprovador1Status,
-                    habilitado: true,
-                },
-            ];
-            if (d.aprovador2Nome) {
-                steps.push({
-                    label: "Aprovação — Nível 2",
-                    nome: d.aprovador2Nome,
-                    status: d.aprovador2Status,
-                    habilitado: true,
-                });
-            }
-            setTimelineSteps(steps);
+            setTimelineStatus(d.status);
+            setTimelineSteps(
+                mapEtapasToSteps(d.etapas ?? [], d.solicitanteNome, d.createdAtUtc)
+            );
         } catch {
             toast.error("Falha ao carregar acompanhamento.");
             setTimelineOpen(false);
@@ -392,10 +362,7 @@ export default function PromocoesScreen() {
             }
         }
 
-        // Fallback: check legacy aprovador1Id / aprovador2Id
-        const d = detail as unknown as { aprovador1Id?: string; aprovador2Id?: string };
-        const isAprov = d.aprovador1Id === myFuncionarioId || d.aprovador2Id === myFuncionarioId;
-        return { canApprove: isAprov, isQueueStep: false, currentEtapa: null };
+        return { canApprove: false, isQueueStep: false, currentEtapa: null };
     }, [detail, me, isAdmin, myFuncionarioId, myRoles]);
 
     /* ──────────────────────────── render ──────────────────────────── */
@@ -494,6 +461,7 @@ export default function PromocoesScreen() {
                             <TableHead>Cargo Atual → Novo Cargo</TableHead>
                             <TableHead>Data Efetiva</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Aguardando</TableHead>
                             <TableHead>Data Criação</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
@@ -501,7 +469,7 @@ export default function PromocoesScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -523,6 +491,16 @@ export default function PromocoesScreen() {
                                     </TableCell>
                                     <TableCell className="text-sm">{formatDate(r.dataEfetiva)}</TableCell>
                                     <TableCell>{statusBadge(r.status)}</TableCell>
+                                    <TableCell>
+                                        {(r.status === 1 || r.status === 6) && r.etapaPendenteCom ? (
+                                            <div className="text-xs leading-tight">
+                                                <div className="text-muted-foreground">{r.etapaPendenteLabel}</div>
+                                                <div className="font-medium truncate max-w-[140px]" title={r.etapaPendenteCom}>{r.etapaPendenteCom}</div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-muted-foreground text-xs">—</span>
+                                        )}
+                                    </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
@@ -573,7 +551,7 @@ export default function PromocoesScreen() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                                     Nenhuma solicitação de promoção encontrada.
                                 </TableCell>
                             </TableRow>
@@ -595,6 +573,7 @@ export default function PromocoesScreen() {
                 open={timelineOpen}
                 loading={timelineLoading}
                 steps={timelineSteps}
+                solicitacaoStatus={timelineStatus}
                 onClose={() => setTimelineOpen(false)}
             />
 
@@ -694,27 +673,7 @@ export default function PromocoesScreen() {
                                             );
                                         })}
                                     </div>
-                                ) : (
-                                    /* Fallback to legacy view */
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <div className="text-xs text-muted-foreground">Aprovador 1</div>
-                                            <div className="text-sm font-medium">{detail.aprovador1Nome || "—"}</div>
-                                            {detail.aprovador1Status != null && (
-                                                <div className="mt-0.5">{statusBadge(detail.aprovador1Status)}</div>
-                                            )}
-                                        </div>
-                                        {detail.aprovador2Nome && (
-                                            <div>
-                                                <div className="text-xs text-muted-foreground">Aprovador 2</div>
-                                                <div className="text-sm font-medium">{detail.aprovador2Nome}</div>
-                                                {detail.aprovador2Status != null && (
-                                                    <div className="mt-0.5">{statusBadge(detail.aprovador2Status)}</div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                ) : null}
                             </div>
 
                             {detail.justificativa && (

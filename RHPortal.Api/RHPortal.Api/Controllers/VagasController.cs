@@ -6,6 +6,8 @@ using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Application.Vagas.Handlers;
 using RhPortal.Api.Contracts.Matching;
 using RhPortal.Api.Contracts.Vagas;
+using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -115,14 +117,62 @@ public sealed class VagasController : ControllerBase
 
         // 1. Solicitação — quem solicitou, quem aprovou
         var solic = await db.SolicitacoesVaga.AsNoTracking()
-            .Include(s => s.Solicitante).Include(s => s.Aprovador1).Include(s => s.Aprovador)
+            .Include(s => s.Solicitante).Include(s => s.Aprovador)
             .Where(s => s.VagaId == id).FirstOrDefaultAsync(ct);
 
         if (solic != null)
         {
             events.Add(new VagaHistoricoEvent("Solicitação de vaga criada", solic.Solicitante?.Name, solic.CreatedAtUtc, null, null));
             if (solic.ApprovedAtUtc.HasValue)
-                events.Add(new VagaHistoricoEvent("Solicitação aprovada pelo gestor", solic.Aprovador1?.Name ?? solic.Aprovador?.Name, solic.ApprovedAtUtc.Value, null, null));
+                events.Add(new VagaHistoricoEvent("Solicitação aprovada pelo gestor", solic.Aprovador?.Name, solic.ApprovedAtUtc.Value, null, null));
+
+            // Etapas de aprovação individuais
+            var etapas = await db.SolicitacoesAprovacaoEtapa.AsNoTracking()
+                .Include(e => e.Aprovador)
+                .Where(e => e.SolicitacaoId == solic.Id && e.Status != StatusAprovacao.Pendente)
+                .OrderBy(e => e.Ordem)
+                .ToListAsync(ct);
+
+            if (etapas.Count > 0)
+            {
+                var assumedIds = etapas
+                    .Where(e => e.AssumedByUserId.HasValue)
+                    .Select(e => e.AssumedByUserId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                var assumedNames = new Dictionary<Guid, string?>();
+                if (assumedIds.Count > 0)
+                {
+                    var rows = await db.Set<ApplicationUser>()
+                        .AsNoTracking()
+                        .IgnoreQueryFilters()
+                        .Where(u => assumedIds.Contains(u.Id))
+                        .Select(u => new { u.Id, Name = u.FullName != null && u.FullName != "" ? u.FullName : u.UserName })
+                        .ToListAsync(ct);
+                    foreach (var r in rows)
+                        assumedNames[r.Id] = r.Name;
+                }
+
+                foreach (var etapa in etapas)
+                {
+                    if (!etapa.DataUtc.HasValue) continue;
+
+                    string quemFez = etapa.AssumedByUserId.HasValue && assumedNames.TryGetValue(etapa.AssumedByUserId.Value, out var adminName)
+                        ? adminName ?? "Admin"
+                        : etapa.Aprovador?.Name ?? "—";
+
+                    string acao = etapa.Status switch
+                    {
+                        StatusAprovacao.Aprovado  => $"Etapa aprovada: {etapa.Label}",
+                        StatusAprovacao.Rejeitado => $"Etapa reprovada: {etapa.Label}",
+                        StatusAprovacao.Cancelado => $"Etapa cancelada: {etapa.Label}",
+                        _                         => $"Etapa concluída: {etapa.Label}",
+                    };
+
+                    events.Add(new VagaHistoricoEvent(acao, quemFez, etapa.DataUtc.Value, null, null));
+                }
+            }
         }
 
         // 2. Vaga criada

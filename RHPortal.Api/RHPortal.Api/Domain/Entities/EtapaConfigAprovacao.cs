@@ -33,6 +33,12 @@ public sealed class EtapaConfigAprovacao : ITenantEntity
     public Guid? RoleFilaId { get; set; }
     public ApplicationRole? RoleFila { get; set; }
 
+    /// <summary>Ação automática associada a esta etapa (ex: criar vaga).</summary>
+    public AcaoEtapa AcaoEtapa { get; set; } = AcaoEtapa.Nenhuma;
+
+    /// <summary>Quando a ação é executada: ao chegar neste step ou ao aprovar.</summary>
+    public MomentoAcao MomentoAcao { get; set; } = MomentoAcao.AoChegar;
+
     public bool Ativo { get; set; } = true;
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

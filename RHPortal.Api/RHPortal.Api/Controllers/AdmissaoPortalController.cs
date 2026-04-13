@@ -63,6 +63,7 @@ public sealed class AdmissaoPortalController : ControllerBase
     [ProducesResponseType(typeof(PreAdmissaoDocumentoResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> UploadDocumento(
         Guid preAdmissaoId, [FromForm] PortalUploadDocumentoRequest request, CancellationToken ct)
@@ -74,14 +75,27 @@ public sealed class AdmissaoPortalController : ControllerBase
         if (ext is not (".pdf" or ".jpg" or ".jpeg" or ".png"))
             return BadRequest(new { message = "Tipo de arquivo não permitido. Use PDF, JPG ou PNG." });
 
-        using var stream = request.File.OpenReadStream();
-        var result = await _service.UploadDocAsync(
-            preAdmissaoId, cpf, request.Tipo,
-            request.File.FileName, request.File.ContentType, request.File.Length, stream, ct);
+        try
+        {
+            using var stream = request.File.OpenReadStream();
+            var result = await _service.UploadDocAsync(
+                preAdmissaoId, cpf, request.Tipo,
+                request.File.FileName, request.File.ContentType, request.File.Length, stream, ct);
 
-        return result is null
-            ? Unauthorized(new { message = "Acesso negado." })
-            : Created("", result);
+            return result is null
+                ? Unauthorized(new { message = "Acesso negado." })
+                : Created("", result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Configuração de storage ausente (S3 não configurado)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new { message = "Erro ao armazenar o documento. Verifique as configurações de armazenamento (S3)." });
+        }
     }
 
     /// <summary>Candidato submete dados e documentos para revisão do RH.</summary>
@@ -96,5 +110,84 @@ public sealed class AdmissaoPortalController : ControllerBase
         return await _service.SubmitAsync(preAdmissaoId, cpf, ct)
             ? Ok(new { ok = true, message = "Dados enviados para revisão do RH." })
             : BadRequest(new { message = "Não foi possível submeter. Verifique se já foi enviado ou se o acesso está ativo." });
+    }
+
+    /// <summary>Valida um documento via IA (GPT-4o vision) e extrai campos automaticamente.</summary>
+    [HttpPost("{preAdmissaoId:guid}/validate-document")]
+    [RequestSizeLimit(15 * 1024 * 1024)]
+    [ProducesResponseType(typeof(DocumentValidationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ValidateDocument(
+        Guid preAdmissaoId, [FromBody] DocumentValidationRequest request, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+        var result = await _service.ValidateDocumentAsync(preAdmissaoId, cpf, request, ct);
+        return result is null ? Unauthorized(new { message = "Acesso negado." }) : Ok(result);
+    }
+
+    /// <summary>Lista os dependentes da pré-admissão.</summary>
+    [HttpGet("{preAdmissaoId:guid}/dependentes")]
+    [ProducesResponseType(typeof(IReadOnlyList<PreAdmissaoDependenteResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ListDependentes(Guid preAdmissaoId, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+        var result = await _service.ListDependentesAsync(preAdmissaoId, cpf, ct);
+        return Ok(result);
+    }
+
+    /// <summary>Adiciona um dependente à pré-admissão.</summary>
+    [HttpPost("{preAdmissaoId:guid}/dependentes")]
+    [ProducesResponseType(typeof(PreAdmissaoDependenteResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> AddDependente(
+        Guid preAdmissaoId, [FromBody] DependenteCreateRequest request, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+        var result = await _service.AddDependenteAsync(preAdmissaoId, cpf, request, ct);
+        return result is null ? Unauthorized(new { message = "Acesso negado." }) : Created("", result);
+    }
+
+    /// <summary>Atualiza um dependente da pré-admissão.</summary>
+    [HttpPut("{preAdmissaoId:guid}/dependentes/{dependenteId:guid}")]
+    [ProducesResponseType(typeof(PreAdmissaoDependenteResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateDependente(
+        Guid preAdmissaoId, Guid dependenteId, [FromBody] DependenteUpdateRequest request, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+        var result = await _service.UpdateDependenteAsync(preAdmissaoId, cpf, dependenteId, request, ct);
+        return result is null ? Unauthorized(new { message = "Acesso negado." }) : Ok(result);
+    }
+
+    /// <summary>Remove um dependente da pré-admissão.</summary>
+    [HttpDelete("{preAdmissaoId:guid}/dependentes/{dependenteId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RemoveDependente(Guid preAdmissaoId, Guid dependenteId, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+        return await _service.RemoveDependenteAsync(preAdmissaoId, cpf, dependenteId, ct)
+            ? Ok(new { ok = true })
+            : Unauthorized(new { message = "Acesso negado." });
+    }
+
+    /// <summary>Salva o progresso do wizard (step atual e percentual).</summary>
+    [HttpPut("{preAdmissaoId:guid}/wizard-progress")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SaveWizardProgress(
+        Guid preAdmissaoId, [FromBody] WizardProgressRequest request, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+        return await _service.SaveWizardProgressAsync(preAdmissaoId, cpf, request.CurrentStep, request.CompletionPercent, ct)
+            ? Ok(new { ok = true })
+            : Unauthorized(new { message = "Acesso negado." });
     }
 }

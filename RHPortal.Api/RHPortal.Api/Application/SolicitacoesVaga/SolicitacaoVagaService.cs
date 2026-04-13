@@ -2,6 +2,7 @@ using RhPortal.Api.Application.Common;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Pessoas;
 using RhPortal.Api.Application.Vagas;
+using RhPortal.Api.Application.WorkflowRH;
 using RhPortal.Api.Contracts.SolicitacoesVaga;
 using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Domain.Entities;
@@ -27,6 +28,7 @@ public interface ISolicitacaoVagaService
     Task<SolicitacaoVagaResponse?> CancelAsync(Guid id, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<SolicitacaoVagaResponse?> AssumirAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoVagaResponse> CopyAsync(Guid sourceId, Guid? solicitanteId, CancellationToken ct);
 }
 
 public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
@@ -38,6 +40,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     private readonly IPessoaService _pessoaService;
     private readonly NotificationPublisher _notifications;
     private readonly ApprovalWorkflowHelper _workflow;
+    private readonly IWorkflowRHService _workflowRH;
 
     public SolicitacaoVagaService(
         AppDbContext db,
@@ -46,7 +49,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         ICurrentUserContext currentUser,
         IPessoaService pessoaService,
         NotificationPublisher notifications,
-        ApprovalWorkflowHelper workflow)
+        ApprovalWorkflowHelper workflow,
+        IWorkflowRHService workflowRH)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -55,6 +59,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         _pessoaService = pessoaService;
         _notifications = notifications;
         _workflow = workflow;
+        _workflowRH = workflowRH;
     }
 
     public async Task<IReadOnlyList<SolicitacaoVagaGridRow>> ListAsync(
@@ -65,19 +70,50 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Include(s => s.Area)
             .AsQueryable();
 
-        // Sprint P1: VagasDataScope enforcement
-        if (!_currentUser.IsAdmin)
+        if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
         {
+            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
+        }
+        else if (!_currentUser.IsAdmin)
+        {
+            // Non-admin sees: own requests OR requests with a pending approval step assigned to them
+            // (either directly via AprovadorId or via FilaDePerfil role queue)
+            var userRoleIds = _currentUser.UserId.HasValue
+                ? await _db.Set<ApplicationUserRole>().AsNoTracking()
+                    .Where(ur => ur.UserId == _currentUser.UserId.Value)
+                    .Select(ur => ur.RoleId)
+                    .ToListAsync(ct)
+                : new List<Guid>();
+
+            // IDs of solicitações where the current user is the pending approver
+            var solicitacaoIdsComEtapaPendente = await _db.SolicitacoesAprovacaoEtapa
+                .AsNoTracking()
+                .Where(e => e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+                    && e.Status == StatusAprovacao.Pendente
+                    && (
+                        (e.AprovadorId.HasValue && e.AprovadorId == currentFuncionarioId)
+                        || (e.RoleFilaId.HasValue && userRoleIds.Contains(e.RoleFilaId.Value))
+                        || (e.AssumedByUserId.HasValue && e.AssumedByUserId == _currentUser.UserId)
+                    ))
+                .Select(e => e.SolicitacaoId)
+                .Distinct()
+                .ToListAsync(ct);
+
+            // Also apply VagasDataScope for "own" items
             if (_currentUser.VagasDataScope == VagasDataScope.ByArea && _currentUser.AreaId.HasValue)
-                q = q.Where(s => s.AreaId == _currentUser.AreaId.Value);
+                q = q.Where(s => s.AreaId == _currentUser.AreaId.Value
+                    || solicitacaoIdsComEtapaPendente.Contains(s.Id));
             else if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador && currentFuncionarioId.HasValue)
-                q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
+                q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value
+                    || solicitacaoIdsComEtapaPendente.Contains(s.Id));
+            else
+                q = q.Where(s => (currentFuncionarioId.HasValue && s.SolicitanteId == currentFuncionarioId.Value)
+                    || solicitacaoIdsComEtapaPendente.Contains(s.Id));
         }
 
-        if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
-            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
-
-        if (query.Status.HasValue)
+        if (query.Statuses is { Length: > 0 })
+            q = q.Where(s => query.Statuses.Contains(s.Status));
+        else if (query.Status.HasValue)
             q = q.Where(s => s.Status == query.Status.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Q))
@@ -92,26 +128,32 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var pageSize = Math.Clamp(query.PageSize ?? 20, 1, 100);
         q = q.Skip((page - 1) * pageSize).Take(pageSize);
 
-        return await q
+        var rawRows = await q
             .Include(s => s.Aprovador)
-            .Include(s => s.Aprovador1)
-            .Select(s => new SolicitacaoVagaGridRow(
-            s.Id,
-            s.Titulo,
-            s.Urgencia,
-            s.Status,
-            s.SolicitanteId,
-            s.Solicitante != null ? s.Solicitante.Name : null,
-            // Aprovador1Id (workflow real) tem prioridade sobre AprovadorId (legado)
-            s.Aprovador1Id ?? s.AprovadorId,
-            s.Aprovador1 != null ? s.Aprovador1.Name : (s.Aprovador != null ? s.Aprovador.Name : null),
-            s.Area != null ? s.Area.Name : null,
-            s.QtdPosicoes,
-            s.TipoSolicitacao,
-            s.IsConfidencial,
-            s.SubstituidoNome,
-            s.CreatedAtUtc
-        )).ToListAsync(ct);
+            .Select(s => new
+            {
+                s.Id, s.Titulo, s.Urgencia, s.Status,
+                s.SolicitanteId,
+                SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
+                AprovadorId = s.AprovadorId,
+                AprovadorNome = s.Aprovador != null ? s.Aprovador.Name : (string?)null,
+                AreaName = s.Area != null ? s.Area.Name : (string?)null,
+                s.QtdPosicoes, s.TipoSolicitacao, s.IsConfidencial, s.SubstituidoNome, s.CreatedAtUtc,
+            }).ToListAsync(ct);
+
+        var ids = rawRows.Select(r => r.Id).ToList();
+        var etapasPendentes = await _workflow.GetEtapasPendentesAsync(
+            ids, TipoFluxoAprovacao.RequisicaoPessoal, ct);
+
+        return rawRows.Select(r =>
+        {
+            etapasPendentes.TryGetValue(r.Id, out var ep);
+            return new SolicitacaoVagaGridRow(
+                r.Id, r.Titulo, r.Urgencia, r.Status, r.SolicitanteId, r.SolicitanteNome,
+                r.AprovadorId, r.AprovadorNome, r.AreaName, r.QtdPosicoes,
+                r.TipoSolicitacao, r.IsConfidencial, r.SubstituidoNome, r.CreatedAtUtc,
+                ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId);
+        }).ToList();
     }
 
     public async Task<SolicitacaoVagaResponse?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -125,12 +167,57 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Include(x => x.Empresa)
             .Include(x => x.CentroCusto)
             .Include(x => x.UnidadeLotacao)
-            .Include(x => x.Aprovador1)
-            .Include(x => x.Aprovador2)
-            .Include(x => x.Aprovador3)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
-        return s is null ? null : MapToResponse(s);
+        if (s is null) return null;
+
+        // Fetch all etapas for workflow timeline
+        var etapas = await _db.SolicitacoesAprovacaoEtapa
+            .AsNoTracking()
+            .Include(e => e.Aprovador)
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal)
+            .OrderBy(e => e.Ordem)
+            .ToListAsync(ct);
+
+        // Resolve role names for fila steps
+        var roleIds = etapas.Where(e => e.RoleFilaId.HasValue).Select(e => e.RoleFilaId!.Value).Distinct().ToList();
+        var roleNames = new Dictionary<Guid, string?>();
+        if (roleIds.Count > 0)
+        {
+            roleNames = await _db.Set<ApplicationRole>()
+                .AsNoTracking()
+                .Where(r => roleIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id, r => (string?)r.Name, ct);
+        }
+
+        // Resolve names for admin users who assumed steps without a Funcionario link
+        var assumedUserIds = etapas.Where(e => e.AssumedByUserId.HasValue).Select(e => e.AssumedByUserId!.Value).Distinct().ToList();
+        var assumedUserNames = new Dictionary<Guid, string?>();
+        if (assumedUserIds.Count > 0)
+        {
+            var rows = await _db.Set<ApplicationUser>()
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .Where(u => assumedUserIds.Contains(u.Id))
+                .Select(u => new { u.Id, Name = (u.FullName != null && u.FullName != "") ? u.FullName : u.UserName })
+                .ToListAsync(ct);
+            foreach (var r in rows)
+                assumedUserNames[r.Id] = r.Name;
+        }
+
+        var etapasFluxo = etapas.Select(e => new EtapaFluxoInfo(
+            e.Ordem,
+            e.Label,
+            e.AssumedByUserId.HasValue && assumedUserNames.TryGetValue(e.AssumedByUserId.Value, out var adminName)
+                ? adminName
+                : e.Aprovador?.Name,
+            e.RoleFilaId.HasValue && roleNames.TryGetValue(e.RoleFilaId.Value, out var rn) ? rn : null,
+            e.Status,
+            e.DataUtc,
+            e.Observacao
+        )).ToList();
+
+        return MapToResponse(s, etapasFluxo);
     }
 
     public async Task<SolicitacaoVagaResponse> CreateAsync(
@@ -198,8 +285,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             IsConfidencial = request.IsConfidencial,
             SubstituidoFuncionarioId = request.SubstituidoFuncionarioId,
             SubstituidoNome = substituidoNome,
-            // Sprint 2
-            Aprovador2Habilitado = request.Aprovador2Habilitado,
             // A.RH.013
             TipoContrato = request.TipoContrato,
             PrazoDias = request.PrazoDias,
@@ -218,6 +303,55 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         await _db.SaveChangesAsync(ct);
 
         return (await GetByIdAsync(entity.Id, ct))!;
+    }
+
+    public async Task<SolicitacaoVagaResponse> CopyAsync(Guid sourceId, Guid? solicitanteId, CancellationToken ct)
+    {
+        if (_currentUser.IsReadOnly)
+            throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível criar solicitações.");
+
+        var source = await _db.SolicitacoesVaga
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == sourceId && x.TenantId == _tenantContext.TenantId, ct)
+            ?? throw new InvalidOperationException("Solicitação não encontrada.");
+
+        var resolvedSolicitanteId = await ResolveSolicitanteIdAsync(solicitanteId, ct);
+
+        var copy = new SolicitacaoVaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            SolicitanteId = resolvedSolicitanteId,
+            AprovadorId = source.AprovadorId,
+            JobPositionId = source.JobPositionId,
+            AreaId = source.AreaId,
+            UnitId = source.UnitId,
+            EmpresaId = source.EmpresaId,
+            CentroCustoId = source.CentroCustoId,
+            UnidadeLotacaoId = source.UnidadeLotacaoId,
+            Titulo = $"{source.Titulo} (cópia)",
+            Justificativa = source.Justificativa,
+            QtdPosicoes = source.QtdPosicoes,
+            Urgencia = source.Urgencia,
+            Status = SolicitacaoVagaStatus.Rascunho,
+            TipoSolicitacao = source.TipoSolicitacao,
+            IsConfidencial = source.IsConfidencial,
+            SubstituidoFuncionarioId = source.SubstituidoFuncionarioId,
+            SubstituidoNome = source.SubstituidoNome,
+            TipoContrato = source.TipoContrato,
+            PrazoDias = source.PrazoDias,
+            MotivoRequisicao = source.MotivoRequisicao,
+            CnhObrigatoria = source.CnhObrigatoria,
+            DisponibilidadeViagens = source.DisponibilidadeViagens,
+            EscalaTrabalho = source.EscalaTrabalho,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+
+        _db.SolicitacoesVaga.Add(copy);
+        await _db.SaveChangesAsync(ct);
+
+        return (await GetByIdAsync(copy.Id, ct))!;
     }
 
     private async Task<Guid> ResolveSolicitanteIdAsync(Guid? solicitanteId, CancellationToken ct)
@@ -315,9 +449,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (entity.Status == SolicitacaoVagaStatus.PendenteAprovacao)
         {
             entity.Status = SolicitacaoVagaStatus.Rascunho;
-            entity.Aprovador1Status = StatusAprovacao.Pendente;
-            entity.Aprovador2Status = null;
-            entity.Aprovador3Status = null;
         }
 
         entity.Titulo = request.Titulo;
@@ -342,7 +473,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         {
             entity.SubstituidoNome = null;
         }
-        entity.Aprovador2Habilitado = request.Aprovador2Habilitado;
         // A.RH.013
         entity.TipoContrato = request.TipoContrato;
         entity.PrazoDias = request.PrazoDias;
@@ -374,9 +504,18 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal);
         _db.SolicitacoesAprovacaoEtapa.RemoveRange(existingEtapas);
 
+        // Read global config to decide which unit reference to use
+        var fluxoConfig = await _db.FluxosAprovacaoConfig
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal, ct);
+
+        Guid? targetUnidadeId = fluxoConfig?.ReferenciaUnidade == ReferenciaUnidade.SolicitacaoInformada
+            ? entity.UnidadeLotacaoId
+            : null;
+
         // Resolve and create new etapas
         var resolved = await _workflow.ResolveEtapasAsync(
-            entity.SolicitanteId, null, TipoFluxoAprovacao.RequisicaoPessoal, ct);
+            entity.SolicitanteId, null, TipoFluxoAprovacao.RequisicaoPessoal, ct, targetUnidadeId);
 
         var novasEtapas = resolved.Select(r => new SolicitacaoAprovacaoEtapa
         {
@@ -388,6 +527,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             Label = r.Label,
             AprovadorId = r.AprovadorId,
             RoleFilaId = r.RoleFilaId,
+            AcaoEtapa = r.AcaoEtapa,
+            MomentoAcao = r.MomentoAcao,
             Status = StatusAprovacao.Pendente,
         }).ToList();
 
@@ -415,39 +556,14 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
 
-        // Espelhamento para os campos legados Aprovador1/Aprovador2/Aprovador3
+        // Auto-avança etapas de processo no início do fluxo
         var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
-        var segundaEtapa = novasEtapas.OrderBy(e => e.Ordem).Skip(1).FirstOrDefault();
-        var terceiraEtapa = novasEtapas.OrderBy(e => e.Ordem).Skip(2).FirstOrDefault();
-
-        if (primeiraEtapa is not null)
+        while (primeiraEtapa is not null && IsProcessoStep(primeiraEtapa))
         {
-            entity.Aprovador1Id = primeiraEtapa.AprovadorId;
-            entity.Aprovador1Status = primeiraEtapa.Status;
-        }
-
-        entity.Aprovador2Habilitado = segundaEtapa is not null;
-        if (segundaEtapa is not null)
-        {
-            entity.Aprovador2Id = segundaEtapa.AprovadorId;
-            entity.Aprovador2Status = segundaEtapa.Status;
-        }
-        else
-        {
-            entity.Aprovador2Id = null;
-            entity.Aprovador2Status = null;
-        }
-
-        entity.Aprovador3Habilitado = terceiraEtapa is not null;
-        if (terceiraEtapa is not null)
-        {
-            entity.Aprovador3Id = terceiraEtapa.AprovadorId;
-            entity.Aprovador3Status = terceiraEtapa.Status;
-        }
-        else
-        {
-            entity.Aprovador3Id = null;
-            entity.Aprovador3Status = null;
+            await ExecutarAcaoEtapaAsync(primeiraEtapa.AcaoEtapa, entity, ct);
+            primeiraEtapa.Status = StatusAprovacao.Aprovado;
+            primeiraEtapa.DataUtc = DateTimeOffset.UtcNow;
+            primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault(e => e.Ordem > primeiraEtapa.Ordem);
         }
 
         await _db.SaveChangesAsync(ct);
@@ -490,41 +606,34 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         etapaAtual.Status = StatusAprovacao.Aprovado;
         etapaAtual.DataUtc = DateTimeOffset.UtcNow;
-        etapaAtual.Observacao = observacao;
+        if (observacao != null) etapaAtual.Observacao = observacao;
 
         var todasEtapas = await _db.SolicitacoesAprovacaoEtapa
             .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal)
             .OrderBy(e => e.Ordem)
             .ToListAsync(ct);
 
-        var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
+        // Executar ação da etapa atual se momento = AoAprovar
+        if (etapaAtual.AcaoEtapa != AcaoEtapa.Nenhuma && etapaAtual.MomentoAcao == MomentoAcao.AoAprovar)
+            await ExecutarAcaoEtapaAsync(etapaAtual.AcaoEtapa, entity, ct);
 
-        // Espelhar nos legados
-        var indAtual = todasEtapas.IndexOf(etapaAtual);
-        if (indAtual == 0)
+        // Auto-avança por etapas de processo (sem aprovador, sem fila, com ação)
+        var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
+        while (proximaEtapa is not null && IsProcessoStep(proximaEtapa))
         {
-            entity.Aprovador1Id = etapaAtual.AprovadorId;
-            entity.Aprovador1Status = etapaAtual.Status;
-            entity.Aprovador1DataUtc = etapaAtual.DataUtc;
+            await ExecutarAcaoEtapaAsync(proximaEtapa.AcaoEtapa, entity, ct);
+            proximaEtapa.Status = StatusAprovacao.Aprovado;
+            proximaEtapa.DataUtc = DateTimeOffset.UtcNow;
+            proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
         }
-        else if (indAtual == 1)
-        {
-            entity.Aprovador2Id = etapaAtual.AprovadorId;
-            entity.Aprovador2Status = etapaAtual.Status;
-            entity.Aprovador2DataUtc = etapaAtual.DataUtc;
-        }
-        else if (indAtual == 2)
-        {
-            entity.Aprovador3Id = etapaAtual.AprovadorId;
-            entity.Aprovador3Status = etapaAtual.Status;
-            entity.Aprovador3DataUtc = etapaAtual.DataUtc;
-        }
+
+        entity.ObservacaoAprovador = observacao;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         if (proximaEtapa is not null)
         {
-            entity.Status = proximaEtapa.Label.Contains("RH") ? SolicitacaoVagaStatus.PendenteAprovacaoRh : SolicitacaoVagaStatus.PendenteAprovacao;
-            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-            entity.ObservacaoAprovador = observacao;
+            // Há uma próxima etapa que precisa de aprovador
+            entity.Status = SolicitacaoVagaStatus.PendenteAprovacao;
 
             await _db.SaveChangesAsync(ct);
 
@@ -540,63 +649,17 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         }
         else
         {
-            // Fim do fluxo
-            entity.Status = SolicitacaoVagaStatus.Aprovada;
-            entity.ObservacaoAprovador = observacao;
-            entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
-            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-            // Criar vaga 
-            if (entity.Solicitante is null)
-                await _db.Entry(entity).Reference(e => e.Solicitante).LoadAsync(ct);
-
-            var tenantId = _tenantContext.TenantId ?? "";
-            var now = DateTimeOffset.UtcNow;
-            var vagaId = Guid.NewGuid();
-            var prioridade = entity.Urgencia switch
+            // Fim do fluxo — se EnviarIntegracao step não setou Aprovada, garantir status final
+            if (entity.Status != SolicitacaoVagaStatus.Aprovada)
             {
-                SolicitacaoVagaUrgencia.Critica => VagaPrioridade.Critica,
-                SolicitacaoVagaUrgencia.Alta => VagaPrioridade.Alta,
-                SolicitacaoVagaUrgencia.Media => VagaPrioridade.Media,
-                _ => VagaPrioridade.Baixa
-            };
+                entity.Status = SolicitacaoVagaStatus.Aprovada;
+                entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
+            }
 
-            _db.Vagas.Add(new Vaga
-            {
-                Id = vagaId,
-                TenantId = tenantId,
-                Titulo = entity.Titulo,
-                AreaId = entity.AreaId,
-                Status = VagaStatus.Rascunho,
-                QuantidadeVagas = entity.QtdPosicoes,
-                DescricaoInterna = entity.Justificativa,
-                GestorRequisitante = entity.Solicitante?.Name,
-                Prioridade = prioridade,
-                Confidencial = entity.IsConfidencial,
-                Urgente = entity.Urgencia >= SolicitacaoVagaUrgencia.Alta,
-                PesoCompetencia = 40,
-                PesoExperiencia = 30,
-                PesoFormacao = 15,
-                PesoLocalidade = 15,
-                CreatedAtUtc = now,
-                UpdatedAtUtc = now,
-            });
+            // Se nenhuma etapa criou a vaga, criar agora (backward compatible)
+            if (!entity.VagaId.HasValue)
+                await CriarVagaRascunhoAsync(entity, ct);
 
-            var projetoId = Guid.NewGuid();
-            _db.Set<ProjetoVaga>().Add(new ProjetoVaga
-            {
-                Id = projetoId, TenantId = tenantId, VagaId = vagaId,
-                Numero = 1, Descricao = "Rodada 1", Status = StatusProjeto.Ativo,
-                CreatedAtUtc = now, UpdatedAtUtc = now,
-            });
-            _db.Set<FaseProcesso>().AddRange(
-                new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Triagem", Ordem = 0, ResponsavelTipo = ResponsavelFaseTipo.RH, CreatedAtUtc = now, UpdatedAtUtc = now },
-                new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Entrevista RH", Ordem = 1, ResponsavelTipo = ResponsavelFaseTipo.RH, CreatedAtUtc = now, UpdatedAtUtc = now },
-                new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Entrevista Gestor", Ordem = 2, ResponsavelTipo = ResponsavelFaseTipo.Gestor, CreatedAtUtc = now, UpdatedAtUtc = now },
-                new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Aprovacao Final", Ordem = 3, ResponsavelTipo = ResponsavelFaseTipo.Gestor, CreatedAtUtc = now, UpdatedAtUtc = now }
-            );
-
-            entity.VagaId = vagaId;
             await _db.SaveChangesAsync(ct);
 
             await _workflow.NotifyByFuncionarioIdAsync(
@@ -610,9 +673,104 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         return await GetByIdAsync(id, ct);
     }
 
-    
+    /// <summary>
+    /// Etapa de processo automático: sem aprovador pessoal, sem fila de perfil, com AcaoEtapa definida.
+    /// Essas etapas auto-avançam sem necessitar de ação humana.
+    /// </summary>
+    private static bool IsProcessoStep(SolicitacaoAprovacaoEtapa e) =>
+        e.AprovadorId == null && e.RoleFilaId == null && e.AcaoEtapa != AcaoEtapa.Nenhuma;
 
-        public async Task<SolicitacaoVagaResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct)
+    private async Task ExecutarAcaoEtapaAsync(AcaoEtapa acao, SolicitacaoVaga entity, CancellationToken ct)
+    {
+        switch (acao)
+        {
+            case AcaoEtapa.CriarVagaRascunho:
+                if (!entity.VagaId.HasValue)
+                    await CriarVagaRascunhoAsync(entity, ct);
+                break;
+
+            case AcaoEtapa.EnviarIntegracao:
+                entity.Status = SolicitacaoVagaStatus.Aprovada;
+                entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+                break;
+        }
+    }
+
+    private async Task CriarVagaRascunhoAsync(SolicitacaoVaga entity, CancellationToken ct)
+    {
+        if (entity.Solicitante is null)
+            await _db.Entry(entity).Reference(e => e.Solicitante).LoadAsync(ct);
+
+        var tenantId = _tenantContext.TenantId ?? "";
+        var now = DateTimeOffset.UtcNow;
+        var vagaId = Guid.NewGuid();
+        var prioridade = entity.Urgencia switch
+        {
+            SolicitacaoVagaUrgencia.Critica => VagaPrioridade.Critica,
+            SolicitacaoVagaUrgencia.Alta => VagaPrioridade.Alta,
+            SolicitacaoVagaUrgencia.Media => VagaPrioridade.Media,
+            _ => VagaPrioridade.Baixa
+        };
+
+        VagaTipoContratacao? tipoContratacao = entity.TipoContrato switch
+        {
+            TipoContratoVaga.CLT        => VagaTipoContratacao.CLT,
+            TipoContratoVaga.Estagio    => VagaTipoContratacao.Estagio,
+            TipoContratoVaga.Aprendiz   => VagaTipoContratacao.Aprendiz,
+            TipoContratoVaga.Temporario => VagaTipoContratacao.Temporario,
+            _ => null,
+        };
+
+        _db.Vagas.Add(new Vaga
+        {
+            Id = vagaId,
+            TenantId = tenantId,
+            Titulo = entity.Titulo,
+            AreaId = entity.AreaId,
+            Status = VagaStatus.Rascunho,
+            QuantidadeVagas = entity.QtdPosicoes,
+            DescricaoInterna = entity.Justificativa,
+            GestorRequisitante = entity.Solicitante?.Name,
+            Prioridade = prioridade,
+            Confidencial = entity.IsConfidencial,
+            Urgente = entity.Urgencia >= SolicitacaoVagaUrgencia.Alta,
+            JobPositionId = entity.JobPositionId,
+            CentroCustoId = entity.CentroCustoId,
+            UnidadeLotacaoId = entity.UnidadeLotacaoId,
+            ExigeCnh = entity.CnhObrigatoria,
+            DisponibilidadeParaViagens = entity.DisponibilidadeViagens,
+            TipoContratacao = tipoContratacao,
+            EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(entity.EscalaTrabalho) ? null : entity.EscalaTrabalho,
+            PesoCompetencia = 40,
+            PesoExperiencia = 30,
+            PesoFormacao = 15,
+            PesoLocalidade = 15,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+        });
+
+        var projetoId = Guid.NewGuid();
+        _db.Set<ProjetoVaga>().Add(new ProjetoVaga
+        {
+            Id = projetoId, TenantId = tenantId, VagaId = vagaId,
+            Numero = 1, Descricao = "Rodada 1", Status = StatusProjeto.Ativo,
+            CreatedAtUtc = now, UpdatedAtUtc = now,
+        });
+        _db.Set<FaseProcesso>().AddRange(
+            new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Triagem", Ordem = 0, ResponsavelTipo = ResponsavelFaseTipo.RH, CreatedAtUtc = now, UpdatedAtUtc = now },
+            new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Entrevista RH", Ordem = 1, ResponsavelTipo = ResponsavelFaseTipo.RH, CreatedAtUtc = now, UpdatedAtUtc = now },
+            new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Entrevista Gestor", Ordem = 2, ResponsavelTipo = ResponsavelFaseTipo.Gestor, CreatedAtUtc = now, UpdatedAtUtc = now },
+            new FaseProcesso { Id = Guid.NewGuid(), TenantId = tenantId, ProjetoId = projetoId, Nome = "Aprovacao Final", Ordem = 3, ResponsavelTipo = ResponsavelFaseTipo.Gestor, CreatedAtUtc = now, UpdatedAtUtc = now }
+        );
+
+        entity.VagaId = vagaId;
+
+        // Auto-criar workflow de triagem RH
+        await _workflowRH.CreateFromTemplateAsync(
+            TipoWorkflowRH.TriagemVaga, vagaId: vagaId, preAdmissaoId: null, ct);
+    }
+
+    public async Task<SolicitacaoVagaResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct)
     {
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
@@ -633,10 +791,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             etapaAtual.DataUtc = DateTimeOffset.UtcNow;
             etapaAtual.Observacao = observacao;
 
-            var logIndex = await _db.SolicitacoesAprovacaoEtapa.Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal && e.Ordem < etapaAtual.Ordem).CountAsync(ct);
-            if (logIndex == 0) { entity.Aprovador1Status = StatusAprovacao.Rejeitado; }
-            else if (logIndex == 1) { entity.Aprovador2Status = StatusAprovacao.Rejeitado; }
-            else if (logIndex == 2) { entity.Aprovador3Status = StatusAprovacao.Rejeitado; }
         }
 
         entity.Status = SolicitacaoVagaStatus.Reprovada;
@@ -690,6 +844,20 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         entity.Status = SolicitacaoVagaStatus.Cancelada;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Mark all pending approval steps as rejected
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id
+                && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+                && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+
+        foreach (var etapa in etapasPendentes)
+        {
+            etapa.Status = StatusAprovacao.Cancelado;
+            etapa.DataUtc = DateTimeOffset.UtcNow;
+        }
+
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
@@ -719,23 +887,79 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .OrderBy(e => e.Ordem)
             .FirstOrDefaultAsync(ct);
 
-        if (etapaAtual is null || !etapaAtual.RoleFilaId.HasValue)
-            throw new InvalidOperationException("Esta etapa não é uma fila de perfil para ser assumida.");
+        if (etapaAtual is null)
+            throw new InvalidOperationException("Não há etapa pendente para assumir.");
 
-        if (etapaAtual.AprovadorId.HasValue)
-            throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
+        // Case 1: normal role queue — RoleFilaId set, no approver yet
+        bool isNormalQueue = etapaAtual.RoleFilaId.HasValue && !etapaAtual.AprovadorId.HasValue;
 
-        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
-            throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
+        // Case 2: stuck step — approver resolved but has no system account
+        bool isStuckStep = false;
+        if (!isNormalQueue && etapaAtual.AprovadorId.HasValue)
+        {
+            var aprovadorHasUser = await _db.Set<Funcionario>()
+                .AsNoTracking()
+                .Where(f => f.Id == etapaAtual.AprovadorId.Value)
+                .Select(f => (bool?)(f.UserId != null))
+                .FirstOrDefaultAsync(ct);
+            isStuckStep = aprovadorHasUser == false;
+        }
 
-        etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        // Case 3: both null — unresolvable step (no approver, no role), only admin can assume
+        bool isUnresolvable = !etapaAtual.AprovadorId.HasValue && !etapaAtual.RoleFilaId.HasValue;
+
+        if (!isNormalQueue && !isStuckStep && !isUnresolvable)
+            throw new InvalidOperationException("Esta etapa não pode ser assumida.");
+
+        if (isNormalQueue)
+        {
+            if (etapaAtual.AprovadorId.HasValue)
+                throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
+            if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+                throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
+        }
+
+        if (isStuckStep || isUnresolvable)
+        {
+            if (!_currentUser.IsAdmin || _currentUser.IsOwner)
+                throw new InvalidOperationException("Owner não pode assumir etapas diretamente. Utilize um usuário com perfil Admin ou Administrador no tenant.");
+        }
+
+        // Resolve FuncionarioId — try JWT claim first, then ApplicationUser.FuncionarioId, then Funcionario.UserId
+        var funcionarioId = _currentUser.FuncionarioId;
+        string? assumidoPorNome = null;
+
+        if (_currentUser.UserId.HasValue)
+        {
+            var userInfo = await _db.Set<ApplicationUser>()
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .Where(u => u.Id == _currentUser.UserId.Value)
+                .Select(u => new { u.FuncionarioId, u.FullName, u.UserName })
+                .FirstOrDefaultAsync(ct);
+
+            if (funcionarioId == null)
+                funcionarioId = userInfo?.FuncionarioId;
+
+            assumidoPorNome = userInfo?.FullName is { Length: > 0 } fn ? fn : userInfo?.UserName;
+        }
+
+        if (funcionarioId.HasValue)
+        {
+            // Admin with a linked Funcionario — normal assignment
+            etapaAtual.AprovadorId = funcionarioId;
+        }
+        else
+        {
+            // Admin without Funcionario — track via UserId directly
+            if (!_currentUser.UserId.HasValue)
+                throw new InvalidOperationException("Não foi possível identificar o usuário autenticado.");
+            etapaAtual.AssumedByUserId = _currentUser.UserId;
+        }
+
+        etapaAtual.Observacao = $"Assumida via consenso por {assumidoPorNome ?? "administrador"}";
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
         
-        var logIndex = await _db.SolicitacoesAprovacaoEtapa.Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal && e.Ordem < etapaAtual.Ordem).CountAsync(ct);
-        if (logIndex == 0) { entity.Aprovador1Id = _currentUser.FuncionarioId; }
-        else if (logIndex == 1) { entity.Aprovador2Id = _currentUser.FuncionarioId; }
-        else if (logIndex == 2) { entity.Aprovador3Id = _currentUser.FuncionarioId; }
-
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
@@ -749,7 +973,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
     
 
-    private static SolicitacaoVagaResponse MapToResponse(SolicitacaoVaga s) => new(
+    private static SolicitacaoVagaResponse MapToResponse(SolicitacaoVaga s, IReadOnlyList<EtapaFluxoInfo>? etapasFluxo = null) => new(
         s.Id,
         s.Titulo,
         s.Justificativa,
@@ -786,24 +1010,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.CentroCusto?.Description,
         s.UnidadeLotacaoId,
         s.UnidadeLotacao?.Description,
-        // Sprint 2
-        s.Aprovador1Id,
-        s.Aprovador1?.Name,
-        s.Aprovador1Status,
-        s.Aprovador1DataUtc,
-        s.Aprovador2Id,
-        s.Aprovador2?.Name,
-        s.Aprovador2Status,
-        s.Aprovador2DataUtc,
-        s.Aprovador2Habilitado,
-        // Aprovação RH (Aprovador3)
-        s.Aprovador3Id,
-        s.Aprovador3?.Name,
-        s.Aprovador3Status,
-        s.Aprovador3DataUtc,
-        s.Aprovador3Habilitado,
         s.CreatedAtUtc,
         s.UpdatedAtUtc,
-        s.ApprovedAtUtc
+        s.ApprovedAtUtc,
+        etapasFluxo ?? Array.Empty<EtapaFluxoInfo>()
     );
 }

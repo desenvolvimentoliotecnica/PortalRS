@@ -2,17 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "Next.js",
-      "runtimeExecutable": "/bin/bash",
-      "runtimeArgs": ["/Users/victoralves/Projects/Voltage.RenderRH/__scripts__/dev/dev-next-preview.sh"],
-      "cwd": "/Users/victoralves/Projects/Voltage.RenderRH",
+      "name": "next-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "cwd": "LioTecnica.Web.Next",
       "port": 3000,
-      "autoPort": false,
-      "env": {
-        "HOME": "/Users/victoralves",
-        "PATH": "/Users/victoralves/.nvm/versions/node/v20.19.3/bin:/usr/local/bin:/usr/bin:/bin",
-        "NVM_DIR": "/Users/victoralves/.nvm"
-      }
+      "autoPort": false
     }
   ]
 }

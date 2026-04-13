@@ -39,17 +39,6 @@ public sealed class SolicitacaoDependente : ITenantEntity
 
     public SolicitacaoStatus Status { get; set; } = SolicitacaoStatus.Rascunho;
 
-    public Guid? Aprovador1Id { get; set; }
-    public Funcionario? Aprovador1 { get; set; }
-    public StatusAprovacao Aprovador1Status { get; set; } = StatusAprovacao.Pendente;
-    public DateTimeOffset? Aprovador1DataUtc { get; set; }
-
-    public Guid? Aprovador2Id { get; set; }
-    public Funcionario? Aprovador2 { get; set; }
-    public StatusAprovacao? Aprovador2Status { get; set; }
-    public DateTimeOffset? Aprovador2DataUtc { get; set; }
-    public bool Aprovador2Habilitado { get; set; }
-
     public string? ObservacaoAprovador { get; set; }
     public string? Observacoes { get; set; }
 

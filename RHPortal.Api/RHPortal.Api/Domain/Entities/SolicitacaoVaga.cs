@@ -96,34 +96,6 @@ public sealed class SolicitacaoVaga : ITenantEntity
     /// <summary>Escala de trabalho (ex: Comercial, Turno A/B, 12x36).</summary>
     public string? EscalaTrabalho { get; set; }
 
-    // ── Sprint 2: Cadeia de aprovação ──
-
-    /// <summary>1º aprovador (auto = gestor direto do solicitante). OBRIGATÓRIO.</summary>
-    public Guid? Aprovador1Id { get; set; }
-    public Funcionario? Aprovador1 { get; set; }
-    public StatusAprovacao Aprovador1Status { get; set; } = StatusAprovacao.Pendente;
-    public DateTimeOffset? Aprovador1DataUtc { get; set; }
-
-    /// <summary>2º aprovador (auto = gestor do gestor). OPCIONAL.</summary>
-    public Guid? Aprovador2Id { get; set; }
-    public Funcionario? Aprovador2 { get; set; }
-    public StatusAprovacao? Aprovador2Status { get; set; }
-    public DateTimeOffset? Aprovador2DataUtc { get; set; }
-
-    /// <summary>Se true, a solicitação requer 2ª aprovação (nível acima do gestor direto).</summary>
-    public bool Aprovador2Habilitado { get; set; }
-
-    // ── Aprovação RH (passo adicional, habilitado por TenantConfiguracao) ──
-
-    /// <summary>Aprovador de RH — passo adicional após gestores, quando habilitado na config do tenant.</summary>
-    public Guid? Aprovador3Id { get; set; }
-    public Funcionario? Aprovador3 { get; set; }
-    public StatusAprovacao? Aprovador3Status { get; set; }
-    public DateTimeOffset? Aprovador3DataUtc { get; set; }
-
-    /// <summary>Se true, a solicitação requer aprovação do RH após a cadeia de gestores.</summary>
-    public bool Aprovador3Habilitado { get; set; }
-
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public DateTimeOffset? ApprovedAtUtc { get; set; }

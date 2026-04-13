@@ -18,7 +18,8 @@ public interface ISolicitacaoDependenteService
     Task<SolicitacaoDependenteResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoDependenteResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoDependenteResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
-    Task<bool> DeleteAsync(Guid id, CancellationToken ct);\n    Task<SolicitacaoSolicitacaoDependenteResponse?> AssumirAsync(Guid id, CancellationToken ct);
+    Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoDependenteResponse?> AssumirAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
@@ -78,8 +79,6 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
     {
         var s = await _db.SolicitacoesDependente.AsNoTracking()
             .Include(x => x.Solicitante)
-            .Include(x => x.Aprovador1)
-            .Include(x => x.Aprovador2)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         return s is null ? null : MapToResponse(s);
@@ -175,25 +174,6 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
         _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
 
         var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
-        var segundaEtapa = novasEtapas.OrderBy(e => e.Ordem).Skip(1).FirstOrDefault();
-
-        if (primeiraEtapa is not null)
-        {
-            entity.Aprovador1Id = primeiraEtapa.AprovadorId;
-            entity.Aprovador1Status = primeiraEtapa.Status;
-        }
-
-        entity.Aprovador2Habilitado = segundaEtapa is not null;
-        if (segundaEtapa is not null)
-        {
-            entity.Aprovador2Id = segundaEtapa.AprovadorId;
-            entity.Aprovador2Status = segundaEtapa.Status;
-        }
-        else
-        {
-            entity.Aprovador2Id = null;
-            entity.Aprovador2Status = null;
-        }
 
         await _db.SaveChangesAsync(ct);
 
@@ -355,15 +335,40 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
         }
     }
 
+    public async Task<SolicitacaoDependenteResponse?> AssumirAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
+
+        var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Dependente && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
+
+        if (etapaAtual is null || !etapaAtual.RoleFilaId.HasValue)
+            throw new InvalidOperationException("Esta etapa não é uma fila de perfil para ser assumida.");
+
+        if (etapaAtual.AprovadorId.HasValue)
+            throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
+
+        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+            throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
+
+        etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
     private static SolicitacaoDependenteResponse MapToResponse(SolicitacaoDependente s) => new(
         s.Id, s.Status,
         s.SolicitanteId, s.Solicitante?.Name,
         s.TipoSolicitacao, s.DependenteId,
         s.NomeCompleto, s.Parentesco, s.Cpf,
         s.DataNascimento, s.IsPcd, s.DependenteIR,
-        s.Aprovador1Id, s.Aprovador1?.Name, s.Aprovador1Status, s.Aprovador1DataUtc,
-        s.Aprovador2Id, s.Aprovador2?.Name, s.Aprovador2Status, s.Aprovador2DataUtc,
-        s.Aprovador2Habilitado,
         s.ObservacaoAprovador, s.Observacoes,
         s.CreatedAtUtc, s.UpdatedAtUtc, s.ApprovedAtUtc,
         s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc

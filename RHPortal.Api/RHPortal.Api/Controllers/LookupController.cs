@@ -154,7 +154,7 @@ public sealed class LookupController : ControllerBase
             .Where(x => x.IsActive)
             .OrderBy(x => x.Code.Length)
             .ThenBy(x => x.Code)
-            .Select(x => new OptionResponse(x.Id, x.Code, x.Description))
+            .Select(x => new OptionResponse(x.Id, x.CdnPlanoLotac + "/" + x.Code, x.Description))
             .ToListAsync(ct);
 
         return Ok(items);

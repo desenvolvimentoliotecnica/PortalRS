@@ -54,6 +54,8 @@ interface Props {
     onSaved: () => void;
     viewOnly?: boolean;
     resubmitAfterSave?: boolean;
+    /** When set, loads source data pre-filled as a new solicitation (copy mode). */
+    copySourceId?: string | null;
 }
 
 /* ──────────────────────────── helpers ──────────────────────────── */
@@ -186,7 +188,7 @@ function AutocompleteSelect({
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave }: Props) {
+export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave, copySourceId }: Props) {
     const [draft, setDraft] = useState<SolicitacaoDraft>({ ...emptyDraft });
     const [saving, setSaving] = useState(false);
     const [loadingEdit, setLoadingEdit] = useState(false);
@@ -235,44 +237,47 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
         } catch { /* ignore */ }
     }, []);
 
+    function parseDraft(d: Record<string, unknown>, titleSuffix = ""): SolicitacaoDraft {
+        return {
+            titulo: String(d?.titulo ?? "") + titleSuffix,
+            justificativa: String(d?.justificativa ?? ""),
+            qtdPosicoes: Number(d?.qtdPosicoes ?? 1),
+            urgencia: (() => { const map: Record<string, number> = { Baixa: 0, Media: 1, Alta: 2, Critica: 3 }; const v = d?.urgencia; return typeof v === "number" ? v : (map[v as string] ?? 1); })(),
+            jobPositionId: d?.jobPositionId ? String(d.jobPositionId) : null,
+            areaId: d?.areaId ? String(d.areaId) : null,
+            unitId: d?.unitId ? String(d.unitId) : null,
+            aprovadorId: d?.aprovadorId ? String(d.aprovadorId) : null,
+            tipoSolicitacao: (() => { const m: Record<string, number> = { VagaNova: 0, Substituicao: 1 }; const v = d?.tipoSolicitacao; return typeof v === "number" ? v : (m[v as string] ?? 0); })(),
+            isConfidencial: Boolean(d?.isConfidencial),
+            substituidoFuncionarioId: d?.substituidoFuncionarioId ? String(d.substituidoFuncionarioId) : null,
+            tipoContrato: (() => { const m: Record<string, number> = { CLT: 0, Estagio: 1, Aprendiz: 2, Temporario: 3 }; const v = d?.tipoContrato; return typeof v === "number" ? v : (m[v as string] ?? 0); })(),
+            prazoDias: d?.prazoDias != null ? Number(d.prazoDias) : null,
+            motivoRequisicao: (() => { const m: Record<string, number> = { AtenderDemanda: 0, PedidoDemissao: 1, DesligamentoSemJustaCausa: 2, CotaAprendiz: 3, TerminoContrato: 4, ExpansaoBase: 5, NovaUnidade: 6, Movimentacao: 7, Afastamento: 8 }; const v = d?.motivoRequisicao; return v == null ? null : typeof v === "number" ? v : (m[v as string] ?? null); })(),
+            cnhObrigatoria: Boolean(d?.cnhObrigatoria),
+            disponibilidadeViagens: Boolean(d?.disponibilidadeViagens),
+            escalaTrabalho: String(d?.escalaTrabalho ?? ""),
+            empresaId: d?.empresaId ? String(d.empresaId) : null,
+            centroCustoId: d?.centroCustoId ? String(d.centroCustoId) : null,
+            unidadeLotacaoId: d?.unidadeLotacaoId ? String(d.unidadeLotacaoId) : null,
+        };
+    }
+
     useEffect(() => {
         if (!open) return;
         setActiveTab("identificacao");
         loadLookups();
 
-        if (editId) {
+        const sourceId = editId ?? copySourceId ?? null;
+        if (sourceId) {
             setLoadingEdit(true);
-            fetchJson<Record<string, unknown>>(`${API}/${editId}`)
-                .then((d) => {
-                    setDraft({
-                        titulo: String(d?.titulo ?? ""),
-                        justificativa: String(d?.justificativa ?? ""),
-                        qtdPosicoes: Number(d?.qtdPosicoes ?? 1),
-                        urgencia: (() => { const map: Record<string, number> = { Baixa: 0, Media: 1, Alta: 2, Critica: 3 }; const v = d?.urgencia; return typeof v === "number" ? v : (map[v as string] ?? 1); })(),
-                        jobPositionId: d?.jobPositionId ? String(d.jobPositionId) : null,
-                        areaId: d?.areaId ? String(d.areaId) : null,
-                        unitId: d?.unitId ? String(d.unitId) : null,
-                        aprovadorId: d?.aprovadorId ? String(d.aprovadorId) : null,
-                        tipoSolicitacao: (() => { const m: Record<string, number> = { VagaNova: 0, Substituicao: 1 }; const v = d?.tipoSolicitacao; return typeof v === "number" ? v : (m[v as string] ?? 0); })(),
-                        isConfidencial: Boolean(d?.isConfidencial),
-                        substituidoFuncionarioId: d?.substituidoFuncionarioId ? String(d.substituidoFuncionarioId) : null,
-                        tipoContrato: (() => { const m: Record<string, number> = { CLT: 0, Estagio: 1, Aprendiz: 2, Temporario: 3 }; const v = d?.tipoContrato; return typeof v === "number" ? v : (m[v as string] ?? 0); })(),
-                        prazoDias: d?.prazoDias != null ? Number(d.prazoDias) : null,
-                        motivoRequisicao: (() => { const m: Record<string, number> = { AtenderDemanda: 0, PedidoDemissao: 1, DesligamentoSemJustaCausa: 2, CotaAprendiz: 3, TerminoContrato: 4, ExpansaoBase: 5, NovaUnidade: 6, Movimentacao: 7, Afastamento: 8 }; const v = d?.motivoRequisicao; return v == null ? null : typeof v === "number" ? v : (m[v as string] ?? null); })(),
-                        cnhObrigatoria: Boolean(d?.cnhObrigatoria),
-                        disponibilidadeViagens: Boolean(d?.disponibilidadeViagens),
-                        escalaTrabalho: String(d?.escalaTrabalho ?? ""),
-                        empresaId: d?.empresaId ? String(d.empresaId) : null,
-                        centroCustoId: d?.centroCustoId ? String(d.centroCustoId) : null,
-                        unidadeLotacaoId: d?.unidadeLotacaoId ? String(d.unidadeLotacaoId) : null,
-                    });
-                })
+            fetchJson<Record<string, unknown>>(`${API}/${sourceId}`)
+                .then((d) => setDraft(parseDraft(d, copySourceId ? " (cópia)" : "")))
                 .catch(() => toast.error("Falha ao carregar solicitação."))
                 .finally(() => setLoadingEdit(false));
         } else {
             setDraft({ ...emptyDraft });
         }
-    }, [open, editId, loadLookups]);
+    }, [open, editId, copySourceId, loadLookups]);
 
     useEffect(() => {
         if (gestorDiretoId && !editId && !draft.aprovadorId) {
@@ -379,7 +384,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-base font-semibold">
-                        {viewOnly ? "Visualizar Requisição de Pessoal" : editId ? "Editar Requisição de Pessoal" : "Requisição de Pessoal"}
+                        {viewOnly ? "Visualizar Requisição de Pessoal" : copySourceId ? "Copiar Requisição de Pessoal" : editId ? "Editar Requisição de Pessoal" : "Requisição de Pessoal"}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -462,7 +467,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                                     <Input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex: Analista de RH Pleno" maxLength={160} disabled={viewOnly} />
                                 </div>
 
-                                <div>
+                                <div className="col-span-2">
                                     <label className={L}>Cargo</label>
                                     <AutocompleteSelect items={cargos} value={draft.jobPositionId} onChange={(v) => setDraft((d) => ({ ...d, jobPositionId: v }))} placeholder="cargo" disabled={viewOnly} />
                                 </div>

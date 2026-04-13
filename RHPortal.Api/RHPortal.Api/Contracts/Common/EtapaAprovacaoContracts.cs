@@ -26,7 +26,9 @@ public sealed record EtapaConfigAprovacaoDto(
     string? FuncionarioFixoNome,
     Guid?   RoleFilaId,
     string? RoleFilaNome,
-    bool    Ativo
+    bool    Ativo,
+    short   AcaoEtapa,       // AcaoEtapa enum value (0=Nenhuma, 1=CriarVagaRascunho)
+    short   MomentoAcao      // MomentoAcao enum value (0=AoChegar, 1=AoAprovar)
 );
 
 public sealed class EtapaConfigAprovacaoSaveRequest
@@ -36,4 +38,18 @@ public sealed class EtapaConfigAprovacaoSaveRequest
     public short TipoAprovador { get; set; }   // TipoAprovador enum value
     public Guid? FuncionarioFixoId { get; set; }
     public Guid? RoleFilaId { get; set; }
+    public short AcaoEtapa { get; set; }       // AcaoEtapa enum value
+    public short MomentoAcao { get; set; }     // MomentoAcao enum value
+}
+
+/// <summary>Parâmetros globais de um tipo de fluxo de aprovação.</summary>
+public sealed record FluxoAprovacaoConfigDto(
+    /// <summary>0 = Solicitante, 1 = SolicitacaoInformada</summary>
+    short ReferenciaUnidade
+);
+
+public sealed class FluxoAprovacaoConfigSaveRequest
+{
+    /// <summary>0 = Solicitante, 1 = SolicitacaoInformada</summary>
+    public short ReferenciaUnidade { get; set; }
 }

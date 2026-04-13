@@ -25,15 +25,27 @@ public sealed class OpenAiProvider : IAiProvider
             return (string.Empty, 0m);
 
         var (systemPrompt, userContent) = ParsePayload(payload);
-        if (string.IsNullOrWhiteSpace(userContent))
+        if (userContent is null || (userContent is string s && string.IsNullOrWhiteSpace(s)))
             return (string.Empty, 0m);
+
+        // When vision content is present, ensure a vision-capable model is used
+        var isVision = userContent is not string;
+        var effectiveModel = string.IsNullOrWhiteSpace(modelId) ? "gpt-4o-mini" : modelId.Trim();
+        if (isVision)
+        {
+            // Only gpt-4o family and gpt-4-vision-preview support image_url content
+            var visionCapable = effectiveModel.StartsWith("gpt-4o", StringComparison.OrdinalIgnoreCase)
+                             || effectiveModel.Contains("vision", StringComparison.OrdinalIgnoreCase);
+            if (!visionCapable)
+                effectiveModel = "gpt-4o";
+        }
 
         var client = _httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", decryptedKey.Trim());
 
         var requestBody = new
         {
-            model = string.IsNullOrWhiteSpace(modelId) ? "gpt-4o-mini" : modelId.Trim(),
+            model = effectiveModel,
             messages = new object[]
             {
                 new { role = "system", content = systemPrompt ?? "Você é um assistente que extrai dados estruturados de currículos. Responda apenas com JSON válido." },
@@ -49,10 +61,22 @@ public sealed class OpenAiProvider : IAiProvider
             {
                 var errBody = await response.Content.ReadAsStringAsync(ct);
                 _logger.LogWarning(
-                    "OpenAI API request failed. StatusCode={StatusCode}, ResponseBody={ResponseBody}",
-                    (int)response.StatusCode,
-                    errBody?.Length > 500 ? errBody.Substring(0, 500) + "..." : errBody);
-                return (string.Empty, 0m);
+                    "OpenAI API request failed. StatusCode={StatusCode}, Model={Model}, ResponseBody={ResponseBody}",
+                    (int)response.StatusCode, effectiveModel,
+                    errBody?.Length > 500 ? errBody[..500] + "..." : errBody);
+
+                // Extract human-readable message from OpenAI error body
+                string? openAiMessage = null;
+                try
+                {
+                    using var errDoc = JsonDocument.Parse(errBody ?? "{}");
+                    if (errDoc.RootElement.TryGetProperty("error", out var err) && err.TryGetProperty("message", out var m))
+                        openAiMessage = m.GetString();
+                }
+                catch { /* ignore */ }
+
+                var detail = openAiMessage ?? $"HTTP {(int)response.StatusCode}";
+                return ($"AI_ERROR:{detail}", 0m);
             }
 
             var json = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
@@ -63,11 +87,11 @@ public sealed class OpenAiProvider : IAiProvider
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "OpenAI API request threw an exception.");
-            return (string.Empty, 0m);
+            return ($"AI_ERROR:{ex.Message}", 0m);
         }
     }
 
-    private static (string? SystemPrompt, string? UserContent) ParsePayload(object? payload)
+    private static (string? SystemPrompt, object? UserContent) ParsePayload(object? payload)
     {
         if (payload is null) return (null, null);
         try
@@ -77,6 +101,24 @@ public sealed class OpenAiProvider : IAiProvider
             var root = doc.RootElement;
             var prompt = root.TryGetProperty("prompt", out var p) ? p.GetString() : null;
             var cvText = root.TryGetProperty("cvText", out var c) ? c.GetString() : null;
+
+            // Vision support: if imageBase64 is present, build multi-part content
+            var hasImage = root.TryGetProperty("imageBase64", out var imgProp);
+            if (hasImage)
+            {
+                var imageBase64 = imgProp.GetString();
+                var imageMediaType = root.TryGetProperty("imageMediaType", out var mt) ? mt.GetString() : "image/jpeg";
+                var textContent = cvText ?? prompt ?? "";
+
+                var parts = new object[]
+                {
+                    new { type = "text", text = textContent },
+                    new { type = "image_url", image_url = new { url = $"data:{imageMediaType};base64,{imageBase64}", detail = "high" } }
+                };
+
+                return (prompt, parts);
+            }
+
             return (prompt, cvText);
         }
         catch

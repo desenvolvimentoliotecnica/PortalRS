@@ -128,16 +128,6 @@ public sealed record SolicitacaoPromocaoResponse(
     string? HorarioProposto,
     MotivoMovimentacaoPessoal? MotivoMovimentacao,
     string Justificativa,
-    // Approval chain
-    Guid? Aprovador1Id,
-    string? Aprovador1Nome,
-    StatusAprovacao Aprovador1Status,
-    DateTimeOffset? Aprovador1DataUtc,
-    Guid? Aprovador2Id,
-    string? Aprovador2Nome,
-    StatusAprovacao? Aprovador2Status,
-    DateTimeOffset? Aprovador2DataUtc,
-    bool Aprovador2Habilitado,
     string? ObservacaoAprovador,
     string? Observacoes,
     DateTimeOffset CreatedAtUtc,
@@ -156,5 +146,9 @@ public sealed record SolicitacaoPromocaoGridRow(
     string? FuncionarioNome,
     string? NovoCargoNome,
     DateOnly DataEfetiva,
-    DateTimeOffset CreatedAtUtc
+    DateTimeOffset CreatedAtUtc,
+    string? EtapaPendenteLabel,
+    string? EtapaPendenteCom,
+    bool EtapaPendenteIsQueue,
+    Guid? EtapaPendenteAprovadorId
 );

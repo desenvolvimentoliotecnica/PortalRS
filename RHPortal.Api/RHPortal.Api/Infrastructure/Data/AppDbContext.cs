@@ -58,6 +58,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<PreAdmissao> PreAdmissoes => Set<PreAdmissao>();
     public DbSet<PreAdmissaoDocumento> PreAdmissaoDocumentos => Set<PreAdmissaoDocumento>();
     public DbSet<PreAdmissaoDocumentoSolicitado> PreAdmissaoDocumentosSolicitados => Set<PreAdmissaoDocumentoSolicitado>();
+    public DbSet<PreAdmissaoDependente> PreAdmissaoDependentes => Set<PreAdmissaoDependente>();
     public DbSet<FaixaSalarial> FaixasSalariais => Set<FaixaSalarial>();
     public DbSet<NivelHierarquico> NiveisHierarquicos => Set<NivelHierarquico>();
     public DbSet<ProjetoVaga> ProjetosVaga => Set<ProjetoVaga>();
@@ -68,7 +69,6 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<LogComunicacao> LogsComunicacao => Set<LogComunicacao>();
     public DbSet<AprovacaoFaixaSalarial> AprovacoesFaixaSalarial => Set<AprovacaoFaixaSalarial>();
     public DbSet<PermissaoNivelVaga> PermissoesNivelVaga => Set<PermissaoNivelVaga>();
-    public DbSet<RegraAprovacaoVaga> RegrasAprovacaoVaga => Set<RegraAprovacaoVaga>();
     public DbSet<Vaga> Vagas => Set<Vaga>();
     public DbSet<VagaBeneficio> VagaBeneficios => Set<VagaBeneficio>();
     public DbSet<VagaRequisito> VagaRequisitos => Set<VagaRequisito>();
@@ -140,7 +140,13 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<UnidadeLotacao> UnidadesLotacao => Set<UnidadeLotacao>();
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
+    public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
+    public DbSet<AprovadorAlternativo> AprovadoresAlternativos => Set<AprovadorAlternativo>();
+    public DbSet<WorkflowRH> WorkflowsRH => Set<WorkflowRH>();
+    public DbSet<EtapaWorkflowRH> EtapasWorkflowRH => Set<EtapaWorkflowRH>();
+    public DbSet<EtapaConfigWorkflowRH> EtapasConfigWorkflowRH => Set<EtapaConfigWorkflowRH>();
+    public DbSet<HistoricoAlteracaoWorkflowRH> HistoricosAlteracaoWorkflowRH => Set<HistoricoAlteracaoWorkflowRH>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -815,22 +821,6 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.SetNull);
             b.Property(x => x.SubstituidoNome).HasMaxLength(160);
 
-            // Sprint 2: Cadeia de aprovação
-            b.HasOne(x => x.Aprovador1)
-                .WithMany()
-                .HasForeignKey(x => x.Aprovador1Id)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            b.HasOne(x => x.Aprovador2)
-                .WithMany()
-                .HasForeignKey(x => x.Aprovador2Id)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            b.HasOne(x => x.Aprovador3)
-                .WithMany()
-                .HasForeignKey(x => x.Aprovador3Id)
-                .OnDelete(DeleteBehavior.SetNull);
-
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.SolicitanteId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
@@ -885,6 +875,19 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.Cpf });
             b.HasIndex(x => new { x.TenantId, x.AccessToken }).HasFilter("\"AccessToken\" IS NOT NULL");
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // PRÉ-ADMISSÃO DEPENDENTES
+        modelBuilder.Entity<PreAdmissaoDependente>(b =>
+        {
+            b.ToTable("PreAdmissaoDependentes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NomeCompleto).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Cpf).HasMaxLength(14);
+            b.HasOne(x => x.PreAdmissao).WithMany(p => p.Dependentes).HasForeignKey(x => x.PreAdmissaoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.PreAdmissaoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1044,19 +1047,6 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.NivelHierarquico).WithMany().HasForeignKey(x => x.NivelHierarquicoId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(x => new { x.TenantId, x.NivelHierarquicoId, x.RoleId }).IsUnique();
-            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
-        });
-
-        // REGRA APROVACAO VAGA
-        modelBuilder.Entity<RegraAprovacaoVaga>(b =>
-        {
-            b.ToTable("RegrasAprovacaoVaga");
-            b.HasKey(x => x.Id);
-            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
-            b.HasOne(x => x.SolicitanteRole).WithMany().HasForeignKey(x => x.SolicitanteRoleId).OnDelete(DeleteBehavior.SetNull);
-            b.HasOne(x => x.Aprovador1).WithMany().HasForeignKey(x => x.Aprovador1FuncionarioId).OnDelete(DeleteBehavior.Restrict);
-            b.HasOne(x => x.Aprovador2).WithMany().HasForeignKey(x => x.Aprovador2FuncionarioId).OnDelete(DeleteBehavior.SetNull);
-            b.HasIndex(x => new { x.TenantId, x.SolicitanteRoleId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1787,6 +1777,15 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<FluxoAprovacaoConfig>(b =>
+        {
+            b.ToTable("FluxosAprovacaoConfig");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.TipoFluxo }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<SolicitacaoAprovacaoEtapa>(b =>
         {
             b.ToTable("SolicitacoesAprovacaoEtapas");
@@ -1804,6 +1803,123 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasFilter("\"RoleFilaId\" IS NOT NULL");
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
+
+        modelBuilder.Entity<AprovadorAlternativo>(b =>
+        {
+            b.ToTable("AprovadoresAlternativos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasOne(x => x.Gestor).WithMany().HasForeignKey(x => x.GestorId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Aprovador).WithMany().HasForeignKey(x => x.AprovadorId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.GestorId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // ── WorkflowRH ──────────────────────────────────────────
+
+        modelBuilder.Entity<WorkflowRH>(b =>
+        {
+            b.ToTable("WorkflowsRH");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.PreAdmissao)
+                .WithMany()
+                .HasForeignKey(x => x.PreAdmissaoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.Responsavel)
+                .WithMany()
+                .HasForeignKey(x => x.ResponsavelId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasMany(x => x.Etapas)
+                .WithOne(x => x.Workflow)
+                .HasForeignKey(x => x.WorkflowId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasMany(x => x.Historico)
+                .WithOne(x => x.Workflow)
+                .HasForeignKey(x => x.WorkflowId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.TipoWorkflow, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.VagaId })
+                .HasFilter("\"VagaId\" IS NOT NULL");
+            b.HasIndex(x => new { x.TenantId, x.PreAdmissaoId })
+                .HasFilter("\"PreAdmissaoId\" IS NOT NULL");
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EtapaWorkflowRH>(b =>
+        {
+            b.ToTable("EtapasWorkflowRH");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Codigo).HasMaxLength(50).IsRequired();
+            b.Property(x => x.Label).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(500);
+            b.Property(x => x.Observacoes).HasMaxLength(2000);
+
+            b.HasOne(x => x.Responsavel)
+                .WithMany()
+                .HasForeignKey(x => x.ResponsavelId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.WorkflowId, x.Ordem });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EtapaConfigWorkflowRH>(b =>
+        {
+            b.ToTable("EtapasConfigWorkflowRH");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Codigo).HasMaxLength(50).IsRequired();
+            b.Property(x => x.Label).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(500);
+            b.Property(x => x.Ativo).IsRequired();
+
+            b.HasOne(x => x.RoleFila)
+                .WithMany()
+                .HasForeignKey(x => x.RoleFilaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.TipoWorkflow, x.Ordem }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<HistoricoAlteracaoWorkflowRH>(b =>
+        {
+            b.ToTable("HistoricosAlteracaoWorkflowRH");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Campo).HasMaxLength(120).IsRequired();
+            b.Property(x => x.ValorAnterior).HasMaxLength(2000);
+            b.Property(x => x.ValorNovo).HasMaxLength(2000);
+            b.Property(x => x.AlteradoPorNome).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Observacao).HasMaxLength(2000);
+
+            b.HasOne(x => x.AlteradoPor)
+                .WithMany()
+                .HasForeignKey(x => x.AlteradoPorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.EtapaWorkflow)
+                .WithMany()
+                .HasForeignKey(x => x.EtapaWorkflowId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.WorkflowId, x.DataAlteracaoUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // ── Fim WorkflowRH ──────────────────────────────────────
 
         modelBuilder.Entity<ApiKey>(b =>
         {

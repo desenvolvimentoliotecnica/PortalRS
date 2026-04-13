@@ -85,6 +85,12 @@ FOR EACH funcionario NO-LOCK
         NO-ERROR.
     IF NOT AVAIL tt_unidades THEN NEXT.
 
+    /* Somente cargos de gestao sao elegiveis como responsavel da unidade */
+    FIND FIRST cargo_basic
+        WHERE cargo_basic.cdn_cargo = funcionario.cdn_cargo
+        NO-LOCK NO-ERROR.
+    IF NOT AVAIL cargo_basic OR cargo_basic.cdn_tip_cargo >= 2 THEN NEXT.
+
     FIND tt_resp
         WHERE tt_resp.cod_unid_lotac = STRING(funcionario.cod_unid_lotac)
         NO-ERROR.

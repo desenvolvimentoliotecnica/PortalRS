@@ -58,6 +58,9 @@ public sealed class PreAdmissao : ITenantEntity
     public string? Nacionalidade { get; set; }
 
     [StringLength(160)]
+    public string? NomeSocial { get; set; }
+
+    [StringLength(160)]
     public string? NomeMae { get; set; }
 
     [StringLength(160)]
@@ -68,6 +71,12 @@ public sealed class PreAdmissao : ITenantEntity
 
     [StringLength(2)]
     public string? NaturalUf { get; set; }
+
+    [StringLength(10)]
+    public string? PaisNacionalidade { get; set; }
+
+    [StringLength(1)]
+    public string? ResideExterior { get; set; }
 
     // ── Estrangeiro ──
 
@@ -235,6 +244,7 @@ public sealed class PreAdmissao : ITenantEntity
     public string? DocMilitarSerie { get; set; }
 
     public int? DocMilitarRegiao { get; set; }
+    public int? DocMilitarCircunscricao { get; set; }
 
     [StringLength(30)]
     public string? CartaoSus { get; set; }
@@ -296,6 +306,7 @@ public sealed class PreAdmissao : ITenantEntity
     // ── TOTVS: FGTS / INSS ──
     [StringLength(1)]
     public string? OptanteFgts { get; set; }
+    public DateOnly? DataOpcaoFgts { get; set; }
     public int? TipoAdmissaoFgts { get; set; }
     [StringLength(1)]
     public string? RecolheFgts { get; set; }
@@ -408,6 +419,10 @@ public sealed class PreAdmissao : ITenantEntity
     public DateTimeOffset? SubmittedAtUtc { get; set; }
     public DateTimeOffset? ApprovedAtUtc { get; set; }
 
+    // ── TOTVS: Registro exterior ──
+    [StringLength(30)]
+    public string? CodRegistroExterior { get; set; }
+
     // ── Integração TOTVS ──
 
     public IntegracaoResultado? IntegracaoResultado { get; set; }
@@ -423,7 +438,14 @@ public sealed class PreAdmissao : ITenantEntity
     [StringLength(64)]
     public string? AccessToken { get; set; }
 
+    // ── Wizard progress ──
+
+    public int? WizardCurrentStep { get; set; }
+    public int? WizardCompletionPercent { get; set; }
+    public DateTimeOffset? LastActivityUtc { get; set; }
+
     // ── Navigation ──
     public List<PreAdmissaoDocumento> Documentos { get; set; } = new();
     public List<PreAdmissaoDocumentoSolicitado> DocumentosSolicitados { get; set; } = new();
+    public List<PreAdmissaoDependente> Dependentes { get; set; } = new();
 }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
@@ -30,30 +31,35 @@ public sealed class AprovacoesController : ControllerBase
     [ProducesResponseType(typeof(PendentesCountResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPendentesCount(CancellationToken ct)
     {
-        var userId = _userContext.FuncionarioId;
-        if (userId == Guid.Empty)
+        var userId = _userContext.UserId;
+        if (userId is null || userId == Guid.Empty)
             return Ok(new PendentesCountResponse(0));
 
-        var vagas = await _db.SolicitacoesVaga
-            .Where(s => s.Status == SolicitacaoVagaStatus.PendenteAprovacao
-                && ((s.Aprovador1Id == userId && s.Aprovador1Status == StatusAprovacao.Pendente)
-                    || (s.Aprovador2Habilitado && s.Aprovador2Id == userId && s.Aprovador2Status == StatusAprovacao.Pendente)))
-            .CountAsync(ct);
+        var funcId = _userContext.FuncionarioId;
 
-        var promocoes = await _db.SolicitacoesPromocao
-            .Where(s => s.Status == SolicitacaoStatus.PendenteAprovacao
-                && ((s.Aprovador1Id == userId && s.Aprovador1Status == StatusAprovacao.Pendente)
-                    || (s.Aprovador2Habilitado && s.Aprovador2Id == userId && s.Aprovador2Status == StatusAprovacao.Pendente)))
-            .CountAsync(ct);
+        List<Guid> userRoleIds = await _db.UserRoles.AsNoTracking()
+            .Where(ur => ur.UserId == userId.Value)
+            .Select(ur => ur.RoleId)
+            .ToListAsync(ct);
 
-        var desligamentos = await _db.SolicitacoesDesligamento
-            .Where(s => s.Status == SolicitacaoStatus.PendenteAprovacao
-                && ((s.Aprovador1Id == userId && s.Aprovador1Status == StatusAprovacao.Pendente)
-                    || (s.Aprovador2Habilitado && s.Aprovador2Id == userId && s.Aprovador2Status == StatusAprovacao.Pendente)))
-            .CountAsync(ct);
+        var vagas         = await CountPendentesAsync(TipoFluxoAprovacao.RequisicaoPessoal,   userId.Value, funcId, userRoleIds, ct);
+        var promocoes     = await CountPendentesAsync(TipoFluxoAprovacao.MovimentacaoPessoal,  userId.Value, funcId, userRoleIds, ct);
+        var desligamentos = await CountPendentesAsync(TipoFluxoAprovacao.Desligamento,         userId.Value, funcId, userRoleIds, ct);
 
         return Ok(new PendentesCountResponse(vagas + promocoes + desligamentos));
     }
+
+    private Task<int> CountPendentesAsync(
+        TipoFluxoAprovacao tipo, Guid userId, Guid? funcId, IReadOnlyList<Guid> roleIds, CancellationToken ct) =>
+        _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.TipoFluxo == tipo
+                && e.Status == StatusAprovacao.Pendente
+                && ((funcId.HasValue && e.AprovadorId == funcId.Value)
+                    || (e.RoleFilaId.HasValue && roleIds.Contains(e.RoleFilaId.Value))
+                    || e.AssumedByUserId == userId))
+            .Select(e => e.SolicitacaoId)
+            .Distinct()
+            .CountAsync(ct);
 
     public record PendentesCountResponse(int Count);
 }

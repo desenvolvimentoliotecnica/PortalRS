@@ -21,7 +21,10 @@ public sealed record PreAdmissaoGridRow(
     int TotalDocumentos,
     int DocumentosPendentes,
     int DocumentosValidados,
-    int DocumentosRejeitados
+    int DocumentosRejeitados,
+    int? WizardCurrentStep,
+    int? WizardCompletionPercent,
+    DateTimeOffset? LastActivityUtc
 );
 
 public sealed record PreAdmissaoListQuery(
@@ -49,128 +52,137 @@ public sealed record PreAdmissaoDetailResponse(
     string? MotivoRejeicao,
 
     // Pessoal
-    string Nome,
-    string? Cpf,
-    string? Rg,
-    string? RgOrgaoExpedidor,
-    DateOnly? RgDataExpedicao,
-    DateOnly? DataNascimento,
-    Sexo Sexo,
-    EstadoCivil EstadoCivil,
-    string? Nacionalidade,
-    string? NomeMae,
-    string? NomePai,
-    string? NaturalCidade,
-    string? NaturalUf,
+    string Nome, string? NomeSocial, string? NomeAbreviado,
+    string? Cpf, string? Rg, string? RgOrgaoExpedidor, string? RgUfExpedidor,
+    DateOnly? RgDataExpedicao, DateOnly? DataNascimento,
+    Sexo Sexo, EstadoCivil EstadoCivil,
+    string? Nacionalidade, string? PaisNacionalidade,
+    string? NomeMae, string? NomePai,
+    string? NaturalCidade, string? NaturalUf, string? PaisNascimento,
 
     // Estrangeiro
-    string? Passaporte,
-    string? RnmRne,
-    DateOnly? ValidadeVisto,
-    string? TipoVisto,
+    string? Passaporte, string? RnmRne, DateOnly? ValidadeVisto, string? TipoVisto,
+    string? ResideExterior, int? TipoVistoEstrangeiro,
 
     // Endereço
-    string? Cep,
-    string? Logradouro,
-    string? Numero,
-    string? Complemento,
-    string? Bairro,
-    string? Cidade,
-    string? Uf,
+    string? Cep, string? Logradouro, string? Numero, string? Complemento,
+    string? Bairro, string? Cidade, string? Uf,
+    string? PontoReferencia, string? TipoLogradouroESocial,
+    int? MunicipioEnderecoIbge,
 
     // Contato
-    string? Email,
-    string? Telefone,
-    string? Celular,
-    string? ContatoEmergenciaNome,
-    string? ContatoEmergenciaFone,
+    string? Email, string? EmailAlternativo,
+    string? Telefone, string? Celular,
+    int? DddTelefone, int? DddTelContato,
+    string? ContatoEmergenciaNome, string? ContatoEmergenciaFone,
 
     // Bancário
-    string? BancoCodigo,
-    string? BancoNome,
-    string? Agencia,
-    string? AgenciaDigito,
-    string? Conta,
-    string? ContaDigito,
-    TipoContaBancaria? TipoConta,
+    string? BancoCodigo, string? BancoNome, string? Agencia, string? AgenciaDigito,
+    string? Conta, string? ContaDigito, TipoContaBancaria? TipoConta,
 
     // Trabalhista
-    string? EstabelecimentoCodigo,
-    string? MatriculaRM,
-    Guid? UnitId,
-    string? UnitNome,
-    Guid? AreaId,
-    string? AreaNome,
-    Guid? JobPositionId,
-    string? JobPositionNome,
-    Guid? RequisitoCategoriaId,
-    DateOnly? DataAdmissao,
-    decimal? Salario,
-    TipoContratacaoAdmissao? TipoContratacao,
-    short? CargaHorariaSemanal,
+    string? EstabelecimentoCodigo, string? CodEmpresa, string? MatriculaRM,
+    Guid? UnitId, string? UnitNome, Guid? AreaId, string? AreaNome,
+    Guid? JobPositionId, string? JobPositionNome, Guid? RequisitoCategoriaId,
+    DateOnly? DataAdmissao, decimal? Salario,
+    TipoContratacaoAdmissao? TipoContratacao, short? CargaHorariaSemanal,
     string? PisPasep,
 
-    // Campos integração TOTVS
-    int? CodCargoTotvs,
-    int? CodVinculoEmpregaticio,
-    int? TipoFuncionario,
-    int? CategoriaSalarial,
-    int? GrauInstrucao,
-    int? CodTurno,
-    string? CentroCusto,
-    string? UnidadeLotacao,
+    // TOTVS: Cargo/Vinculo
+    int? CodCargoTotvs, int? CodVinculoEmpregaticio, int? TipoFuncionario,
+    int? CategoriaSalarial, int? GrauInstrucao, int? CodTurno,
+    string? CentroCusto, string? UnidadeLotacao,
+    int? CodPlanoLotacao, int? CodTurma, int? NumCartaoPonto, int? CodNivel,
+    string? TipoMaoDeObra, int? FormaPagamento, decimal? SalarioSimulado,
+    int? OrigemFuncionario, int? IndFuncVinculado, string? FuncQualificado,
+
+    // TOTVS: FGTS/INSS
+    string? OptanteFgts, DateOnly? DataOpcaoFgts, int? TipoAdmissaoFgts,
+    string? RecolheFgts, string? RecolheInss,
+
+    // TOTVS: Sindicato
+    string? Sindicalizado, string? DescContribSindical, string? ContribSindicDia, int? CodSindicato,
+
+    // TOTVS: Flags calculo
+    string? CargaAutomTurno, string? RecebePericul, string? RecebeInsalub,
+    string? RecebeAdiantamento, string? ConsidEmissRAIS, string? Calcula13, string? RecebeFerias,
+
+    // TOTVS: Provisoes 13
+    int? Avos13SalCalcAnterior, int? Avos13SalCalc,
+    decimal? ProvAcum13Sal, decimal? ProvAcumInss13Sal, decimal? ProvAcumFgts13Sal,
+
+    // TOTVS: Provisoes Ferias
+    decimal? DiasProvFeriasMesAnterior, decimal? DiasProvFeriasMesAtual,
+    decimal? ProvAcumFerias, decimal? ProvAcumInssFerias, decimal? ProvAcumFgtsFerias, decimal? ProvAcumFerias13,
+
+    // TOTVS: Ponto
+    string? EmitCartPonto, int? CodLocalMarcacao, int? CodClassFuncPontoEletronico,
 
     // Docs avulsos
-    string? TituloEleitorNumero,
-    string? TituloEleitorZona,
-    string? TituloEleitorSecao,
-    string? ReservistaNumero,
-    string? CategoriaCnh,
-    DateOnly? ValidadeCnh,
-    string? Ctps,
-    string? CtpsSerie,
-    string? CtpsUf,
+    string? TituloEleitorNumero, string? TituloEleitorZona, string? TituloEleitorSecao,
+    string? TituloEleitorCidade, string? TituloEleitorUf,
+    string? ReservistaNumero, string? CategoriaCnh, DateOnly? ValidadeCnh,
+    string? Ctps, string? CtpsSerie, string? CtpsUf, int? CtpsModelo,
+    string? CtpsSerieESocial,
 
-    // Saúde e docs complementares TOTVS
-    int? GrupoSanguineo,
-    int? FatorRh,
-    string? PossuiDeficiencia,
-    int? DocMilitarTipo,
-    string? DocMilitarNumero,
-    string? DocMilitarSerie,
-    int? DocMilitarRegiao,
-    string? CartaoSus,
-    string? TituloEleitorCidade,
-    string? TituloEleitorUf,
-    int? CtpsModelo,
-    int? Altura,
-    int? Peso,
+    // CNH completo
+    string? CnhNumero, string? CnhUf, string? CnhOrgaoEmissor,
+    int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+
+    // Doc Militar
+    int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie,
+    int? DocMilitarRegiao, int? DocMilitarCircunscricao,
+
+    // Saude e caracteristicas fisicas
+    int? GrupoSanguineo, int? FatorRh, string? PossuiDeficiencia, string? FuncDoador,
+    string? CartaoSus, int? Altura, int? Peso,
+    int? Cutis, int? Cabelo, int? Olhos, int? Manequim, int? Sapato,
+
+    // TOTVS: Nome Abreviado / Contrato
+    int? DataTerminoContrato,
+
+    // TOTVS: Localidade
+    string? PaisLocalidade, int? CodLocalidade, int? CodFpas,
+
+    // TOTVS: eSocial
+    int? CategoriaTrabalhoESocial, int? IndAdmissao, int? NaturezaAtividade,
+    int? MunicipioNascimentoIbge, int? TipoAdmissaoESocial,
+    int? RegimeTrabalhista, int? RegimePrevidenciario, int? RegimeJornada,
+    string? MatriculaESocial, string? PaisNacionalidadeValue,
+
+    // TOTVS: CAGED
+    int? OcorrenciaCAGED,
+
+    // TOTVS: Registro exterior
+    string? CodRegistroExterior,
 
     // Validações
-    bool ValidacaoCpfOk,
-    bool ValidacaoCepOk,
-    bool ValidacaoBancoOk,
-    bool ValidacaoSalarioOk,
-    string? ValidacaoSalarioJustificativa,
+    bool ValidacaoCpfOk, bool ValidacaoCepOk, bool ValidacaoBancoOk,
+    bool ValidacaoSalarioOk, string? ValidacaoSalarioJustificativa,
 
     // Timestamps
-    DateTimeOffset CreatedAtUtc,
-    DateTimeOffset? SubmittedAtUtc,
-    DateTimeOffset? ApprovedAtUtc,
+    DateTimeOffset CreatedAtUtc, DateTimeOffset? SubmittedAtUtc, DateTimeOffset? ApprovedAtUtc,
+
+    // Wizard
+    int? WizardCurrentStep, int? WizardCompletionPercent, DateTimeOffset? LastActivityUtc,
 
     // Documentos
     List<PreAdmissaoDocumentoResponse> Documentos,
-
-    // Documentos solicitados pelo RH
     List<DocumentoSolicitadoResponse> DocumentosSolicitados,
+
+    // Dependentes
+    List<PreAdmissaoDependenteDetailResponse> Dependentes,
 
     // Portal candidato
     string? AccessToken,
 
     // Integração TOTVS
-    IntegracaoResultado? IntegracaoResultado,
-    string? IntegracaoMensagem,
-    DateTimeOffset? IntegradaEmUtc
+    IntegracaoResultado? IntegracaoResultado, string? IntegracaoMensagem, DateTimeOffset? IntegradaEmUtc
+);
+
+public sealed record PreAdmissaoDependenteDetailResponse(
+    Guid Id, string NomeCompleto, Parentesco Parentesco,
+    string? Cpf, DateOnly DataNascimento, bool IsPcd
 );
 
 public sealed record PreAdmissaoDocumentoResponse(
@@ -197,98 +209,107 @@ public sealed record PreAdmissaoCreateRequest(
 
 public sealed record PreAdmissaoUpdateRequest(
     // Pessoal
-    string Nome,
-    string? Cpf,
-    string? Rg,
-    string? RgOrgaoExpedidor,
-    DateOnly? RgDataExpedicao,
-    DateOnly? DataNascimento,
-    Sexo? Sexo,
-    EstadoCivil? EstadoCivil,
-    string? Nacionalidade,
-    string? NomeMae,
-    string? NomePai,
-    string? NaturalCidade,
-    string? NaturalUf,
+    string Nome, string? NomeSocial, string? NomeAbreviado,
+    string? Cpf, string? Rg, string? RgOrgaoExpedidor, string? RgUfExpedidor,
+    DateOnly? RgDataExpedicao, DateOnly? DataNascimento,
+    Sexo? Sexo, EstadoCivil? EstadoCivil,
+    string? Nacionalidade, string? PaisNacionalidade,
+    string? NomeMae, string? NomePai,
+    string? NaturalCidade, string? NaturalUf, string? PaisNascimento,
 
     // Estrangeiro
-    string? Passaporte,
-    string? RnmRne,
-    DateOnly? ValidadeVisto,
-    string? TipoVisto,
+    string? Passaporte, string? RnmRne, DateOnly? ValidadeVisto, string? TipoVisto,
+    string? ResideExterior, int? TipoVistoEstrangeiro,
 
     // Endereço
-    string? Cep,
-    string? Logradouro,
-    string? Numero,
-    string? Complemento,
-    string? Bairro,
-    string? Cidade,
-    string? Uf,
+    string? Cep, string? Logradouro, string? Numero, string? Complemento,
+    string? Bairro, string? Cidade, string? Uf,
+    string? PontoReferencia, string? TipoLogradouroESocial, int? MunicipioEnderecoIbge,
 
     // Contato
-    string? Email,
-    string? Telefone,
-    string? Celular,
-    string? ContatoEmergenciaNome,
-    string? ContatoEmergenciaFone,
+    string? Email, string? EmailAlternativo,
+    string? Telefone, string? Celular,
+    int? DddTelefone, int? DddTelContato,
+    string? ContatoEmergenciaNome, string? ContatoEmergenciaFone,
 
     // Bancário
-    string? BancoCodigo,
-    string? BancoNome,
-    string? Agencia,
-    string? AgenciaDigito,
-    string? Conta,
-    string? ContaDigito,
-    TipoContaBancaria? TipoConta,
+    string? BancoCodigo, string? BancoNome, string? Agencia, string? AgenciaDigito,
+    string? Conta, string? ContaDigito, TipoContaBancaria? TipoConta,
 
     // Trabalhista
-    string? EstabelecimentoCodigo,
-    Guid? UnitId,
-    Guid? AreaId,
-    Guid? JobPositionId,
-    Guid? RequisitoCategoriaId,
-    DateOnly? DataAdmissao,
-    decimal? Salario,
-    TipoContratacaoAdmissao? TipoContratacao,
-    short? CargaHorariaSemanal,
+    string? EstabelecimentoCodigo, string? CodEmpresa,
+    Guid? UnitId, Guid? AreaId, Guid? JobPositionId, Guid? RequisitoCategoriaId,
+    DateOnly? DataAdmissao, decimal? Salario,
+    TipoContratacaoAdmissao? TipoContratacao, short? CargaHorariaSemanal,
     string? PisPasep,
 
-    // Campos integração TOTVS
-    int? CodCargoTotvs,
-    int? CodVinculoEmpregaticio,
-    int? TipoFuncionario,
-    int? CategoriaSalarial,
-    int? GrauInstrucao,
-    int? CodTurno,
-    string? CentroCusto,
-    string? UnidadeLotacao,
+    // TOTVS: Cargo/Vinculo
+    int? CodCargoTotvs, int? CodVinculoEmpregaticio, int? TipoFuncionario,
+    int? CategoriaSalarial, int? GrauInstrucao, int? CodTurno,
+    string? CentroCusto, string? UnidadeLotacao,
+    int? CodPlanoLotacao, int? CodTurma, int? NumCartaoPonto, int? CodNivel,
+    string? TipoMaoDeObra, int? FormaPagamento, decimal? SalarioSimulado,
+    int? OrigemFuncionario, int? IndFuncVinculado, string? FuncQualificado,
+
+    // TOTVS: FGTS/INSS
+    string? OptanteFgts, DateOnly? DataOpcaoFgts, int? TipoAdmissaoFgts,
+    string? RecolheFgts, string? RecolheInss,
+
+    // TOTVS: Sindicato
+    string? Sindicalizado, string? DescContribSindical, string? ContribSindicDia, int? CodSindicato,
+
+    // TOTVS: Flags calculo
+    string? CargaAutomTurno, string? RecebePericul, string? RecebeInsalub,
+    string? RecebeAdiantamento, string? ConsidEmissRAIS, string? Calcula13, string? RecebeFerias,
+
+    // TOTVS: Provisoes 13
+    int? Avos13SalCalcAnterior, int? Avos13SalCalc,
+    decimal? ProvAcum13Sal, decimal? ProvAcumInss13Sal, decimal? ProvAcumFgts13Sal,
+
+    // TOTVS: Provisoes Ferias
+    decimal? DiasProvFeriasMesAnterior, decimal? DiasProvFeriasMesAtual,
+    decimal? ProvAcumFerias, decimal? ProvAcumInssFerias, decimal? ProvAcumFgtsFerias, decimal? ProvAcumFerias13,
+
+    // TOTVS: Ponto
+    string? EmitCartPonto, int? CodLocalMarcacao, int? CodClassFuncPontoEletronico,
 
     // Docs avulsos
-    string? TituloEleitorNumero,
-    string? TituloEleitorZona,
-    string? TituloEleitorSecao,
-    string? ReservistaNumero,
-    string? CategoriaCnh,
-    DateOnly? ValidadeCnh,
-    string? Ctps,
-    string? CtpsSerie,
-    string? CtpsUf,
+    string? TituloEleitorNumero, string? TituloEleitorZona, string? TituloEleitorSecao,
+    string? TituloEleitorCidade, string? TituloEleitorUf,
+    string? ReservistaNumero, string? CategoriaCnh, DateOnly? ValidadeCnh,
+    string? Ctps, string? CtpsSerie, string? CtpsUf, int? CtpsModelo,
+    string? CtpsSerieESocial,
 
-    // Saúde e docs complementares TOTVS
-    int? GrupoSanguineo,
-    int? FatorRh,
-    string? PossuiDeficiencia,
-    int? DocMilitarTipo,
-    string? DocMilitarNumero,
-    string? DocMilitarSerie,
-    int? DocMilitarRegiao,
-    string? CartaoSus,
-    string? TituloEleitorCidade,
-    string? TituloEleitorUf,
-    int? CtpsModelo,
-    int? Altura,
-    int? Peso,
+    // CNH completo
+    string? CnhNumero, string? CnhUf, string? CnhOrgaoEmissor,
+    int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+
+    // Doc Militar
+    int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie,
+    int? DocMilitarRegiao, int? DocMilitarCircunscricao,
+
+    // Saude
+    int? GrupoSanguineo, int? FatorRh, string? PossuiDeficiencia, string? FuncDoador,
+    string? CartaoSus, int? Altura, int? Peso,
+    int? Cutis, int? Cabelo, int? Olhos, int? Manequim, int? Sapato,
+
+    // TOTVS: Contrato
+    int? DataTerminoContrato,
+
+    // TOTVS: Localidade
+    string? PaisLocalidade, int? CodLocalidade, int? CodFpas,
+
+    // TOTVS: eSocial
+    int? CategoriaTrabalhoESocial, int? IndAdmissao, int? NaturezaAtividade,
+    int? MunicipioNascimentoIbge, int? TipoAdmissaoESocial,
+    int? RegimeTrabalhista, int? RegimePrevidenciario, int? RegimeJornada,
+    string? MatriculaESocial,
+
+    // TOTVS: CAGED
+    int? OcorrenciaCAGED,
+
+    // TOTVS: Registro exterior
+    string? CodRegistroExterior,
 
     // Salário justificativa
     string? ValidacaoSalarioJustificativa
@@ -504,9 +525,9 @@ public sealed record DocumentoSolicitadoResponse(
 
 // ── Gerar link de acesso do candidato ──
 
-public sealed record GerarLinkRequest(string Cpf);
+public sealed record GerarLinkRequest(string? Cpf);
 
-public sealed record GerarLinkResponse(string AccessToken, string PublicUrl);
+public sealed record GerarLinkResponse(string AccessToken, string PublicUrl, bool EmailEnviado);
 
 // ── Validação de documento individual pelo RH ──
 

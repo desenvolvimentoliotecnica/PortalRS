@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Common;
+using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.SolicitacoesFerias;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -67,23 +68,42 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
         var pageSize = Math.Clamp(query.PageSize ?? 20, 1, 100);
         q = q.Skip((page - 1) * pageSize).Take(pageSize);
 
-        return await q.Select(s => new SolicitacaoFeriasGridRow(
+        var rawRows = await q.Select(s => new
+        {
             s.Id, s.Status,
-            s.Solicitante != null ? s.Solicitante.Name : null,
-            s.DataInicio, s.DataFim, s.QtdDias,
-            s.AbonoPecuniario, s.CreatedAtUtc
-        )).ToListAsync(ct);
+            SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
+            s.DataInicio, s.DataFim, s.QtdDias, s.AbonoPecuniario, s.CreatedAtUtc,
+        }).ToListAsync(ct);
+
+        var ids = rawRows.Select(r => r.Id).ToList();
+        var etapasPendentes = await _workflow.GetEtapasPendentesAsync(
+            ids, TipoFluxoAprovacao.Ferias, ct);
+
+        return rawRows.Select(r =>
+        {
+            etapasPendentes.TryGetValue(r.Id, out var ep);
+            return new SolicitacaoFeriasGridRow(
+                r.Id, r.Status, r.SolicitanteNome,
+                r.DataInicio, r.DataFim, r.QtdDias, r.AbonoPecuniario, r.CreatedAtUtc,
+                ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId);
+        }).ToList();
     }
 
     public async Task<SolicitacaoFeriasResponse?> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var s = await _db.SolicitacoesFerias.AsNoTracking()
             .Include(x => x.Solicitante)
-            .Include(x => x.Aprovador1)
-            .Include(x => x.Aprovador2)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
-        return s is null ? null : MapToResponse(s);
+        if (s is null) return null;
+
+        var etapas = await _db.SolicitacoesAprovacaoEtapa.AsNoTracking()
+            .Include(e => e.Aprovador)
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias)
+            .OrderBy(e => e.Ordem)
+            .ToListAsync(ct);
+
+        return MapToResponse(s, etapas);
     }
 
     public async Task<SolicitacaoFeriasResponse> CreateAsync(
@@ -190,25 +210,6 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
         _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
 
         var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
-        var segundaEtapa = novasEtapas.OrderBy(e => e.Ordem).Skip(1).FirstOrDefault();
-
-        if (primeiraEtapa is not null)
-        {
-            entity.Aprovador1Id = primeiraEtapa.AprovadorId;
-            entity.Aprovador1Status = primeiraEtapa.Status;
-        }
-
-        entity.Aprovador2Habilitado = segundaEtapa is not null;
-        if (segundaEtapa is not null)
-        {
-            entity.Aprovador2Id = segundaEtapa.AprovadorId;
-            entity.Aprovador2Status = segundaEtapa.Status;
-        }
-        else
-        {
-            entity.Aprovador2Id = null;
-            entity.Aprovador2Status = null;
-        }
 
         await _db.SaveChangesAsync(ct);
 
@@ -260,20 +261,6 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             .ToListAsync(ct);
 
         var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
-
-        var indAtual = todasEtapas.IndexOf(etapaAtual);
-        if (indAtual == 0)
-        {
-            entity.Aprovador1Id = etapaAtual.AprovadorId;
-            entity.Aprovador1Status = etapaAtual.Status;
-            entity.Aprovador1DataUtc = etapaAtual.DataUtc;
-        }
-        else if (indAtual == 1)
-        {
-            entity.Aprovador2Id = etapaAtual.AprovadorId;
-            entity.Aprovador2Status = etapaAtual.Status;
-            entity.Aprovador2DataUtc = etapaAtual.DataUtc;
-        }
 
         if (proximaEtapa is not null)
         {
@@ -334,9 +321,6 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             etapaAtual.DataUtc = DateTimeOffset.UtcNow;
             etapaAtual.Observacao = observacao;
 
-            var logIndex = await _db.SolicitacoesAprovacaoEtapa.Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias && e.Ordem < etapaAtual.Ordem).CountAsync(ct);
-            if (logIndex == 0) { entity.Aprovador1Status = StatusAprovacao.Rejeitado; }
-            else if (logIndex == 1) { entity.Aprovador2Status = StatusAprovacao.Rejeitado; }
         }
 
         entity.Status = SolicitacaoStatus.Reprovada;
@@ -416,24 +400,25 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
         etapaAtual.AprovadorId = _currentUser.FuncionarioId;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        var logIndex = await _db.SolicitacoesAprovacaoEtapa.Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Ferias && e.Ordem < etapaAtual.Ordem).CountAsync(ct);
-        if (logIndex == 0) { entity.Aprovador1Id = _currentUser.FuncionarioId; }
-        else if (logIndex == 1) { entity.Aprovador2Id = _currentUser.FuncionarioId; }
-
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
 
-    private static SolicitacaoFeriasResponse MapToResponse(SolicitacaoFerias s) => new(
+    private static SolicitacaoFeriasResponse MapToResponse(
+        SolicitacaoFerias s,
+        IReadOnlyList<SolicitacaoAprovacaoEtapa>? etapas = null) => new(
         s.Id, s.Status,
         s.SolicitanteId, s.Solicitante?.Name,
         s.PeriodoAquisitivo, s.DataInicio, s.DataFim, s.QtdDias,
         s.AbonoPecuniario, s.DiasAbono, s.Adiantamento13,
-        s.Aprovador1Id, s.Aprovador1?.Name, s.Aprovador1Status, s.Aprovador1DataUtc,
-        s.Aprovador2Id, s.Aprovador2?.Name, s.Aprovador2Status, s.Aprovador2DataUtc,
-        s.Aprovador2Habilitado,
         s.ObservacaoAprovador, s.Observacoes,
         s.CreatedAtUtc, s.UpdatedAtUtc, s.ApprovedAtUtc,
-        s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc
+        s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
+        (etapas ?? []).Select(e => new EtapaAprovacaoResponse(
+            e.Ordem, e.Label,
+            e.AprovadorId, e.Aprovador?.Name,
+            e.RoleFilaId, null,
+            e.Status.ToString(), e.DataUtc, e.Observacao
+        )).ToList()
     );
 }

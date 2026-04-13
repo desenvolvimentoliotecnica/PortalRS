@@ -37,9 +37,6 @@ public sealed record SolicitacaoDependenteResponse(
     TipoSolicitacaoDependente TipoSolicitacao, Guid? DependenteId,
     string NomeCompleto, Parentesco Parentesco, string? Cpf,
     DateOnly DataNascimento, bool IsPcd, bool DependenteIR,
-    Guid? Aprovador1Id, string? Aprovador1Nome, StatusAprovacao Aprovador1Status, DateTimeOffset? Aprovador1DataUtc,
-    Guid? Aprovador2Id, string? Aprovador2Nome, StatusAprovacao? Aprovador2Status, DateTimeOffset? Aprovador2DataUtc,
-    bool Aprovador2Habilitado,
     string? ObservacaoAprovador, string? Observacoes,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, DateTimeOffset? ApprovedAtUtc,
     IntegracaoResultado? IntegracaoResultado, string? IntegracaoMensagem, DateTimeOffset? IntegradaEmUtc

@@ -161,7 +161,7 @@ export default function TopbarClient({
     me.tenantId.toLowerCase() !== "owner" &&
     (me as Record<string, unknown>)?.roles?.toString().includes("Owner");
 
-  const displayLabel = isOwner ? "Owner" : me?.tenantId ?? "—";
+  const displayLabel = me?.email || me?.displayName || "—";
 
   useEffect(() => {
     setMounted(true);

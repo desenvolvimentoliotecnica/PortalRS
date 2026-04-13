@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Contracts.AdmissaoPortal;
@@ -5,6 +6,7 @@ using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Storage;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -17,6 +19,12 @@ public interface IAdmissaoPortalService
     Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest request, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse?> UploadDocAsync(Guid preAdmissaoId, string cpf, TipoDocumento tipo, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
     Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
+    Task<DocumentValidationResponse?> ValidateDocumentAsync(Guid preAdmissaoId, string cpf, DocumentValidationRequest request, CancellationToken ct);
+    Task<IReadOnlyList<PreAdmissaoDependenteResponse>> ListDependentesAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
+    Task<PreAdmissaoDependenteResponse?> AddDependenteAsync(Guid preAdmissaoId, string cpf, DependenteCreateRequest request, CancellationToken ct);
+    Task<PreAdmissaoDependenteResponse?> UpdateDependenteAsync(Guid preAdmissaoId, string cpf, Guid dependenteId, DependenteUpdateRequest request, CancellationToken ct);
+    Task<bool> RemoveDependenteAsync(Guid preAdmissaoId, string cpf, Guid dependenteId, CancellationToken ct);
+    Task<bool> SaveWizardProgressAsync(Guid preAdmissaoId, string cpf, int currentStep, int completionPercent, CancellationToken ct);
 }
 
 public sealed class AdmissaoPortalService : IAdmissaoPortalService
@@ -24,12 +32,21 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IS3StorageService _storage;
+    private readonly DocumentAiExtractor _aiExtractor;
+    private readonly IHubContext<NotificationsHub> _hub;
 
-    public AdmissaoPortalService(AppDbContext db, ITenantContext tenantContext, IS3StorageService storage)
+    public AdmissaoPortalService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IS3StorageService storage,
+        DocumentAiExtractor aiExtractor,
+        IHubContext<NotificationsHub> hub)
     {
         _db = db;
         _tenantContext = tenantContext;
         _storage = storage;
+        _aiExtractor = aiExtractor;
+        _hub = hub;
     }
 
     public async Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct)
@@ -41,7 +58,17 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             .FirstOrDefaultAsync(x => x.Id == request.PreAdmissaoId && x.AccessToken != null, ct);
 
         if (pa is null) return null;
-        if (NormalizeCpf(pa.Cpf ?? "") != cpfNorm) return null;
+
+        // Se nenhum CPF foi pré-definido pelo RH, o candidato registra o próprio CPF no primeiro acesso
+        var modified = false;
+        if (string.IsNullOrWhiteSpace(pa.Cpf))
+        {
+            pa.Cpf = cpfNorm;
+            pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            modified = true;
+        }
+        else if (NormalizeCpf(pa.Cpf) != cpfNorm) return null;
+
         if (pa.Status != PreAdmissaoStatus.Enviado
             && pa.Status != PreAdmissaoStatus.Acessado
             && pa.Status != PreAdmissaoStatus.PreenchidoParcial
@@ -52,8 +79,11 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         {
             pa.Status = PreAdmissaoStatus.Acessado;
             pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
-            await _db.SaveChangesAsync(ct);
+            modified = true;
         }
+
+        if (modified)
+            await _db.SaveChangesAsync(ct);
 
         return new AdmissaoPortalLoginResponse(pa.Id, pa.Nome, _tenantContext.TenantId);
     }
@@ -78,19 +108,51 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             (int)d.Status, d.ObservacaoRh, _storage.GetPresignedUrl(d.StoragePath))).ToList();
 
         var dados = new PortalDadosPessoais(
-            pa.Nome, pa.Cpf, pa.Rg, pa.RgOrgaoExpedidor,
+            // Pessoal
+            pa.Nome, pa.NomeSocial, pa.NomeAbreviado,
+            pa.Cpf, pa.Rg, pa.RgOrgaoExpedidor,
+            pa.RgUfExpedidor, pa.RgDataExpedicao?.ToString("yyyy-MM-dd"),
             pa.DataNascimento?.ToString("yyyy-MM-dd"), (int?)pa.Sexo, (int?)pa.EstadoCivil,
-            pa.Nacionalidade, pa.NomeMae, pa.NomePai,
+            pa.Nacionalidade, pa.PaisNacionalidade,
+            pa.NomeMae, pa.NomePai,
+            pa.PaisNascimento, pa.NaturalCidade, pa.NaturalUf,
+            pa.GrauInstrucao, pa.FuncDoador,
+            // Endereco
             pa.Cep, pa.Logradouro, pa.Numero, pa.Complemento, pa.Bairro, pa.Cidade, pa.Uf,
-            pa.Email, pa.Telefone, pa.Celular, pa.ContatoEmergenciaNome, pa.ContatoEmergenciaFone,
+            pa.PontoReferencia, pa.ResideExterior,
+            // Contato
+            pa.Email, pa.EmailAlternativo,
+            pa.Telefone, pa.Celular,
+            pa.DddTelefone, pa.DddTelContato,
+            pa.ContatoEmergenciaNome, pa.ContatoEmergenciaFone,
+            // Bancario
             pa.BancoCodigo, pa.BancoNome, pa.Agencia, pa.AgenciaDigito, pa.Conta, pa.ContaDigito, (int?)pa.TipoConta,
-            pa.PisPasep, pa.Ctps, pa.CtpsSerie, pa.CtpsUf,
+            // Trabalhista
+            pa.PisPasep, pa.Ctps, pa.CtpsSerie, pa.CtpsUf, pa.CtpsModelo,
+            // Titulo Eleitor
+            pa.TituloEleitorNumero, pa.TituloEleitorZona, pa.TituloEleitorSecao,
+            pa.TituloEleitorCidade, pa.TituloEleitorUf,
+            // CNH
+            pa.CnhNumero, pa.CategoriaCnh, pa.CnhUf,
+            pa.CnhOrgaoEmissor, pa.CnhDataExpedicao, pa.CnhPrimeiraHabilitacao,
+            pa.ValidadeCnh?.ToString("yyyy-MM-dd"),
+            // Reservista / Doc Militar
+            pa.ReservistaNumero,
+            pa.DocMilitarTipo, pa.DocMilitarNumero, pa.DocMilitarSerie,
+            pa.DocMilitarRegiao, pa.DocMilitarCircunscricao,
+            // Estrangeiro
+            pa.Passaporte, pa.RnmRne, pa.ValidadeVisto?.ToString("yyyy-MM-dd"), pa.TipoVisto,
+            // Saude e caracteristicas fisicas
             pa.GrupoSanguineo, pa.FatorRh, pa.PossuiDeficiencia,
-            pa.DocMilitarTipo, pa.DocMilitarNumero, pa.DocMilitarSerie, pa.DocMilitarRegiao,
-            pa.CartaoSus, pa.TituloEleitorCidade, pa.TituloEleitorUf,
-            pa.CtpsModelo, pa.Altura, pa.Peso);
+            pa.CartaoSus, pa.Altura, pa.Peso,
+            pa.Cutis, pa.Cabelo, pa.Olhos, pa.Manequim, pa.Sapato);
 
-        return new AdmissaoPortalDataResponse(pa.Id, pa.Nome, (int)pa.Status, solicitados, enviados, dados);
+        var dependentes = pa.Dependentes.Select(d => new PreAdmissaoDependenteResponse(
+            d.Id, d.NomeCompleto, (int)d.Parentesco, d.Cpf,
+            d.DataNascimento.ToString("yyyy-MM-dd"), d.IsPcd)).ToList();
+
+        return new AdmissaoPortalDataResponse(pa.Id, pa.Nome, (int)pa.Status, solicitados, enviados, dados,
+            dependentes, pa.WizardCurrentStep, pa.WizardCompletionPercent);
     }
 
     public async Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest r, CancellationToken ct)
@@ -98,52 +160,101 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
         if (pa is null) return false;
 
+        // Pessoal
         if (!string.IsNullOrWhiteSpace(r.Nome)) pa.Nome = r.Nome.Trim();
+        pa.NomeSocial = r.NomeSocial?.Trim();
+        pa.NomeAbreviado = r.NomeAbreviado?.Trim();
         pa.Rg = r.Rg?.Trim(); pa.RgOrgaoExpedidor = r.RgOrgaoExpedidor?.Trim();
+        pa.RgUfExpedidor = r.RgUfExpedidor?.Trim();
+        if (!string.IsNullOrWhiteSpace(r.RgDataExpedicao) && DateOnly.TryParse(r.RgDataExpedicao, out var rgDt))
+            pa.RgDataExpedicao = rgDt;
         if (!string.IsNullOrWhiteSpace(r.DataNascimento) && DateOnly.TryParse(r.DataNascimento, out var dn))
             pa.DataNascimento = dn;
         if (r.Sexo.HasValue) pa.Sexo = (Sexo)r.Sexo.Value;
         if (r.EstadoCivil.HasValue) pa.EstadoCivil = (EstadoCivil)r.EstadoCivil.Value;
         pa.Nacionalidade = r.Nacionalidade?.Trim();
+        pa.PaisNacionalidade = r.PaisNacionalidade?.Trim();
         pa.NomeMae = r.NomeMae?.Trim(); pa.NomePai = r.NomePai?.Trim();
+        pa.PaisNascimento = r.PaisNascimento?.Trim();
+        pa.NaturalCidade = r.NaturalCidade?.Trim(); pa.NaturalUf = r.NaturalUf?.Trim();
+        pa.GrauInstrucao = r.GrauInstrucao;
+        pa.FuncDoador = r.FuncDoador?.Trim();
 
+        // Endereco
         pa.Cep = r.Cep?.Trim(); pa.Logradouro = r.Logradouro?.Trim(); pa.Numero = r.Numero?.Trim();
         pa.Complemento = r.Complemento?.Trim(); pa.Bairro = r.Bairro?.Trim();
         pa.Cidade = r.Cidade?.Trim(); pa.Uf = r.Uf?.Trim();
+        pa.PontoReferencia = r.PontoReferencia?.Trim();
+        pa.ResideExterior = r.ResideExterior?.Trim();
 
-        pa.Email = r.Email?.Trim(); pa.Telefone = r.Telefone?.Trim(); pa.Celular = r.Celular?.Trim();
+        // Contato
+        pa.Email = r.Email?.Trim(); pa.EmailAlternativo = r.EmailAlternativo?.Trim();
+        pa.Telefone = r.Telefone?.Trim(); pa.Celular = r.Celular?.Trim();
+        pa.DddTelefone = r.DddTelefone; pa.DddTelContato = r.DddTelContato;
         pa.ContatoEmergenciaNome = r.ContatoEmergenciaNome?.Trim(); pa.ContatoEmergenciaFone = r.ContatoEmergenciaFone?.Trim();
 
+        // Bancario
         pa.BancoCodigo = r.BancoCodigo?.Trim(); pa.BancoNome = r.BancoNome?.Trim();
         pa.Agencia = r.Agencia?.Trim(); pa.AgenciaDigito = r.AgenciaDigito?.Trim();
         pa.Conta = r.Conta?.Trim(); pa.ContaDigito = r.ContaDigito?.Trim();
         if (r.TipoConta.HasValue) pa.TipoConta = (TipoContaBancaria)r.TipoConta.Value;
 
+        // Trabalhista
         pa.PisPasep = r.PisPasep?.Trim(); pa.Ctps = r.Ctps?.Trim();
         pa.CtpsSerie = r.CtpsSerie?.Trim(); pa.CtpsUf = r.CtpsUf?.Trim();
+        pa.CtpsModelo = r.CtpsModelo;
 
-        // Saúde e docs complementares TOTVS
-        pa.GrupoSanguineo = r.GrupoSanguineo;
-        pa.FatorRh = r.FatorRh;
-        pa.PossuiDeficiencia = r.PossuiDeficiencia?.Trim();
+        // Titulo Eleitor
+        pa.TituloEleitorNumero = r.TituloEleitorNumero?.Trim();
+        pa.TituloEleitorZona = r.TituloEleitorZona?.Trim();
+        pa.TituloEleitorSecao = r.TituloEleitorSecao?.Trim();
+        pa.TituloEleitorCidade = r.TituloEleitorCidade?.Trim();
+        pa.TituloEleitorUf = r.TituloEleitorUf?.Trim();
+
+        // CNH
+        pa.CnhNumero = r.CnhNumero?.Trim();
+        pa.CategoriaCnh = r.CategoriaCnh?.Trim();
+        pa.CnhUf = r.CnhUf?.Trim();
+        pa.CnhOrgaoEmissor = r.CnhOrgaoEmissor?.Trim();
+        pa.CnhDataExpedicao = r.CnhDataExpedicao;
+        pa.CnhPrimeiraHabilitacao = r.CnhPrimeiraHabilitacao;
+        if (!string.IsNullOrWhiteSpace(r.ValidadeCnh) && DateOnly.TryParse(r.ValidadeCnh, out var cnhVal))
+            pa.ValidadeCnh = cnhVal;
+
+        // Reservista / Doc Militar
+        pa.ReservistaNumero = r.ReservistaNumero?.Trim();
         pa.DocMilitarTipo = r.DocMilitarTipo;
         pa.DocMilitarNumero = r.DocMilitarNumero?.Trim();
         pa.DocMilitarSerie = r.DocMilitarSerie?.Trim();
         pa.DocMilitarRegiao = r.DocMilitarRegiao;
+        pa.DocMilitarCircunscricao = r.DocMilitarCircunscricao;
+
+        // Estrangeiro
+        pa.Passaporte = r.Passaporte?.Trim();
+        pa.RnmRne = r.RnmRne?.Trim();
+        if (!string.IsNullOrWhiteSpace(r.ValidadeVisto) && DateOnly.TryParse(r.ValidadeVisto, out var vistoVal))
+            pa.ValidadeVisto = vistoVal;
+        pa.TipoVisto = r.TipoVisto?.Trim();
+
+        // Saude e caracteristicas fisicas
+        pa.GrupoSanguineo = r.GrupoSanguineo;
+        pa.FatorRh = r.FatorRh;
+        pa.PossuiDeficiencia = r.PossuiDeficiencia?.Trim();
         pa.CartaoSus = r.CartaoSus?.Trim();
-        pa.TituloEleitorCidade = r.TituloEleitorCidade?.Trim();
-        pa.TituloEleitorUf = r.TituloEleitorUf?.Trim();
-        pa.CtpsModelo = r.CtpsModelo;
         pa.Altura = r.Altura;
         pa.Peso = r.Peso;
+        pa.Cutis = r.Cutis; pa.Cabelo = r.Cabelo; pa.Olhos = r.Olhos;
+        pa.Manequim = r.Manequim; pa.Sapato = r.Sapato;
 
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
 
         // Transição automática: Enviado/Acessado → PreenchidoParcial ao salvar dados
         if (pa.Status == PreAdmissaoStatus.Enviado || pa.Status == PreAdmissaoStatus.Acessado)
             pa.Status = PreAdmissaoStatus.PreenchidoParcial;
 
         await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "save_dados", ct);
         return true;
     }
 
@@ -181,8 +292,10 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         // Transição automática: Enviado/Acessado → PreenchidoParcial ao enviar doc
         if (pa.Status == PreAdmissaoStatus.Enviado || pa.Status == PreAdmissaoStatus.Acessado)
             pa.Status = PreAdmissaoStatus.PreenchidoParcial;
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "upload_doc", ct);
 
         return new PreAdmissaoDocumentoResponse(
             doc.Id, doc.Tipo, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes,
@@ -199,7 +312,9 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         pa.Status = PreAdmissaoStatus.Preenchido;
         pa.SubmittedAtUtc = DateTimeOffset.UtcNow;
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "submit", ct);
         return true;
     }
 
@@ -211,6 +326,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         var pa = await _db.Set<Domain.Entities.PreAdmissao>().AsNoTracking()
             .Include(x => x.Documentos)
             .Include(x => x.DocumentosSolicitados)
+            .Include(x => x.Dependentes)
             .FirstOrDefaultAsync(x => x.Id == id && x.AccessToken != null, ct);
         if (pa is null || NormalizeCpf(pa.Cpf ?? "") != cpfNorm) return null;
         var allowedStatuses = new[] { PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado, PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido };
@@ -227,6 +343,143 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         var allowed = new[] { PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado, PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido };
         if (!allowed.Contains(pa.Status)) return null;
         return pa;
+    }
+
+    // ── Validação de documento por IA ──
+
+    public async Task<DocumentValidationResponse?> ValidateDocumentAsync(
+        Guid preAdmissaoId, string cpf, DocumentValidationRequest request, CancellationToken ct)
+    {
+        var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
+        if (pa is null) return null;
+
+        var tipo = (TipoDocumento)request.TipoDocumento;
+        return await _aiExtractor.ExtractAsync(_tenantContext.TenantId, tipo, request.ImageBase64, request.MediaType, ct);
+    }
+
+    // ── Dependentes CRUD ──
+
+    public async Task<IReadOnlyList<PreAdmissaoDependenteResponse>> ListDependentesAsync(
+        Guid preAdmissaoId, string cpf, CancellationToken ct)
+    {
+        var pa = await LoadAndValidate(preAdmissaoId, cpf, ct);
+        if (pa is null) return Array.Empty<PreAdmissaoDependenteResponse>();
+
+        return pa.Dependentes.Select(d => new PreAdmissaoDependenteResponse(
+            d.Id, d.NomeCompleto, (int)d.Parentesco, d.Cpf,
+            d.DataNascimento.ToString("yyyy-MM-dd"), d.IsPcd)).ToList();
+    }
+
+    public async Task<PreAdmissaoDependenteResponse?> AddDependenteAsync(
+        Guid preAdmissaoId, string cpf, DependenteCreateRequest request, CancellationToken ct)
+    {
+        var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
+        if (pa is null) return null;
+
+        var dep = new PreAdmissaoDependente
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            PreAdmissaoId = preAdmissaoId,
+            NomeCompleto = request.NomeCompleto.Trim(),
+            Parentesco = (Parentesco)request.Parentesco,
+            Cpf = NormalizeCpf(request.Cpf ?? ""),
+            DataNascimento = DateOnly.Parse(request.DataNascimento),
+            IsPcd = request.IsPcd,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        _db.Set<PreAdmissaoDependente>().Add(dep);
+
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
+        if (pa.Status == PreAdmissaoStatus.Enviado || pa.Status == PreAdmissaoStatus.Acessado)
+            pa.Status = PreAdmissaoStatus.PreenchidoParcial;
+
+        await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "add_dependente", ct);
+
+        return new PreAdmissaoDependenteResponse(
+            dep.Id, dep.NomeCompleto, (int)dep.Parentesco, dep.Cpf,
+            dep.DataNascimento.ToString("yyyy-MM-dd"), dep.IsPcd);
+    }
+
+    public async Task<PreAdmissaoDependenteResponse?> UpdateDependenteAsync(
+        Guid preAdmissaoId, string cpf, Guid dependenteId, DependenteUpdateRequest request, CancellationToken ct)
+    {
+        var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
+        if (pa is null) return null;
+
+        var dep = await _db.Set<PreAdmissaoDependente>()
+            .FirstOrDefaultAsync(x => x.Id == dependenteId && x.PreAdmissaoId == preAdmissaoId, ct);
+        if (dep is null) return null;
+
+        dep.NomeCompleto = request.NomeCompleto.Trim();
+        dep.Parentesco = (Parentesco)request.Parentesco;
+        dep.Cpf = NormalizeCpf(request.Cpf ?? "");
+        dep.DataNascimento = DateOnly.Parse(request.DataNascimento);
+        dep.IsPcd = request.IsPcd;
+        dep.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "update_dependente", ct);
+
+        return new PreAdmissaoDependenteResponse(
+            dep.Id, dep.NomeCompleto, (int)dep.Parentesco, dep.Cpf,
+            dep.DataNascimento.ToString("yyyy-MM-dd"), dep.IsPcd);
+    }
+
+    public async Task<bool> RemoveDependenteAsync(Guid preAdmissaoId, string cpf, Guid dependenteId, CancellationToken ct)
+    {
+        var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
+        if (pa is null) return false;
+
+        var dep = await _db.Set<PreAdmissaoDependente>()
+            .FirstOrDefaultAsync(x => x.Id == dependenteId && x.PreAdmissaoId == preAdmissaoId, ct);
+        if (dep is null) return false;
+
+        _db.Set<PreAdmissaoDependente>().Remove(dep);
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "remove_dependente", ct);
+        return true;
+    }
+
+    // ── Wizard progress ──
+
+    public async Task<bool> SaveWizardProgressAsync(Guid preAdmissaoId, string cpf, int currentStep, int completionPercent, CancellationToken ct)
+    {
+        var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
+        if (pa is null) return false;
+
+        pa.WizardCurrentStep = currentStep;
+        pa.WizardCompletionPercent = completionPercent;
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
+        pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "wizard_progress", ct);
+        return true;
+    }
+
+    // ── SignalR broadcast ──
+
+    private async Task BroadcastProgressAsync(Domain.Entities.PreAdmissao pa, string action, CancellationToken ct)
+    {
+        try
+        {
+            await _hub.Clients
+                .Group(NotificationsHub.GetTenantGroup(_tenantContext.TenantId))
+                .SendAsync("admissao.progress", new
+                {
+                    preAdmissaoId = pa.Id,
+                    step = pa.WizardCurrentStep,
+                    completionPercent = pa.WizardCompletionPercent,
+                    status = (int)pa.Status,
+                    lastAction = action,
+                    timestamp = DateTimeOffset.UtcNow,
+                }, ct);
+        }
+        catch { /* SignalR failure should not block the main operation */ }
     }
 
     private static string NormalizeCpf(string cpf) => cpf.Replace(".", "").Replace("-", "").Replace(" ", "").Trim();

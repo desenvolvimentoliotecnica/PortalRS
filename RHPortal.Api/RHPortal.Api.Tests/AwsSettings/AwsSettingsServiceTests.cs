@@ -31,21 +31,18 @@ public sealed class AwsSettingsServiceTests
             => cipherText.StartsWith("ENC:") ? cipherText[4..] : cipherText;
     }
 
-    private static (AppDbContext Db, AwsSettingsService Service) CriarServico(
+    private static (MasterDbContext Db, AwsSettingsService Service) CriarServico(
         string tenantId = TenantTeste,
         AwsOptions? fallback = null)
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
+        var options = new DbContextOptionsBuilder<MasterDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        var tenantMock = new Mock<ITenantContext>();
-        tenantMock.Setup(x => x.TenantId).Returns(tenantId);
-
-        var db = new AppDbContext(options, tenantMock.Object);
+        var db = new MasterDbContext(options);
 
         var fallbackOptions = Options.Create(fallback ?? new AwsOptions());
-        var service = new AwsSettingsService(db, new FakeProtector(), tenantMock.Object, fallbackOptions);
+        var service = new AwsSettingsService(db, new FakeProtector(), fallbackOptions);
 
         return (db, service);
     }
@@ -327,10 +324,8 @@ public sealed class AwsSettingsServiceTests
         var viewA = await svcA.GetViewAsync(CancellationToken.None);
         Assert.Equal("bucket-a", viewA.BucketName);
 
-        // Novo serviço com tenant-b na mesma instância de DB
-        var tenantBMock = new Mock<ITenantContext>();
-        tenantBMock.Setup(x => x.TenantId).Returns("tenant-b");
-        var svcB = new AwsSettingsService(db, new FakeProtector(), tenantBMock.Object, Options.Create(new AwsOptions()));
+        // Novo serviço na mesma instância de DB
+        var svcB = new AwsSettingsService(db, new FakeProtector(), Options.Create(new AwsOptions()));
 
         var viewB = await svcB.GetViewAsync(CancellationToken.None);
         Assert.False(viewB.IsConfigured); // tenant-b não tem configuração

@@ -187,7 +187,9 @@ public sealed class SolicitacoesPromocaoController : ControllerBase
             return result is null ? NotFound() : Ok(result);
         }
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
-    }\n\n    [HttpDelete("{id:guid}")]
+    }
+
+    [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

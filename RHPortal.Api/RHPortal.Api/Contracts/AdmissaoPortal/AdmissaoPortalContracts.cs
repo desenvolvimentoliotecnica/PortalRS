@@ -16,7 +16,10 @@ public sealed record AdmissaoPortalDataResponse(
     int Status,
     List<PortalDocumentoSolicitadoItem> DocumentosSolicitados,
     List<PortalDocumentoEnviadoItem> DocumentosEnviados,
-    PortalDadosPessoais DadosPessoais
+    PortalDadosPessoais DadosPessoais,
+    List<PreAdmissaoDependenteResponse> Dependentes,
+    int? WizardCurrentStep,
+    int? WizardCompletionPercent
 );
 
 public sealed record PortalDocumentoSolicitadoItem(
@@ -37,41 +40,109 @@ public sealed record PortalDocumentoEnviadoItem(
 );
 
 public sealed record PortalDadosPessoais(
-    string? Nome, string? Cpf, string? Rg, string? RgOrgaoExpedidor,
+    // Pessoal
+    string? Nome, string? NomeSocial, string? NomeAbreviado,
+    string? Cpf, string? Rg, string? RgOrgaoExpedidor,
+    string? RgUfExpedidor, string? RgDataExpedicao,
     string? DataNascimento, int? Sexo, int? EstadoCivil,
-    string? Nacionalidade, string? NomeMae, string? NomePai,
+    string? Nacionalidade, string? PaisNacionalidade,
+    string? NomeMae, string? NomePai,
+    string? PaisNascimento, string? NaturalCidade, string? NaturalUf,
+    int? GrauInstrucao, string? FuncDoador,
+
+    // Endereco
     string? Cep, string? Logradouro, string? Numero,
     string? Complemento, string? Bairro, string? Cidade, string? Uf,
-    string? Email, string? Telefone, string? Celular,
+    string? PontoReferencia, string? ResideExterior,
+
+    // Contato
+    string? Email, string? EmailAlternativo,
+    string? Telefone, string? Celular,
+    int? DddTelefone, int? DddTelContato,
     string? ContatoEmergenciaNome, string? ContatoEmergenciaFone,
+
+    // Bancario
     string? BancoCodigo, string? BancoNome, string? Agencia,
     string? AgenciaDigito, string? Conta, string? ContaDigito, int? TipoConta,
-    string? PisPasep, string? Ctps, string? CtpsSerie, string? CtpsUf,
-    // Saúde e docs complementares TOTVS
+
+    // Trabalhista
+    string? PisPasep, string? Ctps, string? CtpsSerie, string? CtpsUf, int? CtpsModelo,
+
+    // Titulo Eleitor
+    string? TituloEleitorNumero, string? TituloEleitorZona, string? TituloEleitorSecao,
+    string? TituloEleitorCidade, string? TituloEleitorUf,
+
+    // CNH
+    string? CnhNumero, string? CategoriaCnh, string? CnhUf,
+    string? CnhOrgaoEmissor, int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+    string? ValidadeCnh,
+
+    // Reservista / Doc Militar
+    string? ReservistaNumero,
+    int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie,
+    int? DocMilitarRegiao, int? DocMilitarCircunscricao,
+
+    // Estrangeiro
+    string? Passaporte, string? RnmRne, string? ValidadeVisto, string? TipoVisto,
+
+    // Saude e caracteristicas fisicas
     int? GrupoSanguineo, int? FatorRh, string? PossuiDeficiencia,
-    int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie, int? DocMilitarRegiao,
-    string? CartaoSus, string? TituloEleitorCidade, string? TituloEleitorUf,
-    int? CtpsModelo, int? Altura, int? Peso
+    string? CartaoSus, int? Altura, int? Peso,
+    int? Cutis, int? Cabelo, int? Olhos, int? Manequim, int? Sapato
 );
 
 // ── Salvar dados pessoais ──
 
 public sealed record PortalSalvarDadosRequest(
-    string? Nome, string? Cpf, string? Rg, string? RgOrgaoExpedidor,
+    // Pessoal
+    string? Nome, string? NomeSocial, string? NomeAbreviado,
+    string? Cpf, string? Rg, string? RgOrgaoExpedidor,
+    string? RgUfExpedidor, string? RgDataExpedicao,
     string? DataNascimento, int? Sexo, int? EstadoCivil,
-    string? Nacionalidade, string? NomeMae, string? NomePai,
+    string? Nacionalidade, string? PaisNacionalidade,
+    string? NomeMae, string? NomePai,
+    string? PaisNascimento, string? NaturalCidade, string? NaturalUf,
+    int? GrauInstrucao, string? FuncDoador,
+
+    // Endereco
     string? Cep, string? Logradouro, string? Numero,
     string? Complemento, string? Bairro, string? Cidade, string? Uf,
-    string? Email, string? Telefone, string? Celular,
+    string? PontoReferencia, string? ResideExterior,
+
+    // Contato
+    string? Email, string? EmailAlternativo,
+    string? Telefone, string? Celular,
+    int? DddTelefone, int? DddTelContato,
     string? ContatoEmergenciaNome, string? ContatoEmergenciaFone,
+
+    // Bancario
     string? BancoCodigo, string? BancoNome, string? Agencia,
     string? AgenciaDigito, string? Conta, string? ContaDigito, int? TipoConta,
-    string? PisPasep, string? Ctps, string? CtpsSerie, string? CtpsUf,
-    // Saúde e docs complementares TOTVS
+
+    // Trabalhista
+    string? PisPasep, string? Ctps, string? CtpsSerie, string? CtpsUf, int? CtpsModelo,
+
+    // Titulo Eleitor
+    string? TituloEleitorNumero, string? TituloEleitorZona, string? TituloEleitorSecao,
+    string? TituloEleitorCidade, string? TituloEleitorUf,
+
+    // CNH
+    string? CnhNumero, string? CategoriaCnh, string? CnhUf,
+    string? CnhOrgaoEmissor, int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+    string? ValidadeCnh,
+
+    // Reservista / Doc Militar
+    string? ReservistaNumero,
+    int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie,
+    int? DocMilitarRegiao, int? DocMilitarCircunscricao,
+
+    // Estrangeiro
+    string? Passaporte, string? RnmRne, string? ValidadeVisto, string? TipoVisto,
+
+    // Saude e caracteristicas fisicas
     int? GrupoSanguineo, int? FatorRh, string? PossuiDeficiencia,
-    int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie, int? DocMilitarRegiao,
-    string? CartaoSus, string? TituloEleitorCidade, string? TituloEleitorUf,
-    int? CtpsModelo, int? Altura, int? Peso
+    string? CartaoSus, int? Altura, int? Peso,
+    int? Cutis, int? Cabelo, int? Olhos, int? Manequim, int? Sapato
 );
 
 // ── Upload de documento ──
@@ -81,3 +152,34 @@ public sealed class PortalUploadDocumentoRequest
     public IFormFile File { get; set; } = null!;
     public TipoDocumento Tipo { get; set; }
 }
+
+// ── Dependentes ──
+
+public sealed record PreAdmissaoDependenteResponse(
+    Guid Id,
+    string NomeCompleto,
+    int Parentesco,
+    string? Cpf,
+    string DataNascimento,
+    bool IsPcd
+);
+
+public sealed record DependenteCreateRequest(
+    string NomeCompleto,
+    int Parentesco,
+    string? Cpf,
+    string DataNascimento,
+    bool IsPcd
+);
+
+public sealed record DependenteUpdateRequest(
+    string NomeCompleto,
+    int Parentesco,
+    string? Cpf,
+    string DataNascimento,
+    bool IsPcd
+);
+
+// ── Wizard progress ──
+
+public sealed record WizardProgressRequest(int CurrentStep, int CompletionPercent);

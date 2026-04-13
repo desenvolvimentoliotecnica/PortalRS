@@ -316,7 +316,7 @@ export default function DashboardScreen({
       color: string;
       href: string;
     }[] = [
-      { api: "/api/solicitacoes-vaga?status=1", tipo: "Contratação", titleKey: "titulo", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-violet-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=contratacao" },
+      { api: "/api/solicitacoes-vaga?statuses=1&statuses=5", tipo: "Contratação", titleKey: "titulo", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-violet-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=contratacao" },
       { api: "/api/solicitacoes-promocao?status=1", tipo: "Promoção", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-emerald-600", href: "/gestao/solicitacoes?tab=promocoes" },
       { api: "/api/solicitacoes-desligamento?status=1", tipo: "Desligamento", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-red-600", href: "/gestao/solicitacoes?tab=desligamentos" },
       { api: "/api/colaborador/solicitacoes-ferias?status=1", tipo: "Férias", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Palmtree, color: "text-sky-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=ferias" },

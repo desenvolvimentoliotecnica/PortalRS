@@ -58,7 +58,8 @@ public sealed class CurrentUserContext : ICurrentUserContext
         return _roleNames?.Contains(role, StringComparer.OrdinalIgnoreCase) ?? false;
     }
 
-    public bool IsAdmin => IsInRole("Admin") || IsInRole("Owner");
+    public bool IsOwner => IsInRole("Owner");
+    public bool IsAdmin => IsInRole("Admin") || IsInRole("Owner") || IsInRole("Administrador");
 
     public Guid? FuncionarioId
     {

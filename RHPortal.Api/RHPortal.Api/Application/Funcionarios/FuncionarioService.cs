@@ -54,17 +54,18 @@ public sealed class FuncionarioService : IFuncionarioService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
+            var like = $"%{search}%";
             q = q.Where(x =>
-                x.Name.Contains(search) ||
-                (x.Email != null && x.Email.Contains(search)) ||
-                (x.Phone != null && x.Phone.Contains(search)) ||
-                (x.Unit != null && x.Unit.Name.Contains(search)) ||
-                (x.Area != null && x.Area.Name.Contains(search)) ||
-                (x.JobPosition != null && x.JobPosition.Name.Contains(search)) ||
-                (x.JobPosition != null && x.JobPosition.Code.Contains(search)) ||
-                (x.CdnFuncionario != null && x.CdnFuncionario.Contains(search)) ||
-                (x.CdnEmpresa != null && x.CdnEmpresa.Contains(search)) ||
-                (x.CdnEstab != null && x.CdnEstab.Contains(search)));
+                EF.Functions.Like(x.Name, like) ||
+                (x.Email != null && EF.Functions.Like(x.Email, like)) ||
+                (x.Phone != null && EF.Functions.Like(x.Phone, like)) ||
+                (x.Unit != null && EF.Functions.Like(x.Unit.Name, like)) ||
+                (x.Area != null && EF.Functions.Like(x.Area.Name, like)) ||
+                (x.JobPosition != null && EF.Functions.Like(x.JobPosition.Name, like)) ||
+                (x.JobPosition != null && EF.Functions.Like(x.JobPosition.Code, like)) ||
+                (x.CdnFuncionario != null && EF.Functions.Like(x.CdnFuncionario, like)) ||
+                (x.CdnEmpresa != null && EF.Functions.Like(x.CdnEmpresa, like)) ||
+                (x.CdnEstab != null && EF.Functions.Like(x.CdnEstab, like)));
         }
 
         if (query.Status.HasValue)

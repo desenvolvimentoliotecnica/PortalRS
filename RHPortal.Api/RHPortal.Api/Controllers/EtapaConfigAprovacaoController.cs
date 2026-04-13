@@ -43,4 +43,26 @@ public sealed class EtapaConfigAprovacaoController : ControllerBase
         var result = await _service.UpsertAsync((TipoFluxoAprovacao)(short)tipoFluxo, etapas, ct);
         return Ok(result);
     }
+
+    [HttpGet("{tipoFluxo:int}/global")]
+    public async Task<IActionResult> GetGlobal(int tipoFluxo, CancellationToken ct)
+    {
+        if (!Enum.IsDefined(typeof(TipoFluxoAprovacao), (short)tipoFluxo))
+            return BadRequest("Tipo de fluxo inválido.");
+        var result = await _service.GetConfigGlobalAsync((TipoFluxoAprovacao)(short)tipoFluxo, ct);
+        return Ok(result);
+    }
+
+    [HttpPut("{tipoFluxo:int}/global")]
+    public async Task<IActionResult> PutGlobal(
+        int tipoFluxo,
+        [FromBody] FluxoAprovacaoConfigSaveRequest req,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin) return Forbid();
+        if (!Enum.IsDefined(typeof(TipoFluxoAprovacao), (short)tipoFluxo))
+            return BadRequest("Tipo de fluxo inválido.");
+        var result = await _service.SaveConfigGlobalAsync((TipoFluxoAprovacao)(short)tipoFluxo, req, ct);
+        return Ok(result);
+    }
 }

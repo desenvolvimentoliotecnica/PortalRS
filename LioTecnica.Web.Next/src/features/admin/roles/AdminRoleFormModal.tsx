@@ -160,6 +160,7 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
         { value: 1, label: "Colaborador" },
         { value: 2, label: "Gestor" },
         { value: 3, label: "Compliance" },
+        { value: 4, label: "Admin" },
     ];
 
     return (

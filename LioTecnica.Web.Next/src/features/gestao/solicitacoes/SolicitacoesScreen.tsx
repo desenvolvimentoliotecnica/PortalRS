@@ -25,10 +25,12 @@ import {
     TrendingUp,
     Activity,
     Ban,
+    Copy,
 } from "lucide-react";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
 import { apiFetch } from "@/lib/api";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +54,7 @@ import {
 import SolicitacaoFormModal from "./SolicitacaoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
+import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -70,6 +73,8 @@ interface SolicitacaoGridRow {
     isConfidencial: boolean;
     substituidoNome: string | null;
     createdAtUtc: string;
+    etapaPendenteLabel: string | null;
+    etapaPendenteCom: string | null;
 }
 
 interface SolicitacaoDetail {
@@ -106,6 +111,8 @@ interface SolicitacaoDetail {
     aprovador3Nome?: string | null;
     aprovador3Status?: number | string | null;
     aprovador3Habilitado?: boolean;
+    etapas?: EtapaAprovacaoResponse[];
+    etapasFluxo?: { ordem: number; label: string; aprovadorNome: string | null; roleNome: string | null; status: number; dataUtc: string | null; observacao: string | null }[];
 }
 
 type StatusKey = 0 | 1 | 2 | 3 | 4 | string;
@@ -253,7 +260,7 @@ export default function SolicitacoesScreen() {
 function SolicitacoesVagaContent() {
     const { me } = useAuth();
     const router = useRouter();
-    const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin") ?? false;
+    const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
 
     /* ── data ── */
     const [loading, setLoading] = useState(true);
@@ -274,11 +281,13 @@ function SolicitacoesVagaContent() {
     const [editId, setEditId] = useState<string | null>(null);
     const [viewId, setViewId] = useState<string | null>(null);
     const [resubmit, setResubmit] = useState(false);
+    const [copySourceId, setCopySourceId] = useState<string | null>(null);
 
     /* ── timeline modal ── */
     const [timelineOpen, setTimelineOpen] = useState(false);
     const [timelineSteps, setTimelineSteps] = useState<AprovacaoStep[]>([]);
     const [timelineLoading, setTimelineLoading] = useState(false);
+    const [timelineStatus, setTimelineStatus] = useState<number | string | null>(null);
 
     /* ── detail dialog ── */
     const [detailOpen, setDetailOpen] = useState(false);
@@ -287,6 +296,7 @@ function SolicitacoesVagaContent() {
 
     /* ── delete confirm ── */
     const [deleteTarget, setDeleteTarget] = useState<SolicitacaoGridRow | null>(null);
+
 
     /* ── approval actions ── */
     const [approvalObs, setApprovalObs] = useState("");
@@ -387,40 +397,28 @@ function SolicitacoesVagaContent() {
         setTimelineOpen(true);
         setTimelineLoading(true);
         setTimelineSteps([]);
+        setTimelineStatus(null);
         try {
             const d = await fetchJson<SolicitacaoDetail>(`${API}/${row.id}`);
-            const steps: AprovacaoStep[] = [
-                {
-                    label: "Criado",
-                    nome: d.solicitanteNome,
-                    status: 1,
-                    habilitado: true,
-                    date: d.createdAtUtc,
-                },
-                {
-                    label: "Aprovação — Gestor",
-                    nome: d.aprovador1Nome ?? null,
-                    status: d.aprovador1Status != null ? Number(d.aprovador1Status) : null,
-                    habilitado: true,
-                },
-            ];
-            if (d.aprovador2Habilitado) {
-                steps.push({
-                    label: "Aprovação — Nível 2",
-                    nome: d.aprovador2Nome ?? null,
-                    status: d.aprovador2Status != null ? Number(d.aprovador2Status) : null,
-                    habilitado: true,
-                });
-            }
-            if (d.aprovador3Habilitado) {
-                steps.push({
-                    label: "Aprovação — RH",
-                    nome: d.aprovador3Nome ?? "Qualquer recrutador",
-                    status: d.aprovador3Status != null ? Number(d.aprovador3Status) : null,
-                    habilitado: true,
-                });
-            }
-            setTimelineSteps(steps);
+            setTimelineStatus(d.status);
+            // Prefer etapasFluxo (new format) over etapas (legacy)
+            const STATUS_NUM_TO_STR: Record<number, string> = { 0: "Pendente", 1: "Aprovado", 2: "Reprovado", 3: "Cancelado" };
+            const etapas: EtapaAprovacaoResponse[] = d.etapasFluxo?.length
+                ? d.etapasFluxo.map(e => ({
+                    ordem: e.ordem,
+                    label: e.label,
+                    aprovadorId: null,
+                    aprovadorNome: e.aprovadorNome,
+                    roleFilaId: null,
+                    roleFilaNome: e.roleNome,
+                    status: STATUS_NUM_TO_STR[e.status] ?? "Pendente",
+                    dataUtc: e.dataUtc,
+                    observacao: e.observacao,
+                }))
+                : (d.etapas ?? []);
+            setTimelineSteps(
+                mapEtapasToSteps(etapas, d.solicitanteNome, d.createdAtUtc)
+            );
         } catch {
             toast.error("Falha ao carregar acompanhamento.");
             setTimelineOpen(false);
@@ -445,7 +443,7 @@ function SolicitacoesVagaContent() {
     }
 
     async function cancelSolicitacao(id: string) {
-        if (!confirm("Tem certeza que deseja cancelar esta solicitação?")) return;
+        if (!(await confirmDialog({ title: "Cancelar solicitação", description: "Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.", confirmText: "Cancelar solicitação", destructive: true }))) return;
         try {
             await fetchJson(`${API}/${id}/cancel`, { method: "POST" });
             toast.success("Solicitação cancelada.");
@@ -501,12 +499,14 @@ function SolicitacoesVagaContent() {
         setFormOpen(false);
         setViewId(null);
         setResubmit(false);
+        setCopySourceId(null);
     }
 
     function handleFormSaved() {
         setFormOpen(false);
         setViewId(null);
         setResubmit(false);
+        setCopySourceId(null);
         syncList().catch(() => { });
     }
 
@@ -604,10 +604,10 @@ function SolicitacoesVagaContent() {
                         <TableRow>
                             <TableHead>Título</TableHead>
                             <TableHead>Tipo</TableHead>
-                            <TableHead>Área</TableHead>
                             <TableHead>Posições</TableHead>
                             <TableHead>Urgência</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Aguardando</TableHead>
                             <TableHead>Data</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
@@ -629,9 +629,6 @@ function SolicitacoesVagaContent() {
                                                 <span title="Vaga Confidencial"><Lock className="size-3.5 text-amber-600" /></span>
                                             )}
                                         </div>
-                                        {r.solicitanteNome && (
-                                            <div className="text-muted-foreground text-xs">{r.solicitanteNome}</div>
-                                        )}
                                         {r.substituidoNome && (
                                             <div className="text-muted-foreground text-xs flex items-center gap-1">
                                                 <UserMinus className="size-3" /> Substituindo: {r.substituidoNome}
@@ -643,10 +640,21 @@ function SolicitacoesVagaContent() {
                                             {r.tipoSolicitacao === 1 ? "Substituição" : "Nova"}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-sm">{r.areaName || "—"}</TableCell>
                                     <TableCell className="text-sm font-mono">{r.qtdPosicoes}</TableCell>
                                     <TableCell>{urgenciaBadge(r.urgencia)}</TableCell>
                                     <TableCell>{statusBadge(r.status)}</TableCell>
+                                    <TableCell>
+                                        {(r.status === 1 || r.status === "PendenteAprovacao" || r.status === 5 || r.status === "PendenteAprovacaoRh") && r.etapaPendenteLabel ? (
+                                            <div className="text-xs leading-tight">
+                                                <div className="text-muted-foreground">{r.etapaPendenteLabel}</div>
+                                                {r.etapaPendenteCom && (
+                                                    <div className="font-medium truncate max-w-[140px]" title={r.etapaPendenteCom}>{r.etapaPendenteCom}</div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-muted-foreground text-xs">—</span>
+                                        )}
+                                    </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
@@ -694,6 +702,10 @@ function SolicitacoesVagaContent() {
                                                     <Eye />
                                                 </Button>
                                             )}
+                                            {/* Copiar: todas as linhas */}
+                                            <Button variant="outline" size="icon-xs" title="Copiar vaga" onClick={() => { setCopySourceId(r.id); setEditId(null); setViewId(null); setResubmit(false); setFormOpen(true); }}>
+                                                <Copy className="size-3.5" />
+                                            </Button>
                                             {/* Acompanhamento: todas as linhas */}
                                             <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
                                                 <Activity />
@@ -749,9 +761,7 @@ function SolicitacoesVagaContent() {
                                                         className="rounded-lg border border-border/50 bg-card p-3 shadow-sm"
                                                     >
                                                         <div className="text-sm font-medium leading-tight truncate">{r.titulo}</div>
-                                                        {r.solicitanteNome && <div className="mt-1 text-[11px] text-muted-foreground">{r.solicitanteNome}</div>}
                                                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                                            {r.areaName && <span>{r.areaName}</span>}
                                                             <span>{r.qtdPosicoes} pos.</span>
                                                             <span>{urgenciaBadge(r.urgencia)}</span>
                                                         </div>
@@ -776,6 +786,7 @@ function SolicitacoesVagaContent() {
                 onSaved={handleFormSaved}
                 viewOnly={!!viewId}
                 resubmitAfterSave={resubmit}
+                copySourceId={copySourceId}
             />
 
             {/* ── Timeline Modal ── */}
@@ -783,6 +794,7 @@ function SolicitacoesVagaContent() {
                 open={timelineOpen}
                 loading={timelineLoading}
                 steps={timelineSteps}
+                solicitacaoStatus={timelineStatus}
                 onClose={() => setTimelineOpen(false)}
             />
 
@@ -943,6 +955,7 @@ function SolicitacoesVagaContent() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
         </div>
     );
 }

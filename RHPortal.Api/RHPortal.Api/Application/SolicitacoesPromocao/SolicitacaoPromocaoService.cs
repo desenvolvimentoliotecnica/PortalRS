@@ -19,7 +19,8 @@ public interface ISolicitacaoPromocaoService
     Task<SolicitacaoPromocaoResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoPromocaoResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoPromocaoResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
-    Task<bool> DeleteAsync(Guid id, CancellationToken ct);\n    Task<SolicitacaoSolicitacaoPromocaoResponse?> AssumirAsync(Guid id, CancellationToken ct);
+    Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoPromocaoResponse?> AssumirAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
@@ -73,15 +74,27 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         var pageSize = Math.Clamp(query.PageSize ?? 20, 1, 100);
         q = q.Skip((page - 1) * pageSize).Take(pageSize);
 
-        return await q.Select(s => new SolicitacaoPromocaoGridRow(
-            s.Id,
-            s.Status,
-            s.Solicitante != null ? s.Solicitante.Name : null,
-            s.Funcionario != null ? s.Funcionario.Name : null,
-            s.NovoCargo != null ? s.NovoCargo.Name : null,
-            s.DataEfetiva,
-            s.CreatedAtUtc
-        )).ToListAsync(ct);
+        var rawRows = await q.Select(s => new
+        {
+            s.Id, s.Status,
+            SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
+            FuncionarioNome = s.Funcionario != null ? s.Funcionario.Name : (string?)null,
+            NovoCargoNome = s.NovoCargo != null ? s.NovoCargo.Name : (string?)null,
+            s.DataEfetiva, s.CreatedAtUtc,
+        }).ToListAsync(ct);
+
+        var ids = rawRows.Select(r => r.Id).ToList();
+        var etapasPendentes = await _workflow.GetEtapasPendentesAsync(
+            ids, TipoFluxoAprovacao.MovimentacaoPessoal, ct);
+
+        return rawRows.Select(r =>
+        {
+            etapasPendentes.TryGetValue(r.Id, out var ep);
+            return new SolicitacaoPromocaoGridRow(
+                r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome,
+                r.NovoCargoNome, r.DataEfetiva, r.CreatedAtUtc,
+                ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId);
+        }).ToList();
     }
 
     public async Task<SolicitacaoPromocaoResponse?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -98,8 +111,6 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             .Include(x => x.Unit)
             .Include(x => x.CentroCusto)
             .Include(x => x.UnidadeLotacao)
-            .Include(x => x.Aprovador1)   // keep for legacy
-            .Include(x => x.Aprovador2)   // keep for legacy
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (s is null) return null;
@@ -410,6 +421,34 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         return true;
     }
 
+    public async Task<SolicitacaoPromocaoResponse?> AssumirAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesPromocao.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
+
+        var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.MovimentacaoPessoal && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
+
+        if (etapaAtual is null || !etapaAtual.RoleFilaId.HasValue)
+            throw new InvalidOperationException("Esta etapa não é uma fila de perfil para ser assumida.");
+
+        if (etapaAtual.AprovadorId.HasValue)
+            throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
+
+        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+            throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
+
+        etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
     private static SolicitacaoPromocaoResponse MapToResponse(
         SolicitacaoPromocao s,
         IReadOnlyList<SolicitacaoAprovacaoEtapa> etapas)
@@ -430,10 +469,6 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             e.DataUtc,
             e.Observacao
         )).ToList();
-
-        // Legacy mapping from etapas for Aprovador1/Aprovador2 fields
-        var etapa1 = etapas.Count > 0 ? etapas[0] : null;
-        var etapa2 = etapas.Count > 1 ? etapas[1] : null;
 
         return new SolicitacaoPromocaoResponse(
             s.Id,
@@ -468,16 +503,6 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             s.HorarioProposto,
             s.MotivoMovimentacao,
             s.Justificativa,
-            // Legacy Aprovador1/2 (mapped from etapas for backward compat)
-            etapa1?.AprovadorId ?? s.Aprovador1Id,
-            etapa1?.Aprovador?.Name ?? s.Aprovador1?.Name,
-            etapa1?.Status ?? s.Aprovador1Status,
-            etapa1?.DataUtc ?? s.Aprovador1DataUtc,
-            etapa2?.AprovadorId ?? s.Aprovador2Id,
-            etapa2?.Aprovador?.Name ?? s.Aprovador2?.Name,
-            etapa2?.Status,
-            etapa2?.DataUtc ?? s.Aprovador2DataUtc,
-            etapa2 is not null,  // Aprovador2Habilitado
             s.ObservacaoAprovador,
             s.Observacoes,
             s.CreatedAtUtc,

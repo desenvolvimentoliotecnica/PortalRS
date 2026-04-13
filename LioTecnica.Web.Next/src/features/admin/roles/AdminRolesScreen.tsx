@@ -34,12 +34,13 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     return res.json();
 }
 
-const TIPO_LABEL: Record<number, string> = { 0: "RH", 1: "Colaborador", 2: "Gestor", 3: "Compliance" };
+const TIPO_LABEL: Record<number, string> = { 0: "RH", 1: "Colaborador", 2: "Gestor", 3: "Compliance", 4: "Admin" };
 const TIPO_COLOR: Record<number, string> = {
     0: "bg-violet-100 text-violet-800",
     1: "bg-sky-100 text-sky-800",
     2: "bg-amber-100 text-amber-800",
     3: "bg-teal-100 text-teal-800",
+    4: "bg-red-100 text-red-800",
 };
 
 export default function AdminRolesScreen() {
@@ -144,6 +145,7 @@ export default function AdminRolesScreen() {
                             <option value="1">Colaborador</option>
                             <option value="2">Gestor</option>
                             <option value="3">Compliance</option>
+                            <option value="4">Admin</option>
                         </select>
                         <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="all">Todos</option>

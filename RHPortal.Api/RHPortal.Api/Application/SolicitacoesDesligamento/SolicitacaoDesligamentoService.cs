@@ -19,7 +19,8 @@ public interface ISolicitacaoDesligamentoService
     Task<SolicitacaoDesligamentoResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoDesligamentoResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoDesligamentoResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
-    Task<bool> DeleteAsync(Guid id, CancellationToken ct);\n    Task<SolicitacaoSolicitacaoDesligamentoResponse?> AssumirAsync(Guid id, CancellationToken ct);
+    Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoDesligamentoResponse?> AssumirAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoService
@@ -72,15 +73,29 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         var pageSize = Math.Clamp(query.PageSize ?? 20, 1, 100);
         q = q.Skip((page - 1) * pageSize).Take(pageSize);
 
-        return await q.Select(s => new SolicitacaoDesligamentoGridRow(
+        var rawRows = await q.Select(s => new
+        {
             s.Id,
             s.Status,
-            s.Solicitante != null ? s.Solicitante.Name : null,
-            s.Funcionario != null ? s.Funcionario.Name : null,
+            SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
+            FuncionarioNome = s.Funcionario != null ? s.Funcionario.Name : (string?)null,
             s.TipoDesligamento,
             s.DataDesligamento,
-            s.CreatedAtUtc
-        )).ToListAsync(ct);
+            s.CreatedAtUtc,
+        }).ToListAsync(ct);
+
+        var ids = rawRows.Select(r => r.Id).ToList();
+        var etapasPendentes = await _workflow.GetEtapasPendentesAsync(
+            ids, TipoFluxoAprovacao.Desligamento, ct);
+
+        return rawRows.Select(r =>
+        {
+            etapasPendentes.TryGetValue(r.Id, out var ep);
+            return new SolicitacaoDesligamentoGridRow(
+                r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome,
+                r.TipoDesligamento, r.DataDesligamento, r.CreatedAtUtc,
+                ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId);
+        }).ToList();
     }
 
     public async Task<SolicitacaoDesligamentoResponse?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -90,8 +105,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             .Include(x => x.Funcionario)
             .Include(x => x.Empresa)
             .Include(x => x.Unit)
-            .Include(x => x.Aprovador1)
-            .Include(x => x.Aprovador2)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (s is null) return null;
@@ -373,6 +386,34 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         return true;
     }
 
+    public async Task<SolicitacaoDesligamentoResponse?> AssumirAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
+
+        var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Desligamento && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
+
+        if (etapaAtual is null || !etapaAtual.RoleFilaId.HasValue)
+            throw new InvalidOperationException("Esta etapa não é uma fila de perfil para ser assumida.");
+
+        if (etapaAtual.AprovadorId.HasValue)
+            throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
+
+        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+            throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
+
+        etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
     private static SolicitacaoDesligamentoResponse MapToResponse(
         SolicitacaoDesligamento s,
         IReadOnlyList<SolicitacaoAprovacaoEtapa> etapas)
@@ -393,10 +434,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             e.DataUtc,
             e.Observacao
         )).ToList();
-
-        // Legacy mapping from etapas for Aprovador1/Aprovador2 fields
-        var etapa1 = etapas.Count > 0 ? etapas[0] : null;
-        var etapa2 = etapas.Count > 1 ? etapas[1] : null;
 
         return new SolicitacaoDesligamentoResponse(
             s.Id,
@@ -419,16 +456,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             s.ElegivelRecontratacao,
             s.SubstituirPosicao,
             s.SolicitacaoVagaGeradaId,
-            // Legacy Aprovador1/2 (mapped from etapas for backward compat)
-            etapa1?.AprovadorId ?? s.Aprovador1Id,
-            etapa1?.Aprovador?.Name ?? s.Aprovador1?.Name,
-            etapa1?.Status ?? s.Aprovador1Status,
-            etapa1?.DataUtc ?? s.Aprovador1DataUtc,
-            etapa2?.AprovadorId ?? s.Aprovador2Id,
-            etapa2?.Aprovador?.Name ?? s.Aprovador2?.Name,
-            etapa2?.Status,
-            etapa2?.DataUtc ?? s.Aprovador2DataUtc,
-            etapa2 is not null,  // Aprovador2Habilitado
             s.ObservacaoAprovador,
             s.Observacoes,
             s.CreatedAtUtc,

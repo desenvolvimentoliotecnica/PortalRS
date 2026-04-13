@@ -261,6 +261,7 @@ builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
 builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
 builder.Services.AddScoped<IEntraIdConfigService, EntraIdConfigService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
+builder.Services.AddScoped<RhPortal.Api.Application.AprovadoresAlternativos.IAprovadorAlternativoService, RhPortal.Api.Application.AprovadoresAlternativos.AprovadorAlternativoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IOwnerAiService, RhPortal.Api.Application.Ai.OwnerAiService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.OpenAiProvider>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPortal.Api.Application.Ai.UnifiedAiService>();
@@ -413,6 +414,7 @@ builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
 builder.Services.AddScoped<ISolicitacaoVagaService, SolicitacaoVagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.WorkflowRH.IWorkflowRHService, RhPortal.Api.Application.WorkflowRH.WorkflowRHService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Common.ApprovalWorkflowHelper>();
 builder.Services.AddScoped<RhPortal.Api.Application.EtapasConfigAprovacao.IEtapaConfigAprovacaoService, RhPortal.Api.Application.EtapasConfigAprovacao.EtapaConfigAprovacaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesDesligamento.ISolicitacaoDesligamentoService, RhPortal.Api.Application.SolicitacoesDesligamento.SolicitacaoDesligamentoService>();
@@ -428,7 +430,6 @@ builder.Services.AddScoped<IFaseProcessoService, FaseProcessoService>();
 builder.Services.AddScoped<ICampoPersonalizadoService, CampoPersonalizadoService>();
 builder.Services.AddScoped<IComunicacaoService, ComunicacaoService>();
 builder.Services.AddScoped<IAprovacaoFaixaService, AprovacaoFaixaService>();
-builder.Services.AddScoped<IRegraAprovacaoVagaService, RegraAprovacaoVagaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.TenantConfiguracao.ITenantConfiguracaoService, RhPortal.Api.Application.TenantConfiguracao.TenantConfiguracaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.NineBox.INineBoxService, RhPortal.Api.Application.NineBox.NineBoxService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Metas.IMetaService, RhPortal.Api.Application.Metas.MetaService>();
@@ -439,6 +440,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.AwsSettings.IAwsSettingsServ
 builder.Services.AddScoped<RhPortal.Api.Infrastructure.Storage.IS3StorageService, RhPortal.Api.Infrastructure.Storage.S3StorageService>();
 builder.Services.AddScoped<IPreAdmissaoService, PreAdmissaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.IntegracaoTotvs.IIntegracaoTotvsService, RhPortal.Api.Application.IntegracaoTotvs.IntegracaoTotvsService>();
+builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.DocumentAiExtractor>();
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.IAdmissaoPortalService, RhPortal.Api.Application.AdmissaoPortal.AdmissaoPortalService>();
 builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService>(client =>
 {

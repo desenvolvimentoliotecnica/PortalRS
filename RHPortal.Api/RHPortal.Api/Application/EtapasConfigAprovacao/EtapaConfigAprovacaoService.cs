@@ -11,6 +11,8 @@ public interface IEtapaConfigAprovacaoService
 {
     Task<IReadOnlyList<EtapaConfigAprovacaoDto>> ListAsync(TipoFluxoAprovacao tipoFluxo, CancellationToken ct);
     Task<IReadOnlyList<EtapaConfigAprovacaoDto>> UpsertAsync(TipoFluxoAprovacao tipoFluxo, IReadOnlyList<EtapaConfigAprovacaoSaveRequest> etapas, CancellationToken ct);
+    Task<FluxoAprovacaoConfigDto> GetConfigGlobalAsync(TipoFluxoAprovacao tipoFluxo, CancellationToken ct);
+    Task<FluxoAprovacaoConfigDto> SaveConfigGlobalAsync(TipoFluxoAprovacao tipoFluxo, FluxoAprovacaoConfigSaveRequest req, CancellationToken ct);
 }
 
 public sealed class EtapaConfigAprovacaoService : IEtapaConfigAprovacaoService
@@ -59,6 +61,8 @@ public sealed class EtapaConfigAprovacaoService : IEtapaConfigAprovacaoService
             TipoAprovador = (TipoAprovador)req.TipoAprovador,
             FuncionarioFixoId = req.FuncionarioFixoId,
             RoleFilaId = req.RoleFilaId,
+            AcaoEtapa = (AcaoEtapa)req.AcaoEtapa,
+            MomentoAcao = (MomentoAcao)req.MomentoAcao,
             Ativo = true,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         }).ToList();
@@ -69,15 +73,52 @@ public sealed class EtapaConfigAprovacaoService : IEtapaConfigAprovacaoService
         return await ListAsync(tipoFluxo, ct);
     }
 
+    public async Task<FluxoAprovacaoConfigDto> GetConfigGlobalAsync(TipoFluxoAprovacao tipoFluxo, CancellationToken ct)
+    {
+        var config = await _db.FluxosAprovacaoConfig
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TipoFluxo == tipoFluxo, ct);
+
+        return new FluxoAprovacaoConfigDto((short)(config?.ReferenciaUnidade ?? ReferenciaUnidade.Solicitante));
+    }
+
+    public async Task<FluxoAprovacaoConfigDto> SaveConfigGlobalAsync(
+        TipoFluxoAprovacao tipoFluxo,
+        FluxoAprovacaoConfigSaveRequest req,
+        CancellationToken ct)
+    {
+        var config = await _db.FluxosAprovacaoConfig
+            .FirstOrDefaultAsync(c => c.TipoFluxo == tipoFluxo, ct);
+
+        if (config is null)
+        {
+            config = new FluxoAprovacaoConfig
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId ?? "",
+                TipoFluxo = tipoFluxo,
+            };
+            _db.FluxosAprovacaoConfig.Add(config);
+        }
+
+        config.ReferenciaUnidade = (ReferenciaUnidade)req.ReferenciaUnidade;
+        config.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return new FluxoAprovacaoConfigDto((short)config.ReferenciaUnidade);
+    }
+
     private static EtapaConfigAprovacaoDto MapToDto(EtapaConfigAprovacao e) => new(
         e.Id,
         e.Ordem,
         e.Label,
-        e.TipoAprovador.ToString(),
+        ((short)e.TipoAprovador).ToString(),
         e.FuncionarioFixoId,
         e.FuncionarioFixo?.Name,
         e.RoleFilaId,
         e.RoleFila?.Name,
-        e.Ativo
+        e.Ativo,
+        (short)e.AcaoEtapa,
+        (short)e.MomentoAcao
     );
 }

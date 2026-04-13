@@ -16,4 +16,10 @@ public enum TipoAprovador : short
     FuncionarioFixo         = 5,
     /// <summary>Fila de perfil: qualquer usuário do RoleFilaId pode assumir e aprovar.</summary>
     FilaDePerfil            = 6,
+    /// <summary>Etapa automática: cria a Vaga em rascunho. Sem aprovador. Auto-avança para a próxima etapa.</summary>
+    CriarVagaRascunho       = 7,
+    /// <summary>Etapa automática: marca a solicitação como Aprovada e aciona a fila de integração TOTVS. Auto-avança.</summary>
+    EnviarIntegracao        = 8,
+    /// <summary>Etapa manual de revisão pelo RH: alguém do perfil configurado (RoleFilaId) revisa e confirma os dados.</summary>
+    RevisaoRH               = 9,
 }

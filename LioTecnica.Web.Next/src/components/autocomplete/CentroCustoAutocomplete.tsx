@@ -28,79 +28,77 @@ export function CentroCustoAutocomplete({
   defaultLabel,
   placeholder = "Buscar centro de custo...",
 }: CentroCustoAutocompleteProps) {
-  const [search, setSearch] = useState("");
-  const [results, setResults] = useState<CentroCustoLookup[]>([]);
+  const [query, setQuery] = useState("");
+  const [allItems, setAllItems] = useState<CentroCustoLookup[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<CentroCustoLookup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const loaded = useRef(false);
 
+  // Load all items once on mount
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      if (search.trim().length < 1) {
-        setResults([]);
-        return;
-      }
-      try {
-        setLoading(true);
-        const res = await apiFetch(`/api/centros-custo/lookup?search=${encodeURIComponent(search)}`);
-        if (res.ok) {
-          const data = await res.json();
-          const raw = Array.isArray(data) ? data : [];
-          const mapped: CentroCustoLookup[] = raw.map((x: Record<string, unknown>) => ({
-            id: String(x.id ?? x.Id ?? ""),
-            code: String(x.code ?? x.Code ?? ""),
-            description: String(x.description ?? x.Description ?? ""),
-          }));
-          setResults(mapped);
-          setOpen(true);
-        }
-      } catch (err) {
-        console.error("Erro ao buscar centros de custo:", err);
-        setResults([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search]);
+    if (loaded.current) return;
+    loaded.current = true;
+    setLoading(true);
+    apiFetch("/api/centros-custo/lookup")
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => {
+        const raw = Array.isArray(data) ? data : [];
+        setAllItems(raw.map((x: Record<string, unknown>) => ({
+          id: String(x.id ?? x.Id ?? ""),
+          code: String(x.code ?? x.Code ?? ""),
+          description: String(x.description ?? x.Description ?? ""),
+        })));
+      })
+      .catch(() => setAllItems([]))
+      .finally(() => setLoading(false));
+  }, []);
 
+  // Resolve selected item from value
   useEffect(() => {
-    if (value && !selected) {
-      const strValue = String(value);
-      const found = results.find((c) => c.code === strValue || c.id === strValue);
-      if (found) {
-        setSelected(found);
-      } else if (search === "" && defaultLabel) {
-        setSelected({ id: "", code: defaultLabel.code, description: defaultLabel.description });
-      } else if (search === "" && strValue) {
-        setSelected({ id: "", code: strValue, description: `Centro ${strValue}` });
-      }
+    if (!value || selected) return;
+    const strValue = String(value);
+    const found = allItems.find((c) => c.code === strValue || c.id === strValue);
+    if (found) {
+      setSelected(found);
+    } else if (defaultLabel) {
+      setSelected({ id: "", code: defaultLabel.code, description: defaultLabel.description });
+    } else if (strValue) {
+      setSelected({ id: "", code: strValue, description: `Centro ${strValue}` });
     }
-  }, [value, results, selected, search, defaultLabel]);
+  }, [value, allItems, selected, defaultLabel]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const filtered = query.trim()
+    ? allItems.filter((i) => {
+        const q = query.toLowerCase();
+        return i.description.toLowerCase().includes(q) || i.code.toLowerCase().includes(q);
+      })
+    : allItems;
 
   const handleSelect = (item: CentroCustoLookup) => {
     setSelected(item);
     onChange(item.code);
     onSelectId?.(item.id);
     onSelectItem?.(item);
-    setSearch("");
-    setResults([]);
+    setQuery("");
     setOpen(false);
   };
 
   const handleClear = () => {
     setSelected(null);
-    setSearch("");
-    setResults([]);
+    setQuery("");
     onChange("");
     onSelectId?.("");
     onSelectItem?.({ id: "", code: "", description: "" });
@@ -125,9 +123,9 @@ export function CentroCustoAutocomplete({
       ) : (
         <div className="relative">
           <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onFocus={() => search.length > 0 && setOpen(true)}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setOpen(true)}
             placeholder={placeholder}
             className="pr-10"
           />
@@ -137,27 +135,27 @@ export function CentroCustoAutocomplete({
         </div>
       )}
 
-      {open && results.length > 0 && (
+      {open && (
         <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-input bg-popover p-0 shadow-md">
-          <div className="max-h-64 overflow-y-auto">
-            {results.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleSelect(item)}
-                className="w-full px-3 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/30 last:border-0"
-              >
-                <div className="font-medium">{item.description}</div>
-                <div className="text-xs text-muted-foreground font-mono">{item.code}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {open && search.trim().length > 0 && results.length === 0 && !loading && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-input bg-popover p-3 shadow-md text-sm text-muted-foreground text-center">
-          Nenhum centro de custo encontrado
+          {filtered.length > 0 ? (
+            <div className="max-h-64 overflow-y-auto">
+              {filtered.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelect(item)}
+                  className="w-full px-3 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground transition-colors border-b border-border/30 last:border-0"
+                >
+                  <div className="font-medium">{item.description}</div>
+                  <div className="text-xs text-muted-foreground font-mono">{item.code}</div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="p-3 text-sm text-muted-foreground text-center">
+              {loading ? "Carregando..." : "Nenhum centro de custo encontrado"}
+            </div>
+          )}
         </div>
       )}
     </div>

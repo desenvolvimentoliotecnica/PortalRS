@@ -13,5 +13,8 @@ public enum RoleTipo : short
     Gestor = 2,
 
     /// <summary>Perfil de Compliance.</summary>
-    Compliance = 3
+    Compliance = 3,
+
+    /// <summary>Perfil de Administrador do tenant (acesso total, pode assumir processos).</summary>
+    Admin = 4
 }

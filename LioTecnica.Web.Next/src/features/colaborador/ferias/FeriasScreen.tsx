@@ -9,15 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import FeriasFormModal from "./FeriasFormModal";
+import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
+import AcompanhamentoModal from "@/features/gestao/shared/AcompanhamentoModal";
 
 const API = "/api/colaborador/solicitacoes-ferias";
 
 const STATUS_MAP: Record<number, { label: string; color: string }> = {
-  0: { label: "Rascunho",  color: "bg-zinc-400/15 text-zinc-600" },
-  1: { label: "Pendente",  color: "bg-amber-500/15 text-amber-700" },
-  2: { label: "Aprovada",  color: "bg-emerald-500/15 text-emerald-700" },
-  3: { label: "Reprovada", color: "bg-red-500/15 text-red-700" },
-  4: { label: "Ajustes",   color: "bg-orange-500/15 text-orange-700" },
+  0: { label: "Rascunho",   color: "bg-zinc-400/15 text-zinc-600" },
+  1: { label: "Pendente",   color: "bg-amber-500/15 text-amber-700" },
+  2: { label: "Aprovada",   color: "bg-emerald-500/15 text-emerald-700" },
+  3: { label: "Reprovada",  color: "bg-red-500/15 text-red-700" },
+  4: { label: "Ajustes",    color: "bg-orange-500/15 text-orange-700" },
+  5: { label: "Cancelada",  color: "bg-zinc-500/15 text-zinc-500" },
+  6: { label: "Aguarda RH", color: "bg-purple-500/15 text-purple-700" },
 };
 
 interface FeriasGrid {
@@ -29,6 +33,8 @@ interface FeriasGrid {
   qtdDias: number;
   abonoPecuniario: boolean;
   createdAtUtc: string;
+  etapaPendenteLabel: string | null;
+  etapaPendenteCom: string | null;
 }
 
 interface FeriasDetail {
@@ -53,6 +59,7 @@ interface FeriasDetail {
   observacoes: string | null;
   createdAtUtc: string;
   approvedAtUtc: string | null;
+  etapas?: EtapaAprovacaoResponse[];
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -117,6 +124,8 @@ export default function FeriasScreen() {
   const [detail, setDetail] = useState<FeriasDetail | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineStatus, setTimelineStatus] = useState<number | string | null>(null);
 
   const load = useCallback(async () => {
     const data = await fetchJson<FeriasGrid[]>(API);
@@ -187,6 +196,7 @@ export default function FeriasScreen() {
               <TableHead className="text-center">Dias</TableHead>
               <TableHead className="text-center">Abono Pecuniário</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Aguardando</TableHead>
               <TableHead>Data Solicitação</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -194,13 +204,13 @@ export default function FeriasScreen() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   Carregando…
                 </TableCell>
               </TableRow>
             ) : items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   Nenhuma solicitação encontrada.
                 </TableCell>
               </TableRow>
@@ -222,6 +232,16 @@ export default function FeriasScreen() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={item.status} />
+                  </TableCell>
+                  <TableCell>
+                    {(item.status === 1 || item.status === 6) && item.etapaPendenteCom ? (
+                      <div className="text-xs leading-tight">
+                        <div className="text-muted-foreground">{item.etapaPendenteLabel}</div>
+                        <div className="font-medium truncate max-w-[120px]" title={item.etapaPendenteCom}>{item.etapaPendenteCom}</div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDateTime(item.createdAtUtc)}
@@ -320,8 +340,33 @@ export default function FeriasScreen() {
                 </div>
               </div>
 
-              {/* Aprovadores */}
-              {(detail.aprovador1Id || detail.aprovador2Habilitado) && (
+              {/* Cadeia de aprovação */}
+              {(detail.etapas && detail.etapas.length > 0) ? (
+                <div className="space-y-1 rounded-lg border border-border/40 bg-muted/30 p-3">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase mb-2">Cadeia de Aprovação</div>
+                  {detail.etapas.map((e) => {
+                    const statusLabel = e.status.toLowerCase() === "aprovado"
+                      ? "Aprovado" : e.status.toLowerCase() === "reprovado"
+                      ? "Reprovado" : "Aguardando";
+                    const statusColor = e.status.toLowerCase() === "aprovado"
+                      ? "bg-emerald-500/15 text-emerald-700"
+                      : e.status.toLowerCase() === "reprovado"
+                      ? "bg-red-500/15 text-red-700"
+                      : "bg-amber-500/15 text-amber-700";
+                    return (
+                      <div key={e.ordem} className="flex items-center justify-between text-sm py-1">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs text-muted-foreground leading-tight">{e.label}</span>
+                          <span className="font-medium truncate">{e.aprovadorNome ?? e.roleFilaNome ?? "—"}</span>
+                        </div>
+                        <span className={`shrink-0 ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (detail.aprovador1Id || detail.aprovador2Habilitado) ? (
                 <div className="space-y-2 rounded-lg border border-border/40 bg-muted/30 p-3">
                   <div className="text-xs font-semibold text-muted-foreground uppercase">Aprovadores</div>
                   {detail.aprovador1Id && (
@@ -345,7 +390,7 @@ export default function FeriasScreen() {
                     </div>
                   )}
                 </div>
-              )}
+              ) : null}
 
               {/* Observação do aprovador */}
               {detail.observacaoAprovador && (
@@ -378,10 +423,25 @@ export default function FeriasScreen() {
           )}
 
           <DialogFooter>
+            {detail?.etapas && detail.etapas.length > 0 && (
+              <Button variant="outline" onClick={() => { setTimelineStatus(detail?.status ?? null); setTimelineOpen(true); }}>
+                Acompanhamento
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setDetailOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Timeline Modal ── */}
+      {detail && (
+        <AcompanhamentoModal
+          open={timelineOpen}
+          steps={mapEtapasToSteps(detail.etapas ?? [], detail.solicitanteNome, detail.createdAtUtc)}
+          solicitacaoStatus={timelineStatus}
+          onClose={() => setTimelineOpen(false)}
+        />
+      )}
     </section>
   );
 }

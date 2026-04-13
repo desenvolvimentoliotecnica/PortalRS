@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, Fragment, type CSSProperties } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Save, Plus, ChevronUp, ChevronDown, Trash2, Settings2, Info } from "lucide-react";
+import { Save, Plus, ChevronUp, ChevronDown, Trash2, Settings2, Info, Zap, CheckCircle2, XCircle } from "lucide-react";
 
 /* ──────────────────────────── constants ──────────────────────────── */
 
@@ -51,7 +51,45 @@ const TIPO_APROVADOR_OPTIONS: { value: number; label: string; desc: string; badg
         desc: "Todos os usuários do perfil selecionado veem a tarefa. O primeiro que agir assume e aprova.",
         badge: "Fila",
     },
+    {
+        value: 7,
+        label: "Criar Vaga (Rascunho)",
+        desc: "Etapa automática: o sistema cria a vaga em rascunho para o RH preencher e publicar. Avança imediatamente, sem necessidade de aprovador.",
+        badge: "Processo",
+    },
+    {
+        value: 9,
+        label: "Revisão RH",
+        desc: "Etapa manual: alguém do perfil selecionado revisa e completa os dados da vaga antes do envio à integração. Requer ação humana.",
+        badge: "Processo",
+    },
+    {
+        value: 8,
+        label: "Enviar para Integração",
+        desc: "Etapa automática: finaliza o fluxo e envia os dados para integração com TOTVS. Deve ser a etapa final do fluxo.",
+        badge: "Processo",
+    },
 ];
+
+interface ProcessStepDef {
+    tipoAprovador: number;
+    label: string;
+    /** If true, step is not required but MUST appear in this position in the sequence if added. */
+    optional?: boolean;
+}
+
+/**
+ * Defines the mandatory process sequence for each flow (key = TipoFluxo).
+ * Non-optional steps block saving if absent. ALL present process steps must
+ * respect the order defined here — e.g. "Revisão RH" after "Criar Vaga".
+ */
+const PROCESS_SEQUENCE_BY_FLOW: Record<number, ProcessStepDef[]> = {
+    1: [
+        { tipoAprovador: 7, label: "Criar Vaga (Rascunho)" },
+        { tipoAprovador: 9, label: "Revisão RH", optional: true },
+        { tipoAprovador: 8, label: "Enviar para Integração" },
+    ],
+};
 
 const TABS = [
     { value: 1, label: "Requisição de Vaga" },
@@ -62,6 +100,7 @@ const TABS = [
     { value: 6, label: "Dependentes" },
     { value: 7, label: "Endereço" },
 ];
+
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -161,6 +200,86 @@ function AutocompleteSelect({
     );
 }
 
+/* ──────────────────────────── SimpleDescSelect ──────────────────────────── */
+
+function SimpleDescSelect({
+    options,
+    value,
+    onChange,
+    width = 200,
+}: {
+    options: { value: number; label: string; desc: string }[];
+    value: number;
+    onChange: (v: number) => void;
+    width?: number;
+}) {
+    const [open, setOpen] = useState(false);
+    const [dropdownStyle, setDropdownStyle] = useState<CSSProperties>({});
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const selected = options.find((o) => o.value === value) ?? options[0];
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (
+                triggerRef.current && !triggerRef.current.contains(e.target as Node) &&
+                dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
+            ) setOpen(false);
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    function handleOpen() {
+        if (!triggerRef.current) { setOpen((v) => !v); return; }
+        const rect = triggerRef.current.getBoundingClientRect();
+        const dropdownH = options.length * 64;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const openUpward = spaceBelow < dropdownH && rect.top > spaceBelow;
+        if (openUpward) {
+            setDropdownStyle({ position: "fixed", bottom: window.innerHeight - rect.top + 4, left: rect.left, width, zIndex: 9999 });
+        } else {
+            setDropdownStyle({ position: "fixed", top: rect.bottom + 4, left: rect.left, width, zIndex: 9999 });
+        }
+        setOpen((v) => !v);
+    }
+
+    return (
+        <div className="relative">
+            <button
+                ref={triggerRef}
+                type="button"
+                onClick={handleOpen}
+                className="h-9 w-full flex items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm hover:bg-muted/30 transition-colors"
+            >
+                <span className="truncate">{selected.label}</span>
+                <ChevronDown className={`size-4 flex-shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+            {open && (
+                <div ref={dropdownRef} style={dropdownStyle} className="rounded-lg border border-input bg-background shadow-xl overflow-y-auto max-h-[60vh]">
+                    {options.map((opt) => {
+                        const isSelected = opt.value === value;
+                        return (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                onMouseDown={(e) => { e.preventDefault(); onChange(opt.value); setOpen(false); }}
+                                className={`w-full text-left px-3 py-2.5 flex items-start gap-3 hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/5" : ""}`}
+                            >
+                                <div className="flex-1 min-w-0">
+                                    <div className={`text-sm font-medium ${isSelected ? "text-primary" : ""}`}>{opt.label}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{opt.desc}</div>
+                                </div>
+                                {isSelected && <span className="flex-shrink-0 mt-0.5 text-primary text-xs font-bold">✓</span>}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
 /* ──────────────────────────── TipoAprovadorSelect ──────────────────────────── */
 
 const BADGE_STYLES: Record<string, { badge: string; header: string }> = {
@@ -176,12 +295,17 @@ const BADGE_STYLES: Record<string, { badge: string; header: string }> = {
         badge: "bg-violet-500/10 text-violet-700 border border-violet-200",
         header: "text-violet-700 border-b border-violet-100 bg-violet-50/60",
     },
+    Processo: {
+        badge: "bg-emerald-500/10 text-emerald-700 border border-emerald-200",
+        header: "text-emerald-700 border-b border-emerald-100 bg-emerald-50/60",
+    },
 };
 
 const GROUP_DESCRIPTIONS: Record<string, string> = {
     Hierarquia: "Aprovador resolvido automaticamente pela estrutura organizacional",
     Fixo: "Sempre a mesma pessoa, independente da hierarquia",
     Fila: "Qualquer membro do perfil pode assumir e aprovar",
+    Processo: "Etapa do processo RH — automática (sistema executa) ou revisão manual",
 };
 
 function TipoAprovadorSelect({
@@ -346,16 +470,18 @@ function EtapaRow({
 }) {
     const isFilaDePerfil = etapa.tipoAprovador === 6;
     const isFuncionarioFixo = etapa.tipoAprovador === 5;
-    const selectedTipo = TIPO_APROVADOR_OPTIONS.find((o) => o.value === etapa.tipoAprovador);
+    const isAutoProcesso = etapa.tipoAprovador === 7 || etapa.tipoAprovador === 8; // CriarVagaRascunho | EnviarIntegracao
+    const isRevisaoRH = etapa.tipoAprovador === 9;
 
     function handleTipoChange(newTipo: number) {
+        const usaFila = newTipo === 6 || newTipo === 9;
         onChange({
             ...etapa,
             tipoAprovador: newTipo,
             funcionarioFixoId: newTipo === 5 ? etapa.funcionarioFixoId : null,
             funcionarioFixoNome: newTipo === 5 ? etapa.funcionarioFixoNome : null,
-            roleFilaId: newTipo === 6 ? etapa.roleFilaId : null,
-            roleFilaNome: newTipo === 6 ? etapa.roleFilaNome : null,
+            roleFilaId: usaFila ? etapa.roleFilaId : null,
+            roleFilaNome: usaFila ? etapa.roleFilaNome : null,
         });
     }
 
@@ -385,14 +511,18 @@ function EtapaRow({
 
                 {/* Campo condicional (ocupa espaço fixo para não deslocar botões) */}
                 <div className="w-60 flex-shrink-0">
-                    {isFuncionarioFixo ? (
+                    {isAutoProcesso ? (
+                        <span className="flex items-center h-9 px-3 text-xs text-emerald-600 italic gap-1.5">
+                            <Zap className="size-3 flex-shrink-0" /> Etapa automática
+                        </span>
+                    ) : isFuncionarioFixo ? (
                         <AutocompleteSelect
                             items={funcionarios}
                             value={etapa.funcionarioFixoId}
                             onChange={(id, name) => onChange({ ...etapa, funcionarioFixoId: id, funcionarioFixoNome: name })}
                             placeholder="funcionário"
                         />
-                    ) : isFilaDePerfil ? (
+                    ) : isFilaDePerfil || isRevisaoRH ? (
                         <select
                             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                             value={etapa.roleFilaId ?? ""}
@@ -462,13 +592,32 @@ function FluxoTab({
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [etapas, setEtapas] = useState<EtapaConfigDto[]>([]);
+    const [referenciaUnidade, setReferenciaUnidade] = useState<number>(0);
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await apiFetch(`/api/etapas-config-aprovacao/${tipoFluxo}`);
-            const data = await res.json() as EtapaConfigDto[];
-            setEtapas(Array.isArray(data) ? data : []);
+            const [etapasRes, globalRes] = await Promise.all([
+                apiFetch(`/api/etapas-config-aprovacao/${tipoFluxo}`),
+                apiFetch(`/api/etapas-config-aprovacao/${tipoFluxo}/global`),
+            ]);
+            const data = await etapasRes.json() as EtapaConfigDto[];
+            const globalData = await globalRes.json() as { referenciaUnidade: number };
+            // API may return tipoAprovador as enum name string — convert to number
+            const TIPO_NAME_MAP: Record<string, number> = {
+                GestorDireto: 0, GestorDoGestor: 1, ResponsavelUnidade: 2,
+                ResponsavelUnidadePai: 3, ResponsavelUnidadeRaiz: 4,
+                FuncionarioFixo: 5, FilaDePerfil: 6,
+                CriarVagaRascunho: 7, EnviarIntegracao: 8, RevisaoRH: 9,
+            };
+            const normalized = (Array.isArray(data) ? data : []).map(e => ({
+                ...e,
+                tipoAprovador: typeof e.tipoAprovador === "string" && isNaN(Number(e.tipoAprovador))
+                    ? (TIPO_NAME_MAP[e.tipoAprovador] ?? 0)
+                    : Number(e.tipoAprovador),
+            }));
+            setEtapas(normalized);
+            setReferenciaUnidade(globalData?.referenciaUnidade ?? 0);
         } catch {
             toast.error("Falha ao carregar etapas.");
         } finally {
@@ -521,6 +670,36 @@ function FluxoTab({
     }
 
     async function save() {
+        const sequenceDefs = PROCESS_SEQUENCE_BY_FLOW[tipoFluxo] ?? [];
+        if (sequenceDefs.length > 0) {
+            const presentTipos = new Set(etapas.map((e) => e.tipoAprovador));
+
+            // 1) Required steps must be present
+            const missing = sequenceDefs.filter((d) => !d.optional && !presentTipos.has(d.tipoAprovador));
+            if (missing.length > 0) {
+                toast.error(`Etapas obrigatórias ausentes: ${missing.map((d) => d.label).join(", ")}.`);
+                return;
+            }
+
+            // 2) Present process steps must respect the defined sequence order
+            const presentInSeq = sequenceDefs.filter((d) => presentTipos.has(d.tipoAprovador));
+            for (let si = 1; si < presentInSeq.length; si++) {
+                const prevOrdem = etapas.find((e) => e.tipoAprovador === presentInSeq[si - 1].tipoAprovador)!.ordem;
+                const currOrdem = etapas.find((e) => e.tipoAprovador === presentInSeq[si].tipoAprovador)!.ordem;
+                if (currOrdem <= prevOrdem) {
+                    toast.error(`Sequência incorreta: "${presentInSeq[si - 1].label}" deve aparecer antes de "${presentInSeq[si].label}".`);
+                    return;
+                }
+            }
+
+            // 3) "Enviar para Integração" must be the last step
+            const enviarIdx = etapas.findIndex((e) => e.tipoAprovador === 8);
+            if (enviarIdx !== -1 && enviarIdx !== etapas.length - 1) {
+                toast.error('"Enviar para Integração" deve ser a última etapa do fluxo.');
+                return;
+            }
+        }
+
         for (let i = 0; i < etapas.length; i++) {
             if (!etapas[i].label.trim()) {
                 toast.error(`Etapa ${i + 1}: preencha o nome da etapa.`);
@@ -530,20 +709,27 @@ function FluxoTab({
                 toast.error(`Etapa ${i + 1}: selecione o funcionário fixo.`);
                 return;
             }
-            if (etapas[i].tipoAprovador === 6 && !etapas[i].roleFilaId) {
-                toast.error(`Etapa ${i + 1}: selecione o perfil da fila.`);
+            if ((etapas[i].tipoAprovador === 6 || etapas[i].tipoAprovador === 9) && !etapas[i].roleFilaId) {
+                toast.error(`Etapa ${i + 1}: selecione o perfil.`);
                 return;
             }
         }
 
         setSaving(true);
         try {
-            const res = await apiFetch(`/api/etapas-config-aprovacao/${tipoFluxo}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(etapas),
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const [etapasRes, globalRes] = await Promise.all([
+                apiFetch(`/api/etapas-config-aprovacao/${tipoFluxo}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(etapas),
+                }),
+                apiFetch(`/api/etapas-config-aprovacao/${tipoFluxo}/global`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ referenciaUnidade }),
+                }),
+            ]);
+            if (!etapasRes.ok || !globalRes.ok) throw new Error("Falha ao salvar.");
             toast.success("Configuração salva com sucesso!");
             await load();
         } catch (e) {
@@ -561,8 +747,51 @@ function FluxoTab({
         );
     }
 
+    const sequenceDefs = PROCESS_SEQUENCE_BY_FLOW[tipoFluxo] ?? [];
+    const presentTipos = new Set(etapas.map((e) => e.tipoAprovador));
+
     return (
         <div className="space-y-3">
+            {/* Process sequence indicator */}
+            {sequenceDefs.length > 0 && (
+                <div className="rounded-lg bg-muted/40 border border-border/40 px-4 py-2.5">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Sequência do processo (obrigatória):</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {sequenceDefs.map((def, idx) => {
+                            const present = presentTipos.has(def.tipoAprovador);
+                            return (
+                                <Fragment key={def.tipoAprovador}>
+                                    {idx > 0 && (
+                                        <span className="text-muted-foreground text-xs select-none">→</span>
+                                    )}
+                                    <span
+                                        className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${
+                                            present
+                                                ? "bg-emerald-500/10 text-emerald-700 border-emerald-200"
+                                                : def.optional
+                                                    ? "bg-muted/60 text-muted-foreground border-border"
+                                                    : "bg-red-500/10 text-red-700 border-red-200"
+                                        }`}
+                                    >
+                                        {present ? (
+                                            <CheckCircle2 className="size-3 flex-shrink-0" />
+                                        ) : def.optional ? (
+                                            <span className="size-3 inline-flex items-center justify-center text-[9px] opacity-60">○</span>
+                                        ) : (
+                                            <XCircle className="size-3 flex-shrink-0" />
+                                        )}
+                                        {def.label}
+                                        {def.optional && (
+                                            <span className="opacity-60 text-[9px] ml-0.5">(opcional)</span>
+                                        )}
+                                    </span>
+                                </Fragment>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Column headers */}
             {etapas.length > 0 && (
                 <div className="flex items-center gap-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -596,6 +825,30 @@ function FluxoTab({
                     ))}
                 </div>
             )}
+
+            {/* Global config */}
+            <div className="rounded-lg border border-border/40 bg-muted/20 px-4 py-3 space-y-2.5">
+                <div className="flex items-center gap-2">
+                    <Settings2 className="size-4 text-muted-foreground" />
+                    <span className="text-sm font-semibold">Parâmetros Globais do Fluxo</span>
+                </div>
+                <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                        Referência de Lotação
+                    </label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                        Define qual lotação o sistema usa ao resolver aprovadores do tipo <strong>Responsável da Unidade</strong>, <strong>Unidade Pai</strong> e <strong>Unidade Raiz</strong>.
+                    </p>
+                    <select
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm w-full max-w-sm"
+                        value={referenciaUnidade}
+                        onChange={(e) => setReferenciaUnidade(Number(e.target.value))}
+                    >
+                        <option value={0}>Lotação do solicitante (quem está registrando)</option>
+                        <option value={1}>Lotação informada na solicitação</option>
+                    </select>
+                </div>
+            </div>
 
             <div className="flex items-center justify-between pt-1">
                 <Button variant="outline" size="sm" onClick={addEtapa}>

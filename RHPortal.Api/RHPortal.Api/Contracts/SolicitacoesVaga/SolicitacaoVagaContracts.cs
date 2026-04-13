@@ -8,6 +8,7 @@ namespace RhPortal.Api.Contracts.SolicitacoesVaga;
 public sealed record SolicitacaoVagaListQuery(
     string? Q,
     SolicitacaoVagaStatus? Status,
+    SolicitacaoVagaStatus[]? Statuses,
     bool? ApenasMeus,
     int? Page,
     int? PageSize
@@ -36,8 +37,6 @@ public sealed class SolicitacaoVagaCreateRequest
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }
     public Guid? SubstituidoFuncionarioId { get; set; }
-    // Sprint 2
-    public bool Aprovador2Habilitado { get; set; }
 
     // A.RH.013
     public TipoContratoVaga TipoContrato { get; set; } = TipoContratoVaga.CLT;
@@ -72,8 +71,6 @@ public sealed class SolicitacaoVagaUpdateRequest
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }
     public Guid? SubstituidoFuncionarioId { get; set; }
-    // Sprint 2
-    public bool Aprovador2Habilitado { get; set; }
 
     // A.RH.013
     public TipoContratoVaga TipoContrato { get; set; } = TipoContratoVaga.CLT;
@@ -94,6 +91,18 @@ public sealed class SolicitacaoVagaApprovalRequest
     [MaxLength(2000)]
     public string? Observacao { get; set; }
 }
+
+// ── Workflow etapa snapshot ──
+
+public sealed record EtapaFluxoInfo(
+    int Ordem,
+    string Label,
+    string? AprovadorNome,
+    string? RoleNome,
+    StatusAprovacao Status,
+    DateTimeOffset? DataUtc,
+    string? Observacao
+);
 
 // ── Response ──
 
@@ -134,24 +143,10 @@ public sealed record SolicitacaoVagaResponse(
     string? CentroCustoNome,
     Guid? UnidadeLotacaoId,
     string? UnidadeLotacaoNome,
-    // Sprint 2
-    Guid? Aprovador1Id,
-    string? Aprovador1Nome,
-    StatusAprovacao Aprovador1Status,
-    DateTimeOffset? Aprovador1DataUtc,
-    Guid? Aprovador2Id,
-    string? Aprovador2Nome,
-    StatusAprovacao? Aprovador2Status,
-    DateTimeOffset? Aprovador2DataUtc,
-    bool Aprovador2Habilitado,
-    Guid? Aprovador3Id,
-    string? Aprovador3Nome,
-    StatusAprovacao? Aprovador3Status,
-    DateTimeOffset? Aprovador3DataUtc,
-    bool Aprovador3Habilitado,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
-    DateTimeOffset? ApprovedAtUtc
+    DateTimeOffset? ApprovedAtUtc,
+    IReadOnlyList<EtapaFluxoInfo> EtapasFluxo
 );
 
 public sealed record SolicitacaoVagaGridRow(
@@ -169,5 +164,10 @@ public sealed record SolicitacaoVagaGridRow(
     TipoSolicitacaoVaga TipoSolicitacao,
     bool IsConfidencial,
     string? SubstituidoNome,
-    DateTimeOffset CreatedAtUtc
+    DateTimeOffset CreatedAtUtc,
+    string? EtapaPendenteLabel,
+    string? EtapaPendenteCom,
+    bool EtapaPendenteIsQueue,
+    Guid? EtapaPendenteAprovadorId,
+    Guid? EtapaPendenteAssumedByUserId
 );

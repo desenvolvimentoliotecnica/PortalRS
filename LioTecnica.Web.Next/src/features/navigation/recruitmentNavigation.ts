@@ -5,6 +5,7 @@ export const NAV_MENU_CACHE_KEY = "renderrh.nav.menus.v2";
 export const RECRUITMENT_ROUTE_KEYS = {
   dashboard: "/dashboard",
   vagas: "/vagas",
+  painelRh: "/painel-rh",
   solicitacoes: "/gestao/solicitacoes",
   aprovacoes: "/gestao/aprovacoes",
   portalVagas: "/portalvagas",
@@ -17,6 +18,7 @@ export const RECRUITMENT_ROUTE_KEYS = {
   admissao: "/admissao",
   integracao: "/admissao/integracao",
   desligamentos: "/gestao/desligamentos",
+  painelSolicitacoes: "/gestao/painel-solicitacoes",
 } as const;
 
 /** Ordem linear do fluxo de recrutamento no sidebar (pipeline R&S).
@@ -28,8 +30,9 @@ export const RECRUITMENT_MVP_ORDER = [
   RECRUITMENT_ROUTE_KEYS.aprovacoes,       // 1. Minhas Pendências
   RECRUITMENT_ROUTE_KEYS.solicitacoes,     // 2. Solicitações
   RECRUITMENT_ROUTE_KEYS.vagas,            // 3. Vagas
-  RECRUITMENT_ROUTE_KEYS.candidatos,       // 4. Candidatos
-  RECRUITMENT_ROUTE_KEYS.admissao,         // 5. Admissão
+  RECRUITMENT_ROUTE_KEYS.painelRh,         // 4. Painel RH
+  RECRUITMENT_ROUTE_KEYS.candidatos,       // 5. Candidatos
+  RECRUITMENT_ROUTE_KEYS.admissao,         // 6. Admissão
 ] as const;
 
 /** Abas secundárias — abaixo do divisor */
@@ -48,6 +51,7 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.dashboard]: "Dashboard",
   [RECRUITMENT_ROUTE_KEYS.solicitacoes]: "Solicitações",
   [RECRUITMENT_ROUTE_KEYS.vagas]: "Vagas",
+  [RECRUITMENT_ROUTE_KEYS.painelRh]: "Painel RH",
   [RECRUITMENT_ROUTE_KEYS.aprovacoes]: "Minhas Pendências",
   [RECRUITMENT_ROUTE_KEYS.portalVagas]: "Portal de Vagas",
   [RECRUITMENT_ROUTE_KEYS.talentos]: "Banco de Talentos",
@@ -58,6 +62,7 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.triagem]: "Pipeline",
   [RECRUITMENT_ROUTE_KEYS.admissao]: "Admissão",
   [RECRUITMENT_ROUTE_KEYS.integracao]: "Integração TOTVS",
+  [RECRUITMENT_ROUTE_KEYS.painelSolicitacoes]: "Painel de Solicitações",
 };
 
 export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
@@ -65,6 +70,7 @@ export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.solicitacoes,
   RECRUITMENT_ROUTE_KEYS.aprovacoes,
   RECRUITMENT_ROUTE_KEYS.vagas,
+  RECRUITMENT_ROUTE_KEYS.painelRh,
   RECRUITMENT_ROUTE_KEYS.portalVagas,
   RECRUITMENT_ROUTE_KEYS.talentos,
   RECRUITMENT_ROUTE_KEYS.candidatos,
@@ -74,6 +80,7 @@ export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.processoSeletivo,
   RECRUITMENT_ROUTE_KEYS.admissao,
   RECRUITMENT_ROUTE_KEYS.integracao,
+  RECRUITMENT_ROUTE_KEYS.painelSolicitacoes,
 ] as const;
 
 /** Emoji por etapa do pipeline (usado no sidebar). */
@@ -81,6 +88,7 @@ const PIPELINE_EMOJIS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.dashboard]: "📊",
   [RECRUITMENT_ROUTE_KEYS.solicitacoes]: "📝",
   [RECRUITMENT_ROUTE_KEYS.vagas]: "💼",
+  [RECRUITMENT_ROUTE_KEYS.painelRh]: "📋",
   [RECRUITMENT_ROUTE_KEYS.matching]: "🤖",
   [RECRUITMENT_ROUTE_KEYS.candidatos]: "👥",
   [RECRUITMENT_ROUTE_KEYS.triagem]: "🔀",
@@ -151,6 +159,10 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
     createItem("nav-dashboard", "Dashboard", "/dashboard", "layoutdashboard"),
     createItem("nav-solicitacoes", "Solicitações", "/gestao/solicitacoes", "clipboardlist"),
     createItem("nav-aprovacoes", "Minhas Pendências", "/gestao/aprovacoes", "checkcheck"),
+    createItem("nav-painel-solicitacoes", "Painel de Solicitações", "/gestao/painel-solicitacoes", "gitbranch"),
+    createItem("nav-vagas", "Vagas", "/vagas", "briefcase"),
+    createItem("nav-candidatos", "Candidatos", "/candidatos", "users"),
+    createItem("nav-painel-rh", "Painel RH", "/painel-rh", "clipboardcheck"),
     createItem("nav-matching", "Matching IA", "/matching", "bi-stars"),
     createItem("nav-triagem", "Pipeline", "/triagem", "bi-funnel"),
     createItem("nav-processo-seletivo", "Processo Seletivo", "/gestao/processo-seletivo", "listchecks"),
@@ -159,6 +171,7 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
     createItem("nav-comissoes", "Pagamento extra", "/gestao/comissoes", "bi-bar-chart"),
     createItem("nav-empresas", "Empresas", "/empresas", "building2"),
     ...(isAdmin ? [createItem("nav-configuracao-aprovacoes", "Configuração de Aprovações", "/admin/configuracao-aprovacoes", "settings2")] : []),
+    ...(isAdmin ? [createItem("nav-aprovadores-alternativos", "Aprovadores Alternativos", "/admin/aprovadores-alternativos", "user-check")] : []),
   ];
 
   return extras.filter((item) => {

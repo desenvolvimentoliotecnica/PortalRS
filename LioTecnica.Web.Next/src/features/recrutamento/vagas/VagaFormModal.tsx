@@ -10,6 +10,7 @@ import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/Categor
 import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
 import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
+import { HorarioEditor } from "@/components/gestao/HorarioEditor";
 
 const BASE = "/app";
 const UF_LIST = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
@@ -72,7 +73,7 @@ type VagaDraft = {
   generoPreferencia: string; vagaAfirmativa: boolean; linguagemInclusiva: boolean;
   publicoAfirmativo: string; observacoesPcd: string;
   projetoNome: string; projetoCliente: string; projetoPrazo: string; projetoDescricao: string;
-  regime: string; cargaSemanalHoras: string; escala: string;
+  regime: string; cargaSemanalHoras: string; escala: string; escalaTrabalhoRaw: string;
   horaEntrada: string; horaSaida: string; intervalo: string;
   cep: string; logradouro: string; numero: string; bairro: string;
   cidade: string; uf: string; politicaTrabalho: string; observacoesDeslocamento: string;
@@ -118,7 +119,7 @@ function emptyDraft(): VagaDraft {
     generoPreferencia: "", vagaAfirmativa: false, linguagemInclusiva: false,
     publicoAfirmativo: "", observacoesPcd: "",
     projetoNome: "", projetoCliente: "", projetoPrazo: "", projetoDescricao: "",
-    regime: "", cargaSemanalHoras: "", escala: "",
+    regime: "", cargaSemanalHoras: "", escala: "", escalaTrabalhoRaw: "",
     horaEntrada: "", horaSaida: "", intervalo: "",
     cep: "", logradouro: "", numero: "", bairro: "",
     cidade: "", uf: "", politicaTrabalho: "", observacoesDeslocamento: "",
@@ -150,6 +151,7 @@ function emptyDraft(): VagaDraft {
 /* ── helpers ─────────────────────────────────────────────────────────── */
 
 function pick(v: unknown, fb = "") { return typeof v === "string" ? v : v == null ? fb : String(v); }
+function pickEnum(v: unknown, fb = "") { const s = pick(v); return s ? s.toLowerCase() : fb; }
 function pickBool(v: unknown) { return v === true || v === "true" || v === 1; }
 function pickNum(v: unknown, fb: number) { const n = Number(v); return Number.isFinite(n) ? n : fb; }
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
@@ -346,6 +348,7 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     regime: emptyToNull(d.regime),
     cargaSemanalHoras: d.cargaSemanalHoras ? Number(d.cargaSemanalHoras) || null : null,
     escala: emptyToNull(d.escala),
+    escalaTrabalhoRaw: emptyToNull(d.escalaTrabalhoRaw),
     horaEntrada: emptyToNull(d.horaEntrada) || null,
     horaSaida: emptyToNull(d.horaSaida) || null,
     intervalo: emptyToNull(d.intervalo) || null,
@@ -459,13 +462,15 @@ function EnumSelect({ value, onChange, options, placeholder }: {
 
 /* ── Tab definitions ─────────────────────────────────────────────────── */
 
-type TabKey = "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos";
+type TabKey = "identificacao" | "horario" | "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos";
 
 const TABS: { key: TabKey; icon: string; label: string }[] = [
+  { key: "identificacao", icon: "🪪", label: "Identificação" },
+  { key: "horario", icon: "🕐", label: "Horário" },
   { key: "dados", icon: "📋", label: "Dados básicos" },
   { key: "diversidade", icon: "💜", label: "Diversidade" },
   { key: "projeto", icon: "📁", label: "Projeto" },
-  { key: "local", icon: "📍", label: "Local e jornada" },
+  { key: "local", icon: "📍", label: "Localização" },
   { key: "remuneracao", icon: "💰", label: "Remuneração" },
   { key: "requisitos", icon: "✅", label: "Requisitos" },
   { key: "matching", icon: "✨", label: "Filtros matching (IA)" },
@@ -475,9 +480,10 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "candidatos", icon: "👥", label: "Candidatos" },
 ];
 
-const STEPPER_SEQUENCE: TabKey[] = ["dados", "requisitos", "matching", "publicacao", "campos"];
+const STEPPER_SEQUENCE: TabKey[] = ["identificacao", "horario", "dados", "requisitos", "matching", "publicacao", "campos"];
 const STEPPER_LABELS: Record<string, string> = {
-  dados: "Dados básicos", requisitos: "Requisitos", matching: "Matching IA",
+  identificacao: "Identificação", horario: "Horário", dados: "Dados básicos",
+  requisitos: "Requisitos", matching: "Matching IA",
   publicacao: "Publicação", campos: "Campos do portal",
 };
 
@@ -667,7 +673,7 @@ export type VagaFormProps = {
 };
 
 export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTab, onClose, onSaved, embedded }: VagaFormProps) {
-  const [tab, setTab] = useState<TabKey>("dados");
+  const [tab, setTab] = useState<TabKey>("identificacao");
   const [draft, setDraft] = useState<VagaDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [enums, setEnums] = useState<EnumData>({});
@@ -702,7 +708,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     if (!open) { loaded.current = false; return; }
     if (loaded.current) return;
     loaded.current = true;
-    setTab(defaultTab ?? "dados");
+    setTab(defaultTab ?? "identificacao");
     setCopySearch("");
 
     void Promise.all([
@@ -749,9 +755,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         id,
         titulo: pick(v.titulo), codigo: pick(v.codigo),
         departmentId: pick(v.departmentId), areaId: pick(v.areaId),
-        areaTime: pick(v.areaTime), modalidade: pick(v.modalidade, "presencial"),
-        status: pick(v.status, "aberta"), senioridade: pick(v.senioridade),
-        quantidadeVagas: pickNum(v.quantidadeVagas, 1), tipoContratacao: pick(v.tipoContratacao),
+        areaTime: pickEnum(v.areaTime), modalidade: pickEnum(v.modalidade, "presencial"),
+        status: pickEnum(v.status, "aberta"), senioridade: pickEnum(v.senioridade),
+        quantidadeVagas: pickNum(v.quantidadeVagas, 1), tipoContratacao: pickEnum(v.tipoContratacao),
         matchMinimoPercentual: clamp(pickNum(v.matchMinimoPercentual, 70), 0, 100),
         descricaoInterna: pick(v.descricaoInterna), codigoInterno: pick(v.codigoInterno),
         codigoCbo: pick(v.codigoCbo),
@@ -768,36 +774,37 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         unidadeLotacaoId: pick(v.unidadeLotacaoId),
         unidadeLotacaoCode: pick(v.unidadeLotacaoCode),
         unidadeLotacaoDescription: pick(v.unidadeLotacaoDescription),
-        motivoAbertura: pick(v.motivoAbertura),
-        orcamentoAprovado: pick(v.orcamentoAprovado), gestorRequisitante: pick(v.gestorRequisitante),
-        recrutadorResponsavel: pick(v.recrutadorResponsavel), prioridade: pick(v.prioridade),
+        motivoAbertura: pickEnum(v.motivoAbertura),
+        orcamentoAprovado: pickEnum(v.orcamentoAprovado), gestorRequisitante: pick(v.gestorRequisitante),
+        recrutadorResponsavel: pick(v.recrutadorResponsavel), prioridade: pickEnum(v.prioridade),
         resumoPitch: pick(v.resumoPitch),
         tagsResponsabilidades: pick(v.tagsResponsabilidadesRaw).replace(/;/g, "; "),
         tagsKeywords: pick(v.tagsKeywordsRaw).replace(/;/g, "; "),
         confidencial: pickBool(v.confidencial), aceitaPcd: pickBool(v.aceitaPcd), urgente: pickBool(v.urgente),
-        generoPreferencia: pick(v.generoPreferencia), vagaAfirmativa: pickBool(v.vagaAfirmativa),
+        generoPreferencia: pickEnum(v.generoPreferencia), vagaAfirmativa: pickBool(v.vagaAfirmativa),
         linguagemInclusiva: pickBool(v.linguagemInclusiva), publicoAfirmativo: pick(v.publicoAfirmativo),
         observacoesPcd: pick(v.observacoesPcd),
         projetoNome: pick(v.projetoNome), projetoCliente: pick(v.projetoClienteAreaImpactada),
         projetoPrazo: pick(v.projetoPrazoPrevisto), projetoDescricao: pick(v.projetoDescricao),
-        regime: pick(v.regime), cargaSemanalHoras: v.cargaSemanalHoras != null ? String(v.cargaSemanalHoras) : "",
-        escala: pick(v.escala), horaEntrada: pick(v.horaEntrada), horaSaida: pick(v.horaSaida),
+        regime: pickEnum(v.regime), cargaSemanalHoras: v.cargaSemanalHoras != null ? String(v.cargaSemanalHoras) : "",
+        escala: pickEnum(v.escala), escalaTrabalhoRaw: pick(v.escalaTrabalhoRaw),
+        horaEntrada: pick(v.horaEntrada), horaSaida: pick(v.horaSaida),
         intervalo: pick(v.intervalo),
         cep: pick(v.cep), logradouro: pick(v.logradouro), numero: pick(v.numero), bairro: pick(v.bairro),
         cidade: pick(v.cidade), uf: pick(v.uf), politicaTrabalho: pick(v.politicaTrabalho),
         observacoesDeslocamento: pick(v.observacoesDeslocamento),
-        moeda: pick(v.moeda), salarioMinimo: v.salarioMinimo != null ? String(v.salarioMinimo) : "",
+        moeda: pickEnum(v.moeda), salarioMinimo: v.salarioMinimo != null ? String(v.salarioMinimo) : "",
         salarioMaximo: v.salarioMaximo != null ? String(v.salarioMaximo) : "",
-        periodicidade: pick(v.periodicidade), bonusTipo: pick(v.bonusTipo),
+        periodicidade: pickEnum(v.periodicidade), bonusTipo: pickEnum(v.bonusTipo),
         bonusPercentual: v.bonusPercentual != null ? String(v.bonusPercentual) : "",
         observacoesRemuneracao: pick(v.observacoesRemuneracao),
-        beneficios: benefRaw.map((b: any) => ({ tipo: pick(b.tipo), valor: b.valor != null ? String(b.valor) : "", recorrencia: pick(b.recorrencia, "mensal"), obrigatorio: pickBool(b.obrigatorio), obs: pick(b.observacoes) })),
-        escolaridade: pick(v.escolaridade), formacaoArea: pick(v.formacaoArea),
+        beneficios: benefRaw.map((b: any) => ({ tipo: pickEnum(b.tipo), valor: b.valor != null ? String(b.valor) : "", recorrencia: pickEnum(b.recorrencia, "mensal"), obrigatorio: pickBool(b.obrigatorio), obs: pick(b.observacoes) })),
+        escolaridade: pickEnum(v.escolaridade), formacaoArea: pickEnum(v.formacaoArea),
         experienciaMinimaAnos: v.experienciaMinimaAnos != null ? String(v.experienciaMinimaAnos) : "",
         tagsStack: pick(v.tagsStackRaw).replace(/;/g, "; "),
         tagsIdiomas: pick(v.tagsIdiomasRaw).replace(/;/g, "; "),
         diferenciais: pick(v.diferenciais),
-        requisitos: reqRaw.map((r: any) => ({ nome: pick(r.nome), categoria: pick(r.categoria, "competencia"), peso: pick(r.peso, "1"), obrigatorio: pickBool(r.obrigatorio), anosMinimos: r.anosMinimos != null ? String(r.anosMinimos) : "", nivel: pick(r.nivel), avaliacao: pick(r.avaliacao), sinonimos: Array.isArray(r.sinonimos) ? r.sinonimos.join(", ") : "", obs: pick(r.observacoes) })),
+        requisitos: reqRaw.map((r: any) => ({ nome: pick(r.nome), categoria: pickEnum(r.categoria, "competencia"), peso: pick(r.peso, "1"), obrigatorio: pickBool(r.obrigatorio), anosMinimos: r.anosMinimos != null ? String(r.anosMinimos) : "", nivel: pickEnum(r.nivel), avaliacao: pickEnum(r.avaliacao), sinonimos: Array.isArray(r.sinonimos) ? r.sinonimos.join(", ") : "", obs: pick(r.observacoes) })),
         matchingModalidade: mf.modalidade, matchingSenioridade: mf.senioridade,
         matchingEscolaridade: mf.escolaridade, matchingFormacaoArea: mf.formacaoArea,
         matchingCidade: mf.cidade, matchingUF: mf.uf, matchingExp: mf.tempoExp,
@@ -806,10 +813,10 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         matchingCnhCategoria: mf.cnhCategoria, matchingHabilidades: mf.habilidades, matchingObs: mf.observacoes,
         weightsCompetencia: pickNum(w?.competencia, 40), weightsExperiencia: pickNum(w?.experiencia, 30),
         weightsFormacao: pickNum(w?.formacao, 15), weightsLocalidade: pickNum(w?.localidade, 15),
-        etapas: etaRaw.map((e: any) => ({ nome: pick(e.nome), responsavel: pick(e.responsavel), modo: pick(e.modo), slaDias: e.slaDias != null ? String(e.slaDias) : "", descricao: pick(e.descricaoInstrucoes) })),
-        perguntasTriagem: pergRaw.map((p: any) => ({ texto: pick(p.texto), tipo: pick(p.tipo), peso: pick(p.peso, "1"), obrigatoria: pickBool(p.obrigatoria), knockout: pickBool(p.knockout), opcoes: pick(p.opcoesRaw) })),
+        etapas: etaRaw.map((e: any) => ({ nome: pick(e.nome), responsavel: pickEnum(e.responsavel), modo: pickEnum(e.modo), slaDias: e.slaDias != null ? String(e.slaDias) : "", descricao: pick(e.descricaoInstrucoes) })),
+        perguntasTriagem: pergRaw.map((p: any) => ({ texto: pick(p.texto), tipo: pickEnum(p.tipo), peso: pick(p.peso, "1"), obrigatoria: pickBool(p.obrigatoria), knockout: pickBool(p.knockout), opcoes: pick(p.opcoesRaw) })),
         observacoesProcesso: pick(v.observacoesProcesso),
-        visibilidade: pick(v.visibilidade), dataInicio: pick(v.dataInicio), dataEncerramento: pick(v.dataEncerramento),
+        visibilidade: pickEnum(v.visibilidade), dataInicio: pick(v.dataInicio), dataEncerramento: pick(v.dataEncerramento),
         slaDiasMetaFechamento: v.slaDiasMetaFechamento != null ? String(v.slaDiasMetaFechamento) : "",
         canalLinkedIn: pickBool(v.canalLinkedIn), canalSiteCarreiras: pickBool(v.canalSiteCarreiras),
         canalIndicacao: pickBool(v.canalIndicacao), canalPortaisEmprego: pickBool(v.canalPortaisEmprego),
@@ -833,10 +840,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   }
 
   async function handleSave() {
-    if (!draft.titulo.trim()) { toast.error("Informe o título da vaga."); setTab("dados"); return; }
-    if (!draft.areaId) { toast.error("Selecione a área da vaga."); setTab("dados"); return; }
+    if (!draft.titulo.trim()) { toast.error("Informe o título da vaga."); setTab("identificacao"); return; }
     if (!draft.status) { toast.error("Selecione o status."); setTab("dados"); return; }
-    if (!draft.cargoId) { toast.error("Selecione o cargo."); setTab("dados"); return; }
+    if (!draft.cargoId) { toast.error("Selecione o cargo."); setTab("identificacao"); return; }
 
     // Ao publicar, exige campos essenciais preenchidos
     if (draft.status.toLowerCase() === "aberta") {
@@ -877,7 +883,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           toast.success("Vaga criada! Continue preenchendo os detalhes.");
           setDraft((d) => ({ ...d, id: createdId }));
           setWizardMode(true);
-          setTab("requisitos");
+          setTab("identificacao");
           setSaving(false);
           return;
         }
@@ -973,6 +979,122 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
         {/* Tab content (scrollable) */}
         <div className="flex-1 overflow-y-auto px-4 pb-4">
+          {/* ── Identificação ───────────────────────────────────── */}
+          {tab === "identificacao" && (
+            <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
+              <SectionHeader title="Identificação da vaga" description="Campos principais — espelham o formulário de solicitação do requisitante." />
+
+              <Field label="Título da vaga" required span="col-span-12 md:col-span-8">
+                <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de Marketing Jr" value={draft.titulo} onChange={(e) => set("titulo", e.target.value)} />
+              </Field>
+
+              <Field label="Cargo" required span="col-span-12 md:col-span-8">
+                <CargoAutocomplete
+                  value={draft.cargoCode || draft.cargoId}
+                  defaultCargoLabel={draft.cargoCode ? { code: draft.cargoCode, name: draft.cargoName } : undefined}
+                  onChange={(code) => set("cargoCode", code)}
+                  onSelectId={(id) => set("cargoId", id)}
+                  onSelect={(item: CargoLookup) => {
+                    setDraft(d => ({
+                      ...d,
+                      cargoId: item.id,
+                      cargoCode: item.code,
+                      cargoName: item.name,
+                      areaId: d.areaId || item.areaId || d.areaId,
+                      senioridade: d.senioridade || (item.seniority ? item.seniority.toLowerCase() : ""),
+                    }));
+                  }}
+                  placeholder="Digite código ou nome do cargo..."
+                />
+              </Field>
+              <Field label="Tipo de contratação" span="col-span-12 md:col-span-4">
+                <EnumSelect value={draft.tipoContratacao} onChange={(v) => set("tipoContratacao", v)} options={enumOpts(enums, "vagaTipoContratacao", "Selecionar")} />
+              </Field>
+
+              <Field label="Centro de custo" span="col-span-12 md:col-span-6">
+                <CentroCustoAutocomplete
+                  value={draft.centroCustoCode || draft.centroCustoId}
+                  defaultLabel={draft.centroCustoCode ? { code: draft.centroCustoCode, description: draft.centroCustoDescription } : undefined}
+                  onChange={(code) => set("centroCustoCode", code)}
+                  onSelectId={(id) => set("centroCustoId", id)}
+                  onSelectItem={(item) => {
+                    setDraft((d) => ({
+                      ...d,
+                      centroCustoId: item.id,
+                      centroCustoCode: item.code,
+                      centroCustoDescription: item.description,
+                    }));
+                  }}
+                  placeholder="Buscar centro de custo..."
+                />
+              </Field>
+              <Field label="Unidade de lotação" span="col-span-12 md:col-span-6">
+                <UnidadeLotacaoAutocomplete
+                  value={draft.unidadeLotacaoCode || draft.unidadeLotacaoId}
+                  defaultLabel={draft.unidadeLotacaoCode ? { code: draft.unidadeLotacaoCode, description: draft.unidadeLotacaoDescription } : undefined}
+                  onChange={(code) => set("unidadeLotacaoCode", code)}
+                  onSelectId={(id) => set("unidadeLotacaoId", id)}
+                  onSelectItem={(item) => {
+                    setDraft((d) => ({
+                      ...d,
+                      unidadeLotacaoId: item.id,
+                      unidadeLotacaoCode: item.code,
+                      unidadeLotacaoDescription: item.description,
+                    }));
+                  }}
+                  placeholder="Buscar unidade de lotação..."
+                />
+              </Field>
+
+              <Field label="Qtd. vagas" span="col-span-6 md:col-span-3">
+                <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={1} value={draft.quantidadeVagas} onChange={(e) => set("quantidadeVagas", Math.max(1, Number(e.target.value) || 1))} />
+              </Field>
+              <Field label="Prioridade / Urgência" span="col-span-6 md:col-span-3">
+                <EnumSelect value={draft.prioridade} onChange={(v) => set("prioridade", v)} options={enumOpts(enums, "vagaPrioridade", "Selecionar")} />
+              </Field>
+
+              <Field label="Justificativa / Desc. interna" span="col-span-12">
+                <textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={3} placeholder="Contexto da contratação, justificativa do requisitante, notas para o recrutador..." value={draft.descricaoInterna} onChange={(e) => set("descricaoInterna", e.target.value)} />
+              </Field>
+
+              <div className="col-span-12 rounded-lg border border-border bg-muted/20 p-4">
+                <p className="text-xs font-medium text-muted-foreground mb-3">Configurações rápidas</p>
+                <div className="flex flex-wrap gap-6">
+                  <Toggle label="Confidencial — ocultar empresa/gestor em canais públicos" checked={draft.confidencial} onChange={(v) => set("confidencial", v)} />
+                  <Toggle label="Exige CNH" checked={draft.exigeCnh} onChange={(v) => set("exigeCnh", v)} />
+                  <Toggle label="Disponibilidade para viagens" checked={draft.disponibilidadeViagens} onChange={(v) => set("disponibilidadeViagens", v)} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Horário ──────────────────────────────────────────── */}
+          {tab === "horario" && (
+            <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
+              <Field label="Turno" span="col-span-12 md:col-span-6">
+                <TurnoAutocomplete
+                  value={draft.turnoCode || draft.turnoId}
+                  defaultLabel={draft.turnoCode ? { code: draft.turnoCode, description: draft.turnoDescription } : undefined}
+                  onChange={(code) => set("turnoCode", code)}
+                  onSelectId={(id) => set("turnoId", id)}
+                  onSelectItem={(item) => {
+                    setDraft((d) => ({
+                      ...d,
+                      turnoId: item.id,
+                      turnoCode: item.code,
+                      turnoDescription: item.description,
+                    }));
+                  }}
+                  placeholder="Buscar turno..."
+                />
+              </Field>
+              <div className="col-span-12 mt-1">
+                <p className="text-xs text-muted-foreground mb-2">Selecione a escala na lista ou preencha manualmente os horários por dia da semana.</p>
+                <HorarioEditor value={draft.escalaTrabalhoRaw} onChange={(v) => set("escalaTrabalhoRaw", v)} />
+              </div>
+            </div>
+          )}
+
           {/* ── Dados básicos ────────────────────────────────────── */}
           {tab === "dados" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
@@ -996,24 +1118,19 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               </div>
 
               {/* Seção: Identificação */}
-              <SectionHeader title="Identificação" description="Título, código e posicionamento da vaga" />
+              <SectionHeader title="Código e posicionamento" description="Código, status e hierarquia interna da vaga." />
               <Field label="Código" span="col-span-12 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: MKT-JR-001" value={draft.codigo} onChange={(e) => set("codigo", e.target.value)} /></Field>
-              <Field label="Título da vaga" required span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de Marketing Jr" value={draft.titulo} onChange={(e) => set("titulo", e.target.value)} /></Field>
               <Field label="Status" required span="col-span-12 md:col-span-3"><EnumSelect value={draft.status} onChange={(v) => set("status", v)} options={enumOpts(enums, "vagaStatus")} /></Field>
               <Field label="Nome interno (engessado)" span="col-span-12 md:col-span-5">
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de TI Sênior" value={draft.nomeEngessado} onChange={(e) => set("nomeEngessado", e.target.value)} maxLength={200} />
                 <p className="text-xs text-muted-foreground mt-1">Nome fixo para referência interna de cargo.</p>
               </Field>
               <Field label="Departamento" span="col-span-12 md:col-span-4"><EnumSelect value={draft.departmentId} onChange={(v) => set("departmentId", v)} options={depts.map((d) => ({ code: d.id, text: d.name }))} placeholder="Selecionar departamento" /></Field>
-              <Field label="Área" required span="col-span-12 md:col-span-3"><EnumSelect value={draft.areaId} onChange={(v) => set("areaId", v)} options={areas.map((a) => ({ code: a.id, text: a.name }))} placeholder="Selecionar área" /></Field>
 
               {/* Seção: Configurações */}
               <SectionHeader title="Configurações da vaga" />
               <Field label="Modalidade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.modalidade} onChange={(v) => set("modalidade", v)} options={enumOpts(enums, "vagaModalidade")} /></Field>
               <Field label="Senioridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.senioridade} onChange={(v) => set("senioridade", v)} options={enumOpts(enums, "vagaSenioridade", "Selecionar")} /></Field>
-              <Field label="Tipo de contratação" span="col-span-6 md:col-span-3"><EnumSelect value={draft.tipoContratacao} onChange={(v) => set("tipoContratacao", v)} options={enumOpts(enums, "vagaTipoContratacao", "Selecionar")} /></Field>
-              <Field label="Qtd. vagas" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={1} value={draft.quantidadeVagas} onChange={(e) => set("quantidadeVagas", Math.max(1, Number(e.target.value) || 1))} /></Field>
-              <Field label="Prioridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.prioridade} onChange={(v) => set("prioridade", v)} options={enumOpts(enums, "vagaPrioridade", "Selecionar")} /></Field>
               <Field label="Motivo de abertura" span="col-span-6 md:col-span-3"><EnumSelect value={draft.motivoAbertura} onChange={(v) => set("motivoAbertura", v)} options={enumOpts(enums, "vagaMotivoAbertura", "Selecionar")} /></Field>
               <Field label="Orçamento aprovado" span="col-span-6 md:col-span-3"><EnumSelect value={draft.orcamentoAprovado} onChange={(v) => set("orcamentoAprovado", v)} options={enumOpts(enums, "vagaOrcamentoAprovado", "Selecionar")} /></Field>
               <Field label="Área/Time" span="col-span-6 md:col-span-3"><EnumSelect value={draft.areaTime} onChange={(v) => set("areaTime", v)} options={enumOpts(enums, "vagaAreaTime", "Selecionar")} /></Field>
@@ -1029,29 +1146,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 </div>
               </Field>
 
-              {/* Seção: Códigos */}
+              {/* Seção: Referências */}
               <SectionHeader title="Referências / Códigos" />
-              <Field label="Cargo" required span="col-span-12 md:col-span-8">
-                <CargoAutocomplete
-                  value={draft.cargoCode || draft.cargoId}
-                  defaultCargoLabel={draft.cargoCode ? { code: draft.cargoCode, name: draft.cargoName } : undefined}
-                  onChange={(code) => set("cargoCode", code)}
-                  onSelectId={(id) => set("cargoId", id)}
-                  onSelect={(item: CargoLookup) => {
-                    setDraft(d => ({
-                      ...d,
-                      cargoId: item.id,
-                      cargoCode: item.code,
-                      cargoName: item.name,
-                      // auto-preenche área se ainda não preenchida
-                      areaId: d.areaId || item.areaId || d.areaId,
-                      // auto-preenche senioridade se ainda não preenchida
-                      senioridade: d.senioridade || (item.seniority ? item.seniority.toLowerCase() : ""),
-                    }));
-                  }}
-                  placeholder="Digite código ou nome do cargo..."
-                />
-              </Field>
               <Field label="Categoria salarial" span="col-span-12 md:col-span-6">
                 <CategoriaSalarialAutocomplete
                   value={draft.categoriaSalarialCode || draft.categoriaSalarialId}
@@ -1069,64 +1165,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                   placeholder="Buscar categoria salarial..."
                 />
               </Field>
-              <Field label="Centro de custo" span="col-span-12 md:col-span-6">
-                <CentroCustoAutocomplete
-                  value={draft.centroCustoCode || draft.centroCustoId}
-                  defaultLabel={draft.centroCustoCode ? { code: draft.centroCustoCode, description: draft.centroCustoDescription } : undefined}
-                  onChange={(code) => set("centroCustoCode", code)}
-                  onSelectId={(id) => set("centroCustoId", id)}
-                  onSelectItem={(item) => {
-                    setDraft((d) => ({
-                      ...d,
-                      centroCustoId: item.id,
-                      centroCustoCode: item.code,
-                      centroCustoDescription: item.description,
-                    }));
-                  }}
-                  placeholder="Buscar centro de custo..."
-                />
-              </Field>
-              <Field label="Turno" span="col-span-12 md:col-span-6">
-                <TurnoAutocomplete
-                  value={draft.turnoCode || draft.turnoId}
-                  defaultLabel={draft.turnoCode ? { code: draft.turnoCode, description: draft.turnoDescription } : undefined}
-                  onChange={(code) => set("turnoCode", code)}
-                  onSelectId={(id) => set("turnoId", id)}
-                  onSelectItem={(item) => {
-                    setDraft((d) => ({
-                      ...d,
-                      turnoId: item.id,
-                      turnoCode: item.code,
-                      turnoDescription: item.description,
-                    }));
-                  }}
-                  placeholder="Buscar turno..."
-                />
-              </Field>
-              <Field label="Unidade de lotação" span="col-span-12 md:col-span-6">
-                <UnidadeLotacaoAutocomplete
-                  value={draft.unidadeLotacaoCode || draft.unidadeLotacaoId}
-                  defaultLabel={draft.unidadeLotacaoCode ? { code: draft.unidadeLotacaoCode, description: draft.unidadeLotacaoDescription } : undefined}
-                  onChange={(code) => set("unidadeLotacaoCode", code)}
-                  onSelectId={(id) => set("unidadeLotacaoId", id)}
-                  onSelectItem={(item) => {
-                    setDraft((d) => ({
-                      ...d,
-                      unidadeLotacaoId: item.id,
-                      unidadeLotacaoCode: item.code,
-                      unidadeLotacaoDescription: item.description,
-                    }));
-                  }}
-                  placeholder="Buscar unidade de lotação..."
-                />
-              </Field>
               <Field label="Código interno" span="col-span-6 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="VAG-2025-0012" maxLength={40} value={draft.codigoInterno} onChange={(e) => set("codigoInterno", e.target.value)} /></Field>
               <Field label="Código CBO" span="col-span-6 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0000-00" value={draft.codigoCbo} onChange={(e) => set("codigoCbo", e.target.value)} /></Field>
 
               {/* Seção: Descrição e conteúdo */}
               <SectionHeader title="Descrição e conteúdo" />
               <Field label="Resumo / pitch da vaga" span="col-span-12"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={2} placeholder="Descreva brevemente o propósito da vaga e o diferencial para atrair candidatos." value={draft.resumoPitch} onChange={(e) => set("resumoPitch", e.target.value)} /></Field>
-              <Field label="Descrição interna" span="col-span-12"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={3} placeholder="Notas internas, contexto da vaga, instruções para o recrutador..." value={draft.descricaoInterna} onChange={(e) => set("descricaoInterna", e.target.value)} /></Field>
               <Field label="Responsabilidades (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={3} placeholder="Ex.: triagem de currículos; entrevistas; alinhamento com gestores" value={draft.tagsResponsabilidades} onChange={(e) => set("tagsResponsabilidades", e.target.value)} /></Field>
               <Field label="Palavras-chave (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={3} placeholder="Ex.: recrutamento; ATS; entrevistas por competência" value={draft.tagsKeywords} onChange={(e) => set("tagsKeywords", e.target.value)} /></Field>
 
@@ -1134,7 +1178,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <div className="col-span-12 rounded-lg border border-border bg-muted/20 p-4">
                 <p className="text-xs font-medium text-muted-foreground mb-3">Configurações rápidas</p>
                 <div className="flex flex-wrap gap-6">
-                  <Toggle label="Confidencial — ocultar empresa/gestor em canais públicos" checked={draft.confidencial} onChange={(v) => set("confidencial", v)} />
                   <Toggle label="Aceita PCD — vaga inclusiva" checked={draft.aceitaPcd} onChange={(v) => set("aceitaPcd", v)} />
                   <Toggle label="Urgente — SLA curto" checked={draft.urgente} onChange={(v) => set("urgente", v)} />
                 </div>
@@ -1174,14 +1217,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {/* ── Local e jornada ──────────────────────────────────── */}
           {tab === "local" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
-              <SectionHeader title="Jornada de trabalho" />
-              <Field label="Regime" span="col-span-12 md:col-span-4"><EnumSelect value={draft.regime} onChange={(v) => set("regime", v)} options={enumOpts(enums, "vagaRegimeJornada", "Selecionar")} /></Field>
-              <Field label="Escala" span="col-span-12 md:col-span-4"><EnumSelect value={draft.escala} onChange={(v) => set("escala", v)} options={enumOpts(enums, "vagaEscalaTrabalho", "Selecionar")} /></Field>
-              <Field label="Carga semanal (h)" span="col-span-12 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: 40" value={draft.cargaSemanalHoras} onChange={(e) => set("cargaSemanalHoras", e.target.value)} /></Field>
-              <Field label="Hora de entrada" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="time" value={draft.horaEntrada} onChange={(e) => set("horaEntrada", e.target.value)} /></Field>
-              <Field label="Hora de saída" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="time" value={draft.horaSaida} onChange={(e) => set("horaSaida", e.target.value)} /></Field>
-              <Field label="Intervalo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: 01:00" value={draft.intervalo} onChange={(e) => set("intervalo", e.target.value)} /></Field>
-
               <SectionHeader title="Localização" />
               <Field label="CEP" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="00000-000" value={draft.cep} onChange={(e) => set("cep", e.target.value)} /></Field>
               <Field label="Logradouro" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Rua / Av." value={draft.logradouro} onChange={(e) => set("logradouro", e.target.value)} /></Field>
@@ -1404,8 +1439,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <div className="col-span-12 md:col-span-6 rounded-md border border-border bg-card p-4">
                 <p className="text-xs font-semibold text-foreground mb-2">Documentos / Exigências</p>
                 <div className="space-y-2">
-                  <Toggle label="Exige CNH" checked={draft.exigeCnh} onChange={(v) => set("exigeCnh", v)} />
-                  <Toggle label="Disponibilidade para viagens" checked={draft.disponibilidadeViagens} onChange={(v) => set("disponibilidadeViagens", v)} />
                   <Toggle label="Checagem de antecedentes" checked={draft.checagemAntecedentes} onChange={(v) => set("checagemAntecedentes", v)} />
                 </div>
               </div>
