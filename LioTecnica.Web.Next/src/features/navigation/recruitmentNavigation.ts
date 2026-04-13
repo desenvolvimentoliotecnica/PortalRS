@@ -1,6 +1,6 @@
 import type { BffMe, BffNavItem } from "@/lib/schemas/bff";
 
-export const NAV_MENU_CACHE_KEY = "renderrh.nav.menus.v2";
+export const NAV_MENU_CACHE_KEY = "renderrh.nav.menus.v3";
 
 export const RECRUITMENT_ROUTE_KEYS = {
   dashboard: "/dashboard",
@@ -24,15 +24,19 @@ export const RECRUITMENT_ROUTE_KEYS = {
 /** Ordem linear do fluxo de recrutamento no sidebar (pipeline R&S).
  *  Cada item representa uma etapa do funil: demanda → publicação → avaliação → contratação.
  */
-/** Abas MVP — entregáveis prioritários */
+/** Itens de 1º nível fora do grupo "Recrutamento" (sem header de módulo). */
+export const PRINCIPAIS_ORDER = [
+  RECRUITMENT_ROUTE_KEYS.dashboard,        // Dashboard
+  RECRUITMENT_ROUTE_KEYS.aprovacoes,       // Minhas Pendências
+  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // Solicitações
+] as const;
+
+/** Abas MVP do grupo "Recrutamento" — entregáveis prioritários */
 export const RECRUITMENT_MVP_ORDER = [
-  RECRUITMENT_ROUTE_KEYS.dashboard,        // 0. Dashboard
-  RECRUITMENT_ROUTE_KEYS.aprovacoes,       // 1. Minhas Pendências
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // 2. Solicitações
-  RECRUITMENT_ROUTE_KEYS.vagas,            // 3. Vagas
-  RECRUITMENT_ROUTE_KEYS.painelRh,         // 4. Painel RH
-  RECRUITMENT_ROUTE_KEYS.candidatos,       // 5. Candidatos
-  RECRUITMENT_ROUTE_KEYS.admissao,         // 6. Admissão
+  RECRUITMENT_ROUTE_KEYS.vagas,            // Vagas
+  RECRUITMENT_ROUTE_KEYS.painelRh,         // Painel RH
+  RECRUITMENT_ROUTE_KEYS.candidatos,       // Candidatos
+  RECRUITMENT_ROUTE_KEYS.admissao,         // Admissão
 ] as const;
 
 /** Abas secundárias — abaixo do divisor */

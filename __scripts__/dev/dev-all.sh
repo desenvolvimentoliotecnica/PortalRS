@@ -113,9 +113,7 @@ if [ -d "$NEXT_DIR" ]; then
   (
     cd "$NEXT_DIR"
     rm -f .next/dev/lock 2>/dev/null || true
-    if [ ! -d "node_modules" ]; then
-      pnpm install --silent
-    fi
+    pnpm install --silent
     NODE_OPTIONS="--max-old-space-size=2048" \
     LEGACY_ORIGIN=http://localhost:5051 \
     DEV_API_ORIGIN=http://localhost:5056 \

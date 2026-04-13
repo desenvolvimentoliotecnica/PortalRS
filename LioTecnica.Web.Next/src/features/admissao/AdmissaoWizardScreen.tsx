@@ -12,6 +12,18 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { CargoAutocomplete } from "@/components/autocomplete/CargoAutocomplete";
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
+import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
+import { EstabelecimentoAutocomplete } from "@/components/autocomplete/EstabelecimentoAutocomplete";
+import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
+import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
+import { validatePreAdmissao, firstErrorStep } from "@/features/admissao/validation";
+
+/** Converte string do autocomplete em número, retornando null quando não numérico. */
+function toIntOrNull(v: string | null | undefined): number | null {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.trunc(n) : null;
+}
 
 /* ── types ── */
 
@@ -263,6 +275,15 @@ export default function AdmissaoWizardScreen() {
 
     async function submit() {
         if (!id) return;
+        // Validação só no clique em "Finalizar" — passos intermediários permitem dados incompletos.
+        const errors = validatePreAdmissao(form);
+        if (errors.length > 0) {
+            const firstStep = firstErrorStep(errors) ?? 0;
+            setStep(firstStep);
+            const first = errors[0];
+            toast.error(`${first.label}: ${first.message}${errors.length > 1 ? ` (+${errors.length - 1} campo(s) com pendência)` : ""}`);
+            return;
+        }
         try {
             setSubmitting(true);
             await save();
@@ -397,7 +418,7 @@ export default function AdmissaoWizardScreen() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <Field label="Passaporte" value={form.passaporte} onChange={v => set("passaporte", v)} />
                                     <Field label="RNM/RNE" value={form.rnmRne} onChange={v => set("rnmRne", v)} />
-                                    <Field label="Validade Visto *" value={form.validadeVisto} onChange={v => set("validadeVisto", v)} type="date" />
+                                    <Field label="Validade Visto" value={form.validadeVisto} onChange={v => set("validadeVisto", v)} type="date" />
                                     <Field label="Tipo Visto" value={form.tipoVisto} onChange={v => set("tipoVisto", v)} />
                                 </div>
                                 {form.validadeVisto && new Date(form.validadeVisto) < new Date() && (
@@ -438,7 +459,7 @@ export default function AdmissaoWizardScreen() {
                     <div className="space-y-4">
                         <h5 className="font-semibold text-sm flex items-center gap-2"><Phone className="size-4" /> Contato</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Field label="E-mail *" value={form.email} onChange={v => set("email", v)} type="email" />
+                            <Field label="E-mail" value={form.email} onChange={v => set("email", v)} type="email" />
                             <Field label="Telefone" value={form.telefone} onChange={v => set("telefone", v)} />
                             <Field label="Celular" value={form.celular} onChange={v => set("celular", v)} />
                             <div className="col-span-2 border-t border-border/30 pt-3 mt-2">
@@ -479,9 +500,20 @@ export default function AdmissaoWizardScreen() {
                     <div className="space-y-4">
                         <h5 className="font-semibold text-sm flex items-center gap-2"><Briefcase className="size-4" /> Dados Trabalhistas</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Field label="Estab. Código" value={form.estabelecimentoCodigo} onChange={v => set("estabelecimentoCodigo", v)} placeholder="001" />
-                            <Field label="Data Admissão *" value={form.dataAdmissao} onChange={v => set("dataAdmissao", v)} type="date" />
-                            <Field label="Salário (R$)" value={form.salario != null ? String(form.salario) : ""} onChange={v => set("salario", v ? parseFloat(v) : null)} type="number" />
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Estab. Código</label>
+                                <EstabelecimentoAutocomplete
+                                    value={form.estabelecimentoCodigo ?? null}
+                                    onChange={(code) => set("estabelecimentoCodigo", code || null)}
+                                    valueAsCode
+                                />
+                            </div>
+                            <Field label="Data Admissão" value={form.dataAdmissao} onChange={v => set("dataAdmissao", v)} type="date" />
+                            <Field label="Salário (R$)" value={form.salario != null ? String(form.salario) : ""} onChange={v => {
+                                if (!v) { set("salario", null); return; }
+                                const n = parseFloat(v);
+                                set("salario", Number.isFinite(n) ? n : null);
+                            }} type="number" />
                             {form.salario && form.validacaoSalarioOk === false && (
                                 <div className="col-span-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                                     <div className="text-sm font-semibold text-amber-700 flex items-center gap-1">
@@ -496,38 +528,55 @@ export default function AdmissaoWizardScreen() {
                                 </div>
                             )}
                             <Select label="Tipo Contratação" value={form.tipoContratacao} options={TIPO_CONTRATACAO} onChange={v => set("tipoContratacao", Number(v))} />
-                            <Field label="Carga Horária Semanal" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => set("cargaHorariaSemanal", v ? parseInt(v) : null)} type="number" />
+                            <Field label="Carga Horária Semanal" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => {
+                                if (!v) { set("cargaHorariaSemanal", null); return; }
+                                const n = parseInt(v, 10);
+                                if (!Number.isFinite(n) || n < 0) { set("cargaHorariaSemanal", null); return; }
+                                // Backend é short — clamp em 32767 (limite superior de Int16).
+                                set("cargaHorariaSemanal", Math.min(n, 32767));
+                            }} type="number" />
                             <Field label="PIS/PASEP" value={form.pisPasep} onChange={v => set("pisPasep", v)} />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border/30 pt-3 mt-2">
                             <div className="col-span-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">Integração TOTVS</div>
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Cargo TOTVS *</label>
+                                <label className="text-xs text-muted-foreground block mb-1">Cargo TOTVS</label>
                                 <CargoAutocomplete
-                                  value={form.codCargoTotvs || ""}
-                                  onChange={(code) => {
-                                    // Converter o código (string) para número se possível
-                                    const numCode = code ? parseInt(code, 10) : null;
-                                    set("codCargoTotvs", isNaN(numCode as any) ? null : numCode);
-                                  }}
+                                  value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : ""}
+                                  onChange={(code) => set("codCargoTotvs", toIntOrNull(code))}
                                 />
                             </div>
                             <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
                             <Select label="Tipo Funcionário" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial *</label>
+                                <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial</label>
                                 <CategoriaSalarialAutocomplete
-                                  value={form.categoriaSalarial || ""}
-                                  onChange={(code) => {
-                                    const numCode = code ? parseInt(code, 10) : null;
-                                    set("categoriaSalarial", isNaN(numCode as any) ? null : numCode);
-                                  }}
+                                  value={form.categoriaSalarial != null ? String(form.categoriaSalarial) : ""}
+                                  onChange={(code) => set("categoriaSalarial", toIntOrNull(code))}
                                 />
                             </div>
                             <Select label="Grau de Instrução" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
-                            <Field label="Cód. Turno" value={form.codTurno != null ? String(form.codTurno) : ""} onChange={v => set("codTurno", v ? parseInt(v) : null)} type="number" placeholder="Ex: 1" />
-                            <Field label="Centro de Custo" value={form.centroCusto} onChange={v => set("centroCusto", v)} placeholder="Ex: 99999" />
-                            <Field label="Unidade Lotação" value={form.unidadeLotacao} onChange={v => set("unidadeLotacao", v)} placeholder="Ex: 00001001" />
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Cód. Turno</label>
+                                <TurnoAutocomplete
+                                    value={form.codTurno ?? null}
+                                    onChange={(code) => set("codTurno", toIntOrNull(code))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Centro de Custo</label>
+                                <CentroCustoAutocomplete
+                                    value={form.centroCusto ?? null}
+                                    onChange={(code) => set("centroCusto", code || null)}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Unidade Lotação</label>
+                                <UnidadeLotacaoAutocomplete
+                                    value={form.unidadeLotacao ?? null}
+                                    onChange={(code) => set("unidadeLotacao", code || null)}
+                                />
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-border/30 pt-3 mt-2">
                             <Field label="Título Eleitor Nº" value={form.tituloEleitorNumero} onChange={v => set("tituloEleitorNumero", v)} />

@@ -177,6 +177,25 @@ export function usePermission(minRole: AppRole): boolean {
     return ROLE_HIERARCHY.slice(0, minIndex + 1).some((r) => roles.includes(r));
 }
 
+/** Admin, Administrador, Owner ou contexto Owner. */
+export function useIsAdminOrOwner(): boolean {
+    const { me } = useAuth();
+    if (!me) return false;
+    if (me.isAdmin || me.isOwnerContext) return true;
+    const roles = me.roles.map((r) => r.toLowerCase());
+    return roles.includes("admin") || roles.includes("administrador") || roles.includes("owner");
+}
+
+export function useIsGestor(): boolean {
+    const { me } = useAuth();
+    return !!me && me.roles.some((r) => r.toLowerCase() === "gestor");
+}
+
+export function useIsCompliance(): boolean {
+    const { me } = useAuth();
+    return !!me && me.roles.some((r) => r.toLowerCase() === "compliance");
+}
+
 /* ------------------------------------------------------------------ */
 /*  Guard                                                             */
 /* ------------------------------------------------------------------ */

@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import { buildTenantExtraNavItems, collectNavRouteKeys, NAV_MENU_CACHE_KEY, toNavRouteKey } from "@/features/navigation/recruitmentNavigation";
+import { RouteAllowlistGuard } from "@/features/auth/RouteAllowlistGuard";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import type { BffMe, BffNavItem } from "@/lib/schemas/bff";
@@ -149,7 +150,9 @@ function AppShellInner({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-20 border-b border-[var(--lt-border)] bg-[rgba(246,249,252,0.78)] backdrop-blur-[10px]">
           <Topbar navItems={navItems} />
         </header>
-        <div className="p-4 lg:p-6 flex-1">{children}</div>
+        <div className="p-4 lg:p-6 flex-1">
+          <RouteAllowlistGuard>{children}</RouteAllowlistGuard>
+        </div>
         <footer className="border-t border-[var(--lt-border)] px-4 py-3 text-center text-[11px] text-muted-foreground/50 select-none tracking-wide">
           © {new Date().getFullYear()} QUALIIT SOLUÇÕES EM TECNOLOGIA
         </footer>
