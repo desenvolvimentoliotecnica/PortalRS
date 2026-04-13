@@ -4,7 +4,6 @@ using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Storage;
-using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.AwsSettings;
 
@@ -44,28 +43,25 @@ public interface IAwsSettingsService
 
 public sealed class AwsSettingsService : IAwsSettingsService
 {
-    private readonly AppDbContext _db;
+    private readonly MasterDbContext _db;
     private readonly ISecretProtector _protector;
-    private readonly ITenantContext _tenantContext;
     private readonly AwsOptions _fallbackOptions;
 
     public AwsSettingsService(
-        AppDbContext db,
+        MasterDbContext db,
         ISecretProtector protector,
-        ITenantContext tenantContext,
         IOptions<AwsOptions> fallbackOptions)
     {
         _db = db;
         _protector = protector;
-        _tenantContext = tenantContext;
         _fallbackOptions = fallbackOptions.Value;
     }
 
     public async Task<AwsSettingsView> GetViewAsync(CancellationToken ct)
     {
-        var e = await _db.Set<TenantAwsSettings>()
+        var e = await _db.OwnerAwsSettings
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+            .FirstOrDefaultAsync(ct);
 
         if (e is null)
             return new AwsSettingsView { PresignedUrlExpirationMinutes = 15 };
@@ -89,13 +85,12 @@ public sealed class AwsSettingsService : IAwsSettingsService
 
     public async Task<AwsSettingsView> SaveAsync(AwsSettingsDto dto, CancellationToken ct)
     {
-        var e = await _db.Set<TenantAwsSettings>()
-            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+        var e = await _db.OwnerAwsSettings.FirstOrDefaultAsync(ct);
 
         if (e is null)
         {
-            e = new TenantAwsSettings { Id = Guid.NewGuid(), TenantId = _tenantContext.TenantId };
-            _db.Set<TenantAwsSettings>().Add(e);
+            e = new OwnerAwsSettings { Id = Guid.NewGuid() };
+            _db.OwnerAwsSettings.Add(e);
         }
 
         // Só criptografa se o campo foi preenchido (campo em branco = manter existente)
@@ -123,9 +118,9 @@ public sealed class AwsSettingsService : IAwsSettingsService
 
     public async Task<AwsOptions?> GetDecryptedAsync(CancellationToken ct)
     {
-        var e = await _db.Set<TenantAwsSettings>()
+        var e = await _db.OwnerAwsSettings
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+            .FirstOrDefaultAsync(ct);
 
         // Banco configurado → usa banco
         if (e is not null

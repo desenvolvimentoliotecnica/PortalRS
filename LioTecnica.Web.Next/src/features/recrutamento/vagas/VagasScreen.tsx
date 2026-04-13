@@ -75,13 +75,6 @@ interface SolicitacaoDetail extends SolicitacaoRow {
     observacaoAprovador?: string | null;
     isConfidencial?: boolean;
     substituidoNome?: string | null;
-    aprovador1Nome?: string | null;
-    aprovador1Status?: number | string;
-    aprovador1DataUtc?: string | null;
-    aprovador2Nome?: string | null;
-    aprovador2Status?: number | string | null;
-    aprovador2DataUtc?: string | null;
-    aprovador2Habilitado?: boolean;
     approvedAtUtc?: string | null;
     updatedAtUtc?: string | null;
 }
@@ -189,6 +182,7 @@ const SOLIC_STATUS: Record<number, { label: string; cls: string }> = {
     2: { label: "Aprovada", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
     3: { label: "Reprovada", cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
     4: { label: "Ajustes Necessários", cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" },
+    5: { label: "Aguarda RH", cls: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" },
 };
 
 const SOLIC_URGENCIA: Record<number, { label: string; cls: string }> = {
@@ -223,6 +217,7 @@ function resolveSolicStatusMeta(status: unknown) {
     if (key === "2" || key === "aprovada") return SOLIC_STATUS[2];
     if (key === "3" || key === "reprovada") return SOLIC_STATUS[3];
     if (key === "4" || key === "ajustesnecessarios") return SOLIC_STATUS[4];
+    if (key === "5" || key === "pendenteaprovacaorh") return SOLIC_STATUS[5];
     return SOLIC_STATUS[0];
 }
 
@@ -247,8 +242,10 @@ function resolveApprovalStatusLabel(status: unknown) {
     return APROVACAO_STATUS[0];
 }
 
-function isSolicStatus(status: unknown, expected: "rascunho" | "pendenteaprovacao" | "aprovada" | "reprovada" | "ajustesnecessarios") {
-    return normalizeEnumKey(status) === expected;
+function isSolicStatus(status: unknown, expected: "rascunho" | "pendenteaprovacao" | "aprovada" | "reprovada" | "ajustesnecessarios" | "pendenteaprovacaorh") {
+    const key = normalizeEnumKey(status);
+    if (expected === "pendenteaprovacaorh") return key === "5" || key === "pendenteaprovacaorh";
+    return key === expected;
 }
 
 function VagaStatusBadge({ status }: { status: string | null | undefined }) {
@@ -279,15 +276,11 @@ export default function VagasScreen() {
     const deeplinkHandled = useRef(false);
     const pendenciasMode = searchParams.get("pendencias") === "1" || searchParams.get("mode") === "pendencias";
 
-    const roleSet = useMemo(
-        () => new Set((me?.roles ?? []).map((role) => role.toLowerCase())),
+    const isGestor = useMemo(
+        () => (me?.roles ?? []).some((r) => r.toLowerCase() === "gestor"),
         [me?.roles],
     );
-
-    const isAdmin = me?.isAdmin ?? false;
-    const isRecrutador = isAdmin || roleSet.has("recrutador");
-    const isGestor = roleSet.has("gestor");
-    const showManagerSections = isGestor || isAdmin;
+    const showManagerSections = isGestor;
 
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<VagaListItem[]>([]);
@@ -334,6 +327,21 @@ export default function VagasScreen() {
 
     /* ── next step banner after vaga creation ── */
     const [lastCreatedVagaId, setLastCreatedVagaId] = useState<string | null>(null);
+
+    /* ── Fila de Análise RH ── */
+    interface FilaRhItem { id: string; titulo: string; areaName: string | null; createdAtUtc: string; }
+    const [filaRh, setFilaRh] = useState<FilaRhItem[]>([]);
+    const [filaRhLoading, setFilaRhLoading] = useState(false);
+
+    const loadFilaRh = useCallback(async () => {
+        setFilaRhLoading(true);
+        try {
+            const data = await fetchJson<FilaRhItem[]>("/api/vagas/pendencias-rh");
+            setFilaRh(Array.isArray(data) ? data : []);
+        } catch { /* silencioso */ } finally {
+            setFilaRhLoading(false);
+        }
+    }, []);
 
     /* ── prefill from solicitação (deep-link: ?newFromSolicitacao=ID) ── */
     const [prefillFromSolic, setPrefillFromSolic] = useState<Record<string, unknown> | null>(null);
@@ -419,7 +427,7 @@ export default function VagasScreen() {
 
         setLoadingApprovals(true);
         try {
-            const data = await fetchJson<SolicitacaoRow[]>("/api/solicitacoes-vaga?status=1");
+            const data = await fetchJson<SolicitacaoRow[]>("/api/solicitacoes-vaga?statuses=1&statuses=5");
             setApprovals(Array.isArray(data) ? data : []);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "Falha ao carregar aprovações.");
@@ -450,14 +458,15 @@ export default function VagasScreen() {
     useEffect(() => {
         void loadSolicitacoes();
         void loadApprovals();
-    }, [loadSolicitacoes, loadApprovals]);
+        void loadFilaRh();
+    }, [loadSolicitacoes, loadApprovals, loadFilaRh]);
 
     useEffect(() => {
         if (deeplinkHandled.current) return;
         const open = searchParams.get("open");
         const vagaId = searchParams.get("vagaId");
 
-        if ((open === "create" || open === "new") && !vagaId && isRecrutador) {
+        if ((open === "create" || open === "new") && !vagaId) {
             setEditId(null);
             setEditOpen(true);
             deeplinkHandled.current = true;
@@ -468,7 +477,7 @@ export default function VagasScreen() {
             deeplinkHandled.current = true;
             void openVagaDetail(vagaId);
         }
-    }, [isRecrutador, searchParams]);
+    }, [searchParams]);
 
     const filtered = useMemo(() => {
         const qq = q.trim().toLowerCase();
@@ -574,9 +583,29 @@ export default function VagasScreen() {
             );
             setSolicDetailOpen(false);
             setSolicDetail(null);
-            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals()]);
+            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals(), loadFilaRh()]);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "Falha ao processar aprovação.");
+        } finally {
+            setApprovalActing(false);
+        }
+    }
+
+    async function executeApproveRh() {
+        if (!solicDetail?.id) return;
+        setApprovalActing(true);
+        try {
+            await fetchJson(`/api/solicitacoes-vaga/${encodeURIComponent(solicDetail.id)}/approve-rh`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ observacao: approvalObs.trim() || null }),
+            });
+            toast.success("Aprovação RH registrada. Vaga gerada em rascunho.");
+            setSolicDetailOpen(false);
+            setSolicDetail(null);
+            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals(), loadFilaRh()]);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao aprovar como RH.");
         } finally {
             setApprovalActing(false);
         }
@@ -785,22 +814,16 @@ export default function VagasScreen() {
                     <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" onClick={() => void syncList()}>
                         <RefreshCw className="mr-1 size-3" /> Atualizar
                     </Button>
-                    {isAdmin && (
-                        <>
-                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" onClick={exportJson}>Exportar</Button>
-                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" asChild>
-                                <label className="cursor-pointer">
-                                    Importar
-                                    <input className="hidden" type="file" accept="application/json" onChange={(e) => { const file = e.currentTarget.files?.[0]; if (!file) return; file.text().then((text) => { const parsed = JSON.parse(text) as { vagas?: unknown[] }; if (!Array.isArray(parsed?.vagas)) { toast.error("JSON inválido."); return; } Promise.all(parsed.vagas.map((vaga) => fetchJson(`${BASE}/api/vagas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(vaga) }))).then(() => { toast.success("Importação concluída."); void syncList(); }).catch(() => toast.error("Falha ao importar vagas.")); }).catch(() => toast.error("Falha ao ler arquivo.")); e.currentTarget.value = ""; }} />
-                                </label>
-                            </Button>
-                        </>
-                    )}
-                    {isRecrutador && (
-                        <Button size="sm" className="h-8" onClick={openNew}>
-                            <Plus className="mr-1 size-3.5" /> Nova Vaga
-                        </Button>
-                    )}
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" onClick={exportJson}>Exportar</Button>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" asChild>
+                        <label className="cursor-pointer">
+                            Importar
+                            <input className="hidden" type="file" accept="application/json" onChange={(e) => { const file = e.currentTarget.files?.[0]; if (!file) return; file.text().then((text) => { const parsed = JSON.parse(text) as { vagas?: unknown[] }; if (!Array.isArray(parsed?.vagas)) { toast.error("JSON inválido."); return; } Promise.all(parsed.vagas.map((vaga) => fetchJson(`${BASE}/api/vagas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(vaga) }))).then(() => { toast.success("Importação concluída."); void syncList(); }).catch(() => toast.error("Falha ao importar vagas.")); }).catch(() => toast.error("Falha ao ler arquivo.")); e.currentTarget.value = ""; }} />
+                        </label>
+                    </Button>
+                    <Button size="sm" className="h-8" onClick={openNew}>
+                        <Plus className="mr-1 size-3.5" /> Nova Vaga
+                    </Button>
                 </div>
             </div>
 
@@ -838,6 +861,74 @@ export default function VagasScreen() {
                 />
             )}
 
+            {/* ── Fila de Análise RH ── */}
+            {(filaRhLoading || filaRh.length > 0) && (
+                <div className="rounded-xl border-2 border-amber-300 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-900/10 p-4 shadow-sm space-y-3">
+                    <div className="flex items-center gap-2">
+                        <svg className="size-5 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+                        <div>
+                            <span className="font-semibold text-sm text-amber-900 dark:text-amber-300">Vagas aguardando acao do RH</span>
+                            {!filaRhLoading && (
+                                <span className="ml-2 inline-flex items-center rounded-full bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 text-xs font-semibold px-2 py-0.5">
+                                    {filaRh.length} {filaRh.length === 1 ? "vaga" : "vagas"} aguardando preenchimento
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    {filaRhLoading ? (
+                        <div className="text-sm text-amber-700 animate-pulse">Carregando…</div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent border-amber-200">
+                                    <TableHead className="text-amber-800 dark:text-amber-300">Título</TableHead>
+                                    <TableHead className="text-amber-800 dark:text-amber-300">Área</TableHead>
+                                    <TableHead className="text-amber-800 dark:text-amber-300">Criada em</TableHead>
+                                    <TableHead className="text-amber-800 dark:text-amber-300">Dias</TableHead>
+                                    <TableHead className="text-right text-amber-800 dark:text-amber-300">Ações</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filaRh.map((v) => {
+                                    const days = v.createdAtUtc ? Math.floor((Date.now() - new Date(v.createdAtUtc).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                                    return (
+                                        <TableRow key={v.id} className="border-amber-100 hover:bg-amber-100/40">
+                                            <TableCell className="font-medium text-amber-900 dark:text-amber-200">{v.titulo}</TableCell>
+                                            <TableCell className="text-sm text-amber-700 dark:text-amber-400">{v.areaName ?? "—"}</TableCell>
+                                            <TableCell className="text-sm text-amber-700 dark:text-amber-400">{formatDate(v.createdAtUtc)}</TableCell>
+                                            <TableCell>
+                                                <span className={`text-xs font-medium ${days > 7 ? "text-red-600" : days > 3 ? "text-amber-700" : "text-amber-600"}`}>
+                                                    {days}d
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex gap-1.5 justify-end">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                                                        onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(v.id)}`)}
+                                                    >
+                                                        Ver Hub
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-amber-600 hover:bg-amber-700 text-white"
+                                                        onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(v.id)}`)}
+                                                    >
+                                                        Preencher
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    )}
+                </div>
+            )}
+
             {/* Main panel */}
             <div className="rounded-xl border border-border/40 bg-card shadow-sm">
                 {/* Filters bar */}
@@ -861,11 +952,9 @@ export default function VagasScreen() {
                         <CalendarDays className="size-3" />
                         {dateSort === "newest" ? "Recentes" : "Antigas"}
                     </button>
-                    {isRecrutador && (
-                        <button type="button" className={`inline-flex items-center h-8 rounded-md border px-2 text-xs font-medium transition-colors ${pendenciasMode ? "bg-primary text-primary-foreground border-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"}`} onClick={() => { if (pendenciasMode) { setStatus("all"); void router.replace("/vagas"); } else { void router.push("/vagas?pendencias=1"); } }}>
-                            Pendências
-                        </button>
-                    )}
+                    <button type="button" className={`inline-flex items-center h-8 rounded-md border px-2 text-xs font-medium transition-colors ${pendenciasMode ? "bg-primary text-primary-foreground border-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"}`} onClick={() => { if (pendenciasMode) { setStatus("all"); void router.replace("/vagas"); } else { void router.push("/vagas?pendencias=1"); } }}>
+                        Pendências
+                    </button>
                     <div className="flex items-center rounded-md border border-input bg-background p-0.5">
                         <button type="button" className={`inline-flex items-center justify-center rounded-sm px-1.5 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
                             <List className="size-3" />
@@ -982,36 +1071,26 @@ export default function VagasScreen() {
                                                                     <Users className="mr-2 size-4" />
                                                                     Candidatos
                                                                 </DropdownMenuItem>
-                                                                {isRecrutador && (
-                                                                    <>
-                                                                        <DropdownMenuSeparator />
-                                                                        <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
-                                                                            <PenSquare className="mr-2 size-4" />
-                                                                            Editar
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem onClick={() => void copyPortalLink(vaga.id)}>
-                                                                            <Copy className="mr-2 size-4" />
-                                                                            Copiar link do portal
-                                                                        </DropdownMenuItem>
-                                                                    </>
-                                                                )}
-                                                                {isAdmin && (
-                                                                    <DropdownMenuItem onClick={() => void duplicateVaga(vaga.id)}>
-                                                                        <FileText className="mr-2 size-4" />
-                                                                        Duplicar
-                                                                    </DropdownMenuItem>
-                                                                )}
-                                                                {isRecrutador && (
-                                                                    <>
-                                                                        <DropdownMenuSeparator />
-                                                                        <DropdownMenuItem
-                                                                            className="text-destructive focus:text-destructive"
-                                                                            onClick={() => void deleteVaga(vaga.id)}
-                                                                        >
-                                                                            Excluir
-                                                                        </DropdownMenuItem>
-                                                                    </>
-                                                                )}
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
+                                                                    <PenSquare className="mr-2 size-4" />
+                                                                    Editar
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => void copyPortalLink(vaga.id)}>
+                                                                    <Copy className="mr-2 size-4" />
+                                                                    Copiar link do portal
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => void duplicateVaga(vaga.id)}>
+                                                                    <FileText className="mr-2 size-4" />
+                                                                    Duplicar
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive focus:text-destructive"
+                                                                    onClick={() => void deleteVaga(vaga.id)}
+                                                                >
+                                                                    Excluir
+                                                                </DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
                                                     </TableCell>
@@ -1114,17 +1193,13 @@ export default function VagasScreen() {
                                                                         <DropdownMenuItem onClick={() => router.push(`/candidatos?vagaId=${encodeURIComponent(vaga.id)}`)}>
                                                                             <Users className="mr-2 size-3.5" />Candidatos
                                                                         </DropdownMenuItem>
-                                                                        {isRecrutador && (
-                                                                            <>
-                                                                                <DropdownMenuSeparator />
-                                                                                <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
-                                                                                    <PenSquare className="mr-2 size-3.5" />Editar
-                                                                                </DropdownMenuItem>
-                                                                                <DropdownMenuItem onClick={() => void copyPortalLink(vaga.id)}>
-                                                                                    <Copy className="mr-2 size-3.5" />Copiar link
-                                                                                </DropdownMenuItem>
-                                                                            </>
-                                                                        )}
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
+                                                                            <PenSquare className="mr-2 size-3.5" />Editar
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => void copyPortalLink(vaga.id)}>
+                                                                            <Copy className="mr-2 size-3.5" />Copiar link
+                                                                        </DropdownMenuItem>
                                                                     </DropdownMenuContent>
                                                                 </DropdownMenu>
                                                             </div>
@@ -1250,7 +1325,7 @@ export default function VagasScreen() {
                                 )}
 
                                 {/* ── Checklist da vaga ── */}
-                                {isRecrutador && currentVagaId && (
+                                {currentVagaId && (
                                     <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
                                         <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">Checklist da vaga</div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1272,12 +1347,12 @@ export default function VagasScreen() {
                                 )}
 
                                 {/* ── Portal status callout ── */}
-                                {isRecrutador && currentVagaId && !vagaAberta && (
+                                {currentVagaId && !vagaAberta && (
                                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
                                         Vaga em <b>rascunho</b> — portal inativo. Mude o status para &quot;Aberta&quot; na aba <b>Dados</b> para publicar.
                                     </div>
                                 )}
-                                {isRecrutador && currentVagaId && vagaAberta && !visibilidadePermitePortal && (
+                                {currentVagaId && vagaAberta && !visibilidadePermitePortal && (
                                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400 flex items-center justify-between gap-2">
                                         <span>Portal inativo. Ative a <b>visibilidade</b> como &quot;Externa&quot; para publicar.</span>
                                         <button
@@ -1295,7 +1370,7 @@ export default function VagasScreen() {
 
                                 {/* ── Actions ── */}
                                 <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-4">
-                                    {isRecrutador && currentVagaId && (
+                                    {currentVagaId && (
                                         <Button size="sm" onClick={() => { setVagaDetailOpen(false); openEdit(currentVagaId); }}>
                                             <PenSquare className="mr-1.5 size-3.5" />
                                             Editar
@@ -1323,7 +1398,7 @@ export default function VagasScreen() {
                                             </Button>
                                         </>
                                     )}
-                                    {isRecrutador && currentVagaId && (
+                                    {currentVagaId && (
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -1400,8 +1475,13 @@ export default function VagasScreen() {
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <DetailField label="Substituição de" value={solicDetail.substituidoNome || "—"} />
                                 <DetailField label="Vaga gerada" value={solicDetail.vagaId || "Ainda não gerada"} />
-                                <DetailField label="Aprovador 1" value={`${solicDetail.aprovador1Nome || "—"} · ${resolveApprovalStatusLabel(solicDetail.aprovador1Status)}`} />
-                                <DetailField label="Aprovador 2" value={solicDetail.aprovador2Habilitado ? `${solicDetail.aprovador2Nome || "—"} · ${resolveApprovalStatusLabel(solicDetail.aprovador2Status)}` : "Não habilitado"} />
+                                {((solicDetail as unknown as Record<string, unknown>).etapasFluxo as Array<{ label?: string; aprovadorNome?: string | null; status?: unknown }> | undefined)?.map((etapa, i) => (
+                                    <DetailField
+                                        key={i}
+                                        label={etapa.label || `Etapa ${i + 1}`}
+                                        value={`${etapa.aprovadorNome || "—"} · ${resolveApprovalStatusLabel(etapa.status)}`}
+                                    />
+                                ))}
                             </div>
 
                             <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
@@ -1458,6 +1538,12 @@ export default function VagasScreen() {
                                             Reprovar
                                         </Button>
                                     </>
+                                )}
+                                {isSolicStatus(solicDetail.status, "pendenteaprovacaorh") && (
+                                    <Button disabled={approvalActing} onClick={() => void executeApproveRh()}>
+                                        <CheckCircle2 className="mr-1 size-4" />
+                                        Aprovar como RH
+                                    </Button>
                                 )}
                             </div>
                         </div>

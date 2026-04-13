@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Units.Handlers;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Units;
+using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Data;
 
 namespace RhPortal.Api.Controllers;
 
@@ -15,10 +18,43 @@ namespace RhPortal.Api.Controllers;
 public sealed class UnitsController : ControllerBase
 {
     /// <summary>
+    /// Lookup de estabelecimentos para autocomplete.
+    /// </summary>
+    [HttpGet("lookup")]
+    [OutputCache(PolicyName = "lookup")]
+    [ProducesResponseType(typeof(List<UnitLookupItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<UnitLookupItem>>> Lookup(
+        [FromServices] AppDbContext db,
+        CancellationToken ct,
+        [FromQuery] string? search,
+        [FromQuery] Guid? empresaId)
+    {
+        var query = db.Units.AsNoTracking().Where(x => x.Status == UnitStatus.Active);
+
+        if (empresaId.HasValue)
+            query = query.Where(x => x.EmpresaId == empresaId);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            query = query.Where(x =>
+                x.Code.ToLower().Contains(searchLower) ||
+                x.Name.ToLower().Contains(searchLower));
+        }
+
+        var items = await query
+            .OrderBy(x => x.Code)
+            .Take(50)
+            .Select(x => new UnitLookupItem(x.Id, x.Code, x.Name, $"{x.Code} – {x.Name}"))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
     /// Lista unidades com paginação e filtros.
     /// </summary>
     [HttpGet]
-    [OutputCache(PolicyName = "lookup")]
     [ProducesResponseType(typeof(PagedResult<UnitGridRowResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<UnitGridRowResponse>>> List(
         [FromQuery] UnitListQuery query,

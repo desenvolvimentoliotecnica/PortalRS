@@ -24,14 +24,13 @@ public sealed class TurnoController : ControllerBase
     }
 
     [HttpGet]
-    [OutputCache(PolicyName = "lookup")]
     [ProducesResponseType(typeof(List<TurnoResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<TurnoResponse>>> List(
         [FromServices] AppDbContext db,
         CancellationToken ct,
         [FromQuery] string? search,
         [FromQuery] int skip = 0,
-        [FromQuery] int take = 100)
+        [FromQuery] int take = 5000)
     {
         var query = db.Turnos.AsNoTracking();
 
@@ -58,7 +57,6 @@ public sealed class TurnoController : ControllerBase
     }
 
     [HttpGet("lookup")]
-    [OutputCache(PolicyName = "lookup")]
     [ProducesResponseType(typeof(List<TurnoLookupItem>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<TurnoLookupItem>>> Lookup(
         [FromServices] AppDbContext db,
@@ -183,5 +181,82 @@ public sealed class TurnoController : ControllerBase
         await db.SaveChangesAsync(ct);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Importação em lote de turnos. Cria novos ou atualiza existentes pelo código.
+    /// Suporta até 5.000 registros por requisição.
+    /// </summary>
+    [HttpPost("import")]
+    [ProducesResponseType(typeof(TurnoImportResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<TurnoImportResult>> Import(
+        [FromBody] List<TurnoImportItem> items,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (items is null || items.Count == 0)
+            return BadRequest(new { message = "Nenhum item fornecido." });
+        if (items.Count > 5000)
+            return BadRequest(new { message = "Máximo de 5.000 registros por importação." });
+
+        var existingCodes = await db.Turnos
+            .AsNoTracking()
+            .Select(x => new { x.Id, x.Code })
+            .ToDictionaryAsync(x => x.Code.ToLowerInvariant(), x => x.Id, ct);
+
+        int created = 0, updated = 0, skipped = 0;
+        var errors = new List<string>();
+        var toAdd = new List<Turno>();
+        int pending = 0;
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            var code = item.Code.Trim();
+
+            if (existingCodes.TryGetValue(code.ToLowerInvariant(), out var existingId))
+            {
+                var entity = await db.Turnos.FindAsync([existingId], ct);
+                if (entity is null) { skipped++; continue; }
+                entity.Code = code;
+                entity.Description = item.Description.Trim();
+                entity.StartTime = string.IsNullOrWhiteSpace(item.StartTime) ? null : item.StartTime.Trim();
+                entity.EndTime = string.IsNullOrWhiteSpace(item.EndTime) ? null : item.EndTime.Trim();
+                entity.Notes = string.IsNullOrWhiteSpace(item.Notes) ? null : item.Notes.Trim();
+                entity.IsActive = item.IsActive;
+                entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                updated++;
+            }
+            else
+            {
+                var entity = new Turno
+                {
+                    Id = Guid.NewGuid(),
+                    Code = code,
+                    Description = item.Description.Trim(),
+                    StartTime = string.IsNullOrWhiteSpace(item.StartTime) ? null : item.StartTime.Trim(),
+                    EndTime = string.IsNullOrWhiteSpace(item.EndTime) ? null : item.EndTime.Trim(),
+                    Notes = string.IsNullOrWhiteSpace(item.Notes) ? null : item.Notes.Trim(),
+                    IsActive = item.IsActive,
+                };
+                toAdd.Add(entity);
+                existingCodes[code.ToLowerInvariant()] = entity.Id;
+                created++;
+            }
+
+            pending++;
+            if (pending >= 100)
+            {
+                if (toAdd.Count > 0) { db.Turnos.AddRange(toAdd); toAdd.Clear(); }
+                await db.SaveChangesAsync(ct);
+                pending = 0;
+            }
+        }
+
+        if (toAdd.Count > 0) db.Turnos.AddRange(toAdd);
+        if (pending > 0) await db.SaveChangesAsync(ct);
+
+        return Ok(new TurnoImportResult(created, updated, skipped, errors));
     }
 }

@@ -9,40 +9,36 @@ import {
     saveAdmissaoPortalSession,
     getAdmissaoPortalSession,
     clearAdmissaoPortalSession,
+    saveWizardProgress,
     type AdmissaoPortalSession,
 } from "./publicApi";
-import { TIPO_DOC_LABELS } from "./constants";
-import DadosPessoaisForm from "./DadosPessoaisForm";
+import { useAdmissaoWizardStore } from "./useAdmissaoWizardStore";
+import WizardLayout from "./components/WizardLayout";
+import WizardSidebar from "./components/WizardSidebar";
+import WelcomeStep from "./steps/WelcomeStep";
+import DocumentUploadStep from "./steps/DocumentUploadStep";
+import ReviewDataStep from "./steps/ReviewDataStep";
+import DependentsStep from "./steps/DependentsStep";
+import ReviewStep from "./steps/ReviewStep";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
-    FileText, Upload, CheckCircle2, Clock, XCircle, Loader2,
-    AlertCircle, LogOut, Send,
+    FileText, CheckCircle2, Loader2, AlertCircle, LogOut,
 } from "lucide-react";
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
 interface DocEnviado { id: string; tipo: number; nomeArquivo: string; tamanhoBytes: number; status: number; observacaoRh: string | null; presignedUrl: string; }
 interface DadosPessoais { [key: string]: unknown; }
+interface DependenteData { id: string; nomeCompleto: string; parentesco: number; cpf: string | null; dataNascimento: string; isPcd: boolean; }
 interface PortalData {
     preAdmissaoId: string; nome: string; status: number;
     documentosSolicitados: DocSolicitado[];
     documentosEnviados: DocEnviado[];
     dadosPessoais: DadosPessoais;
-}
-
-const STATUS_DOC_LABEL: Record<number, string> = { 0: "Pendente", 1: "Validado", 2: "Rejeitado" };
-const STATUS_DOC_COLOR: Record<number, string> = {
-    0: "bg-amber-100 text-amber-800",
-    1: "bg-green-100 text-green-800",
-    2: "bg-red-100 text-red-800",
-};
-
-function formatBytes(bytes: number) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    dependentes: DependenteData[];
+    wizardCurrentStep: number | null;
+    wizardCompletionPercent: number | null;
 }
 
 export default function DocumentoAdmissaoScreen() {
@@ -56,10 +52,10 @@ export default function DocumentoAdmissaoScreen() {
     const [logging, setLogging] = useState(false);
     const [data, setData] = useState<PortalData | null>(null);
     const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState<number | null>(null);
-    const [submitting, setSubmitting] = useState(false);
-    const [portalTab, setPortalTab] = useState<"docs" | "dados">("dados");
-    const fileRefs = useRef<Record<number, HTMLInputElement | null>>({});
+    // Prevents saveWizardProgress from overwriting the server step before loadData has restored it
+    const hydratedRef = useRef(false);
+
+    const store = useAdmissaoWizardStore();
 
     // Check existing session
     useEffect(() => {
@@ -78,7 +74,26 @@ export default function DocumentoAdmissaoScreen() {
         try {
             const res = await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}`, session.cpf);
             if (!res.ok) { toast.error("Erro ao carregar dados."); return; }
-            setData(await res.json());
+            const body = await res.json() as PortalData;
+            setData(body);
+
+            // Hydrate store
+            store.setFormData(body.dadosPessoais as any);
+            store.setDependentes(body.dependentes ?? []);
+            if (body.wizardCurrentStep != null) store.setStep(body.wizardCurrentStep);
+            if (body.dependentes && body.dependentes.length > 0) store.setHasDependentes(true);
+            hydratedRef.current = true;
+
+            // Hydrate uploaded docs
+            for (const doc of body.documentosEnviados) {
+                store.setUploadedDoc(doc.tipo, {
+                    tipo: doc.tipo,
+                    nomeArquivo: doc.nomeArquivo,
+                    tamanhoBytes: doc.tamanhoBytes,
+                    status: doc.status,
+                    presignedUrl: doc.presignedUrl,
+                });
+            }
         } catch { toast.error("Erro de conexao."); }
         finally { setLoading(false); }
     }, [session]);
@@ -86,6 +101,13 @@ export default function DocumentoAdmissaoScreen() {
     useEffect(() => {
         if (phase === "main" && session) void loadData();
     }, [phase, session, loadData]);
+
+    // Save wizard progress on step change — only after loadData has hydrated the store
+    useEffect(() => {
+        if (!session || phase !== "main" || !hydratedRef.current) return;
+        const percent = store.computeCompletionPercent();
+        saveWizardProgress(session, store.currentStep, percent).catch(() => {});
+    }, [store.currentStep, session, phase]);
 
     async function handleLogin() {
         if (!cpfInput.trim() || !tenantId || !preAdmissaoId) return;
@@ -104,66 +126,51 @@ export default function DocumentoAdmissaoScreen() {
             const sess: AdmissaoPortalSession = { tenantId, preAdmissaoId: body.preAdmissaoId, cpf: cpfInput.replace(/\D/g, ""), nome: body.nome };
             saveAdmissaoPortalSession(sess);
             setSession(sess);
+            store.reset();
+            hydratedRef.current = false;
             setPhase("main");
         } catch { toast.error("Erro ao conectar."); }
         finally { setLogging(false); }
     }
 
-    async function handleUpload(tipo: number, file: File) {
-        if (!session) return;
-        setUploading(tipo);
-        try {
-            const fd = new FormData();
-            fd.append("file", file);
-            fd.append("tipo", String(tipo));
-            const res = await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/documentos`, session.cpf, { method: "POST", body: fd });
-            if (!res.ok) { const b = await res.json().catch(() => ({})); toast.error(b.message || "Erro no upload."); return; }
-            toast.success("Documento enviado!");
-            await loadData();
-        } catch { toast.error("Falha no upload."); }
-        finally { setUploading(null); }
-    }
-
-    async function handleSaveDados(dados: DadosPessoais) {
-        if (!session) return;
-        const res = await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/dados`, session.cpf, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(dados),
-        });
-        if (!res.ok) { toast.error("Erro ao salvar dados."); return; }
-        toast.success("Dados salvos!");
-        await loadData();
-    }
-
     async function handleSubmit() {
         if (!session) return;
-        setSubmitting(true);
-        try {
-            const res = await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/submit`, session.cpf, { method: "POST" });
-            if (!res.ok) { const b = await res.json().catch(() => ({})); toast.error(b.message || "Erro ao enviar."); return; }
-            setPhase("submitted");
-        } catch { toast.error("Erro ao submeter."); }
-        finally { setSubmitting(false); }
+        // Save form data one final time
+        await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/dados`, session.cpf, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(store.formData),
+        });
+        // Submit
+        const res = await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/submit`, session.cpf, { method: "POST" });
+        if (!res.ok) {
+            const b = await res.json().catch(() => ({}));
+            toast.error(b.message || "Erro ao enviar.");
+            return;
+        }
+        setPhase("submitted");
     }
 
     function handleLogout() {
         if (tenantId) clearAdmissaoPortalSession(tenantId);
         setSession(null);
+        store.reset();
         setPhase("login");
         setCpfInput("");
     }
 
     if (!tenantId || !preAdmissaoId) {
         return (
-            <div className="max-w-md mx-auto py-16 px-4">
-                <div className="rounded-xl border border-border/40 bg-card p-8 shadow-sm text-center space-y-4">
+            <div className="flex-1 flex items-start justify-center px-4 py-10">
+            <div className="w-full max-w-md">
+                <div className="rounded-xl border border-border/40 bg-card p-5 sm:p-8 shadow-sm text-center space-y-4">
                     <div className="mx-auto size-16 rounded-full bg-red-500/10 flex items-center justify-center">
                         <AlertCircle className="size-8 text-red-500" />
                     </div>
-                    <p className="text-lg font-medium">Link inválido</p>
+                    <p className="text-lg font-medium">Link invalido</p>
                     <p className="text-sm text-muted-foreground">Verifique o link recebido do RH e tente novamente.</p>
                 </div>
+            </div>
             </div>
         );
     }
@@ -171,31 +178,32 @@ export default function DocumentoAdmissaoScreen() {
     /* LOGIN */
     if (phase === "login") {
         return (
-            <div className="max-w-md mx-auto py-16 px-4">
-                <div className="rounded-xl border border-border/40 bg-card p-8 shadow-sm space-y-6">
+            <div className="flex-1 flex items-start justify-center px-4 py-8 sm:py-14">
+            <div className="w-full max-w-md py-0">
+                <div className="rounded-xl border border-border/40 bg-card p-5 sm:p-8 shadow-sm space-y-6">
                     <div className="text-center">
                         <div className="mx-auto size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                             <FileText className="size-8 text-primary" />
                         </div>
-                        <h1 className="text-2xl font-bold">Portal de Admissão</h1>
-                        <p className="text-muted-foreground text-sm mt-1">Preencha seus dados e envie os documentos solicitados</p>
+                        <h1 className="text-2xl font-bold">Portal de Admissao</h1>
+                        <p className="text-muted-foreground text-sm mt-1">Informe seu CPF para acessar o portal</p>
                     </div>
                     <div className="space-y-3">
-                        <label className="text-sm font-medium">Informe seu CPF para acessar</label>
                         <Input
                             placeholder="000.000.000-00"
                             value={cpfInput}
                             onChange={e => setCpfInput(e.target.value)}
                             onKeyDown={e => e.key === "Enter" && handleLogin()}
                             maxLength={14}
-                            className="text-center text-lg tracking-wider"
+                            className="text-center text-lg tracking-wider h-12"
                         />
-                        <Button className="w-full" size="lg" onClick={handleLogin} disabled={logging || !cpfInput.trim()}>
+                        <Button className="w-full min-h-[48px] text-base" size="lg" onClick={handleLogin} disabled={logging || !cpfInput.trim()}>
                             {logging ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
                             Acessar Portal
                         </Button>
                     </div>
                 </div>
+            </div>
             </div>
         );
     }
@@ -203,160 +211,85 @@ export default function DocumentoAdmissaoScreen() {
     /* SUBMITTED */
     if (phase === "submitted") {
         return (
-            <div className="max-w-md mx-auto py-16 px-4">
-                <div className="rounded-xl border border-border/40 bg-card p-8 shadow-sm text-center space-y-4">
+            <div className="flex-1 flex items-start justify-center px-4 py-10">
+            <div className="w-full max-w-md">
+                <div className="rounded-xl border border-border/40 bg-card p-5 sm:p-8 shadow-sm text-center space-y-4">
                     <div className="mx-auto size-20 rounded-full bg-emerald-500/10 flex items-center justify-center">
                         <CheckCircle2 className="size-10 text-emerald-500" />
                     </div>
                     <h1 className="text-2xl font-bold">Dados Enviados!</h1>
-                    <p className="text-muted-foreground">Seus documentos e dados foram enviados com sucesso. O RH entrará em contato em breve.</p>
-                    <Button variant="outline" size="lg" onClick={handleLogout}>Voltar ao início</Button>
+                    <p className="text-muted-foreground">Seus documentos e dados foram enviados com sucesso. O RH entrara em contato em breve.</p>
+                    <Button variant="outline" size="lg" onClick={handleLogout}>Voltar ao inicio</Button>
                 </div>
+            </div>
             </div>
         );
     }
 
-    /* MAIN */
+    /* MAIN — Wizard */
     const isSubmitted = data?.status === 2;
 
-    // Indicadores de preenchimento
-    const docsTotal = data?.documentosSolicitados.length ?? 0;
-    const docsEnviados = data?.documentosSolicitados.filter(ds => data.documentosEnviados.some(d => d.tipo === ds.tipo)).length ?? 0;
-    const docsOk = docsTotal > 0 && docsEnviados === docsTotal;
-    const dadosOk = data?.dadosPessoais && Object.values(data.dadosPessoais).some(v => v != null && v !== "");
-
     return (
-        <section className="space-y-6 pb-12 px-4 sm:px-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">Ola, {session?.nome || "Candidato"}</h1>
-                    <p className="text-sm text-muted-foreground">Preencha seus dados e envie os documentos solicitados</p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={handleLogout}>
-                    <LogOut className="size-4 mr-1" /> Sair
-                </Button>
-            </div>
+        <div className="flex flex-col lg:flex-row flex-1 min-h-0">
+            {/* Sidebar (desktop only) */}
+            <WizardSidebar nome={session?.nome} isSubmitted={isSubmitted} />
 
-            {isSubmitted && (
-                <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 dark:bg-blue-900/20 dark:border-blue-800">
-                    <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">Seus dados ja foram enviados e estao em revisao pelo RH.</p>
+            {/* Content */}
+            <div className="flex-1 min-w-0 flex flex-col px-4 sm:px-8 py-5 pb-16">
+                {/* Mobile top bar: candidato + logout */}
+                <div className="lg:hidden flex items-center justify-between mb-4">
+                    <span className="text-sm font-semibold truncate">{session?.nome || "Candidato"}</span>
+                    <Button variant="ghost" size="sm" onClick={handleLogout}>
+                        <LogOut className="size-4" />
+                    </Button>
                 </div>
-            )}
+                {/* Desktop top bar: logout only */}
+                <div className="hidden lg:flex justify-end mb-2">
+                    <Button variant="ghost" size="sm" onClick={handleLogout}>
+                        <LogOut className="size-4 mr-1" />
+                        <span className="text-xs">Sair</span>
+                    </Button>
+                </div>
 
-            {loading && !data ? (
-                <div className="flex justify-center py-12"><Loader2 className="size-8 animate-spin text-muted-foreground" /></div>
-            ) : data ? (
-                <>
-                    {/* Tabs */}
-                    <div className="flex gap-1 border-b border-border/40">
-                        <button type="button" onClick={() => setPortalTab("dados")}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${portalTab === "dados" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-                            <span className={`size-2.5 rounded-full ${dadosOk ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-                            Dados Pessoais
-                        </button>
-                        <button type="button" onClick={() => setPortalTab("docs")}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${portalTab === "docs" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-                            <span className={`size-2.5 rounded-full ${docsOk ? "bg-emerald-500" : docsEnviados > 0 ? "bg-amber-500" : "bg-muted-foreground/30"}`} />
-                            Documentos {docsTotal > 0 && <span className="text-[10px] bg-muted px-1.5 rounded-full">{docsEnviados}/{docsTotal}</span>}
-                        </button>
+                {isSubmitted && (
+                    <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 mb-4 dark:bg-blue-900/20 dark:border-blue-800">
+                        <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                            Seus dados ja foram enviados e estao em revisao pelo RH.
+                        </p>
                     </div>
+                )}
 
-                    {/* Tab: Documentos */}
-                    {portalTab === "docs" && (
-                    <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-                            Documentos Solicitados
-                        </h2>
-                        {data.documentosSolicitados.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">Nenhum documento solicitado pelo RH ainda.</p>
-                        ) : (
-                            <div className="space-y-3">
-                                {data.documentosSolicitados.map(ds => {
-                                    const enviado = data.documentosEnviados.find(d => d.tipo === ds.tipo);
-                                    const rejeitado = enviado && enviado.status === 2;
-                                    return (
-                                        <div key={ds.tipo} className="flex items-start gap-3 rounded-lg border border-border/40 px-4 py-3">
-                                            <div className="mt-0.5">
-                                                {enviado && enviado.status === 1 ? <CheckCircle2 className="size-5 text-green-500" /> :
-                                                 enviado && enviado.status === 2 ? <XCircle className="size-5 text-red-500" /> :
-                                                 enviado ? <Clock className="size-5 text-amber-500" /> :
-                                                 <Upload className="size-5 text-muted-foreground" />}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-medium">{ds.label}</span>
-                                                    {ds.obrigatorio && <Badge variant="secondary" className="text-[10px]">Obrigatorio</Badge>}
-                                                </div>
-                                                {enviado && (
-                                                    <div className="text-xs text-muted-foreground mt-0.5">
-                                                        {enviado.nomeArquivo} - {formatBytes(enviado.tamanhoBytes)}
-                                                        <span className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_DOC_COLOR[enviado.status] ?? ""}`}>
-                                                            {STATUS_DOC_LABEL[enviado.status] ?? ""}
-                                                        </span>
-                                                        {enviado.presignedUrl && (
-                                                            <a href={enviado.presignedUrl} target="_blank" rel="noopener noreferrer" className="ml-2 text-primary hover:underline">Ver</a>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                {rejeitado && enviado.observacaoRh && (
-                                                    <div className="mt-1 text-xs text-red-600 bg-red-50 rounded px-2 py-1 dark:bg-red-900/20 dark:text-red-400">
-                                                        RH: {enviado.observacaoRh}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {(!enviado || rejeitado) && !isSubmitted && (
-                                                <div>
-                                                    <input
-                                                        ref={el => { fileRefs.current[ds.tipo] = el; }}
-                                                        type="file"
-                                                        accept=".pdf,.jpg,.jpeg,.png"
-                                                        className="hidden"
-                                                        onChange={e => {
-                                                            const f = e.target.files?.[0];
-                                                            if (f) handleUpload(ds.tipo, f);
-                                                            e.target.value = "";
-                                                        }}
-                                                    />
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        disabled={uploading === ds.tipo}
-                                                        onClick={() => fileRefs.current[ds.tipo]?.click()}
-                                                    >
-                                                        {uploading === ds.tipo ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
-                                                        <span className="ml-1">{rejeitado ? "Reenviar" : "Enviar"}</span>
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                {loading && !data ? (
+                    <div className="flex justify-center py-12"><Loader2 className="size-8 animate-spin text-muted-foreground" /></div>
+                ) : data ? (
+                    <WizardLayout
+                        hideNext={store.currentStep === 4}
+                        hideBack={store.currentStep === 0}
+                        nextLabel={store.currentStep === 0 ? "Começar" : undefined}
+                    >
+                        {store.currentStep === 0 && (
+                            <WelcomeStep nome={data.nome} documentosSolicitados={data.documentosSolicitados} />
                         )}
-                    </div>
-                    )}
-
-                    {/* Tab: Dados Pessoais */}
-                    {portalTab === "dados" && (
-                        <DadosPessoaisForm
-                            dados={data.dadosPessoais as any}
-                            onSave={handleSaveDados as any}
-                            disabled={isSubmitted}
-                        />
-                    )}
-
-                    {/* Submit */}
-                    {!isSubmitted && (
-                        <div className="flex justify-end">
-                            <Button size="lg" onClick={handleSubmit} disabled={submitting} className="bg-green-600 hover:bg-green-700 text-white">
-                                {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : <Send className="size-4 mr-2" />}
-                                Finalizar e Salvar
-                            </Button>
-                        </div>
-                    )}
-                </>
-            ) : null}
-        </section>
+                        {store.currentStep === 1 && session && (
+                            <DocumentUploadStep
+                                session={session}
+                                documentosSolicitados={data.documentosSolicitados}
+                                onDataRefresh={loadData}
+                                disabled={isSubmitted}
+                            />
+                        )}
+                        {store.currentStep === 2 && session && (
+                            <ReviewDataStep session={session} disabled={isSubmitted} />
+                        )}
+                        {store.currentStep === 3 && session && (
+                            <DependentsStep session={session} disabled={isSubmitted} />
+                        )}
+                        {store.currentStep === 4 && (
+                            <ReviewStep onSubmit={handleSubmit} disabled={isSubmitted} />
+                        )}
+                    </WizardLayout>
+                ) : null}
+            </div>
+        </div>
     );
 }

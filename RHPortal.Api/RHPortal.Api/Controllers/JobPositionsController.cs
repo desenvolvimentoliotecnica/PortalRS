@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.JobPositions;
 using RhPortal.Api.Application.JobPositions.Handlers;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.JobPositions;
@@ -125,6 +126,28 @@ public sealed class JobPositionsController : ControllerBase
         {
             return Conflict(new { message = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Importação em lote de cargos. Cria novos ou atualiza existentes pelo código.
+    /// Suporta até 5.000 registros por requisição.
+    /// </summary>
+    [HttpPost("import")]
+    [ProducesResponseType(typeof(JobPositionImportResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<JobPositionImportResult>> Import(
+        [FromBody] List<JobPositionImportItem> items,
+        [FromServices] IJobPositionService service,
+        CancellationToken ct)
+    {
+        if (items is null || items.Count == 0)
+            return BadRequest(new { message = "Lista de itens vazia." });
+
+        if (items.Count > 5000)
+            return BadRequest(new { message = "Máximo de 5.000 registros por importação." });
+
+        var result = await service.ImportAsync(items, ct);
+        return Ok(result);
     }
 
     /// <summary>

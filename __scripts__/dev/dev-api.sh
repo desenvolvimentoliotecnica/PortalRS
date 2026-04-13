@@ -12,5 +12,5 @@ free_port 5056
 free_port 5051
 
 cd "$ROOT/RHPortal.Api/RHPortal.Api"
-echo "▶ API (hot reload): $ROOT/RHPortal.Api/RHPortal.Api"
-exec dotnet watch run
+echo "▶ API: $ROOT/RHPortal.Api/RHPortal.Api"
+exec env InboxFolder__RootPath=/tmp/renderrh-inbox dotnet run

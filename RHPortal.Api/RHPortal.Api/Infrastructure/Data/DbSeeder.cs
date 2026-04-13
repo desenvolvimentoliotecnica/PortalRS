@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Ops;
@@ -127,6 +128,7 @@ public static class DbSeeder
                         tenantCtx.SetTenantId(tenantId);
                         var tenantDb = tenantScope.ServiceProvider.GetRequiredService<AppDbContext>();
                         await tenantDb.Database.MigrateAsync(ct);
+                        await TenantProvisioningService.ApplyOrphanMigrationsAsync(tenantDb, tenantId, ct);
                     }
                     pct += step;
                 }
@@ -167,6 +169,7 @@ public static class DbSeeder
 
                 await ReportAsync("migrate", "Aplicando migrations...", 25);
                 await db.Database.MigrateAsync(ct);
+                await TenantProvisioningService.ApplyOrphanMigrationsAsync(db, "dev", ct);
             }
 
             await ReportAsync("seed-core", "Aplicando seeds essenciais...", 35);

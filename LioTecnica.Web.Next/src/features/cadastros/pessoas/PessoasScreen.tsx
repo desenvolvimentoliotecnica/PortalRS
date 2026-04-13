@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Search, RefreshCw, Pencil, UserX, Unlock } from "lucide-react";
+import { Search, RefreshCw, Pencil, UserX, Unlock, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
 
@@ -190,6 +190,8 @@ export default function PessoasScreen() {
 
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
+  const [sort, setSort] = useState("nome");
+  const [dir, setDir] = useState("asc");
 
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -218,6 +220,8 @@ export default function PessoasScreen() {
     qs.set("pageSize", String(pageSize));
     const qq = q.trim();
     if (qq) qs.set("q", qq);
+    qs.set("sort", sort);
+    qs.set("dir", dir);
 
     const payload = await fetchJson<PessoasPagedResponse>(`/api/pessoas?${qs.toString()}`);
     const list = Array.isArray(payload?.items) ? payload.items : [];
@@ -229,7 +233,7 @@ export default function PessoasScreen() {
     const nextPageSize = Number(payload?.pageSize ?? pageSize) || pageSize;
     if (nextPage !== page) setPage(nextPage);
     if (nextPageSize !== pageSize) setPageSize(nextPageSize);
-  }, [page, pageSize, q]);
+  }, [page, pageSize, q, sort, dir]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -378,6 +382,21 @@ export default function PessoasScreen() {
     }
   }
 
+  async function deletePessoa(item: PessoaListItem) {
+    if (!(await confirmDialog({
+      title: "Excluir pessoa",
+      description: `Excluir permanentemente "${item.nome ?? item.email ?? ""}"? Esta ação não pode ser desfeita.`,
+      confirmText: "Excluir",
+    }))) return;
+    try {
+      await fetchJson(`/api/pessoas/${encodeURIComponent(item.id)}`, { method: "DELETE" });
+      toast.success("Pessoa excluída.");
+      await syncList();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao excluir pessoa.");
+    }
+  }
+
   function openManualBlock() {
     setManualNome("");
     setManualEmail("");
@@ -460,12 +479,25 @@ export default function PessoasScreen() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>E-mail</TableHead>
-              <TableHead>Fone</TableHead>
-              <TableHead>Cidade / UF</TableHead>
-              <TableHead>Bloqueado</TableHead>
-              <TableHead>Criado em</TableHead>
+              {(() => {
+                const sh = (col: string, label: string) => {
+                  const active = sort === col;
+                  const Icon = active ? (dir === "asc" ? ChevronUp : ChevronDown) : ChevronsUpDown;
+                  return (
+                    <TableHead key={col} className="cursor-pointer select-none whitespace-nowrap" onClick={() => { const nd = active && dir === "asc" ? "desc" : "asc"; setSort(col); setDir(nd); }}>
+                      <span className="inline-flex items-center gap-1">{label}<Icon className={`size-3 ${active ? "" : "opacity-30"}`} /></span>
+                    </TableHead>
+                  );
+                };
+                return (<>
+                  {sh("nome", "Nome")}
+                  {sh("email", "E-mail")}
+                  {sh("fone", "Fone")}
+                  {sh("cidade", "Cidade / UF")}
+                  <TableHead>Bloqueado</TableHead>
+                  {sh("criado", "Criado em")}
+                </>);
+              })()}
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -504,6 +536,15 @@ export default function PessoasScreen() {
                           <UserX />
                         </Button>
                       )}
+                      <Button
+                        variant="outline"
+                        size="icon-xs"
+                        title="Excluir"
+                        className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => void deletePessoa(p)}
+                      >
+                        <Trash2 />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

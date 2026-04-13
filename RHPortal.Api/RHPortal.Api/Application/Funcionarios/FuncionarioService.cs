@@ -44,22 +44,28 @@ public sealed class FuncionarioService : IFuncionarioService
         IQueryable<Funcionario> q = _db.Funcionarios
             .AsNoTracking()
             .Include(x => x.Unit)
+            .Include(x => x.UnidadeLotacao)
             .Include(x => x.Area)
             .Include(x => x.JobPosition)
             .Include(x => x.RequisitoCategoria)
             .Include(x => x.GestorDireto)
-            .Include(x => x.NivelHierarquico);
+            .Include(x => x.NivelHierarquico)
+            .Include(x => x.CentroCusto);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
+            var like = $"%{search}%";
             q = q.Where(x =>
-                x.Name.Contains(search) ||
-                x.Email.Contains(search) ||
-                (x.Phone != null && x.Phone.Contains(search)) ||
-                (x.Unit != null && x.Unit.Name.Contains(search)) ||
-                (x.Area != null && x.Area.Name.Contains(search)) ||
-                (x.JobPosition != null && x.JobPosition.Name.Contains(search)) ||
-                (x.JobPosition != null && x.JobPosition.Code.Contains(search)));
+                EF.Functions.Like(x.Name, like) ||
+                (x.Email != null && EF.Functions.Like(x.Email, like)) ||
+                (x.Phone != null && EF.Functions.Like(x.Phone, like)) ||
+                (x.Unit != null && EF.Functions.Like(x.Unit.Name, like)) ||
+                (x.Area != null && EF.Functions.Like(x.Area.Name, like)) ||
+                (x.JobPosition != null && EF.Functions.Like(x.JobPosition.Name, like)) ||
+                (x.JobPosition != null && EF.Functions.Like(x.JobPosition.Code, like)) ||
+                (x.CdnFuncionario != null && EF.Functions.Like(x.CdnFuncionario, like)) ||
+                (x.CdnEmpresa != null && EF.Functions.Like(x.CdnEmpresa, like)) ||
+                (x.CdnEstab != null && EF.Functions.Like(x.CdnEstab, like)));
         }
 
         if (query.Status.HasValue)
@@ -73,6 +79,15 @@ public sealed class FuncionarioService : IFuncionarioService
 
         if (query.JobPositionId.HasValue)
             q = q.Where(x => x.JobPositionId == query.JobPositionId.Value);
+
+        if (query.HasMissingData == true)
+            q = q.Where(x => x.HasIncompleteData);
+
+        if (query.UnidadeLotacaoId.HasValue)
+            q = q.Where(x => x.UnidadeLotacaoId == query.UnidadeLotacaoId.Value);
+
+        if (query.CentroCustoId.HasValue)
+            q = q.Where(x => x.CentroCustoId == query.CentroCustoId.Value);
 
         var totalItems = await q.CountAsync(ct);
 
@@ -102,6 +117,12 @@ public sealed class FuncionarioService : IFuncionarioService
             "jobposition" => asc
                 ? q.OrderBy(x => x.JobPosition != null ? x.JobPosition.Name : "").ThenBy(x => x.Name)
                 : q.OrderByDescending(x => x.JobPosition != null ? x.JobPosition.Name : "").ThenByDescending(x => x.Name),
+            "unidadelotacao" => asc
+                ? q.OrderBy(x => x.UnidadeLotacao != null ? x.UnidadeLotacao.Code : "").ThenBy(x => x.Name)
+                : q.OrderByDescending(x => x.UnidadeLotacao != null ? x.UnidadeLotacao.Code : "").ThenByDescending(x => x.Name),
+            "centrocusto" => asc
+                ? q.OrderBy(x => x.CentroCusto != null ? x.CentroCusto.Code : "").ThenBy(x => x.Name)
+                : q.OrderByDescending(x => x.CentroCusto != null ? x.CentroCusto.Code : "").ThenByDescending(x => x.Name),
             _ => asc
                 ? q.OrderBy(x => x.Name).ThenBy(x => x.Email)
                 : q.OrderByDescending(x => x.Name).ThenByDescending(x => x.Email),
@@ -128,7 +149,26 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.GestorDiretoId,
                 x.GestorDireto != null ? x.GestorDireto.Name : null,
                 x.NivelHierarquicoId,
-                x.NivelHierarquico != null ? x.NivelHierarquico.Nome : null
+                x.NivelHierarquico != null
+                    ? x.NivelHierarquico.Nome
+                    : x.NivelCargo != null
+                        ? x.NivelCargo.NomComplet
+                        : x.JobPosition != null && x.JobPosition.NivelCargo != null
+                            ? x.JobPosition.NivelCargo.NomComplet
+                            : x.CdnNivCargo != null
+                                ? x.CdnNivCargo.Value.ToString()
+                                : null,
+                x.UnidadeLotacaoId,
+                x.UnidadeLotacao != null ? x.UnidadeLotacao.Description : null,
+                x.CdnFuncionario,
+                x.CdnEmpresa,
+                x.CdnEstab,
+                x.CentroCustoId,
+                x.CentroCusto != null ? x.CentroCusto.Description : null,
+                x.PessoaId,
+                x.HasIncompleteData,
+                x.UnidadeLotacao != null ? x.UnidadeLotacao.Code : null,
+                x.CentroCusto != null ? x.CentroCusto.Code : null
             ))
             .ToListAsync(ct);
 
@@ -151,6 +191,11 @@ public sealed class FuncionarioService : IFuncionarioService
             .Include(x => x.Area)
             .Include(x => x.JobPosition)
             .Include(x => x.RequisitoCategoria)
+            .Include(x => x.GestorDireto)
+            .Include(x => x.NivelHierarquico)
+            .Include(x => x.NivelCargo)
+            .Include(x => x.UnidadeLotacao)
+            .Include(x => x.CentroCusto)
             .Where(x => x.Id == id)
             .Select(x => new FuncionarioResponse(
                 x.Id,
@@ -165,12 +210,38 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.Area != null ? x.Area.Name : null,
                 x.JobPositionId,
                 x.JobPosition != null ? x.JobPosition.Name : null,
+                x.JobPosition != null ? x.JobPosition.Code : null,
                 x.RequisitoCategoriaId,
                 x.RequisitoCategoria != null ? x.RequisitoCategoria.Name : null,
                 x.UserId,
                 x.Notes,
                 x.CreatedAtUtc,
-                x.UpdatedAtUtc
+                x.UpdatedAtUtc,
+                x.GestorDiretoId,
+                x.GestorDireto != null
+                    ? x.GestorDireto.Name
+                    : x.UnidadeLotacao != null && x.UnidadeLotacao.Parent != null && x.UnidadeLotacao.Parent.OwnerFuncionario != null
+                        ? x.UnidadeLotacao.Parent.OwnerFuncionario.Name
+                        : null,
+                x.NivelHierarquicoId,
+                x.NivelHierarquico != null
+                    ? x.NivelHierarquico.Nome
+                    : x.NivelCargo != null
+                        ? x.NivelCargo.NomComplet
+                        : x.JobPosition != null && x.JobPosition.NivelCargo != null
+                            ? x.JobPosition.NivelCargo.NomComplet
+                            : x.CdnNivCargo != null
+                                ? x.CdnNivCargo.Value.ToString()
+                                : null,
+                x.UnidadeLotacaoId,
+                x.UnidadeLotacao != null ? x.UnidadeLotacao.Description : null,
+                x.CdnFuncionario,
+                x.CdnEmpresa,
+                x.CdnEstab,
+                x.CentroCustoId,
+                x.CentroCusto != null ? x.CentroCusto.Description : null,
+                x.UnidadeLotacao != null ? x.UnidadeLotacao.Code : null,
+                x.CentroCusto != null ? x.CentroCusto.Code : null
             ))
             .FirstOrDefaultAsync(ct);
     }
@@ -189,31 +260,29 @@ public sealed class FuncionarioService : IFuncionarioService
             if (user.FuncionarioId.HasValue)
                 throw new InvalidOperationException(_localizer["ServiceErrors.UserAlreadyHasFuncionario"]);
             name = !string.IsNullOrWhiteSpace(name) ? name : user.FullName.Trim();
-            normalizedEmail = !string.IsNullOrWhiteSpace(normalizedEmail) ? normalizedEmail : NormalizeEmail(user.Email ?? "");
+            if (string.IsNullOrWhiteSpace(normalizedEmail))
+                normalizedEmail = NormalizeEmail(user.Email ?? "");
         }
 
         if (request.UnitId.HasValue || request.AreaId.HasValue || request.JobPositionId.HasValue || request.RequisitoCategoriaId.HasValue)
             await EnsureReferencesExist(request.UnitId, request.AreaId, request.JobPositionId, request.RequisitoCategoriaId, ct);
 
-        var emailAlreadyExists = await _db.Funcionarios.AnyAsync(x => x.Email == normalizedEmail, ct);
-        if (emailAlreadyExists)
-            throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioEmailExists", normalizedEmail]);
-
-        var pessoa = await _pessoaService.GetOrCreateByEmailAsync(
-            normalizedEmail,
-            name,
-            TrimOrNull(request.Phone),
-            null, null, null, null,
-            TrimOrNull(request.Notes),
-            OrigemPessoa.Funcionario,
-            ct);
+        Guid? pessoaId = null;
+        if (!string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            var pessoa = await _pessoaService.GetOrCreateByEmailAsync(
+                normalizedEmail, name, TrimOrNull(request.Phone),
+                null, null, null, null, TrimOrNull(request.Notes),
+                OrigemPessoa.Funcionario, ct);
+            pessoaId = pessoa.Id;
+        }
 
         var entity = new Funcionario
         {
             Id = Guid.NewGuid(),
-            PessoaId = pessoa.Id,
+            PessoaId = pessoaId,
             Name = name,
-            Email = normalizedEmail,
+            Email = string.IsNullOrWhiteSpace(normalizedEmail) ? null : normalizedEmail,
             Phone = TrimOrNull(request.Phone),
             Status = request.Status,
             Headcount = request.Headcount,
@@ -222,9 +291,13 @@ public sealed class FuncionarioService : IFuncionarioService
             JobPositionId = request.JobPositionId,
             RequisitoCategoriaId = request.RequisitoCategoriaId,
             Notes = TrimOrNull(request.Notes),
-            UserId = request.UserId
+            UserId = request.UserId,
+            CdnFuncionario = TrimOrNull(request.CdnFuncionario),
+            CdnEmpresa = TrimOrNull(request.CdnEmpresa),
+            CdnEstab = TrimOrNull(request.CdnEstab),
         };
 
+        entity.RefreshIncompleteData();
         _db.Funcionarios.Add(entity);
         if (user is not null)
             user.FuncionarioId = entity.Id;
@@ -243,12 +316,8 @@ public sealed class FuncionarioService : IFuncionarioService
         if (request.UnitId.HasValue || request.AreaId.HasValue || request.JobPositionId.HasValue || request.RequisitoCategoriaId.HasValue)
             await EnsureReferencesExist(request.UnitId, request.AreaId, request.JobPositionId, request.RequisitoCategoriaId, ct);
 
-        var emailConflict = await _db.Funcionarios.AnyAsync(x => x.Id != id && x.Email == normalizedEmail, ct);
-        if (emailConflict)
-            throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioEmailExistsOther", normalizedEmail]);
-
         entity.Name = (request.Name ?? string.Empty).Trim();
-        entity.Email = normalizedEmail;
+        entity.Email = string.IsNullOrWhiteSpace(normalizedEmail) ? null : normalizedEmail;
         entity.Phone = TrimOrNull(request.Phone);
         entity.Status = request.Status;
         entity.Headcount = request.Headcount;
@@ -257,6 +326,7 @@ public sealed class FuncionarioService : IFuncionarioService
         entity.JobPositionId = request.JobPositionId;
         entity.RequisitoCategoriaId = request.RequisitoCategoriaId;
         entity.Notes = TrimOrNull(request.Notes);
+        entity.RefreshIncompleteData();
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
@@ -270,6 +340,7 @@ public sealed class FuncionarioService : IFuncionarioService
         entity.GestorDiretoId = gestorDiretoId;
         entity.NivelHierarquicoId = nivelHierarquicoId;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        entity.RefreshIncompleteData();
 
         await _db.SaveChangesAsync(ct);
         return true;
@@ -309,7 +380,7 @@ public sealed class FuncionarioService : IFuncionarioService
         }
     }
 
-    private static string NormalizeEmail(string email)
+    private static string NormalizeEmail(string? email)
         => (email ?? string.Empty).Trim().ToLowerInvariant();
 
     private static string? TrimOrNull(string? value)

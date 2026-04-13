@@ -9,31 +9,28 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import type { BffMe, BffNavItem } from "@/lib/schemas/bff";
 import { ApiMenuForCurrentUserSchema, type ApiMenuForCurrentUser } from "@/lib/schemas/api";
+import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
+import { PendenciasProvider } from "@/contexts/PendenciasContext";
 
 /* Owner-only synthetic menu items (not stored in the DB) */
 const OWNER_NAV_ITEMS: BffNavItem[] = [
   { id: "__owner_tenants", label: "Tenants", href: "/Owner/Tenants", icon: "building2", openInNewTab: false, children: [] },
   { id: "__owner_ia", label: "IA", href: "/Owner/IA", icon: "brain", openInNewTab: false, children: [] },
+  { id: "__owner_aws", label: "Armazenamento S3", href: "/Owner/AwsSettings", icon: "cloud-upload", openInNewTab: false, children: [] },
   { id: "__owner_integracao", label: "Integração", href: "/Owner/Integracao", icon: "arrow-right-left", openInNewTab: false, children: [] },
 ];
 
-/* Cadastros extras — injetados estaticamente para garantir que apareçam no menu
-   mesmo antes do seeder do backend ter inserido os registros no banco. */
-const STATIC_CADASTROS_EXTRAS: BffNavItem[] = [
-  { id: "__cat_sal", label: "Categoria Salarial", href: "/Categorias-Salariais", icon: "bi-cash-coin", openInNewTab: false, children: [] },
-  { id: "__turnos", label: "Turno", href: "/Turnos", icon: "bi-clock", openInNewTab: false, children: [] },
-  { id: "__cc", label: "Centro de Custo", href: "/Centros-Custo", icon: "bi-receipt", openInNewTab: false, children: [] },
-  { id: "__ul", label: "Unidade de Lotação", href: "/Unidades-Lotacao", icon: "bi-geo-alt", openInNewTab: false, children: [] },
-];
+function filterOwnerRoutes(items: BffNavItem[]): BffNavItem[] {
+  return items.filter((item) => {
+    const href = (item.href ?? "").toLowerCase().replace(/\/+$/, "");
+    return !href.startsWith("/owner");
+  });
+}
 
 function mergeTenantExtras(tree: BffNavItem[], me: BffMe): BffNavItem[] {
   const existingKeys = collectNavRouteKeys(tree);
   const extras = buildTenantExtraNavItems(me).filter((item) => !existingKeys.has(toNavRouteKey(item.href)));
-  // Inject static cadastros if not already present from DB
-  const staticExtras = STATIC_CADASTROS_EXTRAS.filter(
-    (item) => !existingKeys.has(toNavRouteKey(item.href))
-  );
-  return [...tree, ...extras, ...staticExtras];
+  return filterOwnerRoutes([...tree, ...extras]);
 }
 
 function AppShellInner({ children }: { children: ReactNode }) {
@@ -137,22 +134,26 @@ function AppShellInner({ children }: { children: ReactNode }) {
     };
   }, [me]);
 
-  return (
-    <div className="min-h-dvh">
-      <div className="grid grid-cols-1 lg:grid-cols-[290px_1fr]">
-        <aside
-          className="from-lt-primary to-lt-brand sticky top-0 hidden h-dvh border-r border-white/10 bg-gradient-to-b text-white lg:block z-10"
-        >
-          <Sidebar items={navItems} />
-        </aside>
+  const { isCollapsed } = useSidebar();
 
-        <main className="min-w-0">
-          <header className="sticky top-0 z-20 border-b border-[var(--lt-border)] bg-[rgba(246,249,252,0.78)] backdrop-blur-[10px]">
-            <Topbar navItems={navItems} />
-          </header>
-          <div className="p-4 lg:p-6">{children}</div>
-        </main>
-      </div>
+  return (
+    <div className="flex min-h-dvh">
+      <aside
+        className="from-lt-primary to-lt-brand sticky top-0 hidden h-dvh shrink-0 overflow-hidden border-r border-white/10 bg-gradient-to-b text-white lg:flex lg:flex-col z-10"
+        style={{ width: isCollapsed ? 64 : 290, transition: "width 300ms ease" }}
+      >
+        <Sidebar items={navItems} />
+      </aside>
+
+      <main className="min-w-0 flex-1 flex flex-col">
+        <header className="sticky top-0 z-20 border-b border-[var(--lt-border)] bg-[rgba(246,249,252,0.78)] backdrop-blur-[10px]">
+          <Topbar navItems={navItems} />
+        </header>
+        <div className="p-4 lg:p-6 flex-1">{children}</div>
+        <footer className="border-t border-[var(--lt-border)] px-4 py-3 text-center text-[11px] text-muted-foreground/50 select-none tracking-wide">
+          © {new Date().getFullYear()} QUALIIT SOLUÇÕES EM TECNOLOGIA
+        </footer>
+      </main>
     </div>
   );
 }
@@ -160,7 +161,11 @@ function AppShellInner({ children }: { children: ReactNode }) {
 export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <SidebarProvider>
+        <PendenciasProvider>
+          <AppShellInner>{children}</AppShellInner>
+        </PendenciasProvider>
+      </SidebarProvider>
     </AuthProvider>
   );
 }

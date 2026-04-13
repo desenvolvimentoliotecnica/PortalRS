@@ -38,8 +38,14 @@ public sealed class LookupController : ControllerBase
     {
         var items = await _db.Units
             .AsNoTracking()
-            .OrderBy(x => x.Name)
-            .Select(x => new OptionResponse(x.Id, x.Code, x.Name))
+            .OrderBy(x => x.Code.Length)
+            .ThenBy(x => x.Code)
+            .Select(x => new OptionResponse(
+                x.Id,
+                x.Code,
+                x.NomAbrevPessoaJurid != null
+                    ? x.NomAbrevPessoaJurid + " – " + x.Name
+                    : x.Name))
             .ToListAsync(ct);
 
         return Ok(items);
@@ -94,6 +100,61 @@ public sealed class LookupController : ControllerBase
         var items = await q
             .OrderBy(x => x.Name)
             .Select(x => new OptionResponse(x.Id, x.Code, x.Name))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Lista empresas ativas (para dropdowns).
+    /// </summary>
+    [HttpGet("empresas")]
+    [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<OptionResponse>>> Empresas(CancellationToken ct)
+    {
+        var items = await _db.Empresas
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.Code.Length)
+            .ThenBy(x => x.Code)
+            .Select(x => new OptionResponse(x.Id, x.Code, x.Description))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Lista centros de custo ativos e vigentes (para dropdowns).
+    /// </summary>
+    [HttpGet("centros-custo")]
+    [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<OptionResponse>>> CentrosCusto(CancellationToken ct)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var items = await _db.CentrosCusto
+            .AsNoTracking()
+            .Where(x => x.IsActive && (x.ValidUntil == null || x.ValidUntil >= today))
+            .OrderBy(x => x.Code.Length)
+            .ThenBy(x => x.Code)
+            .Select(x => new OptionResponse(x.Id, x.Code, x.Description))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Lista unidades de lotação ativas (para dropdowns).
+    /// </summary>
+    [HttpGet("unidades-lotacao")]
+    [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<OptionResponse>>> UnidadesLotacao(CancellationToken ct)
+    {
+        var items = await _db.UnidadesLotacao
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.Code.Length)
+            .ThenBy(x => x.Code)
+            .Select(x => new OptionResponse(x.Id, x.CdnPlanoLotac + "/" + x.Code, x.Description))
             .ToListAsync(ct);
 
         return Ok(items);
@@ -495,6 +556,21 @@ public sealed class LookupController : ControllerBase
         };
 
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Lista perfis (roles) ativos do sistema.
+    /// </summary>
+    [HttpGet("roles")]
+    public async Task<IActionResult> GetRoles(CancellationToken ct)
+    {
+        var roles = await _db.Set<ApplicationRole>()
+            .AsNoTracking()
+            .Where(r => r.IsActive)
+            .OrderBy(r => r.Name)
+            .Select(r => new { id = r.Id, name = r.Name, tipo = r.Tipo })
+            .ToListAsync(ct);
+        return Ok(roles);
     }
 
     /// <summary>

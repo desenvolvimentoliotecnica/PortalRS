@@ -173,6 +173,21 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
     }
 
     /// <summary>Exclui uma solicitação (somente rascunho).</summary>
+    [HttpPost("{id:guid}/assumir")]
+    [ProducesResponseType(typeof(SolicitacaoDesligamentoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Assumir(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.AssumirAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+    }
+
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -193,7 +208,8 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
     // ── helpers ──
 
     /// <summary>
-    /// Returns true if the current user is Admin or the designated approver for this solicitação.
+    /// Pre-authorization check: returns true if the current user is Admin or appears to be an approver.
+    /// The service's ApproveAsync/RejectAsync performs the authoritative check via CanApproveStepAsync.
     /// </summary>
     private async Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
     {
@@ -202,24 +218,16 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         var sol = await _service.GetByIdAsync(solicitacaoId, ct);
         if (sol is null) return true; // will 404 downstream
 
-        var funcId = _userContext.FuncionarioId;
+        // Find first pending etapa
+        var pendingEtapa = sol.Etapas?.FirstOrDefault(e => e.Status == "Pendente");
+        if (pendingEtapa is null) return false;
 
-        // Check if current user is Aprovador1 or Aprovador2
-        if (funcId.HasValue)
+        if (pendingEtapa.RoleFilaId.HasValue)
         {
-            if (sol.Aprovador1Id.HasValue && sol.Aprovador1Id.Value == funcId.Value)
-                return true;
-            if (sol.Aprovador2Id.HasValue && sol.Aprovador2Id.Value == funcId.Value)
-                return true;
+            // Role queue: return true here, the service will do the authoritative check
+            return true;
         }
 
-        // Fallback: area-based — user with same area can approve
-        if (_userContext.AreaId.HasValue)
-        {
-            // Desligamento doesn't have its own AreaId, so we check the funcionario's area
-            // This is a simplified check — in production you might want to load the funcionario's area
-        }
-
-        return false;
+        return pendingEtapa.AprovadorId.HasValue && pendingEtapa.AprovadorId == _userContext.FuncionarioId;
     }
 }

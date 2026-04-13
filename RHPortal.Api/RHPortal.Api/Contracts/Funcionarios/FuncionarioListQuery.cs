@@ -11,5 +11,8 @@ public sealed record FuncionarioListQuery(
     int Page = 1,
     int PageSize = 20,
     string Sort = "funcionario",
-    string Dir = "asc"
+    string Dir = "asc",
+    bool? HasMissingData = null,
+    Guid? UnidadeLotacaoId = null,
+    Guid? CentroCustoId = null
 );

@@ -252,6 +252,9 @@
   <data name="Seed.Menu.Turnos" xml:space="preserve">
     <value>Turno</value>
   </data>
+  <data name="Seed.Menu.NivelCargo" xml:space="preserve">
+    <value>Cargo - Nível de Cargo</value>
+  </data>
   <data name="Seed.Menu.CentrosCusto" xml:space="preserve">
     <value>Centro de Custo</value>
   </data>

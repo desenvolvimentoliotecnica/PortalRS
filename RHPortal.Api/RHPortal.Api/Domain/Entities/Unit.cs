@@ -28,6 +28,13 @@ public sealed class Unit : ITenantEntity
     public int Headcount { get; set; }                // 0..n
     public string? Notes { get; set; }                // Observação
 
+    public string? NomAbrevPessoaJurid { get; set; }   // Nome abreviado da pessoa jurídica
+    public string? NomPessoaJurid { get; set; }        // Nome completo da pessoa jurídica
+    public string? NomAbrevPessoaFisic { get; set; }  // Nome abreviado da pessoa física
+
+    public Guid? EmpresaId { get; set; }              // FK → Empresas (opcional)
+    public Empresa? Empresa { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

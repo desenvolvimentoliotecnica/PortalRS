@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
-using RhPortal.Api.Application.Pessoas;
 using RhPortal.Api.Contracts.Users;
 using RhPortal.Api.Domain.Entities;
-using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 
@@ -15,20 +13,17 @@ public sealed class UserAdministrationService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly AppDbContext _db;
-    private readonly IPessoaService _pessoaService;
     private readonly IStringLocalizer<ServiceMessages> _localizer;
 
     public UserAdministrationService(
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,
         AppDbContext db,
-        IPessoaService pessoaService,
         IStringLocalizer<ServiceMessages> localizer)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _db = db;
-        _pessoaService = pessoaService;
         _localizer = localizer;
     }
 
@@ -178,29 +173,6 @@ public sealed class UserAdministrationService
                 funcionario.UserId = user.Id;
                 await _db.SaveChangesAsync(ct);
             }
-        }
-        else
-        {
-            var emailNormalized = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
-            var pessoa = await _pessoaService.GetOrCreateByEmailAsync(
-                emailNormalized,
-                request.FullName.Trim(),
-                null, null, null, null, null, null,
-                OrigemPessoa.Funcionario,
-                ct);
-            var funcionario = new Funcionario
-            {
-                Id = Guid.NewGuid(),
-                TenantId = user.TenantId,
-                PessoaId = pessoa.Id,
-                Name = request.FullName.Trim(),
-                Email = emailNormalized,
-                UserId = user.Id,
-                Status = Domain.Enums.FuncionarioStatus.Active
-            };
-            _db.Funcionarios.Add(funcionario);
-            user.FuncionarioId = funcionario.Id;
-            await _db.SaveChangesAsync(ct);
         }
 
         var created = await GetByIdAsync(user.Id, ct);

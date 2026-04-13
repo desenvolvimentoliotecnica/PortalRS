@@ -13,6 +13,7 @@ import {
   Clock,
   Copy,
   FileText,
+  Globe,
   Mail,
   MapPin,
   PenSquare,
@@ -37,6 +38,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
+import StepperProgress from "@/components/feedback/StepperProgress";
+import type { StepperStep } from "@/components/feedback/StepperProgress";
 import VagaFormModal from "./VagaFormModal";
 
 const BASE = "/app";
@@ -60,6 +63,7 @@ interface AdmissaoDialogState {
   cpf: string;
   working: boolean;
   linkGerado: string | null;
+  emailEnviado: boolean;
 }
 
 function pick(obj: VagaData | null, key: string, fallback = "—"): string {
@@ -127,8 +131,9 @@ function HistoricoTimeline({ vagaId }: { vagaId: string }) {
       {events.map((ev, i) => (
         <div key={i} className="relative">
           <div className={`absolute -left-[31px] top-1 size-4 rounded-full border-2 ${
-            ev.acao.includes("criada") ? "bg-primary/20 border-primary" :
+            ev.acao.includes("reprovada") || ev.acao.includes("cancelada") ? "bg-red-500/20 border-red-500" :
             ev.acao.includes("aprovada") ? "bg-emerald-500/20 border-emerald-500" :
+            ev.acao.includes("criada") ? "bg-primary/20 border-primary" :
             ev.acao.includes("Candidato") ? "bg-violet-500/20 border-violet-500" :
             ev.acao.includes("Admissão") ? "bg-amber-500/20 border-amber-500" :
             "bg-blue-500/20 border-blue-500"
@@ -164,7 +169,6 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const router = useRouter();
   const { me } = useAuth();
-  const isRecrutador = me?.isAdmin || (me?.roles ?? []).some((r) => r.toLowerCase().includes("recrutador"));
 
   const [loading, setLoading] = useState(true);
   const [vaga, setVaga] = useState<VagaData | null>(null);
@@ -173,7 +177,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [activeTab, setActiveTab] = useState("resumo");
   const [editOpen, setEditOpen] = useState(false);
   const [admissaoDialog, setAdmissaoDialog] = useState<AdmissaoDialogState>({
-    open: false, candidate: null, modo: "manual", tipoContratacao: "CLT", cpf: "", working: false, linkGerado: null,
+    open: false, candidate: null, modo: "manual", tipoContratacao: "CLT", cpf: "", working: false, linkGerado: null, emailEnviado: false,
   });
   const [newCandidateOpen, setNewCandidateOpen] = useState(false);
   const [newCandForm, setNewCandForm] = useState({ nome: "", email: "", fone: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
@@ -182,19 +186,46 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [newCandDocDesc, setNewCandDocDesc] = useState("");
   const [newCandDocFile, setNewCandDocFile] = useState<File | null>(null);
   const [newCandPendingDocs, setNewCandPendingDocs] = useState<Array<{ id: string; tipo: string; desc: string; file: File; name: string; size: number }>>([]);
+  const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
+
+  // Workflow RH data
+  const [workflowData, setWorkflowData] = useState<{
+    id: string;
+    status: number;
+    statusLabel: string;
+    totalEtapas: number;
+    etapasConcluidas: number;
+    etapas: Array<{ label: string; status: number; ordem: number }>;
+  } | null>(null);
 
   const load = useCallback(async () => {
     if (!vagaId) return;
     try {
       setLoading(true);
-      const [data, candListData] = await Promise.all([
+      const [data, candListData, wfData] = await Promise.all([
         fetchJson<VagaData>(`/api/vagas/${encodeURIComponent(vagaId)}`),
         fetchJson<{ totalCount?: number; items?: CandidateRow[] }>(`/api/candidatos?vagaId=${encodeURIComponent(vagaId)}&pageSize=100`).catch(() => null),
+        fetchJson<any>(`/api/workflow-rh?vagaId=${encodeURIComponent(vagaId)}&pageSize=1`).catch(() => null),
       ]);
       setVaga(data);
       const items = candListData?.items ?? [];
       setCandidates(items);
       setCandidateCount(candListData?.totalCount ?? items.length);
+      // Workflow RH associated with this vaga
+      const wfItems = Array.isArray(wfData) ? wfData : wfData?.items ?? [];
+      if (wfItems.length > 0) {
+        const wf = wfItems[0];
+        setWorkflowData({
+          id: wf.id,
+          status: wf.status ?? 0,
+          statusLabel: wf.statusLabel ?? "",
+          totalEtapas: wf.totalEtapas ?? 0,
+          etapasConcluidas: wf.etapasConcluidas ?? 0,
+          etapas: Array.isArray(wf.etapas) ? wf.etapas : [],
+        });
+      } else {
+        setWorkflowData(null);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Falha ao carregar vaga.";
       console.error("[VagaHub] load error:", msg, "vagaId:", vagaId);
@@ -218,13 +249,12 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         setAdmissaoDialog((d) => ({ ...d, open: false, working: false }));
         router.push(`/admissao/nova?id=${encodeURIComponent(res.id)}`);
       } else {
-        const linkRes = await fetchJson<{ publicUrl?: string }>(`/api/pre-admissao/${encodeURIComponent(res.id)}/gerar-link`, {
+        const linkRes = await fetchJson<{ publicUrl?: string; emailEnviado?: boolean }>(`/api/pre-admissao/${encodeURIComponent(res.id)}/gerar-link`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cpf: cpf.replace(/\D/g, "") }),
         });
-        setAdmissaoDialog((d) => ({ ...d, working: false, linkGerado: linkRes.publicUrl ?? "enviado" }));
-        toast.success("Email enviado ao candidato com o link para preencher os dados!");
+        setAdmissaoDialog((d) => ({ ...d, working: false, linkGerado: linkRes.publicUrl ?? null, emailEnviado: linkRes.emailEnviado ?? false }));
         void load(); // recarregar candidatos para atualizar botões
       }
     } catch (e) {
@@ -232,6 +262,57 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       toast.error(`Falha ao iniciar admissão: ${msg}`);
       setAdmissaoDialog((d) => ({ ...d, working: false }));
     }
+  }
+
+  const [publishing, setPublishing] = useState(false);
+  async function publicarVaga() {
+    setPublishing(true);
+    try {
+      const res = await apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Aberta" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { message?: string } | null;
+        throw new Error(body?.message || `HTTP ${res.status}`);
+      }
+      toast.success("Vaga publicada com sucesso!");
+      void load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao publicar vaga.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function openEditCandidate(candidateId: string) {
+    try {
+      const data = await fetchJson<Record<string, unknown>>(`/api/candidatos/${encodeURIComponent(candidateId)}`);
+      setNewCandForm({
+        nome: String(data.nome ?? ""),
+        email: String(data.email ?? ""),
+        fone: String(data.fone ?? ""),
+        cidade: String(data.cidade ?? ""),
+        uf: String(data.uf ?? "SP"),
+        fonte: String(data.fonte ?? "Email"),
+        pretensaoSalarial: data.pretensaoSalarial != null ? String(data.pretensaoSalarial) : "",
+        trabalhandoAtualmente: data.trabalhandoAtualmente === true ? "sim" : data.trabalhandoAtualmente === false ? "nao" : "",
+        linkedinUrl: String(data.linkedinUrl ?? ""),
+        obs: String(data.obs ?? ""),
+      });
+      setEditingCandidateId(candidateId);
+      setNewCandidateOpen(true);
+    } catch {
+      toast.error("Erro ao carregar candidato");
+    }
+  }
+
+  function closeCandidateForm() {
+    setNewCandidateOpen(false);
+    setEditingCandidateId(null);
+    setNewCandForm({ nome: "", email: "", fone: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
+    setNewCandPendingDocs([]);
   }
 
   useEffect(() => { void load(); }, [load]);
@@ -297,8 +378,11 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         </div>
         <div className="flex gap-2 shrink-0">
           <Button variant="outline" size="sm" onClick={() => void load()}><RefreshCw className="size-4" /></Button>
-          {isRecrutador && (
-            <Button size="sm" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}><PenSquare className="size-4 mr-1" /> {isRascunho ? "Preencher Dados" : "Editar"}</Button>
+          <Button size="sm" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}><PenSquare className="size-4 mr-1" /> {isRascunho ? "Preencher Dados" : "Editar"}</Button>
+          {isRascunho && (
+            <Button size="sm" variant="default" className="bg-emerald-600 hover:bg-emerald-700" disabled={publishing} onClick={() => void publicarVaga()}>
+              <Globe className="size-4 mr-1" /> {publishing ? "Publicando..." : "Publicar"}
+            </Button>
           )}
         </div>
       </div>
@@ -318,6 +402,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             Candidatos {candidateCount > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{candidateCount}</span>}
           </TabsTrigger>
           <TabsTrigger value="config">Etapas</TabsTrigger>
+          {workflowData && <TabsTrigger value="workflow">Workflow</TabsTrigger>}
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="matching" className="opacity-40">
             Matching IA
@@ -443,11 +528,9 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">{candidateCount} candidato(s) nesta vaga</p>
             <div className="flex gap-2">
-              {isRecrutador && (
-                <Button size="sm" onClick={() => setNewCandidateOpen(true)}>
-                  <UserPlus className="size-3.5 mr-1" /> Candidato
-                </Button>
-              )}
+              <Button size="sm" onClick={() => setNewCandidateOpen(true)}>
+                <UserPlus className="size-3.5 mr-1" /> Candidato
+              </Button>
             </div>
           </div>
           {candidates.length === 0 ? (
@@ -464,7 +547,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                     <th className="px-3 py-2 text-left">Email</th>
                     <th className="px-3 py-2 text-left">Status</th>
                     <th className="px-3 py-2 text-left">Data</th>
-                    {isRecrutador && <th className="px-3 py-2 text-right">Ações</th>}
+                    <th className="px-3 py-2 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
@@ -476,36 +559,37 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                         <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-700">{c.status}</span>
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(c.createdAtUtc).toLocaleDateString("pt-BR")}</td>
-                      {isRecrutador && (
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex gap-1.5 justify-end">
-                            <Button size="sm" variant="outline" onClick={() => {
-                              const vagaTipo = pick(vaga, "tipoContratacao").toUpperCase();
-                              const tipo = (vagaTipo === "CLT" || vagaTipo === "PJ") ? vagaTipo as "CLT" | "PJ" : "CLT";
-                              setAdmissaoDialog({ open: true, candidate: c, modo: "manual", tipoContratacao: tipo, cpf: "", working: false, linkGerado: null });
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex gap-1.5 justify-end">
+                          <Button size="sm" variant="ghost" onClick={() => void openEditCandidate(c.id)}>
+                            <PenSquare className="size-3.5" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => {
+                            const vagaTipo = pick(vaga, "tipoContratacao").toUpperCase();
+                            const tipo = (vagaTipo === "CLT" || vagaTipo === "PJ") ? vagaTipo as "CLT" | "PJ" : "CLT";
+                            setAdmissaoDialog({ open: true, candidate: c, modo: "manual", tipoContratacao: tipo, cpf: "", working: false, linkGerado: null, emailEnviado: false });
+                          }}>
+                            <Mail className="size-3.5 mr-1" /> {c.status === "Aprovado" ? "Reenviar" : "Aprovar Candidato"}
+                          </Button>
+                          {c.status === "Aprovado" && (
+                            <Button size="sm" variant="outline" onClick={async () => {
+                              try {
+                                const res = await apiFetch(`/api/pre-admissao/iniciar-manual`, {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ candidatoId: c.id }),
+                                });
+                                if (res.ok) {
+                                  const data = await res.json() as { id: string };
+                                  router.push(`/admissao/nova?id=${encodeURIComponent(data.id)}`);
+                                }
+                              } catch { toast.error("Erro ao abrir admissão"); }
                             }}>
-                              <Mail className="size-3.5 mr-1" /> {c.status === "Aprovado" ? "Reenviar" : "Aprovar Candidato"}
+                              Acompanhar
                             </Button>
-                            {c.status === "Aprovado" && (
-                              <Button size="sm" variant="outline" onClick={async () => {
-                                try {
-                                  const res = await apiFetch(`/api/pre-admissao/iniciar-manual`, {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ candidatoId: c.id }),
-                                  });
-                                  if (res.ok) {
-                                    const data = await res.json() as { id: string };
-                                    router.push(`/admissao/nova?id=${encodeURIComponent(data.id)}`);
-                                  }
-                                } catch { toast.error("Erro ao abrir admissão"); }
-                              }}>
-                                Acompanhar
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      )}
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -535,11 +619,9 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             ) : (
               <div className="text-center py-4">
                 <p className="text-sm text-muted-foreground">Nenhuma etapa configurada.</p>
-                {isRecrutador && (
-                  <Button size="sm" variant="outline" className="mt-2" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}>
-                    Configurar Etapas
-                  </Button>
-                )}
+                <Button size="sm" variant="outline" className="mt-2" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}>
+                  Configurar Etapas
+                </Button>
               </div>
             )}
           </div>
@@ -552,6 +634,44 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           </div>
         </TabsContent>
 
+        {/* ── Tab: Workflow RH ── */}
+        {workflowData && (
+          <TabsContent value="workflow" className="mt-4 space-y-4 rounded-xl border border-border/40 bg-card p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground tracking-wider">Status do Workflow</div>
+                <div className="text-sm font-medium mt-0.5">
+                  {workflowData.status === 0 ? "Não Iniciado" : workflowData.status === 1 ? "Em Andamento" : workflowData.status === 2 ? "Concluído" : "Cancelado"}
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {workflowData.etapasConcluidas}/{workflowData.totalEtapas} etapas concluídas
+              </div>
+            </div>
+            {workflowData.etapas.length > 0 ? (
+              <StepperProgress
+                orientation="vertical"
+                steps={workflowData.etapas
+                  .sort((a, b) => a.ordem - b.ordem)
+                  .map((etapa) => ({
+                    label: etapa.label,
+                    status:
+                      etapa.status === 2
+                        ? ("done" as const)
+                        : etapa.status === 1
+                          ? ("current" as const)
+                          : ("pending" as const),
+                  }))}
+              />
+            ) : (
+              <div className="text-center py-6 text-sm text-muted-foreground">
+                <p>Workflow criado mas sem etapas detalhadas disponíveis.</p>
+                <p className="text-xs mt-1">Progresso: {workflowData.etapasConcluidas}/{workflowData.totalEtapas}</p>
+              </div>
+            )}
+          </TabsContent>
+        )}
+
         {/* ── Tab: Histórico ── */}
         <TabsContent value="historico" className="mt-4 space-y-3 rounded-xl border border-border/40 bg-card p-4 shadow-sm">
           <HistoricoTimeline vagaId={vagaId} />
@@ -560,14 +680,14 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
 
       {/* ── New Candidate — modal customizado idêntico ao CandidatosScreen ── */}
       {newCandidateOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setNewCandidateOpen(false)}>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={closeCandidateForm}>
           <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-3xl p-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Novo candidato</p>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">{editingCandidateId ? "Editar candidato" : "Novo candidato"}</p>
                 <div className="text-lg font-extrabold">Cadastro</div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setNewCandidateOpen(false)}>Fechar</Button>
+              <Button variant="outline" size="sm" onClick={closeCandidateForm}>Fechar</Button>
             </div>
             <div className="mt-4 space-y-4">
             {/* Vaga (travada) */}
@@ -694,39 +814,42 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             </div>
           </div>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setNewCandidateOpen(false)}>Cancelar</Button>
+            <Button variant="outline" size="sm" onClick={closeCandidateForm}>Cancelar</Button>
             <Button disabled={!newCandForm.nome.trim() || !newCandForm.email.trim() || newCandWorking} onClick={async () => {
               setNewCandWorking(true);
               try {
-                const res = await apiFetch("/api/candidatos", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    nome: newCandForm.nome.trim(),
-                    email: newCandForm.email.trim(),
-                    fone: newCandForm.fone.trim() || null,
-                    cidade: newCandForm.cidade.trim() || null,
-                    uf: newCandForm.uf || null,
-                    fonte: newCandForm.fonte,
-                    status: "Triagem",
-                    pretensaoSalarial: newCandForm.pretensaoSalarial ? parseFloat(newCandForm.pretensaoSalarial) : null,
-                    trabalhandoAtualmente: newCandForm.trabalhandoAtualmente === "sim" ? true : newCandForm.trabalhandoAtualmente === "nao" ? false : null,
-                    linkedinUrl: newCandForm.linkedinUrl.trim() || null,
-                    obs: newCandForm.obs.trim() || null,
-                    vagaId: vagaId,
-                  }),
-                });
+                const payload = {
+                  nome: newCandForm.nome.trim(),
+                  email: newCandForm.email.trim(),
+                  fone: newCandForm.fone.trim() || null,
+                  cidade: newCandForm.cidade.trim() || null,
+                  uf: newCandForm.uf || null,
+                  fonte: newCandForm.fonte,
+                  pretensaoSalarial: newCandForm.pretensaoSalarial ? parseFloat(newCandForm.pretensaoSalarial) : null,
+                  trabalhandoAtualmente: newCandForm.trabalhandoAtualmente === "sim" ? true : newCandForm.trabalhandoAtualmente === "nao" ? false : null,
+                  linkedinUrl: newCandForm.linkedinUrl.trim() || null,
+                  obs: newCandForm.obs.trim() || null,
+                };
+                const res = editingCandidateId
+                  ? await apiFetch(`/api/candidatos/${encodeURIComponent(editingCandidateId)}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload),
+                    })
+                  : await apiFetch("/api/candidatos", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ ...payload, status: "Triagem", vagaId }),
+                    });
                 if (!res.ok) {
                   const body = await res.json().catch(() => ({})) as Record<string, string>;
                   throw new Error(body.message || body.detail || `Erro ${res.status}`);
                 }
-                toast.success("Candidato adicionado!");
-                setNewCandidateOpen(false);
-                setNewCandForm({ nome: "", email: "", fone: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
-                setNewCandPendingDocs([]);
+                toast.success(editingCandidateId ? "Candidato atualizado!" : "Candidato adicionado!");
+                closeCandidateForm();
                 void load();
               } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Erro ao criar candidato");
+                toast.error(e instanceof Error ? e.message : "Erro ao salvar candidato");
               } finally {
                 setNewCandWorking(false);
               }
@@ -756,12 +879,23 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           </DialogHeader>
           {admissaoDialog.linkGerado ? (
             <div className="space-y-3">
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-center dark:border-emerald-800 dark:bg-emerald-900/20">
-                <Mail className="mx-auto size-8 text-emerald-600 mb-2" />
-                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Email enviado com sucesso!</p>
-                <p className="text-xs text-emerald-600/80 mt-1">O candidato receberá um email com o link para preencher seus dados de admissão.</p>
+              {admissaoDialog.emailEnviado ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center dark:border-emerald-800 dark:bg-emerald-900/20">
+                  <Mail className="mx-auto size-6 text-emerald-600 mb-1" />
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Email enviado ao candidato!</p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center dark:border-amber-800 dark:bg-amber-900/20">
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Email não configurado — compartilhe o link manualmente.</p>
+                </div>
+              )}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">Link de acesso do candidato:</p>
+                <div className="flex gap-2">
+                  <input readOnly value={admissaoDialog.linkGerado} className="flex-1 rounded-md border border-input bg-muted/40 px-2 py-1.5 text-xs font-mono truncate" />
+                  <Button size="sm" variant="outline" onClick={() => { void navigator.clipboard.writeText(admissaoDialog.linkGerado!); toast.success("Link copiado!"); }}>Copiar</Button>
+                </div>
               </div>
-              {/* Link disponível para copiar se necessário */}
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAdmissaoDialog((d) => ({ ...d, open: false }))}>Fechar</Button>
               </DialogFooter>
@@ -803,14 +937,14 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               </div>
               {admissaoDialog.modo === "link" && (
                 <div className="space-y-1.5">
-                  <label htmlFor="adm-cpf" className="text-sm font-medium">CPF do candidato <span className="text-destructive">*</span></label>
+                  <label htmlFor="adm-cpf" className="text-sm font-medium">CPF do candidato</label>
                   <Input id="adm-cpf" placeholder="000.000.000-00" value={admissaoDialog.cpf} onChange={(e) => setAdmissaoDialog((d) => ({ ...d, cpf: e.target.value }))} autoComplete="off" />
-                  <p className="text-xs text-muted-foreground">O candidato usará este CPF para acessar o portal e preencher seus dados.</p>
+                  <p className="text-xs text-muted-foreground">Opcional. Se não informado, o candidato registrará o próprio CPF no primeiro acesso ao portal.</p>
                 </div>
               )}
               <DialogFooter>
                 <Button variant="outline" disabled={admissaoDialog.working} onClick={() => setAdmissaoDialog((d) => ({ ...d, open: false }))}>Cancelar</Button>
-                <Button disabled={admissaoDialog.working || (admissaoDialog.modo === "link" && !admissaoDialog.cpf.trim())} onClick={() => void iniciarAdmissao()}>
+                <Button disabled={admissaoDialog.working} onClick={() => void iniciarAdmissao()}>
                   {admissaoDialog.working ? "Processando…" : "Confirmar"}
                 </Button>
               </DialogFooter>

@@ -164,7 +164,6 @@ public sealed class VagaService : IVagaService
         var solic = await _db.SolicitacoesVaga
             .AsNoTracking()
             .Include(s => s.Solicitante)
-            .Include(s => s.Aprovador1)
             .Include(s => s.Aprovador)
             .Where(s => s.VagaId == id)
             .FirstOrDefaultAsync(ct);
@@ -174,7 +173,7 @@ public sealed class VagaService : IVagaService
             response = response with
             {
                 SolicitanteNome = solic.Solicitante?.Name,
-                AprovadorNome = solic.Aprovador1?.Name ?? solic.Aprovador?.Name,
+                AprovadorNome = solic.Aprovador?.Name,
                 DataAprovacao = solic.ApprovedAtUtc,
             };
         }
@@ -246,6 +245,7 @@ public sealed class VagaService : IVagaService
             Regime = request.Regime,
             CargaSemanalHoras = request.CargaSemanalHoras,
             Escala = request.Escala,
+            EscalaTrabalhoRaw = TrimOrNull(request.EscalaTrabalhoRaw),
             HoraEntrada = request.HoraEntrada,
             HoraSaida = request.HoraSaida,
             Intervalo = request.Intervalo,
@@ -450,7 +450,6 @@ public sealed class VagaService : IVagaService
         {
             var missing = new List<string>();
             if (string.IsNullOrWhiteSpace(entity.Titulo)) missing.Add("Título");
-            if (!entity.AreaId.HasValue) missing.Add("Área");
             if (entity.QuantidadeVagas < 1) missing.Add("Quantidade de vagas");
             if (missing.Count > 0)
                 throw new InvalidOperationException($"Preencha os campos obrigatórios antes de abrir a vaga: {string.Join(", ", missing)}");
@@ -528,6 +527,7 @@ public sealed class VagaService : IVagaService
             v.Regime,
             v.CargaSemanalHoras,
             v.Escala,
+            v.EscalaTrabalhoRaw,
             v.HoraEntrada,
             v.HoraSaida,
             v.Intervalo,
@@ -883,6 +883,7 @@ public sealed class VagaService : IVagaService
         entity.Regime = request.Regime;
         entity.CargaSemanalHoras = request.CargaSemanalHoras;
         entity.Escala = request.Escala;
+        entity.EscalaTrabalhoRaw = TrimOrNull(request.EscalaTrabalhoRaw);
         entity.HoraEntrada = request.HoraEntrada;
         entity.HoraSaida = request.HoraSaida;
         entity.Intervalo = request.Intervalo;

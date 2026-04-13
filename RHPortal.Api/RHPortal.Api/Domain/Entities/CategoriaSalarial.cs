@@ -22,4 +22,10 @@ public sealed class CategoriaSalarial : ITenantEntity
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+
+    public Guid? EmpresaId { get; set; }
+    public Empresa? Empresa { get; set; }
+
+    public Guid? EstabelecimentoId { get; set; }
+    public Unit? Estabelecimento { get; set; }
 }

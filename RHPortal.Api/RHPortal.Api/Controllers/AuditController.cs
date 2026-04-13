@@ -277,10 +277,13 @@ public sealed class AuditController : ControllerBase
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var idStr = entityId.Value.ToString();
+        // PrimaryKeyJson is stored as jsonb — use @> (contains) instead of LIKE to avoid "operator does not exist: jsonb ~~ jsonb".
+        // All entities use a single Guid PK named "Id", so the document is always {"Id":"<uuid>"}.
+        var pkContains = $"{{\"Id\":\"{idStr}\"}}";
 
         var query = from c in db.AuditEntityChanges.AsNoTracking()
                     join t in db.AuditTransactions.AsNoTracking() on c.AuditTransactionId equals t.Id
-                    where c.EntityName == entityName.Trim() && c.PrimaryKeyJson != null && c.PrimaryKeyJson.Contains(idStr)
+                    where c.EntityName == entityName.Trim() && EF.Functions.JsonContains(c.PrimaryKeyJson, pkContains)
                     select new { c, t.UserName };
 
         var totalCount = await query.CountAsync(ct);

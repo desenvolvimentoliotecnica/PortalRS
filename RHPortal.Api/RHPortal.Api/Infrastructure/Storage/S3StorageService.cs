@@ -54,7 +54,11 @@ public sealed class S3StorageService : IS3StorageService
             ?? throw new InvalidOperationException("AWS S3 não configurado. Acesse Configurações → AWS S3 para configurar.");
 
         var client = BuildClient(opts);
+        // AWS SigV4 limita presigned URLs a no máximo 604800 segundos (7 dias)
+        var maxExpiry = TimeSpan.FromSeconds(604800);
         var expiration = expiresIn ?? TimeSpan.FromMinutes(opts.PresignedUrlExpirationMinutes);
+        if (expiration > maxExpiry) expiration = maxExpiry;
+
         var request = new GetPreSignedUrlRequest
         {
             BucketName = opts.BucketName,

@@ -30,6 +30,18 @@ public sealed class SolicitacaoVaga : ITenantEntity
     public Guid? UnitId { get; set; }
     public Unit? Unit { get; set; }
 
+    /// <summary>Empresa solicitante (A.RH.013).</summary>
+    public Guid? EmpresaId { get; set; }
+    public Empresa? Empresa { get; set; }
+
+    /// <summary>Centro de custo da vaga (A.RH.013).</summary>
+    public Guid? CentroCustoId { get; set; }
+    public CentroCusto? CentroCusto { get; set; }
+
+    /// <summary>Unidade de lotação da vaga (A.RH.013).</summary>
+    public Guid? UnidadeLotacaoId { get; set; }
+    public UnidadeLotacao? UnidadeLotacao { get; set; }
+
     /// <summary>Título descritivo (pode diferir do cargo).</summary>
     public string Titulo { get; set; } = default!;
 
@@ -64,22 +76,25 @@ public sealed class SolicitacaoVaga : ITenantEntity
     /// <summary>Nome do substituído (desnormalizado para consultas rápidas).</summary>
     public string? SubstituidoNome { get; set; }
 
-    // ── Sprint 2: Cadeia de aprovação ──
+    // ── A.RH.013: Campos do formulário de requisição de pessoal ──
 
-    /// <summary>1º aprovador (auto = gestor direto do solicitante). OBRIGATÓRIO.</summary>
-    public Guid? Aprovador1Id { get; set; }
-    public Funcionario? Aprovador1 { get; set; }
-    public StatusAprovacao Aprovador1Status { get; set; } = StatusAprovacao.Pendente;
-    public DateTimeOffset? Aprovador1DataUtc { get; set; }
+    /// <summary>Tipo de contrato: CLT, Estágio, Aprendiz, Temporário.</summary>
+    public TipoContratoVaga TipoContrato { get; set; } = TipoContratoVaga.CLT;
 
-    /// <summary>2º aprovador (auto = gestor do gestor). OPCIONAL.</summary>
-    public Guid? Aprovador2Id { get; set; }
-    public Funcionario? Aprovador2 { get; set; }
-    public StatusAprovacao? Aprovador2Status { get; set; }
-    public DateTimeOffset? Aprovador2DataUtc { get; set; }
+    /// <summary>Prazo em dias (para Estágio e Temporário).</summary>
+    public int? PrazoDias { get; set; }
 
-    /// <summary>Se true, a solicitação requer 2ª aprovação (nível acima do gestor direto).</summary>
-    public bool Aprovador2Habilitado { get; set; }
+    /// <summary>Motivo estruturado da requisição.</summary>
+    public MotivoRequisicaoVaga? MotivoRequisicao { get; set; }
+
+    /// <summary>CNH obrigatória para a vaga.</summary>
+    public bool CnhObrigatoria { get; set; }
+
+    /// <summary>Disponibilidade para viagens.</summary>
+    public bool DisponibilidadeViagens { get; set; }
+
+    /// <summary>Escala de trabalho (ex: Comercial, Turno A/B, 12x36).</summary>
+    public string? EscalaTrabalho { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }

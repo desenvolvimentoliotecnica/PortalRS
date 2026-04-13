@@ -1,3 +1,11 @@
+// Tipos de documento que possuem frente E verso
+export const TIPOS_COM_VERSO = new Set([
+    0,  // RG
+    2,  // CNH
+    9,  // CTPS
+    11, // RG dos Filhos
+]);
+
 export const TIPO_DOC_LABELS: Record<number, string> = {
     0: "RG",
     1: "CPF",

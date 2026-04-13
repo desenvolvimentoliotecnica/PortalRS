@@ -16,8 +16,8 @@ public sealed class FuncionarioCreateRequest
     [Required, MaxLength(160)]
     public string Name { get; set; } = string.Empty;
 
-    [Required, MaxLength(180), EmailAddress]
-    public string Email { get; set; } = string.Empty;
+    [MaxLength(180), EmailAddress]
+    public string? Email { get; set; }
 
     [MaxLength(40)]
     public string? Phone { get; set; }
@@ -39,6 +39,18 @@ public sealed class FuncionarioCreateRequest
     public string? Notes { get; set; }
 
     public Guid? UserId { get; set; }
+
+    /// <summary>Matrícula no TOTVS Datasul (cdn_funcionario).</summary>
+    [MaxLength(12)]
+    public string? CdnFuncionario { get; set; }
+
+    /// <summary>Código da empresa no TOTVS (cdn_empresa).</summary>
+    [MaxLength(3)]
+    public string? CdnEmpresa { get; set; }
+
+    /// <summary>Código do estabelecimento no TOTVS (cdn_estab).</summary>
+    [MaxLength(5)]
+    public string? CdnEstab { get; set; }
 }
 
 /// <summary>Item retornado por GET users-without-funcionario: todos os usuários do tenant com indicação se já têm funcionário.</summary>
@@ -46,7 +58,7 @@ public sealed record UserWithoutFuncionarioItemResponse(Guid Id, string FullName
 
 public sealed record FuncionarioUpdateRequest(
     [Required, MaxLength(160)] string Name,
-    [Required, MaxLength(180), EmailAddress] string Email,
+    [MaxLength(180), EmailAddress] string? Email,
     [MaxLength(40)] string? Phone,
     FuncionarioStatus Status,
     int Headcount,
@@ -63,10 +75,111 @@ public sealed record FuncionarioHierarquiaRequest(
     Guid? NivelHierarquicoId
 );
 
+/// <summary>
+/// Item para importação em lote de colaboradores vindos do TOTVS Datasul.
+/// Colunas correspondentes ao CSV de 2_extrai_colaboradores_unidade.p.
+/// Chave de upsert: (CdnEmpresa + CdnEstab + CdnFuncionario).
+/// </summary>
+public sealed class FuncionarioImportItem
+{
+    /// <summary>Matrícula do funcionário no TOTVS (cdn_funcionario).</summary>
+    [Required]
+    public string CdnFuncionario { get; set; } = string.Empty;
+
+    /// <summary>Código da empresa no TOTVS (cdn_empresa).</summary>
+    [Required]
+    public string CdnEmpresa { get; set; } = string.Empty;
+
+    /// <summary>Código do estabelecimento no TOTVS (cdn_estab).</summary>
+    [Required]
+    public string CdnEstab { get; set; } = string.Empty;
+
+    /// <summary>Nome completo (nom_pessoa_fisic).</summary>
+    [Required, MaxLength(160)]
+    public string Nome { get; set; } = string.Empty;
+
+    /// <summary>E-mail (nom_e_mail). Quando presente, busca ou cria a Pessoa vinculada. Sem validação de formato para permitir vazio.</summary>
+    [MaxLength(180)]
+    public string? Email { get; set; }
+
+    /// <summary>CPF (cod_id_feder).</summary>
+    [MaxLength(14)]
+    public string? Cpf { get; set; }
+
+    /// <summary>Data de nascimento — aceita dd/MM/yyyy ou formato exportado pelo Excel.</summary>
+    [MaxLength(30)]
+    public string? DataNascimento { get; set; }
+
+    /// <summary>RG (cod_id_estad_fisic).</summary>
+    [MaxLength(20)]
+    public string? Rg { get; set; }
+
+    /// <summary>Telefone (fone).</summary>
+    [MaxLength(40)]
+    public string? Fone { get; set; }
+
+    /// <summary>CEP (cod_cep_rh).</summary>
+    [MaxLength(20)]
+    public string? Cep { get; set; }
+
+    /// <summary>Logradouro (nom_ender_rh).</summary>
+    [MaxLength(200)]
+    public string? Logradouro { get; set; }
+
+    /// <summary>Número do endereço (cod_num_ender).</summary>
+    [MaxLength(40)]
+    public string? NumeroEndereco { get; set; }
+
+    /// <summary>Bairro (nom_bairro_rh).</summary>
+    [MaxLength(120)]
+    public string? Bairro { get; set; }
+
+    /// <summary>Cidade (nom_cidad_rh).</summary>
+    [MaxLength(120)]
+    public string? Cidade { get; set; }
+
+    /// <summary>UF — 2 letras (cod_unid_federac_rh).</summary>
+    [MaxLength(2)]
+    public string? Uf { get; set; }
+
+    /// <summary>Código da unidade de lotação no TOTVS (cod_unid_lotac) — informativo, usado pelo import-owners.</summary>
+    [MaxLength(20)]
+    public string? CodUnidLotac { get; set; }
+
+    /// <summary>Código do plano de lotação no TOTVS (cdn_plano_lotac). Usado junto com CodUnidLotac para lookup único.</summary>
+    [MaxLength(10)]
+    public string? CdnPlanoLotac { get; set; }
+
+    /// <summary>Data de início no cargo — aceita dd/MM/yyyy ou formato exportado pelo Excel.</summary>
+    [MaxLength(30)]
+    public string? DataInicCargo { get; set; }
+
+    /// <summary>Código do cargo no TOTVS (cod_cargo) — informativo.</summary>
+    [MaxLength(20)]
+    public string? CodCargo { get; set; }
+
+    /// <summary>Código do centro de custo no TOTVS (cod_ccusto).</summary>
+    [MaxLength(20)]
+    public string? CodCentroCusto { get; set; }
+
+    /// <summary>Código do nível de cargo no TOTVS (cdn_niv_cargo).</summary>
+    [MaxLength(10)]
+    public string? CodNivCargo { get; set; }
+}
+
+/// <summary>Resultado da importação em lote de colaboradores.</summary>
+public sealed record FuncionarioImportResult(
+    int Created,
+    int Updated,
+    int Skipped,
+    List<string> Errors,
+    List<string> Warnings
+);
+
 public sealed record FuncionarioResponse(
     Guid Id,
     string Name,
-    string Email,
+    string? Email,
     string? Phone,
     FuncionarioStatus Status,
     int Headcount,
@@ -76,10 +189,29 @@ public sealed record FuncionarioResponse(
     string? AreaName,
     Guid? JobPositionId,
     string? JobPositionName,
+    string? JobPositionCode,
     Guid? RequisitoCategoriaId,
     string? RequisitoCategoriaName,
     Guid? UserId,
     string? Notes,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+    // Hierarquia
+    Guid? GestorDiretoId,
+    string? GestorDiretoNome,
+    Guid? NivelHierarquicoId,
+    string? NivelHierarquicoNome,
+    // Lotação TOTVS
+    Guid? UnidadeLotacaoId,
+    string? UnidadeLotacaoDescricao,
+    // Chaves TOTVS Datasul
+    string? CdnFuncionario,
+    string? CdnEmpresa,
+    string? CdnEstab,
+    // Centro de Custo
+    Guid? CentroCustoId,
+    string? CentroCustoDescricao,
+    // Códigos para exibição
+    string? UnidadeLotacaoCode,
+    string? CentroCustoCode
 );

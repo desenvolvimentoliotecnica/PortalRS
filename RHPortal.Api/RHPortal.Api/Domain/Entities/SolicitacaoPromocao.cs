@@ -42,23 +42,50 @@ public sealed class SolicitacaoPromocao : ITenantEntity
     public Guid? NovaAreaId { get; set; }
     public Area? NovaArea { get; set; }
 
+    /// <summary>Nova unidade (se houver transferência de base).</summary>
+    public Guid? NovaUnidadeId { get; set; }
+    public Unit? NovaUnidade { get; set; }
+
+    /// <summary>Empresa da movimentação (A.RH.005).</summary>
+    public Guid? EmpresaId { get; set; }
+    public Empresa? Empresa { get; set; }
+
+    /// <summary>Estabelecimento/Local da movimentação (A.RH.005). Mesmo padrão de UnitId em SolicitacaoVaga.</summary>
+    public Guid? UnitId { get; set; }
+    public Unit? Unit { get; set; }
+
+    /// <summary>Centro de custo da movimentação (A.RH.005).</summary>
+    public Guid? CentroCustoId { get; set; }
+    public CentroCusto? CentroCusto { get; set; }
+
+    /// <summary>Unidade de lotação da movimentação (A.RH.005).</summary>
+    public Guid? UnidadeLotacaoId { get; set; }
+    public UnidadeLotacao? UnidadeLotacao { get; set; }
+
+    /// <summary>Motivo da movimentação conforme A.RH.005.</summary>
+    public MotivoMovimentacaoPessoal? MotivoMovimentacao { get; set; }
+
+    /// <summary>Nova localidade/cidade do funcionário.</summary>
+    public string? NovaLocalidade { get; set; }
+
+    /// <summary>Novo salário base (R$).</summary>
+    public decimal? NovoSalario { get; set; }
+
+    /// <summary>Nova periculosidade (ex: "30%", "Sim", "Não").</summary>
+    public string? NovaPericulosidade { get; set; }
+
+    /// <summary>Nova remuneração total (R$).</summary>
+    public decimal? NovaRemuneracao { get; set; }
+
+    /// <summary>Horário de trabalho proposto (A.RH.005 — Impacto na Folha).</summary>
+    public string? HorarioProposto { get; set; }
+
     /// <summary>Justificativa da promoção.</summary>
     public string Justificativa { get; set; } = default!;
 
     // ── Status e Aprovação ──
 
     public SolicitacaoStatus Status { get; set; } = SolicitacaoStatus.Rascunho;
-
-    public Guid? Aprovador1Id { get; set; }
-    public Funcionario? Aprovador1 { get; set; }
-    public StatusAprovacao Aprovador1Status { get; set; } = StatusAprovacao.Pendente;
-    public DateTimeOffset? Aprovador1DataUtc { get; set; }
-
-    public Guid? Aprovador2Id { get; set; }
-    public Funcionario? Aprovador2 { get; set; }
-    public StatusAprovacao? Aprovador2Status { get; set; }
-    public DateTimeOffset? Aprovador2DataUtc { get; set; }
-    public bool Aprovador2Habilitado { get; set; }
 
     public string? ObservacaoAprovador { get; set; }
     public string? Observacoes { get; set; }

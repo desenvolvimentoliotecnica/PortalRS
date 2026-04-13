@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     displayName: parsed.data.fullName,
                     email: parsed.data.email,
                     roles: parsed.data.roles,
-                    isAdmin: parsed.data.roles.some((r) => r.toLowerCase() === "admin"),
+                    isAdmin: parsed.data.roles.some((r) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador"),
                     isOwnerContext:
                         parsed.data.tenantId.toLowerCase() === "owner" ||
                         parsed.data.roles.some((r) => r.toLowerCase() === "owner"),

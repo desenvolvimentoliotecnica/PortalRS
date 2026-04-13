@@ -51,3 +51,14 @@ public sealed record SwitchTenantRequest(
 );
 
 public sealed record SwitchTenantResponse(string AccessToken, string TenantId);
+
+public sealed record AutoLoginRequest(
+    [Required, EmailAddress, MaxLength(180)] string Email,
+    [Required, MinLength(8), MaxLength(120)] string Password
+);
+
+public sealed record AutoLoginResponse(
+    string AccessToken,
+    int AccessTokenExpirationMinutes,
+    string TenantId
+);

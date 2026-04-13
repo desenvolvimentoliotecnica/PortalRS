@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Contracts.SolicitacoesVaga;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -33,16 +36,13 @@ public sealed class SolicitacoesVagaController : ControllerBase
     public async Task<IActionResult> List(
         [FromQuery] string? q,
         [FromQuery] SolicitacaoVagaStatus? status,
+        [FromQuery(Name = "statuses")] SolicitacaoVagaStatus[]? statuses,
         [FromQuery] bool? apenasMeus,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
         CancellationToken ct)
     {
-        // Gestores (non-Admin) always see only their own solicitations
-        var isAdmin = _userContext.IsAdmin;
-        var effectiveApenasMeus = isAdmin ? (apenasMeus ?? false) : true;
-
-        var query = new SolicitacaoVagaListQuery(q, status, effectiveApenasMeus, page, pageSize);
+        var query = new SolicitacaoVagaListQuery(q, status, statuses, apenasMeus, page, pageSize);
         return Ok(await _service.ListAsync(query, _userContext.FuncionarioId, ct));
     }
 
@@ -132,6 +132,25 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
+    /// <summary>Assume a solicitação de uma fila de perfil para o usuário logado.</summary>
+    [HttpPost("{id:guid}/assumir")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Assumir(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.AssumirAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Reprova a solicitação com observação (somente aprovador designado ou Admin).</summary>
     [HttpPost("{id:guid}/reject")]
     [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
@@ -176,6 +195,41 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
+    /// <summary>Cancela uma solicitação (somente pelo solicitante, enquanto não aprovada).</summary>
+    [HttpPost("{id:guid}/cancel")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.CancelAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/copy")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Copy(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.CopyAsync(id, _userContext.FuncionarioId, ct);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Exclui uma solicitação (somente rascunho).</summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -194,26 +248,64 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
+    /// <summary>Debug — mostra estado da etapa pendente e resolução de nome.</summary>
+    [HttpGet("{id:guid}/debug-etapa")]
+    public async Task<IActionResult> DebugEtapa(Guid id, [FromServices] AppDbContext db, CancellationToken ct)
+    {
+        var etapa = await db.Set<SolicitacaoAprovacaoEtapa>()
+            .AsNoTracking()
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal)
+            .OrderBy(e => e.Ordem)
+            .ToListAsync(ct);
+
+        var result = new List<object>();
+        foreach (var e in etapa)
+        {
+            object? aprovadorUser = null;
+            if (e.AprovadorId.HasValue)
+            {
+                aprovadorUser = await db.Set<ApplicationUser>()
+                    .AsNoTracking()
+                    .Where(u => u.FuncionarioId == e.AprovadorId)
+                    .Select(u => new { u.Id, u.UserName, u.FullName, u.FuncionarioId, u.IsActive })
+                    .FirstOrDefaultAsync(ct);
+            }
+
+            object? assumedUser = null;
+            if (e.AssumedByUserId.HasValue)
+            {
+                assumedUser = await db.Set<ApplicationUser>()
+                    .AsNoTracking()
+                    .IgnoreQueryFilters()
+                    .Where(u => u.Id == e.AssumedByUserId.Value)
+                    .Select(u => new { u.Id, u.UserName, u.FullName, u.FuncionarioId, u.IsActive, u.TenantId })
+                    .FirstOrDefaultAsync(ct);
+            }
+
+            result.Add(new
+            {
+                e.Ordem, e.Label, e.Status,
+                e.AprovadorId, e.RoleFilaId,
+                e.AssumedByUserId, e.Observacao,
+                aprovadorUser,
+                assumedUser,
+            });
+        }
+
+        return Ok(new
+        {
+            currentUserId = _userContext.UserId,
+            currentFuncionarioId = _userContext.FuncionarioId,
+            isAdmin = _userContext.IsAdmin,
+            etapas = result,
+        });
+    }
+
     // ── helpers ──
 
-    /// <summary>
-    /// Returns true if the current user is Admin or the designated approver for this solicitação.
-    /// </summary>
-    private async Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
+    private Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
     {
-        if (_userContext.IsAdmin) return true;
-
-        var sol = await _service.GetByIdAsync(solicitacaoId, ct);
-        if (sol is null) return true; // will 404 downstream
-
-        // If there's a designated approver, only they can act
-        if (sol.AprovadorId.HasValue && _userContext.FuncionarioId.HasValue)
-            return sol.AprovadorId.Value == _userContext.FuncionarioId.Value;
-
-        // Fallback: area-based — user with same area can approve
-        if (_userContext.AreaId.HasValue && sol.AreaId.HasValue)
-            return _userContext.AreaId.Value == sol.AreaId.Value;
-
-        return false;
+        // Delegação da autorização fina (Role, Gestor Direto, etc.) para o Serviço.
+        return Task.FromResult(true);
     }
 }

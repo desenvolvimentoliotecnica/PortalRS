@@ -1,13 +1,18 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Authentication;
+using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Application.Users;
 using RhPortal.Api.Contracts.Authentication;
+using RhPortal.Api.Contracts.Owner;
 using RhPortal.Api.Contracts.Users;
+using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
@@ -112,6 +117,62 @@ public sealed class AuthController : ControllerBase
                 Status = StatusCodes.Status409Conflict
             });
         }
+    }
+
+    /// <summary>
+    /// Autentica com e-mail e senha sem necessidade de informar o tenant.
+    /// </summary>
+    /// <remarks>
+    /// Verifica primeiro se é um owner; caso contrário, busca o usuário em todos os tenants ativos.
+    /// </remarks>
+    [AllowAnonymous]
+    [HttpPost("auto-login")]
+    [ProducesResponseType(typeof(AutoLoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> AutoLogin(
+        [FromBody] AutoLoginRequest request,
+        [FromServices] IServiceScopeFactory scopeFactory,
+        [FromServices] MasterDbContext masterDb,
+        [FromServices] OwnerAuthService ownerAuthService,
+        CancellationToken ct)
+    {
+        // 1. Tenta owner primeiro
+        var ownerRes = await ownerAuthService.LoginAsync(
+            new OwnerLoginRequest(request.Email, request.Password), ct);
+        if (ownerRes is not null)
+            return Ok(new AutoLoginResponse(
+                ownerRes.AccessToken,
+                ownerRes.AccessTokenExpirationMinutes,
+                "owner"));
+
+        // 2. Itera todos os tenants ativos
+        var tenantIds = await masterDb.Tenants
+            .AsNoTracking()
+            .Where(t => t.IsActive)
+            .Select(t => t.TenantId)
+            .ToListAsync(ct);
+
+        foreach (var tenantId in tenantIds)
+        {
+            using var scope = scopeFactory.CreateScope();
+            var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+            tenantCtx.SetTenantId(tenantId);
+            var authSvc = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
+            var res = await authSvc.LoginAsync(
+                new LoginRequest(request.Email, request.Password), ct);
+            if (res is not null)
+                return Ok(new AutoLoginResponse(
+                    res.AccessToken,
+                    res.AccessTokenExpirationMinutes,
+                    res.TenantId));
+        }
+
+        return Unauthorized(new ProblemDetails
+        {
+            Title = _localizer["ControllerErrors.InvalidCredentialsTitle"],
+            Detail = _localizer["ControllerErrors.InvalidCredentialsDetail"],
+            Status = StatusCodes.Status401Unauthorized
+        });
     }
 
     /// <summary>

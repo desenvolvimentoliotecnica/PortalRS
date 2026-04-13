@@ -24,14 +24,13 @@ public sealed class CentroCustoController : ControllerBase
     }
 
     [HttpGet]
-    [OutputCache(PolicyName = "lookup")]
     [ProducesResponseType(typeof(List<CentroCustoResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<CentroCustoResponse>>> List(
         [FromServices] AppDbContext db,
         CancellationToken ct,
         [FromQuery] string? search,
         [FromQuery] int skip = 0,
-        [FromQuery] int take = 100)
+        [FromQuery] int take = 5000)
     {
         var query = db.CentrosCusto.AsNoTracking();
 
@@ -50,7 +49,11 @@ public sealed class CentroCustoController : ControllerBase
             .Take(take)
             .Select(x => new CentroCustoResponse(
                 x.Id, x.Code, x.Description, x.Manager, x.Notes,
-                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc))
+                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
+                x.EmpresaId,
+                x.Empresa != null ? x.Empresa.Code : null,
+                x.Empresa != null ? x.Empresa.Description : null,
+                x.ValidFrom, x.ValidUntil))
             .ToListAsync(ct);
 
         Response.Headers["X-Total-Count"] = total.ToString();
@@ -65,7 +68,9 @@ public sealed class CentroCustoController : ControllerBase
         CancellationToken ct,
         [FromQuery] string? search)
     {
-        var query = db.CentrosCusto.AsNoTracking().Where(x => x.IsActive);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var query = db.CentrosCusto.AsNoTracking()
+            .Where(x => x.IsActive && (!x.ValidUntil.HasValue || x.ValidUntil >= today));
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -99,7 +104,11 @@ public sealed class CentroCustoController : ControllerBase
             .Where(x => x.Id == id)
             .Select(x => new CentroCustoResponse(
                 x.Id, x.Code, x.Description, x.Manager, x.Notes,
-                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc))
+                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
+                x.EmpresaId,
+                x.Empresa != null ? x.Empresa.Code : null,
+                x.Empresa != null ? x.Empresa.Description : null,
+                x.ValidFrom, x.ValidUntil))
             .FirstOrDefaultAsync(ct);
 
         return item is null ? NotFound() : Ok(item);
@@ -113,8 +122,9 @@ public sealed class CentroCustoController : ControllerBase
         [FromServices] AppDbContext db,
         CancellationToken ct)
     {
-        if (await db.CentrosCusto.AnyAsync(x => x.Code == request.Code, ct))
-            return Conflict(new { message = "Centro de Custo com este código já existe" });
+        if (await db.CentrosCusto.AnyAsync(
+            x => x.EmpresaId == request.EmpresaId && x.Code == request.Code.Trim(), ct))
+            return Conflict(new { message = $"Já existe um centro de custo com o código '{request.Code}' nesta empresa." });
 
         var entity = new CentroCusto
         {
@@ -123,16 +133,28 @@ public sealed class CentroCustoController : ControllerBase
             Description = request.Description.Trim(),
             Manager = string.IsNullOrWhiteSpace(request.Manager) ? null : request.Manager.Trim(),
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
-            IsActive = request.IsActive
+            IsActive = request.IsActive,
+            EmpresaId = request.EmpresaId,
+            ValidFrom = request.ValidFrom,
+            ValidUntil = request.ValidUntil
         };
 
         db.CentrosCusto.Add(entity);
         await db.SaveChangesAsync(ct);
 
-        var response = new CentroCustoResponse(
-            entity.Id, entity.Code, entity.Description, entity.Manager, entity.Notes,
-            entity.IsActive, entity.CreatedAtUtc, entity.UpdatedAtUtc);
-        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, response);
+        var created = await db.CentrosCusto
+            .AsNoTracking()
+            .Where(x => x.Id == entity.Id)
+            .Select(x => new CentroCustoResponse(
+                x.Id, x.Code, x.Description, x.Manager, x.Notes,
+                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
+                x.EmpresaId,
+                x.Empresa != null ? x.Empresa.Code : null,
+                x.Empresa != null ? x.Empresa.Description : null,
+                x.ValidFrom, x.ValidUntil))
+            .FirstAsync(ct);
+
+        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, created);
     }
 
     [HttpPut("{id:guid}")]
@@ -148,22 +170,35 @@ public sealed class CentroCustoController : ControllerBase
         var entity = await db.CentrosCusto.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
 
-        var codeExists = await db.CentrosCusto.AnyAsync(x => x.Id != id && x.Code == request.Code, ct);
-        if (codeExists)
-            return Conflict(new { message = "Centro de Custo com este código já existe" });
+        if (await db.CentrosCusto.AnyAsync(
+            x => x.Id != id && x.EmpresaId == request.EmpresaId && x.Code == request.Code.Trim(), ct))
+            return Conflict(new { message = $"Já existe outro centro de custo com o código '{request.Code}' nesta empresa." });
 
         entity.Code = request.Code.Trim();
         entity.Description = request.Description.Trim();
         entity.Manager = string.IsNullOrWhiteSpace(request.Manager) ? null : request.Manager.Trim();
         entity.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
         entity.IsActive = request.IsActive;
+        entity.EmpresaId = request.EmpresaId;
+        entity.ValidFrom = request.ValidFrom;
+        entity.ValidUntil = request.ValidUntil;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
 
-        return Ok(new CentroCustoResponse(
-            entity.Id, entity.Code, entity.Description, entity.Manager, entity.Notes,
-            entity.IsActive, entity.CreatedAtUtc, entity.UpdatedAtUtc));
+        var updated = await db.CentrosCusto
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => new CentroCustoResponse(
+                x.Id, x.Code, x.Description, x.Manager, x.Notes,
+                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
+                x.EmpresaId,
+                x.Empresa != null ? x.Empresa.Code : null,
+                x.Empresa != null ? x.Empresa.Description : null,
+                x.ValidFrom, x.ValidUntil))
+            .FirstAsync(ct);
+
+        return Ok(updated);
     }
 
     [HttpDelete("{id:guid}")]
@@ -181,5 +216,121 @@ public sealed class CentroCustoController : ControllerBase
         await db.SaveChangesAsync(ct);
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Importação em lote de centros de custo. Upsert por (EmpresaCodigo, Code).
+    /// Suporta até 5.000 registros por requisição.
+    /// </summary>
+    [HttpPost("import")]
+    [ProducesResponseType(typeof(CentroCustoImportResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<CentroCustoImportResult>> Import(
+        [FromBody] List<CentroCustoImportItem> items,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (items is null || items.Count == 0)
+            return BadRequest(new { message = "Nenhum item fornecido." });
+        if (items.Count > 5000)
+            return BadRequest(new { message = "Máximo de 5.000 registros por importação." });
+
+        // Resolve empresa codes → IDs
+        var empresaMap = await db.Empresas
+            .AsNoTracking()
+            .Select(x => new { x.Id, x.Code })
+            .ToDictionaryAsync(x => x.Code.ToLowerInvariant(), x => x.Id, ct);
+
+        // Build existing map: key = "empresaCode|code"
+        var existingMap = await db.CentrosCusto
+            .AsNoTracking()
+            .Select(x => new { x.Id, x.Code, x.EmpresaId, EmpresaCode = x.Empresa != null ? x.Empresa.Code : null })
+            .ToListAsync(ct);
+        var existingDict = existingMap
+            .Where(x => x.EmpresaCode != null)
+            .ToDictionary(
+                x => $"{x.EmpresaCode!.ToLowerInvariant()}|{x.Code.ToLowerInvariant()}",
+                x => x.Id);
+        // Also include items without empresa (key = "|code")
+        foreach (var x in existingMap.Where(x => x.EmpresaCode == null))
+            existingDict.TryAdd($"|{x.Code.ToLowerInvariant()}", x.Id);
+
+        int created = 0, updated = 0, skipped = 0;
+        var errors = new List<string>();
+        var toAdd = new List<CentroCusto>();
+        int pending = 0;
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            var code = item.Code.Trim();
+            Guid? empresaId = null;
+            string empresaCodeKey = "";
+            if (!string.IsNullOrWhiteSpace(item.EmpresaCodigo))
+            {
+                if (empresaMap.TryGetValue(item.EmpresaCodigo.Trim().ToLowerInvariant(), out var eid))
+                { empresaId = eid; empresaCodeKey = item.EmpresaCodigo.Trim().ToLowerInvariant(); }
+                else { errors.Add($"Linha {i + 1}: Empresa '{item.EmpresaCodigo}' não encontrada."); skipped++; continue; }
+            }
+
+            var mapKey = $"{empresaCodeKey}|{code.ToLowerInvariant()}";
+            DateOnly? validFrom = TryParseDate(item.ValidFrom);
+            DateOnly? validUntil = TryParseDate(item.ValidUntil);
+
+            if (existingDict.TryGetValue(mapKey, out var existingId))
+            {
+                var entity = await db.CentrosCusto.FindAsync([existingId], ct);
+                if (entity is null) { skipped++; continue; }
+                entity.Code = code;
+                entity.Description = item.Description.Trim();
+                entity.Manager = string.IsNullOrWhiteSpace(item.Manager) ? null : item.Manager.Trim();
+                entity.IsActive = item.IsActive;
+                entity.EmpresaId = empresaId;
+                entity.ValidFrom = validFrom;
+                entity.ValidUntil = validUntil;
+                entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                updated++;
+            }
+            else
+            {
+                var entity = new CentroCusto
+                {
+                    Id = Guid.NewGuid(),
+                    Code = code,
+                    Description = item.Description.Trim(),
+                    Manager = string.IsNullOrWhiteSpace(item.Manager) ? null : item.Manager.Trim(),
+                    IsActive = item.IsActive,
+                    EmpresaId = empresaId,
+                    ValidFrom = validFrom,
+                    ValidUntil = validUntil,
+                };
+                toAdd.Add(entity);
+                existingDict[mapKey] = entity.Id;
+                created++;
+            }
+
+            pending++;
+            if (pending >= 100)
+            {
+                if (toAdd.Count > 0) { db.CentrosCusto.AddRange(toAdd); toAdd.Clear(); }
+                await db.SaveChangesAsync(ct);
+                pending = 0;
+            }
+        }
+
+        if (toAdd.Count > 0) db.CentrosCusto.AddRange(toAdd);
+        if (pending > 0) await db.SaveChangesAsync(ct);
+
+        return Ok(new CentroCustoImportResult(created, updated, skipped, errors));
+    }
+
+    private static DateOnly? TryParseDate(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        var v = s.Trim();
+        if (DateOnly.TryParseExact(v, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out var d)) return d;
+        if (DateOnly.TryParseExact(v, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out d)) return d;
+        if (DateOnly.TryParseExact(v, "dd-MM-yyyy", null, System.Globalization.DateTimeStyles.None, out d)) return d;
+        return null;
     }
 }

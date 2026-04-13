@@ -34,12 +34,10 @@ public sealed record SolicitacaoFeriasResponse(
     Guid SolicitanteId, string? SolicitanteNome,
     string? PeriodoAquisitivo, DateOnly DataInicio, DateOnly DataFim, int QtdDias,
     bool AbonoPecuniario, int DiasAbono, bool Adiantamento13,
-    Guid? Aprovador1Id, string? Aprovador1Nome, StatusAprovacao Aprovador1Status, DateTimeOffset? Aprovador1DataUtc,
-    Guid? Aprovador2Id, string? Aprovador2Nome, StatusAprovacao? Aprovador2Status, DateTimeOffset? Aprovador2DataUtc,
-    bool Aprovador2Habilitado,
     string? ObservacaoAprovador, string? Observacoes,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, DateTimeOffset? ApprovedAtUtc,
-    IntegracaoResultado? IntegracaoResultado, string? IntegracaoMensagem, DateTimeOffset? IntegradaEmUtc
+    IntegracaoResultado? IntegracaoResultado, string? IntegracaoMensagem, DateTimeOffset? IntegradaEmUtc,
+    IReadOnlyList<RhPortal.Api.Contracts.Common.EtapaAprovacaoResponse> Etapas
 );
 
 public sealed class SolicitacaoFeriasApprovalRequest
@@ -51,5 +49,7 @@ public sealed class SolicitacaoFeriasApprovalRequest
 public sealed record SolicitacaoFeriasGridRow(
     Guid Id, SolicitacaoStatus Status, string? SolicitanteNome,
     DateOnly DataInicio, DateOnly DataFim, int QtdDias,
-    bool AbonoPecuniario, DateTimeOffset CreatedAtUtc
+    bool AbonoPecuniario, DateTimeOffset CreatedAtUtc,
+    string? EtapaPendenteLabel, string? EtapaPendenteCom,
+    bool EtapaPendenteIsQueue, Guid? EtapaPendenteAprovadorId
 );

@@ -160,6 +160,24 @@ public sealed class OwnerController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("tenants/{tenantId}/reactivate")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReactivateTenant(string tenantId, CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var tenant = await _masterDb.Tenants.FirstOrDefaultAsync(t => t.TenantId == id, ct);
+        if (tenant is null)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+        tenant.IsActive = true;
+        tenant.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _masterDb.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     /// <summary>Retorna o status de migrações de todos os tenants (se o schema do banco está em dia).</summary>
     [HttpGet("tenants/migrations/status")]
     [ProducesResponseType(typeof(IReadOnlyList<TenantMigrationStatusResponse>), StatusCodes.Status200OK)]

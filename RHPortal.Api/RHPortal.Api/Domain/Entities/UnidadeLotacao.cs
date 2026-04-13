@@ -1,37 +1,70 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace RhPortal.Api.Domain.Entities;
 
 /// <summary>
-/// Unidade de Lotação para integração TOTVS.
-/// Baseado em apisfunidlotac.p do Protheus.
+/// Unidade de Lotação para integração TOTVS Datasul.
+/// Suporta hierarquia pai-filho (estrut_plano_lotac) e responsável vinculado por FK.
 /// </summary>
 public sealed class UnidadeLotacao : ITenantEntity
 {
     public Guid Id { get; set; }
     public string TenantId { get; set; } = default!;
 
-    /// <summary>Código da unidade de lotação</summary>
-    [System.ComponentModel.DataAnnotations.Required]
-    [System.ComponentModel.DataAnnotations.MaxLength(30)]
+    /// <summary>Código do plano de lotação TOTVS (cdn_plano_lotac). Parte da chave composta com Code.</summary>
+    [Required]
+    [MaxLength(10)]
+    public string CdnPlanoLotac { get; set; } = default!;
+
+    /// <summary>Código da unidade de lotação (cod_unid_lotac)</summary>
+    [Required]
+    [MaxLength(30)]
     public string Code { get; set; } = default!;
 
-    /// <summary>Descrição da unidade de lotação</summary>
-    [System.ComponentModel.DataAnnotations.Required]
-    [System.ComponentModel.DataAnnotations.MaxLength(120)]
+    /// <summary>Descrição da unidade de lotação (des_unid_lotac)</summary>
+    [Required]
+    [MaxLength(120)]
     public string Description { get; set; } = default!;
 
     /// <summary>Localização física ou código de local</summary>
-    [System.ComponentModel.DataAnnotations.MaxLength(120)]
+    [MaxLength(120)]
     public string? Location { get; set; }
 
-    /// <summary>Gerente ou responsável</summary>
-    [System.ComponentModel.DataAnnotations.MaxLength(120)]
-    public string? Manager { get; set; }
-
     /// <summary>Observações</summary>
-    [System.ComponentModel.DataAnnotations.MaxLength(500)]
+    [MaxLength(500)]
     public string? Notes { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    // ── Hierarquia ──
+
+    /// <summary>
+    /// Unidade pai na hierarquia organizacional (cod_unid_lotac_pai de estrut_plano_lotac).
+    /// Null = unidade raiz.
+    /// </summary>
+    public Guid? ParentId { get; set; }
+    public UnidadeLotacao? Parent { get; set; }
+    public ICollection<UnidadeLotacao>? Children { get; set; }
+
+    /// <summary>
+    /// Nível hierárquico vindo do TOTVS (num_niv_unid_lotac). Editável. Default 1 = raiz.
+    /// </summary>
+    public int Level { get; set; } = 1;
+
+    /// <summary>
+    /// Sequência dentro do nível (num_seq_unid_lotac). Opcional, usado para ordenação.
+    /// </summary>
+    public int? SequenceNumber { get; set; }
+
+    // ── Responsável / Dono ──
+
+    /// <summary>
+    /// Funcionário responsável pela unidade (unid_lotac_resp).
+    /// Vinculado pela chave TOTVS (CdnEmpresa + CdnEstab + CdnFuncionario) na importação.
+    /// </summary>
+    public Guid? OwnerFuncionarioId { get; set; }
+    public Funcionario? OwnerFuncionario { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 }

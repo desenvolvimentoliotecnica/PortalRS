@@ -116,7 +116,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             x.DocumentosSolicitados.Count(),
             x.DocumentosSolicitados.Count() - x.Documentos.Select(d => d.Tipo).Distinct().Count(),
             x.Documentos.Select(d => d.Tipo).Distinct().Count(),
-            x.Documentos.Count(d => d.Status == StatusDocumento.Rejeitado)
+            x.Documentos.Count(d => d.Status == StatusDocumento.Rejeitado),
+            x.WizardCurrentStep,
+            x.WizardCompletionPercent,
+            x.LastActivityUtc
         )).ToListAsync(ct);
     }
 
@@ -129,6 +132,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .Include(x => x.RevisadoPor).Include(x => x.AprovadoPor)
             .Include(x => x.Documentos)
             .Include(x => x.DocumentosSolicitados)
+            .Include(x => x.Dependentes)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         return e is null ? null : MapDetail(e);
     }
@@ -165,23 +169,33 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         // Pessoal
         e.Nome = r.Nome.Trim();
+        e.NomeSocial = r.NomeSocial?.Trim(); e.NomeAbreviado = r.NomeAbreviado?.Trim();
         e.Cpf = r.Cpf?.Trim(); e.Rg = r.Rg?.Trim(); e.RgOrgaoExpedidor = r.RgOrgaoExpedidor?.Trim();
+        e.RgUfExpedidor = r.RgUfExpedidor?.Trim();
         e.RgDataExpedicao = r.RgDataExpedicao; e.DataNascimento = r.DataNascimento;
         e.Sexo = r.Sexo ?? Sexo.NaoInformado; e.EstadoCivil = r.EstadoCivil ?? EstadoCivil.NaoInformado;
-        e.Nacionalidade = r.Nacionalidade?.Trim(); e.NomeMae = r.NomeMae?.Trim(); e.NomePai = r.NomePai?.Trim();
+        e.Nacionalidade = r.Nacionalidade?.Trim(); e.PaisNacionalidade = r.PaisNacionalidade?.Trim();
+        e.NomeMae = r.NomeMae?.Trim(); e.NomePai = r.NomePai?.Trim();
         e.NaturalCidade = r.NaturalCidade?.Trim(); e.NaturalUf = r.NaturalUf?.Trim();
+        e.PaisNascimento = r.PaisNascimento?.Trim();
 
         // Estrangeiro
         e.Passaporte = r.Passaporte?.Trim(); e.RnmRne = r.RnmRne?.Trim();
         e.ValidadeVisto = r.ValidadeVisto; e.TipoVisto = r.TipoVisto?.Trim();
+        e.ResideExterior = r.ResideExterior?.Trim(); e.TipoVistoEstrangeiro = r.TipoVistoEstrangeiro;
 
         // Endereço
         e.Cep = r.Cep?.Trim(); e.Logradouro = r.Logradouro?.Trim(); e.Numero = r.Numero?.Trim();
         e.Complemento = r.Complemento?.Trim(); e.Bairro = r.Bairro?.Trim();
         e.Cidade = r.Cidade?.Trim(); e.Uf = r.Uf?.Trim();
+        e.PontoReferencia = r.PontoReferencia?.Trim();
+        e.TipoLogradouroESocial = r.TipoLogradouroESocial?.Trim();
+        e.MunicipioEnderecoIbge = r.MunicipioEnderecoIbge;
 
         // Contato
-        e.Email = r.Email?.Trim(); e.Telefone = r.Telefone?.Trim(); e.Celular = r.Celular?.Trim();
+        e.Email = r.Email?.Trim(); e.EmailAlternativo = r.EmailAlternativo?.Trim();
+        e.Telefone = r.Telefone?.Trim(); e.Celular = r.Celular?.Trim();
+        e.DddTelefone = r.DddTelefone; e.DddTelContato = r.DddTelContato;
         e.ContatoEmergenciaNome = r.ContatoEmergenciaNome?.Trim(); e.ContatoEmergenciaFone = r.ContatoEmergenciaFone?.Trim();
 
         // Bancário
@@ -190,45 +204,100 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.Conta = r.Conta?.Trim(); e.ContaDigito = r.ContaDigito?.Trim(); e.TipoConta = r.TipoConta;
 
         // Trabalhista
-        e.EstabelecimentoCodigo = r.EstabelecimentoCodigo?.Trim();
+        e.EstabelecimentoCodigo = r.EstabelecimentoCodigo?.Trim(); e.CodEmpresa = r.CodEmpresa?.Trim();
         e.UnitId = r.UnitId; e.AreaId = r.AreaId; e.JobPositionId = r.JobPositionId;
         e.RequisitoCategoriaId = r.RequisitoCategoriaId;
         e.DataAdmissao = r.DataAdmissao; e.Salario = r.Salario;
         e.TipoContratacao = r.TipoContratacao; e.CargaHorariaSemanal = r.CargaHorariaSemanal;
         e.PisPasep = r.PisPasep?.Trim();
 
-        // Campos integração TOTVS
-        e.CodCargoTotvs = r.CodCargoTotvs;
-        e.CodVinculoEmpregaticio = r.CodVinculoEmpregaticio;
-        e.TipoFuncionario = r.TipoFuncionario;
-        e.CategoriaSalarial = r.CategoriaSalarial;
-        e.GrauInstrucao = r.GrauInstrucao;
-        e.CodTurno = r.CodTurno;
-        e.CentroCusto = r.CentroCusto?.Trim();
-        e.UnidadeLotacao = r.UnidadeLotacao?.Trim();
+        // TOTVS: Cargo/Vinculo
+        e.CodCargoTotvs = r.CodCargoTotvs; e.CodVinculoEmpregaticio = r.CodVinculoEmpregaticio;
+        e.TipoFuncionario = r.TipoFuncionario; e.CategoriaSalarial = r.CategoriaSalarial;
+        e.GrauInstrucao = r.GrauInstrucao; e.CodTurno = r.CodTurno;
+        e.CentroCusto = r.CentroCusto?.Trim(); e.UnidadeLotacao = r.UnidadeLotacao?.Trim();
+        e.CodPlanoLotacao = r.CodPlanoLotacao; e.CodTurma = r.CodTurma;
+        e.NumCartaoPonto = r.NumCartaoPonto; e.CodNivel = r.CodNivel;
+        e.TipoMaoDeObra = r.TipoMaoDeObra?.Trim(); e.FormaPagamento = r.FormaPagamento;
+        e.SalarioSimulado = r.SalarioSimulado;
+        e.OrigemFuncionario = r.OrigemFuncionario; e.IndFuncVinculado = r.IndFuncVinculado;
+        e.FuncQualificado = r.FuncQualificado?.Trim();
+
+        // FGTS/INSS
+        e.OptanteFgts = r.OptanteFgts?.Trim(); e.DataOpcaoFgts = r.DataOpcaoFgts;
+        e.TipoAdmissaoFgts = r.TipoAdmissaoFgts;
+        e.RecolheFgts = r.RecolheFgts?.Trim(); e.RecolheInss = r.RecolheInss?.Trim();
+
+        // Sindicato
+        e.Sindicalizado = r.Sindicalizado?.Trim(); e.DescContribSindical = r.DescContribSindical?.Trim();
+        e.ContribSindicDia = r.ContribSindicDia?.Trim(); e.CodSindicato = r.CodSindicato;
+
+        // Flags calculo
+        e.CargaAutomTurno = r.CargaAutomTurno?.Trim(); e.RecebePericul = r.RecebePericul?.Trim();
+        e.RecebeInsalub = r.RecebeInsalub?.Trim(); e.RecebeAdiantamento = r.RecebeAdiantamento?.Trim();
+        e.ConsidEmissRAIS = r.ConsidEmissRAIS?.Trim(); e.Calcula13 = r.Calcula13?.Trim();
+        e.RecebeFerias = r.RecebeFerias?.Trim();
+
+        // Provisoes 13
+        e.Avos13SalCalcAnterior = r.Avos13SalCalcAnterior; e.Avos13SalCalc = r.Avos13SalCalc;
+        e.ProvAcum13Sal = r.ProvAcum13Sal; e.ProvAcumInss13Sal = r.ProvAcumInss13Sal;
+        e.ProvAcumFgts13Sal = r.ProvAcumFgts13Sal;
+
+        // Provisoes Ferias
+        e.DiasProvFeriasMesAnterior = r.DiasProvFeriasMesAnterior; e.DiasProvFeriasMesAtual = r.DiasProvFeriasMesAtual;
+        e.ProvAcumFerias = r.ProvAcumFerias; e.ProvAcumInssFerias = r.ProvAcumInssFerias;
+        e.ProvAcumFgtsFerias = r.ProvAcumFgtsFerias; e.ProvAcumFerias13 = r.ProvAcumFerias13;
+
+        // Ponto
+        e.EmitCartPonto = r.EmitCartPonto?.Trim(); e.CodLocalMarcacao = r.CodLocalMarcacao;
+        e.CodClassFuncPontoEletronico = r.CodClassFuncPontoEletronico;
 
         // Docs avulsos
         e.TituloEleitorNumero = r.TituloEleitorNumero?.Trim();
         e.TituloEleitorZona = r.TituloEleitorZona?.Trim();
         e.TituloEleitorSecao = r.TituloEleitorSecao?.Trim();
+        e.TituloEleitorCidade = r.TituloEleitorCidade?.Trim();
+        e.TituloEleitorUf = r.TituloEleitorUf?.Trim();
         e.ReservistaNumero = r.ReservistaNumero?.Trim();
         e.CategoriaCnh = r.CategoriaCnh?.Trim(); e.ValidadeCnh = r.ValidadeCnh;
         e.Ctps = r.Ctps?.Trim(); e.CtpsSerie = r.CtpsSerie?.Trim(); e.CtpsUf = r.CtpsUf?.Trim();
+        e.CtpsModelo = r.CtpsModelo; e.CtpsSerieESocial = r.CtpsSerieESocial?.Trim();
 
-        // Saúde e docs complementares TOTVS
-        e.GrupoSanguineo = r.GrupoSanguineo;
-        e.FatorRh = r.FatorRh;
-        e.PossuiDeficiencia = r.PossuiDeficiencia?.Trim();
-        e.DocMilitarTipo = r.DocMilitarTipo;
-        e.DocMilitarNumero = r.DocMilitarNumero?.Trim();
-        e.DocMilitarSerie = r.DocMilitarSerie?.Trim();
-        e.DocMilitarRegiao = r.DocMilitarRegiao;
-        e.CartaoSus = r.CartaoSus?.Trim();
-        e.TituloEleitorCidade = r.TituloEleitorCidade?.Trim();
-        e.TituloEleitorUf = r.TituloEleitorUf?.Trim();
-        e.CtpsModelo = r.CtpsModelo;
-        e.Altura = r.Altura;
-        e.Peso = r.Peso;
+        // CNH completo
+        e.CnhNumero = r.CnhNumero?.Trim(); e.CnhUf = r.CnhUf?.Trim();
+        e.CnhOrgaoEmissor = r.CnhOrgaoEmissor?.Trim();
+        e.CnhDataExpedicao = r.CnhDataExpedicao; e.CnhPrimeiraHabilitacao = r.CnhPrimeiraHabilitacao;
+
+        // Doc Militar
+        e.DocMilitarTipo = r.DocMilitarTipo; e.DocMilitarNumero = r.DocMilitarNumero?.Trim();
+        e.DocMilitarSerie = r.DocMilitarSerie?.Trim(); e.DocMilitarRegiao = r.DocMilitarRegiao;
+        e.DocMilitarCircunscricao = r.DocMilitarCircunscricao;
+
+        // Saude
+        e.GrupoSanguineo = r.GrupoSanguineo; e.FatorRh = r.FatorRh;
+        e.PossuiDeficiencia = r.PossuiDeficiencia?.Trim(); e.FuncDoador = r.FuncDoador?.Trim();
+        e.CartaoSus = r.CartaoSus?.Trim(); e.Altura = r.Altura; e.Peso = r.Peso;
+        e.Cutis = r.Cutis; e.Cabelo = r.Cabelo; e.Olhos = r.Olhos;
+        e.Manequim = r.Manequim; e.Sapato = r.Sapato;
+
+        // Contrato
+        e.DataTerminoContrato = r.DataTerminoContrato;
+
+        // Localidade
+        e.PaisLocalidade = r.PaisLocalidade?.Trim(); e.CodLocalidade = r.CodLocalidade; e.CodFpas = r.CodFpas;
+
+        // eSocial
+        e.CategoriaTrabalhoESocial = r.CategoriaTrabalhoESocial; e.IndAdmissao = r.IndAdmissao;
+        e.NaturezaAtividade = r.NaturezaAtividade; e.MunicipioNascimentoIbge = r.MunicipioNascimentoIbge;
+        e.TipoAdmissaoESocial = r.TipoAdmissaoESocial;
+        e.RegimeTrabalhista = r.RegimeTrabalhista; e.RegimePrevidenciario = r.RegimePrevidenciario;
+        e.RegimeJornada = r.RegimeJornada; e.MatriculaESocial = r.MatriculaESocial?.Trim();
+
+        // CAGED
+        e.OcorrenciaCAGED = r.OcorrenciaCAGED;
+
+        // Registro exterior
+        e.CodRegistroExterior = r.CodRegistroExterior?.Trim();
 
         e.ValidacaoSalarioJustificativa = r.ValidacaoSalarioJustificativa?.Trim();
 
@@ -349,6 +418,28 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
         _db.Set<Funcionario>().Add(func);
+
+        // Migrar dependentes da pré-admissão para o novo funcionário
+        var preDeps = await _db.Set<PreAdmissaoDependente>()
+            .Where(x => x.PreAdmissaoId == pa.Id)
+            .ToListAsync(ct);
+        foreach (var pd in preDeps)
+        {
+            _db.Set<Dependente>().Add(new Dependente
+            {
+                Id = Guid.NewGuid(),
+                TenantId = pa.TenantId,
+                FuncionarioId = func.Id,
+                NomeCompleto = pd.NomeCompleto,
+                Parentesco = pd.Parentesco,
+                Cpf = pd.Cpf,
+                DataNascimento = pd.DataNascimento,
+                IsPcd = pd.IsPcd,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+            });
+        }
+
         await _db.SaveChangesAsync(ct);
 
         // Notificar o novo colaborador por email
@@ -494,7 +585,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         if (pa.Status == PreAdmissaoStatus.Integrada)
             throw new InvalidOperationException("Admissão já integrada. Não é possível reenviar o link.");
 
-        pa.Cpf = NormalizeCpf(request.Cpf);
+        pa.Cpf = string.IsNullOrWhiteSpace(request.Cpf) ? null : NormalizeCpf(request.Cpf);
         pa.AccessToken ??= Guid.NewGuid().ToString("N");
         pa.Status = PreAdmissaoStatus.Enviado;
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -507,22 +598,47 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         var url = $"{scheme}://{host}:3000/app/DocumentoAdmissao?tenantId={_tenantContext.TenantId}&preAdmissaoId={pa.Id}";
 
         // Enviar email ao candidato
+        var emailEnviado = false;
         if (!string.IsNullOrWhiteSpace(pa.Email))
         {
-            var subject = "Preencha seus dados para admissão";
-            var body = $@"<p>Olá <b>{pa.Nome}</b>,</p>
+            var tokens = new Dictionary<string, string?>
+            {
+                ["nome"] = pa.Nome,
+                ["url"] = url,
+                ["empresa"] = _tenantContext.TenantId,
+            };
+
+            // Try to use configurable template from DB
+            var template = await _db.EmailTemplates.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Name == "PreAdmissaoLink" && t.IsActive, ct);
+
+            string subject;
+            string body;
+            if (template is not null)
+            {
+                subject = Messaging.Email.EmailTemplateRenderer.Render(template.SubjectTemplate, tokens);
+                body = Messaging.Email.EmailTemplateRenderer.Render(template.BodyHtml, tokens);
+            }
+            else
+            {
+                // Fallback inline
+                subject = "Preencha seus dados para admissão";
+                body = $@"<p>Olá <b>{pa.Nome}</b>,</p>
 <p>Você foi aprovado(a) e precisa preencher seus dados para admissão.</p>
 <p><a href=""{url}"" style=""background:#2563eb;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;"">Preencher meus dados</a></p>
 <p>Ou copie e cole este link no navegador:<br/><small>{url}</small></p>
 <p>Atenciosamente,<br/>Equipe RH</p>";
+            }
+
             try
             {
                 await _emailQueue.EnqueueRawAsync(pa.Email, subject, body, null, true, "pre-admissao-link", ct);
+                emailEnviado = true;
             }
             catch { /* best-effort: email pode não estar configurado */ }
         }
 
-        return new GerarLinkResponse(pa.AccessToken, url);
+        return new GerarLinkResponse(pa.AccessToken, url, emailEnviado);
     }
 
     public async Task<ValidarDocumentoResponse?> ValidarDocumentoAsync(
@@ -887,32 +1003,95 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.Id, e.Status, e.PreenchidoPor, e.CandidatoId,
         e.RevisadoPor?.Name, e.AprovadoPor?.Name,
         e.ObservacaoRh, e.MotivoRejeicao,
-        e.Nome, e.Cpf, e.Rg, e.RgOrgaoExpedidor, e.RgDataExpedicao,
-        e.DataNascimento, e.Sexo, e.EstadoCivil, e.Nacionalidade,
-        e.NomeMae, e.NomePai, e.NaturalCidade, e.NaturalUf,
+        // Pessoal
+        e.Nome, e.NomeSocial, e.NomeAbreviado,
+        e.Cpf, e.Rg, e.RgOrgaoExpedidor, e.RgUfExpedidor,
+        e.RgDataExpedicao, e.DataNascimento,
+        e.Sexo, e.EstadoCivil,
+        e.Nacionalidade, e.PaisNacionalidade,
+        e.NomeMae, e.NomePai,
+        e.NaturalCidade, e.NaturalUf, e.PaisNascimento,
+        // Estrangeiro
         e.Passaporte, e.RnmRne, e.ValidadeVisto, e.TipoVisto,
+        e.ResideExterior, e.TipoVistoEstrangeiro,
+        // Endereco
         e.Cep, e.Logradouro, e.Numero, e.Complemento, e.Bairro, e.Cidade, e.Uf,
-        e.Email, e.Telefone, e.Celular, e.ContatoEmergenciaNome, e.ContatoEmergenciaFone,
+        e.PontoReferencia, e.TipoLogradouroESocial, e.MunicipioEnderecoIbge,
+        // Contato
+        e.Email, e.EmailAlternativo, e.Telefone, e.Celular,
+        e.DddTelefone, e.DddTelContato,
+        e.ContatoEmergenciaNome, e.ContatoEmergenciaFone,
+        // Bancario
         e.BancoCodigo, e.BancoNome, e.Agencia, e.AgenciaDigito, e.Conta, e.ContaDigito, e.TipoConta,
-        e.EstabelecimentoCodigo, e.MatriculaRM,
+        // Trabalhista
+        e.EstabelecimentoCodigo, e.CodEmpresa, e.MatriculaRM,
         e.UnitId, e.Unit?.Name, e.AreaId, e.Area?.Name,
         e.JobPositionId, e.JobPosition?.Name, e.RequisitoCategoriaId,
         e.DataAdmissao, e.Salario, e.TipoContratacao, e.CargaHorariaSemanal, e.PisPasep,
-        e.CodCargoTotvs, e.CodVinculoEmpregaticio, e.TipoFuncionario, e.CategoriaSalarial,
-        e.GrauInstrucao, e.CodTurno, e.CentroCusto, e.UnidadeLotacao,
+        // TOTVS Cargo/Vinculo
+        e.CodCargoTotvs, e.CodVinculoEmpregaticio, e.TipoFuncionario,
+        e.CategoriaSalarial, e.GrauInstrucao, e.CodTurno,
+        e.CentroCusto, e.UnidadeLotacao,
+        e.CodPlanoLotacao, e.CodTurma, e.NumCartaoPonto, e.CodNivel,
+        e.TipoMaoDeObra, e.FormaPagamento, e.SalarioSimulado,
+        e.OrigemFuncionario, e.IndFuncVinculado, e.FuncQualificado,
+        // FGTS/INSS
+        e.OptanteFgts, e.DataOpcaoFgts, e.TipoAdmissaoFgts,
+        e.RecolheFgts, e.RecolheInss,
+        // Sindicato
+        e.Sindicalizado, e.DescContribSindical, e.ContribSindicDia, e.CodSindicato,
+        // Flags calculo
+        e.CargaAutomTurno, e.RecebePericul, e.RecebeInsalub,
+        e.RecebeAdiantamento, e.ConsidEmissRAIS, e.Calcula13, e.RecebeFerias,
+        // Provisoes 13
+        e.Avos13SalCalcAnterior, e.Avos13SalCalc,
+        e.ProvAcum13Sal, e.ProvAcumInss13Sal, e.ProvAcumFgts13Sal,
+        // Provisoes Ferias
+        e.DiasProvFeriasMesAnterior, e.DiasProvFeriasMesAtual,
+        e.ProvAcumFerias, e.ProvAcumInssFerias, e.ProvAcumFgtsFerias, e.ProvAcumFerias13,
+        // Ponto
+        e.EmitCartPonto, e.CodLocalMarcacao, e.CodClassFuncPontoEletronico,
+        // Docs avulsos
         e.TituloEleitorNumero, e.TituloEleitorZona, e.TituloEleitorSecao,
-        e.ReservistaNumero, e.CategoriaCnh, e.ValidadeCnh, e.Ctps, e.CtpsSerie, e.CtpsUf,
-        e.GrupoSanguineo, e.FatorRh, e.PossuiDeficiencia,
-        e.DocMilitarTipo, e.DocMilitarNumero, e.DocMilitarSerie, e.DocMilitarRegiao,
-        e.CartaoSus, e.TituloEleitorCidade, e.TituloEleitorUf,
-        e.CtpsModelo, e.Altura, e.Peso,
+        e.TituloEleitorCidade, e.TituloEleitorUf,
+        e.ReservistaNumero, e.CategoriaCnh, e.ValidadeCnh,
+        e.Ctps, e.CtpsSerie, e.CtpsUf, e.CtpsModelo, e.CtpsSerieESocial,
+        // CNH
+        e.CnhNumero, e.CnhUf, e.CnhOrgaoEmissor, e.CnhDataExpedicao, e.CnhPrimeiraHabilitacao,
+        // Doc Militar
+        e.DocMilitarTipo, e.DocMilitarNumero, e.DocMilitarSerie, e.DocMilitarRegiao, e.DocMilitarCircunscricao,
+        // Saude
+        e.GrupoSanguineo, e.FatorRh, e.PossuiDeficiencia, e.FuncDoador,
+        e.CartaoSus, e.Altura, e.Peso,
+        e.Cutis, e.Cabelo, e.Olhos, e.Manequim, e.Sapato,
+        // Contrato
+        e.DataTerminoContrato,
+        // Localidade
+        e.PaisLocalidade, e.CodLocalidade, e.CodFpas,
+        // eSocial
+        e.CategoriaTrabalhoESocial, e.IndAdmissao, e.NaturezaAtividade,
+        e.MunicipioNascimentoIbge, e.TipoAdmissaoESocial,
+        e.RegimeTrabalhista, e.RegimePrevidenciario, e.RegimeJornada,
+        e.MatriculaESocial, e.PaisNacionalidade,
+        // CAGED
+        e.OcorrenciaCAGED,
+        // Registro exterior
+        e.CodRegistroExterior,
+        // Validacoes
         e.ValidacaoCpfOk, e.ValidacaoCepOk, e.ValidacaoBancoOk, e.ValidacaoSalarioOk, e.ValidacaoSalarioJustificativa,
+        // Timestamps
         e.CreatedAtUtc, e.SubmittedAtUtc, e.ApprovedAtUtc,
+        // Wizard
+        e.WizardCurrentStep, e.WizardCompletionPercent, e.LastActivityUtc,
+        // Documentos
         e.Documentos.Select(d => new PreAdmissaoDocumentoResponse(
             d.Id, d.Tipo, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.Status, d.ObservacaoRh,
             d.CreatedAtUtc, _storage.GetPresignedUrl(d.StoragePath))).ToList(),
         (e.DocumentosSolicitados ?? []).Select(ds => new DocumentoSolicitadoResponse(
             ds.TipoDocumento, TipoDocumentoLabel(ds.TipoDocumento), ds.Obrigatorio)).ToList(),
+        // Dependentes
+        (e.Dependentes ?? []).Select(d => new PreAdmissaoDependenteDetailResponse(
+            d.Id, d.NomeCompleto, d.Parentesco, d.Cpf, d.DataNascimento, d.IsPcd)).ToList(),
         e.AccessToken,
         e.IntegracaoResultado, e.IntegracaoMensagem, e.IntegradaEmUtc
     );

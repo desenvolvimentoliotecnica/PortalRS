@@ -1,47 +1,47 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Chart from "chart.js/auto";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertCircle, ArrowRight, Clock, Folder, Mail, Search, Briefcase, Palmtree, Heart, Users, MapPin } from "lucide-react";
-import Link from "next/link";
+import {
+  Briefcase,
+  Palmtree,
+  Heart,
+  Users,
+  MapPin,
+  LayoutDashboard,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { apiFetch } from "@/lib/api";
+import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 
+import { GRID_BREAKPOINTS, GRID_COLS } from "./dashboardLayout";
+import { useDashboardLayout } from "./useDashboardLayout";
+import { WidgetCatalog } from "./WidgetCatalog";
+import { useAuth } from "@/hooks/useAuth";
+import { WidgetShell } from "./widgets/WidgetShell";
+import { KpiWidget } from "./widgets/KpiWidget";
+import { OQueFazerWidget } from "./widgets/OQueFazerWidget";
+import { ResumoWidget } from "./widgets/ResumoWidget";
+import { FunilWidget } from "./widgets/FunilWidget";
+import { AprovacoesWidget } from "./widgets/AprovacoesWidget";
+import { TopMatchesWidget } from "./widgets/TopMatchesWidget";
+import { SlaWidget } from "./widgets/SlaWidget";
+import { ProximasAcoesWidget } from "./widgets/ProximasAcoesWidget";
+import { HumorEquipeWidget } from "./widgets/HumorEquipeWidget";
+import { PdiWidget } from "./widgets/PdiWidget";
+import { LeaderboardWidget } from "./widgets/LeaderboardWidget";
+import { InboxFeedWidget } from "./widgets/InboxFeedWidget";
+import { MeuTimeWidget } from "./widgets/MeuTimeWidget";
+import type {
+  Kpis, Funil, Series, TopMatchRow, PendingItem,
+  SlaData, UpcomingAction, MoodStats, PdiItem, LeaderboardEntry, MyBalance,
+  MeuTimeData, MeuTimeMembro,
+} from "./dashboardTypes";
 
 const DEFAULT_MIN_MATCH = 70;
 
-type Kpis = {
-  openVagas: number;
-  cvsHoje: number;
-  pendentesMatch: number;
-  aprovados7Dias: number;
-  vagasForaSla: number;
-};
-
-type Funil = {
-  recebidos: number;
-  triagem: number;
-  entrevista: number;
-  aprovados: number;
-};
-
-type Series = { labels: string[]; values: number[] };
-
 type VagaLookup = { id: string; titulo: string; codigo: string; cidade?: string | null; uf?: string | null };
 type AreaLookup = { id: string; nome: string };
-
-type TopMatchRow = {
-  vagaId: string;
-  vagaCodigo: string;
-  vagaTitulo: string;
-  candidatoId: string;
-  candidatoNome: string;
-  origem: string;
-  matchScore: number;
-  etapa: string;
-};
 
 type EnumOption = { code: string; text: string };
 type EnumData = Record<string, EnumOption[]>;
@@ -73,18 +73,6 @@ function pickString(v: unknown, fallback = "") {
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
-}
-
-function formatLocal(v: { cidade?: string | null; uf?: string | null }) {
-  const parts = [v.cidade, v.uf].map((x) => (x ?? "").trim()).filter(Boolean);
-  return parts.length ? parts.join(" - ") : "-";
-}
-
-function formatDate(iso: string) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -215,34 +203,6 @@ function mapOpenVagas(payload: unknown): OpenVagaRow[] {
     .filter(Boolean) as OpenVagaRow[];
 }
 
-function BadgeEtapa({ etapa }: { etapa: string }) {
-  const e = (etapa || "").toLowerCase();
-  const color =
-    e.includes("reprov") ? "bg-red-500/15 text-red-700" : e.includes("aprov") ? "bg-emerald-500/15 text-emerald-700" : e.includes("entrev") ? "bg-amber-500/15 text-amber-700" : e.includes("triag") ? "bg-blue-500/15 text-blue-700" : "bg-zinc-400/15 text-zinc-600";
-  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${color}`}>{etapa}</span>;
-}
-
-function OriginBadge({ origem }: { origem: string }) {
-  const raw = (origem || "").trim();
-  const lower = raw.toLowerCase();
-  const Icon = lower === "email" ? Mail : Folder;
-  const label = raw || "-";
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600">
-      <Icon className="size-3" />
-      {label}
-    </span>
-  );
-}
-
-function goToVagaDetail(vagaId: string) {
-  if (!vagaId) return;
-  const url = new URL(`/app/vagas`, window.location.origin);
-  url.searchParams.set("vagaId", vagaId);
-  url.searchParams.set("open", "detail");
-  window.location.href = url.toString();
-}
-
 function goToCreateVaga(payload?: {
   titulo?: string;
   area?: string;
@@ -292,6 +252,7 @@ export default function DashboardScreen({
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
 
   const [vagaId, setVagaId] = useState<string>("all");
   const [minMatch, setMinMatch] = useState<number>(DEFAULT_MIN_MATCH);
@@ -300,19 +261,62 @@ export default function DashboardScreen({
   const [quickArea, setQuickArea] = useState<string>("");
 
   const [enums, setEnums] = useState<EnumData>({});
-  // openVagas removido — KPI navega para /vagas
   const [quickTitle, setQuickTitle] = useState("");
   const [quickStatus, setQuickStatus] = useState("");
   const [quickKeywords, setQuickKeywords] = useState("");
 
   /* ── Solicitações pendentes widget ── */
-  type PendingItem = { id: string; tipo: string; titulo: string; solicitante: string; data: string; icon: React.ElementType; color: string; href: string };
   const [pendentes, setPendentes] = useState<PendingItem[]>([]);
   const [pendentesLoading, setPendentesLoading] = useState(true);
 
+  /* ── Novos widgets ── */
+  const [slaData, setSlaData] = useState<SlaData | null>(null);
+  const [slaLoading, setSlaLoading] = useState(false);
+
+  const [proximasAcoes, setProximasAcoes] = useState<UpcomingAction[]>([]);
+  const [proximasLoading, setProximasLoading] = useState(false);
+
+  const [moodStats, setMoodStats] = useState<MoodStats | null>(null);
+  const [moodLoading, setMoodLoading] = useState(false);
+
+  const [pdis, setPdis] = useState<PdiItem[]>([]);
+  const [pdiLoading, setPdiLoading] = useState(false);
+
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [myBalance, setMyBalance] = useState<MyBalance | null>(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+
+  const [meuTime, setMeuTime] = useState<MeuTimeData | null>(null);
+  const [meuTimeLoading, setMeuTimeLoading] = useState(false);
+
+  const { me } = useAuth();
+  const tenantId = me?.tenantId ?? "";
+
+  const {
+    isEditMode,
+    setIsEditMode,
+    layouts,
+    visibleWidgets,
+    isLoaded,
+    handleLayoutChange,
+    toggleWidget,
+    resetLayout,
+  } = useDashboardLayout();
+
+  const { width: containerWidth, containerRef, mounted: containerMounted } = useContainerWidth();
+
   useEffect(() => {
-    const APIS: { api: string; tipo: string; titleKey: string; solicitanteKey: string; dateKey: string; icon: React.ElementType; color: string; href: string }[] = [
-      { api: "/api/solicitacoes-vaga?status=1", tipo: "Contratação", titleKey: "titulo", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-violet-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=contratacao" },
+    const APIS: {
+      api: string;
+      tipo: string;
+      titleKey: string;
+      solicitanteKey: string;
+      dateKey: string;
+      icon: React.ElementType;
+      color: string;
+      href: string;
+    }[] = [
+      { api: "/api/solicitacoes-vaga?statuses=1&statuses=5", tipo: "Contratação", titleKey: "titulo", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-violet-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=contratacao" },
       { api: "/api/solicitacoes-promocao?status=1", tipo: "Promoção", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-emerald-600", href: "/gestao/solicitacoes?tab=promocoes" },
       { api: "/api/solicitacoes-desligamento?status=1", tipo: "Desligamento", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Briefcase, color: "text-red-600", href: "/gestao/solicitacoes?tab=desligamentos" },
       { api: "/api/colaborador/solicitacoes-ferias?status=1", tipo: "Férias", titleKey: "colaboradorNome", solicitanteKey: "solicitanteNome", dateKey: "createdAtUtc", icon: Palmtree, color: "text-sky-600", href: "/gestao/solicitacoes?tab=aprovacoes&tipo=ferias" },
@@ -341,19 +345,16 @@ export default function DashboardScreen({
         }
       })
     ).then((results) => {
-      const all = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
+      const all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
       all.sort((a, b) => (b.data || "").localeCompare(a.data || ""));
       setPendentes(all);
       setPendentesLoading(false);
     });
   }, []);
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const chartRef = useRef<Chart | null>(null);
-
   // Auto-load data on mount when no initial props are provided (static export)
   useEffect(() => {
-    if (initialKpis != null) return; // data was provided via SSR
+    if (initialKpis != null) return;
     void Promise.all([
       fetchJson<unknown>(`/api/dashboard/kpis`),
       fetchJson<unknown>(`/api/dashboard/funil`),
@@ -380,59 +381,9 @@ export default function DashboardScreen({
     void fetchJson<unknown>(`/api/lookup/enums`)
       .then((data) => setEnums(mapEnumData(data)))
       .catch(() => {
-        // silencioso: enums só melhoram os selects; tela não deve quebrar sem eles
+        // silencioso
       });
   }, []);
-
-  // Modal de vagas removido — KPI "Vagas abertas" navega direto para /vagas
-
-  useEffect(() => {
-    const ctx = canvasRef.current;
-    if (!ctx) return;
-    if (chartRef.current) {
-      chartRef.current.data.labels = series.labels;
-      chartRef.current.data.datasets[0]!.data = series.values;
-      chartRef.current.update();
-      return;
-    }
-    chartRef.current = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: series.labels,
-        datasets: [
-          {
-            label: "CVs recebidos",
-            data: series.values,
-            tension: 0.35,
-            fill: true,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false }, tooltip: { enabled: true } },
-        scales: {
-          x: { grid: { display: false } },
-          y: { grid: { color: "rgba(16,82,144,.10)" }, ticks: { precision: 0 } },
-        },
-      },
-    });
-    return () => {
-      chartRef.current?.destroy();
-      chartRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [series.labels.join("|"), series.values.join("|")]);
-
-  const funnelBase = funil.recebidos > 0 ? funil.recebidos : 1;
-  const funnelBars = useMemo(() => {
-    return {
-      recebidos: 100,
-      triagem: Math.round((funil.triagem / funnelBase) * 100),
-      entrevista: Math.round((funil.entrevista / funnelBase) * 100),
-      aprovados: Math.round((funil.aprovados / funnelBase) * 100),
-    };
-  }, [funil, funnelBase]);
 
   async function refreshAll() {
     try {
@@ -482,274 +433,473 @@ export default function DashboardScreen({
     }
   }
 
+  // Suppress unused var warning (mapOpenVagas kept for potential future use)
+  void mapOpenVagas;
+
+  // ── Load new widget data on demand when widget becomes visible ──
+  useEffect(() => {
+    if (!visibleWidgets.includes("sla") || slaData !== null) return;
+    setSlaLoading(true);
+    void fetchJson<unknown>("/api/sla/vagas")
+      .then((raw) => {
+        const r = asRecord(raw) ?? {};
+        const kpis = asRecord(r.kpis) ?? {};
+        const vagasArr = Array.isArray(r.vagas) ? (r.vagas as unknown[]) : [];
+        setSlaData({
+          kpis: {
+            total: pickNumber(kpis.total, 0),
+            noPrazo: pickNumber(kpis.noPrazo, 0),
+            critica: pickNumber(kpis.critica, 0),
+            atrasada: pickNumber(kpis.atrasada, 0),
+          },
+          vagas: vagasArr.map((x) => {
+            const v = asRecord(x) ?? {};
+            return {
+              id: pickString(v.id),
+              titulo: pickString(v.titulo, "—"),
+              status: pickString(v.status),
+              prioridade: pickString(v.prioridade),
+              diasAberto: pickNumber(v.diasAberto, 0),
+              metaDias: pickNumber(v.metaDias, 0),
+              percentualConsumido: pickNumber(v.percentualConsumido, 0),
+              slaStatus: (["no_prazo", "critica", "atrasada"].includes(pickString(v.slaStatus))
+                ? pickString(v.slaStatus)
+                : "no_prazo") as "no_prazo" | "critica" | "atrasada",
+            };
+          }),
+        });
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => setSlaLoading(false));
+  }, [visibleWidgets, slaData]);
+
+  useEffect(() => {
+    if (!visibleWidgets.includes("proximasAcoes") || proximasAcoes.length > 0) return;
+    setProximasLoading(true);
+    void fetchJson<unknown>("/api/gestao/dashboard/upcoming-actions?take=8")
+      .then((raw) => {
+        const arr = Array.isArray(raw) ? (raw as unknown[]) : [];
+        setProximasAcoes(arr.map((x) => {
+          const r = asRecord(x) ?? {};
+          return {
+            id: pickString(r.id),
+            type: pickString(r.type),
+            description: pickString(r.description, "—"),
+            dueAtUtc: pickString(r.dueAtUtc),
+          };
+        }));
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => setProximasLoading(false));
+  }, [visibleWidgets, proximasAcoes.length]);
+
+  useEffect(() => {
+    if (!visibleWidgets.includes("humor") || moodStats !== null) return;
+    setMoodLoading(true);
+    void fetchJson<unknown>("/api/gestao/humor/stats")
+      .then((raw) => {
+        const r = asRecord(raw) ?? {};
+        const dist = Array.isArray(r.distribution) ? (r.distribution as unknown[]) : [];
+        setMoodStats({
+          averageMood: pickString(r.averageMood),
+          totalResponses: pickNumber(r.totalResponses, 0),
+          distribution: dist.map((x) => {
+            const d = asRecord(x) ?? {};
+            return {
+              mood: pickString(d.mood),
+              count: pickNumber(d.count, 0),
+              percentage: pickNumber(d.percentage, 0),
+            };
+          }),
+        });
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => setMoodLoading(false));
+  }, [visibleWidgets, moodStats]);
+
+  useEffect(() => {
+    if (!visibleWidgets.includes("pdi") || pdis.length > 0) return;
+    setPdiLoading(true);
+    void fetchJson<unknown>("/api/gestao/planos")
+      .then((raw) => {
+        const arr = Array.isArray(raw) ? (raw as unknown[]) : [];
+        setPdis(arr.map((x) => {
+          const r = asRecord(x) ?? {};
+          return {
+            id: pickString(r.id),
+            title: pickString(r.title, "—"),
+            responsibleName: pickString(r.responsibleName, "—"),
+            status: pickString(r.status, "pending"),
+            dueDate: pickString(r.dueDate),
+            progress: pickNumber(r.progress, 0),
+          };
+        }));
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => setPdiLoading(false));
+  }, [visibleWidgets, pdis.length]);
+
+  useEffect(() => {
+    if (!visibleWidgets.includes("leaderboard") || leaderboard.length > 0) return;
+    setLeaderboardLoading(true);
+    void Promise.all([
+      fetchJson<unknown>("/api/feedback/gamification/leaderboard?page=1&pageSize=7"),
+      fetchJson<unknown>("/api/feedback/gamification/my-balance"),
+    ])
+      .then(([lbRaw, balRaw]) => {
+        const lb = asRecord(lbRaw) ?? {};
+        const items = Array.isArray(lb.items) ? (lb.items as unknown[]) : (Array.isArray(lbRaw) ? (lbRaw as unknown[]) : []);
+        setLeaderboard(items.map((x) => {
+          const e = asRecord(x) ?? {};
+          return {
+            userId: pickString(e.userId),
+            fullName: pickString(e.fullName, "—"),
+            balance: pickNumber(e.balance, 0),
+            rank: pickNumber(e.rank, 0),
+          };
+        }));
+        const bal = asRecord(balRaw) ?? {};
+        setMyBalance({
+          userId: pickString(bal.userId),
+          balance: pickNumber(bal.balance, 0),
+        });
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => setLeaderboardLoading(false));
+  }, [visibleWidgets, leaderboard.length]);
+
+  useEffect(() => {
+    if (!visibleWidgets.includes("meuTime") || meuTime !== null) return;
+    setMeuTimeLoading(true);
+    void Promise.all([
+      fetchJson<{ funcionarioId?: string }>("/api/me").catch(() => ({} as { funcionarioId?: string })),
+      fetchJson<{ lotacoes: { funcionarios: { id: string; nome: string; gestorDiretoId: string | null }[] }[]; semLotacao: { id: string; nome: string; gestorDiretoId: string | null }[] }>("/api/organograma/estrutura").catch(() => ({ lotacoes: [], semLotacao: [] })),
+      fetchJson<unknown>("/api/funcionarios?pageSize=500&status=Active").catch(() => null),
+    ])
+      .then(([meRes, orgRes, funcsRes]) => {
+        const myFuncId = meRes?.funcionarioId ?? null;
+        const allOrg = [
+          ...orgRes.lotacoes.flatMap((l) => l.funcionarios),
+          ...orgRes.semLotacao,
+        ];
+
+        // Build func detail map for cargo/area
+        const funcMap = new Map<string, { cargo: string; area: string; status: string }>();
+        const funcsArr = Array.isArray((funcsRes as Record<string, unknown>)?.items)
+          ? ((funcsRes as Record<string, unknown>).items as unknown[])
+          : Array.isArray(funcsRes) ? (funcsRes as unknown[]) : [];
+        for (const f of funcsArr) {
+          const r = asRecord(f) ?? {};
+          const id = pickString(r.id);
+          if (id) funcMap.set(id, {
+            cargo: pickString(r.jobPositionName ?? r.cargo),
+            area: pickString(r.areaName ?? r.area),
+            status: pickString(r.status, "Active"),
+          });
+        }
+
+        if (!myFuncId) {
+          // No manager link — show all direct employees if admin
+          const membros: MeuTimeMembro[] = allOrg.slice(0, 30).map((f) => ({
+            id: f.id,
+            nome: f.nome,
+            ...funcMap.get(f.id) ?? { cargo: "", area: "", status: "Active" },
+            tipo: "direto" as const,
+          }));
+          setMeuTime({ membros, totalDiretos: membros.length, totalIndiretos: 0 });
+          return;
+        }
+
+        // BFS: collect direct and indirect reports
+        const diretos = new Set<string>();
+        const indiretos = new Set<string>();
+        const queue = [{ id: myFuncId, depth: 0 }];
+        const visited = new Set<string>([myFuncId]);
+        while (queue.length > 0) {
+          const { id: cur, depth } = queue.shift()!;
+          for (const f of allOrg) {
+            if (f.gestorDiretoId === cur && !visited.has(f.id)) {
+              visited.add(f.id);
+              if (depth === 0) diretos.add(f.id); else indiretos.add(f.id);
+              queue.push({ id: f.id, depth: depth + 1 });
+            }
+          }
+        }
+
+        const toMembro = (id: string, tipo: "direto" | "indireto"): MeuTimeMembro => {
+          const org = allOrg.find((f) => f.id === id);
+          return {
+            id,
+            nome: org?.nome ?? id,
+            ...funcMap.get(id) ?? { cargo: "", area: "", status: "Active" },
+            tipo,
+          };
+        };
+
+        const membros: MeuTimeMembro[] = [
+          ...Array.from(diretos).map((id) => toMembro(id, "direto")),
+          ...Array.from(indiretos).map((id) => toMembro(id, "indireto")),
+        ].sort((a, b) => {
+          if (a.tipo !== b.tipo) return a.tipo === "direto" ? -1 : 1;
+          return a.nome.localeCompare(b.nome, "pt-BR");
+        });
+
+        setMeuTime({
+          membros,
+          totalDiretos: diretos.size,
+          totalIndiretos: indiretos.size,
+        });
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => setMeuTimeLoading(false));
+  }, [visibleWidgets, meuTime]);
+
   return (
-    <section className="space-y-5">
+    <section className="space-y-3">
+      {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Visão geral do recrutamento</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => { if (!isEditMode) setFiltersOpen(true); }} disabled={isEditMode}>
             Filtros
           </Button>
-          <Button size="sm" onClick={() => setQuickOpen(true)}>
+          <Button size="sm" onClick={() => { if (!isEditMode) setQuickOpen(true); }} disabled={isEditMode}>
             Ações
           </Button>
-          <Button variant="outline" size="sm" onClick={() => void refreshAll()}>
+          <Button variant="outline" size="sm" onClick={() => { if (!isEditMode) void refreshAll(); }} disabled={isEditMode}>
             Atualizar
           </Button>
+          {isEditMode ? (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setCatalogOpen(true)}>
+                Widgets
+              </Button>
+              <Button size="sm" onClick={() => setIsEditMode(false)}>
+                Concluir
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setIsEditMode(true)}
+            >
+              <LayoutDashboard className="size-3.5" />
+              Personalizar
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* ── O que fazer agora ── */}
-      {(kpis.pendentesMatch > 0 || kpis.vagasForaSla > 0) && (
-        <div className="rounded-xl border border-amber-200/60 bg-amber-50/50 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="size-4 text-amber-600" />
-            <h2 className="text-sm font-semibold text-amber-900">O que fazer agora</h2>
-          </div>
-          <div className="space-y-2">
-            {kpis.pendentesMatch > 0 && (
-              <Link href="/matching" className="flex items-center justify-between gap-2 rounded-lg bg-white/80 border border-amber-200/40 px-3 py-2 text-sm hover:bg-white transition-colors group">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="size-4 text-amber-600" />
-                  <span><strong>{kpis.pendentesMatch}</strong> candidatos pendentes de matching</span>
-                </div>
-                <ArrowRight className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-              </Link>
-            )}
-            {kpis.vagasForaSla > 0 && (
-              <Link href="/triagem?filter=late" className="flex items-center justify-between gap-2 rounded-lg bg-white/80 border border-red-200/40 px-3 py-2 text-sm hover:bg-white transition-colors group">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="size-4 text-red-600" />
-                  <span><strong>{kpis.vagasForaSla}</strong> vagas fora do SLA</span>
-                </div>
-                <ArrowRight className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-              </Link>
-            )}
-          </div>
+      {/* ── Edit mode banner ── */}
+      {isEditMode && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary flex items-center gap-2">
+          <LayoutDashboard className="size-4 shrink-0" />
+          <span>
+            Modo de edição — arraste os widgets pelo handle para reorganizar, ou redimensione pelas bordas. Clique em{" "}
+            <strong>Widgets</strong> para mostrar/ocultar seções.
+          </span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-        <div
-          className="rounded-xl border border-border/40 bg-card shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
-          role="button"
-          tabIndex={0}
-          onClick={() => { window.location.href = "/app/vagas"; }}
-          onKeyDown={(ev) => {
-            if (ev.key !== "Enter" && ev.key !== " ") return;
-            ev.preventDefault();
-            window.location.href = "/app/vagas";
+      {/* ── Grid ── */}
+      <div ref={containerRef}>
+      {isLoaded && containerMounted && (
+        <ResponsiveGridLayout
+          width={containerWidth}
+          className="layout"
+          layouts={layouts}
+          breakpoints={GRID_BREAKPOINTS}
+          cols={GRID_COLS}
+          rowHeight={60}
+          margin={[10, 10] as [number, number]}
+          dragConfig={{
+            enabled: isEditMode,
+            handle: ".drag-handle",
+            bounded: false,
+            threshold: 3,
           }}
+          resizeConfig={{
+            enabled: isEditMode,
+            handles: ["se", "sw"],
+          }}
+          onLayoutChange={handleLayoutChange}
         >
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Vagas abertas</div>
-          <div className="text-2xl font-bold mt-1.5 tabular-nums text-[rgb(var(--lt-primary))]">{kpis.openVagas}</div>
-          <div className="text-muted-foreground text-xs mt-0.5">em aberto</div>
-        </div>
-        <div className="rounded-xl border border-blue-100 bg-blue-50/50 shadow-sm p-4">
-          <div className="text-[10px] font-semibold text-blue-600/70 uppercase tracking-widest">CVs hoje</div>
-          <div className="text-2xl font-bold mt-1.5 text-blue-600 tabular-nums">{kpis.cvsHoje}</div>
-          <div className="text-muted-foreground text-xs mt-0.5">recebidos</div>
-        </div>
-        <div className="rounded-xl border border-amber-100 bg-amber-50/50 shadow-sm p-4">
-          <div className="text-[10px] font-semibold text-amber-600/70 uppercase tracking-widest">Pendentes match</div>
-          <div className="text-2xl font-bold mt-1.5 text-amber-600 tabular-nums">{kpis.pendentesMatch}</div>
-          <div className="text-muted-foreground text-xs mt-0.5">aguardando</div>
-        </div>
-        <div className="rounded-xl border border-green-100 bg-green-50/50 shadow-sm p-4">
-          <div className="text-[10px] font-semibold text-green-600/70 uppercase tracking-widest">Aprovados 7 dias</div>
-          <div className="text-2xl font-bold mt-1.5 text-green-600 tabular-nums">{kpis.aprovados7Dias}</div>
-          <div className="text-muted-foreground text-xs mt-0.5">últimos 7 dias</div>
-        </div>
-        <div className="rounded-xl border border-red-100 bg-red-50/50 shadow-sm p-4">
-          <div className="text-[10px] font-semibold text-red-600/70 uppercase tracking-widest">Vagas fora SLA</div>
-          <div className="text-2xl font-bold mt-1.5 text-red-600 tabular-nums">{kpis.vagasForaSla}</div>
-          <div className="text-muted-foreground text-xs mt-0.5">atenção</div>
-        </div>
-      </div>
-
-
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <div className="text-sm font-semibold">Resumo</div>
-              <div className="text-muted-foreground text-xs">Últimos 14 dias</div>
-            </div>
-            <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">Tendência</span>
-          </div>
-          <canvas ref={canvasRef} height={110} />
-        </div>
-
-        <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <div className="text-sm font-semibold">Funil</div>
-              <div className="text-muted-foreground text-xs">Pipeline</div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)}>
-              Filtros
-            </Button>
-          </div>
-
-          <div className="space-y-3 mt-2">
-            {[
-              { key: "recebidos", label: "Recebidos", value: funil.recebidos, pct: funnelBars.recebidos },
-              { key: "triagem", label: "Triagem", value: funil.triagem, pct: funnelBars.triagem },
-              { key: "entrevista", label: "Entrevista", value: funil.entrevista, pct: funnelBars.entrevista },
-              { key: "aprovados", label: "Aprovados", value: funil.aprovados, pct: funnelBars.aprovados },
-            ].map((x) => (
-              <div key={x.key}>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{x.label}</span>
-                  <span className="font-semibold">{x.value}</span>
-                </div>
-                <div className="mt-1 h-2 rounded-full bg-black/10 overflow-hidden">
-                  <div className="h-full bg-[rgb(var(--lt-primary))]" style={{ width: `${clamp(x.pct, 0, 100)}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 text-muted-foreground text-sm">
-            Dica: use filtros para ver diferentes períodos/vagas.
-          </div>
-        </div>
-      </div>
-
-      {/* ── Aprovações Pendentes widget ── */}
-      {(pendentesLoading || pendentes.length > 0) && (
-        <div className="rounded-xl border border-border/50 bg-card shadow-sm p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Clock className="size-3.5 text-amber-600" />
-              <span className="text-sm font-semibold">Aprovações Pendentes</span>
-              {!pendentesLoading && (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                  {pendentes.length}
-                </span>
-              )}
-            </div>
-            <Link href="/gestao/solicitacoes?tab=aprovacoes">
-              <Button variant="ghost" size="sm" className="text-xs h-7 px-2">Ver todas →</Button>
-            </Link>
-          </div>
-          {!pendentesLoading && pendentes.length > 0 && (
-            <div className="divide-y divide-border/30">
-              {pendentes.slice(0, 6).map((p, i) => {
-                const Icon = p.icon;
-                return (
-                  <div
-                    key={`${p.tipo}-${p.id}-${i}`}
-                    className="flex items-center gap-2 py-1.5 cursor-pointer hover:bg-muted/30 rounded px-1 -mx-1"
-                    onClick={() => { window.location.href = `/app${p.href}`; }}
-                  >
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold w-28 shrink-0 ${p.color}`}>
-                      <Icon className="size-3" />
-                      {p.tipo}
-                    </span>
-                    <span className="text-sm truncate flex-1">{p.titulo}</span>
-                    <span className="text-[11px] text-muted-foreground shrink-0">{formatDate(p.data)}</span>
-                  </div>
-                );
-              })}
-              {pendentes.length > 6 && (
-                <div className="pt-1.5 text-center">
-                  <Link href="/gestao/solicitacoes?tab=aprovacoes" className="text-xs text-primary hover:underline">
-                    +{pendentes.length - 6} mais
-                  </Link>
-                </div>
-              )}
+          {visibleWidgets.includes("oQueFazer") && (
+            <div key="oQueFazer">
+              <WidgetShell
+                label="O que fazer agora"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("oQueFazer", false)}
+              >
+                <OQueFazerWidget
+                  pendentesMatch={kpis.pendentesMatch}
+                  vagasForaSla={kpis.vagasForaSla}
+                />
+              </WidgetShell>
             </div>
           )}
-          {pendentesLoading && (
-            <div className="text-xs text-muted-foreground py-2">Carregando…</div>
+
+          {visibleWidgets.includes("kpis") && (
+            <div key="kpis">
+              <WidgetShell label="KPIs" isEditMode={isEditMode} removable={false}>
+                <KpiWidget kpis={kpis} />
+              </WidgetShell>
+            </div>
           )}
-        </div>
+
+          {visibleWidgets.includes("resumo") && (
+            <div key="resumo">
+              <WidgetShell
+                label="Resumo"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("resumo", false)}
+              >
+                <ResumoWidget series={series} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("funil") && (
+            <div key="funil">
+              <WidgetShell
+                label="Funil"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("funil", false)}
+              >
+                <FunilWidget funil={funil} onOpenFilters={() => setFiltersOpen(true)} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("aprovacoes") && (
+            <div key="aprovacoes">
+              <WidgetShell
+                label="Aprovações Pendentes"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("aprovacoes", false)}
+              >
+                <AprovacoesWidget pendentes={pendentes} pendentesLoading={pendentesLoading} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("topMatches") && (
+            <div key="topMatches">
+              <WidgetShell
+                label="Melhores Matches"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("topMatches", false)}
+              >
+                <TopMatchesWidget topMatches={topMatches} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("sla") && (
+            <div key="sla">
+              <WidgetShell
+                label="SLA de Vagas"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("sla", false)}
+              >
+                <SlaWidget data={slaData} loading={slaLoading} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("proximasAcoes") && (
+            <div key="proximasAcoes">
+              <WidgetShell
+                label="Próximas Ações"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("proximasAcoes", false)}
+              >
+                <ProximasAcoesWidget actions={proximasAcoes} loading={proximasLoading} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("humor") && (
+            <div key="humor">
+              <WidgetShell
+                label="Humor da Equipe"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("humor", false)}
+              >
+                <HumorEquipeWidget stats={moodStats} loading={moodLoading} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("pdi") && (
+            <div key="pdi">
+              <WidgetShell
+                label="Planos de Desenvolvimento"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("pdi", false)}
+              >
+                <PdiWidget pdis={pdis} loading={pdiLoading} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("leaderboard") && (
+            <div key="leaderboard">
+              <WidgetShell
+                label="Leaderboard"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("leaderboard", false)}
+              >
+                <LeaderboardWidget entries={leaderboard} myBalance={myBalance} loading={leaderboardLoading} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("inboxFeed") && (
+            <div key="inboxFeed">
+              <WidgetShell
+                label="Feed de CVs"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("inboxFeed", false)}
+              >
+                <InboxFeedWidget tenantId={tenantId} />
+              </WidgetShell>
+            </div>
+          )}
+
+          {visibleWidgets.includes("meuTime") && (
+            <div key="meuTime">
+              <WidgetShell
+                label="Meu Time"
+                isEditMode={isEditMode}
+                removable={true}
+                onRemove={() => toggleWidget("meuTime", false)}
+              >
+                <MeuTimeWidget data={meuTime} loading={meuTimeLoading} />
+              </WidgetShell>
+            </div>
+          )}
+        </ResponsiveGridLayout>
       )}
-
-      <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div>
-            <div className="text-sm font-semibold">Melhores matches</div>
-            <div className="text-muted-foreground text-xs">Top 15 por score</div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              Exportar
-            </Button>
-            <Button size="sm" onClick={() => goToCreateVaga()}>
-              Nova vaga
-            </Button>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead style={{ minWidth: 220 }}>Vaga</TableHead>
-                <TableHead style={{ minWidth: 200 }}>Candidato</TableHead>
-                <TableHead style={{ minWidth: 170 }}>Origem</TableHead>
-                <TableHead style={{ minWidth: 240 }}>Match</TableHead>
-                <TableHead style={{ minWidth: 170 }}>Etapa</TableHead>
-                <TableHead className="text-right" style={{ minWidth: 150 }}>
-                  Ações
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {topMatches.length ? (
-                topMatches.map((x) => (
-                  <TableRow key={`${x.vagaId}|${x.candidatoId}`}>
-                    <TableCell>
-                      <div className="font-medium text-sm">{x.vagaTitulo || "-"}</div>
-                      <div className="text-muted-foreground text-xs">Código: {x.vagaCodigo || "-"}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium text-sm">{x.candidatoNome || "-"}</div>
-                    </TableCell>
-                    <TableCell>
-                      <OriginBadge origem={x.origem || "-"} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 flex-1 rounded-full bg-black/10 overflow-hidden">
-                          <div className="h-full bg-[rgb(var(--lt-primary))]" style={{ width: `${x.matchScore}%` }} />
-                        </div>
-                        <div className="font-bold tabular-nums font-mono w-[52px] text-right">{x.matchScore}%</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <BadgeEtapa etapa={x.etapa || "Triagem"} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          goToVagaDetail(x.vagaId);
-                        }}
-                      >
-                        Ver vaga
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    Nenhum registro atende o filtro atual.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
       </div>
 
+      {/* ── Filtros drawer ── */}
       {filtersOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-stretch bg-black/40" role="dialog" aria-modal="true">
           <div className="ml-auto h-dvh w-full max-w-md bg-white p-4 shadow-2xl">
@@ -766,7 +916,11 @@ export default function DashboardScreen({
             <div className="mt-4 space-y-3">
               <div>
                 <div className="text-sm font-medium mb-2">Vaga</div>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={vagaId} onChange={(e) => setVagaId(e.target.value)}>
+                <select
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  value={vagaId}
+                  onChange={(e) => setVagaId(e.target.value)}
+                >
                   {(enums.vagaFilterSimple?.length ? enums.vagaFilterSimple : [{ code: "all", text: "Todas" }]).map((opt) => (
                     <option key={opt.code} value={opt.code}>
                       {opt.text}
@@ -788,18 +942,35 @@ export default function DashboardScreen({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground block mb-1">De</label>
-                    <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+                    <input
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      type="date"
+                      value={from}
+                      onChange={(e) => setFrom(e.target.value)}
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground block mb-1">Até</label>
-                    <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                    <input
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      type="date"
+                      value={to}
+                      onChange={(e) => setTo(e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
 
               <div>
                 <div className="text-sm font-medium mb-2">Match mínimo</div>
-                <input className="w-full" type="range" min={0} max={100} value={minMatch} onChange={(e) => setMinMatch(clamp(Number(e.target.value), 0, 100))} />
+                <input
+                  className="w-full"
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={minMatch}
+                  onChange={(e) => setMinMatch(clamp(Number(e.target.value), 0, 100))}
+                />
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>0%</span>
                   <span>50%</span>
@@ -838,6 +1009,7 @@ export default function DashboardScreen({
         </div>
       ) : null}
 
+      {/* ── Ações rápidas drawer ── */}
       {quickOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-stretch bg-black/40" role="dialog" aria-modal="true">
           <div className="ml-auto h-dvh w-full max-w-md bg-white p-4 shadow-2xl">
@@ -857,11 +1029,20 @@ export default function DashboardScreen({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="col-span-2">
                     <label className="text-xs font-medium text-muted-foreground block mb-1">Título</label>
-                    <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" placeholder="Ex.: Analista de Marketing Jr" value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} />
+                    <input
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      placeholder="Ex.: Analista de Marketing Jr"
+                      value={quickTitle}
+                      onChange={(e) => setQuickTitle(e.target.value)}
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground block mb-1">Área</label>
-                    <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={quickArea} onChange={(e) => setQuickArea(e.target.value)}>
+                    <select
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      value={quickArea}
+                      onChange={(e) => setQuickArea(e.target.value)}
+                    >
                       <option value="">Selecionar área</option>
                       {areas.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -872,7 +1053,11 @@ export default function DashboardScreen({
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground block mb-1">Status</label>
-                    <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={quickStatus} onChange={(e) => setQuickStatus(e.target.value)}>
+                    <select
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      value={quickStatus}
+                      onChange={(e) => setQuickStatus(e.target.value)}
+                    >
                       <option value="">Selecionar status</option>
                       {(enums.vagaStatus ?? []).map((opt) => (
                         <option key={opt.code} value={opt.code}>
@@ -882,8 +1067,15 @@ export default function DashboardScreen({
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs font-medium text-muted-foreground block mb-1">Palavras-chave (separadas por vírgula)</label>
-                    <input className="h-9 rounded-md border border-input bg-background px-3 text-sm" placeholder="Ex.: power bi, seo, redes sociais, crm" value={quickKeywords} onChange={(e) => setQuickKeywords(e.target.value)} />
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">
+                      Palavras-chave (separadas por vírgula)
+                    </label>
+                    <input
+                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      placeholder="Ex.: power bi, seo, redes sociais, crm"
+                      value={quickKeywords}
+                      onChange={(e) => setQuickKeywords(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="mt-3">
@@ -916,7 +1108,9 @@ export default function DashboardScreen({
 
               <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
                 <div className="text-sm font-medium mb-2">Executar match</div>
-                <div className="text-muted-foreground text-sm mb-2">Ajustes: pesos, obrigatórios e sinônimos por vaga.</div>
+                <div className="text-muted-foreground text-sm mb-2">
+                  Ajustes: pesos, obrigatórios e sinônimos por vaga.
+                </div>
                 <Button className="w-full" size="sm" onClick={() => goToExecutarMatch(vagaId)}>
                   Abrir matching
                 </Button>
@@ -926,8 +1120,14 @@ export default function DashboardScreen({
         </div>
       ) : null}
 
-      {/* Modal de vagas removido — clicar no KPI navega direto para /vagas */}
+      {/* ── Widget catalog panel ── */}
+      <WidgetCatalog
+        open={catalogOpen}
+        onClose={() => setCatalogOpen(false)}
+        visibleWidgets={visibleWidgets}
+        onToggle={toggleWidget}
+        onReset={resetLayout}
+      />
     </section>
   );
 }
-

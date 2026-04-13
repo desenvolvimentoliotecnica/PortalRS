@@ -19,6 +19,7 @@ public interface ISolicitacaoBeneficioService
     Task<SolicitacaoBeneficioResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoBeneficioResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoBeneficioResponse?> AssumirAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
@@ -78,8 +79,6 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
     {
         var s = await _db.SolicitacoesBeneficio.AsNoTracking()
             .Include(x => x.Solicitante)
-            .Include(x => x.Aprovador1)
-            .Include(x => x.Aprovador2)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         return s is null ? null : MapToResponse(s);
@@ -136,36 +135,52 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
         return await GetByIdAsync(id, ct);
     }
 
-    public async Task<bool> SubmitAsync(Guid id, CancellationToken ct)
+        public async Task<bool> SubmitAsync(Guid id, CancellationToken ct)
     {
         var entity = await _db.SolicitacoesBeneficio.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
-        var resolution = await _workflow.ResolveApproversAsync(entity.SolicitanteId, entity.Aprovador2Habilitado, ct);
-
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
-        entity.Aprovador1Id = resolution.Aprovador1Id;
-        entity.Aprovador1Status = StatusAprovacao.Pendente;
-        entity.Aprovador2Habilitado = resolution.Aprovador2Habilitado;
-        entity.Aprovador2Id = resolution.Aprovador2Id;
-        if (resolution.Aprovador2Habilitado)
-            entity.Aprovador2Status = StatusAprovacao.Pendente;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        var existingEtapas = _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Beneficio);
+        _db.SolicitacoesAprovacaoEtapa.RemoveRange(existingEtapas);
+
+        var resolved = await _workflow.ResolveEtapasAsync(
+            entity.SolicitanteId, null, TipoFluxoAprovacao.Beneficio, ct);
+
+        var novasEtapas = resolved.Select(r => new SolicitacaoAprovacaoEtapa
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId ?? "",
+            SolicitacaoId = entity.Id,
+            TipoFluxo = TipoFluxoAprovacao.Beneficio,
+            Ordem = r.Ordem,
+            Label = r.Label,
+            AprovadorId = r.AprovadorId,
+            RoleFilaId = r.RoleFilaId,
+            Status = StatusAprovacao.Pendente,
+        }).ToList();
+
+        _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
+
+        var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
 
         await _db.SaveChangesAsync(ct);
 
-        if (entity.Aprovador1Id.HasValue)
+        if (primeiraEtapa is not null && primeiraEtapa.AprovadorId.HasValue)
         {
             var solicitanteNome = (await _db.Set<Funcionario>().AsNoTracking()
                 .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct))?.Name ?? "Alguém";
 
             await _workflow.NotifyByFuncionarioIdAsync(
-                entity.Aprovador1Id.Value,
-                "Nova solicitação de benefício para aprovação",
-                $"{solicitanteNome} abriu uma solicitação de alteração de benefício.",
-                $"/colaborador/solicitacoes-beneficio/{entity.Id}",
+                primeiraEtapa.AprovadorId.Value,
+                "Nova solicitação para aprovação",
+                $"{solicitanteNome} abriu uma solicitação de beneficio.",
+                $"/colaborador/solicitacoes",
                 ct);
         }
 
@@ -256,14 +271,39 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
         return true;
     }
 
+    public async Task<SolicitacaoBeneficioResponse?> AssumirAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesBeneficio.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
+
+        var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Beneficio && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
+
+        if (etapaAtual is null || !etapaAtual.RoleFilaId.HasValue)
+            throw new InvalidOperationException("Esta etapa não é uma fila de perfil para ser assumida.");
+
+        if (etapaAtual.AprovadorId.HasValue)
+            throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
+
+        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+            throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
+
+        etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
     private static SolicitacaoBeneficioResponse MapToResponse(SolicitacaoBeneficio s) => new(
         s.Id, s.Status,
         s.SolicitanteId, s.Solicitante?.Name,
         s.TipoBeneficio, s.TipoAlteracao,
         s.Descricao, s.IncluirDependentes, s.DependenteIdsJson,
-        s.Aprovador1Id, s.Aprovador1?.Name, s.Aprovador1Status, s.Aprovador1DataUtc,
-        s.Aprovador2Id, s.Aprovador2?.Name, s.Aprovador2Status, s.Aprovador2DataUtc,
-        s.Aprovador2Habilitado,
         s.ObservacaoAprovador, s.Observacoes,
         s.CreatedAtUtc, s.UpdatedAtUtc, s.ApprovedAtUtc,
         s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc

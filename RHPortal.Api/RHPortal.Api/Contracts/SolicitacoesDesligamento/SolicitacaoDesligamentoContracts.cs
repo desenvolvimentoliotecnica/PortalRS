@@ -16,6 +16,10 @@ public sealed class SolicitacaoDesligamentoCreateRequest
     [Required]
     public Guid FuncionarioId { get; set; }
 
+    public Guid? EmpresaId { get; set; }
+    public Guid? UnitId { get; set; }
+    public bool? HistoricoMedidasDisciplinares { get; set; }
+
     [Required]
     public DateOnly DataDesligamento { get; set; }
 
@@ -27,6 +31,8 @@ public sealed class SolicitacaoDesligamentoCreateRequest
     public TipoAvisoPrevio TipoAvisoPrevio { get; set; }
 
     public int DiasAvisoPrevio { get; set; } = 30;
+
+    public bool PossuiEstabilidade { get; set; }
 
     public bool ElegivelRecontratacao { get; set; }
 
@@ -41,6 +47,10 @@ public sealed class SolicitacaoDesligamentoUpdateRequest
     [Required]
     public Guid FuncionarioId { get; set; }
 
+    public Guid? EmpresaId { get; set; }
+    public Guid? UnitId { get; set; }
+    public bool? HistoricoMedidasDisciplinares { get; set; }
+
     [Required]
     public DateOnly DataDesligamento { get; set; }
 
@@ -52,6 +62,8 @@ public sealed class SolicitacaoDesligamentoUpdateRequest
     public TipoAvisoPrevio TipoAvisoPrevio { get; set; }
 
     public int DiasAvisoPrevio { get; set; } = 30;
+
+    public bool PossuiEstabilidade { get; set; }
 
     public bool ElegivelRecontratacao { get; set; }
 
@@ -74,24 +86,20 @@ public sealed record SolicitacaoDesligamentoResponse(
     string? SolicitanteNome,
     Guid FuncionarioId,
     string? FuncionarioNome,
+    Guid? EmpresaId,
+    string? EmpresaNome,
+    Guid? UnitId,
+    string? UnitNome,
+    bool? HistoricoMedidasDisciplinares,
     DateOnly DataDesligamento,
     TipoDesligamento TipoDesligamento,
     string MotivoDesligamento,
     TipoAvisoPrevio TipoAvisoPrevio,
     int DiasAvisoPrevio,
+    bool PossuiEstabilidade,
     bool ElegivelRecontratacao,
     bool SubstituirPosicao,
     Guid? SolicitacaoVagaGeradaId,
-    // Approval chain
-    Guid? Aprovador1Id,
-    string? Aprovador1Nome,
-    StatusAprovacao Aprovador1Status,
-    DateTimeOffset? Aprovador1DataUtc,
-    Guid? Aprovador2Id,
-    string? Aprovador2Nome,
-    StatusAprovacao? Aprovador2Status,
-    DateTimeOffset? Aprovador2DataUtc,
-    bool Aprovador2Habilitado,
     string? ObservacaoAprovador,
     string? Observacoes,
     DateTimeOffset CreatedAtUtc,
@@ -99,7 +107,8 @@ public sealed record SolicitacaoDesligamentoResponse(
     DateTimeOffset? ApprovedAtUtc,
     IntegracaoResultado? IntegracaoResultado,
     string? IntegracaoMensagem,
-    DateTimeOffset? IntegradaEmUtc
+    DateTimeOffset? IntegradaEmUtc,
+    IReadOnlyList<RhPortal.Api.Contracts.Common.EtapaAprovacaoResponse> Etapas
 );
 
 public sealed record SolicitacaoDesligamentoGridRow(
@@ -109,5 +118,9 @@ public sealed record SolicitacaoDesligamentoGridRow(
     string? FuncionarioNome,
     TipoDesligamento TipoDesligamento,
     DateOnly DataDesligamento,
-    DateTimeOffset CreatedAtUtc
+    DateTimeOffset CreatedAtUtc,
+    string? EtapaPendenteLabel,
+    string? EtapaPendenteCom,
+    bool EtapaPendenteIsQueue,
+    Guid? EtapaPendenteAprovadorId
 );

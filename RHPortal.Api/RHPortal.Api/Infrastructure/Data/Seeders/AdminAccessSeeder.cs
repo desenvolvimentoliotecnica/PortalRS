@@ -74,6 +74,23 @@ public static class AdminAccessSeeder
 
         await MenuSeeder.EnsureAsync(db, adminRole, localizer, ct);
 
+        // Seed "Administrador" role — tenant-scoped admin with full access, can assume processes
+        var administradorRole = await roleManager.Roles.FirstOrDefaultAsync(x => x.Name == "Administrador", ct);
+        if (administradorRole is null)
+        {
+            administradorRole = new ApplicationRole
+            {
+                Id = Guid.NewGuid(),
+                Name = "Administrador",
+                Description = "Administrador do tenant — acesso total dentro do tenant.",
+                IsActive = true
+            };
+            var adminstradorResult = await roleManager.CreateAsync(administradorRole);
+            if (!adminstradorResult.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", adminstradorResult.Errors.Select(x => x.Description)));
+        }
+        await MenuSeeder.EnsureAsync(db, administradorRole, localizer, ct);
+
         await EmailTemplateSeeder.EnsureAsync(db, localizer, ct);
         await EmailMessageSeeder.EnsureAsync(db, tenantId, emailMessageSeedCount, ct, localizer, randomSeed);
         await EmailConfigSeeder.EnsureAsync(db, tenantId, ct);

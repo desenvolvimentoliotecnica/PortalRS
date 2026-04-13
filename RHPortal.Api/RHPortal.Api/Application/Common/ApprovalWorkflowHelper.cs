@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -116,6 +117,350 @@ public sealed class ApprovalWorkflowHelper
     }
 
     /// <summary>
+    /// Valida que a solicitação pode ser aprovada (PendenteAprovacao ou PendenteAprovacaoRh).
+    /// </summary>
+    public static void ValidateCanApproveAny(SolicitacaoStatus status)
+    {
+        if (status != SolicitacaoStatus.PendenteAprovacao && status != SolicitacaoStatus.PendenteAprovacaoRh)
+            throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
+    }
+
+    // ── Overloads para SolicitacaoVagaStatus (enum separado com mesmos valores) ──
+
+    public static void ValidateCanEdit(SolicitacaoVagaStatus status)
+    {
+        if (status != SolicitacaoVagaStatus.Rascunho && status != SolicitacaoVagaStatus.AjustesNecessarios)
+            throw new InvalidOperationException("Solicitação não pode ser editada no status atual.");
+    }
+
+    public static void ValidateCanApproveAny(SolicitacaoVagaStatus status)
+    {
+        if (status != SolicitacaoVagaStatus.PendenteAprovacao && status != SolicitacaoVagaStatus.PendenteAprovacaoRh)
+            throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
+    }
+
+    public static void ValidateCanDelete(SolicitacaoVagaStatus status)
+    {
+        if (status != SolicitacaoVagaStatus.Rascunho)
+            throw new InvalidOperationException("Só é possível excluir solicitações em rascunho.");
+    }
+
+    /// <summary>
+    /// Resolve a cadeia de etapas de aprovação baseada na configuração do fluxo.
+    /// Retorna uma lista de (Ordem, Label, AprovadorId, RoleFilaId, AcaoEtapa, MomentoAcao) para criação das SolicitacaoAprovacaoEtapas.
+    /// targetFuncionarioId = funcionário sobre quem a ação é (usado para resolver unidade de lotação).
+    /// </summary>
+    public async Task<IReadOnlyList<(int Ordem, string Label, Guid? AprovadorId, Guid? RoleFilaId, AcaoEtapa AcaoEtapa, MomentoAcao MomentoAcao)>>
+        ResolveEtapasAsync(
+            Guid solicitanteId,
+            Guid? targetFuncionarioId,
+            TipoFluxoAprovacao tipoFluxo,
+            CancellationToken ct,
+            Guid? targetUnidadeLotacaoId = null)
+    {
+        // 1. Load config
+        var configEtapas = await _db.Set<EtapaConfigAprovacao>()
+            .AsNoTracking()
+            .Where(e => e.Ativo && e.TipoFluxo == tipoFluxo)
+            .OrderBy(e => e.Ordem)
+            .ToListAsync(ct);
+
+        // 2. Fallback if no config: GestorDireto single step
+        if (configEtapas.Count == 0)
+        {
+            var solicitante = await _db.Set<Funcionario>()
+                .AsNoTracking()
+                .Include(f => f.GestorDireto)
+                .FirstOrDefaultAsync(f => f.Id == solicitanteId, ct);
+
+            var gestorId = solicitante?.GestorDiretoId;
+            var gestorHasUser = gestorId.HasValue
+                && solicitante?.GestorDireto?.UserId != null;
+
+            if (gestorId == null || !gestorHasUser)
+            {
+                // Consenso fallback: gestor not found or has no user account
+                var fallbackRoleId = await _db.Set<ApplicationRole>()
+                    .AsNoTracking()
+                    .Where(r => r.Name == "Admin" || r.Name == "Owner")
+                    .Select(r => (Guid?)r.Id)
+                    .FirstOrDefaultAsync(ct);
+
+                if (fallbackRoleId.HasValue)
+                    return new[] { (1, "Aprovação (Consenso)", (Guid?)null, fallbackRoleId, AcaoEtapa.Nenhuma, MomentoAcao.AoChegar) };
+            }
+
+            return new[]
+            {
+                (1, "Aprovação", gestorId, (Guid?)null, AcaoEtapa.Nenhuma, MomentoAcao.AoChegar)
+            };
+        }
+
+        // 3. Load data needed for resolution
+        var targetFunc = targetFuncionarioId.HasValue
+            ? await _db.Set<Funcionario>()
+                .AsNoTracking()
+                .Include(f => f.GestorDireto)
+                .Include(f => f.UnidadeLotacao)
+                    .ThenInclude(u => u != null ? u.Parent : null)
+                .FirstOrDefaultAsync(f => f.Id == targetFuncionarioId.Value, ct)
+            : null;
+
+        var solicitanteFunc = await _db.Set<Funcionario>()
+            .AsNoTracking()
+            .Include(f => f.GestorDireto)
+            .FirstOrDefaultAsync(f => f.Id == solicitanteId, ct);
+
+        // Helper: load a unit with its parent (for unit-based resolution via targetUnidadeLotacaoId)
+        async Task<UnidadeLotacao?> LoadUnidadeAsync(Guid id) =>
+            await _db.Set<UnidadeLotacao>()
+                .AsNoTracking()
+                .Include(u => u.Parent)
+                .FirstOrDefaultAsync(u => u.Id == id, ct);
+
+        // Helper: walk UnidadeLotacao to root, returning owner + root unit label for diagnostics
+        async Task<(Guid? OwnerId, string? RootLabel)> GetRootUnitAsync(Guid? unidadeId)
+        {
+            if (!unidadeId.HasValue) return (null, null);
+            var current = await _db.Set<UnidadeLotacao>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == unidadeId.Value, ct);
+            while (current?.ParentId is not null)
+            {
+                current = await _db.Set<UnidadeLotacao>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == current.ParentId.Value, ct);
+            }
+            var label = current != null ? $"{current.Code} – {current.Description}" : null;
+            return (current?.OwnerFuncionarioId, label);
+        }
+
+        // 4. Pre-fetch active AprovadoresAlternativos for substitution (avoids N+1)
+        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        var alternativosAtivos = await _db.Set<AprovadorAlternativo>()
+            .AsNoTracking()
+            .Where(a => a.DataInicio <= hoje && (a.DataFim == null || a.DataFim >= hoje))
+            .ToDictionaryAsync(a => a.GestorId, a => a.AprovadorId, ct);
+
+        // 5. Resolve each step (internal list carries DiagInfo for consenso label enrichment)
+        var internalResult = new List<(int Ordem, string Label, Guid? AprovadorId, Guid? RoleFilaId, AcaoEtapa AcaoEtapa, MomentoAcao MomentoAcao, string? DiagInfo)>();
+
+        foreach (var etapa in configEtapas)
+        {
+            Guid? aprovadorId = null;
+            Guid? roleFilaId = null;
+            string? diagInfo = null;
+
+            var funcRef = targetFunc ?? solicitanteFunc;
+
+            switch (etapa.TipoAprovador)
+            {
+                case TipoAprovador.GestorDireto:
+                    aprovadorId = solicitanteFunc?.GestorDiretoId;
+                    if (aprovadorId == null)
+                        diagInfo = "solicitante sem gestor direto cadastrado";
+                    break;
+
+                case TipoAprovador.GestorDoGestor:
+                    aprovadorId = solicitanteFunc?.GestorDireto?.GestorDiretoId;
+                    if (aprovadorId == null)
+                    {
+                        if (solicitanteFunc?.GestorDiretoId == null)
+                            diagInfo = "solicitante sem gestor direto cadastrado";
+                        else
+                            diagInfo = $"gestor '{solicitanteFunc.GestorDireto?.Name ?? solicitanteFunc.GestorDiretoId.ToString()}' sem gestor acima";
+                    }
+                    break;
+
+                case TipoAprovador.ResponsavelUnidade:
+                {
+                    UnidadeLotacao? unidade = null;
+                    if (targetUnidadeLotacaoId.HasValue)
+                        unidade = await LoadUnidadeAsync(targetUnidadeLotacaoId.Value);
+                    else
+                        unidade = funcRef?.UnidadeLotacao;
+
+                    aprovadorId = unidade?.OwnerFuncionarioId;
+                    if (aprovadorId == null)
+                    {
+                        if (unidade == null)
+                            diagInfo = "lotação não informada";
+                        else
+                            diagInfo = $"lotação '{unidade.Code} – {unidade.Description}' sem responsável configurado";
+                    }
+                    break;
+                }
+
+                case TipoAprovador.ResponsavelUnidadePai:
+                {
+                    UnidadeLotacao? unidade = null;
+                    if (targetUnidadeLotacaoId.HasValue)
+                        unidade = await LoadUnidadeAsync(targetUnidadeLotacaoId.Value);
+                    else
+                        unidade = funcRef?.UnidadeLotacao;
+
+                    aprovadorId = unidade?.Parent?.OwnerFuncionarioId;
+                    if (aprovadorId == null)
+                    {
+                        if (unidade == null)
+                            diagInfo = "lotação não informada";
+                        else if (unidade.ParentId == null)
+                            diagInfo = $"lotação '{unidade.Code} – {unidade.Description}' não possui lotação pai";
+                        else
+                            diagInfo = $"lotação pai '{unidade.Parent?.Code} – {unidade.Parent?.Description}' sem responsável configurado";
+                    }
+                    break;
+                }
+
+                case TipoAprovador.ResponsavelUnidadeRaiz:
+                {
+                    var unidadeId = targetUnidadeLotacaoId ?? funcRef?.UnidadeLotacaoId;
+                    var (rootOwnerId, rootLabel) = await GetRootUnitAsync(unidadeId);
+                    aprovadorId = rootOwnerId;
+                    if (aprovadorId == null)
+                    {
+                        if (unidadeId == null)
+                            diagInfo = "lotação não informada";
+                        else
+                            diagInfo = rootLabel != null
+                                ? $"Lotação Raiz '{rootLabel}' sem responsável configurado"
+                                : "Lotação Raiz da hierarquia sem responsável configurado";
+                    }
+                    break;
+                }
+
+                case TipoAprovador.FuncionarioFixo:
+                    aprovadorId = etapa.FuncionarioFixoId;
+                    if (aprovadorId == null)
+                        diagInfo = "funcionário fixo não configurado na etapa";
+                    break;
+
+                case TipoAprovador.FilaDePerfil:
+                case TipoAprovador.RevisaoRH:
+                    aprovadorId = null;
+                    roleFilaId = etapa.RoleFilaId;
+                    break;
+
+                case TipoAprovador.CriarVagaRascunho:
+                case TipoAprovador.EnviarIntegracao:
+                    // Processo automático — sem aprovador, sem fila. AcaoEtapa forçada abaixo.
+                    break;
+            }
+
+            // Força AcaoEtapa/MomentoAcao para steps de processo automático
+            // (derivado do TipoAprovador, independente do que está salvo na config)
+            var acaoEtapaEfetiva = etapa.TipoAprovador switch
+            {
+                TipoAprovador.CriarVagaRascunho => AcaoEtapa.CriarVagaRascunho,
+                TipoAprovador.EnviarIntegracao  => AcaoEtapa.EnviarIntegracao,
+                _                               => etapa.AcaoEtapa,
+            };
+            var momentoAcaoEfetivo = etapa.TipoAprovador switch
+            {
+                TipoAprovador.CriarVagaRascunho => MomentoAcao.AoChegar,
+                TipoAprovador.EnviarIntegracao  => MomentoAcao.AoChegar,
+                _                               => etapa.MomentoAcao,
+            };
+
+            // Substitui pelo aprovador alternativo ativo, se existir
+            if (aprovadorId.HasValue && alternativosAtivos.TryGetValue(aprovadorId.Value, out var substitutoId))
+                aprovadorId = substitutoId;
+
+            internalResult.Add((etapa.Ordem, etapa.Label, aprovadorId, roleFilaId, acaoEtapaEfetiva, momentoAcaoEfetivo, diagInfo));
+        }
+
+        // 6. Consenso fallback: detect unresolvable steps and convert to Admin queue
+        Guid? adminRoleId = null;
+        for (int i = 0; i < internalResult.Count; i++)
+        {
+            var (ordem, label, aprovId, roleId, acao, momento, diagInfo) = internalResult[i];
+
+            // FilaDePerfil/RevisaoRH steps already have roleId — skip
+            if (roleId.HasValue) continue;
+
+            // Process steps (CriarVagaRascunho, EnviarIntegracao) have no approver by design — skip consenso check
+            if (aprovId == null && acao != AcaoEtapa.Nenhuma) continue;
+
+            bool needsConsenso = false;
+            string? userDiag = null;
+
+            if (aprovId == null)
+            {
+                // Both null — completely unresolvable (e.g. no GestorDireto configured)
+                needsConsenso = true;
+            }
+            else
+            {
+                // Approver resolved but check if they can actually log in
+                var aprovadorInfo = await _db.Set<Funcionario>()
+                    .AsNoTracking()
+                    .Where(f => f.Id == aprovId.Value)
+                    .Select(f => new { f.Name, HasUser = f.UserId != null })
+                    .FirstOrDefaultAsync(ct);
+
+                if (aprovadorInfo == null || !aprovadorInfo.HasUser)
+                {
+                    needsConsenso = true;
+                    userDiag = $"aprovador '{aprovadorInfo?.Name ?? aprovId.ToString()}' sem conta de acesso ao sistema";
+                }
+            }
+
+            if (needsConsenso)
+            {
+                // Lazy-load Admin role ID (one query for the entire batch)
+                adminRoleId ??= await _db.Set<ApplicationRole>()
+                    .AsNoTracking()
+                    .Where(r => r.Name == "Admin" || r.Name == "Owner")
+                    .Select(r => (Guid?)r.Id)
+                    .FirstOrDefaultAsync(ct);
+
+                var reason = diagInfo ?? userDiag ?? "aprovador não resolvido";
+
+                if (adminRoleId.HasValue)
+                {
+                    internalResult[i] = (ordem, $"{label} (Consenso: {reason})", null, adminRoleId, acao, momento, null);
+                }
+                else
+                {
+                    // No fallback queue — clear approver so the step isn't stuck with someone who can't log in
+                    var (o, lbl, _, r, ac, mo, _) = internalResult[i];
+                    internalResult[i] = (o, $"{lbl} (Sem aprovador: {reason})", null, r, ac, mo, null);
+                }
+            }
+        }
+
+        return internalResult
+            .Select(r => (r.Ordem, r.Label, r.AprovadorId, r.RoleFilaId, r.AcaoEtapa, r.MomentoAcao))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Verifica se o usuário atual pode aprovar a etapa fornecida.
+    /// Admins sempre podem. Fila de perfil: qualquer usuário do role. Fixo: apenas o aprovador designado.
+    /// </summary>
+    public async Task<bool> CanApproveStepAsync(
+        SolicitacaoAprovacaoEtapa etapa,
+        ICurrentUserContext userContext,
+        CancellationToken ct)
+    {
+        if (userContext.IsAdmin) return true;
+
+        if (etapa.RoleFilaId.HasValue)
+        {
+            var userId = userContext.UserId;
+            if (!userId.HasValue) return false;
+            return await _db.Set<ApplicationUserRole>()
+                .AnyAsync(ur => ur.RoleId == etapa.RoleFilaId.Value && ur.UserId == userId.Value, ct);
+        }
+
+        // Claimed via consenso without Funcionario link
+        if (etapa.AssumedByUserId.HasValue)
+            return etapa.AssumedByUserId == userContext.UserId;
+
+        return etapa.AprovadorId.HasValue && etapa.AprovadorId == userContext.FuncionarioId;
+    }
+
+    /// <summary>
     /// Resolve FuncionarioId do usuário autenticado. Cria Funcionario se necessário.
     /// </summary>
     public async Task<Guid> ResolveSolicitanteIdAsync(Guid? funcionarioId, CancellationToken ct)
@@ -129,5 +474,139 @@ public sealed class ApprovalWorkflowHelper
         }
 
         throw new InvalidOperationException("Funcionário solicitante não encontrado. Verifique se o usuário possui um cadastro de funcionário vinculado.");
+    }
+
+    /// <summary>
+    /// Snapshot da etapa pendente de uma solicitação, usado para exibição em listas.
+    /// PendenteCom = nome do aprovador individual, ou nome da fila/role, conforme o caso.
+    /// </summary>
+    public sealed record EtapaPendenteInfo(string? Label, string? PendenteCom, bool IsQueue, Guid? AprovadorId, Guid? AssumedByUserId = null);
+
+    /// <summary>
+    /// Busca em uma única query a etapa pendente (menor Ordem com Status=Pendente)
+    /// para cada SolicitacaoId da lista, dentro de um TipoFluxo.
+    /// Retorna apenas as chaves que têm etapa pendente; ausência = sem etapa pendente.
+    /// </summary>
+    public async Task<Dictionary<Guid, EtapaPendenteInfo>> GetEtapasPendentesAsync(
+        IReadOnlyList<Guid> solicitacaoIds,
+        TipoFluxoAprovacao tipoFluxo,
+        CancellationToken ct)
+    {
+        if (solicitacaoIds.Count == 0)
+            return new Dictionary<Guid, EtapaPendenteInfo>();
+
+        var etapas = await _db.Set<SolicitacaoAprovacaoEtapa>()
+            .AsNoTracking()
+            .Where(e =>
+                solicitacaoIds.Contains(e.SolicitacaoId) &&
+                e.TipoFluxo == tipoFluxo &&
+                e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+
+        // Role names for queue steps
+        var roleIds = etapas
+            .Where(e => e.RoleFilaId.HasValue)
+            .Select(e => e.RoleFilaId!.Value)
+            .Distinct()
+            .ToList();
+
+        var roleNames = new Dictionary<Guid, string?>();
+        if (roleIds.Count > 0)
+        {
+            roleNames = await _db.Set<ApplicationRole>()
+                .AsNoTracking()
+                .Where(r => roleIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id, r => (string?)r.Name, ct);
+        }
+
+        // For direct (non-queue) approvers: look up ApplicationUser by FuncionarioId
+        // This is more reliable than relying on navigation property Include
+        var directAprovadorIds = etapas
+            .Where(e => e.AprovadorId.HasValue && !e.RoleFilaId.HasValue)
+            .Select(e => e.AprovadorId!.Value)
+            .Distinct()
+            .ToList();
+
+        // FuncionarioId → (DisplayName, IsActive)
+        var aprovadorUserMap = new Dictionary<Guid, (string? Name, bool IsActive)>();
+        if (directAprovadorIds.Count > 0)
+        {
+            var userRows = await _db.Set<ApplicationUser>()
+                .AsNoTracking()
+                .Where(u => u.FuncionarioId.HasValue && directAprovadorIds.Contains(u.FuncionarioId!.Value))
+                .Select(u => new
+                {
+                    FuncId = u.FuncionarioId!.Value,
+                    Name = u.FullName != "" ? u.FullName : u.UserName,
+                    u.IsActive,
+                })
+                .ToListAsync(ct);
+
+            foreach (var row in userRows)
+                aprovadorUserMap[row.FuncId] = (row.Name, row.IsActive);
+        }
+
+        var result = new Dictionary<Guid, EtapaPendenteInfo>();
+        foreach (var group in etapas.GroupBy(e => e.SolicitacaoId))
+        {
+            var etapa = group.OrderBy(e => e.Ordem).First();
+            string? pendenteCom;
+            bool isQueue;
+
+            if (etapa.AprovadorId.HasValue && !etapa.RoleFilaId.HasValue)
+            {
+                // Stuck step claimed by admin without Funcionario link — AssumedByUserId takes priority
+                if (etapa.AssumedByUserId.HasValue)
+                {
+                    var u = await _db.Set<ApplicationUser>()
+                        .AsNoTracking()
+                        .IgnoreQueryFilters()
+                        .Where(x => x.Id == etapa.AssumedByUserId.Value)
+                        .Select(x => new { Name = (x.FullName != null && x.FullName != "") ? x.FullName : x.UserName, x.IsActive })
+                        .FirstOrDefaultAsync(ct);
+                    pendenteCom = u?.Name;
+                    isQueue = false; // claimed — show Aprovar, not Assumir
+                }
+                else
+                {
+                    // Direct approver: show name only when they have an active account
+                    var hasActiveAccount = aprovadorUserMap.TryGetValue(etapa.AprovadorId.Value, out var info)
+                        && info.IsActive;
+                    pendenteCom = hasActiveAccount ? info.Name : null;
+                    isQueue = !hasActiveAccount;
+                }
+            }
+            else if (etapa.RoleFilaId.HasValue)
+            {
+                // Normal role queue
+                pendenteCom = roleNames.TryGetValue(etapa.RoleFilaId.Value, out var rn) ? rn : null;
+                isQueue = !etapa.AprovadorId.HasValue; // true if not yet claimed
+            }
+            else
+            {
+                // Both null: either waiting for someone to assume (consenso) OR already assumed by a user directly
+                if (etapa.AssumedByUserId.HasValue)
+                {
+                    // Already claimed by a user without Funcionario link.
+                    // IgnoreQueryFilters: Owner/Admin may belong to a different tenant.
+                    var u = await _db.Set<ApplicationUser>()
+                        .AsNoTracking()
+                        .IgnoreQueryFilters()
+                        .Where(x => x.Id == etapa.AssumedByUserId.Value)
+                        .Select(x => new { Name = (x.FullName != null && x.FullName != "") ? x.FullName : x.UserName, x.IsActive })
+                        .FirstOrDefaultAsync(ct);
+                    pendenteCom = u?.Name;
+                    isQueue = false; // claimed — button disappears
+                }
+                else
+                {
+                    pendenteCom = null;
+                    isQueue = true; // not yet claimed
+                }
+            }
+
+            result[group.Key] = new EtapaPendenteInfo(etapa.Label, pendenteCom, isQueue, etapa.AprovadorId, etapa.AssumedByUserId);
+        }
+        return result;
     }
 }

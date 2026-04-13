@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Portal RH",
-  description: "Portal RH",
+  title: "Render",
+  description: "Render — Gestão de RH",
 };
 
 export default function RootLayout({
