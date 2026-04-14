@@ -1,16 +1,5 @@
 import type { BffMe } from "@/lib/schemas/bff";
-import { RECRUITMENT_ROUTE_KEYS } from "@/features/navigation/recruitmentNavigation";
-
-/**
- * Allowlist de rotas que Gestor e Compliance conseguem enxergar/acessar.
- * Admin/Owner não são afetados — veem tudo.
- */
-const GESTOR_COMPLIANCE_ALLOWLIST = new Set<string>([
-  RECRUITMENT_ROUTE_KEYS.dashboard,
-  RECRUITMENT_ROUTE_KEYS.aprovacoes,
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,
-  RECRUITMENT_ROUTE_KEYS.painelSolicitacoes,
-]);
+import { buildNavItemsForPermissions, hasPermission } from "@/features/navigation/permissionManifest";
 
 function rolesOf(me: BffMe): Set<string> {
   return new Set((me.roles ?? []).map((r) => r.toLowerCase()));
@@ -36,17 +25,38 @@ export function isCompliance(me: BffMe): boolean {
 }
 
 /**
- * Retorna o conjunto de hrefs permitidos para o usuário.
- * `null` = sem filtro (Admin/Owner, ou papéis não restritos).
- * Set não-vazio = allowlist (Gestor/Compliance).
+ * Returns the set of hrefs the user is allowed to access.
+ * `null` = unrestricted (no URL-level blocking).
+ * Non-null Set = allowlist derived from the user's permission set.
+ *
+ * Strategy:
+ *  - Owner in owner context → unrestricted (own screens handled by AppShell)
+ *  - Wildcard permission "*" (Owner in tenant) → unrestricted within tenant
+ *  - Full-access roles (Admin, RH) have "access.manage" → unrestricted
+ *  - Restricted roles (Gestor, Compliance) → allowlist from their permissions
  */
 export function getVisibleMenuHrefs(me: BffMe): Set<string> | null {
-  if (isAdminOrOwner(me)) return null;
-  if (isGestor(me) || isCompliance(me)) return new Set(GESTOR_COMPLIANCE_ALLOWLIST);
-  return null;
+  if (!me) return null;
+
+  const permissions = me.permissions ?? [];
+
+  // Owner in their own context: only owner screens, no tenant filtering needed here
+  if (me.isOwnerContext) return null;
+
+  // Wildcard → unrestricted (Owner inside a tenant)
+  if (permissions.includes("*")) return null;
+
+  // Full-access tenant roles have "access.manage" → no URL restrictions
+  if (hasPermission(permissions, "access.manage")) return null;
+
+  // Restricted roles: compute allowlist from their actual permissions
+  const navItems = buildNavItemsForPermissions(permissions);
+  if (navItems.length === 0) return new Set<string>(); // no access at all
+
+  return new Set(navItems.map((item) => item.href));
 }
 
-/** Match exato OU prefix match por segmento (ex: `/gestao/aprovacoes/123` bate com `/gestao/aprovacoes`). */
+/** Match exact OR prefix match by segment (e.g., `/gestao/aprovacoes/123` hits `/gestao/aprovacoes`). */
 export function isHrefAllowed(href: string, allowed: Set<string> | null): boolean {
   if (!allowed) return true;
   const h = (href ?? "").toLowerCase().replace(/\/+$/, "") || "/";

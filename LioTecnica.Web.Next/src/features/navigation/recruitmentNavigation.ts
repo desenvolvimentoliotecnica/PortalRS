@@ -1,4 +1,4 @@
-import type { BffMe, BffNavItem } from "@/lib/schemas/bff";
+import type { BffNavItem } from "@/lib/schemas/bff";
 
 export const NAV_MENU_CACHE_KEY = "renderrh.nav.menus.v3";
 
@@ -119,17 +119,6 @@ const ROUTE_KEY_ALIASES: Record<string, string> = {
   "/gestao/pipeline": RECRUITMENT_ROUTE_KEYS.rodadas,
 };
 
-function createItem(id: string, label: string, href: string, icon: string): BffNavItem {
-  return {
-    id,
-    label,
-    href,
-    icon,
-    openInNewTab: false,
-    children: [],
-  };
-}
-
 export function toNavRouteKey(href: string | null | undefined): string {
   if (!href || href === "#") return "#";
   const withoutApp = href.replace(/^\/app(?=\/|$)/i, "");
@@ -154,34 +143,4 @@ export function collectNavRouteKeys(items: BffNavItem[]): Set<string> {
   return seen;
 }
 
-export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
-  const roleSet = new Set((me.roles ?? []).map((role) => role.toLowerCase()));
-  const isAdmin = me.isAdmin;
-  const isGestor = isAdmin || roleSet.has("gestor");
-
-  const extras: BffNavItem[] = [
-    createItem("nav-dashboard", "Dashboard", "/dashboard", "layoutdashboard"),
-    createItem("nav-solicitacoes", "Solicitações", "/gestao/solicitacoes", "clipboardlist"),
-    createItem("nav-aprovacoes", "Minhas Pendências", "/gestao/aprovacoes", "checkcheck"),
-    createItem("nav-painel-solicitacoes", "Painel de Solicitações", "/gestao/painel-solicitacoes", "gitbranch"),
-    createItem("nav-vagas", "Vagas", "/vagas", "briefcase"),
-    createItem("nav-candidatos", "Candidatos", "/candidatos", "users"),
-    createItem("nav-painel-rh", "Painel RH", "/painel-rh", "clipboardcheck"),
-    createItem("nav-matching", "Matching IA", "/matching", "bi-stars"),
-    createItem("nav-triagem", "Pipeline", "/triagem", "bi-funnel"),
-    createItem("nav-processo-seletivo", "Processo Seletivo", "/gestao/processo-seletivo", "listchecks"),
-    createItem("nav-admissao", "Admissão", "/admissao", "usercheck"),
-    createItem("nav-batidaponto", "Batida de Ponto", "/gestao/batida-ponto", "bi-clock-history"),
-    createItem("nav-comissoes", "Pagamento extra", "/gestao/comissoes", "bi-bar-chart"),
-    createItem("nav-empresas", "Empresas", "/empresas", "building2"),
-    ...(isAdmin ? [createItem("nav-configuracao-aprovacoes", "Configuração de Aprovações", "/admin/configuracao-aprovacoes", "settings2")] : []),
-    ...(isAdmin ? [createItem("nav-aprovadores-alternativos", "Aprovadores Alternativos", "/admin/aprovadores-alternativos", "user-check")] : []),
-  ];
-
-  return extras.filter((item) => {
-    if (item.href === RECRUITMENT_ROUTE_KEYS.solicitacoes) {
-      return isGestor;
-    }
-    return true;
-  });
-}
+// buildTenantExtraNavItems was replaced by buildNavItemsForPermissions in permissionManifest.ts

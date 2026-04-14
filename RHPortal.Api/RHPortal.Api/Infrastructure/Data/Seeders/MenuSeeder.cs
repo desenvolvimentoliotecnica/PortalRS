@@ -55,19 +55,13 @@ public static class MenuSeeder
         if (updated)
             await db.SaveChangesAsync(ct);
 
-        // Migrate legacy Gestores menu to Funcionarios (permission, route, display key)
+        // Migrate legacy Gestores menu to Funcionarios (Menu row only — RoleMenus no longer used)
         var legacyGestoresMenu = await db.Menus.FirstOrDefaultAsync(x => x.PermissionKey == "managers.view", ct);
         if (legacyGestoresMenu != null)
         {
             var funcionariosMenu = await db.Menus.FirstOrDefaultAsync(x => x.PermissionKey == "funcionarios.view", ct);
             if (funcionariosMenu != null)
             {
-                // Already have funcionarios.view: reassign RoleMenus to it and remove legacy menu (avoids IX_Menus_TenantId_PermissionKey duplicate)
-                await db.RoleMenus
-                    .Where(x => x.MenuId == legacyGestoresMenu.Id && x.PermissionKey == "managers.view")
-                    .ExecuteUpdateAsync(s => s
-                        .SetProperty(r => r.MenuId, funcionariosMenu.Id)
-                        .SetProperty(r => r.PermissionKey, "funcionarios.view"), ct);
                 db.Menus.Remove(legacyGestoresMenu);
             }
             else
@@ -76,11 +70,8 @@ public static class MenuSeeder
                 legacyGestoresMenu.Route = "/Funcionarios";
                 legacyGestoresMenu.DisplayNameKey = "Seed.Menu.Funcionarios";
                 legacyGestoresMenu.DisplayName = localizer["Seed.Menu.Funcionarios"].Value;
-                await db.RoleMenus.Where(x => x.MenuId == legacyGestoresMenu.Id && x.PermissionKey == "managers.view")
-                    .ExecuteUpdateAsync(s => s.SetProperty(r => r.PermissionKey, "funcionarios.view"), ct);
             }
             await db.SaveChangesAsync(ct);
-            // Rebuild menuByKey so it no longer contains the removed legacy menu (avoids FK when adding RoleMenus)
             menuByKey = await db.Menus.ToDictionaryAsync(x => x.PermissionKey, x => x, ct);
         }
 
@@ -138,43 +129,7 @@ public static class MenuSeeder
         if (reparented)
             await db.SaveChangesAsync(ct);
 
-        // Rebuild menuByKey for the role assignment below
-        menuByKey = await db.Menus.ToDictionaryAsync(x => x.PermissionKey, x => x, ct);
-
-
-
-        var adminMenuAssignments = menuByKey.Values
-            .Select(x => (MenuId: x.Id, x.PermissionKey))
-            .ToList();
-
-        if (menuByKey.TryGetValue("users.read", out var usersMenu))
-            adminMenuAssignments.Add((usersMenu.Id, "users.write"));
-
-        var existingAssignments = await db.RoleMenus
-            .Where(x => x.RoleId == adminRole.Id)
-            .Select(x => new { x.MenuId, x.PermissionKey })
-            .ToListAsync(ct);
-
-        var existingKeys = existingAssignments
-            .Select(x => $"{x.MenuId}:{x.PermissionKey}")
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var toAdd = adminMenuAssignments
-            .Where(x => !existingKeys.Contains($"{x.MenuId}:{x.PermissionKey}"))
-            .Select(x => new RoleMenu
-            {
-                Id = Guid.NewGuid(),
-                RoleId = adminRole.Id,
-                MenuId = x.MenuId,
-                PermissionKey = x.PermissionKey
-            })
-            .ToList();
-
-        if (toAdd.Count > 0)
-        {
-            db.RoleMenus.AddRange(toAdd);
-            await db.SaveChangesAsync(ct);
-        }
+        // RoleMenus seeding removed — permissions are code-first via RolePermissionManifest.
     }
 
     /// <summary>

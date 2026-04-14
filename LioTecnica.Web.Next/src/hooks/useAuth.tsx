@@ -10,7 +10,7 @@ import {
 import type { BffMe } from "@/lib/schemas/bff";
 import { ApiCurrentUserSchema } from "@/lib/schemas/api";
 import { apiFetch } from "@/lib/api";
-import { getAccessToken, setTenantId, tryGetTenantIdFromJwt, tryGetRolesFromJwt } from "@/lib/session";
+import { getAccessToken, setTenantId, tryGetTenantIdFromJwt, tryGetRolesFromJwt, tryGetPermissionsFromJwt } from "@/lib/session";
 
 /* ------------------------------------------------------------------ */
 /*  Context                                                           */
@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (fromJwt) setTenantId(fromJwt);
 
                 const roles = tryGetRolesFromJwt(token);
+                const permissions = tryGetPermissionsFromJwt(token);
                 const isOwnerRole = roles.some((r) => r.toLowerCase() === "owner");
                 const tenantLower = (fromJwt ?? "").toLowerCase();
 
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         roles: ["Owner"],
                         isAdmin: true,
                         isOwnerContext: true,
+                        permissions,
                     };
 
                     if (!cancelled) {
@@ -83,6 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // The Owner user doesn't exist in the tenant's Identity store,
                 // so /api/me would return 401. Build the context from the JWT.
                 if (isOwnerRole && tenantLower && tenantLower !== "owner") {
+                    // Owners always get wildcard access. Old JWTs (pre-manifest) may not
+                    // carry permission claims, so default to ["*"] if the claim is missing.
+                    const ownerPermissions = permissions.length > 0 ? permissions : ["*"];
                     const meMapped: BffMe = {
                         isAuthenticated: true,
                         tenantId: fromJwt!,
@@ -91,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         roles: ["Owner", "Admin"],
                         isAdmin: true,
                         isOwnerContext: false, // Inside a tenant now — show tenant menus
+                        permissions: ownerPermissions,
                     };
 
                     if (!cancelled) {
@@ -122,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     isOwnerContext:
                         parsed.data.tenantId.toLowerCase() === "owner" ||
                         parsed.data.roles.some((r) => r.toLowerCase() === "owner"),
+                    permissions: parsed.data.permissions ?? [],
                 };
 
                 if (!cancelled) {
@@ -161,12 +168,13 @@ export function useAuth() {
 /* ------------------------------------------------------------------ */
 
 /**
- * Hierarquia: owner > admin > gestor > recrutador
- * Cada nível superior inclui as permissões dos inferiores.
+ * Hierarquia: owner > admin = rh > gestor = compliance
+ * RH (antigo Recrutador) tem acesso completo, igual ao Admin.
+ * Gestor e Compliance têm acesso restrito.
  */
-export type AppRole = "owner" | "admin" | "gestor" | "recrutador";
+export type AppRole = "owner" | "admin" | "rh" | "gestor" | "compliance";
 
-const ROLE_HIERARCHY: AppRole[] = ["owner", "admin", "gestor", "recrutador"];
+const ROLE_HIERARCHY: AppRole[] = ["owner", "admin", "rh", "gestor", "compliance"];
 
 export function usePermission(minRole: AppRole): boolean {
     const { me } = useAuth();
@@ -175,6 +183,17 @@ export function usePermission(minRole: AppRole): boolean {
     const minIndex = ROLE_HIERARCHY.indexOf(minRole);
     // User has permission if they have any role >= minRole in the hierarchy
     return ROLE_HIERARCHY.slice(0, minIndex + 1).some((r) => roles.includes(r));
+}
+
+/**
+ * Returns true if the current user has the given permission key.
+ * Wildcard "*" (Owner) grants all permissions.
+ */
+export function useHasPermission(key: string): boolean {
+    const { me } = useAuth();
+    if (!me) return false;
+    const perms = me.permissions ?? [];
+    return perms.includes("*") || perms.includes(key);
 }
 
 /** Admin, Administrador, Owner ou contexto Owner. */
