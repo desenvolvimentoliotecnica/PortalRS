@@ -32,12 +32,18 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
     {
         await TenantSeeder.EnsureAsync(_masterDb, tenantId, name, createdByOwnerId, ct);
         await TenantDatabaseEnsurer.EnsureTenantDatabaseExistsAsync(_configuration, tenantId, ct);
-        _tenantContext.SetTenantId(tenantId);
-        var db = _scope.GetRequiredService<AppDbContext>();
+
+        // Cria um scope novo e define o tenantId ANTES de resolver o AppDbContext,
+        // garantindo que a connection string correta seja capturada pelo factory do DI.
+        using var tenantScope = _scope.CreateScope();
+        var tenantCtx = tenantScope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantCtx.SetTenantId(tenantId);
+        var db = tenantScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
         await db.Database.MigrateAsync(ct);
         await ApplyOrphanMigrationsAsync(db, tenantId, ct);
         if (seedAfterCreate)
-            await RunSeedAsync(tenantId, db, ct);
+            await RunSeedAsync(tenantId, tenantScope.ServiceProvider, ct);
     }
 
     /// <summary>
@@ -381,11 +387,12 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await JobPositionSeeder.EnsureAsync(db, localizer, ct);
     }
 
-    private async Task RunSeedAsync(string tenantId, AppDbContext db, CancellationToken ct)
+    private async Task RunSeedAsync(string tenantId, IServiceProvider scopedProvider, CancellationToken ct)
     {
-        var userManager = _scope.GetRequiredService<UserManager<ApplicationUser>>();
-        var roleManager = _scope.GetRequiredService<RoleManager<ApplicationRole>>();
-        var localizer = _scope.GetRequiredService<IStringLocalizer<SeedMessages>>();
+        var db = scopedProvider.GetRequiredService<AppDbContext>();
+        var userManager = scopedProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = scopedProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+        var localizer = scopedProvider.GetRequiredService<IStringLocalizer<SeedMessages>>();
         var adminPassword = _configuration.GetValue<string>("Seed:AdminPassword") ?? "ChangeThisPassword123!";
         var emailDomain = "dev.local";
         await AdminAccessSeeder.EnsureAsync(db, userManager, roleManager, tenantId, emailDomain, adminPassword, 0, localizer, ct, null);

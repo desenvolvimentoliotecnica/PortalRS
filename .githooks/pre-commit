@@ -1,0 +1,47 @@
+#!/bin/sh
+# ============================================================
+# pre-commit hook — Voltage RenderRH
+# Bloqueia commits que alteram entidades sem criar migration.
+# ============================================================
+
+PROJECT_DIR="RHPortal.Api/RHPortal.Api"
+
+# Verifica se algum arquivo de entidade ou AppDbContext foi modificado
+ENTITIES_CHANGED=$(git diff --cached --name-only | grep -E "Domain/Entities/.*\.cs|Infrastructure/Data/AppDbContext\.cs")
+
+if [ -z "$ENTITIES_CHANGED" ]; then
+  exit 0
+fi
+
+echo ""
+echo "⚠️  Entidades ou AppDbContext modificados:"
+echo "$ENTITIES_CHANGED" | sed 's/^/   /'
+echo ""
+echo "🔍 Verificando pending model changes no EF Core..."
+
+if ! command -v dotnet &> /dev/null; then
+  echo "⚠️  dotnet não encontrado — verificação ignorada."
+  exit 0
+fi
+
+cd "$PROJECT_DIR" 2>/dev/null || { echo "⚠️  Diretório não encontrado — verificação ignorada."; exit 0; }
+
+dotnet build -nologo -v q 2>/dev/null
+dotnet ef migrations has-pending-model-changes --context AppDbContext --no-build 2>/dev/null
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ]; then
+  echo "✅ Nenhuma mudança pendente — commit liberado."
+  exit 0
+else
+  echo ""
+  echo "❌ COMMIT BLOQUEADO: modelo alterado sem migration correspondente."
+  echo ""
+  echo "   Crie a migration:"
+  echo "   cd RHPortal.Api/RHPortal.Api"
+  echo "   dotnet ef migrations add NomeDaFeature --context AppDbContext"
+  echo ""
+  echo "   Para ignorar (não recomendado): git commit --no-verify"
+  echo ""
+  exit 1
+fi

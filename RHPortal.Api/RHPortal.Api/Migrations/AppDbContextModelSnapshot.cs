@@ -5025,7 +5025,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("NiveisCargo");
+                    b.ToTable("NiveisCargo", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.NivelHierarquico", b =>
@@ -6104,6 +6104,9 @@ namespace RHPortal.Api.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<short>("Lado")
+                        .HasColumnType("smallint");
+
                     b.Property<string>("NomeArquivo")
                         .IsRequired()
                         .HasMaxLength(260)
@@ -6683,7 +6686,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesBeneficio");
+                    b.ToTable("SolicitacoesBeneficio", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDependente", b =>
@@ -6758,7 +6761,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesDependente");
+                    b.ToTable("SolicitacoesDependente", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDesligamento", b =>
@@ -6852,7 +6855,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("UnitId");
 
-                    b.ToTable("SolicitacoesDesligamento");
+                    b.ToTable("SolicitacoesDesligamento", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoEndereco", b =>
@@ -6925,7 +6928,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesEndereco");
+                    b.ToTable("SolicitacoesEndereco", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoFerias", b =>
@@ -6994,7 +6997,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesFerias");
+                    b.ToTable("SolicitacoesFerias", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoPagamentoExtra", b =>
@@ -7090,7 +7093,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesPagamentoExtra");
+                    b.ToTable("SolicitacoesPagamentoExtra", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoPromocao", b =>
@@ -7213,7 +7216,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("UnitId");
 
-                    b.ToTable("SolicitacoesPromocao");
+                    b.ToTable("SolicitacoesPromocao", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoVaga", b =>
@@ -7930,7 +7933,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TenantAwsSettings");
+                    b.ToTable("TenantAwsSettings", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantConfiguracao", b =>
@@ -8054,6 +8057,18 @@ namespace RHPortal.Api.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("OwnerCdnEmpresa")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<string>("OwnerCdnEstab")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("OwnerCdnFuncionario")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
 
                     b.Property<Guid?>("OwnerFuncionarioId")
                         .HasColumnType("uuid");
