@@ -172,6 +172,7 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
     createItem("nav-empresas", "Empresas", "/empresas", "building2"),
     ...(isAdmin ? [createItem("nav-configuracao-aprovacoes", "Configuração de Aprovações", "/admin/configuracao-aprovacoes", "settings2")] : []),
     ...(isAdmin ? [createItem("nav-aprovadores-alternativos", "Aprovadores Alternativos", "/admin/aprovadores-alternativos", "user-check")] : []),
+    ...(isAdmin ? [createItem("nav-documentacao-padrao", "Documentação Padrão", "/admin/documentacao-padrao", "file-check")] : []),
   ];
 
   return extras.filter((item) => {

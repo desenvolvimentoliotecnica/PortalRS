@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { DocumentValidationResponse, DependenteResponse } from "./publicApi";
+import type { DependenteResponse } from "./publicApi";
 
 export interface DadosPessoais {
     [key: string]: unknown;
@@ -94,6 +94,8 @@ interface AdmissaoWizardState {
     setFormField: (field: string, value: unknown) => void;
     setFormData: (data: Partial<DadosPessoais>) => void;
     mergeAiFields: (fields: Record<string, string | null>) => void;
+    overwriteAiFields: (fields: Record<string, string | null>) => void;
+    clearFormData: () => void;
     setDependentes: (deps: DependenteResponse[]) => void;
     addDependente: (dep: DependenteResponse) => void;
     updateDependente: (id: string, dep: DependenteResponse) => void;
@@ -141,6 +143,19 @@ export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => 
             }
             return { formData: merged };
         }),
+
+    overwriteAiFields: (fields) =>
+        set((s) => {
+            const merged = { ...s.formData };
+            for (const [key, value] of Object.entries(fields)) {
+                if (value != null && value !== "") {
+                    merged[key] = value;
+                }
+            }
+            return { formData: merged };
+        }),
+
+    clearFormData: () => set({ formData: {} }),
 
     setDependentes: (deps) => set({ dependentes: deps }),
     addDependente: (dep) => set((s) => ({ dependentes: [...s.dependentes, dep] })),

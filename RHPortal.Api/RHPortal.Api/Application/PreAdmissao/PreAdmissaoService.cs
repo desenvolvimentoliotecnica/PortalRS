@@ -808,23 +808,46 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);
 
-        // Auto-criar documentos solicitados por tipo de contratação
-        var docsTipo = entity.TipoContratacao switch
+        // Carrega configuração padrão do tenant; se não houver, usa lista hardcoded por tipo de contratação
+        var configsPadrao = await _db.Set<DocumentacaoPadraoConfig>()
+            .Where(c => c.Configuracao != 2)
+            .ToListAsync(ct);
+
+        if (configsPadrao.Count > 0)
         {
-            TipoContratacaoAdmissao.PJ => new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas },
-            _ => new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario },
-        };
-        foreach (var tipo in docsTipo)
-        {
-            _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+            foreach (var config in configsPadrao)
             {
-                Id = Guid.NewGuid(),
-                TenantId = _tenantContext.TenantId,
-                PreAdmissaoId = entity.Id,
-                TipoDocumento = tipo,
-                Obrigatorio = true,
-                CreatedAtUtc = DateTimeOffset.UtcNow,
-            });
+                _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId,
+                    PreAdmissaoId = entity.Id,
+                    TipoDocumento = (TipoDocumento)config.TipoDocumento,
+                    Obrigatorio = config.Configuracao == 0,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                });
+            }
+        }
+        else
+        {
+            // Fallback: lista padrão por tipo de contratação
+            var docsTipo = entity.TipoContratacao switch
+            {
+                TipoContratacaoAdmissao.PJ => new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas },
+                _ => new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario },
+            };
+            foreach (var tipo in docsTipo)
+            {
+                _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId,
+                    PreAdmissaoId = entity.Id,
+                    TipoDocumento = tipo,
+                    Obrigatorio = true,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                });
+            }
         }
         await _db.SaveChangesAsync(ct);
 

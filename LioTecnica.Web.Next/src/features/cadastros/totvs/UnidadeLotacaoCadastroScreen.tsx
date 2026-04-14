@@ -45,6 +45,7 @@ interface Item {
 
 interface Draft {
   id?: string;
+  cdnPlanoLotac: string;
   code: string;
   description: string;
   location: string;
@@ -139,7 +140,7 @@ function statusBadge(active: boolean) {
 }
 
 const emptyDraft: Draft = {
-  code: "", description: "", location: "", notes: "", isActive: true,
+  cdnPlanoLotac: "", code: "", description: "", location: "", notes: "", isActive: true,
   parentId: null, level: 1, sequenceNumber: "", ownerFuncionarioId: null,
 };
 
@@ -206,8 +207,8 @@ export default function UnidadeLotacaoCadastroScreen() {
 
   const loadFuncionarios = useCallback(async () => {
     try {
-      const res = await fetchJson<LookupItem[]>("/api/lookup/funcionarios");
-      setFuncionarios(Array.isArray(res) ? res : []);
+      const res = await fetchJson<{ items: Array<{ id: string; nome: string }> }>("/api/lookup/funcionarios?pageSize=200&onlyActive=false");
+      setFuncionarios(Array.isArray(res?.items) ? res.items.map((f) => ({ id: f.id, name: f.nome })) : []);
     } catch { /* lookup opcional */ }
   }, []);
 
@@ -287,6 +288,7 @@ export default function UnidadeLotacaoCadastroScreen() {
     try {
       setSaving(true);
       const payload = {
+        cdnPlanoLotac: draft.cdnPlanoLotac.trim() || null,
         code: draft.code.trim(),
         description: draft.description.trim(),
         location: draft.location?.trim() || null,
@@ -570,7 +572,7 @@ export default function UnidadeLotacaoCadastroScreen() {
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="outline" size="icon-xs" title="Editar" onClick={() => {
                           setDraft({
-                            id: item.id, code: item.code, description: item.description,
+                            id: item.id, cdnPlanoLotac: item.cdnPlanoLotac, code: item.code, description: item.description,
                             location: item.location || "", notes: item.notes || "", isActive: item.isActive,
                             parentId: item.parentId ?? null, level: item.level,
                             sequenceNumber: item.sequenceNumber?.toString() ?? "",
@@ -599,7 +601,7 @@ export default function UnidadeLotacaoCadastroScreen() {
                   <div className="flex items-center justify-end gap-1">
                     <Button variant="outline" size="icon-xs" title="Editar" onClick={() => {
                       setDraft({
-                        id: item.id, code: item.code, description: item.description,
+                        id: item.id, cdnPlanoLotac: item.cdnPlanoLotac, code: item.code, description: item.description,
                         location: item.location || "", notes: item.notes || "", isActive: item.isActive,
                         parentId: item.parentId ?? null, level: item.level,
                         sequenceNumber: item.sequenceNumber?.toString() ?? "",
@@ -628,13 +630,18 @@ export default function UnidadeLotacaoCadastroScreen() {
             <DialogDescription>Preencha os dados da unidade organizacional.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* Plano de Lotação */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Plano (TOTVS)</label>
+              <Input placeholder="Ex: 101" value={draft.cdnPlanoLotac} onChange={(e) => setDraft((d) => ({ ...d, cdnPlanoLotac: e.target.value }))} maxLength={10} />
+            </div>
             {/* Código */}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Código *</label>
               <Input placeholder="Ex: UL001" value={draft.code} onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))} maxLength={30} />
             </div>
             {/* Descrição */}
-            <div>
+            <div className="sm:col-span-2">
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
               <Input placeholder="Ex: Matriz" value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} maxLength={120} />
             </div>

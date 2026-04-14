@@ -19,10 +19,10 @@ interface RoleDraft {
     name: string;
     description: string;
     isActive: boolean;
-    tipo: number;          // 0=RH, 1=Colaborador, 2=Gestor, 3=Compliance
-    visibilityScope: number;
-    vagasDataScope: number;
-    accessMode: number;
+    tipo: string;
+    visibilityScope: string;
+    vagasDataScope: string;
+    accessMode: string;
 }
 
 interface Props {
@@ -52,10 +52,10 @@ const emptyDraft: RoleDraft = {
     name: "",
     description: "",
     isActive: true,
-    tipo: 1,           // Colaborador por padrão
-    visibilityScope: 0,
-    vagasDataScope: 0,
-    accessMode: 0,
+    tipo: "Colaborador",
+    visibilityScope: "FullStructure",
+    vagasDataScope: "All",
+    accessMode: "Full",
 };
 
 /* ── Section divider ── */
@@ -86,10 +86,10 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
                 name: string;
                 description: string;
                 isActive: boolean;
-                tipo: number;
-                visibilityScope: number;
-                vagasDataScope: number;
-                accessMode: number;
+                tipo: string;
+                visibilityScope: string;
+                vagasDataScope: string;
+                accessMode: string;
             };
             fetchJson<RoleDetail>(`/api/roles/${editId}`)
                 .then((r) => {
@@ -97,10 +97,10 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
                         name: r.name,
                         description: r.description ?? "",
                         isActive: r.isActive,
-                        tipo: r.tipo ?? 1,
-                        visibilityScope: r.visibilityScope ?? 0,
-                        vagasDataScope: r.vagasDataScope ?? 0,
-                        accessMode: r.accessMode ?? 0,
+                        tipo: r.tipo ?? "Colaborador",
+                        visibilityScope: r.visibilityScope ?? "FullStructure",
+                        vagasDataScope: r.vagasDataScope ?? "All",
+                        accessMode: r.accessMode ?? "Full",
                     });
                 })
                 .catch(() => toast.error("Falha ao carregar dados do perfil."))
@@ -155,14 +155,6 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
     const L = "block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1";
     const S = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
-    const TIPO_OPTIONS = [
-        { value: 0, label: "RH" },
-        { value: 1, label: "Colaborador" },
-        { value: 2, label: "Gestor" },
-        { value: 3, label: "Compliance" },
-        { value: 4, label: "Admin" },
-    ];
-
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -203,11 +195,13 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
                             <select
                                 className={S}
                                 value={draft.tipo}
-                                onChange={(e) => setDraft((d) => ({ ...d, tipo: Number(e.target.value) }))}
+                                onChange={(e) => setDraft((d) => ({ ...d, tipo: e.target.value }))}
                             >
-                                {TIPO_OPTIONS.map((o) => (
-                                    <option key={o.value} value={o.value}>{o.label}</option>
-                                ))}
+                                <option value="RH">RH</option>
+                                <option value="Colaborador">Colaborador</option>
+                                <option value="Gestor">Gestor</option>
+                                <option value="Compliance">Compliance</option>
+                                <option value="Admin">Admin</option>
                             </select>
                         </div>
 
@@ -230,10 +224,10 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
                             <select
                                 className={S}
                                 value={draft.visibilityScope}
-                                onChange={(e) => setDraft((d) => ({ ...d, visibilityScope: Number(e.target.value) }))}
+                                onChange={(e) => setDraft((d) => ({ ...d, visibilityScope: e.target.value }))}
                             >
-                                <option value={0}>Estrutura completa</option>
-                                <option value={1}>Restrito por Área/Recrutador</option>
+                                <option value="FullStructure">Estrutura completa</option>
+                                <option value="RestrictedByAreaOrRecruiter">Restrito por Área/Recrutador</option>
                             </select>
                         </div>
 
@@ -242,11 +236,11 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
                             <select
                                 className={S}
                                 value={draft.vagasDataScope}
-                                onChange={(e) => setDraft((d) => ({ ...d, vagasDataScope: Number(e.target.value) }))}
+                                onChange={(e) => setDraft((d) => ({ ...d, vagasDataScope: e.target.value }))}
                             >
-                                <option value={0}>Todas</option>
-                                <option value={1}>Por Área</option>
-                                <option value={2}>Apenas do Recrutador</option>
+                                <option value="All">Todas</option>
+                                <option value="ByArea">Por Área</option>
+                                <option value="ByRecrutador">Apenas do Recrutador</option>
                             </select>
                         </div>
 
@@ -255,10 +249,10 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
                             <select
                                 className={S}
                                 value={draft.accessMode}
-                                onChange={(e) => setDraft((d) => ({ ...d, accessMode: Number(e.target.value) }))}
+                                onChange={(e) => setDraft((d) => ({ ...d, accessMode: e.target.value }))}
                             >
-                                <option value={0}>Completo</option>
-                                <option value={1}>Somente Leitura</option>
+                                <option value="Full">Completo</option>
+                                <option value="ReadOnly">Somente Leitura</option>
                             </select>
                         </div>
                     </div>

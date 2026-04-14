@@ -2,12 +2,63 @@
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { Sparkles, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useAdmissaoWizardStore, type DadosPessoais } from "../useAdmissaoWizardStore";
 import {
     admissaoPortalFetch,
     type AdmissaoPortalSession,
 } from "../publicApi";
+
+// ── Dados para autocomplete ──
+
+const UF_OPTIONS = [
+    { value: "AC", label: "AC — Acre" }, { value: "AL", label: "AL — Alagoas" },
+    { value: "AP", label: "AP — Amapá" }, { value: "AM", label: "AM — Amazonas" },
+    { value: "BA", label: "BA — Bahia" }, { value: "CE", label: "CE — Ceará" },
+    { value: "DF", label: "DF — Distrito Federal" }, { value: "ES", label: "ES — Espírito Santo" },
+    { value: "GO", label: "GO — Goiás" }, { value: "MA", label: "MA — Maranhão" },
+    { value: "MT", label: "MT — Mato Grosso" }, { value: "MS", label: "MS — Mato Grosso do Sul" },
+    { value: "MG", label: "MG — Minas Gerais" }, { value: "PA", label: "PA — Pará" },
+    { value: "PB", label: "PB — Paraíba" }, { value: "PR", label: "PR — Paraná" },
+    { value: "PE", label: "PE — Pernambuco" }, { value: "PI", label: "PI — Piauí" },
+    { value: "RJ", label: "RJ — Rio de Janeiro" }, { value: "RN", label: "RN — Rio Grande do Norte" },
+    { value: "RS", label: "RS — Rio Grande do Sul" }, { value: "RO", label: "RO — Rondônia" },
+    { value: "RR", label: "RR — Roraima" }, { value: "SC", label: "SC — Santa Catarina" },
+    { value: "SP", label: "SP — São Paulo" }, { value: "SE", label: "SE — Sergipe" },
+    { value: "TO", label: "TO — Tocantins" },
+];
+
+const BANKS = [
+    { code: "001", name: "Banco do Brasil" }, { code: "033", name: "Santander" },
+    { code: "041", name: "Banrisul" }, { code: "070", name: "BRB — Banco de Brasília" },
+    { code: "077", name: "Banco Inter" }, { code: "104", name: "Caixa Econômica Federal" },
+    { code: "208", name: "BTG Pactual" }, { code: "212", name: "Banco Original" },
+    { code: "237", name: "Bradesco" }, { code: "260", name: "Nubank" },
+    { code: "290", name: "PagBank" }, { code: "318", name: "Banco BMG" },
+    { code: "336", name: "C6 Bank" }, { code: "341", name: "Itaú Unibanco" },
+    { code: "389", name: "Banco Mercantil do Brasil" }, { code: "422", name: "Banco Safra" },
+    { code: "623", name: "Banco Pan" }, { code: "633", name: "Banco Rendimento" },
+    { code: "655", name: "Votorantim" }, { code: "707", name: "Banco Daycoval" },
+    { code: "748", name: "Sicredi" }, { code: "756", name: "Sicoob" },
+    { code: "084", name: "Uniprime" }, { code: "136", name: "Unicred" },
+    { code: "197", name: "Stone" }, { code: "380", name: "PicPay" },
+    { code: "403", name: "Cora" }, { code: "637", name: "Banco Sofisa" },
+];
+
+let ibgeCitiesCache: { nome: string; uf: string }[] | null = null;
+let ibgeFetchPromise: Promise<void> | null = null;
+
+function loadIbgeCities(): Promise<void> {
+    if (ibgeCitiesCache) return Promise.resolve();
+    if (ibgeFetchPromise) return ibgeFetchPromise;
+    ibgeFetchPromise = fetch("https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome")
+        .then(r => r.json())
+        .then((data: { nome: string; microrregiao: { mesorregiao: { UF: { sigla: string } } } }[]) => {
+            ibgeCitiesCache = data.map(m => ({ nome: m.nome, uf: m.microrregiao.mesorregiao.UF.sigla }));
+        })
+        .catch(() => { ibgeFetchPromise = null; });
+    return ibgeFetchPromise;
+}
 
 const SEXO_OPTIONS = [
     { value: 0, label: "Nao Informado" }, { value: 1, label: "Masculino" },
@@ -105,25 +156,25 @@ export default function ReviewDataStep({ session, disabled }: Props) {
             {/* Dados Pessoais */}
             <Section title="Seus Dados Pessoais" defaultOpen>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Nome Completo" field="nome" form={formData} set={set} disabled={disabled} />
+                    <Field label="Nome Completo" field="nome" form={formData} set={set} disabled={disabled} required />
                     <Field label="Nome Social" field="nomeSocial" form={formData} set={set} disabled={disabled} placeholder="Opcional" />
                     <Field label="Nome Abreviado" field="nomeAbreviado" form={formData} set={set} disabled={disabled} placeholder="Ex: JOAO" />
-                    <Field label="CPF" field="cpf" form={formData} set={set} disabled className="bg-muted" />
-                    <Field label="RG" field="rg" form={formData} set={set} disabled={disabled} />
-                    <Field label="Orgao Expedidor" field="rgOrgaoExpedidor" form={formData} set={set} disabled={disabled} />
-                    <Field label="UF Expedidor RG" field="rgUfExpedidor" form={formData} set={set} disabled={disabled} maxLength={2} />
-                    <Field label="Data Emissao RG" field="rgDataExpedicao" form={formData} set={set} disabled={disabled} type="date" />
-                    <Field label="Data de Nascimento" field="dataNascimento" form={formData} set={set} disabled={disabled} type="date" />
-                    <SelectField label="Sexo" field="sexo" form={formData} set={set} disabled={disabled} options={SEXO_OPTIONS} cls={selectCls} />
-                    <SelectField label="Estado Civil" field="estadoCivil" form={formData} set={set} disabled={disabled} options={ESTADO_CIVIL_OPTIONS} cls={selectCls} />
-                    <Field label="Nacionalidade" field="nacionalidade" form={formData} set={set} disabled={disabled} placeholder="Brasileira" />
+                    <Field label="CPF" field="cpf" form={formData} set={set} disabled className="bg-muted" required />
+                    <Field label="RG" field="rg" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Orgao Expedidor" field="rgOrgaoExpedidor" form={formData} set={set} disabled={disabled} required />
+                    <AutocompleteField label="UF Expedidor RG" field="rgUfExpedidor" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
+                    <Field label="Data Emissao RG" field="rgDataExpedicao" form={formData} set={set} disabled={disabled} type="date" required />
+                    <Field label="Data de Nascimento" field="dataNascimento" form={formData} set={set} disabled={disabled} type="date" required />
+                    <SelectField label="Sexo" field="sexo" form={formData} set={set} disabled={disabled} options={SEXO_OPTIONS} cls={selectCls} required />
+                    <SelectField label="Estado Civil" field="estadoCivil" form={formData} set={set} disabled={disabled} options={ESTADO_CIVIL_OPTIONS} cls={selectCls} required />
+                    <Field label="Nacionalidade" field="nacionalidade" form={formData} set={set} disabled={disabled} placeholder="Brasileira" required />
                     <Field label="Pais da Nacionalidade" field="paisNacionalidade" form={formData} set={set} disabled={disabled} placeholder="BRA" />
-                    <Field label="Cidade de Nascimento" field="naturalCidade" form={formData} set={set} disabled={disabled} />
-                    <Field label="UF de Nascimento" field="naturalUf" form={formData} set={set} disabled={disabled} maxLength={2} />
+                    <CityField label="Cidade de Nascimento" field="naturalCidade" ufField="naturalUf" form={formData} set={set} disabled={disabled} required />
+                    <AutocompleteField label="UF de Nascimento" field="naturalUf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
                     <Field label="Pais de Nascimento" field="paisNascimento" form={formData} set={set} disabled={disabled} placeholder="BRA" />
-                    <Field label="Nome da Mae" field="nomeMae" form={formData} set={set} disabled={disabled} />
+                    <Field label="Nome da Mae" field="nomeMae" form={formData} set={set} disabled={disabled} required />
                     <Field label="Nome do Pai" field="nomePai" form={formData} set={set} disabled={disabled} />
-                    <SelectField label="Escolaridade" field="grauInstrucao" form={formData} set={set} disabled={disabled} options={GRAU_INSTRUCAO_OPTIONS} cls={selectCls} />
+                    <SelectField label="Escolaridade" field="grauInstrucao" form={formData} set={set} disabled={disabled} options={GRAU_INSTRUCAO_OPTIONS} cls={selectCls} required />
                     <StringSelectField label="Doador de Orgaos" field="funcDoador" form={formData} set={set} disabled={disabled} options={[{value:"S",label:"Sim"},{value:"N",label:"Nao"}]} cls={selectCls} />
                 </div>
             </Section>
@@ -131,7 +182,7 @@ export default function ReviewDataStep({ session, disabled }: Props) {
             {/* Endereco */}
             <Section title="Seu Endereco">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <FieldWrapper label="CEP" field="cep" form={formData}>
+                    <FieldWrapper label="CEP" field="cep" form={formData} required>
                         <Input
                             value={String(formData.cep ?? "")}
                             onChange={e => handleCep(e.target.value.replace(/\D/g, ""))}
@@ -141,12 +192,12 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                             className="h-11"
                         />
                     </FieldWrapper>
-                    <Field label="Logradouro" field="logradouro" form={formData} set={set} disabled={disabled} />
-                    <Field label="Numero" field="numero" form={formData} set={set} disabled={disabled} />
+                    <Field label="Logradouro" field="logradouro" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Numero" field="numero" form={formData} set={set} disabled={disabled} required />
                     <Field label="Complemento" field="complemento" form={formData} set={set} disabled={disabled} />
-                    <Field label="Bairro" field="bairro" form={formData} set={set} disabled={disabled} />
-                    <Field label="Cidade" field="cidade" form={formData} set={set} disabled={disabled} />
-                    <Field label="UF" field="uf" form={formData} set={set} disabled={disabled} maxLength={2} />
+                    <Field label="Bairro" field="bairro" form={formData} set={set} disabled={disabled} required />
+                    <AutocompleteField label="UF" field="uf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
+                    <CityField label="Cidade" field="cidade" ufField="uf" form={formData} set={set} disabled={disabled} required />
                     <Field label="Ponto de Referencia" field="pontoReferencia" form={formData} set={set} disabled={disabled} />
                     <StringSelectField label="Reside no Exterior" field="resideExterior" form={formData} set={set} disabled={disabled} options={[{value:"N",label:"Nao"},{value:"S",label:"Sim"}]} cls={selectCls} />
                 </div>
@@ -155,11 +206,11 @@ export default function ReviewDataStep({ session, disabled }: Props) {
             {/* Contato */}
             <Section title="Seus Contatos">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="E-mail" field="email" form={formData} set={set} disabled={disabled} type="email" />
+                    <Field label="E-mail" field="email" form={formData} set={set} disabled={disabled} type="email" required />
                     <Field label="E-mail Alternativo" field="emailAlternativo" form={formData} set={set} disabled={disabled} type="email" />
                     <Field label="DDD Telefone" field="dddTelefone" form={formData} set={set} disabled={disabled} type="number" placeholder="11" />
                     <Field label="Telefone" field="telefone" form={formData} set={set} disabled={disabled} />
-                    <Field label="Celular" field="celular" form={formData} set={set} disabled={disabled} />
+                    <Field label="Celular" field="celular" form={formData} set={set} disabled={disabled} required />
                     <Field label="DDD Contato" field="dddTelContato" form={formData} set={set} disabled={disabled} type="number" placeholder="11" />
                     <Field label="Contato de Emergencia" field="contatoEmergenciaNome" form={formData} set={set} disabled={disabled} placeholder="Nome" />
                     <Field label="Fone Emergencia" field="contatoEmergenciaFone" form={formData} set={set} disabled={disabled} />
@@ -169,13 +220,12 @@ export default function ReviewDataStep({ session, disabled }: Props) {
             {/* Banco */}
             <Section title="Dados Bancarios">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Banco (codigo)" field="bancoCodigo" form={formData} set={set} disabled={disabled} placeholder="001" />
-                    <Field label="Banco (nome)" field="bancoNome" form={formData} set={set} disabled={disabled} />
-                    <Field label="Agencia" field="agencia" form={formData} set={set} disabled={disabled} />
+                    <BankField form={formData} set={set} disabled={disabled} required />
+                    <Field label="Agencia" field="agencia" form={formData} set={set} disabled={disabled} required />
                     <Field label="Digito Ag." field="agenciaDigito" form={formData} set={set} disabled={disabled} maxLength={2} />
-                    <Field label="Conta" field="conta" form={formData} set={set} disabled={disabled} />
+                    <Field label="Conta" field="conta" form={formData} set={set} disabled={disabled} required />
                     <Field label="Digito Conta" field="contaDigito" form={formData} set={set} disabled={disabled} maxLength={2} />
-                    <SelectField label="Tipo Conta" field="tipoConta" form={formData} set={set} disabled={disabled} options={TIPO_CONTA_OPTIONS} cls={selectCls} />
+                    <SelectField label="Tipo Conta" field="tipoConta" form={formData} set={set} disabled={disabled} options={TIPO_CONTA_OPTIONS} cls={selectCls} required />
                 </div>
             </Section>
 
@@ -185,7 +235,7 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="PIS/PASEP" field="pisPasep" form={formData} set={set} disabled={disabled} />
                     <Field label="CTPS" field="ctps" form={formData} set={set} disabled={disabled} />
                     <Field label="Serie CTPS" field="ctpsSerie" form={formData} set={set} disabled={disabled} />
-                    <Field label="UF CTPS" field="ctpsUf" form={formData} set={set} disabled={disabled} maxLength={2} />
+                    <AutocompleteField label="UF CTPS" field="ctpsUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
                     <SelectField label="Modelo CTPS" field="ctpsModelo" form={formData} set={set} disabled={disabled} options={[{value:1,label:"Papel"},{value:3,label:"Digital"}]} cls={selectCls} />
                 </div>
             </Section>
@@ -196,8 +246,8 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="Numero" field="tituloEleitorNumero" form={formData} set={set} disabled={disabled} />
                     <Field label="Zona" field="tituloEleitorZona" form={formData} set={set} disabled={disabled} />
                     <Field label="Secao" field="tituloEleitorSecao" form={formData} set={set} disabled={disabled} />
-                    <Field label="Cidade" field="tituloEleitorCidade" form={formData} set={set} disabled={disabled} />
-                    <Field label="UF" field="tituloEleitorUf" form={formData} set={set} disabled={disabled} maxLength={2} />
+                    <CityField label="Cidade" field="tituloEleitorCidade" ufField="tituloEleitorUf" form={formData} set={set} disabled={disabled} />
+                    <AutocompleteField label="UF" field="tituloEleitorUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
                 </div>
             </Section>
 
@@ -206,7 +256,7 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Numero CNH" field="cnhNumero" form={formData} set={set} disabled={disabled} />
                     <Field label="Categoria" field="categoriaCnh" form={formData} set={set} disabled={disabled} placeholder="A, B, AB, etc" />
-                    <Field label="UF" field="cnhUf" form={formData} set={set} disabled={disabled} maxLength={2} />
+                    <AutocompleteField label="UF" field="cnhUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
                     <Field label="Orgao Emissor" field="cnhOrgaoEmissor" form={formData} set={set} disabled={disabled} />
                     <Field label="Data Expedicao" field="cnhDataExpedicao" form={formData} set={set} disabled={disabled} type="number" />
                     <Field label="Primeira Habilitacao" field="cnhPrimeiraHabilitacao" form={formData} set={set} disabled={disabled} type="number" />
@@ -275,28 +325,25 @@ function Section({ title, children, defaultOpen }: { title: string; children: Re
     );
 }
 
-function FieldWrapper({ label, field, form, children }: { label: string; field: string; form: DadosPessoais; children: React.ReactNode }) {
-    const hasValue = form[field] != null && String(form[field]).trim() !== "";
-    const isEmpty = !hasValue;
+function FieldWrapper({ label, field, form, required, children }: { label: string; field: string; form: DadosPessoais; required?: boolean; children: React.ReactNode }) {
     return (
         <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
                 {label}
-                {hasValue && <Sparkles className="size-3 text-emerald-500" />}
-                {isEmpty && <AlertCircle className="size-3 text-amber-500" />}
+                {required && <span className="text-red-500 font-bold text-sm leading-none">*</span>}
             </label>
             {children}
         </div>
     );
 }
 
-function Field({ label, field, form, set, disabled, type, placeholder, maxLength, className }: {
+function Field({ label, field, form, set, disabled, type, placeholder, maxLength, className, required }: {
     label: string; field: string; form: DadosPessoais;
     set: (f: string, v: string | number | null) => void;
-    disabled?: boolean; type?: string; placeholder?: string; maxLength?: number; className?: string;
+    disabled?: boolean; type?: string; placeholder?: string; maxLength?: number; className?: string; required?: boolean;
 }) {
     return (
-        <FieldWrapper label={label} field={field} form={form}>
+        <FieldWrapper label={label} field={field} form={form} required={required}>
             <Input
                 type={type}
                 value={String(form[field] ?? "")}
@@ -313,13 +360,13 @@ function Field({ label, field, form, set, disabled, type, placeholder, maxLength
     );
 }
 
-function SelectField({ label, field, form, set, disabled, options, cls }: {
+function SelectField({ label, field, form, set, disabled, options, cls, required }: {
     label: string; field: string; form: DadosPessoais;
     set: (f: string, v: string | number | null) => void;
-    disabled?: boolean; options: { value: number; label: string }[]; cls: string;
+    disabled?: boolean; options: { value: number; label: string }[]; cls: string; required?: boolean;
 }) {
     return (
-        <FieldWrapper label={label} field={field} form={form}>
+        <FieldWrapper label={label} field={field} form={form} required={required}>
             <select
                 className={`${cls} h-11`}
                 value={form[field] as number ?? ""}
@@ -333,13 +380,13 @@ function SelectField({ label, field, form, set, disabled, options, cls }: {
     );
 }
 
-function StringSelectField({ label, field, form, set, disabled, options, cls }: {
+function StringSelectField({ label, field, form, set, disabled, options, cls, required }: {
     label: string; field: string; form: DadosPessoais;
     set: (f: string, v: string | number | null) => void;
-    disabled?: boolean; options: { value: string; label: string }[]; cls: string;
+    disabled?: boolean; options: { value: string; label: string }[]; cls: string; required?: boolean;
 }) {
     return (
-        <FieldWrapper label={label} field={field} form={form}>
+        <FieldWrapper label={label} field={field} form={form} required={required}>
             <select
                 className={`${cls} h-11`}
                 value={String(form[field] ?? "")}
@@ -350,5 +397,195 @@ function StringSelectField({ label, field, form, set, disabled, options, cls }: 
                 {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
         </FieldWrapper>
+    );
+}
+
+function DropdownList({ items, onSelect }: {
+    items: { value: string; label: string }[];
+    onSelect: (value: string) => void;
+}) {
+    if (items.length === 0) return null;
+    return (
+        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
+            {items.map(o => (
+                <button
+                    key={o.value}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
+                    onMouseDown={e => { e.preventDefault(); onSelect(o.value); }}
+                >
+                    {o.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function AutocompleteField({ label, field, form, set, disabled, required, placeholder, options }: {
+    label: string; field: string; form: DadosPessoais;
+    set: (f: string, v: string | null) => void;
+    disabled?: boolean; required?: boolean; placeholder?: string;
+    options: { value: string; label: string }[];
+}) {
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const value = String(form[field] ?? "");
+
+    const filtered = value.length === 0
+        ? options.slice(0, 20)
+        : options.filter(o =>
+            o.value.toLowerCase().startsWith(value.toLowerCase()) ||
+            o.label.toLowerCase().startsWith(value.toLowerCase())
+        ).slice(0, 12);
+
+    useEffect(() => {
+        function onDown(e: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node))
+                setOpen(false);
+        }
+        document.addEventListener("mousedown", onDown);
+        return () => document.removeEventListener("mousedown", onDown);
+    }, []);
+
+    return (
+        <FieldWrapper label={label} field={field} form={form} required={required}>
+            <div ref={containerRef} className="relative">
+                <Input
+                    value={value}
+                    onChange={e => { set(field, e.target.value || null); setOpen(true); }}
+                    onFocus={() => setOpen(true)}
+                    disabled={disabled}
+                    placeholder={placeholder}
+                    className="h-11"
+                    autoComplete="off"
+                />
+                {open && <DropdownList items={filtered} onSelect={v => { set(field, v); setOpen(false); }} />}
+            </div>
+        </FieldWrapper>
+    );
+}
+
+function CityField({ label, field, ufField, form, set, disabled, required }: {
+    label: string; field: string; ufField: string; form: DadosPessoais;
+    set: (f: string, v: string | null) => void;
+    disabled?: boolean; required?: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const [ready, setReady] = useState(!!ibgeCitiesCache);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const value = String(form[field] ?? "");
+    const uf = String(form[ufField] ?? "").toUpperCase();
+    const ufValid = UF_OPTIONS.some(o => o.value === uf);
+
+    useEffect(() => {
+        if (!ibgeCitiesCache) {
+            loadIbgeCities().then(() => {
+                setReady(true);
+                // If the input already has focus, open the dropdown now that data is ready
+                if (document.activeElement === inputRef.current) setOpen(true);
+            });
+        }
+    }, []);
+
+    useEffect(() => {
+        function onDown(e: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node))
+                setOpen(false);
+        }
+        document.addEventListener("mousedown", onDown);
+        return () => document.removeEventListener("mousedown", onDown);
+    }, []);
+
+    const filtered = ready && ufValid
+        ? (ibgeCitiesCache ?? [])
+            .filter(c =>
+                c.uf === uf &&
+                (value.length === 0 || c.nome.toLowerCase().startsWith(value.toLowerCase()))
+            )
+            .slice(0, 12)
+            .map(c => ({ value: c.nome, label: c.nome }))
+        : [];
+
+    return (
+        <FieldWrapper label={label} field={field} form={form} required={required}>
+            <div ref={containerRef} className="relative">
+                <Input
+                    ref={inputRef}
+                    value={value}
+                    onChange={e => { set(field, e.target.value || null); setOpen(true); }}
+                    onFocus={() => { if (ufValid) setOpen(true); }}
+                    disabled={disabled || !ufValid}
+                    placeholder={ufValid ? (ready ? "Digite para buscar..." : "Carregando cidades...") : "Preencha a UF primeiro"}
+                    className="h-11"
+                    autoComplete="off"
+                />
+                {open && ufValid && filtered.length > 0 && (
+                    <DropdownList items={filtered} onSelect={v => { set(field, v); setOpen(false); }} />
+                )}
+            </div>
+        </FieldWrapper>
+    );
+}
+
+function BankField({ form, set, disabled, required }: {
+    form: DadosPessoais;
+    set: (f: string, v: string | null) => void;
+    disabled?: boolean; required?: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const query = String(form.bancoCodigo ?? "");
+    const nameVal = String(form.bancoNome ?? "");
+
+    const filtered = BANKS.filter(b =>
+        b.code.includes(query) ||
+        b.name.toLowerCase().includes(query.toLowerCase()) ||
+        (nameVal && b.name.toLowerCase().includes(nameVal.toLowerCase()))
+    ).slice(0, 12).map(b => ({ value: b.code, label: `${b.code} — ${b.name}` }));
+
+    useEffect(() => {
+        function onDown(e: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node))
+                setOpen(false);
+        }
+        document.addEventListener("mousedown", onDown);
+        return () => document.removeEventListener("mousedown", onDown);
+    }, []);
+
+    function selectBank(code: string) {
+        const bank = BANKS.find(b => b.code === code);
+        if (bank) { set("bancoCodigo", bank.code); set("bancoNome", bank.name); }
+        setOpen(false);
+    }
+
+    return (
+        <>
+            <FieldWrapper label="Banco" field="bancoCodigo" form={form} required={required}>
+                <div ref={containerRef} className="relative">
+                    <Input
+                        value={query}
+                        onChange={e => { set("bancoCodigo", e.target.value || null); setOpen(true); }}
+                        onFocus={() => setOpen(true)}
+                        disabled={disabled}
+                        placeholder="Código ou nome..."
+                        className="h-11"
+                        autoComplete="off"
+                    />
+                    {open && filtered.length > 0 && (
+                        <DropdownList items={filtered} onSelect={selectBank} />
+                    )}
+                </div>
+            </FieldWrapper>
+            <FieldWrapper label="Nome do Banco" field="bancoNome" form={form}>
+                <Input
+                    value={nameVal}
+                    onChange={e => set("bancoNome", e.target.value || null)}
+                    disabled={disabled}
+                    className="h-11"
+                    autoComplete="off"
+                />
+            </FieldWrapper>
+        </>
     );
 }
