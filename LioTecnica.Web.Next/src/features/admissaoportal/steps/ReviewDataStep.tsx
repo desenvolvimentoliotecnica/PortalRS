@@ -45,20 +45,9 @@ const BANKS = [
     { code: "403", name: "Cora" }, { code: "637", name: "Banco Sofisa" },
 ];
 
-let ibgeCitiesCache: { nome: string; uf: string }[] | null = null;
-let ibgeFetchPromise: Promise<void> | null = null;
-
-function loadIbgeCities(): Promise<void> {
-    if (ibgeCitiesCache) return Promise.resolve();
-    if (ibgeFetchPromise) return ibgeFetchPromise;
-    ibgeFetchPromise = fetch("https://servicodados.ibge.gov.br/api/v1/localidades/municipios?orderBy=nome")
-        .then(r => r.json())
-        .then((data: { nome: string; microrregiao: { mesorregiao: { UF: { sigla: string } } } }[]) => {
-            ibgeCitiesCache = data.map(m => ({ nome: m.nome, uf: m.microrregiao.mesorregiao.UF.sigla }));
-        })
-        .catch(() => { ibgeFetchPromise = null; });
-    return ibgeFetchPromise;
-}
+// Cache por UF: { "SP": ["São Paulo", "Campinas", ...], ... }
+const ibgeCacheByUf: Record<string, string[]> = {};
+const ibgeFetchingUf: Record<string, Promise<void>> = {};
 
 const SEXO_OPTIONS = [
     { value: 0, label: "Nao Informado" }, { value: 1, label: "Masculino" },
@@ -246,8 +235,8 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="Numero" field="tituloEleitorNumero" form={formData} set={set} disabled={disabled} />
                     <Field label="Zona" field="tituloEleitorZona" form={formData} set={set} disabled={disabled} />
                     <Field label="Secao" field="tituloEleitorSecao" form={formData} set={set} disabled={disabled} />
-                    <CityField label="Cidade" field="tituloEleitorCidade" ufField="tituloEleitorUf" form={formData} set={set} disabled={disabled} />
                     <AutocompleteField label="UF" field="tituloEleitorUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
+                    <CityField label="Cidade" field="tituloEleitorCidade" ufField="tituloEleitorUf" form={formData} set={set} disabled={disabled} />
                 </div>
             </Section>
 
@@ -258,7 +247,7 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="Categoria" field="categoriaCnh" form={formData} set={set} disabled={disabled} placeholder="A, B, AB, etc" />
                     <AutocompleteField label="UF" field="cnhUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
                     <Field label="Orgao Emissor" field="cnhOrgaoEmissor" form={formData} set={set} disabled={disabled} />
-                    <Field label="Data Expedicao" field="cnhDataExpedicao" form={formData} set={set} disabled={disabled} type="number" />
+                    <Field label="Data Expedicao" field="cnhDataExpedicao" form={formData} set={set} disabled={disabled} type="date" />
                     <Field label="Primeira Habilitacao" field="cnhPrimeiraHabilitacao" form={formData} set={set} disabled={disabled} type="number" />
                     <Field label="Validade" field="validadeCnh" form={formData} set={set} disabled={disabled} type="date" />
                 </div>
@@ -311,7 +300,7 @@ export default function ReviewDataStep({ session, disabled }: Props) {
 function Section({ title, children, defaultOpen }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
     const [open, setOpen] = useState(defaultOpen ?? false);
     return (
-        <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
+        <div className="rounded-xl border border-border/40 bg-card">
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
@@ -471,22 +460,36 @@ function CityField({ label, field, ufField, form, set, disabled, required }: {
     disabled?: boolean; required?: boolean;
 }) {
     const [open, setOpen] = useState(false);
-    const [ready, setReady] = useState(!!ibgeCitiesCache);
+    const [loading, setLoading] = useState(false);
+    const [, forceUpdate] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
     const value = String(form[field] ?? "");
     const uf = String(form[ufField] ?? "").toUpperCase();
     const ufValid = UF_OPTIONS.some(o => o.value === uf);
+    const cities = ufValid ? (ibgeCacheByUf[uf] ?? null) : null;
 
+    // Busca cidades da UF quando ela muda
     useEffect(() => {
-        if (!ibgeCitiesCache) {
-            loadIbgeCities().then(() => {
-                setReady(true);
-                // If the input already has focus, open the dropdown now that data is ready
-                if (document.activeElement === inputRef.current) setOpen(true);
+        if (!ufValid) return;
+        if (ibgeCacheByUf[uf]) { forceUpdate(n => n + 1); return; }
+        if (ibgeFetchingUf[uf]) return;
+
+        setLoading(true);
+        ibgeFetchingUf[uf] = fetch(
+            `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`
+        )
+            .then(r => r.json())
+            .then((data: { nome: string }[]) => {
+                ibgeCacheByUf[uf] = data.map(m => m.nome);
+            })
+            .catch(() => {
+                ibgeCacheByUf[uf] = [];
+            })
+            .finally(() => {
+                setLoading(false);
+                forceUpdate(n => n + 1);
             });
-        }
-    }, []);
+    }, [uf, ufValid]);
 
     useEffect(() => {
         function onDown(e: MouseEvent) {
@@ -497,30 +500,26 @@ function CityField({ label, field, ufField, form, set, disabled, required }: {
         return () => document.removeEventListener("mousedown", onDown);
     }, []);
 
-    const filtered = ready && ufValid
-        ? (ibgeCitiesCache ?? [])
-            .filter(c =>
-                c.uf === uf &&
-                (value.length === 0 || c.nome.toLowerCase().startsWith(value.toLowerCase()))
-            )
+    const filtered = cities
+        ? cities
+            .filter(nome => value.length === 0 || nome.toLowerCase().startsWith(value.toLowerCase()))
             .slice(0, 12)
-            .map(c => ({ value: c.nome, label: c.nome }))
+            .map(nome => ({ value: nome, label: nome }))
         : [];
 
     return (
         <FieldWrapper label={label} field={field} form={form} required={required}>
             <div ref={containerRef} className="relative">
                 <Input
-                    ref={inputRef}
                     value={value}
                     onChange={e => { set(field, e.target.value || null); setOpen(true); }}
                     onFocus={() => { if (ufValid) setOpen(true); }}
                     disabled={disabled || !ufValid}
-                    placeholder={ufValid ? (ready ? "Digite para buscar..." : "Carregando cidades...") : "Preencha a UF primeiro"}
+                    placeholder={!ufValid ? "Preencha a UF primeiro" : loading ? "Carregando cidades..." : "Digite para buscar..."}
                     className="h-11"
                     autoComplete="off"
                 />
-                {open && ufValid && filtered.length > 0 && (
+                {open && filtered.length > 0 && (
                     <DropdownList items={filtered} onSelect={v => { set(field, v); setOpen(false); }} />
                 )}
             </div>
