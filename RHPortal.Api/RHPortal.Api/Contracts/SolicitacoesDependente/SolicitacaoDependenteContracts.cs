@@ -3,7 +3,7 @@ using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.SolicitacoesDependente;
 
-public sealed record SolicitacaoDependenteListQuery(string? Q, SolicitacaoStatus? Status, bool? ApenasMeus, int? Page, int? PageSize);
+public sealed record SolicitacaoDependenteListQuery(string? Q, SolicitacaoStatus? Status, SolicitacaoStatus[]? Statuses, bool? ApenasMeus, int? Page, int? PageSize);
 
 public sealed class SolicitacaoDependenteCreateRequest
 {

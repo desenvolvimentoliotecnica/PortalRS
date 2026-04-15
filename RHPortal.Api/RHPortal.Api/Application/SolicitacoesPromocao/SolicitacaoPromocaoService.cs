@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Common;
+using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.SolicitacoesPromocao;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.SolicitacoesPromocao;
 
@@ -21,6 +23,8 @@ public interface ISolicitacaoPromocaoService
     Task<SolicitacaoPromocaoResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<SolicitacaoPromocaoResponse?> AssumirAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoPromocaoResponse?> CancelAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoPromocaoResponse> CopyAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
@@ -29,17 +33,23 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
+    private readonly IEmailQueueService _emailQueue;
+    private readonly IOcupacaoHistoricoService _ocupacaoService;
 
     public SolicitacaoPromocaoService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        ApprovalWorkflowHelper workflow)
+        ApprovalWorkflowHelper workflow,
+        IEmailQueueService emailQueue,
+        IOcupacaoHistoricoService ocupacaoService)
     {
         _db = db;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _workflow = workflow;
+        _emailQueue = emailQueue;
+        _ocupacaoService = ocupacaoService;
     }
 
     public async Task<IReadOnlyList<SolicitacaoPromocaoGridRow>> ListAsync(
@@ -51,7 +61,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             .Include(s => s.NovoCargo)
             .AsQueryable();
 
-        if (!_currentUser.IsAdmin && currentFuncionarioId.HasValue)
+        if (!_currentUser.IsAdmin && !_currentUser.IsRH && currentFuncionarioId.HasValue)
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
 
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
@@ -59,6 +69,12 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
 
         if (query.Status.HasValue)
             q = q.Where(s => s.Status == query.Status.Value);
+
+        if (query.Statuses is { Length: > 0 })
+            q = q.Where(s => query.Statuses.Contains(s.Status));
+
+        if (query.AreaId.HasValue)
+            q = q.Where(s => s.Funcionario != null && s.Funcionario.AreaId == query.AreaId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
@@ -94,6 +110,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
                 r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome,
                 r.NovoCargoNome, r.DataEfetiva, r.CreatedAtUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
+                ep?.AssumedByUserId,
                 ep?.CanAssume ?? false);
         }).ToList();
     }
@@ -122,7 +139,8 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             .OrderBy(e => e.Ordem)
             .ToListAsync(ct);
 
-        return MapToResponse(s, etapas);
+        var etapaDtos = await _workflow.MapEtapasToAprovacaoResponsesAsync(etapas, ct);
+        return MapToResponse(s, etapaDtos);
     }
 
     public async Task<SolicitacaoPromocaoResponse> CreateAsync(
@@ -338,12 +356,45 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
 
             await _db.SaveChangesAsync(ct);
 
+            // Fecha ocupação no cargo antigo e abre no novo
+            await _ocupacaoService.FecharOcupacaoAsync(
+                entity.FuncionarioId, MotivoSaidaOcupacao.Promocao, entity.Id, ct);
+
+            if (funcionario?.JobPositionId.HasValue == true &&
+                funcionario.UnidadeLotacaoId.HasValue &&
+                funcionario.CentroCustoId.HasValue)
+            {
+                var vagaAlvo = await _db.Vagas.FirstOrDefaultAsync(v =>
+                    v.JobPositionId == funcionario.JobPositionId &&
+                    v.UnidadeLotacaoId == funcionario.UnidadeLotacaoId &&
+                    v.CentroCustoId == funcionario.CentroCustoId, ct);
+
+                if (vagaAlvo is not null)
+                {
+                    await _ocupacaoService.AbrirOcupacaoAsync(
+                        funcionario.Id, vagaAlvo.Id, DateTime.UtcNow, entity.Id, ct);
+                }
+            }
+
             await _workflow.NotifyByFuncionarioIdAsync(
                 entity.SolicitanteId,
                 "Solicitação de movimentação aprovada",
                 "Sua solicitação de movimentação de pessoal foi aprovada.",
                 "/gestao/solicitacoes",
                 ct);
+
+            var solicitante = await _db.Set<Funcionario>().AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct);
+            if (!string.IsNullOrWhiteSpace(solicitante?.Email))
+            {
+                var obsHtml = !string.IsNullOrWhiteSpace(observacao)
+                    ? $"<p><strong>Observação:</strong> {observacao}</p>" : "";
+                await _emailQueue.EnqueueRawAsync(
+                    solicitante.Email,
+                    "Solicitação de movimentação aprovada",
+                    $"<p>Olá {solicitante.Name},</p><p>Sua solicitação de movimentação de pessoal foi <strong>aprovada</strong>.</p>{obsHtml}",
+                    null, false, "SolicitacaoPromocao", ct);
+            }
         }
 
         return await GetByIdAsync(id, ct);
@@ -383,6 +434,19 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             ct,
             "warning");
 
+        var solicitanteReject = await _db.Set<Funcionario>().AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct);
+        if (!string.IsNullOrWhiteSpace(solicitanteReject?.Email))
+        {
+            var obsHtml = !string.IsNullOrWhiteSpace(observacao)
+                ? $"<p><strong>Motivo:</strong> {observacao}</p>" : "";
+            await _emailQueue.EnqueueRawAsync(
+                solicitanteReject.Email,
+                "Solicitação de movimentação reprovada",
+                $"<p>Olá {solicitanteReject.Name},</p><p>Sua solicitação de movimentação foi <strong>reprovada</strong>.</p>{obsHtml}",
+                null, false, "SolicitacaoPromocao", ct);
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -406,6 +470,19 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             "/gestao/solicitacoes",
             ct,
             "warning");
+
+        var solicitanteChanges = await _db.Set<Funcionario>().AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct);
+        if (!string.IsNullOrWhiteSpace(solicitanteChanges?.Email))
+        {
+            var obsHtml = !string.IsNullOrWhiteSpace(observacao)
+                ? $"<p><strong>Observação:</strong> {observacao}</p>" : "";
+            await _emailQueue.EnqueueRawAsync(
+                solicitanteChanges.Email,
+                "Ajustes necessários na solicitação de movimentação",
+                $"<p>Olá {solicitanteChanges.Name},</p><p>Sua solicitação de movimentação precisa de <strong>ajustes</strong>.</p>{obsHtml}",
+                null, false, "SolicitacaoPromocao", ct);
+        }
 
         return await GetByIdAsync(id, ct);
     }
@@ -434,43 +511,115 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             .OrderBy(e => e.Ordem)
             .FirstOrDefaultAsync(ct);
 
-        if (etapaAtual is null || !etapaAtual.RoleFilaId.HasValue)
-            throw new InvalidOperationException("Esta etapa não é uma fila de perfil para ser assumida.");
+        if (etapaAtual is null)
+            throw new InvalidOperationException("Não há etapa pendente para assumir.");
 
-        if (etapaAtual.AprovadorId.HasValue)
+        // Queue with profile OR legacy orphan consenso step (both null).
+        var isRoleQueue = etapaAtual.RoleFilaId.HasValue;
+        var isOrphanConsenso = !etapaAtual.RoleFilaId.HasValue && !etapaAtual.AprovadorId.HasValue;
+        if (!isRoleQueue && !isOrphanConsenso)
+            throw new InvalidOperationException("Esta etapa não pode ser assumida.");
+
+        if (etapaAtual.AprovadorId.HasValue || etapaAtual.AssumedByUserId.HasValue)
             throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
 
-        if (!await _workflow.CanAssumeRoleQueueAsync(etapaAtual, _currentUser, ct))
+        if (isRoleQueue && !await _workflow.CanAssumeRoleQueueAsync(etapaAtual, _currentUser, ct))
             throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
 
-        etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        if (isOrphanConsenso)
+        {
+            if (!_currentUser.IsAdmin || _currentUser.IsOwner)
+                throw new InvalidOperationException("Owner não pode assumir etapas diretamente. Utilize um usuário com perfil Admin do tenant.");
+        }
+
+        if (_currentUser.FuncionarioId.HasValue)
+            etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        else if (_currentUser.UserId.HasValue)
+            etapaAtual.AssumedByUserId = _currentUser.UserId;
+        else
+            throw new InvalidOperationException("Não foi possível identificar o usuário autenticado.");
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
 
+    public async Task<SolicitacaoPromocaoResponse?> CancelAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesPromocao.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status == SolicitacaoStatus.Rascunho)
+            throw new InvalidOperationException("Rascunhos não podem ser cancelados — utilize Excluir.");
+
+        if (entity.Status == SolicitacaoStatus.Aprovada || entity.Status == SolicitacaoStatus.Cancelada)
+            throw new InvalidOperationException("Solicitação não pode ser cancelada no status atual.");
+
+        entity.Status = SolicitacaoStatus.Cancelada;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id
+                && e.TipoFluxo == TipoFluxoAprovacao.MovimentacaoPessoal
+                && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+
+        foreach (var etapa in etapasPendentes)
+        {
+            etapa.Status = StatusAprovacao.Cancelado;
+            etapa.DataUtc = DateTimeOffset.UtcNow;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoPromocaoResponse> CopyAsync(Guid id, CancellationToken ct)
+    {
+        var source = await _db.SolicitacoesPromocao
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new InvalidOperationException("Solicitação não encontrada.");
+
+        var copy = new SolicitacaoPromocao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = source.TenantId,
+            SolicitanteId = source.SolicitanteId,
+            FuncionarioId = source.FuncionarioId,
+            DataEfetiva = source.DataEfetiva,
+            CargoAtualId = source.CargoAtualId,
+            NovoCargoId = source.NovoCargoId,
+            AreaAtualId = source.AreaAtualId,
+            NovaAreaId = source.NovaAreaId,
+            NovaUnidadeId = source.NovaUnidadeId,
+            EmpresaId = source.EmpresaId,
+            UnitId = source.UnitId,
+            CentroCustoId = source.CentroCustoId,
+            UnidadeLotacaoId = source.UnidadeLotacaoId,
+            MotivoMovimentacao = source.MotivoMovimentacao,
+            NovaLocalidade = source.NovaLocalidade,
+            NovoSalario = source.NovoSalario,
+            NovaPericulosidade = source.NovaPericulosidade,
+            NovaRemuneracao = source.NovaRemuneracao,
+            HorarioProposto = source.HorarioProposto,
+            Justificativa = source.Justificativa,
+            Observacoes = source.Observacoes,
+            Status = SolicitacaoStatus.Rascunho,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+
+        _db.SolicitacoesPromocao.Add(copy);
+        await _db.SaveChangesAsync(ct);
+        return (await GetByIdAsync(copy.Id, ct))!;
+    }
+
     private static SolicitacaoPromocaoResponse MapToResponse(
         SolicitacaoPromocao s,
-        IReadOnlyList<SolicitacaoAprovacaoEtapa> etapas)
+        IReadOnlyList<EtapaAprovacaoResponse> etapaResponses)
     {
-        var etapaResponses = etapas.Select(e => new EtapaAprovacaoResponse(
-            e.Ordem,
-            e.Label,
-            e.AprovadorId,
-            e.Aprovador?.Name,
-            e.RoleFilaId,
-            null,  // RoleFilaNome — not loaded here, could be added later
-            e.Status switch
-            {
-                StatusAprovacao.Aprovado => "Aprovado",
-                StatusAprovacao.Rejeitado => "Reprovado",
-                _ => "Pendente"
-            },
-            e.DataUtc,
-            e.Observacao
-        )).ToList();
-
         return new SolicitacaoPromocaoResponse(
             s.Id,
             s.Status,
@@ -512,7 +661,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             s.IntegracaoResultado,
             s.IntegracaoMensagem,
             s.IntegradaEmUtc,
-            etapaResponses
+            etapaResponses.ToList()
         );
     }
 }

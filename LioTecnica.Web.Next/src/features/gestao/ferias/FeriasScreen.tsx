@@ -5,12 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
     Search,
-    Plus,
     RefreshCw,
-    Eye,
-    Pencil,
-    Trash2,
-    Send,
     Clock,
     CheckCircle2,
     XCircle,
@@ -20,10 +15,7 @@ import {
     Activity,
     Download,
     UserCheck,
-    Ban,
-    Copy,
-    Zap,
-    Loader2,
+    Eye,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -46,20 +38,19 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 
-import DesligamentoFormModal from "./DesligamentoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
-import { confirmDialog } from "@/lib/confirm-dialog";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
-interface SolicitacaoDesligamentoGridRow {
+interface SolicitacaoFeriasGridRow {
     id: string;
     status: number;
     solicitanteNome: string | null;
-    funcionarioNome: string | null;
-    tipoDesligamento: number;
-    dataDesligamento: string | null;
+    dataInicio: string;
+    dataFim: string;
+    qtdDias: number;
+    abonoPecuniario: boolean;
     createdAtUtc: string;
     etapaPendenteLabel: string | null;
     etapaPendenteCom: string | null;
@@ -67,30 +58,28 @@ interface SolicitacaoDesligamentoGridRow {
     etapaPendenteCanAssume?: boolean;
 }
 
-interface SolicitacaoDesligamentoResponse {
+interface SolicitacaoFeriasResponse {
     id: string;
     status: number;
     solicitanteNome: string | null;
-    funcionarioNome: string | null;
-    dataDesligamento: string | null;
-    tipoDesligamento: number;
-    motivoDesligamento: string | null;
-    tipoAvisoPrevio: number;
-    diasAvisoPrevio: number;
-    elegivelRecontratacao: boolean;
-    substituirPosicao: boolean;
+    periodoAquisitivo: string | null;
+    dataInicio: string;
+    dataFim: string;
+    qtdDias: number;
+    abonoPecuniario: boolean;
+    diasAbono: number;
+    adiantamento13: boolean;
     observacaoAprovador: string | null;
     observacoes: string | null;
     createdAtUtc: string;
-    approvedAtUtc: string | null;
     etapas?: EtapaAprovacaoResponse[];
 }
 
-type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
-const API = "/api/solicitacoes-desligamento";
+const API = "/api/colaborador/solicitacoes-ferias";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, {
@@ -107,35 +96,19 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
-    0: { label: "Rascunho",       color: "bg-zinc-400/15 text-zinc-600",   icon: FileText },
-    1: { label: "Pendente",       color: "bg-amber-500/15 text-amber-700", icon: Clock },
-    2: { label: "Aprovada",       color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    3: { label: "Reprovada",      color: "bg-red-500/15 text-red-700",     icon: XCircle },
-    4: { label: "Ajustes",        color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
-    5: { label: "Cancelada",      color: "bg-zinc-500/15 text-zinc-500",   icon: XCircle },
-    6: { label: "Aguarda Fila",   color: "bg-violet-500/15 text-violet-700", icon: Users },
-    7: { label: "Em Integração",  color: "bg-blue-500/15 text-blue-700",   icon: Loader2 },
-    8: { label: "Concluída",      color: "bg-teal-500/15 text-teal-700",   icon: CheckCircle2 },
+    0: { label: "Rascunho",    color: "bg-zinc-400/15 text-zinc-600",      icon: FileText },
+    1: { label: "Pendente",    color: "bg-amber-500/15 text-amber-700",    icon: Clock },
+    2: { label: "Aprovada",    color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    3: { label: "Reprovada",   color: "bg-red-500/15 text-red-700",        icon: XCircle },
+    4: { label: "Ajustes",     color: "bg-orange-500/15 text-orange-700",  icon: AlertTriangle },
+    5: { label: "Cancelada",   color: "bg-zinc-500/15 text-zinc-500",      icon: XCircle },
+    6: { label: "Aguarda Fila", color: "bg-violet-500/15 text-violet-700", icon: Users },
 };
 
 const ETAPA_STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-    pendente: { label: "Pendente", color: "bg-amber-500/15 text-amber-700", icon: Clock },
+    pendente: { label: "Pendente", color: "bg-amber-500/15 text-amber-700",    icon: Clock },
     aprovado: { label: "Aprovado", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    reprovado: { label: "Reprovado", color: "bg-red-500/15 text-red-700", icon: XCircle },
-};
-
-const TIPO_DESLIGAMENTO_MAP: Record<number, string> = {
-    0: "Sem Justa Causa",
-    1: "Pedido de Demissão",
-    2: "Acordo Mútuo",
-    3: "Justa Causa",
-    4: "Fim de Contrato",
-};
-
-const TIPO_AVISO_PREVIO_MAP: Record<number, string> = {
-    0: "Indenizado",
-    1: "Trabalhado",
-    2: "Dispensado",
+    reprovado: { label: "Reprovado", color: "bg-red-500/15 text-red-700",      icon: XCircle },
 };
 
 function statusBadge(status: number) {
@@ -161,25 +134,10 @@ function etapaStatusBadge(status: string) {
     );
 }
 
-// API serializes SolicitacaoStatus enum as strings (JsonStringEnumConverter).
-// Normalize to number once at load time so all status comparisons work correctly.
-const STATUS_STR_TO_NUM: Record<string, number> = {
-    Rascunho: 0, PendenteAprovacao: 1, Aprovada: 2, Reprovada: 3,
-    AjustesNecessarios: 4, Cancelada: 5, PendenteAprovacaoRh: 6,
-    EmIntegracao: 7, Concluida: 8,
-};
-function normalizeStatus(s: number | string): number {
-    return typeof s === "number" ? s : (STATUS_STR_TO_NUM[s] ?? 0);
-}
-
 function formatDate(iso: string | null | undefined) {
     if (!iso) return "—";
     try {
-        return new Date(iso).toLocaleDateString("pt-BR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-        });
+        return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
     } catch {
         return "—";
     }
@@ -187,16 +145,15 @@ function formatDate(iso: string | null | undefined) {
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-export default function DesligamentosScreen() {
+export default function FeriasScreen() {
     const { me } = useAuth();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
-    const isRH = me?.roles?.some((r: string) => r.toLowerCase() === "rh") ?? false;
     const myFuncionarioId = (me as { funcionarioId?: string } | null)?.funcionarioId;
     const myRoles: string[] = (me?.roles ?? []) as string[];
 
     /* ── data ── */
     const [loading, setLoading] = useState(true);
-    const [rows, setRows] = useState<SolicitacaoDesligamentoGridRow[]>([]);
+    const [rows, setRows] = useState<SolicitacaoFeriasGridRow[]>([]);
 
     /* ── filters ── */
     const [q, setQ] = useState("");
@@ -213,27 +170,16 @@ export default function DesligamentosScreen() {
     const [changesTarget, setChangesTarget] = useState<string | null>(null);
     const [changesObs, setChangesObs] = useState("");
 
-    /* ── form modal ── */
-    const [formOpen, setFormOpen] = useState(false);
-    const [editId, setEditId] = useState<string | null>(null);
-    const [viewId, setViewId] = useState<string | null>(null);
-    const [resubmit, setResubmit] = useState(false);
-
     /* ── timeline modal ── */
     const [timelineOpen, setTimelineOpen] = useState(false);
     const [timelineSteps, setTimelineSteps] = useState<AprovacaoStep[]>([]);
-    const [timelineStatus, setTimelineStatus] = useState<number | string | null>(null);
     const [timelineLoading, setTimelineLoading] = useState(false);
+    const [timelineStatus, setTimelineStatus] = useState<number | string | null>(null);
 
     /* ── detail dialog ── */
     const [detailOpen, setDetailOpen] = useState(false);
-    const [detail, setDetail] = useState<SolicitacaoDesligamentoResponse | null>(null);
+    const [detail, setDetail] = useState<SolicitacaoFeriasResponse | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
-
-    /* ── delete confirm ── */
-    const [deleteTarget, setDeleteTarget] = useState<SolicitacaoDesligamentoGridRow | null>(null);
-
-    /* ── approval actions ── */
     const [approvalObs, setApprovalObs] = useState("");
 
     /* ── data loading ── */
@@ -241,8 +187,8 @@ export default function DesligamentosScreen() {
         const params = new URLSearchParams();
         if (areaFilter !== "all") params.set("areaId", areaFilter);
         const url = params.toString() ? `${API}?${params.toString()}` : API;
-        const data = await fetchJson<SolicitacaoDesligamentoGridRow[]>(url);
-        setRows(Array.isArray(data) ? data.map(r => ({ ...r, status: normalizeStatus(r.status) })) : []);
+        const data = await fetchJson<SolicitacaoFeriasGridRow[]>(url);
+        setRows(Array.isArray(data) ? data : []);
         setSelected(new Set());
     }, [areaFilter]);
 
@@ -250,7 +196,7 @@ export default function DesligamentosScreen() {
         let alive = true;
         setLoading(true);
         syncList()
-            .catch((e) => toast.error(`Falha ao carregar desligamentos: ${e instanceof Error ? e.message : "erro"}`))
+            .catch((e) => toast.error(`Falha ao carregar férias: ${e instanceof Error ? e.message : "erro"}`))
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, [syncList]);
@@ -269,60 +215,48 @@ export default function DesligamentosScreen() {
         return rows.filter((r) => {
             if (statusFilter !== "all" && String(r.status) !== statusFilter) return false;
             if (!term) return true;
-            const blob = [r.funcionarioNome, r.solicitanteNome].filter(Boolean).join(" ").toLowerCase();
-            return blob.includes(term);
+            return (r.solicitanteNome ?? "").toLowerCase().includes(term);
         });
     }, [q, rows, statusFilter]);
 
     /* ── KPIs ── */
-    const kpis = useMemo(() => {
-        const total = rows.length;
-        const pendentes = rows.filter((r) => r.status === 1 || r.status === 6).length;
-        const aprovadas = rows.filter((r) => r.status === 2).length;
-        const reprovadas = rows.filter((r) => r.status === 3).length;
-        return { total, pendentes, aprovadas, reprovadas };
-    }, [rows]);
+    const kpis = useMemo(() => ({
+        total: rows.length,
+        pendentes: rows.filter((r) => r.status === 1 || r.status === 6).length,
+        aprovadas: rows.filter((r) => r.status === 2).length,
+        reprovadas: rows.filter((r) => r.status === 3).length,
+    }), [rows]);
+
+    /* ── approval check from detail ── */
+    const { canApprove, isQueueStep, currentEtapa } = useMemo(() => {
+        if (!detail || !me) return { canApprove: false, isQueueStep: false, currentEtapa: null };
+        if (detail.status !== 1 && detail.status !== 6) return { canApprove: false, isQueueStep: false, currentEtapa: null };
+        if (isAdmin) return { canApprove: true, isQueueStep: false, currentEtapa: null };
+        const etapas = detail.etapas;
+        if (etapas && etapas.length > 0) {
+            const pending = etapas.find((e) => e.status.toLowerCase() === "pendente");
+            if (!pending) return { canApprove: false, isQueueStep: false, currentEtapa: null };
+            const isQueue = pending.roleFilaId != null;
+            if (isQueue) {
+                const roleMatch = myRoles.some((r) => r.toLowerCase() === (pending.roleFilaNome ?? "").toLowerCase());
+                return { canApprove: roleMatch, isQueueStep: true, currentEtapa: pending };
+            } else {
+                return { canApprove: pending.aprovadorId != null && pending.aprovadorId === myFuncionarioId, isQueueStep: false, currentEtapa: pending };
+            }
+        }
+        return { canApprove: false, isQueueStep: false, currentEtapa: null };
+    }, [detail, me, isAdmin, myFuncionarioId, myRoles]);
 
     /* ── actions ── */
-    function openNew() {
-        setViewId(null);
-        setEditId(null);
-        setResubmit(false);
-        setFormOpen(true);
-    }
-
-    function openEdit(row: SolicitacaoDesligamentoGridRow) {
-        setViewId(null);
-        setEditId(row.id);
-        setResubmit(false);
-        setFormOpen(true);
-    }
-
-    function openEditForApproval(row: SolicitacaoDesligamentoGridRow) {
-        setViewId(null);
-        setEditId(row.id);
-        setResubmit(true);
-        setFormOpen(true);
-    }
-
-    function openView(row: SolicitacaoDesligamentoGridRow) {
-        setViewId(row.id);
-        setEditId(null);
-        setResubmit(false);
-        setFormOpen(true);
-    }
-
-    async function openTimeline(row: SolicitacaoDesligamentoGridRow) {
+    async function openTimeline(row: SolicitacaoFeriasGridRow) {
         setTimelineOpen(true);
         setTimelineLoading(true);
         setTimelineSteps([]);
         setTimelineStatus(null);
         try {
-            const d = await fetchJson<SolicitacaoDesligamentoResponse>(`${API}/${row.id}`);
+            const d = await fetchJson<SolicitacaoFeriasResponse>(`${API}/${row.id}`);
             setTimelineStatus(d.status);
-            setTimelineSteps(
-                mapEtapasToSteps(d.etapas ?? [], d.solicitanteNome, d.createdAtUtc)
-            );
+            setTimelineSteps(mapEtapasToSteps(d.etapas ?? [], d.solicitanteNome, d.createdAtUtc));
         } catch {
             toast.error("Falha ao carregar acompanhamento.");
             setTimelineOpen(false);
@@ -331,43 +265,18 @@ export default function DesligamentosScreen() {
         }
     }
 
-    async function openDetail(row: SolicitacaoDesligamentoGridRow) {
+    async function openDetail(row: SolicitacaoFeriasGridRow) {
         setDetailOpen(true);
         setDetailLoading(true);
         setApprovalObs("");
         try {
-            const d = await fetchJson<SolicitacaoDesligamentoResponse>(`${API}/${row.id}`);
+            const d = await fetchJson<SolicitacaoFeriasResponse>(`${API}/${row.id}`);
             setDetail(d);
         } catch {
             toast.error("Falha ao carregar detalhes.");
             setDetailOpen(false);
         } finally {
             setDetailLoading(false);
-        }
-    }
-
-    async function submitForApproval(id: string) {
-        try {
-            await fetchJson(`${API}/${id}/submit`, { method: "POST" });
-            toast.success("Solicitação enviada para aprovação!");
-            await syncList();
-            setDetailOpen(false);
-        } catch (e) {
-            toast.error(`Falha ao enviar: ${e instanceof Error ? e.message : "erro"}`);
-        }
-    }
-
-    async function assumirEtapa(id: string) {
-        try {
-            await fetchJson(`${API}/${id}/assumir`, { method: "POST" });
-            toast.success("Etapa assumida com sucesso.");
-            await syncList();
-            if (detail?.id === id) {
-                const d = await fetchJson<SolicitacaoDesligamentoResponse>(`${API}/${id}`);
-                setDetail(d);
-            }
-        } catch (e) {
-            toast.error(`Falha ao assumir: ${e instanceof Error ? e.message : "erro"}`);
         }
     }
 
@@ -387,73 +296,6 @@ export default function DesligamentosScreen() {
         }
     }
 
-    async function confirmDelete() {
-        if (!deleteTarget) return;
-        try {
-            await fetchJson(`${API}/${deleteTarget.id}`, { method: "DELETE" });
-            toast.success("Solicitação excluída.");
-            setDeleteTarget(null);
-            await syncList();
-        } catch (e) {
-            toast.error(`Falha ao excluir: ${e instanceof Error ? e.message : "erro"}`);
-        }
-    }
-
-    async function cancelSolicitacao(id: string) {
-        if (!(await confirmDialog({
-            title: "Cancelar solicitação",
-            description: "Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.",
-            confirmText: "Cancelar solicitação",
-            destructive: true,
-        }))) return;
-        try {
-            await fetchJson(`${API}/${id}/cancel`, { method: "POST" });
-            toast.success("Solicitação cancelada.");
-            await syncList();
-        } catch (e) {
-            toast.error(`Falha ao cancelar: ${e instanceof Error ? e.message : "erro"}`);
-        }
-    }
-
-    async function copySolicitacao(id: string) {
-        try {
-            await fetchJson(`${API}/${id}/copy`, { method: "POST" });
-            toast.success("Cópia criada como rascunho.");
-            await syncList();
-        } catch (e) {
-            toast.error(`Falha ao copiar: ${e instanceof Error ? e.message : "erro"}`);
-        }
-    }
-
-    async function efetivarDesligamento(id: string) {
-        if (!(await confirmDialog({
-            title: "Efetivar desligamento",
-            description: "Ao efetivar, a solicitação entra em integração com o TOTVS. O headcount da vaga será liberado após a confirmação da integração. Deseja continuar?",
-            confirmText: "Efetivar",
-        }))) return;
-        try {
-            await fetchJson(`${API}/${id}/efetivar`, { method: "POST" });
-            toast.success("Desligamento efetivado. Aguardando integração TOTVS.");
-            await syncList();
-        } catch (e) {
-            toast.error(`Falha ao efetivar: ${e instanceof Error ? e.message : "erro"}`);
-        }
-    }
-
-    function handleFormClose() {
-        setFormOpen(false);
-        setViewId(null);
-        setResubmit(false);
-    }
-
-    function handleFormSaved() {
-        setFormOpen(false);
-        setViewId(null);
-        setResubmit(false);
-        syncList().catch(() => { });
-    }
-
-    /* ── inline quick actions ── */
     async function quickApprove(id: string) {
         try {
             await fetchJson(`${API}/${id}/approve`, {
@@ -537,36 +379,11 @@ export default function DesligamentosScreen() {
             .then((blob) => {
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
-                a.download = "desligamentos.csv";
+                a.download = "ferias.csv";
                 a.click();
             })
             .catch(() => toast.error("Falha ao exportar."));
     }
-
-    /* Determine if current user can approve the current pending step */
-    const { canApprove, isQueueStep, currentEtapa } = useMemo(() => {
-        if (!detail || !me) return { canApprove: false, isQueueStep: false, currentEtapa: null };
-        if (detail.status !== 1 && detail.status !== 6) return { canApprove: false, isQueueStep: false, currentEtapa: null };
-        if (isAdmin) return { canApprove: true, isQueueStep: false, currentEtapa: null };
-
-        const etapas = detail.etapas;
-        if (etapas && etapas.length > 0) {
-            const pending = etapas.find((e) => e.status.toLowerCase() === "pendente");
-            if (!pending) return { canApprove: false, isQueueStep: false, currentEtapa: null };
-            const isQueue = pending.roleFilaId != null;
-            if (isQueue) {
-                const roleMatch = myRoles.some((r) =>
-                    r.toLowerCase() === (pending.roleFilaNome ?? "").toLowerCase()
-                );
-                return { canApprove: roleMatch, isQueueStep: true, currentEtapa: pending };
-            } else {
-                const isFixed = pending.aprovadorId != null && pending.aprovadorId === myFuncionarioId;
-                return { canApprove: isFixed, isQueueStep: false, currentEtapa: pending };
-            }
-        }
-
-        return { canApprove: false, isQueueStep: false, currentEtapa: null };
-    }, [detail, me, isAdmin, myFuncionarioId, myRoles]);
 
     /* ──────────────────────────── render ──────────────────────────── */
     return (
@@ -574,9 +391,9 @@ export default function DesligamentosScreen() {
             {/* ── header ── */}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h4 className="text-lg font-bold">Solicitações de Desligamento</h4>
+                    <h4 className="text-lg font-bold">Solicitações de Férias</h4>
                     <div className="text-muted-foreground text-sm">
-                        Gerencie solicitações de desligamento e acompanhe aprovações
+                        Gerencie solicitações de férias e acompanhe aprovações
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -597,10 +414,6 @@ export default function DesligamentosScreen() {
                         <Download className="size-4" />
                         <span className="hidden sm:inline">Exportar</span>
                     </Button>
-                    <Button size="sm" onClick={openNew}>
-                        <Plus className="size-4" />
-                        <span className="hidden sm:inline">Nova solicitação</span>
-                    </Button>
                 </div>
             </div>
 
@@ -612,16 +425,9 @@ export default function DesligamentosScreen() {
                     { label: "Aprovadas", value: kpis.aprovadas, color: "text-emerald-600" },
                     { label: "Reprovadas", value: kpis.reprovadas, color: "text-red-600" },
                 ].map((k) => (
-                    <div
-                        key={k.label}
-                        className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur"
-                    >
-                        <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-                            {k.label}
-                        </div>
-                        <div className={`mt-1 text-2xl font-bold ${k.color}`}>
-                            {k.value}
-                        </div>
+                    <div key={k.label} className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                        <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">{k.label}</div>
+                        <div className={`mt-1 text-2xl font-bold ${k.color}`}>{k.value}</div>
                     </div>
                 ))}
             </div>
@@ -630,7 +436,7 @@ export default function DesligamentosScreen() {
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                 <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <div className="font-semibold">Solicitações de desligamento</div>
+                        <div className="font-semibold">Solicitações de férias</div>
                         <div className="text-muted-foreground text-sm">
                             {loading ? "Carregando…" : `${filtered.length} solicitações`}
                         </div>
@@ -640,7 +446,7 @@ export default function DesligamentosScreen() {
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 className="pl-9"
-                                placeholder="Buscar funcionário…"
+                                placeholder="Buscar colaborador…"
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
                             />
@@ -657,8 +463,6 @@ export default function DesligamentosScreen() {
                             <option value="3">Reprovada</option>
                             <option value="4">Ajustes</option>
                             <option value="6">Aguarda Fila</option>
-                            <option value="7">Em Integração</option>
-                            <option value="8">Concluída</option>
                         </select>
                         {areas.length > 0 && (
                             <select
@@ -701,9 +505,10 @@ export default function DesligamentosScreen() {
                                     }}
                                 />
                             </TableHead>
-                            <TableHead>Funcionário</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Data Desligamento</TableHead>
+                            <TableHead>Colaborador</TableHead>
+                            <TableHead>Período</TableHead>
+                            <TableHead>Dias</TableHead>
+                            <TableHead>Abono</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Aguardando</TableHead>
                             <TableHead>Data Criação</TableHead>
@@ -713,7 +518,7 @@ export default function DesligamentosScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -736,13 +541,13 @@ export default function DesligamentosScreen() {
                                         ) : null}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="font-semibold">{r.funcionarioNome || "—"}</div>
-                                        {r.solicitanteNome && (
-                                            <div className="text-muted-foreground text-xs">Solicitante: {r.solicitanteNome}</div>
-                                        )}
+                                        <div className="font-semibold">{r.solicitanteNome || "—"}</div>
                                     </TableCell>
-                                    <TableCell className="text-sm">{TIPO_DESLIGAMENTO_MAP[r.tipoDesligamento] ?? "—"}</TableCell>
-                                    <TableCell className="text-sm">{formatDate(r.dataDesligamento)}</TableCell>
+                                    <TableCell className="text-sm whitespace-nowrap">
+                                        {formatDate(r.dataInicio)} → {formatDate(r.dataFim)}
+                                    </TableCell>
+                                    <TableCell className="text-sm font-mono">{r.qtdDias}</TableCell>
+                                    <TableCell className="text-sm">{r.abonoPecuniario ? "Sim" : "Não"}</TableCell>
                                     <TableCell>{statusBadge(r.status)}</TableCell>
                                     <TableCell>
                                         {(r.status === 1 || r.status === 6) && r.etapaPendenteLabel ? (
@@ -751,9 +556,7 @@ export default function DesligamentosScreen() {
                                                 {r.etapaPendenteCom ? (
                                                     <div className="font-medium truncate max-w-[140px]" title={r.etapaPendenteCom}>{r.etapaPendenteCom}</div>
                                                 ) : (
-                                                    <div className="font-medium">{
-                                                        r.etapaPendenteIsQueue ? "Aguardando consenso" : "Aguardando"
-                                                    }</div>
+                                                    <div className="font-medium">{r.etapaPendenteIsQueue ? "Aguardando consenso" : "Aguardando"}</div>
                                                 )}
                                             </div>
                                         ) : (
@@ -763,32 +566,7 @@ export default function DesligamentosScreen() {
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                            {/* Rascunho: editar, enviar, excluir */}
-                                            {r.status === 0 && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                        <Pencil />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                        <Send />
-                                                    </Button>
-                                                    <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
-                                                        <Trash2 />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* AjustesNecessarios: editar, enviar */}
-                                            {r.status === 4 && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                        <Pencil />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                        <Send />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* Pendente: ações inline se pode aprovar, senão editar */}
+                                            {/* Pendente: ações inline se pode aprovar */}
                                             {r.status === 1 && r.etapaPendenteCanAssume ? (
                                                 <div className="flex items-center gap-1 flex-wrap">
                                                     <Button size="sm" variant="outline"
@@ -814,25 +592,11 @@ export default function DesligamentosScreen() {
                                                         <XCircle className="size-3 mr-1" /> Reprovar
                                                     </Button>
                                                 </div>
-                                            ) : r.status === 1 ? (
-                                                <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
-                                                    <Pencil />
-                                                </Button>
                                             ) : null}
-                                            {/* Aprovada: efetivar (RH/Admin) + visualizar + gerar carta */}
+                                            {/* Aprovada: visualizar + gerar carta */}
                                             {r.status === 2 && (
                                                 <>
-                                                    {(isAdmin || isRH) && (
-                                                        <Button
-                                                            size="sm"
-                                                            className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                                                            title="Efetivar desligamento"
-                                                            onClick={(e) => { e.stopPropagation(); void efetivarDesligamento(r.id); }}
-                                                        >
-                                                            <Zap className="size-3 mr-1" /> Efetivar
-                                                        </Button>
-                                                    )}
-                                                    <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                                    <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => void openDetail(r)}>
                                                         <Eye />
                                                     </Button>
                                                     <Button variant="outline" size="icon-xs" title="Gerar carta" onClick={() => void gerarCarta(r.id)}>
@@ -840,37 +604,12 @@ export default function DesligamentosScreen() {
                                                     </Button>
                                                 </>
                                             )}
-                                            {/* Em Integração: visualizar */}
-                                            {r.status === 7 && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                            {/* Reprovada/outros: visualizar */}
+                                            {(r.status === 3 || r.status === 4) && (
+                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => void openDetail(r)}>
                                                     <Eye />
                                                 </Button>
                                             )}
-                                            {/* Concluída: visualizar */}
-                                            {r.status === 8 && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                    <Eye />
-                                                </Button>
-                                            )}
-                                            {/* Reprovada: visualizar */}
-                                            {r.status === 3 && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                    <Eye />
-                                                </Button>
-                                            )}
-                                            {/* Cancelar: pendente ou ajustes */}
-                                            {(r.status === 1 || r.status === 4) && (
-                                                <Button variant="outline" size="icon-xs" title="Cancelar solicitação"
-                                                    className="hover:text-red-600 hover:border-red-300"
-                                                    onClick={(e) => { e.stopPropagation(); void cancelSolicitacao(r.id); }}>
-                                                    <Ban />
-                                                </Button>
-                                            )}
-                                            {/* Copiar: todos os status */}
-                                            <Button variant="outline" size="icon-xs" title="Copiar solicitação"
-                                                onClick={(e) => { e.stopPropagation(); void copySolicitacao(r.id); }}>
-                                                <Copy />
-                                            </Button>
                                             {/* Acompanhamento: todas as linhas */}
                                             <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
                                                 <Activity />
@@ -881,24 +620,14 @@ export default function DesligamentosScreen() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                                    Nenhuma solicitação de desligamento encontrada.
+                                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                                    Nenhuma solicitação de férias encontrada.
                                 </TableCell>
                             </TableRow>
                         )}
                     </TableBody>
                 </Table>
             </div>
-
-            {/* ── Form Modal ── */}
-            <DesligamentoFormModal
-                open={formOpen}
-                editId={viewId ?? editId}
-                onClose={handleFormClose}
-                onSaved={handleFormSaved}
-                viewOnly={!!viewId}
-                resubmitAfterSave={resubmit}
-            />
 
             {/* ── Timeline Modal ── */}
             <AcompanhamentoModal
@@ -913,51 +642,43 @@ export default function DesligamentosScreen() {
             <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Detalhes do Desligamento</DialogTitle>
+                        <DialogTitle>Detalhes das Férias</DialogTitle>
                         <DialogDescription>Informações completas e ações de aprovação.</DialogDescription>
                     </DialogHeader>
                     {detailLoading ? (
                         <div className="flex items-center justify-center py-8">
-                            <div className="border-lt-primary h-6 w-6 animate-spin rounded-full border-4 border-t-transparent" />
+                            <div className="h-6 w-6 animate-spin rounded-full border-4 border-t-transparent border-primary" />
                         </div>
                     ) : detail ? (
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Funcionário</div>
-                                    <div className="font-semibold">{detail.funcionarioNome || "—"}</div>
+                                    <div className="text-xs text-muted-foreground uppercase">Colaborador</div>
+                                    <div className="font-semibold">{detail.solicitanteNome || "—"}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-muted-foreground uppercase">Status</div>
                                     <div className="mt-0.5">{statusBadge(detail.status)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Tipo de Desligamento</div>
-                                    <div className="text-sm">{TIPO_DESLIGAMENTO_MAP[detail.tipoDesligamento] ?? "—"}</div>
+                                    <div className="text-xs text-muted-foreground uppercase">Período Aquisitivo</div>
+                                    <div className="text-sm">{detail.periodoAquisitivo || "—"}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Data de Desligamento</div>
-                                    <div className="text-sm">{formatDate(detail.dataDesligamento)}</div>
+                                    <div className="text-xs text-muted-foreground uppercase">Período de Gozo</div>
+                                    <div className="text-sm">{formatDate(detail.dataInicio)} → {formatDate(detail.dataFim)}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Aviso Prévio</div>
-                                    <div className="text-sm">{TIPO_AVISO_PREVIO_MAP[detail.tipoAvisoPrevio] ?? "—"}</div>
+                                    <div className="text-xs text-muted-foreground uppercase">Dias</div>
+                                    <div className="text-sm font-mono">{detail.qtdDias}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Dias de Aviso</div>
-                                    <div className="text-sm font-mono">{detail.diasAvisoPrevio}</div>
+                                    <div className="text-xs text-muted-foreground uppercase">Abono Pecuniário</div>
+                                    <div className="text-sm">{detail.abonoPecuniario ? `Sim (${detail.diasAbono} dias)` : "Não"}</div>
                                 </div>
                                 <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Elegível p/ Recontratação</div>
-                                    <div className="text-sm">{detail.elegivelRecontratacao ? "Sim" : "Não"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Substituir Posição</div>
-                                    <div className="text-sm">{detail.substituirPosicao ? "Sim" : "Não"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Solicitante</div>
-                                    <div className="text-sm">{detail.solicitanteNome || "—"}</div>
+                                    <div className="text-xs text-muted-foreground uppercase">Adiantamento 13°</div>
+                                    <div className="text-sm">{detail.adiantamento13 ? "Sim" : "Não"}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-muted-foreground uppercase">Data Criação</div>
@@ -965,19 +686,17 @@ export default function DesligamentosScreen() {
                                 </div>
                             </div>
 
-                            {/* ── Approval chain (dynamic etapas) ── */}
-                            <div className="rounded-lg border border-border/40 p-3 space-y-2">
-                                <div className="text-xs font-semibold text-muted-foreground uppercase">Cadeia de Aprovação</div>
-                                {detail.etapas && detail.etapas.length > 0 ? (
+                            {/* ── Approval chain ── */}
+                            {detail.etapas && detail.etapas.length > 0 && (
+                                <div className="rounded-lg border border-border/40 p-3 space-y-2">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase">Cadeia de Aprovação</div>
                                     <div className="space-y-2">
-                                        {detail.etapas.map((etapa: { ordem: number; label: string; status: string; aprovadorNome?: string | null; roleFilaId?: string | null; roleFilaNome?: string | null; observacao?: string | null; dataUtc?: string | null }) => {
+                                        {detail.etapas.map((etapa) => {
                                             const isPendente = etapa.status.toLowerCase() === "pendente";
                                             const isQueue = etapa.roleFilaId != null;
                                             return (
-                                                <div
-                                                    key={etapa.ordem}
-                                                    className={`flex items-start justify-between gap-2 rounded-md p-2 ${isPendente ? "bg-amber-500/5 border border-amber-500/20" : "bg-muted/20"}`}
-                                                >
+                                                <div key={etapa.ordem}
+                                                    className={`flex items-start justify-between gap-2 rounded-md p-2 ${isPendente ? "bg-amber-500/5 border border-amber-500/20" : "bg-muted/20"}`}>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-[10px] font-mono rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">{etapa.ordem}</span>
@@ -989,11 +708,7 @@ export default function DesligamentosScreen() {
                                                             )}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground mt-0.5">
-                                                            {etapa.aprovadorNome
-                                                                ? etapa.aprovadorNome
-                                                                : isPendente && isQueue
-                                                                    ? "Aguardando assumir…"
-                                                                    : "—"}
+                                                            {etapa.aprovadorNome ?? (isPendente && isQueue ? "Aguardando assumir…" : "—")}
                                                         </div>
                                                         {etapa.observacao && (
                                                             <div className="text-xs text-muted-foreground mt-0.5 italic">{etapa.observacao}</div>
@@ -1009,13 +724,6 @@ export default function DesligamentosScreen() {
                                             );
                                         })}
                                     </div>
-                                ) : null}
-                            </div>
-
-                            {detail.motivoDesligamento && (
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Motivo</div>
-                                    <div className="mt-1 text-sm rounded-md bg-muted/30 p-3">{detail.motivoDesligamento}</div>
                                 </div>
                             )}
 
@@ -1029,9 +737,7 @@ export default function DesligamentosScreen() {
                             {detail.observacaoAprovador && (
                                 <div>
                                     <div className="text-xs text-muted-foreground uppercase">Observação do Aprovador</div>
-                                    <div className="mt-1 text-sm rounded-md bg-amber-500/10 p-3 border border-amber-500/20">
-                                        {detail.observacaoAprovador}
-                                    </div>
+                                    <div className="mt-1 text-sm rounded-md bg-amber-500/10 p-3 border border-amber-500/20">{detail.observacaoAprovador}</div>
                                 </div>
                             )}
 
@@ -1064,18 +770,6 @@ export default function DesligamentosScreen() {
                                             <XCircle className="size-4" /> Reprovar
                                         </Button>
                                     </div>
-                                </div>
-                            )}
-
-                            {/* ── Submit action ── */}
-                            {(detail.status === 0 || detail.status === 4) && (
-                                <div className="flex gap-2">
-                                    <Button size="sm" onClick={() => void submitForApproval(detail.id)}>
-                                        <Send className="size-4" /> Enviar para aprovação
-                                    </Button>
-                                    <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); setEditId(detail.id); setFormOpen(true); }}>
-                                        <Pencil className="size-4" /> Editar
-                                    </Button>
                                 </div>
                             )}
                         </div>
@@ -1121,26 +815,6 @@ export default function DesligamentosScreen() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => { setChangesTarget(null); setChangesObs(""); }}>Cancelar</Button>
                         <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void confirmChanges()}>Solicitar ajustes</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* ── Delete Confirm ── */}
-            <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>Confirmar exclusão</DialogTitle>
-                        <DialogDescription>
-                            Excluir a solicitação de desligamento de <strong>&quot;{deleteTarget?.funcionarioNome}&quot;</strong>? Esta ação não pode ser desfeita.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-                            Cancelar
-                        </Button>
-                        <Button variant="destructive" onClick={() => void confirmDelete()}>
-                            Excluir
-                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

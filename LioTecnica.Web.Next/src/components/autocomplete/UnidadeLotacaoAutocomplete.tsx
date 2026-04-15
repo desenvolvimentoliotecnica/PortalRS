@@ -18,6 +18,9 @@ interface UnidadeLotacaoAutocompleteProps {
   onSelectItem?: (item: UnidadeLotacaoLookup) => void;
   defaultLabel?: { code: string; description: string };
   placeholder?: string;
+  excludeId?: string;
+  /** Quando fornecido, usa esta lista em vez de buscar da API */
+  items?: UnidadeLotacaoLookup[];
 }
 
 export function UnidadeLotacaoAutocomplete({
@@ -27,17 +30,22 @@ export function UnidadeLotacaoAutocomplete({
   onSelectItem,
   defaultLabel,
   placeholder = "Buscar unidade de lotação...",
+  excludeId,
+  items: itemsProp,
 }: UnidadeLotacaoAutocompleteProps) {
   const [query, setQuery] = useState("");
-  const [allItems, setAllItems] = useState<UnidadeLotacaoLookup[]>([]);
+  const [fetchedItems, setFetchedItems] = useState<UnidadeLotacaoLookup[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<UnidadeLotacaoLookup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const loaded = useRef(false);
 
-  // Load all items once on mount
+  const allItems = itemsProp ?? fetchedItems;
+
+  // Load from API only when no items prop is provided
   useEffect(() => {
+    if (itemsProp !== undefined) return;
     if (loaded.current) return;
     loaded.current = true;
     setLoading(true);
@@ -45,15 +53,15 @@ export function UnidadeLotacaoAutocomplete({
       .then((res) => res.ok ? res.json() : [])
       .then((data) => {
         const raw = Array.isArray(data) ? data : [];
-        setAllItems(raw.map((x: Record<string, unknown>) => ({
+        setFetchedItems(raw.map((x: Record<string, unknown>) => ({
           id: String(x.id ?? x.Id ?? ""),
           code: String(x.code ?? x.Code ?? ""),
           description: String(x.description ?? x.Description ?? ""),
         })));
       })
-      .catch(() => setAllItems([]))
+      .catch(() => setFetchedItems([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [itemsProp]);
 
   // Resolve selected item from value
   useEffect(() => {
@@ -80,12 +88,15 @@ export function UnidadeLotacaoAutocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filtered = query.trim()
-    ? allItems.filter((i) => {
-        const q = query.toLowerCase();
-        return i.description.toLowerCase().includes(q) || i.code.toLowerCase().includes(q);
-      })
-    : allItems;
+  const filtered = (() => {
+    const base = query.trim()
+      ? allItems.filter((i) => {
+          const q = query.toLowerCase();
+          return i.description.toLowerCase().includes(q) || i.code.toLowerCase().includes(q);
+        })
+      : allItems;
+    return excludeId ? base.filter((i) => i.id !== excludeId) : base;
+  })();
 
   const handleSelect = (item: UnidadeLotacaoLookup) => {
     setSelected(item);

@@ -21,6 +21,9 @@ public interface ICurrentUserContext
     /// <summary>True quando o usuário tem role Admin (acesso sem restrição por área/unidade).</summary>
     bool IsAdmin { get; }
 
+    /// <summary>True quando o usuário tem perfil de RH (visão total de solicitações sem filtro por solicitante).</summary>
+    bool IsRH { get; }
+
     /// <summary>True quando o usuário é Owner global (multi-tenant). Owner não pode assumir etapas de consenso.</summary>
     bool IsOwner { get; }
 

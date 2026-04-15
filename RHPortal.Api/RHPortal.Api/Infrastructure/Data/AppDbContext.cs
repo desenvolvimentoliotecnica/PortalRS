@@ -70,6 +70,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<AprovacaoFaixaSalarial> AprovacoesFaixaSalarial => Set<AprovacaoFaixaSalarial>();
     public DbSet<PermissaoNivelVaga> PermissoesNivelVaga => Set<PermissaoNivelVaga>();
     public DbSet<Vaga> Vagas => Set<Vaga>();
+    public DbSet<OcupacaoHistorico> OcupacoesHistorico => Set<OcupacaoHistorico>();
     public DbSet<VagaBeneficio> VagaBeneficios => Set<VagaBeneficio>();
     public DbSet<VagaRequisito> VagaRequisitos => Set<VagaRequisito>();
     public DbSet<VagaEtapa> VagaEtapas => Set<VagaEtapa>();
@@ -2737,6 +2738,28 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasIndex(x => new { x.TenantId, x.EnvironmentNormalized, x.OccurredAt });
             b.HasIndex(x => new { x.TenantId, x.DeviceId, x.OccurredAt });
             b.HasIndex(x => new { x.TenantId, x.TransactionId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<OcupacaoHistorico>(b =>
+        {
+            b.ToTable("OcupacoesHistorico");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.MotivoSaida).HasConversion<string>();
+
+            b.HasOne(x => x.Vaga)
+                .WithMany(v => v.Ocupacoes)
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Funcionario)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.FuncionarioId, x.DataSaida });
+            b.HasIndex(x => new { x.TenantId, x.VagaId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

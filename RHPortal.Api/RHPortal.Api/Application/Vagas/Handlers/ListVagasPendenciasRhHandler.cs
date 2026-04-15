@@ -78,7 +78,10 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                     0,
                     0,
                     v.CreatedAtUtc,
-                    v.UpdatedAtUtc
+                    v.UpdatedAtUtc,
+                    v.HeadcountAutorizado,
+                    0,
+                    v.IsEstrutural
                 ))
                 .ToList();
 

@@ -96,9 +96,13 @@ public sealed class UnidadeLotacaoController : ControllerBase
     public async Task<ActionResult<List<UnidadeLotacaoLookupItem>>> Lookup(
         [FromServices] AppDbContext db,
         CancellationToken ct,
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] string? cdnPlanoLotac)
     {
         var query = db.UnidadesLotacao.AsNoTracking().Where(x => x.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(cdnPlanoLotac))
+            query = query.Where(x => x.CdnPlanoLotac == cdnPlanoLotac);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -110,7 +114,6 @@ public sealed class UnidadeLotacaoController : ControllerBase
 
         var items = await query
             .OrderBy(x => x.Code)
-            .Take(50)
             .Select(x => new UnidadeLotacaoLookupItem(
                 x.Id, x.Code, x.Description,
                 $"{x.Code} - {x.Description}"))

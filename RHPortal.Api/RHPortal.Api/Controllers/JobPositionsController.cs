@@ -3,9 +3,13 @@ using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.JobPositions;
 using RhPortal.Api.Application.JobPositions.Handlers;
+using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.JobPositions;
+using RhPortal.Api.Domain.Entities;
+using RHPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 
 namespace RhPortal.Api.Controllers;
@@ -151,6 +155,245 @@ public sealed class JobPositionsController : ControllerBase
     }
 
     /// <summary>
+    /// Pré-visualização da estrutura que seria criada para um cargo.
+    /// Retorna os funcionários ativos agrupados por (Unidade de Lotação + Centro de Custo).
+    /// </summary>
+    [HttpGet("{id:guid}/preview-estrutura")]
+    [ProducesResponseType(typeof(List<PreviewEstruturaGrupoDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<PreviewEstruturaGrupoDto>>> PreviewEstrutura(
+        [FromRoute] Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var cargo = await db.JobPositions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (cargo is null) return NotFound();
+
+        var funcionarios = await db.Funcionarios
+            .AsNoTracking()
+            .Include(f => f.UnidadeLotacao)
+            .Include(f => f.CentroCusto)
+            .Where(f => f.JobPositionId == id && f.Status == FuncionarioStatus.Active)
+            .Select(f => new
+            {
+                f.Id, f.Name,
+                f.UnidadeLotacaoId,
+                UnidadeNome = f.UnidadeLotacao != null ? f.UnidadeLotacao.Description : null,
+                f.CentroCustoId,
+                CentroCustoNome = f.CentroCusto != null ? f.CentroCusto.Description : null,
+            })
+            .ToListAsync(ct);
+
+        // IDs de vagas estruturais já existentes para este cargo
+        var vagasExistentes = await db.Vagas
+            .AsNoTracking()
+            .Where(v => v.JobPositionId == id && v.IsEstrutural)
+            .Select(v => new { v.UnidadeLotacaoId, v.CentroCustoId })
+            .ToListAsync(ct);
+
+        var grupos = funcionarios
+            .GroupBy(f => new { f.UnidadeLotacaoId, f.CentroCustoId })
+            .Select(g => new PreviewEstruturaGrupoDto(
+                g.Key.UnidadeLotacaoId,
+                g.First().UnidadeNome,
+                g.Key.CentroCustoId,
+                g.First().CentroCustoNome,
+                g.Select(f => new PreviewEstruturaFuncionarioDto(f.Id, f.Name)).ToList(),
+                vagasExistentes.Any(v => v.UnidadeLotacaoId == g.Key.UnidadeLotacaoId && v.CentroCustoId == g.Key.CentroCustoId)
+            ))
+            .ToList();
+
+        return Ok(grupos);
+    }
+
+    /// <summary>
+    /// Cria posições estruturais (vagas preenchidas) a partir dos funcionários ativos do cargo,
+    /// agrupados por (Unidade de Lotação + Centro de Custo). Operação idempotente.
+    /// </summary>
+    [HttpPost("{id:guid}/vagas-estruturais")]
+    [ProducesResponseType(typeof(CriarEstruturasResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CriarEstruturasResultDto>> CriarVagasEstruturais(
+        [FromRoute] Guid id,
+        [FromServices] AppDbContext db,
+        [FromServices] IOcupacaoHistoricoService ocupacaoService,
+        CancellationToken ct)
+    {
+        var cargo = await db.JobPositions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (cargo is null) return NotFound();
+
+        // TenantId extraído do primeiro funcionário ativo do cargo
+        var refFuncionario = await db.Funcionarios
+            .AsNoTracking()
+            .Where(f => f.JobPositionId == id && f.Status == FuncionarioStatus.Active)
+            .Select(f => new { f.TenantId })
+            .FirstOrDefaultAsync(ct);
+
+        if (refFuncionario is null)
+            return Ok(new CriarEstruturasResultDto(0, 0, 0));
+
+        var funcionarios = await db.Funcionarios
+            .AsNoTracking()
+            .Where(f => f.JobPositionId == id && f.Status == FuncionarioStatus.Active)
+            .Select(f => new { f.Id, f.Name, f.UnidadeLotacaoId, f.CentroCustoId, f.TenantId })
+            .ToListAsync(ct);
+
+        int vagasCriadas = 0, vagasExistentes = 0, ocupacoesCriadas = 0;
+        var now = DateTime.UtcNow;
+
+        var grupos = funcionarios.GroupBy(f => new { f.UnidadeLotacaoId, f.CentroCustoId });
+
+        foreach (var grupo in grupos)
+        {
+            // Busca vaga estrutural já existente para essa combinação
+            var vaga = await db.Vagas.FirstOrDefaultAsync(v =>
+                v.JobPositionId == id &&
+                v.UnidadeLotacaoId == grupo.Key.UnidadeLotacaoId &&
+                v.CentroCustoId == grupo.Key.CentroCustoId &&
+                v.IsEstrutural, ct);
+
+            if (vaga is null)
+            {
+                vaga = new Vaga
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = refFuncionario.TenantId,
+                    Titulo = cargo.Name,
+                    JobPositionId = id,
+                    UnidadeLotacaoId = grupo.Key.UnidadeLotacaoId,
+                    CentroCustoId = grupo.Key.CentroCustoId,
+                    Status = VagaStatus.Preenchida,
+                    IsEstrutural = true,
+                    HeadcountAutorizado = grupo.Count(),
+                    MatchMinimoPercentual = 70,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    UpdatedAtUtc = DateTimeOffset.UtcNow,
+                };
+                db.Vagas.Add(vaga);
+                await db.SaveChangesAsync(ct);
+                vagasCriadas++;
+            }
+            else
+            {
+                vagasExistentes++;
+            }
+
+            // Criar ocupações para funcionários ainda sem registro ativo nesta vaga
+            foreach (var func in grupo)
+            {
+                var jaExiste = await db.OcupacoesHistorico.AnyAsync(o =>
+                    o.VagaId == vaga.Id &&
+                    o.FuncionarioId == func.Id &&
+                    o.DataSaida == null, ct);
+
+                if (!jaExiste)
+                {
+                    await ocupacaoService.AbrirOcupacaoAsync(func.Id, vaga.Id, now, null, ct);
+                    ocupacoesCriadas++;
+                }
+            }
+        }
+
+        return Ok(new CriarEstruturasResultDto(vagasCriadas, vagasExistentes, ocupacoesCriadas));
+    }
+
+    /// <summary>
+    /// Cria posições estruturais para TODOS os cargos que possuem funcionários ativos.
+    /// Idempotente — ignora vagas e ocupações já existentes.
+    /// </summary>
+    [HttpPost("vagas-estruturais-bulk")]
+    [ProducesResponseType(typeof(CriarEstruturasResultDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CriarEstruturasResultDto>> CriarVagasEstruturaisBulk(
+        [FromServices] AppDbContext db,
+        [FromServices] IOcupacaoHistoricoService ocupacaoService,
+        CancellationToken ct)
+    {
+        // Busca todos os funcionários ativos que possuem cargo definido
+        var funcionarios = await db.Funcionarios
+            .AsNoTracking()
+            .Where(f => f.Status == FuncionarioStatus.Active && f.JobPositionId != null)
+            .Select(f => new { f.Id, f.Name, f.JobPositionId, f.UnidadeLotacaoId, f.CentroCustoId, f.TenantId })
+            .ToListAsync(ct);
+
+        if (funcionarios.Count == 0)
+            return Ok(new CriarEstruturasResultDto(0, 0, 0));
+
+        // Carrega nomes de todos os cargos referenciados
+        var cargoIds = funcionarios.Select(f => f.JobPositionId!.Value).Distinct().ToList();
+        var cargos = await db.JobPositions
+            .AsNoTracking()
+            .Where(c => cargoIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.Name, ct);
+
+        int vagasCriadas = 0, vagasExistentes = 0, ocupacoesCriadas = 0;
+        var now = DateTime.UtcNow;
+
+        // Agrupa por (Cargo, UnidadeLotacao, CentroCusto) — mesma lógica do endpoint individual
+        var grupos = funcionarios.GroupBy(f => new
+        {
+            CargoId = f.JobPositionId!.Value,
+            f.UnidadeLotacaoId,
+            f.CentroCustoId,
+        });
+
+        foreach (var grupo in grupos)
+        {
+            if (!cargos.TryGetValue(grupo.Key.CargoId, out var cargoNome))
+                cargoNome = "—";
+
+            var tenantId = grupo.First().TenantId;
+
+            var vaga = await db.Vagas.FirstOrDefaultAsync(v =>
+                v.JobPositionId == grupo.Key.CargoId &&
+                v.UnidadeLotacaoId == grupo.Key.UnidadeLotacaoId &&
+                v.CentroCustoId == grupo.Key.CentroCustoId &&
+                v.IsEstrutural, ct);
+
+            if (vaga is null)
+            {
+                vaga = new Vaga
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    Titulo = cargoNome,
+                    JobPositionId = grupo.Key.CargoId,
+                    UnidadeLotacaoId = grupo.Key.UnidadeLotacaoId,
+                    CentroCustoId = grupo.Key.CentroCustoId,
+                    Status = VagaStatus.Preenchida,
+                    IsEstrutural = true,
+                    HeadcountAutorizado = grupo.Count(),
+                    MatchMinimoPercentual = 70,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    UpdatedAtUtc = DateTimeOffset.UtcNow,
+                };
+                db.Vagas.Add(vaga);
+                await db.SaveChangesAsync(ct);
+                vagasCriadas++;
+            }
+            else
+            {
+                vagasExistentes++;
+            }
+
+            foreach (var func in grupo)
+            {
+                var jaExiste = await db.OcupacoesHistorico.AnyAsync(o =>
+                    o.VagaId == vaga.Id &&
+                    o.FuncionarioId == func.Id &&
+                    o.DataSaida == null, ct);
+
+                if (!jaExiste)
+                {
+                    await ocupacaoService.AbrirOcupacaoAsync(func.Id, vaga.Id, now, null, ct);
+                    ocupacoesCriadas++;
+                }
+            }
+        }
+
+        return Ok(new CriarEstruturasResultDto(vagasCriadas, vagasExistentes, ocupacoesCriadas));
+    }
+
+    /// <summary>
     /// Remove um cargo.
     /// </summary>
     [HttpDelete("{id:guid}")]
@@ -165,3 +408,22 @@ public sealed class JobPositionsController : ControllerBase
         return deleted ? NoContent() : NotFound();
     }
 }
+
+// ── DTOs locais ──────────────────────────────────────────────────────────────
+
+public sealed record PreviewEstruturaFuncionarioDto(Guid Id, string Nome);
+
+public sealed record PreviewEstruturaGrupoDto(
+    Guid? UnidadeLotacaoId,
+    string? UnidadeNome,
+    Guid? CentroCustoId,
+    string? CentroCustoNome,
+    List<PreviewEstruturaFuncionarioDto> Funcionarios,
+    bool VagaJaExiste
+);
+
+public sealed record CriarEstruturasResultDto(
+    int VagasCriadas,
+    int VagasJaExistentes,
+    int OcupacoesCriadas
+);

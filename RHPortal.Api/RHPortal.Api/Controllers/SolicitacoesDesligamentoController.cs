@@ -1,4 +1,6 @@
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using RhPortal.Api.Application.Cartas;
 using RhPortal.Api.Application.SolicitacoesDesligamento;
 using RhPortal.Api.Contracts.SolicitacoesDesligamento;
 using RhPortal.Api.Domain.Enums;
@@ -15,13 +17,16 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
 {
     private readonly ISolicitacaoDesligamentoService _service;
     private readonly ICurrentUserContext _userContext;
+    private readonly ICartaService _cartaService;
 
     public SolicitacoesDesligamentoController(
         ISolicitacaoDesligamentoService service,
-        ICurrentUserContext userContext)
+        ICurrentUserContext userContext,
+        ICartaService cartaService)
     {
         _service = service;
         _userContext = userContext;
+        _cartaService = cartaService;
     }
 
     /// <summary>Lista solicitações de desligamento com filtro por perfil.</summary>
@@ -30,15 +35,17 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
     public async Task<IActionResult> List(
         [FromQuery] string? q,
         [FromQuery] SolicitacaoStatus? status,
+        [FromQuery(Name = "statuses")] SolicitacaoStatus[]? statuses,
         [FromQuery] bool? apenasMeus,
+        [FromQuery] Guid? areaId,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
         CancellationToken ct)
     {
-        var isAdmin = _userContext.IsAdmin;
-        var effectiveApenasMeus = isAdmin ? (apenasMeus ?? false) : true;
+        var canViewAll = _userContext.IsAdmin || _userContext.IsRH;
+        var effectiveApenasMeus = canViewAll ? (apenasMeus ?? false) : true;
 
-        var query = new SolicitacaoDesligamentoListQuery(q, status, effectiveApenasMeus, page, pageSize);
+        var query = new SolicitacaoDesligamentoListQuery(q, status, statuses, effectiveApenasMeus, areaId, page, pageSize);
         return Ok(await _service.ListAsync(query, _userContext.FuncionarioId, ct));
     }
 
@@ -205,6 +212,96 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         }
     }
 
+    [HttpPost("{id:guid}/cancel")]
+    [ProducesResponseType(typeof(SolicitacaoDesligamentoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.CancelAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Efetiva o desligamento aprovado — move para Em Integração e envia ao painel TOTVS.</summary>
+    [HttpPost("{id:guid}/efetivar")]
+    [ProducesResponseType(typeof(SolicitacaoDesligamentoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Efetivar(Guid id, CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && !_userContext.IsRH)
+            return Forbid();
+
+        try
+        {
+            var result = await _service.EfetivarAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/copy")]
+    [ProducesResponseType(typeof(SolicitacaoDesligamentoResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Copy(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.CopyAsync(id, ct);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Gera carta de desligamento em DOCX e retorna URL presigned S3 (24h).</summary>
+    [HttpPost("{id:guid}/carta")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GerarCarta(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var url = await _cartaService.GerarCartaDesligamentoAsync(id, ct);
+            return Ok(new { url });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Exporta lista de desligamentos em CSV.</summary>
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromQuery] string? q,
+        [FromQuery] SolicitacaoStatus? status,
+        [FromQuery] bool? apenasMeus,
+        [FromQuery] Guid? areaId,
+        CancellationToken ct)
+    {
+        var canViewAll = _userContext.IsAdmin || _userContext.IsRH;
+        var effectiveApenasMeus = canViewAll ? (apenasMeus ?? false) : true;
+        var query = new SolicitacaoDesligamentoListQuery(q, status, null, effectiveApenasMeus, areaId, null, null);
+        var rows = await _service.ListAsync(query, _userContext.FuncionarioId, ct);
+        var csv = BuildCsv(rows);
+        return File(Encoding.UTF8.GetBytes(csv), "text/csv; charset=utf-8", "desligamentos.csv");
+    }
+
     // ── helpers ──
 
     /// <summary>
@@ -229,5 +326,14 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         }
 
         return pendingEtapa.AprovadorId.HasValue && pendingEtapa.AprovadorId == _userContext.FuncionarioId;
+    }
+
+    private static string BuildCsv(IReadOnlyList<SolicitacaoDesligamentoGridRow> rows)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Funcionário;Tipo;Data Desligamento;Status;Solicitante;Data Criação");
+        foreach (var r in rows)
+            sb.AppendLine($"{r.FuncionarioNome};{r.TipoDesligamento};{r.DataDesligamento:dd/MM/yyyy};{r.Status};{r.SolicitanteNome};{r.CreatedAtUtc:dd/MM/yyyy}");
+        return sb.ToString();
     }
 }

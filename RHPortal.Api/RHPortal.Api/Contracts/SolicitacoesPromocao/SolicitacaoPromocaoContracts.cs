@@ -6,7 +6,9 @@ namespace RhPortal.Api.Contracts.SolicitacoesPromocao;
 public sealed record SolicitacaoPromocaoListQuery(
     string? Q,
     SolicitacaoStatus? Status,
+    SolicitacaoStatus[]? Statuses,
     bool? ApenasMeus,
+    Guid? AreaId,
     int? Page,
     int? PageSize
 );
@@ -151,5 +153,6 @@ public sealed record SolicitacaoPromocaoGridRow(
     string? EtapaPendenteCom,
     bool EtapaPendenteIsQueue,
     Guid? EtapaPendenteAprovadorId,
+    Guid? EtapaPendenteAssumedByUserId,
     bool EtapaPendenteCanAssume
 );

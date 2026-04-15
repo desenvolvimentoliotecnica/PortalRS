@@ -20,7 +20,18 @@
       "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" WHERE \\\\\"MigrationId\\\\\" LIKE '202601%' OR \\\\\"MigrationId\\\\\" LIKE '202602%' ORDER BY \\\\\"MigrationId\\\\\";\")",
       "Bash(grep -E \"\\\\.cs$|\\\\.Designer\\\\.cs$\")",
       "Bash(dotnet ef *)",
-      "Bash(dotnet tool *)"
+      "Bash(dotnet tool *)",
+      "WebSearch",
+      "Bash(grep -n \"class WorkflowRHListQuery\\\\|record WorkflowRHListQuery\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Contracts/WorkflowRH/*.cs)",
+      "Bash(xargs ls:*)",
+      "Bash(dotnet build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(grep -n \"enum SolicitacaoStatus\\\\|enum SolicitacaoVagaStatus\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Domain/Enums/*.cs)",
+      "Bash(grep -n \"modelBuilder.Entity\\\\|^\\\\s*}\\\\s*$\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Infrastructure/Data/AppDbContext.cs)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations"

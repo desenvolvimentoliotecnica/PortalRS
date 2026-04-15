@@ -1,4 +1,6 @@
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using RhPortal.Api.Application.Cartas;
 using RhPortal.Api.Application.SolicitacoesFerias;
 using RhPortal.Api.Contracts.SolicitacoesFerias;
 using RhPortal.Api.Domain.Enums;
@@ -15,11 +17,16 @@ public sealed class SolicitacoesFeriasController : ControllerBase
 {
     private readonly ISolicitacaoFeriasService _service;
     private readonly ICurrentUserContext _userContext;
+    private readonly ICartaService _cartaService;
 
-    public SolicitacoesFeriasController(ISolicitacaoFeriasService service, ICurrentUserContext userContext)
+    public SolicitacoesFeriasController(
+        ISolicitacaoFeriasService service,
+        ICurrentUserContext userContext,
+        ICartaService cartaService)
     {
         _service = service;
         _userContext = userContext;
+        _cartaService = cartaService;
     }
 
     [HttpGet]
@@ -27,13 +34,16 @@ public sealed class SolicitacoesFeriasController : ControllerBase
     public async Task<IActionResult> List(
         [FromQuery] string? q,
         [FromQuery] SolicitacaoStatus? status,
+        [FromQuery(Name = "statuses")] SolicitacaoStatus[]? statuses,
+        [FromQuery] bool? apenasMeus,
+        [FromQuery] Guid? areaId,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
         CancellationToken ct)
     {
-        // Colaborador always sees only their own requests; admin can see all
-        var apenasMeus = !_userContext.IsAdmin;
-        var query = new SolicitacaoFeriasListQuery(q, status, apenasMeus, page, pageSize);
+        var canViewAll = _userContext.IsAdmin || _userContext.IsRH;
+        var effectiveApenasMeus = canViewAll ? (apenasMeus ?? false) : true;
+        var query = new SolicitacaoFeriasListQuery(q, status, statuses, effectiveApenasMeus, areaId, page, pageSize);
         return Ok(await _service.ListAsync(query, _userContext.FuncionarioId, ct));
     }
 
@@ -157,8 +167,51 @@ public sealed class SolicitacoesFeriasController : ControllerBase
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
     }
 
+    /// <summary>Gera carta de autorização de férias em DOCX e retorna URL presigned S3 (24h).</summary>
+    [HttpPost("{id:guid}/carta")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GerarCarta(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var url = await _cartaService.GerarCartaFeriasAsync(id, ct);
+            return Ok(new { url });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Exporta lista de férias em CSV.</summary>
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromQuery] string? q,
+        [FromQuery] SolicitacaoStatus? status,
+        [FromQuery] bool? apenasMeus,
+        [FromQuery] Guid? areaId,
+        CancellationToken ct)
+    {
+        var canViewAll = _userContext.IsAdmin || _userContext.IsRH;
+        var effectiveApenasMeus = canViewAll ? (apenasMeus ?? false) : true;
+        var query = new SolicitacaoFeriasListQuery(q, status, null, effectiveApenasMeus, areaId, null, null);
+        var rows = await _service.ListAsync(query, _userContext.FuncionarioId, ct);
+        var csv = BuildCsv(rows);
+        return File(Encoding.UTF8.GetBytes(csv), "text/csv; charset=utf-8", "ferias.csv");
+    }
+
     private Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
     {
         return Task.FromResult(true);
+    }
+
+    private static string BuildCsv(IReadOnlyList<SolicitacaoFeriasGridRow> rows)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Solicitante;Data Início;Data Fim;Dias;Abono Pecuniário;Status;Data Criação");
+        foreach (var r in rows)
+            sb.AppendLine($"{r.SolicitanteNome};{r.DataInicio:dd/MM/yyyy};{r.DataFim:dd/MM/yyyy};{r.QtdDias};{(r.AbonoPecuniario ? "Sim" : "Não")};{r.Status};{r.CreatedAtUtc:dd/MM/yyyy}");
+        return sb.ToString();
     }
 }

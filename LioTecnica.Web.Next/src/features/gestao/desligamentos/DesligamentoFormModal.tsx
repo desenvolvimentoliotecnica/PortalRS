@@ -14,6 +14,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { findEmpresaByCdn, findUnitByEstabCode } from "@/lib/funcionarioLookupResolve";
 import { type OrgEstruturaResponse, type SubordinadoEntry, getSubordinados, filterSubordinadoEntries } from "@/lib/organograma";
 
 /* ──────────────────────────── types ──────────────────────────── */
@@ -247,6 +248,7 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
     /* ── lookups ── */
     const [funcionarios, setFuncionarios] = useState<SubordinadoEntry[] | LookupItem[]>([]);
     const [empresas, setEmpresas] = useState<LookupItem[]>([]);
+    const [unidades, setUnidades] = useState<LookupItem[]>([]);
 
     /* ── contexto do usuário logado ── */
     const [myFuncId, setMyFuncId] = useState<string | null>(null);
@@ -263,15 +265,17 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
 
     const loadLookups = useCallback(async () => {
         type OptionRes = { id: string; name: string; code?: string };
-        const [funcsRes, empresasRes, meRes, orgRes] = await Promise.all([
+        const [funcsRes, empresasRes, unidadesRes, meRes, orgRes] = await Promise.all([
             fetchJson<Record<string, unknown>>("/api/lookup/funcionarios?pageSize=500").catch(() => ({ items: [] })),
             fetchJson<OptionRes[]>("/api/lookup/empresas").catch(() => []),
+            fetchJson<OptionRes[]>("/api/lookup/units").catch(() => []),
             fetchJson<{ funcionarioId?: string }>("/api/me").catch(() => ({} as { funcionarioId?: string })),
             fetchJson<OrgEstruturaResponse>("/api/organograma/estrutura").catch(() => ({ lotacoes: [], semLotacao: [] })),
         ]);
 
         const empresasArr: LookupItem[] = Array.isArray(empresasRes) ? empresasRes : [];
         setEmpresas(empresasArr);
+        setUnidades(Array.isArray(unidadesRes) ? unidadesRes : []);
 
         const meuFuncId = meRes?.funcionarioId ?? null;
         setMyFuncId(meuFuncId);
@@ -308,25 +312,34 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
                 setAtualCodColaborador(f?.cdnFuncionario ? String(f.cdnFuncionario) : "");
                 setAtualCargo(String(f?.jobPositionName ?? "—"));
 
-                /* empresa: match pelo código TOTVS (CdnEmpresa → Empresa.Code) */
                 const cdnEmpresa = f?.cdnEmpresa ? String(f.cdnEmpresa) : null;
-                const empresaMatch = cdnEmpresa
-                    ? empresas.find((e) => e.code === cdnEmpresa) ?? null
-                    : null;
-                setAtualEmpresaCodigo(cdnEmpresa ?? "");
+                const empresaMatch = findEmpresaByCdn(empresas, cdnEmpresa);
+                setAtualEmpresaCodigo(cdnEmpresa?.trim() ?? "");
                 setAtualEmpresaNome(empresaMatch?.name ?? "");
-                setAtualEstabelecimentoCodigo(f?.cdnEstab ? String(f.cdnEstab) : "");
-                setAtualEstabelecimentoNome(String(f?.unitName ?? ""));
+
+                const cdnEstab = f?.cdnEstab != null ? String(f.cdnEstab) : "";
+                setAtualEstabelecimentoCodigo(cdnEstab.trim());
+
+                let resolvedUnitId: string | null = f?.unitId ? String(f.unitId) : null;
+                const unitMatch =
+                    !resolvedUnitId && cdnEstab ? findUnitByEstabCode(unidades, cdnEstab) : null;
+                if (!resolvedUnitId && unitMatch) resolvedUnitId = unitMatch.id;
+
+                const unitNameApi = String(f?.unitName ?? "").trim();
+                setAtualEstabelecimentoNome(unitNameApi || unitMatch?.name || "");
 
                 setDraft((d) => ({
                     ...d,
                     empresaId: empresaMatch?.id ?? null,
-                    unitId: f?.unitId ? String(f.unitId) : null,
+                    unitId: resolvedUnitId,
                 }));
             })
-            .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [draft.funcionarioId, empresas]);
+            .catch((e) => {
+                toast.error(
+                    `Não foi possível carregar o funcionário: ${e instanceof Error ? e.message : "erro"}`,
+                );
+            });
+    }, [draft.funcionarioId, empresas, unidades]);
 
     useEffect(() => {
         if (!open) return;
@@ -337,6 +350,18 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
             setLoadingEdit(true);
             fetchJson<Record<string, unknown>>(`${API}/${editId}`)
                 .then((d) => {
+                    const TIPO_DESL_MAP: Record<string, number> = {
+                        SemJustaCausa: 0, PedidoDemissao: 1, AcordoMutuo: 2,
+                        JustaCausa: 3, FimDeContrato: 4,
+                    };
+                    const TIPO_AVISO_MAP: Record<string, number> = {
+                        Indenizado: 0, Trabalhado: 1, Dispensado: 2,
+                    };
+                    const parseTipoDesl = (v: unknown) =>
+                        typeof v === "number" ? v : (TIPO_DESL_MAP[String(v ?? "")] ?? 0);
+                    const parseTipoAviso = (v: unknown) =>
+                        typeof v === "number" ? v : (TIPO_AVISO_MAP[String(v ?? "")] ?? 0);
+
                     setDraft({
                         funcionarioId: d?.funcionarioId ? String(d.funcionarioId) : null,
                         empresaId: d?.empresaId ? String(d.empresaId) : null,
@@ -344,9 +369,9 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
                         historicoMedidasDisciplinares: d?.historicoMedidasDisciplinares != null
                             ? Boolean(d.historicoMedidasDisciplinares) : null,
                         dataDesligamento: d?.dataDesligamento ? String(d.dataDesligamento).slice(0, 10) : "",
-                        tipoDesligamento: Number(d?.tipoDesligamento ?? 0),
+                        tipoDesligamento: parseTipoDesl(d?.tipoDesligamento),
                         motivoDesligamento: String(d?.motivoDesligamento ?? ""),
-                        tipoAvisoPrevio: Number(d?.tipoAvisoPrevio ?? 0),
+                        tipoAvisoPrevio: parseTipoAviso(d?.tipoAvisoPrevio),
                         diasAvisoPrevio: Number(d?.diasAvisoPrevio ?? 30),
                         possuiEstabilidade: Boolean(d?.possuiEstabilidade),
                         elegivelRecontratacao: Boolean(d?.elegivelRecontratacao),
@@ -366,8 +391,8 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
 
         const errors: string[] = [];
         if (!draft.funcionarioId) errors.push("Funcionário");
-        if (!draft.empresaId) errors.push("Empresa (selecione um funcionário primeiro)");
-        if (!draft.unitId) errors.push("Estabelecimento (selecione um funcionário primeiro)");
+        if (!draft.empresaId) errors.push("Empresa (código da empresa do funcionário não bate com o cadastro)");
+        if (!draft.unitId) errors.push("Estabelecimento (código do estabelecimento sem unidade correspondente no portal)");
         if (!draft.dataDesligamento) errors.push("Data de Desligamento");
         if (!draft.motivoDesligamento.trim()) errors.push("Justificativa");
 
@@ -377,15 +402,19 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
         }
 
         setSaving(true);
+
+        const TIPO_DESL_STR = ["SemJustaCausa", "PedidoDemissao", "AcordoMutuo", "JustaCausa", "FimDeContrato"];
+        const TIPO_AVISO_STR = ["Indenizado", "Trabalhado", "Dispensado"];
+
         const payload = {
             funcionarioId: draft.funcionarioId,
             empresaId: draft.empresaId,
             unitId: draft.unitId,
             historicoMedidasDisciplinares: draft.historicoMedidasDisciplinares,
             dataDesligamento: draft.dataDesligamento,
-            tipoDesligamento: draft.tipoDesligamento,
+            tipoDesligamento: TIPO_DESL_STR[draft.tipoDesligamento] ?? "SemJustaCausa",
             motivoDesligamento: draft.motivoDesligamento.trim(),
-            tipoAvisoPrevio: draft.tipoAvisoPrevio,
+            tipoAvisoPrevio: TIPO_AVISO_STR[draft.tipoAvisoPrevio] ?? "Indenizado",
             diasAvisoPrevio: draft.diasAvisoPrevio,
             possuiEstabilidade: draft.possuiEstabilidade,
             elegivelRecontratacao: draft.elegivelRecontratacao,
@@ -403,8 +432,16 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
                     toast.success("Solicitação atualizada.");
                 }
             } else {
-                await fetchJson(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-                toast.success("Solicitação criada.");
+                const created = await fetchJson<{ id?: string }>(API, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                if (!created?.id) {
+                    throw new Error("Solicitação criada sem identificador para envio.");
+                }
+                await fetchJson(`${API}/${created.id}/submit`, { method: "POST" });
+                toast.success("Solicitação criada e enviada para aprovação.");
             }
             onSaved();
         } catch (e) {
