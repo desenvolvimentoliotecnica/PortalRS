@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Contracts.IntegracaoTotvs;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 
@@ -8,10 +10,12 @@ namespace RhPortal.Api.Application.IntegracaoTotvs;
 public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
 {
     private readonly AppDbContext _db;
+    private readonly IOcupacaoHistoricoService _ocupacaoService;
 
-    public IntegracaoTotvsService(AppDbContext db)
+    public IntegracaoTotvsService(AppDbContext db, IOcupacaoHistoricoService ocupacaoService)
     {
         _db = db;
+        _ocupacaoService = ocupacaoService;
     }
 
     public async Task<IntegracaoTotvsPainelResponse> ListPainelAsync(IntegracaoTotvsPainelQuery query, CancellationToken ct)
@@ -69,7 +73,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             var desligamentos = await _db.SolicitacoesDesligamento
                 .AsNoTracking()
                 .Include(s => s.Funcionario)
-                .Where(s => s.Status == SolicitacaoStatus.Aprovada)
+                .Where(s => s.Status == SolicitacaoStatus.EmIntegracao || s.Status == SolicitacaoStatus.Concluida)
                 .Select(s => new IntegracaoTotvsListItem(
                     s.Id,
                     (short)TipoIntegracao.Desligamento,
@@ -476,6 +480,15 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegracaoResultado = request.Resultado;
                 entity.IntegracaoMensagem = request.Mensagem;
                 entity.IntegradaEmUtc = now;
+
+                if (request.Resultado == IntegracaoResultado.Sucesso)
+                {
+                    // Marcar como concluído e liberar o headcount da vaga
+                    entity.Status = SolicitacaoStatus.Concluida;
+                    entity.UpdatedAtUtc = now;
+                    await _ocupacaoService.FecharOcupacaoAsync(
+                        entity.FuncionarioId, MotivoSaidaOcupacao.Desligamento, entity.Id, ct);
+                }
                 break;
             }
             case TipoIntegracao.Promocao:

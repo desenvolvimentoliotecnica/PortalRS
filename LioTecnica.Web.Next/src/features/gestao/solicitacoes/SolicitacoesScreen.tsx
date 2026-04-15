@@ -51,7 +51,7 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 
-import SolicitacaoFormModal from "./SolicitacaoFormModal";
+import SolicitacaoFormModal, { type SolicitacaoDraft } from "./SolicitacaoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
 import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
@@ -282,6 +282,13 @@ function SolicitacoesVagaContent() {
     const [viewId, setViewId] = useState<string | null>(null);
     const [resubmit, setResubmit] = useState(false);
     const [copySourceId, setCopySourceId] = useState<string | null>(null);
+    const [formInitialData, setFormInitialData] = useState<Partial<SolicitacaoDraft> | null>(null);
+
+    /* ── vaga picker ── */
+    const [vagaPickerOpen, setVagaPickerOpen] = useState(false);
+    const [vagaPickerQ, setVagaPickerQ] = useState("");
+    const [vagaPickerRows, setVagaPickerRows] = useState<Record<string, unknown>[]>([]);
+    const [vagaPickerLoading, setVagaPickerLoading] = useState(false);
 
     /* ── timeline modal ── */
     const [timelineOpen, setTimelineOpen] = useState(false);
@@ -369,7 +376,63 @@ function SolicitacoesVagaContent() {
         setViewId(null);
         setEditId(null);
         setResubmit(false);
+        setFormInitialData(null);
         setFormOpen(true);
+    }
+
+    function openNovaPosicao() {
+        setViewId(null);
+        setEditId(null);
+        setResubmit(false);
+        setFormInitialData({ origemVaga: "nova" });
+        setFormOpen(true);
+    }
+
+    function openVagaPicker() {
+        setVagaPickerQ("");
+        setVagaPickerRows([]);
+        setVagaPickerOpen(true);
+        loadVagaPickerRows("");
+    }
+
+    async function loadVagaPickerRows(q: string) {
+        setVagaPickerLoading(true);
+        try {
+            const params = new URLSearchParams({ pageSize: "40" });
+            if (q.trim()) params.set("q", q.trim());
+            const res = await fetchJson<unknown>(`/api/vagas?${params.toString()}`);
+            const items: unknown[] = Array.isArray(res) ? res : Array.isArray((res as Record<string, unknown>)?.items) ? ((res as Record<string, unknown>).items as unknown[]) : [];
+            setVagaPickerRows(items as Record<string, unknown>[]);
+        } catch {
+            setVagaPickerRows([]);
+        } finally {
+            setVagaPickerLoading(false);
+        }
+    }
+
+    async function selectVagaFromPicker(vagaId: string) {
+        setVagaPickerOpen(false);
+        try {
+            const v = await fetchJson<Record<string, unknown>>(`/api/vagas/${vagaId}`);
+            const initial: Partial<SolicitacaoDraft> = {
+                origemVaga: "quadro",
+                titulo: String(v.titulo ?? v.name ?? ""),
+                jobPositionId: v.jobPositionId ? String(v.jobPositionId) : null,
+                areaId: v.areaId ? String(v.areaId) : null,
+                unitId: v.unitId ? String(v.unitId) : null,
+                centroCustoId: v.centroCustoId ? String(v.centroCustoId) : null,
+                unidadeLotacaoId: v.unidadeLotacaoId ? String(v.unidadeLotacaoId) : null,
+                empresaId: v.empresaId ? String(v.empresaId) : null,
+            };
+            setViewId(null);
+            setEditId(null);
+            setResubmit(false);
+            setFormInitialData(initial);
+            setCopySourceId(null);
+            setFormOpen(true);
+        } catch {
+            toast.error("Falha ao carregar dados da vaga.");
+        }
     }
 
     function openEdit(row: SolicitacaoGridRow) {
@@ -500,12 +563,14 @@ function SolicitacoesVagaContent() {
         setViewId(null);
         setResubmit(false);
         setCopySourceId(null);
+        setFormInitialData(null);
     }
 
     function handleFormSaved() {
         setFormOpen(false);
         setViewId(null);
         setResubmit(false);
+        setFormInitialData(null);
         setCopySourceId(null);
         syncList().catch(() => { });
     }
@@ -513,10 +578,17 @@ function SolicitacoesVagaContent() {
     /* ──────────────────────────── render ──────────────────────────── */
     return (
         <div className="space-y-4">
-            {/* ── actions ── */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm text-muted-foreground">Solicite novas vagas e acompanhe aprovações</div>
-                <div className="flex flex-wrap items-center gap-2">
+            {/* ── primary actions ── */}
+            <div className="flex flex-wrap items-center gap-3">
+                <Button size="sm" onClick={openVagaPicker} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Briefcase className="size-4 mr-1" />
+                    Do Quadro de Vagas
+                </Button>
+                <Button size="sm" variant="outline" onClick={openNovaPosicao}>
+                    <Plus className="size-4 mr-1" />
+                    Nova Posição
+                </Button>
+                <div className="ml-auto flex items-center gap-2">
                     <Button
                         variant="outline"
                         size="sm"
@@ -529,10 +601,6 @@ function SolicitacoesVagaContent() {
                     >
                         <RefreshCw className="size-4" />
                         <span className="hidden sm:inline">Atualizar</span>
-                    </Button>
-                    <Button size="sm" onClick={openNew}>
-                        <Plus className="size-4" />
-                        <span className="hidden sm:inline">Nova solicitação</span>
                     </Button>
                 </div>
             </div>
@@ -778,10 +846,77 @@ function SolicitacoesVagaContent() {
                 )}
             </div>
 
+            {/* ── Vaga Picker Dialog ── */}
+            <Dialog open={vagaPickerOpen} onOpenChange={(v) => { if (!v) setVagaPickerOpen(false); }}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Selecionar Vaga do Quadro</DialogTitle>
+                        <DialogDescription>Busque e selecione uma vaga para pré-preencher a requisição.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <Input
+                            placeholder="Buscar vaga…"
+                            value={vagaPickerQ}
+                            onChange={(e) => {
+                                setVagaPickerQ(e.target.value);
+                                void loadVagaPickerRows(e.target.value);
+                            }}
+                            autoFocus
+                        />
+                        <div className="max-h-72 overflow-y-auto divide-y divide-border rounded-md border border-input">
+                            {vagaPickerLoading ? (
+                                <div className="py-6 text-center text-sm text-muted-foreground">Carregando…</div>
+                            ) : vagaPickerRows.length === 0 ? (
+                                <div className="py-6 text-center text-sm text-muted-foreground">Nenhuma vaga encontrada.</div>
+                            ) : (
+                                vagaPickerRows.map((v) => {
+                                    const id = String(v.id ?? "");
+                                    const titulo = String(v.titulo ?? v.name ?? "—");
+                                    const area = String(v.areaName ?? v.area ?? "");
+                                    const status = String(v.status ?? "");
+                                    const autorizado = Number(v.headcountAutorizado ?? 1);
+                                    const ocupado = Number(v.headcountOcupado ?? 0);
+                                    const disponiveis = autorizado - ocupado;
+                                    return (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => void selectVagaFromPicker(id)}
+                                            className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors"
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="font-medium text-sm">{titulo}</div>
+                                                <span className={`shrink-0 mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                                    disponiveis > 0
+                                                        ? "bg-green-100 text-green-700"
+                                                        : "bg-amber-100 text-amber-700"
+                                                }`}>
+                                                    {disponiveis > 0
+                                                        ? `${disponiveis} disponível${disponiveis > 1 ? "is" : ""}`
+                                                        : "Sem vagas"}
+                                                </span>
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {[area, status].filter(Boolean).join(" · ")}
+                                                <span className="ml-2 text-muted-foreground/70">{ocupado}/{autorizado} ocupados</span>
+                                            </div>
+                                        </button>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setVagaPickerOpen(false)}>Cancelar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* ── Form Modal ── */}
             <SolicitacaoFormModal
                 open={formOpen}
                 editId={viewId ?? editId}
+                initialData={formInitialData}
                 onClose={handleFormClose}
                 onSaved={handleFormSaved}
                 viewOnly={!!viewId}

@@ -2,11 +2,30 @@
 TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
 
 # Getting Started
-TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
-1.	Installation process
-2.	Software dependencies
-3.	Latest releases
-4.	API references
+
+## Setup (rode uma vez ao clonar)
+
+```bash
+./setup-dev.sh
+```
+
+Isso configura os git hooks que bloqueiam commits sem migration EF criada.
+
+## Regras obrigatórias
+
+**Alterou uma entidade em `Domain/Entities/`? Crie a migration:**
+
+```bash
+cd RHPortal.Api/RHPortal.Api
+dotnet ef migrations add NomeDaFeature --context AppDbContext
+```
+
+O commit será bloqueado automaticamente se você esquecer.
+
+## Dependências
+- .NET 9 SDK
+- PostgreSQL
+- `dotnet-ef` global: `dotnet tool install --global dotnet-ef`
 
 # Build and Test
 TODO: Describe and show how to build your code and run the tests. 

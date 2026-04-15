@@ -54,6 +54,9 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
         if (query.Status.HasValue)
             q = q.Where(s => s.Status == query.Status.Value);
 
+        if (query.Statuses is { Length: > 0 })
+            q = q.Where(s => query.Statuses.Contains(s.Status));
+
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
             var term = query.Q.Trim().ToLower();

@@ -3,7 +3,7 @@ using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.SolicitacoesFerias;
 
-public sealed record SolicitacaoFeriasListQuery(string? Q, SolicitacaoStatus? Status, bool? ApenasMeus, int? Page, int? PageSize);
+public sealed record SolicitacaoFeriasListQuery(string? Q, SolicitacaoStatus? Status, SolicitacaoStatus[]? Statuses, bool? ApenasMeus, Guid? AreaId, int? Page, int? PageSize);
 
 public sealed class SolicitacaoFeriasCreateRequest
 {

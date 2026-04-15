@@ -26,6 +26,8 @@ import { usePendencias } from "@/contexts/PendenciasContext";
 import { type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
 
 import NextStepBanner from "@/components/feedback/NextStepBanner";
+import DesligamentoFormModal from "@/features/gestao/desligamentos/DesligamentoFormModal";
+import PromocaoFormModal from "@/features/gestao/promocoes/PromocaoFormModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -401,7 +403,7 @@ const TABS: TabDef[] = [
     {
         id: "promocao", label: "Movimentação", icon: TrendingUp,
         color: "text-teal-600", bgColor: "bg-teal-500/15",
-        api: "/api/solicitacoes-promocao?status=1",
+        api: "/api/solicitacoes-promocao?statuses=1&statuses=6",
         assumirApi: "/api/solicitacoes-promocao",
         columns: [
             { key: "funcionarioNome", label: "Funcionário" },
@@ -414,7 +416,7 @@ const TABS: TabDef[] = [
     {
         id: "desligamento", label: "Desligamento", icon: UserMinus,
         color: "text-rose-600", bgColor: "bg-rose-500/15",
-        api: "/api/solicitacoes-desligamento?status=1",
+        api: "/api/solicitacoes-desligamento?statuses=1&statuses=6",
         assumirApi: "/api/solicitacoes-desligamento",
         columns: [
             { key: "funcionarioNome", label: "Funcionário" },
@@ -427,7 +429,7 @@ const TABS: TabDef[] = [
     {
         id: "ferias", label: "Férias", icon: Palmtree,
         color: "text-sky-600", bgColor: "bg-sky-500/15",
-        api: "/api/colaborador/solicitacoes-ferias?status=1",
+        api: "/api/colaborador/solicitacoes-ferias?statuses=1&statuses=6",
         assumirApi: "/api/colaborador/solicitacoes-ferias",
         columns: [
             { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
@@ -441,7 +443,7 @@ const TABS: TabDef[] = [
     {
         id: "beneficio", label: "Benefício", icon: Heart,
         color: "text-pink-600", bgColor: "bg-pink-500/15",
-        api: "/api/colaborador/solicitacoes-beneficio?status=1",
+        api: "/api/colaborador/solicitacoes-beneficio?statuses=1&statuses=6",
         assumirApi: "/api/colaborador/solicitacoes-beneficio",
         columns: [
             { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
@@ -453,7 +455,7 @@ const TABS: TabDef[] = [
     {
         id: "dependentes", label: "Dependentes", icon: Users,
         color: "text-indigo-600", bgColor: "bg-indigo-500/15",
-        api: "/api/colaborador/solicitacoes-dependente?status=1",
+        api: "/api/colaborador/solicitacoes-dependente?statuses=1&statuses=6",
         assumirApi: "/api/colaborador/solicitacoes-dependente",
         columns: [
             { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
@@ -466,7 +468,7 @@ const TABS: TabDef[] = [
     {
         id: "endereco", label: "Endereço", icon: MapPin,
         color: "text-amber-600", bgColor: "bg-amber-500/15",
-        api: "/api/colaborador/solicitacoes-endereco?status=1",
+        api: "/api/colaborador/solicitacoes-endereco?statuses=1&statuses=6",
         assumirApi: "/api/colaborador/solicitacoes-endereco",
         columns: [
             { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
@@ -525,6 +527,10 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     /* ── Generic detail for other types ── */
     const [genericDetailOpen, setGenericDetailOpen] = useState(false);
     const [genericDetail, setGenericDetail] = useState<GenericRow | null>(null);
+
+    /* ── View-only modals for Desligamento and Movimentação ── */
+    const [viewDesligamentoId, setViewDesligamentoId] = useState<string | null>(null);
+    const [viewPromocaoId, setViewPromocaoId] = useState<string | null>(null);
 
     /* ── Fetch all tabs ── */
     const fetchTab = useCallback(async (tab: TabDef) => {
@@ -846,11 +852,19 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                 const isFila = isFilaRow(row);
                                 const rowTabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
                                 const isContratacao = rowTabId === "contratacao";
+                                const isDesligamento = rowTabId === "desligamento";
+                                const isPromocao = rowTabId === "promocao";
+                                const openDetail = () => {
+                                    if (isContratacao) void openContratacaoDetail(row);
+                                    else if (isDesligamento) setViewDesligamentoId(row.id);
+                                    else if (isPromocao) setViewPromocaoId(row.id);
+                                    else openGenericDetail(row);
+                                };
                                 return (
                                     <TableRow
                                         key={`${rowTabId}-${row.id}`}
                                         className={`cursor-pointer hover:bg-muted/40 ${isFila ? "border-l-[3px] border-l-violet-400" : ""}`}
-                                        onClick={() => isContratacao ? void openContratacaoDetail(row) : openGenericDetail(row)}
+                                        onClick={openDetail}
                                     >
                                         {displayColumns.map((col, i) => (
                                             <TableCell key={col.key} className={i === 0 ? "font-semibold" : "text-sm"}>
@@ -879,7 +893,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                                     variant="outline"
                                                     size="icon-xs"
                                                     title="Ver detalhes"
-                                                    onClick={() => isContratacao ? void openContratacaoDetail(row) : openGenericDetail(row)}
+                                                    onClick={openDetail}
                                                 >
                                                     <Eye />
                                                 </Button>
@@ -1067,6 +1081,24 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                     ) : null}
                 </DialogContent>
             </Dialog>
+
+            {/* ── Desligamento view-only modal ── */}
+            <DesligamentoFormModal
+                open={viewDesligamentoId !== null}
+                editId={viewDesligamentoId}
+                onClose={() => setViewDesligamentoId(null)}
+                onSaved={() => setViewDesligamentoId(null)}
+                viewOnly
+            />
+
+            {/* ── Movimentação view-only modal ── */}
+            <PromocaoFormModal
+                open={viewPromocaoId !== null}
+                editId={viewPromocaoId}
+                onClose={() => setViewPromocaoId(null)}
+                onSaved={() => setViewPromocaoId(null)}
+                viewOnly
+            />
 
             {/* ── Generic Detail Dialog ── */}
             <Dialog open={genericDetailOpen} onOpenChange={setGenericDetailOpen}>

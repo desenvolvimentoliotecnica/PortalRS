@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, Plus, RefreshCw, Pencil, Trash2, Upload, Download, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, Upload, Download, ChevronUp, ChevronDown, ChevronsUpDown, Building2, Layers } from "lucide-react";
 import * as XLSX from "xlsx";
 
 import { Button } from "@/components/ui/button";
@@ -118,6 +118,73 @@ export default function CargosScreen() {
     const [deleteTarget, setDeleteTarget] = useState<CargoItem | null>(null);
     const [detailItem, setDetailItem] = useState<CargoItem | null>(null);
     const [detailFull, setDetailFull] = useState<Record<string, unknown> | null>(null);
+
+    // Posição Estrutural
+    type PreviewFuncionario = { id: string; nome: string };
+    type PreviewGrupo = {
+        unidadeLotacaoId: string | null;
+        unideNome: string | null;
+        centroCustoId: string | null;
+        centroCustoNome: string | null;
+        funcionarios: PreviewFuncionario[];
+        vagaJaExiste: boolean;
+    };
+    const [estruturaTarget, setEstruturaTarget] = useState<CargoItem | null>(null);
+    const [estruturaPreview, setEstruturaPreview] = useState<PreviewGrupo[]>([]);
+    const [estruturaLoading, setEstruturaLoading] = useState(false);
+    const [estruturaSaving, setEstruturaSaving] = useState(false);
+
+    /* ── bulk: gerar painel para todos os cargos ── */
+    const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [bulkResult, setBulkResult] = useState<{ vagasCriadas: number; vagasJaExistentes: number; ocupacoesCriadas: number } | null>(null);
+
+    async function executarBulk() {
+        setBulkLoading(true);
+        setBulkResult(null);
+        try {
+            const result = await fetchJson<{ vagasCriadas: number; vagasJaExistentes: number; ocupacoesCriadas: number }>(
+                `/api/job-positions/vagas-estruturais-bulk`,
+                { method: "POST" }
+            );
+            setBulkResult(result);
+        } catch { toast.error("Falha ao gerar painel de vagas."); setBulkConfirmOpen(false); }
+        finally { setBulkLoading(false); }
+    }
+
+    async function openEstrutura(item: CargoItem) {
+        setEstruturaTarget(item);
+        setEstruturaPreview([]);
+        setEstruturaLoading(true);
+        try {
+            const data = await fetchJson<Record<string, unknown>[]>(`/api/job-positions/${item.id}/preview-estrutura`);
+            setEstruturaPreview((data ?? []).map((g) => ({
+                unidadeLotacaoId: g.unidadeLotacaoId ? String(g.unidadeLotacaoId) : null,
+                unideNome: g.unidadeNome ? String(g.unidadeNome) : null,
+                centroCustoId: g.centroCustoId ? String(g.centroCustoId) : null,
+                centroCustoNome: g.centroCustoNome ? String(g.centroCustoNome) : null,
+                funcionarios: Array.isArray(g.funcionarios)
+                    ? (g.funcionarios as Record<string, unknown>[]).map((f) => ({ id: String(f.id ?? ""), nome: String(f.nome ?? "") }))
+                    : [],
+                vagaJaExiste: g.vagaJaExiste === true,
+            })));
+        } catch { toast.error("Falha ao carregar pré-visualização."); setEstruturaTarget(null); }
+        finally { setEstruturaLoading(false); }
+    }
+
+    async function confirmarEstrutura() {
+        if (!estruturaTarget) return;
+        setEstruturaSaving(true);
+        try {
+            const result = await fetchJson<{ vagasCriadas: number; vagasJaExistentes: number; ocupacoesCriadas: number }>(
+                `/api/job-positions/${estruturaTarget.id}/vagas-estruturais`,
+                { method: "POST" }
+            );
+            toast.success(`Estrutura criada: ${result.vagasCriadas} vaga(s), ${result.ocupacoesCriadas} ocupação(ões). ${result.vagasJaExistentes > 0 ? `${result.vagasJaExistentes} já existia(m).` : ""}`);
+            setEstruturaTarget(null);
+        } catch { toast.error("Falha ao criar posições estruturais."); }
+        finally { setEstruturaSaving(false); }
+    }
 
     // Import
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -467,6 +534,9 @@ export default function CargosScreen() {
                         <Download className="size-4" /><span className="hidden sm:inline ml-1">Exportar</span>
                     </Button>
                     <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileSelect} />
+                    <Button variant="outline" size="sm" onClick={() => { setBulkResult(null); setBulkConfirmOpen(true); }} title="Gerar painel de vagas para todos os cargos com funcionários ativos">
+                        <Layers className="size-4" /><span className="hidden sm:inline ml-1">Gerar Painel Global</span>
+                    </Button>
                     <Button size="sm" onClick={openNew}><Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo cargo</span></Button>
                 </div>
             </div>
@@ -535,6 +605,7 @@ export default function CargosScreen() {
                                 <TableCell>{statusBadge(c.status)}</TableCell>
                                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center justify-end gap-1">
+                                        <Button variant="outline" size="icon-xs" title="Criar Posição Estrutural" onClick={() => void openEstrutura(c)}><Building2 /></Button>
                                         <Button variant="outline" size="icon-xs" title="Editar" onClick={() => void openEdit(c)}><Pencil /></Button>
                                         <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(c)}><Trash2 /></Button>
                                     </div>
@@ -821,6 +892,129 @@ export default function CargosScreen() {
                             <Button onClick={() => void runImport()} disabled={importing}>
                                 {importing ? "Importando..." : `Importar ${importRows.length} registro(s)`}
                             </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Posição Estrutural — Preview & Confirm */}
+            <Dialog open={!!estruturaTarget} onOpenChange={(open) => { if (!open && !estruturaSaving) setEstruturaTarget(null); }}>
+                <DialogContent className="sm:max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>Criar Posição Estrutural — {estruturaTarget?.nome}</DialogTitle>
+                        <DialogDescription>
+                            Funcionários ativos agrupados por Unidade de Lotação + Centro de Custo.
+                            Cada grupo gerará uma vaga estrutural preenchida com as respectivas ocupações.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {estruturaLoading ? (
+                        <div className="space-y-2 py-4">
+                            {[1, 2].map((i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />)}
+                        </div>
+                    ) : estruturaPreview.length === 0 ? (
+                        <div className="rounded-xl border border-border/50 bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+                            Nenhum funcionário ativo encontrado para este cargo com unidade e centro de custo definidos.
+                        </div>
+                    ) : (
+                        <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                            {estruturaPreview.map((g, i) => (
+                                <div key={i} className="rounded-lg border border-border/50 bg-muted/10 p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="text-xs font-semibold text-foreground">
+                                            {g.unideNome ?? "Unidade não definida"}
+                                            <span className="mx-1 text-muted-foreground">·</span>
+                                            {g.centroCustoNome ?? "CC não definido"}
+                                        </div>
+                                        {g.vagaJaExiste ? (
+                                            <span className="rounded-full px-2 py-0.5 text-[10px] bg-emerald-100 text-emerald-700">Já existe</span>
+                                        ) : (
+                                            <span className="rounded-full px-2 py-0.5 text-[10px] bg-blue-100 text-blue-700">Nova</span>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {g.funcionarios.map((f) => (
+                                            <span key={f.id} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground border border-border/50">
+                                                {f.nome}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="mt-1.5 text-[11px] text-muted-foreground">
+                                        {g.funcionarios.length} funcionário(s) → HeadcountAutorizado = {g.funcionarios.length}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEstruturaTarget(null)} disabled={estruturaSaving}>Cancelar</Button>
+                        <Button
+                            onClick={() => void confirmarEstrutura()}
+                            disabled={estruturaSaving || estruturaLoading || estruturaPreview.length === 0}
+                        >
+                            {estruturaSaving ? "Criando…" : `Confirmar (${estruturaPreview.filter(g => !g.vagaJaExiste).length} nova(s))`}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Gerar Painel Global — Confirm & Result */}
+            <Dialog open={bulkConfirmOpen} onOpenChange={(open) => { if (!open && !bulkLoading) { setBulkConfirmOpen(false); setBulkResult(null); } }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Layers className="size-4 text-primary" />
+                            Gerar Painel de Vagas Global
+                        </DialogTitle>
+                        <DialogDescription>
+                            Lê todos os cargos com funcionários ativos e cria as posições estruturais no quadro de vagas.
+                            A operação é idempotente — vagas e ocupações já existentes são ignoradas.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {bulkResult ? (
+                        <div className="space-y-3 py-2">
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-center">
+                                    <div className="text-2xl font-bold text-primary">{bulkResult.vagasCriadas}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">Vagas criadas</div>
+                                </div>
+                                <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-center">
+                                    <div className="text-2xl font-bold text-emerald-600">{bulkResult.ocupacoesCriadas}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">Ocupações criadas</div>
+                                </div>
+                                <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-center">
+                                    <div className="text-2xl font-bold text-muted-foreground">{bulkResult.vagasJaExistentes}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5">Já existiam</div>
+                                </div>
+                            </div>
+                            {bulkResult.vagasCriadas === 0 && bulkResult.ocupacoesCriadas === 0 && (
+                                <p className="text-sm text-muted-foreground text-center">
+                                    Nenhuma alteração necessária — o painel já estava atualizado.
+                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground py-2">
+                            Esta ação percorrerá todos os cargos e gerará automaticamente as vagas estruturais e ocupações faltantes. Deseja continuar?
+                        </p>
+                    )}
+
+                    <DialogFooter>
+                        {bulkResult ? (
+                            <Button onClick={() => { setBulkConfirmOpen(false); setBulkResult(null); }}>Fechar</Button>
+                        ) : (
+                            <>
+                                <Button variant="outline" onClick={() => setBulkConfirmOpen(false)} disabled={bulkLoading}>Cancelar</Button>
+                                <Button onClick={() => void executarBulk()} disabled={bulkLoading}>
+                                    {bulkLoading ? (
+                                        <><RefreshCw className="size-4 mr-1.5 animate-spin" />Processando…</>
+                                    ) : (
+                                        <><Layers className="size-4 mr-1.5" />Gerar Painel</>
+                                    )}
+                                </Button>
+                            </>
                         )}
                     </DialogFooter>
                 </DialogContent>

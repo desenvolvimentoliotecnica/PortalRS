@@ -129,7 +129,11 @@ public sealed class VagaService : IVagaService
                 v.Requisitos.Count(r => r.Obrigatorio),
 
                 v.CreatedAtUtc,
-                v.UpdatedAtUtc
+                v.UpdatedAtUtc,
+
+                v.HeadcountAutorizado,
+                v.Ocupacoes.Count(o => o.DataSaida == null),
+                v.IsEstrutural
             ))
             .ToListAsync(ct);
 
@@ -460,6 +464,22 @@ public sealed class VagaService : IVagaService
             entity.DataAbertura = DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
+        // Ao cancelar a vaga, cancelar automaticamente os workflows ativos associados
+        if (newStatus == VagaStatus.Cancelada)
+        {
+            var workflows = await _db.WorkflowsRH
+                .Where(w => w.VagaId == id
+                         && w.Status != WorkflowRHStatus.Concluido
+                         && w.Status != WorkflowRHStatus.Cancelado)
+                .ToListAsync(ct);
+
+            foreach (var wf in workflows)
+            {
+                wf.Status = WorkflowRHStatus.Cancelado;
+                wf.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            }
+        }
+
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
@@ -474,7 +494,14 @@ public sealed class VagaService : IVagaService
         if (entity is null) return false;
 
         if (entity.Status != VagaStatus.Rascunho)
-            throw new InvalidOperationException("Apenas vagas em rascunho podem ser excluídas. Utilize 'Cancelar' para vagas que já foram movimentadas.");
+        {
+            // Vagas canceladas sem nenhuma ocupação ativa também podem ser excluídas
+            var temOcupacaoAtiva = await _db.OcupacoesHistorico
+                .AnyAsync(o => o.VagaId == id && o.DataSaida == null, ct);
+
+            if (entity.Status != VagaStatus.Cancelada || temOcupacaoAtiva)
+                throw new InvalidOperationException("Apenas vagas em rascunho podem ser excluídas. Utilize 'Cancelar' para vagas que já foram movimentadas.");
+        }
 
         _db.Vagas.Remove(entity);
         await _db.SaveChangesAsync(ct);

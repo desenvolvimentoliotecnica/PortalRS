@@ -24,12 +24,13 @@ interface LookupItem {
     code?: string;
 }
 
-interface SolicitacaoDraft {
+export interface SolicitacaoDraft {
     titulo: string;
     justificativa: string;
     qtdPosicoes: number;
     urgencia: number;
     jobPositionId: string | null;
+    origemVaga: "quadro" | "nova";
     areaId: string | null;
     unitId: string | null;
     aprovadorId: string | null;
@@ -56,6 +57,8 @@ interface Props {
     resubmitAfterSave?: boolean;
     /** When set, loads source data pre-filled as a new solicitation (copy mode). */
     copySourceId?: string | null;
+    /** When set (and no editId/copySourceId), pre-fills the draft with this data (e.g. from quadro de vagas). */
+    initialData?: Partial<SolicitacaoDraft> | null;
 }
 
 /* ──────────────────────────── helpers ──────────────────────────── */
@@ -82,6 +85,7 @@ const emptyDraft: SolicitacaoDraft = {
     qtdPosicoes: 1,
     urgencia: 1,
     jobPositionId: null,
+    origemVaga: "nova",
     areaId: null,
     unitId: null,
     aprovadorId: null,
@@ -188,7 +192,7 @@ function AutocompleteSelect({
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave, copySourceId }: Props) {
+export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave, copySourceId, initialData }: Props) {
     const [draft, setDraft] = useState<SolicitacaoDraft>({ ...emptyDraft });
     const [saving, setSaving] = useState(false);
     const [loadingEdit, setLoadingEdit] = useState(false);
@@ -244,6 +248,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             qtdPosicoes: Number(d?.qtdPosicoes ?? 1),
             urgencia: (() => { const map: Record<string, number> = { Baixa: 0, Media: 1, Alta: 2, Critica: 3 }; const v = d?.urgencia; return typeof v === "number" ? v : (map[v as string] ?? 1); })(),
             jobPositionId: d?.jobPositionId ? String(d.jobPositionId) : null,
+            origemVaga: d?.jobPositionId ? "quadro" : "nova",
             areaId: d?.areaId ? String(d.areaId) : null,
             unitId: d?.unitId ? String(d.unitId) : null,
             aprovadorId: d?.aprovadorId ? String(d.aprovadorId) : null,
@@ -275,9 +280,9 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                 .catch(() => toast.error("Falha ao carregar solicitação."))
                 .finally(() => setLoadingEdit(false));
         } else {
-            setDraft({ ...emptyDraft });
+            setDraft(initialData ? { ...emptyDraft, ...initialData } : { ...emptyDraft });
         }
-    }, [open, editId, copySourceId, loadLookups]);
+    }, [open, editId, copySourceId, initialData, loadLookups]);
 
     useEffect(() => {
         if (gestorDiretoId && !editId && !draft.aprovadorId) {
@@ -462,15 +467,61 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
 
                                 <Section title="Dados da Vaga" />
 
-                                <div className="col-span-3">
-                                    <label className={L}>Título da Vaga *</label>
-                                    <Input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex: Analista de RH Pleno" maxLength={160} disabled={viewOnly} />
+                                {/* Origem da vaga */}
+                                <div className="col-span-3 flex gap-3">
+                                    {(["quadro", "nova"] as const).map((opt) => (
+                                        <label
+                                            key={opt}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm cursor-pointer select-none transition-colors ${
+                                                draft.origemVaga === opt
+                                                    ? "border-lt-primary bg-lt-primary/10 text-lt-primary font-medium"
+                                                    : "border-input bg-background text-muted-foreground hover:bg-muted/40"
+                                            } ${viewOnly ? "cursor-default pointer-events-none" : ""}`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                className="sr-only"
+                                                name="origemVaga"
+                                                value={opt}
+                                                checked={draft.origemVaga === opt}
+                                                disabled={viewOnly}
+                                                onChange={() => setDraft((d) => ({
+                                                    ...d,
+                                                    origemVaga: opt,
+                                                    jobPositionId: opt === "nova" ? null : d.jobPositionId,
+                                                }))}
+                                            />
+                                            {opt === "quadro" ? "Do quadro de vagas" : "Nova posição"}
+                                        </label>
+                                    ))}
                                 </div>
 
-                                <div className="col-span-2">
-                                    <label className={L}>Cargo</label>
-                                    <AutocompleteSelect items={cargos} value={draft.jobPositionId} onChange={(v) => setDraft((d) => ({ ...d, jobPositionId: v }))} placeholder="cargo" disabled={viewOnly} />
-                                </div>
+                                {draft.origemVaga === "quadro" && (
+                                    <div className="col-span-2">
+                                        <label className={L}>Cargo do quadro de vagas</label>
+                                        <AutocompleteSelect
+                                            items={cargos}
+                                            value={draft.jobPositionId}
+                                            onChange={(v) => {
+                                                const cargo = v ? cargos.find((c) => c.id === v) : null;
+                                                setDraft((d) => ({
+                                                    ...d,
+                                                    jobPositionId: v,
+                                                    titulo: cargo ? cargo.name : d.titulo,
+                                                }));
+                                            }}
+                                            placeholder="cargo do quadro"
+                                            disabled={viewOnly}
+                                        />
+                                    </div>
+                                )}
+
+                                {draft.origemVaga === "nova" && (
+                                    <div className="col-span-2">
+                                        <label className={L}>Título da Vaga *</label>
+                                        <Input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex: Analista de RH Pleno" maxLength={160} disabled={viewOnly} />
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className={L}>Tipo de Solicitação</label>
@@ -479,6 +530,13 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                                         <option value={1}>Substituição</option>
                                     </select>
                                 </div>
+
+                                {draft.origemVaga === "quadro" && (
+                                    <div className="col-span-3">
+                                        <label className={L}>Título da Vaga *</label>
+                                        <Input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex: Analista de RH Pleno" maxLength={160} disabled={viewOnly} />
+                                    </div>
+                                )}
 
                                 {draft.tipoSolicitacao === 1 && (
                                     <div className="col-span-2">
