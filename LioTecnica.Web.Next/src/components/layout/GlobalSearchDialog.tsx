@@ -39,7 +39,7 @@ interface CategoryMeta {
 }
 
 const CATEGORIES: Record<Category, CategoryMeta> = {
-    vagas: { label: "Vagas", icon: Briefcase, color: "text-blue-600", bg: "bg-blue-100" },
+    vagas: { label: "Quadro de Vagas", icon: Briefcase, color: "text-blue-600", bg: "bg-blue-100" },
     candidatos: { label: "Candidatos", icon: Users, color: "text-violet-600", bg: "bg-violet-100" },
     pessoas: { label: "Pessoas", icon: UserCircle, color: "text-emerald-600", bg: "bg-emerald-100" },
     funcionarios: { label: "Funcionários", icon: BadgeCheck, color: "text-amber-600", bg: "bg-amber-100" },

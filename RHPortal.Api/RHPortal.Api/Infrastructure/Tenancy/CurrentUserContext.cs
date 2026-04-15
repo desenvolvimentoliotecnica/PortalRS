@@ -60,6 +60,7 @@ public sealed class CurrentUserContext : ICurrentUserContext
 
     public bool IsOwner => IsInRole("Owner");
     public bool IsAdmin => IsInRole("Admin") || IsInRole("Owner") || IsInRole("Administrador");
+    public bool IsRH => IsInRole("RH");
 
     public Guid? FuncionarioId
     {

@@ -27,12 +27,13 @@ public sealed class SolicitacoesBeneficioController : ControllerBase
     public async Task<IActionResult> List(
         [FromQuery] string? q,
         [FromQuery] SolicitacaoStatus? status,
+        [FromQuery(Name = "statuses")] SolicitacaoStatus[]? statuses,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
         CancellationToken ct)
     {
         var apenasMeus = !_userContext.IsAdmin;
-        var query = new SolicitacaoBeneficioListQuery(q, status, apenasMeus, page, pageSize);
+        var query = new SolicitacaoBeneficioListQuery(q, status, statuses, apenasMeus, page, pageSize);
         return Ok(await _service.ListAsync(query, _userContext.FuncionarioId, ct));
     }
 

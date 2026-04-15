@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace RhPortal.Api.Contracts.UnidadeLotacao;
 
 public sealed record UnidadeLotacaoCreateRequest(
+    [Required, MaxLength(10)] string CdnPlanoLotac,
     [Required, MaxLength(30)] string Code,
     [Required, MaxLength(120)] string Description,
     [MaxLength(120)] string? Location,
@@ -19,6 +20,7 @@ public sealed record UnidadeLotacaoCreateRequest(
 );
 
 public sealed record UnidadeLotacaoUpdateRequest(
+    [Required, MaxLength(10)] string CdnPlanoLotac,
     [Required, MaxLength(30)] string Code,
     [Required, MaxLength(120)] string Description,
     [MaxLength(120)] string? Location,
@@ -52,6 +54,9 @@ public sealed record UnidadeLotacaoResponse(
     // Responsável
     Guid? OwnerFuncionarioId,
     string? OwnerFuncionarioName,
+    string? OwnerCdnEmpresa,
+    string? OwnerCdnEstab,
+    string? OwnerCdnFuncionario,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc
 );

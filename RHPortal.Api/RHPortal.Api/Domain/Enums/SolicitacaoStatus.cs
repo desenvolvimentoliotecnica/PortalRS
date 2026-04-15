@@ -11,5 +11,9 @@ public enum SolicitacaoStatus : short
     Reprovada = 3,
     AjustesNecessarios = 4,
     Cancelada = 5,
-    PendenteAprovacaoRh = 6
+    PendenteAprovacaoRh = 6,
+    /// <summary>Desligamento efetivado pelo RH — pendente confirmação no TOTVS.</summary>
+    EmIntegracao = 7,
+    /// <summary>Desligamento concluído: integração TOTVS confirmada + headcount liberado.</summary>
+    Concluida = 8
 }

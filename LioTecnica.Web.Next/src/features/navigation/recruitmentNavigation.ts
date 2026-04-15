@@ -50,7 +50,7 @@ export const RECRUITMENT_LINEAR_ORDER = [
 export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.dashboard]: "Dashboard",
   [RECRUITMENT_ROUTE_KEYS.solicitacoes]: "Solicitações",
-  [RECRUITMENT_ROUTE_KEYS.vagas]: "Vagas",
+  [RECRUITMENT_ROUTE_KEYS.vagas]: "Quadro de Vagas",
   [RECRUITMENT_ROUTE_KEYS.painelRh]: "Painel RH",
   [RECRUITMENT_ROUTE_KEYS.aprovacoes]: "Minhas Pendências",
   [RECRUITMENT_ROUTE_KEYS.portalVagas]: "Portal de Vagas",
@@ -160,7 +160,7 @@ export function buildTenantExtraNavItems(me: BffMe): BffNavItem[] {
     createItem("nav-solicitacoes", "Solicitações", "/gestao/solicitacoes", "clipboardlist"),
     createItem("nav-aprovacoes", "Minhas Pendências", "/gestao/aprovacoes", "checkcheck"),
     createItem("nav-painel-solicitacoes", "Painel de Solicitações", "/gestao/painel-solicitacoes", "gitbranch"),
-    createItem("nav-vagas", "Vagas", "/vagas", "briefcase"),
+    createItem("nav-vagas", "Quadro de Vagas", "/vagas", "briefcase"),
     createItem("nav-candidatos", "Candidatos", "/candidatos", "users"),
     createItem("nav-painel-rh", "Painel RH", "/painel-rh", "clipboardcheck"),
     createItem("nav-matching", "Matching IA", "/matching", "bi-stars"),

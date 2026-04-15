@@ -96,9 +96,13 @@ public sealed class UnidadeLotacaoController : ControllerBase
     public async Task<ActionResult<List<UnidadeLotacaoLookupItem>>> Lookup(
         [FromServices] AppDbContext db,
         CancellationToken ct,
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] string? cdnPlanoLotac)
     {
         var query = db.UnidadesLotacao.AsNoTracking().Where(x => x.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(cdnPlanoLotac))
+            query = query.Where(x => x.CdnPlanoLotac == cdnPlanoLotac);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -110,7 +114,6 @@ public sealed class UnidadeLotacaoController : ControllerBase
 
         var items = await query
             .OrderBy(x => x.Code)
-            .Take(50)
             .Select(x => new UnidadeLotacaoLookupItem(
                 x.Id, x.Code, x.Description,
                 $"{x.Code} - {x.Description}"))
@@ -147,8 +150,8 @@ public sealed class UnidadeLotacaoController : ControllerBase
         [FromServices] AppDbContext db,
         CancellationToken ct)
     {
-        if (await db.UnidadesLotacao.AnyAsync(x => x.Code == request.Code, ct))
-            return Conflict(new { message = "Unidade de Lotação com este código já existe" });
+        if (await db.UnidadesLotacao.AnyAsync(x => x.CdnPlanoLotac == request.CdnPlanoLotac && x.Code == request.Code, ct))
+            return Conflict(new { message = "Unidade de Lotação com este código já existe neste plano" });
 
         if (request.ParentId.HasValue && request.ParentId.Value != Guid.Empty)
         {
@@ -206,8 +209,8 @@ public sealed class UnidadeLotacaoController : ControllerBase
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
 
-        if (await db.UnidadesLotacao.AnyAsync(x => x.Id != id && x.Code == request.Code, ct))
-            return Conflict(new { message = "Unidade de Lotação com este código já existe" });
+        if (await db.UnidadesLotacao.AnyAsync(x => x.Id != id && x.CdnPlanoLotac == request.CdnPlanoLotac && x.Code == request.Code, ct))
+            return Conflict(new { message = "Unidade de Lotação com este código já existe neste plano" });
 
         if (request.ParentId.HasValue && request.ParentId.Value != Guid.Empty)
         {
@@ -456,6 +459,9 @@ public sealed class UnidadeLotacaoController : ControllerBase
             if (entity is null) { unidadeNaoEncontrada++; continue; }
 
             entity.OwnerFuncionarioId = funcId;
+            entity.OwnerCdnEmpresa = item.CdnEmpresa.Trim();
+            entity.OwnerCdnEstab = item.CdnEstab.Trim();
+            entity.OwnerCdnFuncionario = item.CdnFuncionario.Trim();
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
             updated++;
         }
@@ -484,6 +490,9 @@ public sealed class UnidadeLotacaoController : ControllerBase
             x.SequenceNumber,
             x.OwnerFuncionarioId,
             x.OwnerFuncionario?.Name,
+            x.OwnerCdnEmpresa,
+            x.OwnerCdnEstab,
+            x.OwnerCdnFuncionario,
             x.CreatedAtUtc,
             x.UpdatedAtUtc
         );

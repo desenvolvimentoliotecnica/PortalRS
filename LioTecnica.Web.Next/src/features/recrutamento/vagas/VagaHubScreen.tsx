@@ -100,6 +100,23 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   fechada: { label: "Fechada", cls: "bg-zinc-500/15 text-zinc-700" },
   encerrada: { label: "Encerrada", cls: "bg-zinc-500/15 text-zinc-700" },
   cancelada: { label: "Cancelada", cls: "bg-red-500/15 text-red-700" },
+  preenchida: { label: "Preenchida", cls: "bg-blue-500/15 text-blue-700" },
+};
+
+const MOTIVO_LABEL: Record<string, string> = {
+  desligamento: "Desligado",
+  promocao: "Promoção",
+  transferencia: "Transferência",
+  manual: "Manual",
+};
+
+type OcupacaoItem = {
+  id: string;
+  funcionarioNome: string;
+  dataEntrada: string;
+  dataSaida?: string | null;
+  motivoSaida?: string | null;
+  desligamentoSolicitacaoId?: string | null;
 };
 
 interface HistoricoEvent {
@@ -318,6 +335,30 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  const [ocupacoes, setOcupacoes] = useState<OcupacaoItem[]>([]);
+  const [ocupacoesLoading, setOcupacoesLoading] = useState(false);
+
+  useEffect(() => {
+    if (!vagaId) return;
+    setOcupacoesLoading(true);
+    fetchJson<unknown[]>(`/api/vagas/${encodeURIComponent(vagaId)}/ocupacoes`)
+      .then((rows) => {
+        setOcupacoes((Array.isArray(rows) ? rows : []).map((r) => {
+          const rec = r as Record<string, unknown>;
+          return {
+            id: String(rec.id ?? ""),
+            funcionarioNome: String(rec.funcionarioNome ?? rec.nome ?? "—"),
+            dataEntrada: String(rec.dataEntrada ?? ""),
+            dataSaida: rec.dataSaida ? String(rec.dataSaida) : null,
+            motivoSaida: rec.motivoSaida ? String(rec.motivoSaida) : null,
+            desligamentoSolicitacaoId: rec.desligamentoSolicitacaoId ? String(rec.desligamentoSolicitacaoId) : null,
+          };
+        }));
+      })
+      .catch(() => {})
+      .finally(() => setOcupacoesLoading(false));
+  }, [vagaId]);
+
   const title = pick(vaga, "titulo", "Carregando...");
   const statusRaw = pick(vaga, "status", "Rascunho");
   const status = statusRaw.toLowerCase();
@@ -342,6 +383,9 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const descPublica = pick(vaga, "descricaoPublica", "");
   const recrutador = pick(vaga, "recrutadorResponsavel", "");
   const gestor = pick(vaga, "gestorRequisitante", "");
+  const headcountAutorizado = pickNum(vaga, "headcountAutorizado", 1);
+  const headcountOcupado = pickNum(vaga, "headcountOcupado", 0);
+  const isEstrutural = vaga?.isEstrutural === true;
 
   if (loading) {
     return (
@@ -422,6 +466,9 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           <TabsTrigger value="config">Etapas</TabsTrigger>
           {workflowData && <TabsTrigger value="workflow">Workflow</TabsTrigger>}
           <TabsTrigger value="historico">Histórico</TabsTrigger>
+          <TabsTrigger value="posicao">
+            Posição {isEstrutural && headcountOcupado > 0 && <span className="ml-1 text-[10px] bg-blue-500/15 text-blue-700 rounded-full px-1.5">{headcountOcupado}</span>}
+          </TabsTrigger>
           <TabsTrigger value="matching" className="opacity-40">
             Matching IA
           </TabsTrigger>
@@ -699,6 +746,92 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         {/* ── Tab: Histórico ── */}
         <TabsContent value="historico" className="mt-4 space-y-3 rounded-xl border border-border/40 bg-card p-4 shadow-sm">
           <HistoricoTimeline vagaId={vagaId} />
+        </TabsContent>
+
+        {/* ── Tab: Posição ── */}
+        <TabsContent value="posicao" className="mt-4 space-y-4 rounded-xl border border-border/40 bg-card p-4 shadow-sm">
+          {/* Headcount summary */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Headcount autorizado</span>
+              <span className="font-bold text-lg leading-none">{headcountAutorizado}</span>
+            </div>
+            <div className="h-6 w-px bg-border" />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Ocupado</span>
+              <span className="font-bold text-lg leading-none">{headcountOcupado}</span>
+            </div>
+            <div className="h-6 w-px bg-border" />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Em aberto</span>
+              {(() => {
+                const aberto = Math.max(0, headcountAutorizado - headcountOcupado);
+                return aberto > 0
+                  ? <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">{aberto} aberto{aberto > 1 ? "s" : ""}</span>
+                  : <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">Completo</span>;
+              })()}
+            </div>
+          </div>
+
+          {/* Occupancy history table */}
+          <div>
+            <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">Histórico de Ocupação</div>
+            {ocupacoesLoading ? (
+              <div className="space-y-2">
+                {[1, 2].map((i) => <div key={i} className="h-9 animate-pulse rounded bg-muted" />)}
+              </div>
+            ) : ocupacoes.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma ocupação registrada.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-border/40">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/40 bg-muted/30">
+                      <th className="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Funcionário</th>
+                      <th className="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Entrada</th>
+                      <th className="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Saída</th>
+                      <th className="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Status / Motivo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/30">
+                    {ocupacoes.map((o) => (
+                      <tr key={o.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-2.5 font-medium">{o.funcionarioNome}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{o.dataEntrada ? fmtDate(o.dataEntrada) : "—"}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{o.dataSaida ? fmtDate(o.dataSaida) : "—"}</td>
+                        <td className="px-4 py-2.5">
+                          {!o.dataSaida ? (
+                            o.desligamentoSolicitacaoId ? (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">
+                                  Em Desligamento
+                                </span>
+                                <Link
+                                  href={`/app/gestao/solicitacoes?tab=desligamentos`}
+                                  className="inline-flex items-center gap-1 text-[10px] text-blue-600 hover:underline font-medium"
+                                  title="Ver solicitação de desligamento"
+                                >
+                                  <FileText className="size-3" /> Ver
+                                </Link>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">Ativo</span>
+                            )
+                          ) : (o.motivoSaida ?? "").toLowerCase() === "desligamento" ? (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700">Desligado</span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-zinc-100 text-zinc-600">
+                              {MOTIVO_LABEL[(o.motivoSaida ?? "").toLowerCase()] ?? o.motivoSaida ?? "Histórico"}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 

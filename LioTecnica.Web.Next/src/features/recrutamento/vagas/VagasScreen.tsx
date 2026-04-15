@@ -176,6 +176,8 @@ const VAGA_STATUS: Record<string, { label: string; cls: string }> = {
     pausada: { label: "Pausada", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
     fechada: { label: "Fechada", cls: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" },
     encerrada: { label: "Encerrada", cls: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400" },
+    cancelada: { label: "Cancelada", cls: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400" },
+    preenchida: { label: "Preenchida", cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
 };
 
 const SOLIC_STATUS: Record<number, { label: string; cls: string }> = {
@@ -320,6 +322,7 @@ export default function VagasScreen() {
     const [vagaDetailLoading, setVagaDetailLoading] = useState(false);
     const [vagaDetail, setVagaDetail] = useState<Record<string, unknown> | null>(null);
     const [vagaCandidateCount, setVagaCandidateCount] = useState<number | null>(null);
+
 
     const [solicDetailOpen, setSolicDetailOpen] = useState(false);
     const [solicDetailLoading, setSolicDetailLoading] = useState(false);
@@ -850,7 +853,7 @@ export default function VagasScreen() {
         <section className="space-y-4">
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <h1 className="text-2xl font-semibold tracking-tight">Vagas</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">Quadro de Vagas</h1>
                 <div className="flex flex-wrap items-center gap-1.5">
                     <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" onClick={() => void syncList()}>
                         <RefreshCw className="mr-1 size-3" /> Atualizar
@@ -1018,6 +1021,7 @@ export default function VagasScreen() {
                                         <TableHead>Requisitos</TableHead>
                                         <TableHead>Data criação</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead>Headcount</TableHead>
                                         <TableHead className="w-12" />
                                     </TableRow>
                                 </TableHeader>
@@ -1025,7 +1029,7 @@ export default function VagasScreen() {
                                     {loading ? (
                                         Array.from({ length: 5 }).map((_, i) => (
                                             <TableRow key={i}>
-                                                {Array.from({ length: 6 }).map((__, j) => (
+                                                {Array.from({ length: 7 }).map((__, j) => (
                                                     <TableCell key={j}>
                                                         <div className="h-4 animate-pulse rounded bg-muted" />
                                                     </TableCell>
@@ -1034,7 +1038,7 @@ export default function VagasScreen() {
                                         ))
                                     ) : paged.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="py-14 text-center text-sm text-muted-foreground">
+                                            <TableCell colSpan={7} className="py-14 text-center text-sm text-muted-foreground">
                                                 Nenhuma vaga encontrada. Crie sua primeira vaga para começar a recrutar.
                                             </TableCell>
                                         </TableRow>
@@ -1086,6 +1090,23 @@ export default function VagasScreen() {
                                                         <span className="cursor-pointer"><VagaStatusBadge status={vaga.status} /></span>
                                                     </TableCell>
                                                     <TableCell onClick={(e) => e.stopPropagation()}>
+                                                        {(() => {
+                                                            const ocupado = vaga.headcountOcupado ?? 0;
+                                                            const autorizado = vaga.headcountAutorizado ?? 1;
+                                                            const abertos = autorizado - ocupado;
+                                                            return (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-xs text-muted-foreground tabular-nums">{ocupado}/{autorizado}</span>
+                                                                    {abertos > 0 && (
+                                                                        <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                                                            {abertos} aberto{abertos > 1 ? "s" : ""}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </TableCell>
+                                                    <TableCell onClick={(e) => e.stopPropagation()}>
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button variant="outline" size="icon-sm">
@@ -1123,15 +1144,23 @@ export default function VagasScreen() {
                                                                     Duplicar
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
-                                                                {(vaga.status as string ?? "").toLowerCase() === "rascunho" ? (
-                                                                    <DropdownMenuItem
-                                                                        className="text-destructive focus:text-destructive"
-                                                                        onClick={() => void deleteVaga(vaga.id)}
-                                                                    >
-                                                                        <Trash2 className="mr-2 size-4" />
-                                                                        Excluir
-                                                                    </DropdownMenuItem>
-                                                                ) : !["cancelada", "encerrada"].includes((vaga.status as string ?? "").toLowerCase()) && (
+                                                                {(() => {
+                                                                    const st = (vaga.status as string ?? "").toLowerCase();
+                                                                    const semOcupacao = (vaga.headcountOcupado ?? 0) === 0;
+                                                                    if (st === "rascunho" || (st === "cancelada" && semOcupacao)) {
+                                                                        return (
+                                                                            <DropdownMenuItem
+                                                                                className="text-destructive focus:text-destructive"
+                                                                                onClick={() => void deleteVaga(vaga.id)}
+                                                                            >
+                                                                                <Trash2 className="mr-2 size-4" />
+                                                                                Excluir
+                                                                            </DropdownMenuItem>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                })()}
+                                                                {!["cancelada", "encerrada", "rascunho"].includes((vaga.status as string ?? "").toLowerCase()) && (
                                                                     <DropdownMenuItem
                                                                         className="text-orange-600 focus:text-orange-600"
                                                                         onClick={() => void cancelVaga(vaga.id)}
@@ -1166,7 +1195,7 @@ export default function VagasScreen() {
                     <div className="p-4 overflow-x-auto">
                         {loading ? (
                             <div className="flex gap-4">
-                                {Array.from({ length: 4 }).map((_, i) => (
+                                {Array.from({ length: 5 }).map((_, i) => (
                                     <div key={i} className="w-72 shrink-0 space-y-3">
                                         <div className="h-8 animate-pulse rounded-lg bg-muted" />
                                         <div className="h-24 animate-pulse rounded-lg bg-muted" />
@@ -1176,7 +1205,7 @@ export default function VagasScreen() {
                             </div>
                         ) : (
                             <div className="flex gap-4 items-start">
-                                {(["rascunho", "aberta", "pausada", "fechada"] as const).map((col) => {
+                                {(["rascunho", "aberta", "pausada", "fechada", "preenchida"] as const).map((col) => {
                                     const meta = VAGA_STATUS[col];
                                     const colVagas = filtered.filter((v) => {
                                         const s = (v.status ?? "").toLowerCase();
@@ -1225,7 +1254,25 @@ export default function VagasScreen() {
                                                                 )}
                                                             </div>
                                                             <div className="mt-2 flex items-center justify-between">
-                                                                <span className="text-[11px] text-muted-foreground">Match {threshold}%</span>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-[11px] text-muted-foreground">Match {threshold}%</span>
+                                                                    {(() => {
+                                                                        const ocupado = vaga.headcountOcupado ?? 0;
+                                                                        const autorizado = vaga.headcountAutorizado ?? 1;
+                                                                        const abertos = autorizado - ocupado;
+                                                                        return (
+                                                                            <>
+                                                                                <span className="text-[10px] text-muted-foreground/60">·</span>
+                                                                                <span className="text-[11px] text-muted-foreground tabular-nums">{ocupado}/{autorizado}</span>
+                                                                                {abertos > 0 && (
+                                                                                    <span className="rounded-full px-1 py-0.5 text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                                                                        {abertos}↑
+                                                                                    </span>
+                                                                                )}
+                                                                            </>
+                                                                        );
+                                                                    })()}
+                                                                </div>
                                                                 <DropdownMenu>
                                                                     <DropdownMenuTrigger asChild>
                                                                         <button type="button" className="rounded p-0.5 hover:bg-muted" onClick={(e) => e.stopPropagation()}>

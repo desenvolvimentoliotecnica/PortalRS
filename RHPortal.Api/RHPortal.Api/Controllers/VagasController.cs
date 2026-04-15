@@ -2,6 +2,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Application.Vagas.Handlers;
 using RhPortal.Api.Contracts.Matching;
@@ -552,4 +553,40 @@ public sealed class VagasController : ControllerBase
         var deleted = await handler.HandleAsync(id, ct);
         return deleted ? NoContent() : NotFound();
     }
+
+    /// <summary>
+    /// Retorna o histórico de ocupação (quem ocupou os slots) de uma vaga.
+    /// </summary>
+    [HttpGet("{id:guid}/ocupacoes")]
+    [ProducesResponseType(typeof(IReadOnlyList<OcupacaoHistoricoDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<OcupacaoHistoricoDto>>> GetOcupacoes(
+        [FromRoute] Guid id,
+        [FromServices] IOcupacaoHistoricoService service,
+        CancellationToken ct)
+    {
+        var result = await service.GetByVagaAsync(id, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Atualiza apenas o HeadcountAutorizado de uma vaga.
+    /// </summary>
+    [HttpPatch("{id:guid}/headcount")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateHeadcount(
+        [FromRoute] Guid id,
+        [FromBody] UpdateHeadcountRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var vaga = await db.Vagas.FirstOrDefaultAsync(v => v.Id == id, ct);
+        if (vaga is null) return NotFound();
+        vaga.HeadcountAutorizado = Math.Max(1, request.HeadcountAutorizado);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
 }
+
+public record UpdateHeadcountRequest(int HeadcountAutorizado);

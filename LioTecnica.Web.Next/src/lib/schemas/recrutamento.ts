@@ -19,6 +19,8 @@ export const VagaListItemSchema = z
         updatedAt: z.string().optional().nullable(),
         requisitos: z.array(z.unknown()).optional().nullable(),
         hasDetail: z.boolean().optional().nullable(),
+        headcountAutorizado: z.number().optional().nullable(),
+        headcountOcupado: z.number().optional().nullable(),
     })
     .passthrough();
 

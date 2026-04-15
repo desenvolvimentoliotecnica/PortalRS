@@ -227,6 +227,156 @@ function CandidatosTab({ vagaId }: { vagaId: string }) {
   );
 }
 
+/* ── PosicaoTab ──────────────────────────────────────────────────────── */
+
+type OcupacaoItem = {
+  id: string;
+  funcionarioNome: string;
+  dataEntrada: string;
+  dataSaida?: string | null;
+  motivoSaida?: string | null;
+};
+
+const MOTIVO_LABEL: Record<string, string> = {
+  desligamento: "Desligamento",
+  promocao: "Promoção",
+  transferencia: "Transferência",
+  manual: "Manual",
+};
+
+function PosicaoTab({ vagaId }: { vagaId: string }) {
+  const [headcount, setHeadcount] = useState<number | null>(null);
+  const [editHeadcount, setEditHeadcount] = useState<number>(1);
+  const [savingHc, setSavingHc] = useState(false);
+  const [ocupacoes, setOcupacoes] = useState<OcupacaoItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchJson<unknown>(`${BASE}/api/vagas/${encodeURIComponent(vagaId)}/ocupacoes`)
+      .then((data) => {
+        const arr = Array.isArray(data) ? data : [];
+        setOcupacoes(arr.map((x) => {
+          const r = asRec(x) ?? {};
+          return {
+            id: String(r.id ?? ""),
+            funcionarioNome: String(r.funcionarioNome ?? r.nome ?? "—"),
+            dataEntrada: String(r.dataEntrada ?? ""),
+            dataSaida: r.dataSaida ? String(r.dataSaida) : null,
+            motivoSaida: r.motivoSaida ? String(r.motivoSaida) : null,
+          };
+        }));
+      })
+      .catch(() => setOcupacoes([]))
+      .finally(() => setLoading(false));
+  }, [vagaId]);
+
+  useEffect(() => {
+    fetchJson<unknown>(`${BASE}/api/vagas/${encodeURIComponent(vagaId)}`)
+      .then((data) => {
+        const r = asRec(data) ?? {};
+        const hc = typeof r.headcountAutorizado === "number" ? r.headcountAutorizado : 1;
+        setHeadcount(hc);
+        setEditHeadcount(hc);
+      })
+      .catch(() => { setHeadcount(1); setEditHeadcount(1); });
+  }, [vagaId]);
+
+  const ocupado = ocupacoes.filter((o) => !o.dataSaida).length;
+  const abertos = (headcount ?? 1) - ocupado;
+
+  async function saveHeadcount() {
+    setSavingHc(true);
+    try {
+      await fetchJson<unknown>(`${BASE}/api/vagas/${encodeURIComponent(vagaId)}/headcount`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ headcountAutorizado: Math.max(1, editHeadcount) }),
+      });
+      setHeadcount(editHeadcount);
+      toast.success("Headcount atualizado.");
+    } catch {
+      toast.error("Erro ao salvar headcount.");
+    } finally {
+      setSavingHc(false);
+    }
+  }
+
+  const fmtDate = (s: string) => {
+    try { return new Date(s).toLocaleDateString("pt-BR"); } catch { return s; }
+  };
+
+  return (
+    <div className="space-y-5 mt-2">
+      {/* Headcount editor */}
+      <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
+        <p className="text-xs font-semibold text-foreground mb-3">Headcount Autorizado</p>
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            min={1}
+            value={editHeadcount}
+            onChange={(e) => setEditHeadcount(Math.max(1, parseInt(e.target.value) || 1))}
+            className="w-20 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <Button size="sm" variant="outline" disabled={savingHc || editHeadcount === headcount} onClick={() => void saveHeadcount()}>
+            {savingHc ? "Salvando…" : "Salvar"}
+          </Button>
+        </div>
+        <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+          <span>Ocupado: <strong className="text-foreground">{ocupado}</strong></span>
+          <span>Slots abertos: <strong className={abertos > 0 ? "text-amber-600" : "text-foreground"}>{abertos}</strong></span>
+        </div>
+      </div>
+
+      {/* Histórico de ocupação */}
+      <div>
+        <p className="text-xs font-semibold text-foreground mb-2">Histórico de Ocupação</p>
+        {loading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => <div key={i} className="h-10 rounded-lg bg-muted animate-pulse" />)}
+          </div>
+        ) : ocupacoes.length === 0 ? (
+          <div className="rounded-xl border border-border/50 bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+            Nenhuma ocupação registrada para esta vaga.
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border/50 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/40 bg-muted/30">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Funcionário</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Entrada</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Saída</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ocupacoes.map((o) => (
+                  <tr key={o.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30">
+                    <td className="px-4 py-2.5 font-medium">{o.funcionarioNome}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{o.dataEntrada ? fmtDate(o.dataEntrada) : "—"}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{o.dataSaida ? fmtDate(o.dataSaida) : "—"}</td>
+                    <td className="px-4 py-2.5">
+                      {!o.dataSaida ? (
+                        <span className="rounded-full px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Ativo</span>
+                      ) : (
+                        <span className="rounded-full px-2 py-0.5 text-xs bg-muted text-muted-foreground">
+                          {MOTIVO_LABEL[(o.motivoSaida ?? "").toLowerCase()] ?? o.motivoSaida ?? "Histórico"}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function enumOpts(data: EnumData, key: string, placeholder?: string): EnumOption[] {
   const list = data[key] ?? [];
   return placeholder ? [{ code: "", text: placeholder }, ...list] : list;
@@ -462,7 +612,7 @@ function EnumSelect({ value, onChange, options, placeholder }: {
 
 /* ── Tab definitions ─────────────────────────────────────────────────── */
 
-type TabKey = "identificacao" | "horario" | "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos";
+type TabKey = "identificacao" | "horario" | "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos" | "posicao";
 
 const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "identificacao", icon: "🪪", label: "Identificação" },
@@ -478,6 +628,7 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "publicacao", icon: "📢", label: "Publicação" },
   { key: "campos", icon: "🧩", label: "Campos personalizados" },
   { key: "candidatos", icon: "👥", label: "Candidatos" },
+  { key: "posicao", icon: "🏢", label: "Posição" },
 ];
 
 const STEPPER_SEQUENCE: TabKey[] = ["identificacao", "horario", "dados", "requisitos", "matching", "publicacao", "campos"];
@@ -964,7 +1115,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         {/* Tab pills */}
         <div className="px-4 pt-3 pb-2 overflow-x-auto shrink-0">
           <div className="flex gap-1.5 min-w-max" style={{ background: "rgba(173,200,220,.16)", padding: ".35rem", borderRadius: "999px", border: "1px solid rgba(16,82,144,.14)" }}>
-            {TABS.map((t) => (
+            {TABS.filter((t) => t.key !== "posicao" || !!draft.id).map((t) => (
               <button
                 key={t.key}
                 type="button"
@@ -1461,6 +1612,19 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 </div>
               ) : (
                 <CandidatosTab vagaId={draft.id} />
+              )}
+            </div>
+          )}
+
+          {/* ── Posição (headcount + histórico de ocupação) ──── */}
+          {tab === "posicao" && (
+            <div className="mt-2">
+              {!draft.id ? (
+                <div className="rounded-xl border border-border/50 bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+                  Salve a vaga primeiro para gerenciar ocupação.
+                </div>
+              ) : (
+                <PosicaoTab vagaId={draft.id} />
               )}
             </div>
           )}

@@ -15,6 +15,7 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
+import { findEmpresaByCdn, findUnitByEstabCode } from "@/lib/funcionarioLookupResolve";
 import { type OrgEstruturaResponse, type SubordinadoEntry, getSubordinados, filterSubordinadoEntries } from "@/lib/organograma";
 
 /* ──────────────────────────── types ──────────────────────────── */
@@ -51,6 +52,7 @@ interface Props {
     editId: string | null;
     onClose: () => void;
     onSaved: () => void;
+    viewOnly?: boolean;
 }
 
 /* ──────────────────────────── helpers ──────────────────────────── */
@@ -100,6 +102,7 @@ function AutocompleteSelect({
     onChange,
     placeholder,
     required,
+    disabled,
 }: {
     items?: LookupItem[];
     entries?: SubordinadoEntry[];
@@ -107,7 +110,14 @@ function AutocompleteSelect({
     onChange: (id: string | null) => void;
     placeholder: string;
     required?: boolean;
+    disabled?: boolean;
 }) {
+    if (disabled) {
+        const selectedName = entries
+            ? (entries.find((e) => e.id === value)?.name ?? "")
+            : (() => { const s = items?.find((i) => i.id === value); return s ? (s.code ? `${s.code} – ${s.name}` : s.name) : ""; })();
+        return <ReadonlyField value={selectedName} />;
+    }
     const [query, setQuery] = useState("");
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -242,7 +252,7 @@ function ReadonlyField({ value }: { value?: string }) {
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Props) {
+export default function PromocaoFormModal({ open, editId, onClose, onSaved, viewOnly }: Props) {
     const [draft, setDraft] = useState<PromocaoDraft>({ ...emptyDraft });
     const [saving, setSaving] = useState(false);
     const [loadingEdit, setLoadingEdit] = useState(false);
@@ -330,27 +340,39 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
 
                 /* empresa: match pelo código TOTVS (CdnEmpresa → Empresa.Code) */
                 const cdnEmpresa = f?.cdnEmpresa ? String(f.cdnEmpresa) : null;
-                const empresaMatch = cdnEmpresa
-                    ? empresas.find((e) => e.code === cdnEmpresa) ?? null
-                    : null;
-                setAtualEmpresaCodigo(cdnEmpresa ?? "");
+                const empresaMatch = findEmpresaByCdn(empresas, cdnEmpresa);
+                setAtualEmpresaCodigo(cdnEmpresa?.trim() ?? "");
                 setAtualEmpresaNome(empresaMatch?.name ?? "");
-                setAtualEstabelecimentoCodigo(f?.cdnEstab ? String(f.cdnEstab) : "");
-                setAtualEstabelecimentoNome(String(f?.unitName ?? ""));
-                setAtualCCNome(String(f?.centroCustoNome ?? ""));
+
+                const cdnEstab = f?.cdnEstab != null ? String(f.cdnEstab) : "";
+                setAtualEstabelecimentoCodigo(cdnEstab.trim());
+
+                let resolvedUnitId: string | null = f?.unitId ? String(f.unitId) : null;
+                const unitMatch =
+                    !resolvedUnitId && cdnEstab ? findUnitByEstabCode(unidades, cdnEstab) : null;
+                if (!resolvedUnitId && unitMatch) resolvedUnitId = unitMatch.id;
+
+                const unitNameApi = String(f?.unitName ?? "").trim();
+                const estabelecimentoNome = unitNameApi || unitMatch?.name || "";
+                setAtualEstabelecimentoNome(estabelecimentoNome);
+
+                setAtualCCNome(String(f?.centroCustoDescricao ?? f?.centroCustoNome ?? ""));
                 setAtualLotacaoNome(String(f?.unidadeLotacaoDescricao ?? ""));
 
                 setDraft((d) => ({
                     ...d,
                     empresaId: empresaMatch?.id ?? null,
-                    unitId: f?.unitId ? String(f.unitId) : null,
+                    unitId: resolvedUnitId,
                     centroCustoId: f?.centroCustoId ? String(f.centroCustoId) : null,
                     unidadeLotacaoId: f?.unidadeLotacaoId ? String(f.unidadeLotacaoId) : null,
                 }));
             })
-            .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [draft.funcionarioId, empresas]);
+            .catch((e) => {
+                toast.error(
+                    `Não foi possível carregar o funcionário: ${e instanceof Error ? e.message : "erro"}`,
+                );
+            });
+    }, [draft.funcionarioId, empresas, unidades]);
 
     useEffect(() => {
         if (!open) return;
@@ -392,9 +414,9 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
         const errors: string[] = [];
         if (!draft.funcionarioId) errors.push("Funcionário");
         if (!draft.dataEfetiva) errors.push("Data Efetiva");
-        if (!draft.empresaId) errors.push("Empresa (selecione um funcionário primeiro)");
-        if (!draft.unitId) errors.push("Estabelecimento (selecione um funcionário primeiro)");
-        if (!draft.unidadeLotacaoId) errors.push("Lotação (selecione um funcionário primeiro)");
+        if (!draft.empresaId) errors.push("Empresa (código da empresa do funcionário não bate com o cadastro)");
+        if (!draft.unitId) errors.push("Estabelecimento (código do estabelecimento sem unidade correspondente no portal)");
+        if (!draft.unidadeLotacaoId) errors.push("Lotação (cadastro do funcionário sem lotação)");
         if (draft.motivoMovimentacao === null) errors.push("Motivo da Movimentação");
         if (!draft.novoCargoId) errors.push("Novo Cargo");
         if (!draft.justificativa.trim()) errors.push("Justificativa");
@@ -430,8 +452,16 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                 await fetchJson(`${API}/${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 toast.success("Solicitação atualizada.");
             } else {
-                await fetchJson(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-                toast.success("Solicitação criada.");
+                const created = await fetchJson<{ id?: string }>(API, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                if (!created?.id) {
+                    throw new Error("Solicitação criada sem identificador para envio.");
+                }
+                await fetchJson(`${API}/${created.id}/submit`, { method: "POST" });
+                toast.success("Solicitação criada e enviada para aprovação.");
             }
             onSaved();
         } catch (e) {
@@ -449,7 +479,7 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
             <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-base font-semibold">
-                        {editId ? "Editar Movimentação de Pessoal" : "Movimentação de Pessoal"}
+                        {viewOnly ? "Visualizar Movimentação de Pessoal" : editId ? "Editar Movimentação de Pessoal" : "Movimentação de Pessoal"}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -484,6 +514,7 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                                                 onChange={(v) => setDraft((d) => ({ ...d, funcionarioId: v }))}
                                                 placeholder="funcionário"
                                                 required
+                                                disabled={viewOnly}
                                             />
                                         );
                                     })()}
@@ -521,7 +552,7 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                                 {/* 4. Data Efetiva */}
                                 <div>
                                     <label className={L}>Data Efetiva *</label>
-                                    <Input type="date" value={draft.dataEfetiva} onChange={(e) => setDraft((d) => ({ ...d, dataEfetiva: e.target.value }))} />
+                                    <Input type="date" value={draft.dataEfetiva} onChange={(e) => setDraft((d) => ({ ...d, dataEfetiva: e.target.value }))} disabled={viewOnly} />
                                 </div>
 
                                 <div className="col-span-2" />
@@ -546,9 +577,10 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                                 <div className="col-span-3">
                                     <label className={L}>Motivo da Movimentação *</label>
                                     <select
-                                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:bg-muted/40 disabled:text-muted-foreground disabled:cursor-default"
                                         value={draft.motivoMovimentacao ?? ""}
                                         onChange={(e) => setDraft((d) => ({ ...d, motivoMovimentacao: e.target.value !== "" ? Number(e.target.value) : null }))}
+                                        disabled={viewOnly}
                                     >
                                         <option value="">Selecione...</option>
                                         <option value={0}>Mérito</option>
@@ -585,13 +617,13 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                                     {
                                         label: "Localidade (Estabelecimento)",
                                         atual: <ReadonlyField value={atualUnidade} />,
-                                        nova: <AutocompleteSelect items={unidades} value={draft.novaUnidadeId} onChange={(v) => setDraft((d) => ({ ...d, novaUnidadeId: v }))} placeholder="estabelecimento" />,
+                                        nova: <AutocompleteSelect items={unidades} value={draft.novaUnidadeId} onChange={(v) => setDraft((d) => ({ ...d, novaUnidadeId: v }))} placeholder="estabelecimento" disabled={viewOnly} />,
                                         novaLabel: "Novo Local (Transferência)",
                                     },
                                     {
                                         label: "Cargo",
                                         atual: <ReadonlyField value={atualCargo} />,
-                                        nova: <AutocompleteSelect items={cargos} value={draft.novoCargoId} onChange={(v) => setDraft((d) => ({ ...d, novoCargoId: v }))} placeholder="cargo" required />,
+                                        nova: <AutocompleteSelect items={cargos} value={draft.novoCargoId} onChange={(v) => setDraft((d) => ({ ...d, novoCargoId: v }))} placeholder="cargo" required disabled={viewOnly} />,
                                         novaLabel: "Novo Cargo *",
                                     },
                                     {
@@ -605,6 +637,7 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                                                 value={draft.novoSalario}
                                                 onChange={(e) => setDraft((d) => ({ ...d, novoSalario: e.target.value }))}
                                                 placeholder="R$ 0,00"
+                                                disabled={viewOnly}
                                             />
                                         ),
                                         novaLabel: "Novo Salário",
@@ -618,6 +651,7 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                                                 onChange={(e) => setDraft((d) => ({ ...d, novaPericulosidade: e.target.value }))}
                                                 placeholder="Ex: 30%, Sim, Não..."
                                                 maxLength={60}
+                                                disabled={viewOnly}
                                             />
                                         ),
                                         novaLabel: "Nova Periculosidade",
@@ -633,6 +667,7 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                                                 value={draft.novaRemuneracao}
                                                 onChange={(e) => setDraft((d) => ({ ...d, novaRemuneracao: e.target.value }))}
                                                 placeholder="R$ 0,00"
+                                                disabled={viewOnly}
                                             />
                                         ),
                                         novaLabel: "Nova Remuneração",
@@ -693,6 +728,7 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                                     <HorarioEditor
                                         value={draft.horarioProposto}
                                         onChange={(v) => setDraft((d) => ({ ...d, horarioProposto: v }))}
+                                        readonly={viewOnly}
                                     />
                                 </div>
                             </div>
@@ -710,24 +746,26 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                                 <div>
                                     <label className={L}>Justificativa *</label>
                                     <textarea
-                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground resize-none"
+                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground resize-none disabled:bg-muted/40 disabled:text-muted-foreground disabled:cursor-default"
                                         rows={4}
                                         value={draft.justificativa}
                                         onChange={(e) => setDraft((d) => ({ ...d, justificativa: e.target.value }))}
                                         placeholder="Justifique a movimentação do funcionário..."
                                         maxLength={2000}
+                                        disabled={viewOnly}
                                     />
                                 </div>
 
                                 <div>
                                     <label className={L}>Observações</label>
                                     <textarea
-                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground resize-none"
+                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground resize-none disabled:bg-muted/40 disabled:text-muted-foreground disabled:cursor-default"
                                         rows={3}
                                         value={draft.observacoes}
                                         onChange={(e) => setDraft((d) => ({ ...d, observacoes: e.target.value }))}
                                         placeholder="Observações adicionais (opcional)..."
                                         maxLength={1000}
+                                        disabled={viewOnly}
                                     />
                                 </div>
                             </div>
@@ -736,12 +774,16 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved }: Pr
                 )}
 
                 <DialogFooter className="mt-4">
-                    <Button variant="outline" onClick={onClose} disabled={saving}>
-                        Cancelar
-                    </Button>
-                    <Button onClick={() => void save()} disabled={saving || loadingEdit}>
-                        {saving ? "Enviando…" : editId ? "Salvar alterações" : "Solicitar aprovação"}
-                    </Button>
+                    {viewOnly ? (
+                        <Button variant="outline" onClick={onClose}>Fechar</Button>
+                    ) : (
+                        <>
+                            <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+                            <Button onClick={() => void save()} disabled={saving || loadingEdit}>
+                                {saving ? "Enviando…" : editId ? "Salvar alterações" : "Solicitar aprovação"}
+                            </Button>
+                        </>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

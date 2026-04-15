@@ -10,6 +10,8 @@
         EmEntrevistas = 5,
         EmOferta = 6,
         Encerrada = 7,
-        Cancelada = 8
+        Cancelada = 8,
+        /// <summary>Posição estrutural já preenchida (gerada via carga inicial). Não aparece no quadro de recrutamento.</summary>
+        Preenchida = 9
     }
 }

@@ -49,11 +49,20 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             .Include(s => s.Solicitante)
             .AsQueryable();
 
+        if (!_currentUser.IsAdmin && !_currentUser.IsRH && currentFuncionarioId.HasValue)
+            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
+
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
 
         if (query.Status.HasValue)
             q = q.Where(s => s.Status == query.Status.Value);
+
+        if (query.Statuses is { Length: > 0 })
+            q = q.Where(s => query.Statuses.Contains(s.Status));
+
+        if (query.AreaId.HasValue)
+            q = q.Where(s => s.Solicitante != null && s.Solicitante.AreaId == query.AreaId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
@@ -104,7 +113,8 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             .OrderBy(e => e.Ordem)
             .ToListAsync(ct);
 
-        return MapToResponse(s, etapas);
+        var etapaDtos = await _workflow.MapEtapasToAprovacaoResponsesAsync(etapas, ct);
+        return MapToResponse(s, etapaDtos);
     }
 
     public async Task<SolicitacaoFeriasResponse> CreateAsync(
@@ -407,7 +417,7 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
 
     private static SolicitacaoFeriasResponse MapToResponse(
         SolicitacaoFerias s,
-        IReadOnlyList<SolicitacaoAprovacaoEtapa>? etapas = null) => new(
+        IReadOnlyList<EtapaAprovacaoResponse> etapaResponses) => new(
         s.Id, s.Status,
         s.SolicitanteId, s.Solicitante?.Name,
         s.PeriodoAquisitivo, s.DataInicio, s.DataFim, s.QtdDias,
@@ -415,11 +425,6 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
         s.ObservacaoAprovador, s.Observacoes,
         s.CreatedAtUtc, s.UpdatedAtUtc, s.ApprovedAtUtc,
         s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
-        (etapas ?? []).Select(e => new EtapaAprovacaoResponse(
-            e.Ordem, e.Label,
-            e.AprovadorId, e.Aprovador?.Name,
-            e.RoleFilaId, null,
-            e.Status.ToString(), e.DataUtc, e.Observacao
-        )).ToList()
+        etapaResponses.ToList()
     );
 }

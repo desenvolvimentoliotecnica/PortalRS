@@ -35,6 +35,18 @@ namespace RHPortal.Api.Domain.Entities
         public VagaSenioridade? Senioridade { get; set; }   // vagaSenioridade
 
         public int QuantidadeVagas { get; set; } = 1;        // vagaQuantidade
+
+        /// <summary>Headcount total autorizado para esta posição (base + acréscimos aprovados via SolicitacaoVaga VagaNova).</summary>
+        public int HeadcountAutorizado { get; set; } = 1;
+
+        /// <summary>
+        /// Quando true, esta vaga foi criada como posição estrutural (carga inicial a partir de funcionários existentes).
+        /// Não aparece no quadro de recrutamento nem no pipeline de candidatos.
+        /// </summary>
+        public bool IsEstrutural { get; set; } = false;
+
+        // Histórico de ocupação dos slots desta vaga/posição
+        public ICollection<OcupacaoHistorico> Ocupacoes { get; set; } = [];
         public VagaTipoContratacao? TipoContratacao { get; set; } // vagaTipoContratacao
 
         /// <summary>Match mínimo em % (0..100). Ex.: 70</summary>
