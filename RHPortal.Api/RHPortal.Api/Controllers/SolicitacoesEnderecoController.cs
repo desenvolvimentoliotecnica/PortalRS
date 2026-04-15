@@ -27,12 +27,13 @@ public sealed class SolicitacoesEnderecoController : ControllerBase
     public async Task<IActionResult> List(
         [FromQuery] string? q,
         [FromQuery] SolicitacaoStatus? status,
+        [FromQuery(Name = "statuses")] SolicitacaoStatus[]? statuses,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
         CancellationToken ct)
     {
         var apenasMeus = !_userContext.IsAdmin;
-        var query = new SolicitacaoEnderecoListQuery(q, status, apenasMeus, page, pageSize);
+        var query = new SolicitacaoEnderecoListQuery(q, status, statuses, apenasMeus, page, pageSize);
         return Ok(await _service.ListAsync(query, _userContext.FuncionarioId, ct));
     }
 

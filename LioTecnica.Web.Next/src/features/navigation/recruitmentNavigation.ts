@@ -54,7 +54,7 @@ export const RECRUITMENT_LINEAR_ORDER = [
 export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.dashboard]: "Dashboard",
   [RECRUITMENT_ROUTE_KEYS.solicitacoes]: "Solicitações",
-  [RECRUITMENT_ROUTE_KEYS.vagas]: "Vagas",
+  [RECRUITMENT_ROUTE_KEYS.vagas]: "Quadro de Vagas",
   [RECRUITMENT_ROUTE_KEYS.painelRh]: "Painel RH",
   [RECRUITMENT_ROUTE_KEYS.aprovacoes]: "Minhas Pendências",
   [RECRUITMENT_ROUTE_KEYS.portalVagas]: "Portal de Vagas",

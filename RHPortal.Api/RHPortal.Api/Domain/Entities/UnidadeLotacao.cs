@@ -65,6 +65,18 @@ public sealed class UnidadeLotacao : ITenantEntity
     public Guid? OwnerFuncionarioId { get; set; }
     public Funcionario? OwnerFuncionario { get; set; }
 
+    /// <summary>Empresa TOTVS do funcionário responsável (cdn_empresa).</summary>
+    [MaxLength(3)]
+    public string? OwnerCdnEmpresa { get; set; }
+
+    /// <summary>Estabelecimento TOTVS do funcionário responsável (cdn_estab).</summary>
+    [MaxLength(5)]
+    public string? OwnerCdnEstab { get; set; }
+
+    /// <summary>Código TOTVS do funcionário responsável (cdn_funcionario).</summary>
+    [MaxLength(12)]
+    public string? OwnerCdnFuncionario { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 }

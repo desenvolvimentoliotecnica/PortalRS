@@ -6,6 +6,7 @@ using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.SolicitacoesDesligamento;
 
@@ -19,8 +20,11 @@ public interface ISolicitacaoDesligamentoService
     Task<SolicitacaoDesligamentoResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoDesligamentoResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoDesligamentoResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<SolicitacaoDesligamentoResponse?> EfetivarAsync(Guid id, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<SolicitacaoDesligamentoResponse?> AssumirAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoDesligamentoResponse?> CancelAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoDesligamentoResponse> CopyAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoService
@@ -29,17 +33,20 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
+    private readonly IEmailQueueService _emailQueue;
 
     public SolicitacaoDesligamentoService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        ApprovalWorkflowHelper workflow)
+        ApprovalWorkflowHelper workflow,
+        IEmailQueueService emailQueue)
     {
         _db = db;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _workflow = workflow;
+        _emailQueue = emailQueue;
     }
 
     public async Task<IReadOnlyList<SolicitacaoDesligamentoGridRow>> ListAsync(
@@ -50,7 +57,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             .Include(s => s.Funcionario)
             .AsQueryable();
 
-        if (!_currentUser.IsAdmin && currentFuncionarioId.HasValue)
+        if (!_currentUser.IsAdmin && !_currentUser.IsRH && currentFuncionarioId.HasValue)
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
 
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
@@ -58,6 +65,12 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
         if (query.Status.HasValue)
             q = q.Where(s => s.Status == query.Status.Value);
+
+        if (query.Statuses is { Length: > 0 })
+            q = q.Where(s => query.Statuses.Contains(s.Status));
+
+        if (query.AreaId.HasValue)
+            q = q.Where(s => s.Funcionario != null && s.Funcionario.AreaId == query.AreaId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
@@ -95,6 +108,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
                 r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome,
                 r.TipoDesligamento, r.DataDesligamento, r.CreatedAtUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
+                ep?.AssumedByUserId,
                 ep?.CanAssume ?? false);
         }).ToList();
     }
@@ -116,7 +130,8 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             .OrderBy(e => e.Ordem)
             .ToListAsync(ct);
 
-        return MapToResponse(s, etapas);
+        var etapaDtos = await _workflow.MapEtapasToAprovacaoResponsesAsync(etapas, ct);
+        return MapToResponse(s, etapaDtos);
     }
 
     public async Task<SolicitacaoDesligamentoResponse> CreateAsync(
@@ -162,7 +177,31 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
+        // Permite edição em Rascunho, AjustesNecessarios ou PendenteAprovacao/PendenteAprovacaoRh
+        // (retrocede para Rascunho quando pendente, igual à lógica da Requisição de Pessoal)
+        if (entity.Status != SolicitacaoStatus.Rascunho &&
+            entity.Status != SolicitacaoStatus.AjustesNecessarios &&
+            entity.Status != SolicitacaoStatus.PendenteAprovacao &&
+            entity.Status != SolicitacaoStatus.PendenteAprovacaoRh)
+            throw new InvalidOperationException("Solicitação não pode ser editada no status atual.");
+
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacao ||
+            entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+        {
+            // Retrocede para rascunho; gestor deve reenviar para aprovação
+            entity.Status = SolicitacaoStatus.Rascunho;
+
+            // Cancela etapas pendentes do workflow atual
+            var etapasPendentes = _db.SolicitacoesAprovacaoEtapa
+                .Where(e => e.SolicitacaoId == id
+                    && e.TipoFluxo == TipoFluxoAprovacao.Desligamento
+                    && e.Status == StatusAprovacao.Pendente);
+            foreach (var ep in etapasPendentes)
+            {
+                ep.Status = StatusAprovacao.Cancelado;
+                ep.DataUtc = DateTimeOffset.UtcNow;
+            }
+        }
 
         entity.FuncionarioId = request.FuncionarioId;
         entity.EmpresaId = request.EmpresaId;
@@ -303,13 +342,44 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
             await _db.SaveChangesAsync(ct);
 
+            // Nota: a ocupação da vaga será fechada no painel de integração TOTVS,
+            // quando o envio for confirmado (IntegracaoResultado.Sucesso).
+
             await _workflow.NotifyByFuncionarioIdAsync(
                 entity.SolicitanteId,
                 "Solicitação de desligamento aprovada",
                 "Sua solicitação de desligamento foi aprovada." + (observacao is not null ? $" Observação: {observacao}" : ""),
                 "/gestao/solicitacoes",
                 ct);
+
+            var solicitante = await _db.Set<Funcionario>().AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct);
+            if (!string.IsNullOrWhiteSpace(solicitante?.Email))
+            {
+                var obsHtml = !string.IsNullOrWhiteSpace(observacao)
+                    ? $"<p><strong>Observação:</strong> {observacao}</p>" : "";
+                await _emailQueue.EnqueueRawAsync(
+                    solicitante.Email,
+                    "Solicitação de desligamento aprovada",
+                    $"<p>Olá {solicitante.Name},</p><p>Sua solicitação de desligamento foi <strong>aprovada</strong>.</p>{obsHtml}",
+                    null, false, "SolicitacaoDesligamento", ct);
+            }
         }
+
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoDesligamentoResponse?> EfetivarAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status != SolicitacaoStatus.Aprovada)
+            throw new InvalidOperationException("Apenas solicitações com status Aprovada podem ser efetivadas.");
+
+        entity.Status = SolicitacaoStatus.EmIntegracao;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
 
         return await GetByIdAsync(id, ct);
     }
@@ -348,6 +418,19 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             ct,
             "warning");
 
+        var solicitanteReject = await _db.Set<Funcionario>().AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct);
+        if (!string.IsNullOrWhiteSpace(solicitanteReject?.Email))
+        {
+            var obsHtml = !string.IsNullOrWhiteSpace(observacao)
+                ? $"<p><strong>Motivo:</strong> {observacao}</p>" : "";
+            await _emailQueue.EnqueueRawAsync(
+                solicitanteReject.Email,
+                "Solicitação de desligamento reprovada",
+                $"<p>Olá {solicitanteReject.Name},</p><p>Sua solicitação de desligamento foi <strong>reprovada</strong>.</p>{obsHtml}",
+                null, false, "SolicitacaoDesligamento", ct);
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -371,6 +454,19 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             "/gestao/solicitacoes",
             ct,
             "warning");
+
+        var solicitanteChanges = await _db.Set<Funcionario>().AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct);
+        if (!string.IsNullOrWhiteSpace(solicitanteChanges?.Email))
+        {
+            var obsHtml = !string.IsNullOrWhiteSpace(observacao)
+                ? $"<p><strong>Observação:</strong> {observacao}</p>" : "";
+            await _emailQueue.EnqueueRawAsync(
+                solicitanteChanges.Email,
+                "Ajustes necessários na solicitação de desligamento",
+                $"<p>Olá {solicitanteChanges.Name},</p><p>Sua solicitação de desligamento precisa de <strong>ajustes</strong>.</p>{obsHtml}",
+                null, false, "SolicitacaoDesligamento", ct);
+        }
 
         return await GetByIdAsync(id, ct);
     }
@@ -399,43 +495,108 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             .OrderBy(e => e.Ordem)
             .FirstOrDefaultAsync(ct);
 
-        if (etapaAtual is null || !etapaAtual.RoleFilaId.HasValue)
-            throw new InvalidOperationException("Esta etapa não é uma fila de perfil para ser assumida.");
+        if (etapaAtual is null)
+            throw new InvalidOperationException("Não há etapa pendente para assumir.");
 
-        if (etapaAtual.AprovadorId.HasValue)
+        var isRoleQueue = etapaAtual.RoleFilaId.HasValue;
+        var isOrphanConsenso = !etapaAtual.RoleFilaId.HasValue && !etapaAtual.AprovadorId.HasValue;
+        if (!isRoleQueue && !isOrphanConsenso)
+            throw new InvalidOperationException("Esta etapa não pode ser assumida.");
+
+        if (etapaAtual.AprovadorId.HasValue || etapaAtual.AssumedByUserId.HasValue)
             throw new InvalidOperationException("Esta etapa já foi assumida por outro usuário.");
 
-        if (!await _workflow.CanAssumeRoleQueueAsync(etapaAtual, _currentUser, ct))
+        if (isRoleQueue && !await _workflow.CanAssumeRoleQueueAsync(etapaAtual, _currentUser, ct))
             throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
 
-        etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        if (isOrphanConsenso)
+        {
+            if (!_currentUser.IsAdmin || _currentUser.IsOwner)
+                throw new InvalidOperationException("Owner não pode assumir etapas diretamente. Utilize um usuário com perfil Admin do tenant.");
+        }
+
+        if (_currentUser.FuncionarioId.HasValue)
+            etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+        else if (_currentUser.UserId.HasValue)
+            etapaAtual.AssumedByUserId = _currentUser.UserId;
+        else
+            throw new InvalidOperationException("Não foi possível identificar o usuário autenticado.");
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
 
+    public async Task<SolicitacaoDesligamentoResponse?> CancelAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status == SolicitacaoStatus.Rascunho)
+            throw new InvalidOperationException("Rascunhos não podem ser cancelados — utilize Excluir.");
+
+        if (entity.Status == SolicitacaoStatus.Aprovada || entity.Status == SolicitacaoStatus.Cancelada)
+            throw new InvalidOperationException("Solicitação não pode ser cancelada no status atual.");
+
+        entity.Status = SolicitacaoStatus.Cancelada;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id
+                && e.TipoFluxo == TipoFluxoAprovacao.Desligamento
+                && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+
+        foreach (var etapa in etapasPendentes)
+        {
+            etapa.Status = StatusAprovacao.Cancelado;
+            etapa.DataUtc = DateTimeOffset.UtcNow;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoDesligamentoResponse> CopyAsync(Guid id, CancellationToken ct)
+    {
+        var source = await _db.SolicitacoesDesligamento
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new InvalidOperationException("Solicitação não encontrada.");
+
+        var copy = new SolicitacaoDesligamento
+        {
+            Id = Guid.NewGuid(),
+            TenantId = source.TenantId,
+            SolicitanteId = source.SolicitanteId,
+            FuncionarioId = source.FuncionarioId,
+            EmpresaId = source.EmpresaId,
+            UnitId = source.UnitId,
+            HistoricoMedidasDisciplinares = source.HistoricoMedidasDisciplinares,
+            DataDesligamento = source.DataDesligamento,
+            TipoDesligamento = source.TipoDesligamento,
+            MotivoDesligamento = source.MotivoDesligamento,
+            TipoAvisoPrevio = source.TipoAvisoPrevio,
+            DiasAvisoPrevio = source.DiasAvisoPrevio,
+            PossuiEstabilidade = source.PossuiEstabilidade,
+            ElegivelRecontratacao = source.ElegivelRecontratacao,
+            SubstituirPosicao = source.SubstituirPosicao,
+            Observacoes = source.Observacoes,
+            Status = SolicitacaoStatus.Rascunho,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+
+        _db.SolicitacoesDesligamento.Add(copy);
+        await _db.SaveChangesAsync(ct);
+        return (await GetByIdAsync(copy.Id, ct))!;
+    }
+
     private static SolicitacaoDesligamentoResponse MapToResponse(
         SolicitacaoDesligamento s,
-        IReadOnlyList<SolicitacaoAprovacaoEtapa> etapas)
+        IReadOnlyList<EtapaAprovacaoResponse> etapaResponses)
     {
-        var etapaResponses = etapas.Select(e => new EtapaAprovacaoResponse(
-            e.Ordem,
-            e.Label,
-            e.AprovadorId,
-            e.Aprovador?.Name,
-            e.RoleFilaId,
-            null,  // RoleFilaNome — not loaded here, could be added later
-            e.Status switch
-            {
-                StatusAprovacao.Aprovado => "Aprovado",
-                StatusAprovacao.Rejeitado => "Reprovado",
-                _ => "Pendente"
-            },
-            e.DataUtc,
-            e.Observacao
-        )).ToList();
-
         return new SolicitacaoDesligamentoResponse(
             s.Id,
             s.Status,

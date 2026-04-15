@@ -37,5 +37,9 @@ public sealed record VagaListItemResponse(
     int RequisitosObrigatorios,
 
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+
+    int HeadcountAutorizado,
+    int HeadcountOcupado,
+    bool IsEstrutural
 );

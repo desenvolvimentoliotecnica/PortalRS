@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, Plus, RefreshCw, Pencil, Trash2, Download, Upload, ChevronRight, ChevronDown, Users2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, Download, Upload, ChevronRight, ChevronDown, Users2, ArrowUpDown, ArrowUp, ArrowDown, X, Loader2 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImportGuide } from "@/components/ImportGuide";
+import { UnidadeLotacaoAutocomplete, type UnidadeLotacaoLookup } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -45,6 +46,7 @@ interface Item {
 
 interface Draft {
   id?: string;
+  cdnPlanoLotac: string;
   code: string;
   description: string;
   location: string;
@@ -74,11 +76,6 @@ interface OwnerImportRow {
   cdnEmpresa: string;
   cdnEstab: string;
   cdnFuncionario: string;
-}
-
-interface LookupItem {
-  id: string;
-  name: string;
 }
 
 /* ── tree ── */
@@ -138,8 +135,122 @@ function statusBadge(active: boolean) {
   );
 }
 
+interface FuncionarioOption {
+  id: string;
+  nome: string;
+  email: string | null;
+  cargo: string | null;
+}
+
+function FuncionarioSearchAutocomplete({
+  value,
+  onChange,
+}: {
+  value: FuncionarioOption | null;
+  onChange: (v: FuncionarioOption | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [allFuncionarios, setAllFuncionarios] = useState<FuncionarioOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const loadedRef = useRef(false);
+
+  const displayText = value ? `${value.nome}${value.cargo ? ` — ${value.cargo}` : ""}` : "";
+
+  // Carrega todos os funcionários paginando até hasMore=false
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    setLoading(true);
+    (async () => {
+      try {
+        type Res = { items: Array<{ id: string; nome: string; email: string | null; cargo: string | null }>; hasMore: boolean };
+        const all: FuncionarioOption[] = [];
+        let page = 1;
+        let hasMore = true;
+        while (hasMore) {
+          const data = await fetchJson<Res>(`/api/lookup/funcionarios?pageSize=200&page=${page}`);
+          all.push(...(data.items ?? []));
+          hasMore = data.hasMore ?? false;
+          page++;
+        }
+        setAllFuncionarios(all);
+      } catch {
+        setAllFuncionarios([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const filtered = query.trim()
+    ? allFuncionarios.filter((f) => {
+        const q = query.toLowerCase();
+        return f.nome.toLowerCase().includes(q) || (f.cargo?.toLowerCase().includes(q) ?? false);
+      })
+    : allFuncionarios;
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="flex gap-1">
+        <input
+          className="h-9 flex-1 rounded-md border border-input px-3 text-sm bg-background"
+          placeholder="Buscar por nome ou cargo..."
+          value={open ? query : displayText}
+          onFocus={() => { setOpen(true); setQuery(""); }}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => { onChange(null); setQuery(""); setOpen(false); }}
+            className="px-2 text-muted-foreground hover:text-foreground"
+            tabIndex={-1}
+          >
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-input bg-background shadow-lg max-h-60 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />Carregando...
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum resultado.</div>
+          ) : (
+            filtered.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => { onChange(f); setOpen(false); }}
+                className="w-full px-3 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground border-b border-border/30 last:border-0"
+              >
+                <div className="font-medium">{f.nome}</div>
+                {f.cargo && <div className="text-xs text-muted-foreground">{f.cargo}</div>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const emptyDraft: Draft = {
-  code: "", description: "", location: "", notes: "", isActive: true,
+  cdnPlanoLotac: "", code: "", description: "", location: "", notes: "", isActive: true,
   parentId: null, level: 1, sequenceNumber: "", ownerFuncionarioId: null,
 };
 
@@ -148,13 +259,13 @@ const emptyDraft: Draft = {
 export default function UnidadeLotacaoCadastroScreen() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Item[]>([]);
-  const [funcionarios, setFuncionarios] = useState<LookupItem[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortCol, setSortCol] = useState<string>("cdnPlanoLotac");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>({ ...emptyDraft });
+  const [selectedOwner, setSelectedOwner] = useState<FuncionarioOption | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
 
@@ -204,14 +315,7 @@ export default function UnidadeLotacaoCadastroScreen() {
     }
   }, []);
 
-  const loadFuncionarios = useCallback(async () => {
-    try {
-      const res = await fetchJson<LookupItem[]>("/api/lookup/funcionarios");
-      setFuncionarios(Array.isArray(res) ? res : []);
-    } catch { /* lookup opcional */ }
-  }, []);
-
-  useEffect(() => { syncList(); loadFuncionarios(); }, [syncList, loadFuncionarios]);
+  useEffect(() => { syncList(); }, [syncList]);
 
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -273,12 +377,6 @@ export default function UnidadeLotacaoCadastroScreen() {
     ativas: rows.filter((r) => r.isActive).length,
   }), [rows]);
 
-  // Unidades disponíveis para seleção de pai (excluindo o item sendo editado)
-  const parentOptions = useMemo(
-    () => rows.filter((r) => r.id !== draft.id),
-    [rows, draft.id]
-  );
-
   const save = async () => {
     if (!draft.code.trim() || !draft.description.trim()) {
       toast.error("Código e descrição são obrigatórios");
@@ -287,6 +385,7 @@ export default function UnidadeLotacaoCadastroScreen() {
     try {
       setSaving(true);
       const payload = {
+        cdnPlanoLotac: draft.cdnPlanoLotac,
         code: draft.code.trim(),
         description: draft.description.trim(),
         location: draft.location?.trim() || null,
@@ -295,7 +394,7 @@ export default function UnidadeLotacaoCadastroScreen() {
         parentId: draft.parentId || null,
         level: draft.level || 1,
         sequenceNumber: draft.sequenceNumber ? parseInt(draft.sequenceNumber, 10) : null,
-        ownerFuncionarioId: draft.ownerFuncionarioId || null,
+        ownerFuncionarioId: selectedOwner?.id || null,
       };
       if (draft.id) {
         await fetchJson(`/api/unidades-lotacao/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -472,7 +571,7 @@ export default function UnidadeLotacaoCadastroScreen() {
           <Button variant="outline" size="sm" onClick={syncList} disabled={loading}>
             <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
           </Button>
-          <Button size="sm" onClick={() => { setDraft({ ...emptyDraft }); setEditOpen(true); }}>
+          <Button size="sm" onClick={() => { setDraft({ ...emptyDraft }); setSelectedOwner(null); setEditOpen(true); }}>
             <Plus className="size-4" /><span className="hidden sm:inline ml-1">Nova unidade</span>
           </Button>
         </div>
@@ -570,12 +669,13 @@ export default function UnidadeLotacaoCadastroScreen() {
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="outline" size="icon-xs" title="Editar" onClick={() => {
                           setDraft({
-                            id: item.id, code: item.code, description: item.description,
+                            id: item.id, cdnPlanoLotac: item.cdnPlanoLotac, code: item.code, description: item.description,
                             location: item.location || "", notes: item.notes || "", isActive: item.isActive,
                             parentId: item.parentId ?? null, level: item.level,
                             sequenceNumber: item.sequenceNumber?.toString() ?? "",
                             ownerFuncionarioId: item.ownerFuncionarioId ?? null,
                           });
+                          setSelectedOwner(item.ownerFuncionarioId ? { id: item.ownerFuncionarioId, nome: item.ownerFuncionarioName ?? "", email: null, cargo: null } : null);
                           setEditOpen(true);
                         }}><Pencil /></Button>
                         <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(item)}><Trash2 /></Button>
@@ -599,12 +699,13 @@ export default function UnidadeLotacaoCadastroScreen() {
                   <div className="flex items-center justify-end gap-1">
                     <Button variant="outline" size="icon-xs" title="Editar" onClick={() => {
                       setDraft({
-                        id: item.id, code: item.code, description: item.description,
+                        id: item.id, cdnPlanoLotac: item.cdnPlanoLotac, code: item.code, description: item.description,
                         location: item.location || "", notes: item.notes || "", isActive: item.isActive,
                         parentId: item.parentId ?? null, level: item.level,
                         sequenceNumber: item.sequenceNumber?.toString() ?? "",
                         ownerFuncionarioId: item.ownerFuncionarioId ?? null,
                       });
+                      setSelectedOwner(item.ownerFuncionarioId ? { id: item.ownerFuncionarioId, nome: item.ownerFuncionarioName ?? "", email: null, cargo: null } : null);
                       setEditOpen(true);
                     }}><Pencil /></Button>
                     <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(item)}><Trash2 /></Button>
@@ -631,7 +732,12 @@ export default function UnidadeLotacaoCadastroScreen() {
             {/* Código */}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Código *</label>
-              <Input placeholder="Ex: UL001" value={draft.code} onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))} maxLength={30} />
+              <Input
+                placeholder="Ex: UL001"
+                value={draft.code}
+                onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))}
+                maxLength={30}
+              />
             </div>
             {/* Descrição */}
             <div>
@@ -640,45 +746,40 @@ export default function UnidadeLotacaoCadastroScreen() {
             </div>
             {/* Unidade Pai */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Unidade Pai</label>
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Unidade Pai
+                {draft.cdnPlanoLotac && (
+                  <span className="ml-1 font-mono text-xs text-muted-foreground/60">plano {draft.cdnPlanoLotac}</span>
+                )}
+              </label>
+              <UnidadeLotacaoAutocomplete
                 value={draft.parentId ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, parentId: e.target.value || null }))}
-              >
-                <option value="">— Nenhuma (raiz) —</option>
-                {parentOptions
-                  .sort((a, b) => a.code.localeCompare(b.code))
-                  .map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.code} — {u.description}
-                    </option>
-                  ))}
-              </select>
+                onChange={() => {}}
+                excludeId={draft.id}
+                items={rows
+                  .filter((r) => r.id !== draft.id && (!draft.cdnPlanoLotac || r.cdnPlanoLotac === draft.cdnPlanoLotac))
+                  .map((r) => ({ id: r.id, code: r.code, description: r.description }))}
+                defaultLabel={draft.parentId ? (() => {
+                  const p = rows.find((r) => r.id === draft.parentId);
+                  return p ? { code: p.code, description: p.description } : undefined;
+                })() : undefined}
+                onSelectItem={(item: UnidadeLotacaoLookup) => {
+                  if (!item.id) {
+                    setDraft((d) => ({ ...d, parentId: null, level: 1 }));
+                  } else {
+                    const parentRow = rows.find((r) => r.id === item.id);
+                    setDraft((d) => ({ ...d, parentId: item.id, level: parentRow ? parentRow.level + 1 : 1 }));
+                  }
+                }}
+                placeholder="— Nenhuma (raiz) —"
+              />
             </div>
             {/* Responsável */}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Responsável (dono)</label>
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={draft.ownerFuncionarioId ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, ownerFuncionarioId: e.target.value || null }))}
-              >
-                <option value="">Nenhum</option>
-                {funcionarios.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            </div>
-            {/* Nível TOTVS */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Nível (TOTVS)</label>
-              <Input
-                type="number"
-                min={1}
-                placeholder="1"
-                value={draft.level}
-                onChange={(e) => setDraft((d) => ({ ...d, level: parseInt(e.target.value, 10) || 1 }))}
+              <FuncionarioSearchAutocomplete
+                value={selectedOwner}
+                onChange={(v) => setSelectedOwner(v)}
               />
             </div>
             {/* Sequência */}
@@ -704,6 +805,18 @@ export default function UnidadeLotacaoCadastroScreen() {
                 <option value="ativo">Ativo</option>
                 <option value="inativo">Inativo</option>
               </select>
+            </div>
+            {/* Observações */}
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Observações</label>
+              <textarea
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                rows={3}
+                placeholder="Observações sobre esta unidade..."
+                maxLength={500}
+                value={draft.notes}
+                onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+              />
             </div>
           </div>
           <DialogFooter>

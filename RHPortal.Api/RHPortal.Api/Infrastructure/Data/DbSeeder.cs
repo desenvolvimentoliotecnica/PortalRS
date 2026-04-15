@@ -50,7 +50,6 @@ public static class DbSeeder
         var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         var masterDb = scope.ServiceProvider.GetRequiredService<MasterDbContext>();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
         var localizer = scope.ServiceProvider.GetRequiredService<IStringLocalizer<SeedMessages>>();
         var resetState = scope.ServiceProvider.GetService<ResetState>();
@@ -94,14 +93,8 @@ public static class DbSeeder
             if (useMultiDb)
             {
                 // ---------------------------
-                // 2. Seed tenants in master (so we have a list to create DBs for)
+                // 2. Seed owner user in master
                 // ---------------------------
-                await ReportAsync("seed-master-tenants", "Registrando tenants no master...", 20);
-                await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantSeeder
-                    .EnsureAsync(masterDb, "liotecnica", "Liotecnica", null, ct);
-                await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantSeeder
-                    .EnsureAsync(masterDb, "dev", "Development", null, ct);
-
                 var ownerEmail = config.GetValue<string>("Seed:OwnerEmail");
                 var ownerPassword = config.GetValue<string>("Seed:OwnerPassword") ?? config.GetValue<string>("Seed:AdminPassword");
                 if (!string.IsNullOrWhiteSpace(ownerEmail) && !string.IsNullOrWhiteSpace(ownerPassword))
@@ -112,25 +105,37 @@ public static class DbSeeder
                 }
 
                 // ---------------------------
-                // 3. For each tenant: ensure DB exists and apply migrations
+                // 3. Migrar todos os tenants existentes
+                // MigrateAsync é idempotente: só aplica migrations PENDENTES.
+                // Tenants já atualizados terminam em milissegundos.
+                // Novos tenants criados via API também passam por este mesmo fluxo
+                // em TenantProvisioningService.ProvisionTenantAsync.
                 // ---------------------------
-                var tenantIds = await masterDb.Tenants.AsNoTracking().Select(t => t.TenantId).ToListAsync(ct);
+                var tenantIds = await masterDb.Tenants
+                    .AsNoTracking()
+                    .Select(t => t.TenantId)
+                    .ToListAsync(ct);
+
                 var pct = 25;
-                var step = tenantIds.Count > 0 ? (35 - 25) / tenantIds.Count : 10;
+                var step = tenantIds.Count > 0 ? Math.Max(1, (60 - 25) / tenantIds.Count) : 10;
+
                 foreach (var tenantId in tenantIds)
                 {
-                    await ReportAsync("ensure-tenant-db", $"Garantindo banco do tenant {tenantId}...", pct);
+                    await ReportAsync("migrate-tenant", $"Aplicando migrations no tenant {tenantId}...", pct);
+
+                    // Garante que o banco existe (no-op se já existir)
                     await TenantDatabaseEnsurer.EnsureTenantDatabaseExistsAsync(config, tenantId, ct);
-                    // New scope per tenant so AppDbContext uses the correct tenant connection string
-                    using (var tenantScope = services.CreateScope())
-                    {
-                        var tenantCtx = tenantScope.ServiceProvider.GetRequiredService<ITenantContext>();
-                        tenantCtx.SetTenantId(tenantId);
-                        var tenantDb = tenantScope.ServiceProvider.GetRequiredService<AppDbContext>();
-                        await tenantDb.Database.MigrateAsync(ct);
-                        await TenantProvisioningService.ApplyOrphanMigrationsAsync(tenantDb, tenantId, ct);
-                    }
-                    pct += step;
+
+                    // Novo scope para cada tenant — garante connection string correta
+                    using var tenantScope = services.CreateScope();
+                    var tenantCtx = tenantScope.ServiceProvider.GetRequiredService<ITenantContext>();
+                    tenantCtx.SetTenantId(tenantId);
+                    var tenantDb = tenantScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                    await tenantDb.Database.MigrateAsync(ct);
+                    await TenantProvisioningService.ApplyOrphanMigrationsAsync(tenantDb, tenantId, ct);
+
+                    pct = Math.Min(pct + step, 60);
                 }
             }
             else
@@ -177,122 +182,6 @@ public static class DbSeeder
             await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder
                 .EnsureDefaultMenusAsync(masterDb, scope.ServiceProvider, tenantContext, roleManager, localizer, ct);
 
-            // ---------------------------
-            // Seed geral enable/disable
-            // ---------------------------
-            var seedEnabledFromConfig = config.GetValue<bool?>("Seed:Enabled") ?? true;
-            var seedEnabled = overrides?.SeedEnabled ?? seedEnabledFromConfig;
-
-            if (!seedEnabled)
-            {
-                await ReportAsync("done", "Concluído (seed desativado).", 100);
-                return;
-            }
-
-            // ---------------------------
-            // Carrega configs padrão
-            // ---------------------------
-            var adminPassword = config.GetValue<string>("Seed:AdminPassword");
-            if (string.IsNullOrWhiteSpace(adminPassword))
-                throw new InvalidOperationException(localizer["SeedErrors.AdminPasswordRequired"]);
-
-            var vagaSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Vagas:Count") ?? 50);
-            var candidatoSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Candidatos:Count") ?? 50);
-            var candidatoSeedPerVaga = Math.Max(0, config.GetValue<int?>("Seed:Candidatos:PerVaga") ?? 0);
-
-            var vagaPatternsFile = config.GetValue<string>("Seed:Vagas:PatternsFile");
-            var vagaRequirementsFile = config.GetValue<string>("Seed:Vagas:RequirementsFile");
-
-            var randomSeed = config.GetValue<int?>("Seed:RandomSeed");
-
-            var managerSeedCount = Math.Max(0, config.GetValue<int?>("Seed:Managers:Count") ?? 10);
-            var agendaEventSeedCount = Math.Max(0, config.GetValue<int?>("Seed:AgendaEvents:Count") ?? 10);
-            var emailMessageSeedCount = Math.Max(0, config.GetValue<int?>("Seed:EmailMessages:Count") ?? 40);
-
-            var inboxSeedCountDefault = Math.Max(0, config.GetValue<int?>("Seed:InboxItems:Count") ?? 3);
-
-            // ---------------------------
-            // Flags específicos (config OU override)
-            // ---------------------------
-            var seedVagasEnabledFromConfig = config.GetValue<bool?>("Seed:Vagas:Enabled") ?? true;
-            var seedCandidatosEnabledFromConfig = config.GetValue<bool?>("Seed:Candidatos:Enabled") ?? true;
-            var seedInboxEnabledDefaultFromConfig = config.GetValue<bool?>("Seed:InboxItems:Enabled") ?? true;
-            var seedPreAdmisoesEnabledFromConfig = config.GetValue<bool?>("Seed:PreAdmissoes:Enabled") ?? true;
-
-            var seedVagasEnabled = overrides?.SeedVagasEnabled ?? seedVagasEnabledFromConfig;
-            var seedCandidatosEnabled = overrides?.SeedCandidatosEnabled ?? seedCandidatosEnabledFromConfig;
-            var seedInboxEnabledDefault = overrides?.SeedInboxEnabled ?? seedInboxEnabledDefaultFromConfig;
-            var seedPreAdmisoesEnabled = overrides?.SeedPreAdmisoesEnabled ?? seedPreAdmisoesEnabledFromConfig;
-
-            // ---------------------------
-            // Tenants (com override também)
-            // ---------------------------
-            int resolveInboxCount(string tenantId)
-                => Math.Max(0, config.GetValue<int?>($"Seed:Tenants:{tenantId}:InboxItems:Count") ?? inboxSeedCountDefault);
-
-            bool resolveInboxEnabled(string tenantId)
-            {
-                // Se override global de inbox foi fornecido, ele manda.
-                if (overrides?.SeedInboxEnabled is bool forced)
-                    return forced;
-
-                return config.GetValue<bool?>($"Seed:Tenants:{tenantId}:InboxItems:Enabled") ?? seedInboxEnabledDefault;
-            }
-
-            // ✅ Tenant 1
-            var liotecnicaInboxCount = resolveInboxCount("liotecnica");
-            var liotecnicaInboxEnabled = resolveInboxEnabled("liotecnica");
-
-            await ReportAsync("seed-tenant", "Seeding tenant Liotecnica...", 55);
-            await SeedTenantAsync(
-                scope.ServiceProvider, masterDb, tenantContext, userManager, roleManager,
-                tenantId: "liotecnica",
-                tenantName: "Liotecnica",
-                adminPassword: adminPassword,
-                managerSeedCount: managerSeedCount,
-                agendaEventSeedCount: agendaEventSeedCount,
-                emailMessageSeedCount: emailMessageSeedCount,
-                vagaSeedCount: vagaSeedCount,
-                candidatoSeedCount: candidatoSeedCount,
-                candidatoSeedPerVaga: candidatoSeedPerVaga,
-                vagaPatternsFile: vagaPatternsFile,
-                vagaRequirementsFile: vagaRequirementsFile,
-                inboxSeedCount: liotecnicaInboxCount,
-                seedVagasEnabled: seedVagasEnabled,
-                seedCandidatosEnabled: seedCandidatosEnabled,
-                seedInboxEnabled: liotecnicaInboxEnabled,
-                seedPreAdmisoesEnabled: seedPreAdmisoesEnabled,
-                localizer: localizer,
-                randomSeed: randomSeed,
-                ct: ct);
-
-            // ✅ Tenant 2
-            var devInboxCount = resolveInboxCount("dev");
-            var devInboxEnabled = resolveInboxEnabled("dev");
-
-            await ReportAsync("seed-tenant", "Seeding tenant Development...", 80);
-            await SeedTenantAsync(
-                scope.ServiceProvider, masterDb, tenantContext, userManager, roleManager,
-                tenantId: "dev",
-                tenantName: "Development",
-                adminPassword: adminPassword,
-                managerSeedCount: managerSeedCount,
-                agendaEventSeedCount: agendaEventSeedCount,
-                emailMessageSeedCount: emailMessageSeedCount,
-                vagaSeedCount: vagaSeedCount,
-                candidatoSeedCount: candidatoSeedCount,
-                candidatoSeedPerVaga: candidatoSeedPerVaga,
-                vagaPatternsFile: vagaPatternsFile,
-                vagaRequirementsFile: vagaRequirementsFile,
-                inboxSeedCount: devInboxCount,
-                seedVagasEnabled: seedVagasEnabled,
-                seedCandidatosEnabled: seedCandidatosEnabled,
-                seedInboxEnabled: devInboxEnabled,
-                seedPreAdmisoesEnabled: seedPreAdmisoesEnabled,
-                localizer: localizer,
-                randomSeed: randomSeed,
-                ct: ct);
-
             await ReportAsync("done", "Concluído.", 100);
         }
         finally
@@ -319,96 +208,6 @@ public static class DbSeeder
         """;
 
         await db.Database.ExecuteSqlRawAsync(sql, ct);
-    }
-
-    private static async Task SeedTenantAsync(
-        IServiceProvider scope,
-        MasterDbContext masterDb,
-        ITenantContext tenantContext,
-        UserManager<ApplicationUser> userManager,
-        RoleManager<ApplicationRole> roleManager,
-        string tenantId,
-        string tenantName,
-        string adminPassword,
-        int managerSeedCount,
-        int agendaEventSeedCount,
-        int emailMessageSeedCount,
-        int vagaSeedCount,
-        int candidatoSeedCount,
-        int candidatoSeedPerVaga,
-        string? vagaPatternsFile,
-        string? vagaRequirementsFile,
-        int inboxSeedCount,
-        bool seedVagasEnabled,
-        bool seedCandidatosEnabled,
-        bool seedInboxEnabled,
-        bool seedPreAdmisoesEnabled,
-        IStringLocalizer<SeedMessages> localizer,
-        int? randomSeed,
-        CancellationToken ct)
-    {
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantSeeder
-            .EnsureAsync(masterDb, tenantId, tenantName, null, ct);
-
-        tenantContext.SetTenantId(tenantId);
-        var db = scope.GetRequiredService<AppDbContext>();
-
-        var emailDomain = tenantId.Equals("liotecnica", StringComparison.OrdinalIgnoreCase)
-            ? "liotecnica.com.br"
-            : "dev.local";
-
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.AdminAccessSeeder.EnsureAsync(
-            db,
-            userManager,
-            roleManager,
-            tenantId,
-            emailDomain,
-            adminPassword,
-            emailMessageSeedCount,
-            localizer,
-            ct,
-            randomSeed);
-
-        // Areas, departamentos, requisitos e centros de custo
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.AreaDepartmentSeeder
-            .EnsureAsync(db, emailDomain, ct);
-
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.AgendaTypeSeeder
-            .EnsureDefaultAsync(db, localizer, ct);
-
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.AgendaEventSeeder
-            .EnsureEventsAsync(db, tenantId, agendaEventSeedCount, ct, randomSeed);
-
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.UnitSeeder
-            .EnsureAsync(db, ct);
-
-        // Seed de Cargos (JobPositions)
-        await global::RhPortal.Api.Infrastructure.Data.Seeders.JobPositionSeeder
-            .EnsureAsync(db, localizer, ct);
-
-        if (seedVagasEnabled)
-        {
-            await global::RhPortal.Api.Infrastructure.Data.Seeders.VagaSeeder.EnsureAsync(
-                db, tenantId, vagaSeedCount, vagaPatternsFile, vagaRequirementsFile, randomSeed, localizer, ct);
-        }
-
-        if (seedCandidatosEnabled)
-        {
-            await global::RhPortal.Api.Infrastructure.Data.Seeders.CandidatoSeeder.EnsureAsync(
-                db, tenantId, emailDomain, candidatoSeedCount, candidatoSeedPerVaga, randomSeed, ct);
-        }
-
-        if (seedInboxEnabled)
-        {
-            await global::RhPortal.Api.Infrastructure.Data.Seeders.InboxItemSeeder.EnsureAsync(
-                db, tenantId, inboxSeedCount, ct);
-        }
-
-        if (seedPreAdmisoesEnabled)
-        {
-            await global::RhPortal.Api.Infrastructure.Data.Seeders.PreAdmissaoSeeder.EnsureAsync(
-                db, tenantId, randomSeed, ct);
-        }
     }
 
     /// <summary>

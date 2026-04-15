@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm dev *)",
+      "Bash(dotnet run *)",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render_liotecnica -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" ORDER BY \\\\\"MigrationId\\\\\" DESC LIMIT 5;\")",
+      "Bash(rm \"c:/Users/Lucas Algarve/OneDrive - qualiit.com.br/Documentos/GitHub/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Migrations/20260411055438_AddUnidadeLotacaoHierarchyV2.cs\")",
+      "Bash(rm \"c:/Users/Lucas Algarve/OneDrive - qualiit.com.br/Documentos/GitHub/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Migrations/20260411055438_AddUnidadeLotacaoHierarchyV2.Designer.cs\")",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render_liotecnica -c \"\\\\d \\\\\"PreAdmissoes\\\\\"\")",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render -c \"\\\\d \\\\\"PreAdmissoes\\\\\"\")",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" WHERE \\\\\"MigrationId\\\\\" LIKE '%PreAdmissao%' OR \\\\\"MigrationId\\\\\" LIKE '%CamposIntegracao%' OR \\\\\"MigrationId\\\\\" LIKE '%IntegracaoTotvs%';\")",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render_liotecnica -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" WHERE \\\\\"MigrationId\\\\\" LIKE '%CamposIntegracao%';\")",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render -c \"SELECT COUNT\\(*\\) FROM \\\\\"__EFMigrationsHistory\\\\\";\")",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render_liotecnica -c \"SELECT COUNT\\(*\\) FROM \\\\\"__EFMigrationsHistory\\\\\";\")",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" ORDER BY \\\\\"MigrationId\\\\\";\" -t)",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render_liotecnica -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" ORDER BY \\\\\"MigrationId\\\\\";\" -t)",
+      "Read(//tmp/**)",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" ORDER BY \\\\\"MigrationId\\\\\" DESC LIMIT 10;\")",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" WHERE \\\\\"MigrationId\\\\\" LIKE '202603%' ORDER BY \\\\\"MigrationId\\\\\";\")",
+      "Bash(PGPASSWORD=admin \"C:/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d dev_render -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" WHERE \\\\\"MigrationId\\\\\" LIKE '202601%' OR \\\\\"MigrationId\\\\\" LIKE '202602%' ORDER BY \\\\\"MigrationId\\\\\";\")",
+      "Bash(grep -E \"\\\\.cs$|\\\\.Designer\\\\.cs$\")",
+      "Bash(dotnet ef *)",
+      "Bash(dotnet tool *)",
+      "WebSearch",
+      "Bash(grep -n \"class WorkflowRHListQuery\\\\|record WorkflowRHListQuery\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Contracts/WorkflowRH/*.cs)",
+      "Bash(xargs ls:*)",
+      "Bash(dotnet build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(grep -n \"enum SolicitacaoStatus\\\\|enum SolicitacaoVagaStatus\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Domain/Enums/*.cs)",
+      "Bash(grep -n \"modelBuilder.Entity\\\\|^\\\\s*}\\\\s*$\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Infrastructure/Data/AppDbContext.cs)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations"
+    ]
+  }
+}

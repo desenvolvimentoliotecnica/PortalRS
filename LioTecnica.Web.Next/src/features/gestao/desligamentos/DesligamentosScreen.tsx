@@ -18,6 +18,12 @@ import {
     FileText,
     Users,
     Activity,
+    Download,
+    UserCheck,
+    Ban,
+    Copy,
+    Zap,
+    Loader2,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -43,6 +49,7 @@ import {
 import DesligamentoFormModal from "./DesligamentoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -56,6 +63,8 @@ interface SolicitacaoDesligamentoGridRow {
     createdAtUtc: string;
     etapaPendenteLabel: string | null;
     etapaPendenteCom: string | null;
+    etapaPendenteIsQueue?: boolean;
+    etapaPendenteCanAssume?: boolean;
 }
 
 interface SolicitacaoDesligamentoResponse {
@@ -77,7 +86,7 @@ interface SolicitacaoDesligamentoResponse {
     etapas?: EtapaAprovacaoResponse[];
 }
 
-type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -98,13 +107,15 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
-    0: { label: "Rascunho",    color: "bg-zinc-400/15 text-zinc-600",   icon: FileText },
-    1: { label: "Pendente",    color: "bg-amber-500/15 text-amber-700", icon: Clock },
-    2: { label: "Aprovada",    color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    3: { label: "Reprovada",   color: "bg-red-500/15 text-red-700",     icon: XCircle },
-    4: { label: "Ajustes",     color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
-    5: { label: "Cancelada",   color: "bg-zinc-500/15 text-zinc-500",   icon: XCircle },
-    6: { label: "Aguarda Fila", color: "bg-violet-500/15 text-violet-700", icon: Users },
+    0: { label: "Rascunho",       color: "bg-zinc-400/15 text-zinc-600",   icon: FileText },
+    1: { label: "Pendente",       color: "bg-amber-500/15 text-amber-700", icon: Clock },
+    2: { label: "Aprovada",       color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    3: { label: "Reprovada",      color: "bg-red-500/15 text-red-700",     icon: XCircle },
+    4: { label: "Ajustes",        color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
+    5: { label: "Cancelada",      color: "bg-zinc-500/15 text-zinc-500",   icon: XCircle },
+    6: { label: "Aguarda Fila",   color: "bg-violet-500/15 text-violet-700", icon: Users },
+    7: { label: "Em Integração",  color: "bg-blue-500/15 text-blue-700",   icon: Loader2 },
+    8: { label: "Concluída",      color: "bg-teal-500/15 text-teal-700",   icon: CheckCircle2 },
 };
 
 const ETAPA_STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -150,6 +161,17 @@ function etapaStatusBadge(status: string) {
     );
 }
 
+// API serializes SolicitacaoStatus enum as strings (JsonStringEnumConverter).
+// Normalize to number once at load time so all status comparisons work correctly.
+const STATUS_STR_TO_NUM: Record<string, number> = {
+    Rascunho: 0, PendenteAprovacao: 1, Aprovada: 2, Reprovada: 3,
+    AjustesNecessarios: 4, Cancelada: 5, PendenteAprovacaoRh: 6,
+    EmIntegracao: 7, Concluida: 8,
+};
+function normalizeStatus(s: number | string): number {
+    return typeof s === "number" ? s : (STATUS_STR_TO_NUM[s] ?? 0);
+}
+
 function formatDate(iso: string | null | undefined) {
     if (!iso) return "—";
     try {
@@ -168,6 +190,7 @@ function formatDate(iso: string | null | undefined) {
 export default function DesligamentosScreen() {
     const { me } = useAuth();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
+    const isRH = me?.roles?.some((r: string) => r.toLowerCase() === "rh") ?? false;
     const myFuncionarioId = (me as { funcionarioId?: string } | null)?.funcionarioId;
     const myRoles: string[] = (me?.roles ?? []) as string[];
 
@@ -178,6 +201,17 @@ export default function DesligamentosScreen() {
     /* ── filters ── */
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [areaFilter, setAreaFilter] = useState("all");
+    const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
+
+    /* ── bulk selection ── */
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+
+    /* ── inline action dialogs ── */
+    const [rejectTarget, setRejectTarget] = useState<string | null>(null);
+    const [rejectObs, setRejectObs] = useState("");
+    const [changesTarget, setChangesTarget] = useState<string | null>(null);
+    const [changesObs, setChangesObs] = useState("");
 
     /* ── form modal ── */
     const [formOpen, setFormOpen] = useState(false);
@@ -204,9 +238,13 @@ export default function DesligamentosScreen() {
 
     /* ── data loading ── */
     const syncList = useCallback(async () => {
-        const data = await fetchJson<SolicitacaoDesligamentoGridRow[]>(API);
-        setRows(Array.isArray(data) ? data : []);
-    }, []);
+        const params = new URLSearchParams();
+        if (areaFilter !== "all") params.set("areaId", areaFilter);
+        const url = params.toString() ? `${API}?${params.toString()}` : API;
+        const data = await fetchJson<SolicitacaoDesligamentoGridRow[]>(url);
+        setRows(Array.isArray(data) ? data.map(r => ({ ...r, status: normalizeStatus(r.status) })) : []);
+        setSelected(new Set());
+    }, [areaFilter]);
 
     useEffect(() => {
         let alive = true;
@@ -216,6 +254,14 @@ export default function DesligamentosScreen() {
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, [syncList]);
+
+    /* ── fetch areas for filter ── */
+    useEffect(() => {
+        apiFetch("/api/lookup/areas")
+            .then((r) => r.json())
+            .then((d: { id: string; name: string }[]) => setAreas(Array.isArray(d) ? d : []))
+            .catch(() => { });
+    }, []);
 
     /* ── filtering ── */
     const filtered = useMemo(() => {
@@ -311,6 +357,20 @@ export default function DesligamentosScreen() {
         }
     }
 
+    async function assumirEtapa(id: string) {
+        try {
+            await fetchJson(`${API}/${id}/assumir`, { method: "POST" });
+            toast.success("Etapa assumida com sucesso.");
+            await syncList();
+            if (detail?.id === id) {
+                const d = await fetchJson<SolicitacaoDesligamentoResponse>(`${API}/${id}`);
+                setDetail(d);
+            }
+        } catch (e) {
+            toast.error(`Falha ao assumir: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
     async function doApproval(id: string, action: "approve" | "reject" | "request-changes") {
         const labels = { approve: "Aprovada", reject: "Reprovada", "request-changes": "Ajustes solicitados" };
         try {
@@ -339,6 +399,47 @@ export default function DesligamentosScreen() {
         }
     }
 
+    async function cancelSolicitacao(id: string) {
+        if (!(await confirmDialog({
+            title: "Cancelar solicitação",
+            description: "Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.",
+            confirmText: "Cancelar solicitação",
+            destructive: true,
+        }))) return;
+        try {
+            await fetchJson(`${API}/${id}/cancel`, { method: "POST" });
+            toast.success("Solicitação cancelada.");
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha ao cancelar: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
+    async function copySolicitacao(id: string) {
+        try {
+            await fetchJson(`${API}/${id}/copy`, { method: "POST" });
+            toast.success("Cópia criada como rascunho.");
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha ao copiar: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
+    async function efetivarDesligamento(id: string) {
+        if (!(await confirmDialog({
+            title: "Efetivar desligamento",
+            description: "Ao efetivar, a solicitação entra em integração com o TOTVS. O headcount da vaga será liberado após a confirmação da integração. Deseja continuar?",
+            confirmText: "Efetivar",
+        }))) return;
+        try {
+            await fetchJson(`${API}/${id}/efetivar`, { method: "POST" });
+            toast.success("Desligamento efetivado. Aguardando integração TOTVS.");
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha ao efetivar: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
     function handleFormClose() {
         setFormOpen(false);
         setViewId(null);
@@ -350,6 +451,96 @@ export default function DesligamentosScreen() {
         setViewId(null);
         setResubmit(false);
         syncList().catch(() => { });
+    }
+
+    /* ── inline quick actions ── */
+    async function quickApprove(id: string) {
+        try {
+            await fetchJson(`${API}/${id}/approve`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ observacao: null }),
+            });
+            toast.success("Solicitação aprovada!");
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha ao aprovar: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
+    async function quickAssume(id: string) {
+        try {
+            await fetchJson(`${API}/${id}/assumir`, { method: "POST" });
+            toast.success("Etapa assumida com sucesso.");
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha ao assumir: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
+    async function confirmReject() {
+        if (!rejectTarget) return;
+        try {
+            await fetchJson(`${API}/${rejectTarget}/reject`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ observacao: rejectObs || null }),
+            });
+            toast.success("Solicitação reprovada.");
+            setRejectTarget(null);
+            setRejectObs("");
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha ao reprovar: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
+    async function confirmChanges() {
+        if (!changesTarget) return;
+        try {
+            await fetchJson(`${API}/${changesTarget}/request-changes`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ observacao: changesObs || null }),
+            });
+            toast.success("Ajustes solicitados.");
+            setChangesTarget(null);
+            setChangesObs("");
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
+    async function bulkApprove() {
+        const ids = [...selected];
+        await Promise.all(ids.map((id) => quickApprove(id)));
+        setSelected(new Set());
+        await syncList();
+    }
+
+    async function gerarCarta(id: string) {
+        try {
+            const res = await fetchJson<{ url: string }>(`${API}/${id}/carta`, { method: "POST" });
+            window.open(res.url, "_blank");
+        } catch (e) {
+            toast.error(`Falha ao gerar carta: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
+    function exportCsv() {
+        const params = new URLSearchParams();
+        if (areaFilter !== "all") params.set("areaId", areaFilter);
+        if (statusFilter !== "all") params.set("status", statusFilter);
+        apiFetch(`${API}/export?${params.toString()}`)
+            .then((res) => res.blob())
+            .then((blob) => {
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "desligamentos.csv";
+                a.click();
+            })
+            .catch(() => toast.error("Falha ao exportar."));
     }
 
     /* Determine if current user can approve the current pending step */
@@ -401,6 +592,10 @@ export default function DesligamentosScreen() {
                     >
                         <RefreshCw className="size-4" />
                         <span className="hidden sm:inline">Atualizar</span>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={exportCsv}>
+                        <Download className="size-4" />
+                        <span className="hidden sm:inline">Exportar</span>
                     </Button>
                     <Button size="sm" onClick={openNew}>
                         <Plus className="size-4" />
@@ -462,13 +657,50 @@ export default function DesligamentosScreen() {
                             <option value="3">Reprovada</option>
                             <option value="4">Ajustes</option>
                             <option value="6">Aguarda Fila</option>
+                            <option value="7">Em Integração</option>
+                            <option value="8">Concluída</option>
                         </select>
+                        {areas.length > 0 && (
+                            <select
+                                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                value={areaFilter}
+                                onChange={(e) => setAreaFilter(e.target.value)}
+                            >
+                                <option value="all">Todas áreas</option>
+                                {areas.map((a) => (
+                                    <option key={a.id} value={a.id}>{a.name}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                 </div>
+
+                {selected.size > 0 && (
+                    <div className="mb-3 flex items-center gap-3 rounded-lg bg-primary/5 border border-primary/20 px-4 py-2">
+                        <span className="text-sm font-medium">{selected.size} selecionada(s)</span>
+                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-7 px-3 text-xs" onClick={() => void bulkApprove()}>
+                            <CheckCircle2 className="size-3 mr-1" /> Aprovar todas
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-3 text-xs" onClick={() => setSelected(new Set())}>
+                            Limpar seleção
+                        </Button>
+                    </div>
+                )}
 
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-10">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-border"
+                                    checked={selected.size > 0 && filtered.filter(r => r.etapaPendenteCanAssume).every(r => selected.has(r.id))}
+                                    onChange={(e) => {
+                                        const eligible = filtered.filter(r => r.etapaPendenteCanAssume).map(r => r.id);
+                                        setSelected(e.target.checked ? new Set(eligible) : new Set());
+                                    }}
+                                />
+                            </TableHead>
                             <TableHead>Funcionário</TableHead>
                             <TableHead>Tipo</TableHead>
                             <TableHead>Data Desligamento</TableHead>
@@ -481,13 +713,28 @@ export default function DesligamentosScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
                         ) : filtered.length ? (
                             filtered.map((r) => (
                                 <TableRow key={r.id} className="hover:bg-muted/40">
+                                    <TableCell>
+                                        {r.etapaPendenteCanAssume ? (
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-border"
+                                                checked={selected.has(r.id)}
+                                                onChange={(e) => {
+                                                    const next = new Set(selected);
+                                                    if (e.target.checked) next.add(r.id); else next.delete(r.id);
+                                                    setSelected(next);
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        ) : null}
+                                    </TableCell>
                                     <TableCell>
                                         <div className="font-semibold">{r.funcionarioNome || "—"}</div>
                                         {r.solicitanteNome && (
@@ -498,10 +745,16 @@ export default function DesligamentosScreen() {
                                     <TableCell className="text-sm">{formatDate(r.dataDesligamento)}</TableCell>
                                     <TableCell>{statusBadge(r.status)}</TableCell>
                                     <TableCell>
-                                        {(r.status === 1 || r.status === 6) && r.etapaPendenteCom ? (
+                                        {(r.status === 1 || r.status === 6) && r.etapaPendenteLabel ? (
                                             <div className="text-xs leading-tight">
                                                 <div className="text-muted-foreground">{r.etapaPendenteLabel}</div>
-                                                <div className="font-medium truncate max-w-[140px]" title={r.etapaPendenteCom}>{r.etapaPendenteCom}</div>
+                                                {r.etapaPendenteCom ? (
+                                                    <div className="font-medium truncate max-w-[140px]" title={r.etapaPendenteCom}>{r.etapaPendenteCom}</div>
+                                                ) : (
+                                                    <div className="font-medium">{
+                                                        r.etapaPendenteIsQueue ? "Aguardando consenso" : "Aguardando"
+                                                    }</div>
+                                                )}
                                             </div>
                                         ) : (
                                             <span className="text-muted-foreground text-xs">—</span>
@@ -535,18 +788,89 @@ export default function DesligamentosScreen() {
                                                     </Button>
                                                 </>
                                             )}
-                                            {/* Pendente: editar e reenviar */}
-                                            {r.status === 1 && (
+                                            {/* Pendente: ações inline se pode aprovar, senão editar */}
+                                            {r.status === 1 && r.etapaPendenteCanAssume ? (
+                                                <div className="flex items-center gap-1 flex-wrap">
+                                                    <Button size="sm" variant="outline"
+                                                        className="h-7 px-2 text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
+                                                        <CheckCircle2 className="size-3 mr-1" /> Aprovar
+                                                    </Button>
+                                                    {r.etapaPendenteIsQueue && (
+                                                        <Button size="sm" variant="outline"
+                                                            className="h-7 px-2 text-xs text-blue-700 border-blue-300 hover:bg-blue-50"
+                                                            onClick={(e) => { e.stopPropagation(); void quickAssume(r.id); }}>
+                                                            <UserCheck className="size-3 mr-1" /> Assumir
+                                                        </Button>
+                                                    )}
+                                                    <Button size="sm" variant="outline"
+                                                        className="h-7 px-2 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
+                                                        <AlertTriangle className="size-3 mr-1" /> Ajustes
+                                                    </Button>
+                                                    <Button size="sm" variant="outline"
+                                                        className="h-7 px-2 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
+                                                        <XCircle className="size-3 mr-1" /> Reprovar
+                                                    </Button>
+                                                </div>
+                                            ) : r.status === 1 ? (
                                                 <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
                                                     <Pencil />
                                                 </Button>
+                                            ) : null}
+                                            {/* Aprovada: efetivar (RH/Admin) + visualizar + gerar carta */}
+                                            {r.status === 2 && (
+                                                <>
+                                                    {(isAdmin || isRH) && (
+                                                        <Button
+                                                            size="sm"
+                                                            className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                                                            title="Efetivar desligamento"
+                                                            onClick={(e) => { e.stopPropagation(); void efetivarDesligamento(r.id); }}
+                                                        >
+                                                            <Zap className="size-3 mr-1" /> Efetivar
+                                                        </Button>
+                                                    )}
+                                                    <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                                        <Eye />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Gerar carta" onClick={() => void gerarCarta(r.id)}>
+                                                        <FileText />
+                                                    </Button>
+                                                </>
                                             )}
-                                            {/* Aprovada/Reprovada: visualizar */}
-                                            {(r.status === 2 || r.status === 3) && (
+                                            {/* Em Integração: visualizar */}
+                                            {r.status === 7 && (
                                                 <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
                                                     <Eye />
                                                 </Button>
                                             )}
+                                            {/* Concluída: visualizar */}
+                                            {r.status === 8 && (
+                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                                    <Eye />
+                                                </Button>
+                                            )}
+                                            {/* Reprovada: visualizar */}
+                                            {r.status === 3 && (
+                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                                    <Eye />
+                                                </Button>
+                                            )}
+                                            {/* Cancelar: pendente ou ajustes */}
+                                            {(r.status === 1 || r.status === 4) && (
+                                                <Button variant="outline" size="icon-xs" title="Cancelar solicitação"
+                                                    className="hover:text-red-600 hover:border-red-300"
+                                                    onClick={(e) => { e.stopPropagation(); void cancelSolicitacao(r.id); }}>
+                                                    <Ban />
+                                                </Button>
+                                            )}
+                                            {/* Copiar: todos os status */}
+                                            <Button variant="outline" size="icon-xs" title="Copiar solicitação"
+                                                onClick={(e) => { e.stopPropagation(); void copySolicitacao(r.id); }}>
+                                                <Copy />
+                                            </Button>
                                             {/* Acompanhamento: todas as linhas */}
                                             <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
                                                 <Activity />
@@ -557,7 +881,7 @@ export default function DesligamentosScreen() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                                     Nenhuma solicitação de desligamento encontrada.
                                 </TableCell>
                             </TableRow>
@@ -756,6 +1080,48 @@ export default function DesligamentosScreen() {
                             )}
                         </div>
                     ) : null}
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Reject Dialog ── */}
+            <Dialog open={!!rejectTarget} onOpenChange={(open) => { if (!open) { setRejectTarget(null); setRejectObs(""); } }}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Reprovar solicitação</DialogTitle>
+                        <DialogDescription>Informe o motivo da reprovação (opcional).</DialogDescription>
+                    </DialogHeader>
+                    <textarea
+                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
+                        rows={3}
+                        placeholder="Observação…"
+                        value={rejectObs}
+                        onChange={(e) => setRejectObs(e.target.value)}
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setRejectTarget(null); setRejectObs(""); }}>Cancelar</Button>
+                        <Button variant="destructive" onClick={() => void confirmReject()}>Reprovar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Request Changes Dialog ── */}
+            <Dialog open={!!changesTarget} onOpenChange={(open) => { if (!open) { setChangesTarget(null); setChangesObs(""); } }}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Solicitar ajustes</DialogTitle>
+                        <DialogDescription>Descreva os ajustes necessários.</DialogDescription>
+                    </DialogHeader>
+                    <textarea
+                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
+                        rows={3}
+                        placeholder="Observação…"
+                        value={changesObs}
+                        onChange={(e) => setChangesObs(e.target.value)}
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setChangesTarget(null); setChangesObs(""); }}>Cancelar</Button>
+                        <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void confirmChanges()}>Solicitar ajustes</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

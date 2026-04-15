@@ -6,7 +6,9 @@ namespace RhPortal.Api.Contracts.SolicitacoesDesligamento;
 public sealed record SolicitacaoDesligamentoListQuery(
     string? Q,
     SolicitacaoStatus? Status,
+    SolicitacaoStatus[]? Statuses,
     bool? ApenasMeus,
+    Guid? AreaId,
     int? Page,
     int? PageSize
 );
@@ -123,5 +125,6 @@ public sealed record SolicitacaoDesligamentoGridRow(
     string? EtapaPendenteCom,
     bool EtapaPendenteIsQueue,
     Guid? EtapaPendenteAprovadorId,
+    Guid? EtapaPendenteAssumedByUserId,
     bool EtapaPendenteCanAssume
 );

@@ -6,6 +6,7 @@ using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Entities;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Application.WorkflowRH;
 
@@ -52,6 +53,12 @@ public sealed class WorkflowRHService : IWorkflowRHService
             .Include(w => w.Responsavel)
             .Include(w => w.Etapas)
             .AsQueryable();
+
+        // Excluir workflows órfãos de TriagemVaga (vaga foi excluída → VagaId virou null)
+        q = q.Where(w => w.TipoWorkflow != TipoWorkflowRH.TriagemVaga || w.VagaId != null);
+
+        // Excluir workflows cujas vagas estão canceladas
+        q = q.Where(w => w.VagaId == null || w.Vaga!.Status != VagaStatus.Cancelada);
 
         if (query.TipoWorkflow.HasValue)
             q = q.Where(w => w.TipoWorkflow == (TipoWorkflowRH)query.TipoWorkflow.Value);
