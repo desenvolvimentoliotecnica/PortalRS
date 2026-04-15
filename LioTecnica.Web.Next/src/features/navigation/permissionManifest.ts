@@ -61,6 +61,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-categorias",                label: "Funções",                     href: "/categorias",                     icon: "tags",             permission: "categories.view" },
     { id: "nav-cargos",                    label: "Cargos",                      href: "/cargos",                         icon: "briefcase",        permission: "jobpositions.view" },
     { id: "nav-unidades",                  label: "Unidades",                    href: "/unidades",                       icon: "map-pin",          permission: "units.view" },
+    { id: "nav-pessoas",                   label: "Pessoas",                     href: "/pessoas",                        icon: "user",             permission: "funcionarios.view" },
     { id: "nav-funcionarios",              label: "Funcionários",                href: "/funcionarios",                   icon: "users",            permission: "funcionarios.view" },
     { id: "nav-relatorios",                label: "Relatórios",                  href: "/relatorios",                     icon: "pie-chart",        permission: "relatorios.view" },
 
