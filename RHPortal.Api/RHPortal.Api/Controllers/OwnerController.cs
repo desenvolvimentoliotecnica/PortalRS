@@ -1,6 +1,9 @@
 using System.Security.Claims;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Funcionarios.Handlers;
@@ -249,6 +252,78 @@ public sealed class OwnerController : ControllerBase
                 Detail = ex.Message,
                 Extensions = { ["inner"] = ex.InnerException?.Message }
             });
+        }
+    }
+
+    /// <summary>Aplica migrações pendentes via SSE, emitindo uma linha de log por migration.</summary>
+    [HttpGet("tenants/{tenantId}/migrations/apply-stream")]
+    public async Task ApplyTenantMigrationsStream(string tenantId, CancellationToken ct)
+    {
+        Response.Headers["Content-Type"] = "text/event-stream";
+        Response.Headers["Cache-Control"] = "no-cache";
+        Response.Headers["X-Accel-Buffering"] = "no"; // desabilita buffer do nginx
+
+        async Task Send(object data)
+        {
+            var json = JsonSerializer.Serialize(data);
+            await Response.WriteAsync($"data: {json}\n\n", ct);
+            await Response.Body.FlushAsync(ct);
+        }
+
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+        {
+            await Send(new { step = "error", message = "TenantId inválido." });
+            return;
+        }
+
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == id, ct);
+        if (!exists)
+        {
+            await Send(new { step = "error", message = $"Tenant '{id}' não encontrado." });
+            return;
+        }
+
+        try
+        {
+            using var scope = _scope.CreateScope();
+            var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+            tenantContext.SetTenantId(id);
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var pending = (await db.Database.GetPendingMigrationsAsync(ct)).ToList();
+            await Send(new { step = "start", total = pending.Count });
+
+            if (pending.Count == 0)
+            {
+                await Send(new { step = "done", applied = 0, message = "Nenhuma migration pendente." });
+                return;
+            }
+
+            var migrator = db.GetInfrastructure().GetRequiredService<IMigrator>();
+            int applied = 0;
+
+            foreach (var migration in pending)
+            {
+                await Send(new { step = "running", name = migration });
+                try
+                {
+                    await migrator.MigrateAsync(migration, ct);
+                    applied++;
+                    await Send(new { step = "ok", name = migration, applied });
+                }
+                catch (Exception ex)
+                {
+                    await Send(new { step = "error", name = migration, message = ex.Message, inner = ex.InnerException?.Message });
+                    return;
+                }
+            }
+
+            await Send(new { step = "done", applied, message = $"{applied} migration(s) aplicada(s) com sucesso." });
+        }
+        catch (Exception ex)
+        {
+            try { await Send(new { step = "error", message = ex.Message }); } catch { /* stream fechado */ }
         }
     }
 

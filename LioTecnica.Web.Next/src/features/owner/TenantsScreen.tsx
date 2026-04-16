@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import {
@@ -14,6 +14,10 @@ import {
     Loader2,
     Search,
     RotateCcw,
+    ScrollText,
+    CheckCircle2,
+    XCircle,
+    Circle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -167,6 +171,14 @@ function ActiveBadge({ active }: { active: boolean }) {
 
 /* ─── Main Component ─── */
 
+type LogLine = { type: "info" | "running" | "ok" | "error" | "done"; text: string };
+type MigrationLogState = {
+    open: boolean;
+    tenantId: string | null;
+    lines: LogLine[];
+    status: "idle" | "running" | "done" | "error";
+};
+
 export default function TenantsScreen() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<TenantWithStatus[]>([]);
@@ -178,6 +190,12 @@ export default function TenantsScreen() {
     const [newTenantId, setNewTenantId] = useState("");
     const [newName, setNewName] = useState("");
     const [creating, setCreating] = useState(false);
+
+    // Migration log modal
+    const [migLog, setMigLog] = useState<MigrationLogState>({
+        open: false, tenantId: null, lines: [], status: "idle",
+    });
+    const logBottomRef = useRef<HTMLDivElement>(null);
 
     /* ─── Fetch list ─── */
     async function syncList() {
@@ -320,20 +338,68 @@ export default function TenantsScreen() {
         }
     }
 
-    async function handleApplyMigrations(tenantId: string) {
-        setBusy(tenantId);
-        try {
-            const result = await fetchJson<{ appliedCount: number }>(
-                `/api/owner/tenants/${encodeURIComponent(tenantId)}/migrations/apply`,
-                { method: "POST" },
-            );
-            toast.success(`Migrações aplicadas (${result?.appliedCount ?? 0}).`);
-            await syncList();
-        } catch (err) {
-            toast.error(`Erro: ${(err as Error).message}`);
-        } finally {
-            setBusy(null);
-        }
+    function handleOpenMigrationLogs(tenantId: string) {
+        setMigLog({ open: true, tenantId, lines: [], status: "running" });
+
+        const addLine = (line: LogLine) =>
+            setMigLog((prev) => ({ ...prev, lines: [...prev.lines, line] }));
+
+        (async () => {
+            setBusy(tenantId);
+            try {
+                const res = await apiFetch(
+                    `/api/owner/tenants/${encodeURIComponent(tenantId)}/migrations/apply-stream`,
+                    { cache: "no-store" },
+                    10 * 60_000,
+                );
+                if (!res.ok || !res.body) {
+                    addLine({ type: "error", text: `Erro HTTP ${res.status}` });
+                    setMigLog((prev) => ({ ...prev, status: "error" }));
+                    return;
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const chunks = buffer.split("\n\n");
+                    buffer = chunks.pop() ?? "";
+                    for (const chunk of chunks) {
+                        const raw = chunk.replace(/^data:\s*/, "").trim();
+                        if (!raw) continue;
+                        try {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const ev = JSON.parse(raw) as Record<string, any>;
+                            if (ev.step === "start") {
+                                addLine({ type: "info", text: `${ev.total} migration(s) pendente(s). Iniciando...` });
+                            } else if (ev.step === "running") {
+                                addLine({ type: "running", text: `⏳ Aplicando: ${ev.name}` });
+                            } else if (ev.step === "ok") {
+                                addLine({ type: "ok", text: `✔ OK: ${ev.name}` });
+                            } else if (ev.step === "done") {
+                                addLine({ type: "done", text: ev.message ?? "Concluído." });
+                                setMigLog((prev) => ({ ...prev, status: "done" }));
+                                await syncList();
+                            } else if (ev.step === "error") {
+                                const detail = [ev.name, ev.message, ev.inner].filter(Boolean).join(" — ");
+                                addLine({ type: "error", text: `✖ ERRO: ${detail}` });
+                                setMigLog((prev) => ({ ...prev, status: "error" }));
+                                await syncList();
+                            }
+                        } catch { /* linha mal formada, ignorar */ }
+                    }
+                }
+            } catch (err) {
+                addLine({ type: "error", text: `Conexão encerrada: ${(err as Error).message}` });
+                setMigLog((prev) => ({ ...prev, status: "error" }));
+            } finally {
+                setBusy(null);
+            }
+        })();
     }
 
     async function handleSeed(tenantId: string) {
@@ -380,6 +446,11 @@ export default function TenantsScreen() {
             setBusy(null);
         }
     }
+
+    // Auto-scroll para o final do log conforme chegam novas linhas
+    useEffect(() => {
+        logBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [migLog.lines]);
 
     /* ─── Render ─── */
     return (
@@ -512,21 +583,22 @@ export default function TenantsScreen() {
                                                         </Button>
                                                     )}
 
-                                                    {t.isActive && t.isUpToDate === false &&
-                                                        t.pendingCount > 0 &&
-                                                        !t.migrationError && (
+                                                    {t.isActive && (t.isUpToDate === false || t.migrationError) && (
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                onClick={() => handleApplyMigrations(t.tenantId)}
+                                                                onClick={() => handleOpenMigrationLogs(t.tenantId)}
                                                                 disabled={busy === t.tenantId}
+                                                                className={t.migrationError ? "border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950" : ""}
                                                             >
                                                                 {busy === t.tenantId ? (
                                                                     <Loader2 className="size-3.5 animate-spin" />
                                                                 ) : (
-                                                                    <Database className="size-3.5" />
+                                                                    <ScrollText className="size-3.5" />
                                                                 )}
-                                                                <span className="hidden lg:inline">Migrar</span>
+                                                                <span className="hidden lg:inline">
+                                                                    {t.migrationError ? "Ver erro" : "Migrar"}
+                                                                </span>
                                                             </Button>
                                                         )}
 
@@ -559,6 +631,95 @@ export default function TenantsScreen() {
                     </CardFooter>
                 )}
             </Card>
+
+            {/* ── Migration Log Dialog ── */}
+            <Dialog
+                open={migLog.open}
+                onOpenChange={(open) => {
+                    if (!open && migLog.status === "running") return; // impede fechar enquanto roda
+                    setMigLog((prev) => ({ ...prev, open }));
+                }}
+            >
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Database className="size-5" />
+                            Migração — <code className="text-sm font-mono">{migLog.tenantId}</code>
+                        </DialogTitle>
+                        <DialogDescription>
+                            Acompanhe o progresso das migrações em tempo real.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {/* Console */}
+                    <div className="bg-zinc-950 rounded-lg border border-zinc-800 h-72 overflow-y-auto p-3 font-mono text-xs leading-5">
+                        {migLog.lines.length === 0 && migLog.status === "running" && (
+                            <span className="text-zinc-500 flex items-center gap-2">
+                                <Loader2 className="size-3 animate-spin" /> Conectando...
+                            </span>
+                        )}
+                        {migLog.lines.map((line, i) => {
+                            const color =
+                                line.type === "ok" ? "text-emerald-400" :
+                                line.type === "error" ? "text-red-400" :
+                                line.type === "done" ? "text-sky-400" :
+                                line.type === "running" ? "text-amber-400" :
+                                "text-zinc-400";
+                            const Icon =
+                                line.type === "ok" ? CheckCircle2 :
+                                line.type === "error" ? XCircle :
+                                line.type === "done" ? CheckCircle2 :
+                                line.type === "running" ? Circle :
+                                null;
+                            return (
+                                <div key={i} className={`flex items-start gap-1.5 ${color}`}>
+                                    {Icon && <Icon className="size-3 mt-0.5 shrink-0" />}
+                                    <span className="break-all">{line.text}</span>
+                                </div>
+                            );
+                        })}
+                        {migLog.status === "running" && migLog.lines.length > 0 && (
+                            <span className="text-zinc-500 flex items-center gap-2 mt-1">
+                                <Loader2 className="size-3 animate-spin" /> aguardando...
+                            </span>
+                        )}
+                        <div ref={logBottomRef} />
+                    </div>
+
+                    <DialogFooter>
+                        {migLog.status === "running" ? (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                <Loader2 className="size-3 animate-spin" /> Aplicando migrações...
+                            </span>
+                        ) : migLog.status === "done" ? (
+                            <span className="text-xs text-emerald-600 font-medium flex items-center gap-1.5">
+                                <CheckCircle2 className="size-3.5" /> Concluído com sucesso
+                            </span>
+                        ) : migLog.status === "error" ? (
+                            <span className="text-xs text-red-600 font-medium flex items-center gap-1.5">
+                                <XCircle className="size-3.5" /> Erro durante a migração
+                            </span>
+                        ) : null}
+                        <Button
+                            variant="outline"
+                            onClick={() => setMigLog((prev) => ({ ...prev, open: false }))}
+                            disabled={migLog.status === "running"}
+                        >
+                            Fechar
+                        </Button>
+                        {(migLog.status === "done" || migLog.status === "error") && migLog.tenantId && (
+                            <Button
+                                onClick={() => {
+                                    setMigLog({ open: true, tenantId: migLog.tenantId, lines: [], status: "running" });
+                                    handleOpenMigrationLogs(migLog.tenantId!);
+                                }}
+                            >
+                                <RotateCcw className="size-3.5" /> Tentar novamente
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* ── Create Dialog ── */}
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
