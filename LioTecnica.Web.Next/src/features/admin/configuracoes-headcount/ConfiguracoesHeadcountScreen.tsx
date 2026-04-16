@@ -24,10 +24,11 @@ export default function ConfiguracoesHeadcountScreen() {
     const [diasAlerta, setDiasAlerta] = useState(60);
 
     useEffect(() => {
-        apiFetch<ConfiguracaoHeadcountDto>("/api/admin/configuracoes-headcount")
+        apiFetch("/api/admin/configuracoes-headcount")
             .then((data) => {
-                setDiasProvisao(data.diasProvisaoSubstituicao);
-                setDiasAlerta(data.diasAlertaVagaSemFill);
+                const dto = data as ConfiguracaoHeadcountDto;
+                setDiasProvisao(dto.diasProvisaoSubstituicao);
+                setDiasAlerta(dto.diasAlertaVagaSemFill);
             })
             .catch(() => toast.error("Erro ao carregar configurações de headcount."))
             .finally(() => setLoading(false));
