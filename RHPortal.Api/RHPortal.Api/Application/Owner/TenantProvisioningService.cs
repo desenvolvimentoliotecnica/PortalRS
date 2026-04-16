@@ -387,7 +387,6 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await AreaDepartmentSeeder.EnsureAsync(db, emailDomain, ct);
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
-        await JobPositionSeeder.EnsureAsync(db, localizer, ct);
     }
 
     private async Task RunSeedAsync(string tenantId, IServiceProvider scopedProvider, CancellationToken ct)
@@ -402,6 +401,5 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await AreaDepartmentSeeder.EnsureAsync(db, emailDomain, ct);
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
-        await JobPositionSeeder.EnsureAsync(db, localizer, ct);
     }
 }
