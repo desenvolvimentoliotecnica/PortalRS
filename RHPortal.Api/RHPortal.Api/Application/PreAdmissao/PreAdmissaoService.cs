@@ -17,7 +17,7 @@ public interface IPreAdmissaoService
     Task<IReadOnlyList<PreAdmissaoGridRow>> ListAsync(PreAdmissaoListQuery query, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<PreAdmissaoDetailResponse> CreateAsync(PreAdmissaoCreateRequest request, CancellationToken ct);
-    Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest request, CancellationToken ct);
+    Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest request, bool isPrivileged, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> SubmitAsync(Guid id, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> ApproveAsync(Guid id, Guid aprovadorId, PreAdmissaoApproveRequest request, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> RejectAsync(Guid id, PreAdmissaoRejectRequest request, CancellationToken ct);
@@ -160,12 +160,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     // ── Update ──
 
-    public async Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest r, CancellationToken ct)
+    public async Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest r, bool isPrivileged, CancellationToken ct)
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.Enviado)
-            throw new InvalidOperationException("Só é possível editar pré-admissões em rascunho.");
+
+        var isDraft = e.Status == PreAdmissaoStatus.Rascunho || e.Status == PreAdmissaoStatus.Enviado;
+        var isPostFill = e.Status is PreAdmissaoStatus.Acessado or PreAdmissaoStatus.PreenchidoParcial or PreAdmissaoStatus.Preenchido;
+
+        if (!isDraft && !(isPostFill && isPrivileged))
+            throw new InvalidOperationException("Não é possível editar uma admissão neste status.");
 
         // Pessoal
         e.Nome = r.Nome.Trim();
@@ -312,8 +316,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.Enviado)
-            throw new InvalidOperationException("Só rascunhos podem ser submetidos.");
+        var submissíveis = new[]
+        {
+            PreAdmissaoStatus.Rascunho,
+            PreAdmissaoStatus.Enviado,
+            PreAdmissaoStatus.Acessado,
+            PreAdmissaoStatus.PreenchidoParcial,
+            PreAdmissaoStatus.Preenchido,
+        };
+        if (!submissíveis.Contains(e.Status))
+            throw new InvalidOperationException("Não é possível submeter uma admissão neste status.");
 
         // Run validations
         e.ValidacaoCpfOk = ValidarCpf(e.Cpf);

@@ -253,6 +253,23 @@ public sealed class DocumentAiExtractor
         _ => "Documento"
     };
 
+    /// <summary>
+    /// Retorna true se o tipo detectado pela IA corresponde ao tipo esperado.
+    /// Compara a primeira palavra-chave do label (ex: "RG" de "RG (Registro Geral)").
+    /// </summary>
+    private static bool DocumentTypeMatches(string detected, string expected)
+    {
+        if (string.IsNullOrWhiteSpace(detected) || string.IsNullOrWhiteSpace(expected))
+            return false;
+
+        var d = detected.ToUpperInvariant();
+        var e = expected.ToUpperInvariant();
+
+        // Extrai a primeira sigla/palavra do label esperado (ex: "RG", "CNH", "CPF")
+        var keyword = e.Split([' ', '(', ')'], StringSplitOptions.RemoveEmptyEntries)[0];
+        return d.Contains(keyword);
+    }
+
     private DocumentValidationResponse ParseResponse(string content, string fallbackType)
     {
         try
@@ -274,6 +291,14 @@ public sealed class DocumentAiExtractor
             var confidence = root.TryGetProperty("confidence", out var conf) ? conf.GetSingle() : 0f;
             var documentType = root.TryGetProperty("documentType", out var dt) ? dt.GetString() ?? fallbackType : fallbackType;
             var validationMessage = root.TryGetProperty("validationMessage", out var vm) ? vm.GetString() : null;
+
+            // Se a IA identificou o tipo correto mas marcou isValid=false (resposta contraditória),
+            // override para válido: documento do tipo correto é aceito mesmo com extração parcial.
+            if (!isValid && DocumentTypeMatches(documentType, fallbackType))
+            {
+                isValid = true;
+                validationMessage = null;
+            }
 
             var extractedFields = new Dictionary<string, string?>();
             if (root.TryGetProperty("extractedFields", out var fields) && fields.ValueKind == JsonValueKind.Object)

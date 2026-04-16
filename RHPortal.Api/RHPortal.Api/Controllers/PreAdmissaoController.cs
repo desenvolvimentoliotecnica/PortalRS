@@ -63,7 +63,8 @@ public sealed class PreAdmissaoController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(Guid id, [FromBody] PreAdmissaoUpdateRequest request, CancellationToken ct)
     {
-        var result = await _service.UpdateAsync(id, request, ct);
+        var isPrivileged = _userContext.IsRH || _userContext.IsAdmin;
+        var result = await _service.UpdateAsync(id, request, isPrivileged, ct);
         return result is null ? NotFound() : Ok(result);
     }
 

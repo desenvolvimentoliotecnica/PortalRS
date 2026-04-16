@@ -17,9 +17,49 @@ public sealed class AdmissaoPortalController : ControllerBase
 {
     private readonly IAdmissaoPortalService _service;
 
-    public AdmissaoPortalController(IAdmissaoPortalService service) => _service = service;
+    public AdmissaoPortalController(IAdmissaoPortalService service)
+    {
+        _service = service;
+    }
 
     private string? GetCpf() => Request.Headers.TryGetValue("X-Cpf", out var v) ? v.ToString() : null;
+
+    /// <summary>Blip: retorna todos os documentos vinculados ao candidato pelo CPF ou Telefone.</summary>
+    [HttpGet("blip/documentos")]
+    [ProducesResponseType(typeof(BlipDocumentosResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDocumentosBlip(
+        [FromQuery] string? cpf, [FromQuery] string? telefone, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(cpf) && string.IsNullOrWhiteSpace(telefone))
+            return BadRequest(new { message = "Informe cpf ou telefone." });
+
+        var result = await _service.GetDocumentosByIdentificadorAsync(cpf, telefone, ct);
+        return result is null
+            ? NotFound(new { message = "Nenhuma admissão ativa encontrada para o identificador informado." })
+            : Ok(result);
+    }
+
+    /// <summary>Blip: candidato envia um documento (base64). Retorna a lista atualizada de pendentes.</summary>
+    [HttpPost("blip/documentos")]
+    [ProducesResponseType(typeof(BlipDocumentosResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [RequestSizeLimit(15 * 1024 * 1024)]
+    public async Task<IActionResult> PostDocumentoBlip(
+        [FromBody] BlipUploadDocumentoRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Cpf))
+            return BadRequest(new { message = "CPF obrigatório." });
+        if (string.IsNullOrWhiteSpace(request.Base64))
+            return BadRequest(new { message = "Base64 do documento obrigatório." });
+
+        var result = await _service.UploadDocBlipAsync(request, ct);
+        return result is null
+            ? NotFound(new { message = "Nenhuma admissão ativa encontrada para o CPF informado." })
+            : Ok(result);
+    }
 
     /// <summary>Candidato faz login com CPF para acessar o portal de documentos.</summary>
     [HttpPost("login")]
