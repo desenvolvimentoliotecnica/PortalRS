@@ -14,9 +14,7 @@ public sealed record UnidadeLotacaoCreateRequest(
     int Level,
     int? SequenceNumber,
     // Responsável
-    Guid? OwnerFuncionarioId,
-    // TOTVS
-    [MaxLength(10)] string? CdnPlanoLotac
+    Guid? OwnerFuncionarioId
 );
 
 public sealed record UnidadeLotacaoUpdateRequest(
@@ -31,9 +29,7 @@ public sealed record UnidadeLotacaoUpdateRequest(
     int Level,
     int? SequenceNumber,
     // Responsável
-    Guid? OwnerFuncionarioId,
-    // TOTVS
-    [MaxLength(10)] string? CdnPlanoLotac
+    Guid? OwnerFuncionarioId
 );
 
 public sealed record UnidadeLotacaoResponse(

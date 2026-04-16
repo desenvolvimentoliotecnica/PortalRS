@@ -21,6 +21,23 @@ public sealed class AdmissaoPortalController : ControllerBase
 
     private string? GetCpf() => Request.Headers.TryGetValue("X-Cpf", out var v) ? v.ToString() : null;
 
+    /// <summary>Blip: retorna todos os documentos vinculados ao candidato pelo CPF ou Telefone.</summary>
+    [HttpGet("blip/documentos")]
+    [ProducesResponseType(typeof(BlipDocumentosResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDocumentosBlip(
+        [FromQuery] string? cpf, [FromQuery] string? telefone, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(cpf) && string.IsNullOrWhiteSpace(telefone))
+            return BadRequest(new { message = "Informe cpf ou telefone." });
+
+        var result = await _service.GetDocumentosByIdentificadorAsync(cpf, telefone, ct);
+        return result is null
+            ? NotFound(new { message = "Nenhuma admissão ativa encontrada para o identificador informado." })
+            : Ok(result);
+    }
+
     /// <summary>Candidato faz login com CPF para acessar o portal de documentos.</summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(AdmissaoPortalLoginResponse), StatusCodes.Status200OK)]

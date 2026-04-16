@@ -187,3 +187,23 @@ public sealed record DependenteUpdateRequest(
 // ── Wizard progress ──
 
 public sealed record WizardProgressRequest(int CurrentStep, int CompletionPercent);
+
+// ── Blip: consulta por CPF ou Telefone ──
+
+public sealed record BlipDocumentosResponse(
+    Guid PreAdmissaoId,
+    string Nome,
+    List<BlipDocumentoItem> Documentos
+);
+
+public sealed record BlipDocumentoItem(
+    int Tipo,
+    string Label,
+    bool Obrigatorio,
+    bool JaEnviado,
+    List<BlipDocumentoEnviadoItem> Enviados
+);
+
+/// <param name="Lado">0=Único, 1=Frente, 2=Verso</param>
+/// <param name="Status">0=Pendente, 1=Aprovado, 2=Rejeitado</param>
+public sealed record BlipDocumentoEnviadoItem(int Lado, string NomeArquivo, int Status);
