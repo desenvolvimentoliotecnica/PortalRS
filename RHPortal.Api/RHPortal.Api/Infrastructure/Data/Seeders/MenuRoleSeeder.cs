@@ -8,6 +8,11 @@ using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Infrastructure.Data.Seeders;
 
+/// <summary>
+/// Ensures default roles exist for every tenant.
+/// RoleMenus seeding was removed — permissions are code-first via RolePermissionManifest.
+/// This seeder only guarantees the role rows exist in AspNetRoles so admins can assign them.
+/// </summary>
 public static class MenuRoleSeeder
 {
     public static async Task EnsureDefaultMenusAsync(
@@ -31,143 +36,79 @@ public static class MenuRoleSeeder
             if (adminRole is null)
                 continue;
 
+            // Keep menu definitions up to date (used by admin UI for display)
             await MenuSeeder.EnsureAsync(db, adminRole, localizer, ct);
-            await EnsureOperationalRoleMenusAsync(db, roleManager, localizer, ct);
-            await EnsureGestorAndRecruiterRoleMenusAsync(db, roleManager, localizer, ct);
+
+            // Ensure standard roles exist so admins can assign them to users
+            await EnsureRolesExistAsync(roleManager, localizer, ct);
         }
     }
 
-    private static async Task EnsureGestorAndRecruiterRoleMenusAsync(
-        AppDbContext db,
+    /// <summary>
+    /// Ensures Operacional, Gestor, and Recrutador roles exist in the tenant.
+    /// Does NOT write to RoleMenus — permissions come from RolePermissionManifest.
+    /// </summary>
+    private static async Task EnsureRolesExistAsync(
         RoleManager<ApplicationRole> roleManager,
         IStringLocalizer<SeedMessages> localizer,
         CancellationToken ct)
     {
-        var operationalMenus = await db.Menus
-            .AsNoTracking()
-            .Where(x => x.IsActive
-                        && !string.IsNullOrWhiteSpace(x.Route)
-                        && !string.IsNullOrWhiteSpace(x.PermissionKey)
-                        && !x.Route.ToLower().StartsWith("/admin"))
-            .Select(x => new { x.Id, x.PermissionKey })
-            .ToListAsync(ct);
-
-        if (operationalMenus.Count == 0)
-            return;
-
-        foreach (var (roleName, descriptionKey) in new[] { ("Gestor", "Seed.GestorRoleDescription"), ("Recrutador", "Seed.RecruiterRoleDescription") })
+        var roleDefs = new[]
         {
-            var role = await roleManager.Roles.FirstOrDefaultAsync(x => x.Name == roleName, ct);
+            new
+            {
+                Name = "Operacional",
+                DescriptionKey = "Seed.OperationalRoleDescription",
+                VisibilityScope = ProfileVisibilityScope.FullStructure,
+                VagasDataScope = VagasDataScope.All,
+                AccessMode = ProfileAccessMode.Full
+            },
+            new
+            {
+                Name = "Gestor",
+                DescriptionKey = "Seed.GestorRoleDescription",
+                VisibilityScope = ProfileVisibilityScope.RestrictedByAreaOrRecruiter,
+                VagasDataScope = VagasDataScope.ByArea,
+                AccessMode = ProfileAccessMode.Full
+            },
+            new
+            {
+                Name = "Recrutador",
+                DescriptionKey = "Seed.RecruiterRoleDescription",
+                VisibilityScope = ProfileVisibilityScope.FullStructure,
+                VagasDataScope = VagasDataScope.All,
+                AccessMode = ProfileAccessMode.Full
+            },
+        };
+
+        foreach (var def in roleDefs)
+        {
+            var role = await roleManager.Roles.FirstOrDefaultAsync(x => x.Name == def.Name, ct);
             if (role is null)
             {
                 role = new ApplicationRole
                 {
                     Id = Guid.NewGuid(),
-                    Name = roleName,
-                    Description = localizer[descriptionKey],
+                    Name = def.Name,
+                    Description = localizer[def.DescriptionKey],
                     IsActive = true,
-                    VisibilityScope = roleName == "Gestor" ? ProfileVisibilityScope.RestrictedByAreaOrRecruiter : ProfileVisibilityScope.FullStructure,
-                    VagasDataScope = roleName == "Gestor" ? VagasDataScope.ByArea : VagasDataScope.All,
-                    AccessMode = ProfileAccessMode.Full
+                    VisibilityScope = def.VisibilityScope,
+                    VagasDataScope = def.VagasDataScope,
+                    AccessMode = def.AccessMode
                 };
-                var roleResult = await roleManager.CreateAsync(role);
-                if (!roleResult.Succeeded)
-                    throw new InvalidOperationException(string.Join("; ", roleResult.Errors.Select(x => x.Description)));
+
+                var result = await roleManager.CreateAsync(role);
+                if (!result.Succeeded)
+                    throw new InvalidOperationException(string.Join("; ", result.Errors.Select(x => x.Description)));
             }
-            else if (roleName == "Gestor")
+            else
             {
-                role.VisibilityScope = ProfileVisibilityScope.RestrictedByAreaOrRecruiter;
-                role.VagasDataScope = VagasDataScope.ByArea;
-                role.AccessMode = ProfileAccessMode.Full;
+                // Keep scope settings current
+                role.VisibilityScope = def.VisibilityScope;
+                role.VagasDataScope = def.VagasDataScope;
+                role.AccessMode = def.AccessMode;
                 await roleManager.UpdateAsync(role);
             }
-
-            var existing = await db.RoleMenus
-                .Where(x => x.RoleId == role.Id)
-                .Select(x => new { x.MenuId, x.PermissionKey })
-                .ToListAsync(ct);
-
-            var existingKeys = existing
-                .Select(x => $"{x.MenuId}:{x.PermissionKey}")
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            var toAdd = operationalMenus
-                .Where(x => !existingKeys.Contains($"{x.Id}:{x.PermissionKey}"))
-                .Select(x => new RoleMenu
-                {
-                    Id = Guid.NewGuid(),
-                    RoleId = role.Id,
-                    MenuId = x.Id,
-                    PermissionKey = x.PermissionKey
-                })
-                .ToList();
-
-            if (toAdd.Count > 0)
-            {
-                db.RoleMenus.AddRange(toAdd);
-                await db.SaveChangesAsync(ct);
-            }
         }
-    }
-
-    private static async Task EnsureOperationalRoleMenusAsync(
-        AppDbContext db,
-        RoleManager<ApplicationRole> roleManager,
-        IStringLocalizer<SeedMessages> localizer,
-        CancellationToken ct)
-    {
-        var role = await roleManager.Roles.FirstOrDefaultAsync(x => x.Name == "Operacional", ct);
-        if (role is null)
-        {
-            role = new ApplicationRole
-            {
-                Id = Guid.NewGuid(),
-                Name = "Operacional",
-                Description = localizer["Seed.OperationalRoleDescription"],
-                IsActive = true
-            };
-
-            var roleResult = await roleManager.CreateAsync(role);
-            if (!roleResult.Succeeded)
-                throw new InvalidOperationException(string.Join("; ", roleResult.Errors.Select(x => x.Description)));
-        }
-
-        var menus = await db.Menus
-            .AsNoTracking()
-            .Where(x => x.IsActive
-                        && !string.IsNullOrWhiteSpace(x.Route)
-                        && !string.IsNullOrWhiteSpace(x.PermissionKey)
-                        && !x.Route.ToLower().StartsWith("/admin"))
-            .Select(x => new { x.Id, x.PermissionKey })
-            .ToListAsync(ct);
-
-        if (menus.Count == 0)
-            return;
-
-        var existing = await db.RoleMenus
-            .Where(x => x.RoleId == role.Id)
-            .Select(x => new { x.MenuId, x.PermissionKey })
-            .ToListAsync(ct);
-
-        var existingKeys = existing
-            .Select(x => $"{x.MenuId}:{x.PermissionKey}")
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var toAdd = menus
-            .Where(x => !existingKeys.Contains($"{x.Id}:{x.PermissionKey}"))
-            .Select(x => new RoleMenu
-            {
-                Id = Guid.NewGuid(),
-                RoleId = role.Id,
-                MenuId = x.Id,
-                PermissionKey = x.PermissionKey
-            })
-            .ToList();
-
-        if (toAdd.Count == 0)
-            return;
-
-        db.RoleMenus.AddRange(toAdd);
-        await db.SaveChangesAsync(ct);
     }
 }

@@ -97,38 +97,6 @@ public sealed class RolesController : ControllerBase
         return deleted ? NoContent() : NotFound();
     }
 
-    [RequirePermission("roles.manage")]
-    [HttpPut("{id:guid}/menus")]
-    public async Task<IActionResult> UpdateMenus(
-        [FromRoute] Guid id,
-        [FromBody] RoleMenusUpdateRequest request,
-        [FromServices] RoleAdministrationService service,
-        CancellationToken ct)
-    {
-        try
-        {
-            var updated = await service.UpdateRoleMenusAsync(id, request, ct);
-            return updated ? NoContent() : NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new ProblemDetails
-            {
-                Title = _localizer["ControllerErrors.UnableToUpdateRoleMenusTitle"],
-                Detail = ex.Message,
-                Status = StatusCodes.Status409Conflict
-            });
-        }
-    }
-
-    [RequirePermission("roles.manage")]
-    [HttpGet("{id:guid}/menus")]
-    public async Task<ActionResult<IReadOnlyList<RoleMenuAssignmentResponse>>> GetMenus(
-        [FromRoute] Guid id,
-        [FromServices] RoleAdministrationService service,
-        CancellationToken ct)
-    {
-        var items = await service.GetRoleMenusAsync(id, ct);
-        return items is null ? NotFound() : Ok(items);
-    }
+    // PUT  {id}/menus  — removed: role→permission mapping is code-first via RolePermissionManifest.
+    // GET  {id}/menus  — removed: no DB assignments to read.
 }

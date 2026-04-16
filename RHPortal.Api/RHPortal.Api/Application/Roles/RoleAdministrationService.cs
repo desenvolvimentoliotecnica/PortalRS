@@ -129,45 +129,6 @@ public sealed class RoleAdministrationService
         return true;
     }
 
-    public async Task<bool> UpdateRoleMenusAsync(Guid roleId, RoleMenusUpdateRequest request, CancellationToken ct)
-    {
-        var role = await _roleManager.Roles.FirstOrDefaultAsync(x => x.Id == roleId, ct);
-        if (role is null) return false;
-
-        var menuIds = request.Items.Select(x => x.MenuId).Distinct().ToList();
-        var menus = await _db.Menus.Where(x => menuIds.Contains(x.Id)).ToListAsync(ct);
-
-        if (menus.Count != menuIds.Count)
-            throw new InvalidOperationException(_localizer["ServiceErrors.RoleMenusNotFound"]);
-
-        var existing = await _db.RoleMenus.Where(x => x.RoleId == roleId).ToListAsync(ct);
-        if (existing.Count > 0)
-            _db.RoleMenus.RemoveRange(existing);
-
-        var items = request.Items.Select(item => new RoleMenu
-        {
-            Id = Guid.NewGuid(),
-            RoleId = roleId,
-            MenuId = item.MenuId,
-            PermissionKey = item.PermissionKey.Trim()
-        }).ToList();
-
-        if (items.Count > 0)
-            _db.RoleMenus.AddRange(items);
-
-        await _db.SaveChangesAsync(ct);
-        return true;
-    }
-
-    public async Task<IReadOnlyList<RoleMenuAssignmentResponse>?> GetRoleMenusAsync(Guid roleId, CancellationToken ct)
-    {
-        var role = await _roleManager.Roles.FirstOrDefaultAsync(x => x.Id == roleId, ct);
-        if (role is null) return null;
-
-        return await _db.RoleMenus
-            .AsNoTracking()
-            .Where(x => x.RoleId == roleId)
-            .Select(x => new RoleMenuAssignmentResponse(x.MenuId, x.PermissionKey))
-            .ToListAsync(ct);
-    }
+    // UpdateRoleMenusAsync and GetRoleMenusAsync removed.
+    // Role→permission mapping is code-first via RolePermissionManifest — no DB assignment needed.
 }

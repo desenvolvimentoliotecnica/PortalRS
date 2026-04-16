@@ -10,6 +10,7 @@ export const BffMeSchema = z.object({
     roles: z.array(z.string()),
     isAdmin: z.boolean(),
     isOwnerContext: z.boolean(),
+    permissions: z.array(z.string()).default([]),
 });
 
 export type BffMe = z.infer<typeof BffMeSchema>;

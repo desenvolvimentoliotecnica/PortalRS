@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RhPortal.Api.Infrastructure.Data;
 
 #nullable disable
 
-namespace RHPortal.Api.Migrations
+namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260415205828_AddPreAdmissaoExtendedFields")]
+    partial class AddPreAdmissaoExtendedFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -5440,9 +5443,6 @@ namespace RHPortal.Api.Migrations
                     b.Property<int?>("Altura")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("AnoChegada")
-                        .HasColumnType("integer");
-
                     b.Property<DateTimeOffset?>("ApprovedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -5517,10 +5517,6 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<string>("CidadeExterior")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
                     b.Property<int?>("CnhDataExpedicao")
                         .HasColumnType("integer");
 
@@ -5548,10 +5544,6 @@ namespace RHPortal.Api.Migrations
                     b.Property<string>("CodEmpresa")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
-
-                    b.Property<string>("CodEnderecoPostalExterior")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
 
                     b.Property<int?>("CodFpas")
                         .HasColumnType("integer");
@@ -5645,9 +5637,6 @@ namespace RHPortal.Api.Migrations
                         .HasColumnType("date");
 
                     b.Property<DateOnly?>("DataNascimento")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly?>("DataObitoCivil")
                         .HasColumnType("date");
 
                     b.Property<DateOnly?>("DataOpcaoFgts")
@@ -5787,10 +5776,6 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
-                    b.Property<string>("Naturalizacao")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
                     b.Property<int?>("NaturezaAtividade")
                         .HasColumnType("integer");
 
@@ -5836,15 +5821,8 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(1)
                         .HasColumnType("character varying(1)");
 
-                    b.Property<int?>("OrgaoEmisPassaporte")
-                        .HasColumnType("integer");
-
                     b.Property<int?>("OrigemFuncionario")
                         .HasColumnType("integer");
-
-                    b.Property<string>("PaisEmisPassaporte")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
 
                     b.Property<string>("PaisLocalidade")
                         .HasMaxLength(10)
@@ -5872,10 +5850,6 @@ namespace RHPortal.Api.Migrations
                     b.Property<string>("PontoReferencia")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
-
-                    b.Property<string>("PortariaNaturalizacao")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
 
                     b.Property<string>("PossuiDeficiencia")
                         .HasMaxLength(1)
@@ -6008,17 +5982,11 @@ namespace RHPortal.Api.Migrations
                     b.Property<int?>("TipoAdmissaoFgts")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("TipoCertidaoCivil")
-                        .HasColumnType("integer");
-
                     b.Property<short?>("TipoConta")
                         .HasColumnType("smallint");
 
                     b.Property<short?>("TipoContratacao")
                         .HasColumnType("smallint");
-
-                    b.Property<int?>("TipoEstatistica")
-                        .HasColumnType("integer");
 
                     b.Property<int?>("TipoFuncionario")
                         .HasColumnType("integer");
@@ -6089,9 +6057,6 @@ namespace RHPortal.Api.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<DateOnly?>("ValidadeCnh")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly?>("ValidadeIdentEstrangeiro")
                         .HasColumnType("date");
 
                     b.Property<DateOnly?>("ValidadeVisto")

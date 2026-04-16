@@ -156,3 +156,15 @@ public sealed record SolicitacaoPromocaoGridRow(
     Guid? EtapaPendenteAssumedByUserId,
     bool EtapaPendenteCanAssume
 );
+
+/// <summary>Request para o Datasul confirmar o resultado da integração de uma movimentação.</summary>
+public sealed class ConfirmarIntegracaoMovimentacaoRequest
+{
+    /// <summary>1 = Sucesso, 2 = Erro</summary>
+    [Required]
+    public IntegracaoResultado Resultado { get; set; }
+
+    /// <summary>Mensagem de retorno do Datasul (protocolo, erro etc.).</summary>
+    [MaxLength(2000)]
+    public string? Mensagem { get; set; }
+}

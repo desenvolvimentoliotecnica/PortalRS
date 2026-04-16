@@ -79,13 +79,24 @@ public sealed class EmailConfigController : ControllerBase
         var port = request.SmtpPort ?? 587;
         var enableSsl = request.SmtpEnableSsl ?? true;
         var user = request.SmtpUserName;
-        var pass = request.SmtpPassword;
         var fromAddress = request.FromAddress ?? user;
         var fromName = request.FromName ?? "Portal RH";
         var to = request.TestTo ?? fromAddress;
 
         if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(fromAddress) || string.IsNullOrWhiteSpace(to))
             return BadRequest(new { message = "Preencha Host, From Address e email de destino para testar." });
+
+        // Se a senha não foi informada no request, usa a senha salva no banco
+        var pass = request.SmtpPassword;
+        if (string.IsNullOrWhiteSpace(pass))
+        {
+            EnsureTenantFromHeader();
+            var saved = await _service.GetDecryptedAsync(ct);
+            pass = saved?.SmtpPassword;
+        }
+
+        if (!string.IsNullOrWhiteSpace(user) && string.IsNullOrWhiteSpace(pass))
+            return BadRequest(new { message = "Senha SMTP não configurada. Informe a senha no campo 'Senha' e salve antes de testar." });
 
         using var client = new SmtpClient(host, port)
         {
@@ -110,7 +121,11 @@ public sealed class EmailConfigController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = $"SMTP falhou: {ex.Message}" });
+            var detail = ex.Message;
+            // Mensagens de autenticação/relay → dica específica
+            if (detail.Contains("5.7.1") || detail.Contains("Relay") || detail.Contains("authentication") || detail.Contains("credentials"))
+                detail += " — Verifique se o usuário e a senha SMTP estão corretos e se o servidor permite relay para este endereço.";
+            return BadRequest(new { message = $"SMTP falhou: {detail}" });
         }
         return Ok(new { message = "SMTP OK — email enviado com sucesso!" });
     }

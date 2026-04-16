@@ -106,6 +106,22 @@ export function tryGetTenantIdFromJwt(token: string): string | null {
   }
 }
 
+export function tryGetPermissionsFromJwt(token: string): string[] {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return [];
+    const payloadJson = base64UrlDecode(parts[1]);
+    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    // Backend emits claim type "permission" (see PermissionConstants.ClaimType)
+    const permClaim = payload["permission"] ?? [];
+    if (typeof permClaim === "string") return [permClaim];
+    if (Array.isArray(permClaim)) return permClaim.filter((p): p is string => typeof p === "string");
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 export function tryGetRolesFromJwt(token: string): string[] {
   try {
     const parts = token.split(".");
