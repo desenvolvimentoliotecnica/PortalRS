@@ -537,6 +537,52 @@ public sealed class VagasController : ControllerBase
     }
 
     /// <summary>
+    /// Faz snooze do alerta de vaga sem preenchimento por N dias (padrão: 30).
+    /// </summary>
+    [HttpPost("{id:guid}/snooze-alerta")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SnoozeAlerta(
+        [FromRoute] Guid id,
+        [FromBody] SnoozeAlertaRequest? request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && _userContext.IsReadOnly) return Forbid();
+        var vaga = await db.Vagas.FirstOrDefaultAsync(v => v.Id == id, ct);
+        if (vaga is null) return NotFound();
+        var dias = request?.DiasSnooze ?? 30;
+        vaga.AlertaVagaSemFillSnoozeAteUtc = DateTimeOffset.UtcNow.AddDays(dias);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Reduz manualmente o HeadcountAutorizado de uma vaga (RH decide desativar posição aberta).
+    /// </summary>
+    [HttpPost("{id:guid}/reduzir-headcount")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReduzirHeadcount(
+        [FromRoute] Guid id,
+        [FromBody] ReduzirHeadcountRequest request,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && _userContext.IsReadOnly) return Forbid();
+        var vaga = await db.Vagas.FirstOrDefaultAsync(v => v.Id == id, ct);
+        if (vaga is null) return NotFound();
+        if (request.NovoHeadcount < 1)
+            return BadRequest(new { message = "O headcount mínimo é 1." });
+        vaga.HeadcountAutorizado = request.NovoHeadcount;
+        // Limpar alerta de snooze ao reduzir headcount (decisão tomada)
+        vaga.AlertaVagaSemFillSnoozeAteUtc = null;
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>
     /// Remove uma vaga.
     /// </summary>
     [HttpDelete("{id:guid}")]
@@ -590,3 +636,5 @@ public sealed class VagasController : ControllerBase
 }
 
 public record UpdateHeadcountRequest(int HeadcountAutorizado);
+public record SnoozeAlertaRequest(int DiasSnooze);
+public record ReduzirHeadcountRequest(int NovoHeadcount);

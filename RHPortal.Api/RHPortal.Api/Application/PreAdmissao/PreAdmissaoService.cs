@@ -17,7 +17,7 @@ public interface IPreAdmissaoService
     Task<IReadOnlyList<PreAdmissaoGridRow>> ListAsync(PreAdmissaoListQuery query, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<PreAdmissaoDetailResponse> CreateAsync(PreAdmissaoCreateRequest request, CancellationToken ct);
-    Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest request, CancellationToken ct);
+    Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest request, bool isPrivileged, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> SubmitAsync(Guid id, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> ApproveAsync(Guid id, Guid aprovadorId, PreAdmissaoApproveRequest request, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> RejectAsync(Guid id, PreAdmissaoRejectRequest request, CancellationToken ct);
@@ -160,12 +160,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     // ── Update ──
 
-    public async Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest r, CancellationToken ct)
+    public async Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest r, bool isPrivileged, CancellationToken ct)
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.Enviado)
-            throw new InvalidOperationException("Só é possível editar pré-admissões em rascunho.");
+
+        var isDraft = e.Status == PreAdmissaoStatus.Rascunho || e.Status == PreAdmissaoStatus.Enviado;
+        var isPostFill = e.Status is PreAdmissaoStatus.Acessado or PreAdmissaoStatus.PreenchidoParcial or PreAdmissaoStatus.Preenchido;
+
+        if (!isDraft && !(isPostFill && isPrivileged))
+            throw new InvalidOperationException("Não é possível editar uma admissão neste status.");
 
         // Pessoal
         e.Nome = r.Nome.Trim();
@@ -312,8 +316,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.Enviado)
-            throw new InvalidOperationException("Só rascunhos podem ser submetidos.");
+        var submissíveis = new[]
+        {
+            PreAdmissaoStatus.Rascunho,
+            PreAdmissaoStatus.Enviado,
+            PreAdmissaoStatus.Acessado,
+            PreAdmissaoStatus.PreenchidoParcial,
+            PreAdmissaoStatus.Preenchido,
+        };
+        if (!submissíveis.Contains(e.Status))
+            throw new InvalidOperationException("Não é possível submeter uma admissão neste status.");
 
         // Run validations
         e.ValidacaoCpfOk = ValidarCpf(e.Cpf);
@@ -347,6 +359,12 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         if (e is null) return null;
         if (e.Status != PreAdmissaoStatus.Preenchido)
             throw new InvalidOperationException("Só é possível aprovar pré-admissões em revisão.");
+
+        // ── Validação TOTVS: garante que todos os campos obrigatórios/condicionais
+        //    estão preenchidos antes de concluir a admissão.
+        var issues = PreAdmissaoTotvsValidator.Validate(e);
+        if (issues.Count > 0)
+            throw new TotvsValidationException(issues);
 
         e.Status = PreAdmissaoStatus.Aprovada;
         // Só setar AprovadoPorId se é um FuncionarioId válido (existe na tabela Funcionarios)
@@ -808,23 +826,46 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);
 
-        // Auto-criar documentos solicitados por tipo de contratação
-        var docsTipo = entity.TipoContratacao switch
+        // Carrega configuração padrão do tenant; se não houver, usa lista hardcoded por tipo de contratação
+        var configsPadrao = await _db.Set<DocumentacaoPadraoConfig>()
+            .Where(c => c.Configuracao != 2)
+            .ToListAsync(ct);
+
+        if (configsPadrao.Count > 0)
         {
-            TipoContratacaoAdmissao.PJ => new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas },
-            _ => new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario },
-        };
-        foreach (var tipo in docsTipo)
-        {
-            _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+            foreach (var config in configsPadrao)
             {
-                Id = Guid.NewGuid(),
-                TenantId = _tenantContext.TenantId,
-                PreAdmissaoId = entity.Id,
-                TipoDocumento = tipo,
-                Obrigatorio = true,
-                CreatedAtUtc = DateTimeOffset.UtcNow,
-            });
+                _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId,
+                    PreAdmissaoId = entity.Id,
+                    TipoDocumento = (TipoDocumento)config.TipoDocumento,
+                    Obrigatorio = config.Configuracao == 0,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                });
+            }
+        }
+        else
+        {
+            // Fallback: lista padrão por tipo de contratação
+            var docsTipo = entity.TipoContratacao switch
+            {
+                TipoContratacaoAdmissao.PJ => new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas },
+                _ => new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario },
+            };
+            foreach (var tipo in docsTipo)
+            {
+                _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId,
+                    PreAdmissaoId = entity.Id,
+                    TipoDocumento = tipo,
+                    Obrigatorio = true,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                });
+            }
         }
         await _db.SaveChangesAsync(ct);
 

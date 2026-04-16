@@ -14,6 +14,7 @@ import {
     Users,
     Loader2,
     Pencil,
+    AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
+    DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
@@ -40,6 +42,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
 
 /* ── types ── */
+
+interface TotvsValidationIssue {
+    campo: string;
+    label: string;
+    secao: string;
+    tipoRegra: "Obrigatório" | "Condicional" | "Conjunto";
+    mensagem: string;
+}
 
 interface PreAdmissaoRow {
     id: string;
@@ -96,6 +106,11 @@ export default function AdmissaoListScreen() {
     const [creating, setCreating] = useState(false);
     const [showSubmittedBanner, setShowSubmittedBanner] = useState(() => searchParams.get("submitted") === "1");
 
+    // ── Concluir + modal de validação TOTVS ──
+    const [concluindoId, setConcluindoId] = useState<string | null>(null);
+    const [validacaoErros, setValidacaoErros] = useState<TotvsValidationIssue[] | null>(null);
+    const [validacaoAdmissaoId, setValidacaoAdmissaoId] = useState<string | null>(null);
+
     async function handleCreate() {
         if (creating) return;
         try {
@@ -143,6 +158,40 @@ export default function AdmissaoListScreen() {
             }
         } catch { toast.error("Erro na busca por CPF"); }
         finally { setReadmissaoOpen(false); }
+    }
+
+    async function handleConcluir(id: string) {
+        if (concluindoId) return;
+        setConcluindoId(id);
+        try {
+            const res = await apiFetch(`/api/pre-admissao/${id}/approve`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+            });
+
+            if (res.ok) {
+                toast.success("Admissão concluída com sucesso!");
+                void loadList();
+                return;
+            }
+
+            if (res.status === 422) {
+                const body = await res.json() as { type?: string; message?: string; errors?: TotvsValidationIssue[] };
+                if (body.type === "totvs_validation" && body.errors?.length) {
+                    setValidacaoAdmissaoId(id);
+                    setValidacaoErros(body.errors);
+                    return;
+                }
+            }
+
+            const b = await res.json().catch(() => ({} as Record<string, string>));
+            toast.error((b as { message?: string }).message || "Erro ao concluir admissão.");
+        } catch {
+            toast.error("Erro de conexão ao tentar concluir.");
+        } finally {
+            setConcluindoId(null);
+        }
     }
 
     const filtered = data.filter((r) => {
@@ -302,15 +351,16 @@ export default function AdmissaoListScreen() {
                                             <Pencil className="size-3.5" />
                                         </Button>
                                         {(r.status === 2 || String(r.status) === "Preenchido") && (
-                                            <Button size="sm" className="btn-approve" onClick={async (e) => {
-                                                e.stopPropagation();
-                                                try {
-                                                    const res = await apiFetch(`/api/pre-admissao/${r.id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-                                                    if (res.ok) { toast.success("Admissão concluída!"); void loadList(); }
-                                                    else { const b = await res.json().catch(() => ({})) as Record<string,string>; toast.error(b.message || "Erro ao concluir"); }
-                                                } catch { toast.error("Erro de conexão"); }
-                                            }}>
-                                                <CheckCircle2 className="size-3.5 mr-1" /> Concluir
+                                            <Button
+                                                size="sm"
+                                                className="btn-approve"
+                                                disabled={concluindoId === r.id}
+                                                onClick={(e) => { e.stopPropagation(); void handleConcluir(r.id); }}
+                                            >
+                                                {concluindoId === r.id
+                                                    ? <Loader2 className="size-3.5 mr-1 animate-spin" />
+                                                    : <CheckCircle2 className="size-3.5 mr-1" />}
+                                                Concluir
                                             </Button>
                                         )}
                                         {(r.status === 3 || String(r.status) === "Aprovada") && (
@@ -324,6 +374,51 @@ export default function AdmissaoListScreen() {
                 </Table>
                 <div className="mt-3 text-xs text-muted-foreground">{filtered.length} registros</div>
             </div>
+
+            {/* ── Modal de Validação TOTVS ── */}
+            <Dialog
+                open={validacaoErros !== null}
+                onOpenChange={(open) => { if (!open) { setValidacaoErros(null); setValidacaoAdmissaoId(null); } }}
+            >
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-amber-600">
+                            <AlertTriangle className="size-5 shrink-0" />
+                            Campos obrigatórios não preenchidos
+                        </DialogTitle>
+                        <DialogDescription>
+                            A admissão não pode ser concluída. Preencha os campos abaixo antes de tentar novamente.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {validacaoErros && (
+                        <div className="max-h-[420px] overflow-y-auto pr-2">
+                            <ValidacaoErrosList erros={validacaoErros} />
+                        </div>
+                    )}
+
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="outline"
+                            onClick={() => { setValidacaoErros(null); setValidacaoAdmissaoId(null); }}
+                        >
+                            Fechar
+                        </Button>
+                        {validacaoAdmissaoId && (
+                            <Button
+                                onClick={() => {
+                                    router.push(`/admissao/nova?id=${validacaoAdmissaoId}`);
+                                    setValidacaoErros(null);
+                                    setValidacaoAdmissaoId(null);
+                                }}
+                            >
+                                <Pencil className="size-4 mr-1.5" />
+                                Ir para o formulário
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Readmissão Dialog */}
             <Dialog open={readmissaoOpen} onOpenChange={setReadmissaoOpen}>
@@ -344,6 +439,47 @@ export default function AdmissaoListScreen() {
                 </DialogContent>
             </Dialog>
         </section>
+    );
+}
+
+// ── Cores e labels para tipo de regra ─────────────────────────────────────────
+const TIPO_REGRA_STYLE: Record<string, string> = {
+    "Obrigatório":  "bg-red-100 text-red-700 border-red-200",
+    "Condicional":  "bg-amber-100 text-amber-700 border-amber-200",
+    "Conjunto":     "bg-blue-100 text-blue-700 border-blue-200",
+};
+
+function ValidacaoErrosList({ erros }: { erros: TotvsValidationIssue[] }) {
+    // Agrupa por seção
+    const porSecao = erros.reduce<Record<string, TotvsValidationIssue[]>>((acc, item) => {
+        (acc[item.secao] ??= []).push(item);
+        return acc;
+    }, {});
+
+    return (
+        <div className="space-y-4 py-1">
+            <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">{erros.length} campo(s)</span> com problema encontrado(s):
+            </p>
+            {Object.entries(porSecao).map(([secao, items]) => (
+                <div key={secao}>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 pb-1 border-b">
+                        {secao}
+                    </p>
+                    <ul className="space-y-1.5">
+                        {items.map((item) => (
+                            <li key={item.campo} className="flex items-start gap-2 text-sm">
+                                <span className={`mt-0.5 shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${TIPO_REGRA_STYLE[item.tipoRegra] ?? "bg-zinc-100 text-zinc-600 border-zinc-200"}`}>
+                                    {item.tipoRegra}
+                                </span>
+                                <span className="text-foreground font-medium">{item.label}</span>
+                                <span className="text-muted-foreground text-xs mt-0.5 hidden sm:inline">— {item.mensagem}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ))}
+        </div>
     );
 }
 

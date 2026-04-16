@@ -661,6 +661,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             if (!entity.VagaId.HasValue)
                 await CriarVagaRascunhoAsync(entity, ct);
 
+            // Situação 1: substituição — ativar headcount provisório na vaga criada
+            if (entity.TipoSolicitacao == TipoSolicitacaoVaga.Substituicao && entity.VagaId.HasValue)
+                await AtivarHeadcountProvisorioAsync(entity, ct);
+
             await _db.SaveChangesAsync(ct);
 
             await _workflow.NotifyByFuncionarioIdAsync(
@@ -966,6 +970,40 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Situação 1: ao aprovar uma substituição, incrementa HeadcountProvisorio na vaga criada
+    /// e registra a data de expiração com base nos parâmetros do tenant.
+    /// </summary>
+    private async Task AtivarHeadcountProvisorioAsync(SolicitacaoVaga entity, CancellationToken ct)
+    {
+        if (!entity.VagaId.HasValue) return;
+
+        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
+        if (vaga is null) return;
+
+        var tenantConfig = await _db.TenantConfiguracoes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == _tenantContext.TenantId, ct);
+
+        var diasProvisao = tenantConfig?.DiasProvisaoSubstituicao ?? 30;
+
+        vaga.HeadcountProvisorio += entity.QtdPosicoes;
+        vaga.HeadcountProvisorioExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(diasProvisao);
+
+        // Registrar slot provisório no histórico de ocupação para visibilidade na UI
+        _db.OcupacoesHistorico.Add(new RhPortal.Api.Domain.Entities.OcupacaoHistorico
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId ?? "",
+            VagaId = vaga.Id,
+            FuncionarioId = entity.SubstituidoFuncionarioId ?? Guid.Empty,
+            DataEntrada = DateTime.UtcNow,
+            SolicitacaoOrigemId = entity.Id,
+            IsProvisorio = true,
+            ProvisorioExpiresAtUtc = vaga.HeadcountProvisorioExpiresAtUtc,
+        });
     }
 
     private Task<Guid?> ResolveUserIdByFuncionarioIdAsync(Guid funcionarioId, CancellationToken ct)

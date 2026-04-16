@@ -262,6 +262,7 @@ builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
 builder.Services.AddScoped<IEntraIdConfigService, EntraIdConfigService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AprovadoresAlternativos.IAprovadorAlternativoService, RhPortal.Api.Application.AprovadoresAlternativos.AprovadorAlternativoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.DocumentacaoPadrao.IDocumentacaoPadraoService, RhPortal.Api.Application.DocumentacaoPadrao.DocumentacaoPadraoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IOwnerAiService, RhPortal.Api.Application.Ai.OwnerAiService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.OpenAiProvider>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPortal.Api.Application.Ai.UnifiedAiService>();

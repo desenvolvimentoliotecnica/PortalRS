@@ -96,7 +96,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             var promocoes = await _db.SolicitacoesPromocao
                 .AsNoTracking()
                 .Include(s => s.Funcionario)
-                .Where(s => s.Status == SolicitacaoStatus.Aprovada)
+                .Where(s => s.Status == SolicitacaoStatus.EmIntegracao || s.Status == SolicitacaoStatus.Concluida)
                 .Select(s => new IntegracaoTotvsListItem(
                     s.Id,
                     (short)TipoIntegracao.Promocao,
@@ -351,6 +351,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     .Include(x => x.Funcionario).Include(x => x.Solicitante)
                     .Include(x => x.CargoAtual).Include(x => x.NovoCargo)
                     .Include(x => x.AreaAtual).Include(x => x.NovaArea)
+                    .Include(x => x.NovaUnidade)
+                    .Include(x => x.CentroCusto)
+                    .Include(x => x.UnidadeLotacao)
                     .FirstOrDefaultAsync(x => x.Id == id, ct);
                 if (s is null) return null;
                 return new
@@ -359,8 +362,13 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     nome = s.Funcionario?.Name ?? "—", funcionarioId = s.FuncionarioId,
                     solicitante = s.Solicitante?.Name ?? "—",
                     s.DataEfetiva, s.Justificativa,
-                    cargoAtual = s.CargoAtual?.Description, novoCargo = s.NovoCargo?.Description,
-                    areaAtual = s.AreaAtual?.Description, novaArea = s.NovaArea?.Description,
+                    motivoMovimentacao = s.MotivoMovimentacao?.ToString(),
+                    cargoAtualNome = s.CargoAtual?.Description, novoCargoNome = s.NovoCargo?.Description,
+                    areaAtualNome = s.AreaAtual?.Description, novaAreaNome = s.NovaArea?.Description,
+                    novaUnidadeNome = s.NovaUnidade?.Name,
+                    centroCustoNome = s.CentroCusto?.Description,
+                    unidadeLotacaoNome = s.UnidadeLotacao?.Description,
+                    s.NovoSalario, s.NovaRemuneracao, s.HorarioProposto,
                     s.Observacoes, status = s.Status.ToString(),
                     s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
@@ -498,6 +506,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegracaoResultado = request.Resultado;
                 entity.IntegracaoMensagem = request.Mensagem;
                 entity.IntegradaEmUtc = now;
+                entity.UpdatedAtUtc = now;
+                if (request.Resultado == IntegracaoResultado.Sucesso)
+                    entity.Status = SolicitacaoStatus.Concluida;
                 break;
             }
             case TipoIntegracao.AlteracaoEndereco:

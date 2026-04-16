@@ -29,82 +29,160 @@ public sealed class DocumentAiExtractor
         CancellationToken ct)
     {
         var tipoLabel = GetDocumentLabel(tipoDocumento);
-        var camposEsperados = GetExpectedFields(tipoDocumento);
 
-        var systemPrompt = BuildSystemPrompt(tipoLabel, camposEsperados);
+        // ── Passo 1: gpt-4o descreve tudo que vê na imagem em texto livre ──
+        string descricao;
+        try
+        {
+            descricao = await DescribeImageAsync(tenantId, tipoLabel, imageBase64, mediaType, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Passo 1 (descrição) falhou para documento tipo {Tipo}", tipoDocumento);
+            return new DocumentValidationResponse(false, 0f, tipoLabel, new(),
+                "Erro ao acessar o serviço de IA. O documento foi salvo — preencha os dados manualmente.");
+        }
+
+        if (string.IsNullOrWhiteSpace(descricao))
+        {
+            _logger.LogWarning("Passo 1 retornou vazio para tipo {Tipo}. Verifique se o modelo suporta visão (gpt-4o).", tipoDocumento);
+            return new DocumentValidationResponse(false, 0f, tipoLabel, new(),
+                "Serviço de análise de IA indisponível. O documento foi salvo — preencha os dados manualmente na próxima etapa.");
+        }
+
+        if (descricao.StartsWith("AI_ERROR:", StringComparison.Ordinal))
+        {
+            var errorDetail = descricao["AI_ERROR:".Length..].Trim();
+            _logger.LogWarning("OpenAI retornou erro no Passo 1 para {Tipo}: {Error}", tipoDocumento, errorDetail);
+            return new DocumentValidationResponse(false, 0f, tipoLabel, new(),
+                $"Erro na API de IA: {errorDetail}. O documento foi salvo — preencha os dados manualmente.");
+        }
+
+        _logger.LogDebug("Passo 1 concluído para {Tipo}. Descrição: {Descricao}", tipoDocumento, descricao);
+
+        // ── Passo 2: gpt-4o-mini extrai campos estruturados da descrição ──
+        try
+        {
+            var camposEsperados = GetExpectedFields(tipoDocumento);
+            var extractionResult = await ExtractFieldsFromDescriptionAsync(tenantId, tipoLabel, camposEsperados, descricao, ct);
+            return extractionResult;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Passo 2 (extração) falhou para documento tipo {Tipo}", tipoDocumento);
+            return new DocumentValidationResponse(false, 0f, tipoLabel, new(),
+                "Erro ao estruturar os dados do documento. O documento foi salvo — preencha os dados manualmente.");
+        }
+    }
+
+    /// <summary>
+    /// Passo 1 — gpt-4o lê a imagem e descreve em texto livre tudo que vê,
+    /// sem se preocupar com formato ou estrutura.
+    /// </summary>
+    private async Task<string> DescribeImageAsync(
+        string tenantId, string tipoLabel, string imageBase64, string mediaType, CancellationToken ct)
+    {
+        const string systemPrompt =
+            "Você é um leitor especializado em documentos brasileiros. " +
+            "Sua única tarefa é transcrever com máxima fidelidade TUDO que está escrito na imagem. " +
+            "Liste cada campo e seu valor exatamente como aparecem, incluindo todos os números, letras, datas e siglas. " +
+            "Não interprete, não corrija e não omita nada. Se um texto estiver ilegível, diga 'ilegível'.";
 
         var payload = new
         {
             prompt = systemPrompt,
-            cvText = $"Analise esta imagem de documento do tipo: {tipoLabel}",
+            cvText = $"Transcreva todos os textos e números visíveis nesta imagem de {tipoLabel}.",
             imageBase64,
             imageMediaType = mediaType
         };
 
         var request = new AiInvokeRequest(
             Module: "DocValidation",
-            ActionDescription: $"Validar e extrair dados de {tipoLabel}",
+            ActionDescription: $"Passo 1 – Descrever imagem de {tipoLabel}",
             RequestMessage: null,
             ModelId: null,
             Payload: payload
         );
 
-        try
-        {
-            var result = await _ai.InvokeAsync(tenantId, null, "Sistema", request, ct);
-            if (result is null || string.IsNullOrWhiteSpace(result.Content))
-            {
-                _logger.LogWarning("AI retornou vazio para validação de documento tipo {Tipo}. Verifique se o modelo configurado suporta visão (gpt-4o, gpt-4o-mini).", tipoDocumento);
-                return new DocumentValidationResponse(false, 0f, tipoLabel, new(),
-                    "Serviço de análise de IA indisponível. O documento foi salvo — preencha os dados manualmente na próxima etapa.");
-            }
-
-            if (result.Content.StartsWith("AI_ERROR:", StringComparison.Ordinal))
-            {
-                var errorDetail = result.Content["AI_ERROR:".Length..].Trim();
-                _logger.LogWarning("OpenAI retornou erro para validação de {Tipo}: {Error}", tipoDocumento, errorDetail);
-                return new DocumentValidationResponse(false, 0f, tipoLabel, new(),
-                    $"Erro na API de IA: {errorDetail}. O documento foi salvo — preencha os dados manualmente.");
-            }
-
-            return ParseResponse(result.Content, tipoLabel);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erro ao validar documento tipo {Tipo} via IA", tipoDocumento);
-            return new DocumentValidationResponse(false, 0f, tipoLabel, new(),
-                "Erro ao acessar o serviço de IA. O documento foi salvo — preencha os dados manualmente.");
-        }
+        var result = await _ai.InvokeAsync(tenantId, null, "Sistema", request, ct);
+        return result?.Content ?? string.Empty;
     }
 
-    private static string BuildSystemPrompt(string tipoLabel, string camposEsperados)
+    /// <summary>
+    /// Passo 2 — gpt-4o-mini recebe a descrição textual e extrai os campos no formato JSON esperado.
+    /// </summary>
+    private async Task<DocumentValidationResponse> ExtractFieldsFromDescriptionAsync(
+        string tenantId, string tipoLabel, string camposEsperados, string descricao, CancellationToken ct)
     {
-        return "Você é um especialista em leitura de documentos brasileiros. Analise a imagem e execute DUAS tarefas:\n\n"
-            + $"1. VALIDAÇÃO: Verifique se a imagem é realmente um documento do tipo \"{tipoLabel}\" (frente OU verso).\n"
-            + "   - Documentos com frente e verso podem ser enviados separadamente — AMBOS OS LADOS SÃO VÁLIDOS.\n"
-            + "   - isValid = true se a imagem for desse tipo de documento, mesmo que apenas um lado esteja visível.\n"
-            + "   - isValid = false SOMENTE se a imagem for de um tipo de documento completamente diferente.\n\n"
-            + "2. EXTRAÇÃO: Extraia com precisão TODOS os campos visíveis:\n"
-            + $"   {camposEsperados}\n"
-            + "   Campos do outro lado do documento devem ter valor null.\n\n"
-            + "REGRAS CRÍTICAS DE EXTRAÇÃO:\n"
-            + "- DATAS: sempre no formato YYYY-MM-DD. Ex: '21/06/1991' → '1991-06-21'.\n"
-            + "- CPF: apenas os 11 dígitos numéricos, sem pontos ou traço. Ex: '396.725.378-32' → '39672537832'.\n"
-            + "- RG vs CPF no novo RG brasileiro (CIN): o documento pode conter AMBOS os números.\n"
-            + "  * O campo 'rg' recebe SOMENTE o número do 'REGISTRO GERAL' (geralmente no formato XX.XXX.XXX-X).\n"
-            + "  * O campo 'cpf' recebe SOMENTE o número do 'CPF' (11 dígitos). São campos DISTINTOS.\n"
-            + "  * NUNCA coloque o CPF no campo rg nem o RG no campo cpf.\n"
-            + "- FILIAÇÃO: o campo 'nomeMae' recebe o nome da mãe; 'nomePai' recebe o nome do pai.\n"
-            + "  * Se apenas um nome estiver em filiação, identifique pelo contexto ou posição (mãe = 1ª linha, pai = 2ª linha).\n"
+        var systemPrompt = BuildExtractionPrompt(tipoLabel, camposEsperados);
+
+        var userText =
+            $"A seguir está a transcrição de um documento do tipo \"{tipoLabel}\" feita por um leitor de imagens:\n\n" +
+            $"{descricao}\n\n" +
+            "Com base nessa transcrição, extraia os campos no formato JSON solicitado.";
+
+        var payload = new
+        {
+            prompt = systemPrompt,
+            cvText = userText
+        };
+
+        var request = new AiInvokeRequest(
+            Module: "DocValidation",
+            ActionDescription: $"Passo 2 – Extrair campos de {tipoLabel}",
+            RequestMessage: null,
+            ModelId: null,
+            Payload: payload
+        );
+
+        var result = await _ai.InvokeAsync(tenantId, null, "Sistema", request, ct);
+        if (result is null || string.IsNullOrWhiteSpace(result.Content))
+            return new DocumentValidationResponse(false, 0f, tipoLabel, new(),
+                "Não foi possível estruturar os dados. O documento foi salvo — preencha os dados manualmente.");
+
+        if (result.Content.StartsWith("AI_ERROR:", StringComparison.Ordinal))
+        {
+            var errorDetail = result.Content["AI_ERROR:".Length..].Trim();
+            return new DocumentValidationResponse(false, 0f, tipoLabel, new(),
+                $"Erro na API de IA: {errorDetail}. O documento foi salvo — preencha os dados manualmente.");
+        }
+
+        return ParseResponse(result.Content, tipoLabel);
+    }
+
+    private static string BuildExtractionPrompt(string tipoLabel, string camposEsperados)
+    {
+        return $"Você é um especialista em leitura de documentos brasileiros. Você receberá a transcrição textual de um documento do tipo \"{tipoLabel}\" feita por um leitor de imagens. Execute DUAS tarefas:\n\n"
+            + "1. VALIDAÇÃO:\n"
+            + $"   - isValid = true se a transcrição corresponder a um \"{tipoLabel}\" (frente OU verso são válidos).\n"
+            + "   - isValid = false SOMENTE se for um tipo de documento completamente diferente ou ilegível.\n\n"
+            + "2. EXTRAÇÃO — extraia APENAS o que estiver CLARAMENTE PRESENTE na transcrição:\n"
+            + $"   {camposEsperados}\n\n"
+            + "REGRAS ABSOLUTAS — LEIA COM ATENÇÃO:\n"
+            + "- NUNCA invente, assuma ou deduza valores. Se um campo não estiver claramente visível, retorne null.\n"
+            + "- NUNCA use informações de um campo para preencher outro campo.\n"
+            + "- NUNCA confunda o número do RG com o número do CPF. São campos completamente distintos.\n"
+            + "  * 'rg' recebe SOMENTE o número rotulado como 'REGISTRO GERAL' ou 'RG' no documento.\n"
+            + "  * 'cpf' recebe SOMENTE o número rotulado como 'CPF' no documento (sempre 11 dígitos).\n"
+            + "  * O novo RG brasileiro (CIN) contém AMBOS — extraia cada um no campo correto.\n"
+            + "- DATAS: sempre no formato YYYY-MM-DD. Exemplo: '21/06/1991' → '1991-06-21'. Se a data estiver ilegível, retorne null.\n"
+            + "- CPF: apenas os 11 dígitos numéricos, sem pontos ou traço. Exemplo: '396.725.378-32' → '39672537832'.\n"
+            + "- SEXO: retorne APENAS 'M' para masculino ou 'F' para feminino. Leia exatamente o que está impresso no campo 'SEXO'. Se não estiver visível, retorne null.\n"
+            + "- FILIAÇÃO (nomeMae / nomePai):\n"
+            + "  * 'nomeMae' = nome da mãe — primeira pessoa listada em 'FILIAÇÃO', ou a explicitamente rotulada como mãe.\n"
+            + "  * 'nomePai' = nome do pai — segunda pessoa listada em 'FILIAÇÃO', ou a explicitamente rotulada como pai.\n"
+            + "  * Se apenas um nome de filiação estiver visível, preencha somente o campo correspondente, deixe o outro null.\n"
+            + "  * NUNCA use o nome do titular no lugar do nome do pai ou da mãe.\n"
+            + "- NATURALIDADE (naturalCidade / naturalUf): leia exatamente o que está impresso no campo 'NATURALIDADE' ou 'LOCAL DE NASCIMENTO'. Se não estiver visível, retorne null.\n"
+            + "- NACIONALIDADE: leia exatamente o que está impresso no campo 'NACIONALIDADE'. Exemplos: 'BRASILEIRO', 'BRASILEIRA'. Se não estiver visível, retorne null.\n"
             + "- CEP: apenas dígitos, sem hífen.\n"
-            + "- Se a imagem estiver rotacionada ou inclinada, leia mesmo assim.\n"
-            + "- Campos não visíveis neste lado = null (não é erro).\n\n"
-            + "Responda APENAS com JSON válido (sem markdown, sem texto extra):\n"
+            + "- Campos do outro lado do documento (não presentes na transcrição) = null.\n\n"
+            + "Responda APENAS com JSON válido. Sem markdown, sem explicações, sem texto adicional:\n"
             + "{\n"
-            + "    \"isValid\": true/false,\n"
-            + "    \"confidence\": 0.0 a 1.0,\n"
+            + "    \"isValid\": true ou false,\n"
+            + "    \"confidence\": número de 0.0 a 1.0,\n"
             + "    \"documentType\": \"tipo detectado (ex: RG - frente, RG - verso, RG CIN)\",\n"
-            + "    \"extractedFields\": { \"campo1\": \"valor\", \"campo2\": null },\n"
+            + "    \"extractedFields\": { \"campo1\": \"valor ou null\" },\n"
             + "    \"validationMessage\": \"mensagem se inválido, null se válido\"\n"
             + "}";
     }
@@ -175,6 +253,23 @@ public sealed class DocumentAiExtractor
         _ => "Documento"
     };
 
+    /// <summary>
+    /// Retorna true se o tipo detectado pela IA corresponde ao tipo esperado.
+    /// Compara a primeira palavra-chave do label (ex: "RG" de "RG (Registro Geral)").
+    /// </summary>
+    private static bool DocumentTypeMatches(string detected, string expected)
+    {
+        if (string.IsNullOrWhiteSpace(detected) || string.IsNullOrWhiteSpace(expected))
+            return false;
+
+        var d = detected.ToUpperInvariant();
+        var e = expected.ToUpperInvariant();
+
+        // Extrai a primeira sigla/palavra do label esperado (ex: "RG", "CNH", "CPF")
+        var keyword = e.Split([' ', '(', ')'], StringSplitOptions.RemoveEmptyEntries)[0];
+        return d.Contains(keyword);
+    }
+
     private DocumentValidationResponse ParseResponse(string content, string fallbackType)
     {
         try
@@ -196,6 +291,14 @@ public sealed class DocumentAiExtractor
             var confidence = root.TryGetProperty("confidence", out var conf) ? conf.GetSingle() : 0f;
             var documentType = root.TryGetProperty("documentType", out var dt) ? dt.GetString() ?? fallbackType : fallbackType;
             var validationMessage = root.TryGetProperty("validationMessage", out var vm) ? vm.GetString() : null;
+
+            // Se a IA identificou o tipo correto mas marcou isValid=false (resposta contraditória),
+            // override para válido: documento do tipo correto é aceito mesmo com extração parcial.
+            if (!isValid && DocumentTypeMatches(documentType, fallbackType))
+            {
+                isValid = true;
+                validationMessage = null;
+            }
 
             var extractedFields = new Dictionary<string, string?>();
             if (root.TryGetProperty("extractedFields", out var fields) && fields.ValueKind == JsonValueKind.Object)

@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     User, MapPin, Phone, CreditCard, Briefcase, FileUp, CheckCircle2, Upload,
-    ChevronLeft, ChevronRight, Save, Send, AlertTriangle, Loader2,
+    ChevronLeft, ChevronRight, Save, Send, AlertTriangle, Loader2, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,18 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { CargoAutocomplete } from "@/components/autocomplete/CargoAutocomplete";
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
+import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
+import { EstabelecimentoAutocomplete } from "@/components/autocomplete/EstabelecimentoAutocomplete";
+import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
+import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
+import { validatePreAdmissao, firstErrorStep } from "@/features/admissao/validation";
+
+/** Converte string do autocomplete em número, retornando null quando não numérico. */
+function toIntOrNull(v: string | null | undefined): number | null {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.trunc(n) : null;
+}
 
 /* ── types ── */
 
@@ -97,7 +109,7 @@ interface PreAdmissao {
     peso: number | null;
     validacaoSalarioJustificativa: string | null;
     status: number;
-    documentos: { id: string; tipo: number; nomeArquivo: string; contentType: string; tamanhoBytes: number; status: number; createdAtUtc: string }[];
+    documentos: { id: string; tipo: number | string; lado: number | string; nomeArquivo: string; contentType: string; tamanhoBytes: number; status: number; createdAtUtc: string; presignedUrl?: string }[];
     [key: string]: unknown;
 }
 
@@ -198,6 +210,14 @@ function resolveDocTipo(raw: number | string): number {
     if (typeof raw === "number") return raw;
     return TIPO_DOC_STR_MAP[raw] ?? -1;
 }
+// Lado pode vir como int (0,1,2) ou string ("Unico","Frente","Verso") dependendo do endpoint
+const LADO_STR_MAP: Record<string, number> = { Unico: 0, Frente: 1, Verso: 2 };
+function resolveDocLado(raw: number | string): number {
+    if (typeof raw === "number") return raw;
+    return LADO_STR_MAP[raw] ?? 0;
+}
+// Tipos com frente e verso (igual ao portal do candidato)
+const TIPOS_COM_VERSO = new Set([0, 2, 9]); // RG, CNH, CTPS
 const TIPO_DOC = TIPO_DOC_ALL; // fallback
 const UF_LIST = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
@@ -211,7 +231,6 @@ export default function AdmissaoWizardScreen() {
     const [form, setForm] = useState<Partial<PreAdmissao>>({});
     const [saving, setSaving] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [uploadTipo, setUploadTipo] = useState(0);
     const [loadingData, setLoadingData] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -263,6 +282,15 @@ export default function AdmissaoWizardScreen() {
 
     async function submit() {
         if (!id) return;
+        // Validação só no clique em "Finalizar" — passos intermediários permitem dados incompletos.
+        const errors = validatePreAdmissao(form);
+        if (errors.length > 0) {
+            const firstStep = firstErrorStep(errors) ?? 0;
+            setStep(firstStep);
+            const first = errors[0];
+            toast.error(`${first.label}: ${first.message}${errors.length > 1 ? ` (+${errors.length - 1} campo(s) com pendência)` : ""}`);
+            return;
+        }
         try {
             setSubmitting(true);
             await save();
@@ -288,26 +316,6 @@ export default function AdmissaoWizardScreen() {
         } catch (e) {
             if ((e as Error).name === "AbortError") toast.error("Busca de CEP demorou demais — preencha o endereço manualmente");
             else toast.error("Não foi possível buscar o CEP");
-        }
-    }
-
-    async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (!file || !id) return;
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("tipo", String(uploadTipo));
-        try {
-            const res = await apiFetch(`/api/pre-admissao/${id}/documentos`, { method: "POST", body: fd });
-            if (res.ok) { toast.success("Documento enviado!"); loadData(); }
-            else {
-                const body = await res.json().catch(() => null);
-                toast.error(body?.title ?? body?.detail ?? "Erro no upload — verifique o tipo e tamanho do arquivo");
-            }
-        } catch {
-            toast.error("Erro de conexão ao enviar o documento");
-        } finally {
-            e.target.value = "";
         }
     }
 
@@ -397,7 +405,7 @@ export default function AdmissaoWizardScreen() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <Field label="Passaporte" value={form.passaporte} onChange={v => set("passaporte", v)} />
                                     <Field label="RNM/RNE" value={form.rnmRne} onChange={v => set("rnmRne", v)} />
-                                    <Field label="Validade Visto *" value={form.validadeVisto} onChange={v => set("validadeVisto", v)} type="date" />
+                                    <Field label="Validade Visto" value={form.validadeVisto} onChange={v => set("validadeVisto", v)} type="date" />
                                     <Field label="Tipo Visto" value={form.tipoVisto} onChange={v => set("tipoVisto", v)} />
                                 </div>
                                 {form.validadeVisto && new Date(form.validadeVisto) < new Date() && (
@@ -438,7 +446,7 @@ export default function AdmissaoWizardScreen() {
                     <div className="space-y-4">
                         <h5 className="font-semibold text-sm flex items-center gap-2"><Phone className="size-4" /> Contato</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Field label="E-mail *" value={form.email} onChange={v => set("email", v)} type="email" />
+                            <Field label="E-mail" value={form.email} onChange={v => set("email", v)} type="email" />
                             <Field label="Telefone" value={form.telefone} onChange={v => set("telefone", v)} />
                             <Field label="Celular" value={form.celular} onChange={v => set("celular", v)} />
                             <div className="col-span-2 border-t border-border/30 pt-3 mt-2">
@@ -479,9 +487,20 @@ export default function AdmissaoWizardScreen() {
                     <div className="space-y-4">
                         <h5 className="font-semibold text-sm flex items-center gap-2"><Briefcase className="size-4" /> Dados Trabalhistas</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <Field label="Estab. Código" value={form.estabelecimentoCodigo} onChange={v => set("estabelecimentoCodigo", v)} placeholder="001" />
-                            <Field label="Data Admissão *" value={form.dataAdmissao} onChange={v => set("dataAdmissao", v)} type="date" />
-                            <Field label="Salário (R$)" value={form.salario != null ? String(form.salario) : ""} onChange={v => set("salario", v ? parseFloat(v) : null)} type="number" />
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Estab. Código</label>
+                                <EstabelecimentoAutocomplete
+                                    value={form.estabelecimentoCodigo ?? null}
+                                    onChange={(code) => set("estabelecimentoCodigo", code || null)}
+                                    valueAsCode
+                                />
+                            </div>
+                            <Field label="Data Admissão" value={form.dataAdmissao} onChange={v => set("dataAdmissao", v)} type="date" />
+                            <Field label="Salário (R$)" value={form.salario != null ? String(form.salario) : ""} onChange={v => {
+                                if (!v) { set("salario", null); return; }
+                                const n = parseFloat(v);
+                                set("salario", Number.isFinite(n) ? n : null);
+                            }} type="number" />
                             {form.salario && form.validacaoSalarioOk === false && (
                                 <div className="col-span-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                                     <div className="text-sm font-semibold text-amber-700 flex items-center gap-1">
@@ -496,38 +515,55 @@ export default function AdmissaoWizardScreen() {
                                 </div>
                             )}
                             <Select label="Tipo Contratação" value={form.tipoContratacao} options={TIPO_CONTRATACAO} onChange={v => set("tipoContratacao", Number(v))} />
-                            <Field label="Carga Horária Semanal" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => set("cargaHorariaSemanal", v ? parseInt(v) : null)} type="number" />
+                            <Field label="Carga Horária Semanal" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => {
+                                if (!v) { set("cargaHorariaSemanal", null); return; }
+                                const n = parseInt(v, 10);
+                                if (!Number.isFinite(n) || n < 0) { set("cargaHorariaSemanal", null); return; }
+                                // Backend é short — clamp em 32767 (limite superior de Int16).
+                                set("cargaHorariaSemanal", Math.min(n, 32767));
+                            }} type="number" />
                             <Field label="PIS/PASEP" value={form.pisPasep} onChange={v => set("pisPasep", v)} />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border/30 pt-3 mt-2">
                             <div className="col-span-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">Integração TOTVS</div>
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Cargo TOTVS *</label>
+                                <label className="text-xs text-muted-foreground block mb-1">Cargo TOTVS</label>
                                 <CargoAutocomplete
-                                  value={form.codCargoTotvs || ""}
-                                  onChange={(code) => {
-                                    // Converter o código (string) para número se possível
-                                    const numCode = code ? parseInt(code, 10) : null;
-                                    set("codCargoTotvs", isNaN(numCode as any) ? null : numCode);
-                                  }}
+                                  value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : ""}
+                                  onChange={(code) => set("codCargoTotvs", toIntOrNull(code))}
                                 />
                             </div>
                             <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
                             <Select label="Tipo Funcionário" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial *</label>
+                                <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial</label>
                                 <CategoriaSalarialAutocomplete
-                                  value={form.categoriaSalarial || ""}
-                                  onChange={(code) => {
-                                    const numCode = code ? parseInt(code, 10) : null;
-                                    set("categoriaSalarial", isNaN(numCode as any) ? null : numCode);
-                                  }}
+                                  value={form.categoriaSalarial != null ? String(form.categoriaSalarial) : ""}
+                                  onChange={(code) => set("categoriaSalarial", toIntOrNull(code))}
                                 />
                             </div>
                             <Select label="Grau de Instrução" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
-                            <Field label="Cód. Turno" value={form.codTurno != null ? String(form.codTurno) : ""} onChange={v => set("codTurno", v ? parseInt(v) : null)} type="number" placeholder="Ex: 1" />
-                            <Field label="Centro de Custo" value={form.centroCusto} onChange={v => set("centroCusto", v)} placeholder="Ex: 99999" />
-                            <Field label="Unidade Lotação" value={form.unidadeLotacao} onChange={v => set("unidadeLotacao", v)} placeholder="Ex: 00001001" />
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Cód. Turno</label>
+                                <TurnoAutocomplete
+                                    value={form.codTurno ?? null}
+                                    onChange={(code) => set("codTurno", toIntOrNull(code))}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Centro de Custo</label>
+                                <CentroCustoAutocomplete
+                                    value={form.centroCusto ?? null}
+                                    onChange={(code) => set("centroCusto", code || null)}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Unidade Lotação</label>
+                                <UnidadeLotacaoAutocomplete
+                                    value={form.unidadeLotacao ?? null}
+                                    onChange={(code) => set("unidadeLotacao", code || null)}
+                                />
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-border/30 pt-3 mt-2">
                             <Field label="Título Eleitor Nº" value={form.tituloEleitorNumero} onChange={v => set("tituloEleitorNumero", v)} />
@@ -549,10 +585,15 @@ export default function AdmissaoWizardScreen() {
                         <h5 className="font-semibold text-sm flex items-center gap-2"><FileUp className="size-4" /> Documentos — {form.tipoContratacao === 1 ? "PJ" : "CLT"}</h5>
                         <div className="space-y-3">
                             {getDocsPorTipo(form.tipoContratacao ?? null).map(docTipo => {
-                                const enviado = form.documentos?.find(d => resolveDocTipo(d.tipo) === docTipo.value);
-                                return (
-                                    <div key={docTipo.value} className="rounded-lg border border-border/40 p-3">
-                                        <div className="flex items-center justify-between gap-3">
+                                const hasLados = TIPOS_COM_VERSO.has(docTipo.value);
+
+                                const uploadSlot = (lado: number, sideLabel: string) => {
+                                    const enviado = form.documentos?.find(d =>
+                                        resolveDocTipo(d.tipo) === docTipo.value &&
+                                        (hasLados ? resolveDocLado(d.lado) === lado : true)
+                                    );
+                                    return (
+                                        <div key={`${docTipo.value}-${lado}`} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 {enviado ? (
                                                     <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
@@ -560,7 +601,7 @@ export default function AdmissaoWizardScreen() {
                                                     <span className="size-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
                                                 )}
                                                 <div className="min-w-0">
-                                                    <div className="text-sm font-medium">{docTipo.label}</div>
+                                                    <div className="text-sm font-medium">{sideLabel}</div>
                                                     {enviado && (
                                                         <div className="text-xs text-muted-foreground truncate">{enviado.nomeArquivo} • {(enviado.tamanhoBytes / 1024).toFixed(0)} KB</div>
                                                     )}
@@ -568,30 +609,50 @@ export default function AdmissaoWizardScreen() {
                                             </div>
                                             <div className="shrink-0 flex items-center gap-2">
                                                 {enviado ? (
-                                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteDoc(enviado.id)}>Remover</Button>
+                                                    <>
+                                                        {enviado.presignedUrl && (
+                                                            <Button variant="outline" size="sm" onClick={() => window.open(enviado.presignedUrl, "_blank")}>
+                                                                <Eye className="size-3.5 mr-1" /> Visualizar
+                                                            </Button>
+                                                        )}
+                                                        <Button variant="destructive" size="sm" onClick={() => handleDeleteDoc(enviado.id)}>Remover</Button>
+                                                    </>
                                                 ) : (
                                                     <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors">
                                                         <Upload className="size-3" /> Enviar
                                                         <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={async (e) => {
                                                             const file = e.target.files?.[0];
                                                             if (!file) return;
-                                                            setUploadTipo(docTipo.value);
-                                                            // Simular o handleUpload com tipo específico
                                                             const fd = new FormData();
                                                             fd.append("file", file);
                                                             fd.append("tipo", String(docTipo.value));
+                                                            fd.append("lado", String(lado));
                                                             try {
                                                                 const res = await apiFetch(`/api/pre-admissao/${id}/documentos`, { method: "POST", body: fd });
                                                                 if (!res.ok) throw new Error("Falha no upload");
-                                                                toast.success(`${docTipo.label} enviado!`);
+                                                                toast.success(`${sideLabel} enviado!`);
                                                                 await loadData();
-                                                            } catch { toast.error(`Falha ao enviar ${docTipo.label}`); }
+                                                            } catch { toast.error(`Falha ao enviar ${sideLabel}`); }
                                                             e.target.value = "";
                                                         }} />
                                                     </label>
                                                 )}
                                             </div>
                                         </div>
+                                    );
+                                };
+
+                                return (
+                                    <div key={docTipo.value} className="rounded-lg border border-border/40 p-3">
+                                        {hasLados ? (
+                                            <div className="space-y-0 divide-y divide-border/40">
+                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pb-2">{docTipo.label}</p>
+                                                {uploadSlot(1, `${docTipo.label} — Frente`)}
+                                                {uploadSlot(2, `${docTipo.label} — Costas`)}
+                                            </div>
+                                        ) : (
+                                            uploadSlot(0, docTipo.label)
+                                        )}
                                     </div>
                                 );
                             })}

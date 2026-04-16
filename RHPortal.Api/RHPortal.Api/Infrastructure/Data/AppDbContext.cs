@@ -144,6 +144,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
     public DbSet<AprovadorAlternativo> AprovadoresAlternativos => Set<AprovadorAlternativo>();
+    public DbSet<DocumentacaoPadraoConfig> DocumentacaoPadraoConfigs => Set<DocumentacaoPadraoConfig>();
     public DbSet<WorkflowRH> WorkflowsRH => Set<WorkflowRH>();
     public DbSet<EtapaWorkflowRH> EtapasWorkflowRH => Set<EtapaWorkflowRH>();
     public DbSet<EtapaConfigWorkflowRH> EtapasConfigWorkflowRH => Set<EtapaConfigWorkflowRH>();
@@ -1813,6 +1814,17 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Gestor).WithMany().HasForeignKey(x => x.GestorId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.Aprovador).WithMany().HasForeignKey(x => x.AprovadorId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(x => new { x.TenantId, x.GestorId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<DocumentacaoPadraoConfig>(b =>
+        {
+            b.ToTable("DocumentacaoPadraoConfigs");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TipoDocumento).IsRequired();
+            b.Property(x => x.Configuracao).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.TipoDocumento }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

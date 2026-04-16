@@ -19,6 +19,16 @@ public sealed class OcupacaoHistorico : ITenantEntity
 
     /// <summary>Id da solicitação (desligamento, promoção etc.) que gerou este evento.</summary>
     public Guid? SolicitacaoOrigemId { get; set; }
+
+    /// <summary>
+    /// Quando true, este slot foi criado por uma requisição de substituição e está em período provisório.
+    /// </summary>
+    public bool IsProvisorio { get; set; } = false;
+
+    /// <summary>
+    /// Data/hora em que o slot provisório expira. Null para slots normais.
+    /// </summary>
+    public DateTimeOffset? ProvisorioExpiresAtUtc { get; set; }
 }
 
 public enum MotivoSaidaOcupacao

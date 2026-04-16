@@ -20,12 +20,28 @@ public sealed class TenantConfiguracaoUpsertRequest
     public Guid? AprovadorRhId { get; set; }
 }
 
+// ── DTOs de Headcount ──
+
+public sealed class ConfiguracaoHeadcountDto
+{
+    public int DiasProvisaoSubstituicao { get; set; } = 30;
+    public int DiasAlertaVagaSemFill { get; set; } = 60;
+}
+
+public sealed class ConfiguracaoHeadcountRequest
+{
+    public int DiasProvisaoSubstituicao { get; set; } = 30;
+    public int DiasAlertaVagaSemFill { get; set; } = 60;
+}
+
 // ── Service ──
 
 public interface ITenantConfiguracaoService
 {
     Task<TenantConfiguracaoDto> GetAsync(CancellationToken ct);
     Task<TenantConfiguracaoDto> UpsertAsync(TenantConfiguracaoUpsertRequest request, CancellationToken ct);
+    Task<ConfiguracaoHeadcountDto> GetHeadcountConfigAsync(CancellationToken ct);
+    Task<ConfiguracaoHeadcountDto> UpsertHeadcountConfigAsync(ConfiguracaoHeadcountRequest request, CancellationToken ct);
 }
 
 public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
@@ -78,6 +94,43 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         await _db.Entry(config).Reference(c => c.AprovadorRh).LoadAsync(ct);
 
         return MapToDto(config);
+    }
+
+    public async Task<ConfiguracaoHeadcountDto> GetHeadcountConfigAsync(CancellationToken ct)
+    {
+        var config = await _db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
+        if (config is null) return new ConfiguracaoHeadcountDto();
+        return new ConfiguracaoHeadcountDto
+        {
+            DiasProvisaoSubstituicao = config.DiasProvisaoSubstituicao,
+            DiasAlertaVagaSemFill = config.DiasAlertaVagaSemFill,
+        };
+    }
+
+    public async Task<ConfiguracaoHeadcountDto> UpsertHeadcountConfigAsync(ConfiguracaoHeadcountRequest request, CancellationToken ct)
+    {
+        var config = await _db.TenantConfiguracoes.FirstOrDefaultAsync(ct);
+        if (config is null)
+        {
+            config = new Domain.Entities.TenantConfiguracao
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId ?? "",
+            };
+            _db.TenantConfiguracoes.Add(config);
+        }
+
+        config.DiasProvisaoSubstituicao = Math.Max(1, request.DiasProvisaoSubstituicao);
+        config.DiasAlertaVagaSemFill = Math.Max(1, request.DiasAlertaVagaSemFill);
+        config.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        return new ConfiguracaoHeadcountDto
+        {
+            DiasProvisaoSubstituicao = config.DiasProvisaoSubstituicao,
+            DiasAlertaVagaSemFill = config.DiasAlertaVagaSemFill,
+        };
     }
 
     private static TenantConfiguracaoDto MapToDto(Domain.Entities.TenantConfiguracao c) => new()

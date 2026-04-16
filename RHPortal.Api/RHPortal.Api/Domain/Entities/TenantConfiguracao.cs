@@ -23,5 +23,21 @@ public sealed class TenantConfiguracao : ITenantEntity
     public Guid? AprovadorRhId { get; set; }
     public Funcionario? AprovadorRh { get; set; }
 
+    // --------------------
+    // Gestão de Headcount
+    // --------------------
+
+    /// <summary>
+    /// Número de dias que o headcount provisório (originado de substituição) permanece ativo
+    /// antes de expirar automaticamente. Default = 30.
+    /// </summary>
+    public int DiasProvisaoSubstituicao { get; set; } = 30;
+
+    /// <summary>
+    /// Número de dias que uma vaga pode ficar aberta sem ser preenchida
+    /// antes de o RH receber um alerta no painel. Default = 60.
+    /// </summary>
+    public int DiasAlertaVagaSemFill { get; set; } = 60;
+
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

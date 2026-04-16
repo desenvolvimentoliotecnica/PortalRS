@@ -93,53 +93,71 @@ public sealed class VagaService : IVagaService
         if (query.DepartmentId.HasValue && query.DepartmentId.Value != Guid.Empty)
             q = q.Where(v => v.DepartmentId == query.DepartmentId.Value);
 
+        // Carregar configuração do tenant para calcular alerta
+        var tenantConfig = await _db.TenantConfiguracoes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == _tenantContext.TenantId, ct);
+
+        var diasAlerta = tenantConfig?.DiasAlertaVagaSemFill ?? 60;
+        var agora = DateTimeOffset.UtcNow;
+
         var items = await q
-            .Select(v => new VagaListItemResponse(
-                v.Id,
-                v.Codigo,
-                v.Titulo,
-                v.Status,
-
+            .Select(v => new
+            {
+                v.Id, v.Codigo, v.Titulo, v.Status,
                 v.AreaId,
-                v.Area != null ? v.Area.Code : null,
-                v.Area != null ? v.Area.Name : null,
-
+                AreaCode = v.Area != null ? v.Area.Code : null,
+                AreaName = v.Area != null ? v.Area.Name : null,
                 v.DepartmentId,
-                v.Department != null ? v.Department.Code : null,
-                v.Department != null ? v.Department.Name : null,
-
-                v.Modalidade,
-                v.Senioridade,
-                v.QuantidadeVagas,
-                v.MatchMinimoPercentual,
-
-                v.Confidencial,
-                v.Urgente,
-                v.AceitaPcd,
-
-                v.DataInicio,
-                v.DataEncerramento,
-                v.DataAbertura,
-                v.SlaDiasMetaFechamento,
-
-                v.Cidade,
-                v.Uf,
-
-                v.Requisitos.Count(),
-                v.Requisitos.Count(r => r.Obrigatorio),
-
-                v.CreatedAtUtc,
-                v.UpdatedAtUtc,
-
+                DepartmentCode = v.Department != null ? v.Department.Code : null,
+                DepartmentName = v.Department != null ? v.Department.Name : null,
+                v.Modalidade, v.Senioridade, v.QuantidadeVagas, v.MatchMinimoPercentual,
+                v.Confidencial, v.Urgente, v.AceitaPcd,
+                v.DataInicio, v.DataEncerramento, v.DataAbertura, v.SlaDiasMetaFechamento,
+                v.Cidade, v.Uf,
+                RequisitosTotal = v.Requisitos.Count(),
+                RequisitosObrigatorios = v.Requisitos.Count(r => r.Obrigatorio),
+                v.CreatedAtUtc, v.UpdatedAtUtc,
                 v.HeadcountAutorizado,
-                v.Ocupacoes.Count(o => o.DataSaida == null),
-                v.IsEstrutural
-            ))
+                HeadcountOcupado = v.Ocupacoes.Count(o => o.DataSaida == null),
+                v.IsEstrutural,
+                v.HeadcountProvisorio,
+                v.HeadcountProvisorioExpiresAtUtc,
+                v.AlertaVagaSemFillSnoozeAteUtc,
+            })
             .ToListAsync(ct);
 
         return items
             .OrderByDescending(x => x.UpdatedAtUtc)
             .ThenByDescending(x => x.CreatedAtUtc)
+            .Select(v =>
+            {
+                // Calcular alerta: vaga aberta há mais de N dias, sem snooze ativo
+                int? diasSemFill = null;
+                bool alertaAtivo = false;
+                if (v.Status == VagaStatus.Aberta && v.DataAbertura.HasValue)
+                {
+                    diasSemFill = (int)(agora - v.DataAbertura.Value).TotalDays;
+                    var snoozeAtivo = v.AlertaVagaSemFillSnoozeAteUtc.HasValue
+                        && v.AlertaVagaSemFillSnoozeAteUtc.Value > agora;
+                    alertaAtivo = diasSemFill >= diasAlerta && !snoozeAtivo;
+                }
+
+                return new VagaListItemResponse(
+                    v.Id, v.Codigo, v.Titulo, v.Status,
+                    v.AreaId, v.AreaCode, v.AreaName,
+                    v.DepartmentId, v.DepartmentCode, v.DepartmentName,
+                    v.Modalidade, v.Senioridade, v.QuantidadeVagas, v.MatchMinimoPercentual,
+                    v.Confidencial, v.Urgente, v.AceitaPcd,
+                    v.DataInicio, v.DataEncerramento, v.DataAbertura, v.SlaDiasMetaFechamento,
+                    v.Cidade, v.Uf,
+                    v.RequisitosTotal, v.RequisitosObrigatorios,
+                    v.CreatedAtUtc, v.UpdatedAtUtc,
+                    v.HeadcountAutorizado, v.HeadcountOcupado, v.IsEstrutural,
+                    v.HeadcountProvisorio, v.HeadcountProvisorioExpiresAtUtc,
+                    alertaAtivo, alertaAtivo ? diasSemFill : null, v.AlertaVagaSemFillSnoozeAteUtc
+                );
+            })
             .ToList();
     }
 

@@ -249,6 +249,17 @@ namespace RHPortal.Api.Migrations
                     b.Property<bool>("IsEstrutural")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("HeadcountProvisorio")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTimeOffset?>("HeadcountProvisorioExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("AlertaVagaSemFillSnoozeAteUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("JobPositionId")
                         .HasColumnType("uuid");
 
@@ -3509,6 +3520,37 @@ namespace RHPortal.Api.Migrations
                     b.ToTable("DocumentosColaborador", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.DocumentacaoPadraoConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Configuracao")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<short>("TipoDocumento")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "TipoDocumento")
+                        .IsUnique();
+
+                    b.ToTable("DocumentacaoPadraoConfigs", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.EmailAttempt", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5186,6 +5228,14 @@ namespace RHPortal.Api.Migrations
                     b.Property<Guid?>("SolicitacaoOrigemId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsProvisorio")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTimeOffset?>("ProvisorioExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("TenantId")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -5440,6 +5490,9 @@ namespace RHPortal.Api.Migrations
                     b.Property<int?>("Altura")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("AnoChegada")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset?>("ApprovedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -5514,6 +5567,10 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<string>("CidadeExterior")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<int?>("CnhDataExpedicao")
                         .HasColumnType("integer");
 
@@ -5541,6 +5598,10 @@ namespace RHPortal.Api.Migrations
                     b.Property<string>("CodEmpresa")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
+
+                    b.Property<string>("CodEnderecoPostalExterior")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<int?>("CodFpas")
                         .HasColumnType("integer");
@@ -5634,6 +5695,9 @@ namespace RHPortal.Api.Migrations
                         .HasColumnType("date");
 
                     b.Property<DateOnly?>("DataNascimento")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("DataObitoCivil")
                         .HasColumnType("date");
 
                     b.Property<DateOnly?>("DataOpcaoFgts")
@@ -5773,6 +5837,10 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
+                    b.Property<string>("Naturalizacao")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.Property<int?>("NaturezaAtividade")
                         .HasColumnType("integer");
 
@@ -5818,8 +5886,15 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(1)
                         .HasColumnType("character varying(1)");
 
+                    b.Property<int?>("OrgaoEmisPassaporte")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("OrigemFuncionario")
                         .HasColumnType("integer");
+
+                    b.Property<string>("PaisEmisPassaporte")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.Property<string>("PaisLocalidade")
                         .HasMaxLength(10)
@@ -5847,6 +5922,10 @@ namespace RHPortal.Api.Migrations
                     b.Property<string>("PontoReferencia")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<string>("PortariaNaturalizacao")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.Property<string>("PossuiDeficiencia")
                         .HasMaxLength(1)
@@ -5979,11 +6058,17 @@ namespace RHPortal.Api.Migrations
                     b.Property<int?>("TipoAdmissaoFgts")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TipoCertidaoCivil")
+                        .HasColumnType("integer");
+
                     b.Property<short?>("TipoConta")
                         .HasColumnType("smallint");
 
                     b.Property<short?>("TipoContratacao")
                         .HasColumnType("smallint");
+
+                    b.Property<int?>("TipoEstatistica")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("TipoFuncionario")
                         .HasColumnType("integer");
@@ -6054,6 +6139,9 @@ namespace RHPortal.Api.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<DateOnly?>("ValidadeCnh")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ValidadeIdentEstrangeiro")
                         .HasColumnType("date");
 
                     b.Property<DateOnly?>("ValidadeVisto")
@@ -7995,6 +8083,16 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<bool>("RhDeveAprovarAposGestor")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("DiasProvisaoSubstituicao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(30);
+
+                    b.Property<int>("DiasAlertaVagaSemFill")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(60);
 
                     b.Property<string>("TenantId")
                         .IsRequired()
