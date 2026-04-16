@@ -1091,15 +1091,48 @@ export default function VagasScreen() {
                                                     </TableCell>
                                                     <TableCell onClick={(e) => e.stopPropagation()}>
                                                         {(() => {
-                                                            const ocupado = vaga.headcountOcupado ?? 0;
-                                                            const autorizado = vaga.headcountAutorizado ?? 1;
-                                                            const abertos = autorizado - ocupado;
+                                                            const raw = vaga as Record<string, unknown>;
+                                                            const ocupado = (raw.headcountOcupado as number | undefined) ?? 0;
+                                                            const autorizado = (raw.headcountAutorizado as number | undefined) ?? 1;
+                                                            const provisorio = (raw.headcountProvisorio as number | undefined) ?? 0;
+                                                            const limite = autorizado + provisorio;
+                                                            const acima = ocupado > autorizado;
+                                                            const muitoAcima = ocupado > autorizado + 1;
+                                                            const alertaAtivo = !!(raw.alertaVagaSemFill as boolean | undefined);
+                                                            const diasSemFill = raw.alertaDiasSemFill as number | undefined;
+                                                            const provisorioExpira = raw.headcountProvisorioExpiresAtUtc as string | undefined;
+
+                                                            const corTexto = muitoAcima
+                                                                ? "text-red-600 dark:text-red-400 font-semibold"
+                                                                : acima
+                                                                    ? "text-orange-600 dark:text-orange-400 font-medium"
+                                                                    : ocupado === autorizado
+                                                                        ? "text-green-600 dark:text-green-400"
+                                                                        : "text-muted-foreground";
+
+                                                            const tooltip = acima && provisorioExpira
+                                                                ? `${provisorio} slot${provisorio > 1 ? "s" : ""} provisório${provisorio > 1 ? "s" : ""} (substituição em andamento) — expira ${new Date(provisorioExpira).toLocaleDateString("pt-BR")}`
+                                                                : undefined;
+
                                                             return (
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="text-xs text-muted-foreground tabular-nums">{ocupado}/{autorizado}</span>
-                                                                    {abertos > 0 && (
-                                                                        <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                                                                            {abertos} aberto{abertos > 1 ? "s" : ""}
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span
+                                                                            className={`text-xs tabular-nums ${corTexto}`}
+                                                                            title={tooltip}
+                                                                        >
+                                                                            {ocupado}/{limite}
+                                                                            {acima && " ⚠"}
+                                                                        </span>
+                                                                        {provisorio > 0 && (
+                                                                            <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                                                                +{provisorio} prov.
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    {alertaAtivo && (
+                                                                        <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 w-fit">
+                                                                            Sem fill há {diasSemFill}d
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -1257,16 +1290,35 @@ export default function VagasScreen() {
                                                                 <div className="flex items-center gap-1.5">
                                                                     <span className="text-[11px] text-muted-foreground">Match {threshold}%</span>
                                                                     {(() => {
-                                                                        const ocupado = vaga.headcountOcupado ?? 0;
-                                                                        const autorizado = vaga.headcountAutorizado ?? 1;
-                                                                        const abertos = autorizado - ocupado;
+                                                                        const raw = vaga as Record<string, unknown>;
+                                                                        const ocupado = (raw.headcountOcupado as number | undefined) ?? 0;
+                                                                        const autorizado = (raw.headcountAutorizado as number | undefined) ?? 1;
+                                                                        const provisorio = (raw.headcountProvisorio as number | undefined) ?? 0;
+                                                                        const limite = autorizado + provisorio;
+                                                                        const acima = ocupado > autorizado;
+                                                                        const alertaAtivo = !!(raw.alertaVagaSemFill as boolean | undefined);
+                                                                        const diasSemFill = raw.alertaDiasSemFill as number | undefined;
+                                                                        const corTexto = acima
+                                                                            ? ocupado > autorizado + 1
+                                                                                ? "text-red-500"
+                                                                                : "text-orange-500"
+                                                                            : ocupado === autorizado
+                                                                                ? "text-green-500"
+                                                                                : "text-muted-foreground";
                                                                         return (
                                                                             <>
                                                                                 <span className="text-[10px] text-muted-foreground/60">·</span>
-                                                                                <span className="text-[11px] text-muted-foreground tabular-nums">{ocupado}/{autorizado}</span>
-                                                                                {abertos > 0 && (
-                                                                                    <span className="rounded-full px-1 py-0.5 text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                                                                                        {abertos}↑
+                                                                                <span className={`text-[11px] tabular-nums ${corTexto}`}>
+                                                                                    {ocupado}/{limite}{acima ? " ⚠" : ""}
+                                                                                </span>
+                                                                                {provisorio > 0 && (
+                                                                                    <span className="rounded-full px-1 py-0.5 text-[9px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                                                                        +{provisorio}p
+                                                                                    </span>
+                                                                                )}
+                                                                                {alertaAtivo && (
+                                                                                    <span className="rounded-full px-1 py-0.5 text-[9px] bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                                                                                        {diasSemFill}d
                                                                                     </span>
                                                                                 )}
                                                                             </>

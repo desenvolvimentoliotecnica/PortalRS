@@ -45,6 +45,32 @@ namespace RHPortal.Api.Domain.Entities
         /// </summary>
         public bool IsEstrutural { get; set; } = false;
 
+        // --------------------
+        // Headcount Provisório (Substituição)
+        // --------------------
+
+        /// <summary>
+        /// Slots extras temporários criados por uma aprovação de substituição.
+        /// Somados ao HeadcountAutorizado para calcular o limite total da posição durante o período de transição.
+        /// </summary>
+        public int HeadcountProvisorio { get; set; } = 0;
+
+        /// <summary>
+        /// Data/hora em que o headcount provisório expira e retorna ao HeadcountAutorizado original.
+        /// Null quando não há provisão ativa.
+        /// </summary>
+        public DateTimeOffset? HeadcountProvisorioExpiresAtUtc { get; set; }
+
+        // --------------------
+        // Alerta de Vaga Sem Preenchimento
+        // --------------------
+
+        /// <summary>
+        /// Data até a qual o alerta de "vaga sem preenchimento" está em snooze (silenciado).
+        /// Null = sem snooze ativo.
+        /// </summary>
+        public DateTimeOffset? AlertaVagaSemFillSnoozeAteUtc { get; set; }
+
         // Histórico de ocupação dos slots desta vaga/posição
         public ICollection<OcupacaoHistorico> Ocupacoes { get; set; } = [];
         public VagaTipoContratacao? TipoContratacao { get; set; } // vagaTipoContratacao
