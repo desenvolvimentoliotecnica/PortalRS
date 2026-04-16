@@ -406,6 +406,38 @@ public sealed class PreAdmissao : ITenantEntity
     public int? TipoVistoEstrangeiro { get; set; }
     public int? OcorrenciaCAGED { get; set; }
 
+    // ── Estrangeiro — campos complementares ──
+    public int? OrgaoEmisPassaporte { get; set; }
+
+    [StringLength(10)]
+    public string? PaisEmisPassaporte { get; set; }
+
+    public DateOnly? ValidadeIdentEstrangeiro { get; set; }
+
+    public int? AnoChegada { get; set; }
+
+    // ── Naturalizado ──
+    [StringLength(60)]
+    public string? PortariaNaturalizacao { get; set; }
+
+    [StringLength(60)]
+    public string? Naturalizacao { get; set; }
+
+    // ── Certidão Civil ──
+    public int? TipoCertidaoCivil { get; set; }
+
+    public DateOnly? DataObitoCivil { get; set; }
+
+    // ── Reside no Exterior ──
+    [StringLength(20)]
+    public string? CodEnderecoPostalExterior { get; set; }
+
+    [StringLength(120)]
+    public string? CidadeExterior { get; set; }
+
+    // ── FP1500: Tipo Estatística ──
+    public int? TipoEstatistica { get; set; }
+
     // ── TOTVS: Ponto Referência / DDD ──
     [StringLength(120)]
     public string? PontoReferencia { get; set; }

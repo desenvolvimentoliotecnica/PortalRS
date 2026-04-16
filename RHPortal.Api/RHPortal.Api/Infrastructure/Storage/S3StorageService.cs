@@ -50,8 +50,10 @@ public sealed class S3StorageService : IS3StorageService
     public string GetPresignedUrl(string key, TimeSpan? expiresIn = null)
     {
         // GetPresignedUrl é síncrono na SDK — resolve as credenciais de forma síncrona
-        var opts = _awsSettings.GetDecryptedAsync(default).GetAwaiter().GetResult()
-            ?? throw new InvalidOperationException("AWS S3 não configurado. Acesse Configurações → AWS S3 para configurar.");
+        var opts = _awsSettings.GetDecryptedAsync(default).GetAwaiter().GetResult();
+        // S3 não configurado: retorna vazio em vez de lançar exception
+        // (documentos sem URL são listados normalmente; upload/download falhará separadamente)
+        if (opts is null) return string.Empty;
 
         var client = BuildClient(opts);
         // AWS SigV4 limita presigned URLs a no máximo 604800 segundos (7 dias)

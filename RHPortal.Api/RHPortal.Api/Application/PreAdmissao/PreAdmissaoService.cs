@@ -348,6 +348,12 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         if (e.Status != PreAdmissaoStatus.Preenchido)
             throw new InvalidOperationException("Só é possível aprovar pré-admissões em revisão.");
 
+        // ── Validação TOTVS: garante que todos os campos obrigatórios/condicionais
+        //    estão preenchidos antes de concluir a admissão.
+        var issues = PreAdmissaoTotvsValidator.Validate(e);
+        if (issues.Count > 0)
+            throw new TotvsValidationException(issues);
+
         e.Status = PreAdmissaoStatus.Aprovada;
         // Só setar AprovadoPorId se é um FuncionarioId válido (existe na tabela Funcionarios)
         if (aprovadorId != Guid.Empty)

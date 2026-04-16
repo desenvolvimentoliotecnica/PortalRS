@@ -81,12 +81,32 @@ public sealed class PreAdmissaoController : ControllerBase
     [HttpPost("{id:guid}/approve")]
     [ProducesResponseType(typeof(PreAdmissaoDetailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Approve(Guid id, [FromBody] PreAdmissaoApproveRequest request, CancellationToken ct)
     {
-        // Admin pode aprovar mesmo sem FuncionarioId vinculado
-        var aprovadorId = _userContext.FuncionarioId ?? (_userContext.UserId ?? Guid.Empty);
-        var result = await _service.ApproveAsync(id, aprovadorId, request, ct);
-        return result is null ? NotFound() : Ok(result);
+        try
+        {
+            // Admin pode aprovar mesmo sem FuncionarioId vinculado
+            var aprovadorId = _userContext.FuncionarioId ?? (_userContext.UserId ?? Guid.Empty);
+            var result = await _service.ApproveAsync(id, aprovadorId, request, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (TotvsValidationException ex)
+        {
+            return UnprocessableEntity(new
+            {
+                type    = "totvs_validation",
+                message = ex.Message,
+                errors  = ex.Issues.Select(i => new
+                {
+                    campo    = i.Campo,
+                    label    = i.Label,
+                    secao    = i.Secao,
+                    tipoRegra = i.TipoRegra,
+                    mensagem  = i.Mensagem,
+                })
+            });
+        }
     }
 
     /// <summary>Rejeita a pré-admissão (EmRevisão → Rejeitada).</summary>
