@@ -180,8 +180,9 @@ const ROLE_HIERARCHY: AppRole[] = ["owner", "admin", "rh", "gestor", "compliance
 const ROLE_ALIASES: Record<AppRole, string[]> = {
     owner: ["owner"],
     admin: ["admin", "administrador"],
+    rh: ["rh"],
     gestor: ["gestor"],
-    recrutador: ["recrutador"],
+    compliance: ["compliance"],
 };
 
 export function usePermission(minRole: AppRole): boolean {

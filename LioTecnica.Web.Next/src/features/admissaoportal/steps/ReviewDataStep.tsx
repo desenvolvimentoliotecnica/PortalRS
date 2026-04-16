@@ -472,7 +472,7 @@ function CityField({ label, field, ufField, form, set, disabled, required }: {
     useEffect(() => {
         if (!ufValid) return;
         if (ibgeCacheByUf[uf]) { forceUpdate(n => n + 1); return; }
-        if (ibgeFetchingUf[uf]) return;
+        if (uf in ibgeFetchingUf) return;
 
         setLoading(true);
         ibgeFetchingUf[uf] = fetch(
