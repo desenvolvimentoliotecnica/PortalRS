@@ -431,6 +431,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         return await GetDocumentosByIdentificadorAsync(request.Cpf, null, ct);
     }
 
+
     private async Task<Domain.Entities.PreAdmissao?> LoadAndValidate(Guid id, string cpf, CancellationToken ct)
     {
         var cpfNorm = NormalizeCpf(cpf);

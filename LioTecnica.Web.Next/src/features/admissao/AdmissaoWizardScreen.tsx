@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     User, MapPin, Phone, CreditCard, Briefcase, FileUp, CheckCircle2, Upload,
-    ChevronLeft, ChevronRight, Save, Send, AlertTriangle, Loader2,
+    ChevronLeft, ChevronRight, Save, Send, AlertTriangle, Loader2, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { CargoAutocomplete } from "@/components/autocomplete/CargoAutocomplete";
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
+import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
 
 /* ── types ── */
 
@@ -97,7 +98,7 @@ interface PreAdmissao {
     peso: number | null;
     validacaoSalarioJustificativa: string | null;
     status: number;
-    documentos: { id: string; tipo: number; nomeArquivo: string; contentType: string; tamanhoBytes: number; status: number; createdAtUtc: string }[];
+    documentos: { id: string; tipo: number | string; lado: number | string; nomeArquivo: string; contentType: string; tamanhoBytes: number; status: number; createdAtUtc: string; presignedUrl?: string }[];
     [key: string]: unknown;
 }
 
@@ -198,6 +199,14 @@ function resolveDocTipo(raw: number | string): number {
     if (typeof raw === "number") return raw;
     return TIPO_DOC_STR_MAP[raw] ?? -1;
 }
+// Lado pode vir como int (0,1,2) ou string ("Unico","Frente","Verso") dependendo do endpoint
+const LADO_STR_MAP: Record<string, number> = { Unico: 0, Frente: 1, Verso: 2 };
+function resolveDocLado(raw: number | string): number {
+    if (typeof raw === "number") return raw;
+    return LADO_STR_MAP[raw] ?? 0;
+}
+// Tipos com frente e verso (igual ao portal do candidato)
+const TIPOS_COM_VERSO = new Set([0, 2, 9]); // RG, CNH, CTPS
 const TIPO_DOC = TIPO_DOC_ALL; // fallback
 const UF_LIST = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
@@ -211,7 +220,6 @@ export default function AdmissaoWizardScreen() {
     const [form, setForm] = useState<Partial<PreAdmissao>>({});
     const [saving, setSaving] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [uploadTipo, setUploadTipo] = useState(0);
     const [loadingData, setLoadingData] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -288,26 +296,6 @@ export default function AdmissaoWizardScreen() {
         } catch (e) {
             if ((e as Error).name === "AbortError") toast.error("Busca de CEP demorou demais — preencha o endereço manualmente");
             else toast.error("Não foi possível buscar o CEP");
-        }
-    }
-
-    async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (!file || !id) return;
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("tipo", String(uploadTipo));
-        try {
-            const res = await apiFetch(`/api/pre-admissao/${id}/documentos`, { method: "POST", body: fd });
-            if (res.ok) { toast.success("Documento enviado!"); loadData(); }
-            else {
-                const body = await res.json().catch(() => null);
-                toast.error(body?.title ?? body?.detail ?? "Erro no upload — verifique o tipo e tamanho do arquivo");
-            }
-        } catch {
-            toast.error("Erro de conexão ao enviar o documento");
-        } finally {
-            e.target.value = "";
         }
     }
 
@@ -527,7 +515,13 @@ export default function AdmissaoWizardScreen() {
                             <Select label="Grau de Instrução" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
                             <Field label="Cód. Turno" value={form.codTurno != null ? String(form.codTurno) : ""} onChange={v => set("codTurno", v ? parseInt(v) : null)} type="number" placeholder="Ex: 1" />
                             <Field label="Centro de Custo" value={form.centroCusto} onChange={v => set("centroCusto", v)} placeholder="Ex: 99999" />
-                            <Field label="Unidade Lotação" value={form.unidadeLotacao} onChange={v => set("unidadeLotacao", v)} placeholder="Ex: 00001001" />
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Unidade Lotação</label>
+                                <UnidadeLotacaoAutocomplete
+                                    value={form.unidadeLotacao || ""}
+                                    onChange={(code) => set("unidadeLotacao", code || null)}
+                                />
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-border/30 pt-3 mt-2">
                             <Field label="Título Eleitor Nº" value={form.tituloEleitorNumero} onChange={v => set("tituloEleitorNumero", v)} />
@@ -549,10 +543,15 @@ export default function AdmissaoWizardScreen() {
                         <h5 className="font-semibold text-sm flex items-center gap-2"><FileUp className="size-4" /> Documentos — {form.tipoContratacao === 1 ? "PJ" : "CLT"}</h5>
                         <div className="space-y-3">
                             {getDocsPorTipo(form.tipoContratacao ?? null).map(docTipo => {
-                                const enviado = form.documentos?.find(d => resolveDocTipo(d.tipo) === docTipo.value);
-                                return (
-                                    <div key={docTipo.value} className="rounded-lg border border-border/40 p-3">
-                                        <div className="flex items-center justify-between gap-3">
+                                const hasLados = TIPOS_COM_VERSO.has(docTipo.value);
+
+                                const uploadSlot = (lado: number, sideLabel: string) => {
+                                    const enviado = form.documentos?.find(d =>
+                                        resolveDocTipo(d.tipo) === docTipo.value &&
+                                        (hasLados ? resolveDocLado(d.lado) === lado : true)
+                                    );
+                                    return (
+                                        <div key={`${docTipo.value}-${lado}`} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 {enviado ? (
                                                     <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
@@ -560,7 +559,7 @@ export default function AdmissaoWizardScreen() {
                                                     <span className="size-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
                                                 )}
                                                 <div className="min-w-0">
-                                                    <div className="text-sm font-medium">{docTipo.label}</div>
+                                                    <div className="text-sm font-medium">{sideLabel}</div>
                                                     {enviado && (
                                                         <div className="text-xs text-muted-foreground truncate">{enviado.nomeArquivo} • {(enviado.tamanhoBytes / 1024).toFixed(0)} KB</div>
                                                     )}
@@ -568,30 +567,50 @@ export default function AdmissaoWizardScreen() {
                                             </div>
                                             <div className="shrink-0 flex items-center gap-2">
                                                 {enviado ? (
-                                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteDoc(enviado.id)}>Remover</Button>
+                                                    <>
+                                                        {enviado.presignedUrl && (
+                                                            <Button variant="outline" size="sm" onClick={() => window.open(enviado.presignedUrl, "_blank")}>
+                                                                <Eye className="size-3.5 mr-1" /> Visualizar
+                                                            </Button>
+                                                        )}
+                                                        <Button variant="destructive" size="sm" onClick={() => handleDeleteDoc(enviado.id)}>Remover</Button>
+                                                    </>
                                                 ) : (
                                                     <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors">
                                                         <Upload className="size-3" /> Enviar
                                                         <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={async (e) => {
                                                             const file = e.target.files?.[0];
                                                             if (!file) return;
-                                                            setUploadTipo(docTipo.value);
-                                                            // Simular o handleUpload com tipo específico
                                                             const fd = new FormData();
                                                             fd.append("file", file);
                                                             fd.append("tipo", String(docTipo.value));
+                                                            fd.append("lado", String(lado));
                                                             try {
                                                                 const res = await apiFetch(`/api/pre-admissao/${id}/documentos`, { method: "POST", body: fd });
                                                                 if (!res.ok) throw new Error("Falha no upload");
-                                                                toast.success(`${docTipo.label} enviado!`);
+                                                                toast.success(`${sideLabel} enviado!`);
                                                                 await loadData();
-                                                            } catch { toast.error(`Falha ao enviar ${docTipo.label}`); }
+                                                            } catch { toast.error(`Falha ao enviar ${sideLabel}`); }
                                                             e.target.value = "";
                                                         }} />
                                                     </label>
                                                 )}
                                             </div>
                                         </div>
+                                    );
+                                };
+
+                                return (
+                                    <div key={docTipo.value} className="rounded-lg border border-border/40 p-3">
+                                        {hasLados ? (
+                                            <div className="space-y-0 divide-y divide-border/40">
+                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pb-2">{docTipo.label}</p>
+                                                {uploadSlot(1, `${docTipo.label} — Frente`)}
+                                                {uploadSlot(2, `${docTipo.label} — Costas`)}
+                                            </div>
+                                        ) : (
+                                            uploadSlot(0, docTipo.label)
+                                        )}
                                     </div>
                                 );
                             })}

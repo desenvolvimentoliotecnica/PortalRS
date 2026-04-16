@@ -17,7 +17,10 @@ public sealed class AdmissaoPortalController : ControllerBase
 {
     private readonly IAdmissaoPortalService _service;
 
-    public AdmissaoPortalController(IAdmissaoPortalService service) => _service = service;
+    public AdmissaoPortalController(IAdmissaoPortalService service)
+    {
+        _service = service;
+    }
 
     private string? GetCpf() => Request.Headers.TryGetValue("X-Cpf", out var v) ? v.ToString() : null;
 
