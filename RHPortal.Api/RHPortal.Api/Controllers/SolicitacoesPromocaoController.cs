@@ -247,6 +247,47 @@ public sealed class SolicitacoesPromocaoController : ControllerBase
         }
     }
 
+    /// <summary>RH efetiva a movimentação aprovada — move para EmIntegracao (pronta para integrar no Datasul).</summary>
+    [HttpPost("{id:guid}/efetivar")]
+    [ProducesResponseType(typeof(SolicitacaoPromocaoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Efetivar(Guid id, CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && !_userContext.IsRH)
+            return Forbid();
+
+        try
+        {
+            var result = await _service.EfetivarAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Datasul confirma o resultado da integração da movimentação (sucesso ou erro).</summary>
+    [HttpPost("{id:guid}/confirmar-integracao")]
+    [ProducesResponseType(typeof(SolicitacaoPromocaoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ConfirmarIntegracao(
+        Guid id, [FromBody] ConfirmarIntegracaoMovimentacaoRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.ConfirmarIntegracaoAsync(id, request.Resultado, request.Mensagem, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Gera carta de movimentação em DOCX e retorna URL presigned S3 (24h).</summary>
     [HttpPost("{id:guid}/carta")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
