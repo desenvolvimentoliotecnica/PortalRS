@@ -25,8 +25,8 @@ export default function ConfiguracoesHeadcountScreen() {
 
     useEffect(() => {
         apiFetch("/api/admin/configuracoes-headcount")
-            .then((data) => {
-                const dto = data as ConfiguracaoHeadcountDto;
+            .then((res) => res.json() as Promise<ConfiguracaoHeadcountDto>)
+            .then((dto) => {
                 setDiasProvisao(dto.diasProvisaoSubstituicao);
                 setDiasAlerta(dto.diasAlertaVagaSemFill);
             })
