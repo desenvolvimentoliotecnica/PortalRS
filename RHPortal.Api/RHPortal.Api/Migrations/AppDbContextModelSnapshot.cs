@@ -3520,6 +3520,37 @@ namespace RHPortal.Api.Migrations
                     b.ToTable("DocumentosColaborador", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.DocumentacaoPadraoConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("Configuracao")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<short>("TipoDocumento")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "TipoDocumento")
+                        .IsUnique();
+
+                    b.ToTable("DocumentacaoPadraoConfigs", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.EmailAttempt", b =>
                 {
                     b.Property<Guid>("Id")

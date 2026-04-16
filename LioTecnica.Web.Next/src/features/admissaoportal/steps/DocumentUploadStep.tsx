@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import DocumentCard from "../components/DocumentCard";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 import { TIPOS_COM_VERSO } from "../constants";
@@ -29,9 +30,10 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
     const {
         uploadedDocs, uploadedDocsVerso,
         aiExtractions, aiExtractionsVerso,
+        formData,
         setUploadedDoc, setUploadedDocVerso,
         setAiExtraction, setAiExtractionVerso,
-        mergeAiFields,
+        mergeAiFields, overwriteAiFields,
     } = useAdmissaoWizardStore();
 
     const handleFileSelected = useCallback(async (tipo: number, file: File, side: "frente" | "verso") => {
@@ -72,7 +74,25 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
             });
 
             if (aiResult.isValid && Object.keys(aiResult.extractedFields).length > 0) {
-                mergeAiFields(aiResult.extractedFields);
+                const conflitos = Object.entries(aiResult.extractedFields).filter(
+                    ([key, value]) => value != null && value !== "" && formData[key] != null && formData[key] !== ""
+                );
+
+                if (conflitos.length > 0) {
+                    const sobrescrever = await confirmDialog({
+                        title: "Sobrescrever informações?",
+                        description: "A IA identificou dados que já foram preenchidos no formulário. Deseja substituir as informações existentes pelos dados reconhecidos?",
+                        confirmText: "Sim, substituir",
+                        cancelText: "Não, manter",
+                    });
+                    if (sobrescrever) {
+                        overwriteAiFields(aiResult.extractedFields);
+                    } else {
+                        mergeAiFields(aiResult.extractedFields);
+                    }
+                } else {
+                    mergeAiFields(aiResult.extractedFields);
+                }
                 toast.success(`${side === "verso" ? "Verso" : "Documento"} reconhecido! Dados preenchidos.`);
             } else if (!aiResult.isValid) {
                 toast.warning(aiResult.validationMessage || "Nao foi possivel reconhecer o documento automaticamente.");
@@ -80,7 +100,7 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
         } catch {
             setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: null, processing: false });
         }
-    }, [session, setUploadedDoc, setUploadedDocVerso, setAiExtraction, setAiExtractionVerso, mergeAiFields, onDataRefresh]);
+    }, [session, formData, setUploadedDoc, setUploadedDocVerso, setAiExtraction, setAiExtractionVerso, mergeAiFields, overwriteAiFields, onDataRefresh]);
 
     return (
         <div className="space-y-4">

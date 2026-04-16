@@ -55,9 +55,7 @@ export default function WelcomeStep({ nome, documentosSolicitados }: Props) {
                                 <span className={`size-2 rounded-full ${ds.jaEnviado ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                                 <span>{ds.label}</span>
                                 {ds.obrigatorio && (
-                                    <span className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 rounded-full">
-                                        obrigatorio
-                                    </span>
+                                    <span className="text-red-500 font-bold text-base leading-none" title="Obrigatório">*</span>
                                 )}
                             </li>
                         ))}

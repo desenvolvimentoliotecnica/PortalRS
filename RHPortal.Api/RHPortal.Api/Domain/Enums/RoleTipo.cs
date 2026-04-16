@@ -3,8 +3,11 @@ namespace RHPortal.Api.Domain.Enums;
 /// <summary>Tipo/categoria do perfil de acesso.</summary>
 public enum RoleTipo : short
 {
-    /// <summary>Perfil de Recursos Humanos.</summary>
-    RH = 0,
+    /// <summary>Perfil de RH — Recrutamento e Seleção.</summary>
+    RhRecrutamentoSelecao = 0,
+
+    /// <summary>Perfil de RH — Admissão.</summary>
+    RhAdmissao = 5,
 
     /// <summary>Perfil de Colaborador.</summary>
     Colaborador = 1,

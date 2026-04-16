@@ -168,13 +168,23 @@ export type AppRole = "owner" | "admin" | "gestor" | "recrutador";
 
 const ROLE_HIERARCHY: AppRole[] = ["owner", "admin", "gestor", "recrutador"];
 
+// Aliases de roles aceitos para cada nível da hierarquia
+const ROLE_ALIASES: Record<AppRole, string[]> = {
+    owner: ["owner"],
+    admin: ["admin", "administrador"],
+    gestor: ["gestor"],
+    recrutador: ["recrutador"],
+};
+
 export function usePermission(minRole: AppRole): boolean {
     const { me } = useAuth();
     if (!me) return false;
     const roles = me.roles.map((r) => r.toLowerCase());
     const minIndex = ROLE_HIERARCHY.indexOf(minRole);
-    // User has permission if they have any role >= minRole in the hierarchy
-    return ROLE_HIERARCHY.slice(0, minIndex + 1).some((r) => roles.includes(r));
+    // User has permission if they have any role >= minRole in the hierarchy (including aliases)
+    return ROLE_HIERARCHY.slice(0, minIndex + 1).some((r) =>
+        ROLE_ALIASES[r].some((alias) => roles.includes(alias))
+    );
 }
 
 /* ------------------------------------------------------------------ */

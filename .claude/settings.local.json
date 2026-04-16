@@ -31,10 +31,19 @@
       "Bash(grep -n \"enum SolicitacaoStatus\\\\|enum SolicitacaoVagaStatus\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Domain/Enums/*.cs)",
       "Bash(grep -n \"modelBuilder.Entity\\\\|^\\\\s*}\\\\s*$\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Infrastructure/Data/AppDbContext.cs)",
       "mcp__Claude_Preview__preview_start",
-      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(echo \"API iniciando em background \\(PID: $!\\)\")",
+      "Bash(xargs grep *)",
+      "Bash(Get-Content \"C:\\\\Users\\\\LUCASA~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Lucas-Algarve-OneDrive---qualiit-com-br-Documentos-GitHub-Voltage-RenderRH\\\\cafd594a-de3a-4115-aae7-57296b33f722\\\\tasks\\\\b9f8uc3lh.output\" -Wait)",
+      "Bash(Select-String -Pattern \"Done|Error|error|warn|migration|Build\" --SimpleMatch)",
+      "Bash(powershell -File \"__scripts__/dev/dev-core.ps1\")",
+      "Bash(powershell -Command 'foreach \\($port in @\\(5056, 3000, 3001\\)\\) { $pids = netstat -ano 2>$null | Select-String \":$port\\\\s\" | Select-String '\\\\''LISTENING'\\\\'' | ForEach-Object { \\($_ -split '\\\\''\\\\s+'\\\\''\\)[-1] } | Select-Object -Unique; foreach \\($p in $pids\\) { if \\($p -match '\\\\''^\\\\d+$'\\\\''\\) { taskkill /PID $p /T /F 2>$null } } }')",
+      "Bash(powershell -Command '$a = [System.Reflection.Assembly]::LoadFrom\\('\\\\''C:\\\\Users\\\\Lucas Algarve\\\\OneDrive - qualiit.com.br\\\\Documentos\\\\GitHub\\\\Voltage.RenderRH\\\\RHPortal.Api\\\\RHPortal.Api\\\\bin\\\\Debug\\\\net8.0\\\\RHPortal.Api.dll'\\\\''\\); $a.GetManifestResourceNames\\(\\) | Where-Object { $_ -like '\\\\''*eed*'\\\\'' }')",
+      "Bash(powershell -Command '$a = [System.Reflection.Assembly]::LoadFrom\\('\\\\''C:\\\\Users\\\\Lucas Algarve\\\\OneDrive - qualiit.com.br\\\\Documentos\\\\GitHub\\\\Voltage.RenderRH\\\\RHPortal.Api\\\\RHPortal.Api\\\\bin\\\\Debug\\\\net8.0\\\\RHPortal.Api.dll'\\\\''\\); $a.GetManifestResourceNames\\(\\)')"
     ],
     "additionalDirectories": [
-      "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations"
+      "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",
+      "\\tmp"
     ]
   }
 }

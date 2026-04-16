@@ -292,6 +292,21 @@ export default function TopbarClient({
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* ── Tenant badge ── */}
+              {me?.tenantId && (
+                <span
+                  title={`Tenant: ${me.tenantId}`}
+                  className={`hidden md:inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold tracking-wide select-none ${
+                    isOwner
+                      ? "border-amber-400/40 bg-amber-400/10 text-amber-700"
+                      : "border-lt-primary/20 bg-lt-primary/5 text-lt-primary/70"
+                  }`}
+                >
+                  <Building2 className="size-3 shrink-0" />
+                  <span className="max-w-[120px] truncate">{me.tenantId}</span>
+                </span>
+              )}
+
               {/* ── User menu dropdown (mirrors Razor _TopbarUserMenu) ── */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

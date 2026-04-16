@@ -100,12 +100,12 @@ async function tryRestoreOwnerJwt(): Promise<boolean> {
     }
 }
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+async function fetchJson<T>(url: string, init?: RequestInit, timeoutMs?: number): Promise<T> {
     const res = await apiFetch(url, {
         ...init,
         headers: { Accept: "application/json", ...(init?.headers || {}) },
         cache: "no-store",
-    });
+    }, timeoutMs);
     if (!res.ok) {
         const text = await res.text().catch(() => "");
         let msg = `HTTP_${res.status}`;
@@ -268,7 +268,7 @@ export default function TenantsScreen() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ tenantId: newTenantId, name: newName }),
-            });
+            }, 120_000); // 2 min — provisionar banco + migrations leva mais que o default de 15s
             const createdId = newTenantId.trim();
             toast.success(`Tenant "${createdId}" criado com sucesso!`, {
                 action: {
