@@ -236,6 +236,17 @@ export default function AdmissaoRevisaoScreen() {
                     <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ${s.color}`}>
                         <Icon className="size-3.5" /> {s.label}
                     </span>
+                    <Button variant="outline" size="sm" onClick={() => {
+                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `admissao-${data.nome.replace(/\s+/g, "_")}-${data.id}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }}>
+                        <Download className="size-4" /> Exportar JSON
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => router.push("/admissao")}>
                         <ChevronLeft className="size-4" /> Voltar
                     </Button>

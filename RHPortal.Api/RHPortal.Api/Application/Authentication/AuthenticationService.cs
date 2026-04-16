@@ -58,18 +58,13 @@ public sealed class AuthenticationService
         if (!validPassword) return null;
 
         var roleNames = await _userManager.GetRolesAsync(user);
-        var roleIds = await _db.UserRoles
-            .Where(x => x.UserId == user.Id)
-            .Select(x => x.RoleId)
-            .ToListAsync(ct);
+        var roleEntities = await _roleManager.Roles.Where(r => roleNames.Contains(r.Name)).ToListAsync(ct);
+        var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
 
-        var permissions = await _db.RoleMenus
-            .Where(x => roleIds.Contains(x.RoleId))
-            .Select(x => x.PermissionKey)
-            .Distinct()
-            .ToListAsync(ct);
+        // DEBUG
+        System.Diagnostics.Debug.WriteLine($"[LOGIN] User: {user.Email} | Roles: [{string.Join(", ", roleNames)}] | Permissions: {permissions.Count}");
 
-        var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
+        var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(user, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
         var areaId = user.Funcionario?.AreaId;
         await _awardPointsService.AwardAsync(
@@ -104,18 +99,9 @@ public sealed class AuthenticationService
         if (user is null) return null;
 
         var roleNames = await _userManager.GetRolesAsync(user);
-        var roleIds = await _db.UserRoles
-            .Where(x => x.UserId == user.Id)
-            .Select(x => x.RoleId)
-            .ToListAsync(ct);
-
-        var permissions = await _db.RoleMenus
-            .Where(x => roleIds.Contains(x.RoleId))
-            .Select(x => x.PermissionKey)
-            .Distinct()
-            .ToListAsync(ct);
-
-        var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
+        var roleEntities = await _roleManager.Roles.Where(r => roleNames.Contains(r.Name)).ToListAsync(ct);
+        var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
+        var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var areaId = user.Funcionario?.AreaId;
 
         return new CurrentUserResponse(
@@ -143,17 +129,9 @@ public sealed class AuthenticationService
         if (user is null || !user.IsActive) return null;
 
         var roleNames = await _userManager.GetRolesAsync(user);
-        var roleIds = await _db.UserRoles
-            .Where(x => x.UserId == user.Id)
-            .Select(x => x.RoleId)
-            .ToListAsync(ct);
-        var permissions = await _db.RoleMenus
-            .Where(x => roleIds.Contains(x.RoleId))
-            .Select(x => x.PermissionKey)
-            .Distinct()
-            .ToListAsync(ct);
-
-        var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
+        var roleEntities = await _roleManager.Roles.Where(r => roleNames.Contains(r.Name)).ToListAsync(ct);
+        var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
+        var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         return CreateJwtToken(user, roleNames, permissions, tenantId, visibilityScope, vagasDataScope, accessMode);
     }
 
@@ -180,19 +158,10 @@ public sealed class AuthenticationService
         if (userWithFuncionario is null)
             return null;
 
-        var roleNames = await _userManager.GetRolesAsync(user);
-        var roleIds = await _db.UserRoles
-            .Where(x => x.UserId == user.Id)
-            .Select(x => x.RoleId)
-            .ToListAsync(ct);
-
-        var permissions = await _db.RoleMenus
-            .Where(x => roleIds.Contains(x.RoleId))
-            .Select(x => x.PermissionKey)
-            .Distinct()
-            .ToListAsync(ct);
-
-        var (visibilityScope, vagasDataScope, accessMode) = await GetEffectiveProfileScopeAsync(roleIds, ct);
+        var roleNames = await _userManager.GetRolesAsync(userWithFuncionario);
+        var roleEntities = await _roleManager.Roles.Where(r => roleNames.Contains(r.Name)).ToListAsync(ct);
+        var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
+        var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(userWithFuncionario, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
         var areaId = userWithFuncionario.Funcionario?.AreaId;
         await _awardPointsService.AwardAsync(
@@ -266,8 +235,7 @@ public sealed class AuthenticationService
             role = newRole;
         }
 
-        if (string.Equals(roleName, EntraDefaultRole, StringComparison.OrdinalIgnoreCase))
-            await EnsureOperationalRoleMenusAsync(role.Id, ct);
+        // RoleMenus seeding removed — permissions come from RolePermissionManifest, not the DB.
 
         var isInRole = await _userManager.IsInRoleAsync(user, roleName);
         if (!isInRole)
@@ -280,46 +248,7 @@ public sealed class AuthenticationService
         return true;
     }
 
-    private async Task EnsureOperationalRoleMenusAsync(Guid roleId, CancellationToken ct)
-    {
-        var menus = await _db.Menus
-            .AsNoTracking()
-            .Where(x => x.IsActive
-                        && !string.IsNullOrWhiteSpace(x.Route)
-                        && !string.IsNullOrWhiteSpace(x.PermissionKey)
-                        && !x.Route.ToLower().StartsWith("/admin"))
-            .Select(x => new { x.Id, x.PermissionKey })
-            .ToListAsync(ct);
-
-        if (menus.Count == 0)
-            return;
-
-        var existing = await _db.RoleMenus
-            .Where(x => x.RoleId == roleId)
-            .Select(x => new { x.MenuId, x.PermissionKey })
-            .ToListAsync(ct);
-
-        var existingKeys = existing
-            .Select(x => $"{x.MenuId}:{x.PermissionKey}")
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var toAdd = menus
-            .Where(x => !existingKeys.Contains($"{x.Id}:{x.PermissionKey}"))
-            .Select(x => new RoleMenu
-            {
-                Id = Guid.NewGuid(),
-                RoleId = roleId,
-                MenuId = x.Id,
-                PermissionKey = x.PermissionKey
-            })
-            .ToList();
-
-        if (toAdd.Count == 0)
-            return;
-
-        _db.RoleMenus.AddRange(toAdd);
-        await _db.SaveChangesAsync(ct);
-    }
+    // EnsureOperationalRoleMenusAsync removed — permissions are code-first via RolePermissionManifest.
 
     private static string ResolveFullName(ClaimsPrincipal principal, string fallbackEmail)
     {
@@ -339,38 +268,7 @@ public sealed class AuthenticationService
         return fallbackEmail;
     }
 
-    /// <summary>
-    /// Aggregates profile scope from user's roles: most permissive wins.
-    /// </summary>
-    private async Task<(ProfileVisibilityScope VisibilityScope, VagasDataScope VagasDataScope, ProfileAccessMode AccessMode)> GetEffectiveProfileScopeAsync(
-        List<Guid> roleIds,
-        CancellationToken ct)
-    {
-        if (roleIds.Count == 0)
-            return (ProfileVisibilityScope.FullStructure, VagasDataScope.All, ProfileAccessMode.Full);
-
-        var roles = await _db.Roles
-            .AsNoTracking()
-            .Where(x => roleIds.Contains(x.Id))
-            .Select(x => new { x.VisibilityScope, x.VagasDataScope, x.AccessMode })
-            .ToListAsync(ct);
-
-        var visibilityScope = roles.Any(r => r.VisibilityScope == ProfileVisibilityScope.FullStructure)
-            ? ProfileVisibilityScope.FullStructure
-            : ProfileVisibilityScope.RestrictedByAreaOrRecruiter;
-
-        var vagasDataScope = roles.Any(r => r.VagasDataScope == VagasDataScope.All)
-            ? VagasDataScope.All
-            : roles.Any(r => r.VagasDataScope == VagasDataScope.ByArea)
-                ? VagasDataScope.ByArea
-                : VagasDataScope.ByRecrutador;
-
-        var accessMode = roles.Any(r => r.AccessMode == ProfileAccessMode.Full)
-            ? ProfileAccessMode.Full
-            : ProfileAccessMode.ReadOnly;
-
-        return (visibilityScope, vagasDataScope, accessMode);
-    }
+    // GetEffectiveProfileScopeAsync removed — scope is now code-first via RolePermissionManifest.GetEffectiveScopes().
 
     private string CreateJwtToken(
         ApplicationUser user,

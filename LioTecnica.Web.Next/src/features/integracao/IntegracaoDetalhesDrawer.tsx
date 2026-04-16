@@ -7,6 +7,7 @@ import {
     Clock,
     RefreshCw,
     Loader2,
+    Download,
 } from "lucide-react";
 import {
     Dialog,
@@ -261,9 +262,22 @@ export default function IntegracaoDetalhesDrawer({
                     <p className="text-xs text-red-600">{retryError}</p>
                 )}
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose}>
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="outline" onClick={onClose} className="mr-auto">
                         Fechar
+                    </Button>
+                    <Button variant="secondary" onClick={() => {
+                        const data = detalhe ? { ...item, ...detalhe } : item;
+                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `integracao-${item.nome.replace(/\s+/g, "_")}-${item.id}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }}>
+                        <Download className="size-4 mr-2" />
+                        Baixar JSON
                     </Button>
                     {resultado !== null && (
                         <Button onClick={handleRetry} disabled={retrying}>

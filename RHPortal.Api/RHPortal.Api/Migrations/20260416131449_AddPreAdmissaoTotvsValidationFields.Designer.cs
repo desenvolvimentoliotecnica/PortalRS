@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RhPortal.Api.Infrastructure.Data;
 
 #nullable disable
 
-namespace RHPortal.Api.Migrations
+namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260416131449_AddPreAdmissaoTotvsValidationFields")]
+    partial class AddPreAdmissaoTotvsValidationFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -248,17 +251,6 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<bool>("IsEstrutural")
                         .HasColumnType("boolean");
-
-                    b.Property<int>("HeadcountProvisorio")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
-
-                    b.Property<DateTimeOffset?>("HeadcountProvisorioExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("AlertaVagaSemFillSnoozeAteUtc")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("JobPositionId")
                         .HasColumnType("uuid");
@@ -3520,37 +3512,6 @@ namespace RHPortal.Api.Migrations
                     b.ToTable("DocumentosColaborador", (string)null);
                 });
 
-            modelBuilder.Entity("RhPortal.Api.Domain.Entities.DocumentacaoPadraoConfig", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<short>("Configuracao")
-                        .HasColumnType("smallint");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<short>("TipoDocumento")
-                        .HasColumnType("smallint");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "TipoDocumento")
-                        .IsUnique();
-
-                    b.ToTable("DocumentacaoPadraoConfigs", (string)null);
-                });
-
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.EmailAttempt", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5227,14 +5188,6 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<Guid?>("SolicitacaoOrigemId")
                         .HasColumnType("uuid");
-
-                    b.Property<bool>("IsProvisorio")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<DateTimeOffset?>("ProvisorioExpiresAtUtc")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -8083,16 +8036,6 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<bool>("RhDeveAprovarAposGestor")
                         .HasColumnType("boolean");
-
-                    b.Property<int>("DiasProvisaoSubstituicao")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(30);
-
-                    b.Property<int>("DiasAlertaVagaSemFill")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(60);
 
                     b.Property<string>("TenantId")
                         .IsRequired()

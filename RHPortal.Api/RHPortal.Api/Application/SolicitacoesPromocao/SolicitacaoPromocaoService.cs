@@ -25,6 +25,10 @@ public interface ISolicitacaoPromocaoService
     Task<SolicitacaoPromocaoResponse?> AssumirAsync(Guid id, CancellationToken ct);
     Task<SolicitacaoPromocaoResponse?> CancelAsync(Guid id, CancellationToken ct);
     Task<SolicitacaoPromocaoResponse> CopyAsync(Guid id, CancellationToken ct);
+    /// <summary>RH efetiva a movimentação aprovada — move para EmIntegracao, pronta para o Datasul consumir.</summary>
+    Task<SolicitacaoPromocaoResponse?> EfetivarAsync(Guid id, CancellationToken ct);
+    /// <summary>Datasul confirma resultado da integração — move para Concluida ou registra erro.</summary>
+    Task<SolicitacaoPromocaoResponse?> ConfirmarIntegracaoAsync(Guid id, IntegracaoResultado resultado, string? mensagem, CancellationToken ct);
 }
 
 public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
@@ -484,6 +488,43 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
                 null, false, "SolicitacaoPromocao", ct);
         }
 
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoPromocaoResponse?> EfetivarAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesPromocao.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status != SolicitacaoStatus.Aprovada)
+            throw new InvalidOperationException("Apenas solicitações com status Aprovada podem ser efetivadas.");
+
+        entity.Status = SolicitacaoStatus.EmIntegracao;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoPromocaoResponse?> ConfirmarIntegracaoAsync(
+        Guid id, IntegracaoResultado resultado, string? mensagem, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesPromocao.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status != SolicitacaoStatus.EmIntegracao)
+            throw new InvalidOperationException("Apenas solicitações em EmIntegracao podem ter o resultado confirmado.");
+
+        entity.IntegracaoResultado = resultado;
+        entity.IntegracaoMensagem = mensagem;
+        entity.IntegradaEmUtc = DateTimeOffset.UtcNow;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        if (resultado == IntegracaoResultado.Sucesso)
+            entity.Status = SolicitacaoStatus.Concluida;
+        // Erro: mantém EmIntegracao para o RH visualizar e reprocessar
+
+        await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
 

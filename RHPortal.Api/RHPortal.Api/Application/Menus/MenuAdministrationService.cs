@@ -231,38 +231,21 @@ public sealed class MenuAdministrationService
 
     /// <summary>
     /// Returns all active menus (no role filter). Used when the current user is Owner.
+    /// Changed to only use Code-First template.
     /// </summary>
-    public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListAllActiveForCurrentUserAsync(CancellationToken ct)
+    public Task<IReadOnlyList<MenuForCurrentUserResponse>> ListAllActiveForCurrentUserAsync(CancellationToken ct)
     {
-        var menus = await _db.Menus
-            .AsNoTracking()
-            .Where(x => x.IsActive)
-            .ToListAsync(ct);
-        var mapped = await MapMenusForCurrentUserAsync(menus, ct);
-        return ExcludeConfigOnlyMenus(mapped);
+        return Task.FromResult<IReadOnlyList<MenuForCurrentUserResponse>>(ExcludeConfigOnlyMenus(BuildFullMenuTemplate()));
     }
 
     private const int OwnerFullMenuMinimumCount = 5;
 
     /// <summary>
-    /// Returns full menu list for Owner. Merges DB menus with the hardcoded template so new
-    /// descriptors always appear even before the seeder has run for the tenant.
+    /// Returns full menu list for Owner. Purely code-first.
     /// </summary>
-    public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListFullMenuForOwnerAsync(CancellationToken ct)
+    public Task<IReadOnlyList<MenuForCurrentUserResponse>> ListFullMenuForOwnerAsync(CancellationToken ct)
     {
-        var fromDb = await ListAllActiveForCurrentUserAsync(ct);
-        if (fromDb.Count < OwnerFullMenuMinimumCount)
-            return ExcludeConfigOnlyMenus(BuildFullMenuTemplate());
-
-        // Merge: inject any template descriptors missing from the DB (e.g. newly added items not yet seeded)
-        var template = BuildFullMenuTemplate();
-        var dbPermKeys = fromDb.Select(x => x.PermissionKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var missing = template.Where(x => !dbPermKeys.Contains(x.PermissionKey)).ToList();
-        if (missing.Count == 0)
-            return fromDb;
-
-        var merged = fromDb.Concat(missing).OrderBy(x => x.Order).ThenBy(x => x.DisplayName).ToList();
-        return ExcludeConfigOnlyMenus(merged);
+        return Task.FromResult<IReadOnlyList<MenuForCurrentUserResponse>>(ExcludeConfigOnlyMenus(BuildFullMenuTemplate()));
     }
 
     private static IReadOnlyList<MenuForCurrentUserResponse> BuildFullMenuTemplate()
@@ -301,46 +284,46 @@ public sealed class MenuAdministrationService
         IReadOnlyCollection<string>? permissionKeys,
         CancellationToken ct)
     {
-        var roleIds = await _db.UserRoles
-            .Where(x => x.UserId == userId)
-            .Select(x => x.RoleId)
-            .Distinct()
-            .ToListAsync(ct);
-
-        var menuIds = await _db.RoleMenus
-            .Where(x => roleIds.Contains(x.RoleId))
-            .Select(x => x.MenuId)
-            .Distinct()
-            .ToListAsync(ct);
-
-        var menus = await _db.Menus
-            .Where(x => menuIds.Contains(x.Id) && x.IsActive)
-            .ToListAsync(ct);
-
-        if (menus.Count == 0 && permissionKeys is { Count: > 0 })
-        {
+        // Permissions are code-first (RolePermissionManifest) and come from JWT claims.
+        // The RoleMenus DB table is no longer the source of truth — delegate directly.
+        if (permissionKeys is { Count: > 0 })
             return await ListForPermissionsAsync(permissionKeys, ct);
-        }
 
-        menus = await IncludeAncestorMenusAsync(menus, ct);
-        var mapped = await MapMenusForCurrentUserAsync(menus, ct);
-        return ExcludeOwnerOnlyMenus(ExcludeConfigOnlyMenus(mapped));
+        return Array.Empty<MenuForCurrentUserResponse>();
     }
 
-    public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForPermissionsAsync(
+    public Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForPermissionsAsync(
         IReadOnlyCollection<string> permissionKeys,
         CancellationToken ct)
     {
         if (permissionKeys.Count == 0)
-            return Array.Empty<MenuForCurrentUserResponse>();
+            return Task.FromResult<IReadOnlyList<MenuForCurrentUserResponse>>(Array.Empty<MenuForCurrentUserResponse>());
 
-        var menus = await _db.Menus
-            .Where(x => permissionKeys.Contains(x.PermissionKey) && x.IsActive)
-            .ToListAsync(ct);
+        var allMenus = BuildFullMenuTemplate();
+        
+        var permittedMenus = permissionKeys.Contains("*") 
+            ? allMenus.ToList() 
+            : allMenus.Where(x => permissionKeys.Contains(x.PermissionKey)).ToList();
 
-        menus = await IncludeAncestorMenusAsync(menus, ct);
-        var mapped = await MapMenusForCurrentUserAsync(menus, ct);
-        return ExcludeOwnerOnlyMenus(ExcludeConfigOnlyMenus(mapped));
+        // Include ancestors from memory
+        var idSet = permittedMenus.Select(x => x.Id).ToHashSet();
+        var parentIds = permittedMenus.Where(x => x.ParentId.HasValue).Select(x => x.ParentId!.Value).Distinct().Where(id => !idSet.Contains(id)).ToList();
+        while (parentIds.Count > 0)
+        {
+            var parents = allMenus.Where(x => parentIds.Contains(x.Id)).ToList();
+            foreach (var p in parents)
+            {
+                if (!idSet.Contains(p.Id))
+                {
+                    idSet.Add(p.Id);
+                    permittedMenus.Add(p);
+                }
+            }
+            parentIds = parents.Where(x => x.ParentId.HasValue).Select(x => x.ParentId!.Value).Distinct().Where(id => !idSet.Contains(id)).ToList();
+        }
+
+        var result = ExcludeOwnerOnlyMenus(ExcludeConfigOnlyMenus(permittedMenus.OrderBy(x => x.Order).ThenBy(x => x.DisplayName).ToList()));
+        return Task.FromResult<IReadOnlyList<MenuForCurrentUserResponse>>(result);
     }
 
     private async Task<List<Menu>> IncludeAncestorMenusAsync(List<Menu> menus, CancellationToken ct)

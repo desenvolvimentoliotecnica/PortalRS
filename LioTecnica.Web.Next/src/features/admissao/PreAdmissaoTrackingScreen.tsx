@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api";
 import {
     CheckCircle2, Clock, XCircle, FileText, User, Mail, Phone,
     ArrowLeft, Building2, Briefcase, CalendarDays, RefreshCw,
-    Upload, Eye, Trash2, Copy, Link,
+    Upload, Eye, Trash2, Copy, Link, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -423,6 +423,17 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => {
+                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `admissao-${data.nome.replace(/\s+/g, "_")}-${data.id}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }}>
+                        <Download className="size-4 mr-1" /> Exportar JSON
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => void load()}>
                         <RefreshCw className="size-4 mr-1" /> Atualizar
                     </Button>
@@ -468,7 +479,20 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
 
             {/* Dados pessoais */}
             <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Dados do Candidato</h2>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Dados do Candidato</h2>
+                    <Button variant="outline" size="sm" onClick={() => {
+                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `admissao-${data.nome.replace(/\s+/g, "_")}-${data.id}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }}>
+                        <Download className="size-4 mr-1" /> Baixar
+                    </Button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <InfoRow icon={<User className="size-4" />} label="Nome" value={data.nome} />
                     <InfoRow icon={<Mail className="size-4" />} label="E-mail" value={data.email} />

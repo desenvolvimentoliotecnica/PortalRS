@@ -62,12 +62,15 @@ import { cn } from "@/lib/utils";
 import type { BffNavItem } from "@/lib/schemas/bff";
 import { prefetchScreenData } from "@/lib/screenCache";
 import {
+  PRINCIPAIS_ORDER,
   RECRUITMENT_LINEAR_ORDER,
   RECRUITMENT_MVP_ORDER,
   RECRUITMENT_ROUTE_KEYS,
   RECRUITMENT_ROUTE_LABELS,
   toNavRouteKey,
 } from "@/features/navigation/recruitmentNavigation";
+import { getVisibleMenuHrefs, isHrefAllowed } from "@/features/navigation/menuPermissions";
+import { useAuth } from "@/hooks/useAuth";
 import { usePendencias } from "@/contexts/PendenciasContext";
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -263,14 +266,14 @@ function normalizeHref(raw: string): string {
 /* ═══════════════════════════════════════════════════════════════════
    MODULE CLASSIFICATION (mirrors Razor GetModuleKey)
    ═══════════════════════════════════════════════════════════════════ */
-type ModuleKey = "Recrutamento" | "Cadastros Pessoas" | "Cadastros Operacionais" | "Relatórios" | "Gestão de Pessoas" | "Operacional" | "Feedback" | "Admin" | "Owner";
-const MODULE_ORDER: ModuleKey[] = ["Recrutamento", "Operacional", "Gestão de Pessoas", "Cadastros Pessoas", "Cadastros Operacionais", "Relatórios", "Feedback", "Admin", "Owner"];
+type ModuleKey = "Principais" | "Recrutamento" | "Cadastros Pessoas" | "Cadastros Operacionais" | "Relatórios" | "Gestão de Pessoas" | "Operacional" | "Feedback" | "Admin" | "Owner";
+const MODULE_ORDER: ModuleKey[] = ["Principais", "Recrutamento", "Operacional", "Gestão de Pessoas", "Cadastros Pessoas", "Cadastros Operacionais", "Relatórios", "Feedback", "Admin", "Owner"];
+
+// Itens de 1º nível (sem header de módulo) — vêm antes de Recrutamento
+const PRINCIPAIS_ROUTES = new Set<string>(PRINCIPAIS_ORDER as unknown as string[]);
 
 // Fluxo linear de recrutamento — MVP + secundários (sem TOTVS, que vai pro header dropdown)
 const RECRUTAMENTO_ROUTES = new Set<string>([
-  RECRUITMENT_ROUTE_KEYS.dashboard,
-  RECRUITMENT_ROUTE_KEYS.aprovacoes,
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,
   RECRUITMENT_ROUTE_KEYS.vagas,
   RECRUITMENT_ROUTE_KEYS.painelRh,
   RECRUITMENT_ROUTE_KEYS.candidatos,
@@ -323,6 +326,7 @@ function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
     return "Recrutamento";
   }
   const r = href.replace(/\/+$/, "").toLowerCase();
+  if (PRINCIPAIS_ROUTES.has(r)) return "Principais";
   if (r.startsWith("/owner")) return "Owner";
   if (r.startsWith("/admin")) return "Admin";
   if (r === "/relatorios") return "Relatórios";
@@ -717,6 +721,7 @@ function ModuleSection({
   openGroups,
   onGroupOpenChange,
   isCollapsed = false,
+  hideLabel = false,
 }: {
   label: string;
   items: BffNavItem[];
@@ -726,13 +731,14 @@ function ModuleSection({
   openGroups?: Record<string, boolean>;
   onGroupOpenChange?: (id: string, open: boolean) => void;
   isCollapsed?: boolean;
+  hideLabel?: boolean;
 }) {
   if (items.length === 0) return null;
 
   return (
     <div className="mt-1">
-      {/* Module header — hidden when collapsed */}
-      {!isCollapsed && (
+      {/* Module header — hidden when collapsed or when hideLabel (itens de 1º nível) */}
+      {!isCollapsed && !hideLabel && (
         <button
           type="button"
           className={cn(
@@ -753,8 +759,8 @@ function ModuleSection({
         </button>
       )}
 
-      {/* Module body — always open when collapsed */}
-      <Collapsible open={isCollapsed ? true : moduleOpen}>
+      {/* Module body — always open when collapsed or when header is hidden */}
+      <Collapsible open={isCollapsed || hideLabel ? true : moduleOpen}>
         <ul className="space-y-0.5 pb-1">
           {items.map((item) => (
             <NavItem
@@ -779,10 +785,28 @@ function ModuleSection({
 export default function SidebarNavClient({ items, isCollapsed = false }: { items: BffNavItem[]; isCollapsed?: boolean }) {
   const pathname = usePathname();
   const normalized = pathname.replace(/^\/app(?=\/|$)/, "") || "/";
+  const { me } = useAuth();
+
+  // Filtro de permissão por perfil — Gestor/Compliance veem apenas rotas da allowlist.
+  const allowedHrefs = useMemo(() => (me ? getVisibleMenuHrefs(me) : null), [me]);
+  const filteredItems = useMemo(() => {
+    if (!allowedHrefs) return items;
+    const filterTree = (list: BffNavItem[]): BffNavItem[] =>
+      list
+        .map((it) => {
+          const children = filterTree(it.children ?? []);
+          const selfAllowed = isHrefAllowed(it.href, allowedHrefs);
+          if (selfAllowed || children.length > 0) return { ...it, children };
+          return null;
+        })
+        .filter((x): x is BffNavItem => x !== null);
+    return filterTree(items);
+  }, [items, allowedHrefs]);
 
   // ── 1. Group items by module (only recomputes when items change) ──
   const grouped = useMemo(() => {
     const map: Record<ModuleKey, BffNavItem[]> = {
+      Principais: [],
       Recrutamento: [],
       "Operacional": [],
       "Gestão de Pessoas": [],
@@ -798,10 +822,10 @@ export default function SidebarNavClient({ items, isCollapsed = false }: { items
     // If a route appears both as a top-level item AND as a child of a group
     // (e.g. "Categoria Salarial" inside "Unidade"), keep only the top-level entry.
     const topLevelHrefs = new Set(
-      items.map((i) => (i.href || "").replace(/\/+$/, "").toLowerCase()),
+      filteredItems.map((i) => (i.href || "").replace(/\/+$/, "").toLowerCase()),
     );
 
-    for (const item of items) {
+    for (const item of filteredItems) {
       if (isRouteHidden(item.href)) continue;
       const key = getModuleKey(item.href, item.children);
       // Flatten: if item is a group header (href="#") push children directly
@@ -839,8 +863,28 @@ export default function SidebarNavClient({ items, isCollapsed = false }: { items
       a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }),
     );
     map.Recrutamento = buildRecruitmentSidebar(map.Recrutamento);
+
+    // Ordem fixa em "Principais": Dashboard → Minhas Pendências → Solicitações
+    const principaisByRoute = new Map<string, BffNavItem>();
+    for (const item of map.Principais) {
+      const routeKey = toNavRouteKey(item.href);
+      if (!principaisByRoute.has(routeKey)) {
+        principaisByRoute.set(routeKey, cloneNavItem(item, {
+          href: normalizeHref(item.href || "#"),
+          label: RECRUITMENT_ROUTE_LABELS[routeKey] ?? item.label,
+          children: [],
+        }));
+      }
+    }
+    const principaisOrdered: BffNavItem[] = [];
+    for (const routeKey of PRINCIPAIS_ORDER) {
+      const it = principaisByRoute.get(routeKey);
+      if (it) principaisOrdered.push(it);
+    }
+    map.Principais = principaisOrdered;
+
     return map;
-  }, [items]);
+  }, [filteredItems]);
 
   const renderedItems = useMemo(
     () => MODULE_ORDER.flatMap((mod) => grouped[mod]),
@@ -928,6 +972,7 @@ export default function SidebarNavClient({ items, isCollapsed = false }: { items
           openGroups={resolvedOpenGroups}
           onGroupOpenChange={handleGroupOpenChange}
           isCollapsed={isCollapsed}
+          hideLabel={mod === "Principais"}
         />
       ))}
     </nav>

@@ -13,10 +13,12 @@ export interface EstabelecimentoLookup {
 
 interface EstabelecimentoAutocompleteProps {
   value: string | null;
-  onChange: (id: string | null) => void;
+  onChange: (value: string | null) => void;
   empresaId?: string | null;
   defaultLabel?: { code: string; name: string };
   placeholder?: string;
+  /** Quando true, emite `code` em vez de `id` no onChange e casa value pelo `code`. */
+  valueAsCode?: boolean;
 }
 
 export function EstabelecimentoAutocomplete({
@@ -25,6 +27,7 @@ export function EstabelecimentoAutocomplete({
   empresaId,
   defaultLabel,
   placeholder = "Selecione o estabelecimento...",
+  valueAsCode = false,
 }: EstabelecimentoAutocompleteProps) {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<EstabelecimentoLookup[]>([]);
@@ -32,9 +35,12 @@ export function EstabelecimentoAutocomplete({
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<EstabelecimentoLookup | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const prevEmpresaId = useRef<string | null | undefined>(empresaId);
 
-  // Clear selection when empresaId changes
+  // Só limpar seleção quando empresaId realmente muda (não no mount).
   useEffect(() => {
+    if (prevEmpresaId.current === empresaId) return;
+    prevEmpresaId.current = empresaId;
     setSelected(null);
     onChange(null);
     setSearch("");
@@ -59,11 +65,19 @@ export function EstabelecimentoAutocomplete({
 
   useEffect(() => {
     if (!value) { setSelected(null); return; }
-    if (selected?.id === value) return;
+    const matchKey = valueAsCode ? selected?.code : selected?.id;
+    if (matchKey === value) return;
     if (defaultLabel) {
-      setSelected({ id: value, code: defaultLabel.code, name: defaultLabel.name });
+      setSelected({
+        id: valueAsCode ? "" : value,
+        code: valueAsCode ? value : defaultLabel.code,
+        name: defaultLabel.name,
+      });
+    } else if (valueAsCode) {
+      // Sem label conhecido — mostrar o próprio code para feedback visual.
+      setSelected({ id: "", code: value, name: `Estabelecimento ${value}` });
     }
-  }, [value, defaultLabel, selected?.id]);
+  }, [value, defaultLabel, selected?.id, selected?.code, valueAsCode]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) { if (!containerRef.current?.contains(e.target as Node)) setOpen(false); }
@@ -73,7 +87,7 @@ export function EstabelecimentoAutocomplete({
 
   const handleSelect = (item: EstabelecimentoLookup) => {
     setSelected(item);
-    onChange(item.id);
+    onChange(valueAsCode ? item.code : item.id);
     setSearch("");
     setResults([]);
     setOpen(false);
