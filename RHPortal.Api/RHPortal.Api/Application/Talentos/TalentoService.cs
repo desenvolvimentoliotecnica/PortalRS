@@ -647,10 +647,10 @@ public sealed class TalentoService : ITalentoService
             _db.TalentoExperiencias.RemoveRange(entity.Experiencias!);
             _db.TalentoTreinamentos.RemoveRange(entity.Treinamentos!);
             _db.TalentoFormacoes.RemoveRange(entity.Formacao!);
-            entity.Competencias.Clear();
-            entity.Experiencias.Clear();
-            entity.Treinamentos.Clear();
-            entity.Formacao.Clear();
+            entity.Competencias!.Clear();
+            entity.Experiencias!.Clear();
+            entity.Treinamentos!.Clear();
+            entity.Formacao!.Clear();
             await _db.SaveChangesAsync(ct);
 
             ApplyCompetencias(entity, suggestedData.Competencias);

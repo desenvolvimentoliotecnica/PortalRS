@@ -39,7 +39,8 @@
       "Bash(powershell -File \"__scripts__/dev/dev-core.ps1\")",
       "Bash(powershell -Command 'foreach \\($port in @\\(5056, 3000, 3001\\)\\) { $pids = netstat -ano 2>$null | Select-String \":$port\\\\s\" | Select-String '\\\\''LISTENING'\\\\'' | ForEach-Object { \\($_ -split '\\\\''\\\\s+'\\\\''\\)[-1] } | Select-Object -Unique; foreach \\($p in $pids\\) { if \\($p -match '\\\\''^\\\\d+$'\\\\''\\) { taskkill /PID $p /T /F 2>$null } } }')",
       "Bash(powershell -Command '$a = [System.Reflection.Assembly]::LoadFrom\\('\\\\''C:\\\\Users\\\\Lucas Algarve\\\\OneDrive - qualiit.com.br\\\\Documentos\\\\GitHub\\\\Voltage.RenderRH\\\\RHPortal.Api\\\\RHPortal.Api\\\\bin\\\\Debug\\\\net8.0\\\\RHPortal.Api.dll'\\\\''\\); $a.GetManifestResourceNames\\(\\) | Where-Object { $_ -like '\\\\''*eed*'\\\\'' }')",
-      "Bash(powershell -Command '$a = [System.Reflection.Assembly]::LoadFrom\\('\\\\''C:\\\\Users\\\\Lucas Algarve\\\\OneDrive - qualiit.com.br\\\\Documentos\\\\GitHub\\\\Voltage.RenderRH\\\\RHPortal.Api\\\\RHPortal.Api\\\\bin\\\\Debug\\\\net8.0\\\\RHPortal.Api.dll'\\\\''\\); $a.GetManifestResourceNames\\(\\)')"
+      "Bash(powershell -Command '$a = [System.Reflection.Assembly]::LoadFrom\\('\\\\''C:\\\\Users\\\\Lucas Algarve\\\\OneDrive - qualiit.com.br\\\\Documentos\\\\GitHub\\\\Voltage.RenderRH\\\\RHPortal.Api\\\\RHPortal.Api\\\\bin\\\\Debug\\\\net8.0\\\\RHPortal.Api.dll'\\\\''\\); $a.GetManifestResourceNames\\(\\)')",
+      "Bash(grep -v \"^$\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

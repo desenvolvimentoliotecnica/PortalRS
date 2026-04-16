@@ -69,7 +69,7 @@ public sealed class ColaboradorService : IColaboradorService
     private static ColaboradorPerfilResponse MapPerfil(Funcionario f) => new(
         f.Id,
         f.Name,
-        f.Email,
+        f.Email ?? string.Empty,
         f.Phone,
         f.Area?.Name,
         f.Unit?.Name,

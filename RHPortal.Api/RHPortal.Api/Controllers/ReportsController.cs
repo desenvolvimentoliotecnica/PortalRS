@@ -483,7 +483,7 @@ public sealed class ReportsController : ControllerBase
                 var fora = g.Sum(x => x.fora);
                 var medias = g.Where(x => x.diasAteFechar.HasValue).Select(x => x.diasAteFechar!.Value).ToList();
                 var media = medias.Count > 0 ? medias.Average() : (double?)null;
-                return new SlaVagaReportRowResponse(g.Key, total, dentro, fora, media);
+                return new SlaVagaReportRowResponse(g.Key ?? string.Empty, total, dentro, fora, media);
             })
             .OrderByDescending(x => x.Total)
             .ToList();
