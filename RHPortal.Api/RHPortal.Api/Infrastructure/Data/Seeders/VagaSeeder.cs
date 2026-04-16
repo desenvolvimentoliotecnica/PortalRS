@@ -122,7 +122,8 @@ public static class VagaSeeder
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var cargosByArea = jobPositions
-            .GroupBy(j => j.AreaId)
+            .Where(j => j.AreaId.HasValue)
+            .GroupBy(j => j.AreaId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var units = unitsByCode.Values.ToList();
