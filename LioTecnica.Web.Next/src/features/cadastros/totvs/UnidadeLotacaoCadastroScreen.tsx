@@ -315,14 +315,7 @@ export default function UnidadeLotacaoCadastroScreen() {
     }
   }, []);
 
-  const loadFuncionarios = useCallback(async () => {
-    try {
-      const res = await fetchJson<{ items: Array<{ id: string; nome: string }> }>("/api/lookup/funcionarios?pageSize=200&onlyActive=false");
-      setFuncionarios(Array.isArray(res?.items) ? res.items.map((f) => ({ id: f.id, name: f.nome })) : []);
-    } catch { /* lookup opcional */ }
-  }, []);
-
-  useEffect(() => { syncList(); loadFuncionarios(); }, [syncList, loadFuncionarios]);
+  useEffect(() => { syncList(); }, [syncList]);
 
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
