@@ -38,6 +38,26 @@ public sealed class AdmissaoPortalController : ControllerBase
             : Ok(result);
     }
 
+    /// <summary>Blip: candidato envia um documento (base64). Retorna a lista atualizada de pendentes.</summary>
+    [HttpPost("blip/documentos")]
+    [ProducesResponseType(typeof(BlipDocumentosResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [RequestSizeLimit(15 * 1024 * 1024)]
+    public async Task<IActionResult> PostDocumentoBlip(
+        [FromBody] BlipUploadDocumentoRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Cpf))
+            return BadRequest(new { message = "CPF obrigatório." });
+        if (string.IsNullOrWhiteSpace(request.Base64))
+            return BadRequest(new { message = "Base64 do documento obrigatório." });
+
+        var result = await _service.UploadDocBlipAsync(request, ct);
+        return result is null
+            ? NotFound(new { message = "Nenhuma admissão ativa encontrada para o CPF informado." })
+            : Ok(result);
+    }
+
     /// <summary>Candidato faz login com CPF para acessar o portal de documentos.</summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(AdmissaoPortalLoginResponse), StatusCodes.Status200OK)]

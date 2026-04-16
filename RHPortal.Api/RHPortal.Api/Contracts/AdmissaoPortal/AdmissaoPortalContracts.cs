@@ -191,8 +191,9 @@ public sealed record WizardProgressRequest(int CurrentStep, int CompletionPercen
 // ── Blip: consulta por CPF ou Telefone ──
 
 public sealed record BlipDocumentosResponse(
-    Guid PreAdmissaoId,
     string Nome,
+    /// <summary>Celular do contratado para contato via WhatsApp (pode ser null se ainda não informado).</summary>
+    string? Celular,
     List<BlipDocumentoItem> Documentos
 );
 
@@ -207,3 +208,14 @@ public sealed record BlipDocumentoItem(
 /// <param name="Lado">0=Único, 1=Frente, 2=Verso</param>
 /// <param name="Status">0=Pendente, 1=Aprovado, 2=Rejeitado</param>
 public sealed record BlipDocumentoEnviadoItem(int Lado, string NomeArquivo, int Status);
+
+/// <summary>Payload de upload de documento via Blip (base64).</summary>
+public sealed record BlipUploadDocumentoRequest(
+    string Cpf,
+    int Tipo,
+    /// <summary>0=Único, 1=Frente, 2=Verso</summary>
+    int Lado,
+    string NomeArquivo,
+    string MimeType,
+    string Base64
+);
