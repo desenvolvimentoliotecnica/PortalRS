@@ -91,6 +91,7 @@ interface PreAdmissao {
     categoriaSalarial: number | null;
     grauInstrucao: number | null;
     codTurno: number | null;
+    tipoEstatistica: number | null;
     centroCusto: string | null;
     unidadeLotacao: string | null;
     // Saúde e docs complementares TOTVS
@@ -182,6 +183,12 @@ const GRAU_INSTRUCAO = [
 const CATEGORIA_SALARIAL = [
     { value: 1, label: "A" }, { value: 2, label: "B" }, { value: 3, label: "C" },
     { value: 4, label: "D" }, { value: 5, label: "E" },
+];
+const TIPO_ESTATISTICA = [
+    { value: 1, label: "Normal" },
+    { value: 2, label: "Afastado" },
+    { value: 3, label: "Cedido" },
+    { value: 4, label: "Pendente" },
 ];
 const TIPO_DOC_ALL = [
     { value: 0, label: "RG" }, { value: 1, label: "CPF" }, { value: 2, label: "CNH" },
@@ -535,6 +542,7 @@ export default function AdmissaoWizardScreen() {
                             </div>
                             <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
                             <Select label="Tipo Funcionário" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
+                            <Select label="Tipo Estatística" value={form.tipoEstatistica} options={TIPO_ESTATISTICA} onChange={v => set("tipoEstatistica", Number(v))} />
                             <div>
                                 <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial</label>
                                 <CategoriaSalarialAutocomplete
@@ -684,6 +692,7 @@ export default function AdmissaoWizardScreen() {
                             <Info label="Cargo TOTVS" value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : null} />
                             <Info label="Vínculo" value={VINCULO_EMPREGATICIO.find(v => v.value === form.codVinculoEmpregaticio)?.label} />
                             <Info label="Tipo Func." value={TIPO_FUNCIONARIO_TOTVS.find(v => v.value === form.tipoFuncionario)?.label} />
+                            <Info label="Tipo Estatística" value={TIPO_ESTATISTICA.find(v => v.value === form.tipoEstatistica)?.label} />
                             <Info label="Grau Instrução" value={GRAU_INSTRUCAO.find(v => v.value === form.grauInstrucao)?.label} />
                             <Info label="Centro Custo" value={form.centroCusto} />
                             <Info label="Unid. Lotação" value={form.unidadeLotacao} />
