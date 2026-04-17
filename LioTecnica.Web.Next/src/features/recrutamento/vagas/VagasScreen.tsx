@@ -9,6 +9,7 @@ import {
     Briefcase,
     CalendarDays,
     CheckCircle2,
+    ChevronDown,
     Clock,
     Columns3,
     Copy,
@@ -37,12 +38,20 @@ import { confirmDialog } from "@/lib/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import EmptyState from "@/components/ui/EmptyState";
+import {
+  AGING_BUCKETS,
+  type AgingBucket,
+  daysSince,
+  matchesAgingBucket,
+} from "@/features/shared/urgencia";
 import {
     Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
 } from "@/components/ui/table";
 import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-    DropdownMenuItem, DropdownMenuSeparator,
+    DropdownMenuCheckboxItem, DropdownMenuSeparator,
+    DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import {
     Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -279,6 +288,7 @@ export default function VagasScreen() {
     const { me } = useAuth();
     const deeplinkHandled = useRef(false);
     const pendenciasMode = searchParams.get("pendencias") === "1" || searchParams.get("mode") === "pendencias";
+    const [hcPendentesMode, setHcPendentesMode] = useState(false);
 
     const isGestor = useMemo(
         () => (me?.roles ?? []).some((r) => r.toLowerCase() === "gestor"),
@@ -289,21 +299,21 @@ export default function VagasScreen() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<VagaListItem[]>([]);
     const [q, setQ] = useState("");
-    const [area, setArea] = useState("all");
-    const [status, setStatus] = useState(() => (pendenciasMode ? "rascunho" : "all"));
+    const [status, setStatus] = useState<string[]>(() => pendenciasMode ? ["rascunho"] : []);
     const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
         if (typeof window === "undefined") return "list";
         return (localStorage.getItem("renderrh.vagas.viewMode") as "list" | "kanban") || "list";
     });
     const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.vagas.viewMode", m); };
-    const [areas, setAreas] = useState<string[]>([]);
     const [dateSort, setDateSort] = useState<"newest" | "oldest">("newest");
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
+    const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
 
     useEffect(() => {
         if (!pendenciasMode) return;
         // Pendências sempre parte de rascunho (vagas aprovadas pelos superiores e liberadas para RH preencher).
-        setStatus("rascunho");
-        setArea("all");
+        setStatus(["rascunho"]);
         setQ("");
     }, [pendenciasMode]);
 
@@ -313,6 +323,7 @@ export default function VagasScreen() {
     const [loadingApprovals, setLoadingApprovals] = useState(false);
     const [solicitacaoOpen, setSolicitacaoOpen] = useState(false);
     const [solicitacaoEditId, setSolicitacaoEditId] = useState<string | null>(null);
+    const [solicitacaoInitialData, setSolicitacaoInitialData] = useState<{ vagaId: string; jobPositionId: string | null; titulo: string } | null>(null);
 
     const [editOpen, setEditOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
@@ -378,8 +389,6 @@ export default function VagasScreen() {
         const list = mapVagasPayload(payload);
         setRows(list);
         setScreenCache(pendenciasMode ? "/vagas?pendencias=1" : "/vagas", list);
-        const areaSet = new Set(list.map((v) => (v.area ?? "").trim()).filter(Boolean));
-        setAreas(Array.from(areaSet).sort((a, b) => a.localeCompare(b, "pt-BR")));
     }, [pendenciasMode]);
 
     // ── Drag-drop status change ──
@@ -447,8 +456,6 @@ export default function VagasScreen() {
         const cached = getScreenCache<VagaListItem[]>(cacheKey);
         if (cached) {
             setRows(cached);
-            const areaSet = new Set(cached.map((v) => (v.area ?? "").trim()).filter(Boolean));
-            setAreas(Array.from(areaSet).sort((a, b) => a.localeCompare(b, "pt-BR")));
         } else {
             setLoading(true);
         }
@@ -487,8 +494,15 @@ export default function VagasScreen() {
     const filtered = useMemo(() => {
         const qq = q.trim().toLowerCase();
         const result = rows.filter((v) => {
-            if (status !== "all" && (v.status ?? "").toLowerCase() !== status) return false;
-            if (area !== "all" && (v.area ?? "").trim() !== area) return false;
+            if (status.length > 0 && !status.includes((v.status ?? "").toLowerCase())) return false;
+            // HC Pendentes filter
+            if (hcPendentesMode && !((v as Record<string, unknown>).headcountPendente as number | undefined)) return false;
+            // F1 — Date range filter
+            const dateField = ((v as Record<string, unknown>).createdAtUtc as string | null | undefined) ?? v.updatedAt;
+            if (dateFrom && dateField && new Date(dateField) < new Date(dateFrom)) return false;
+            if (dateTo && dateField && new Date(dateField) > new Date(`${dateTo}T23:59:59`)) return false;
+            // F2 — Aging bucket filter
+            if (!matchesAgingBucket(dateField ?? null, agingBucket)) return false;
             if (!qq) return true;
             return [v.codigo, v.titulo, v.area, v.modalidade, v.cidade, v.uf]
                 .filter(Boolean)
@@ -502,11 +516,11 @@ export default function VagasScreen() {
             return dateSort === "newest" ? db - da : da - db;
         });
         return result;
-    }, [rows, q, area, status, dateSort]);
+    }, [rows, q, status, dateSort, dateFrom, dateTo, agingBucket, hcPendentesMode]);
 
     const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
         initialPageSize: 20,
-        resetDeps: [q, area, status],
+        resetDeps: [q, status.join(","), dateFrom, dateTo, agingBucket],
     });
     const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice]);
 
@@ -546,8 +560,9 @@ export default function VagasScreen() {
         catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao copiar link."); }
     }
 
-    function openSolicitacaoEditor(id?: string | null) {
+    function openSolicitacaoEditor(id?: string | null, fromVaga?: { vagaId: string; jobPositionId: string | null; titulo: string } | null) {
         setSolicitacaoEditId(id ?? null);
+        setSolicitacaoInitialData(id ? null : (fromVaga ?? null));
         setSolicitacaoOpen(true);
     }
 
@@ -926,7 +941,7 @@ export default function VagasScreen() {
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent border-amber-200">
                                     <TableHead className="text-amber-800 dark:text-amber-300">Título</TableHead>
-                                    <TableHead className="text-amber-800 dark:text-amber-300">Área</TableHead>
+                                    <TableHead className="text-amber-800 dark:text-amber-300">Lotação</TableHead>
                                     <TableHead className="text-amber-800 dark:text-amber-300">Criada em</TableHead>
                                     <TableHead className="text-amber-800 dark:text-amber-300">Dias</TableHead>
                                     <TableHead className="text-right text-amber-800 dark:text-amber-300">Ações</TableHead>
@@ -975,29 +990,69 @@ export default function VagasScreen() {
 
             {/* Main panel */}
             <div className="rounded-xl border border-border/40 bg-card shadow-sm">
-                {/* Filters bar */}
+                {/* Filters bar — row 1: busca, status, sort, toggle */}
                 <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2.5">
                     <div className="relative min-w-[180px] flex-1 max-w-sm">
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                         <Input className="pl-8 h-8 text-sm" placeholder="Buscar vaga..." value={q} onChange={(e) => setQ(e.target.value)} />
                     </div>
-                    <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={area} onChange={(e) => setArea(e.target.value)}>
-                        <option value="all">Todas as áreas</option>
-                        {areas.map((item) => <option key={item} value={item}>{item}</option>)}
-                    </select>
-                    <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={status} onChange={(e) => setStatus(e.target.value)} disabled={pendenciasMode}>
-                        <option value="all">Todos ({rows.length})</option>
-                        <option value="aberta">Abertas ({vagaCounts.open})</option>
-                        <option value="rascunho">Rascunho ({vagaCounts.preparation})</option>
-                        <option value="pausada">Pausada</option>
-                        <option value="fechada">Fechada ({vagaCounts.closed})</option>
-                    </select>
+                    {/* Multi-select — Status */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild disabled={pendenciasMode}>
+                            <button type="button" className={`inline-flex h-8 items-center gap-1 rounded-md border border-input bg-background px-2 text-xs transition-colors ${pendenciasMode ? "opacity-50 cursor-not-allowed text-muted-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                                {status.length === 0
+                                    ? `Todos (${rows.length})`
+                                    : status.length === 1
+                                        ? status[0].charAt(0).toUpperCase() + status[0].slice(1)
+                                        : `${status.length} status`}
+                                <ChevronDown className="size-3 opacity-60" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="min-w-[160px]">
+                            <DropdownMenuCheckboxItem
+                                checked={status.length === 0}
+                                onCheckedChange={() => setStatus([])}
+                            >
+                                Todos ({rows.length})
+                            </DropdownMenuCheckboxItem>
+                            <DropdownMenuSeparator />
+                            {[
+                                { value: "aberta",   label: `Abertas (${vagaCounts.open})` },
+                                { value: "rascunho", label: `Rascunho (${vagaCounts.preparation})` },
+                                { value: "pausada",  label: "Pausada" },
+                                { value: "fechada",  label: `Fechada (${vagaCounts.closed})` },
+                            ].map((opt) => (
+                                <DropdownMenuCheckboxItem
+                                    key={opt.value}
+                                    checked={status.includes(opt.value)}
+                                    onCheckedChange={(checked) =>
+                                        setStatus(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value))
+                                    }
+                                >
+                                    {opt.label}
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     <button type="button" className="inline-flex items-center gap-1 h-8 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => setDateSort(prev => prev === "newest" ? "oldest" : "newest")} title={dateSort === "newest" ? "Mais novas primeiro" : "Mais antigas primeiro"}>
                         <CalendarDays className="size-3" />
                         {dateSort === "newest" ? "Recentes" : "Antigas"}
                     </button>
-                    <button type="button" className={`inline-flex items-center h-8 rounded-md border px-2 text-xs font-medium transition-colors ${pendenciasMode ? "bg-primary text-primary-foreground border-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"}`} onClick={() => { if (pendenciasMode) { setStatus("all"); void router.replace("/vagas"); } else { void router.push("/vagas?pendencias=1"); } }}>
+                    <button type="button" className={`inline-flex items-center h-8 rounded-md border px-2 text-xs font-medium transition-colors ${pendenciasMode ? "bg-primary text-primary-foreground border-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"}`} onClick={() => { if (pendenciasMode) { setStatus([]); void router.replace("/vagas"); } else { void router.push("/vagas?pendencias=1"); } }}>
                         Pendências
+                    </button>
+                    <button
+                        type="button"
+                        className={`inline-flex items-center h-8 rounded-md border px-2 text-xs font-medium transition-colors ${hcPendentesMode ? "bg-amber-600 text-white border-amber-600" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}
+                        onClick={() => setHcPendentesMode(v => !v)}
+                        title="Mostrar apenas vagas com headcount pendente de decisão do RH"
+                    >
+                        HC Pend.
+                        {!hcPendentesMode && rows.filter(v => !!((v as Record<string, unknown>).headcountPendente as number | undefined)).length > 0 && (
+                            <span className="ml-1 rounded-full bg-amber-500 text-white text-[9px] px-1 py-0 leading-tight">
+                                {rows.filter(v => !!((v as Record<string, unknown>).headcountPendente as number | undefined)).length}
+                            </span>
+                        )}
                     </button>
                     <div className="flex items-center rounded-md border border-input bg-background p-0.5">
                         <button type="button" className={`inline-flex items-center justify-center rounded-sm px-1.5 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
@@ -1010,6 +1065,51 @@ export default function VagasScreen() {
                     <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">{filtered.length} resultado(s)</span>
                 </div>
 
+                {/* Filters bar — row 2: date range (F1) + aging chips (F2) */}
+                <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2">
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        <CalendarDays className="size-3" /> Criada em:
+                    </span>
+                    <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        title="Data inicial"
+                    />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        title="Data final"
+                    />
+                    {(dateFrom || dateTo) && (
+                        <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-[11px] text-muted-foreground hover:text-foreground underline">
+                            Limpar
+                        </button>
+                    )}
+                    <span className="text-[11px] text-muted-foreground ml-2 flex items-center gap-1">
+                        <Clock className="size-3" /> Aging:
+                    </span>
+                    {AGING_BUCKETS.map((b) => (
+                        <button
+                            key={b.value}
+                            type="button"
+                            onClick={() => setAgingBucket(prev => prev === b.value ? "" : b.value)}
+                            className={`inline-flex h-6 items-center rounded-full border px-2 text-[11px] font-medium transition-colors ${agingBucket === b.value ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}
+                        >
+                            {b.label}
+                        </button>
+                    ))}
+                    {(dateFrom || dateTo || agingBucket) && (
+                        <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); setAgingBucket(""); }} className="ml-auto text-[11px] text-muted-foreground hover:text-foreground underline">
+                            Limpar datas/aging
+                        </button>
+                    )}
+                </div>
+
                 {viewMode === "list" ? (
                     <>
                         <div className="overflow-x-auto px-2 py-1">
@@ -1017,7 +1117,6 @@ export default function VagasScreen() {
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
                                         <TableHead className="min-w-[260px]">Vaga</TableHead>
-                                        <TableHead>Área</TableHead>
                                         <TableHead>Requisitos</TableHead>
                                         <TableHead>Data criação</TableHead>
                                         <TableHead>Status</TableHead>
@@ -1029,7 +1128,7 @@ export default function VagasScreen() {
                                     {loading ? (
                                         Array.from({ length: 5 }).map((_, i) => (
                                             <TableRow key={i}>
-                                                {Array.from({ length: 7 }).map((__, j) => (
+                                                {Array.from({ length: 6 }).map((__, j) => (
                                                     <TableCell key={j}>
                                                         <div className="h-4 animate-pulse rounded bg-muted" />
                                                     </TableCell>
@@ -1037,9 +1136,23 @@ export default function VagasScreen() {
                                             </TableRow>
                                         ))
                                     ) : paged.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="py-14 text-center text-sm text-muted-foreground">
-                                                Nenhuma vaga encontrada. Crie sua primeira vaga para começar a recrutar.
+                                        /* J2 — Rich empty state */
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableCell colSpan={6} className="py-4">
+                                                <EmptyState
+                                                    icon={Briefcase}
+                                                    title={rows.length === 0 ? "Nenhuma vaga ainda" : "Nenhuma vaga encontrada"}
+                                                    description={
+                                                        rows.length === 0
+                                                            ? "Crie sua primeira vaga para começar a recrutar."
+                                                            : "Nenhum resultado para os filtros aplicados. Tente ajustá-los."
+                                                    }
+                                                    actions={
+                                                        rows.length === 0
+                                                            ? [{ label: "Nova Vaga", onClick: openNew, variant: "default" }]
+                                                            : [{ label: "Limpar filtros", onClick: () => { setQ(""); setStatus([]); setDateFrom(""); setDateTo(""); setAgingBucket(""); } }]
+                                                    }
+                                                />
                                             </TableCell>
                                         </TableRow>
                                     ) : (
@@ -1047,11 +1160,20 @@ export default function VagasScreen() {
                                             const { total, obrig } = calcReqTotals(vaga);
                                             const threshold = clamp(pickNumber(vaga.threshold ?? vaga.matchMinimoPercentual, 0), 0, 100);
                                             const location = [vaga.cidade, vaga.uf].filter(Boolean).join(" / ");
+                                            // A2 — Stale/aging visual treatment
+                                            const vagaRaw = vaga as Record<string, unknown>;
+                                            const rowAlertaAtivo = !!(vagaRaw.alertaVagaSemFill as boolean | undefined);
+                                            const rowDiasSemFill = (vagaRaw.alertaDiasSemFill as number | undefined) ?? 0;
+                                            const rowBorderCls = rowAlertaAtivo
+                                                ? rowDiasSemFill > 7
+                                                    ? "border-l-4 border-red-400"
+                                                    : "border-l-4 border-amber-400"
+                                                : "";
 
                                             return (
                                                 <TableRow
                                                     key={vaga.id}
-                                                    className="cursor-pointer hover:bg-muted/40"
+                                                    className={`cursor-pointer hover:bg-muted/40 ${rowBorderCls}`}
                                                     onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(vaga.id)}`)}
                                                 >
                                                     <TableCell>
@@ -1070,9 +1192,6 @@ export default function VagasScreen() {
                                                             )}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="text-sm" onClick={(e) => { e.stopPropagation(); setArea(vaga.area?.trim() || "all"); }}>
-                                                        <span className="hover:underline hover:text-foreground cursor-pointer">{vaga.area || "—"}</span>
-                                                    </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2 text-xs">
                                                             <span className="text-muted-foreground">{total} requisito(s)</span>
@@ -1086,7 +1205,7 @@ export default function VagasScreen() {
                                                     <TableCell className="text-xs text-muted-foreground">
                                                         {vaga.createdAtUtc ? new Date(vaga.createdAtUtc as string).toLocaleDateString("pt-BR") : vaga.updatedAt ? new Date(vaga.updatedAt as string).toLocaleDateString("pt-BR") : "—"}
                                                     </TableCell>
-                                                    <TableCell onClick={(e) => { e.stopPropagation(); setStatus((vaga.status ?? "").toLowerCase() || "all"); }}>
+                                                    <TableCell onClick={(e) => { e.stopPropagation(); const s = (vaga.status ?? "").toLowerCase(); if (s) setStatus(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]); }}>
                                                         <span className="cursor-pointer"><VagaStatusBadge status={vaga.status} /></span>
                                                     </TableCell>
                                                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1095,12 +1214,14 @@ export default function VagasScreen() {
                                                             const ocupado = (raw.headcountOcupado as number | undefined) ?? 0;
                                                             const autorizado = (raw.headcountAutorizado as number | undefined) ?? 1;
                                                             const provisorio = (raw.headcountProvisorio as number | undefined) ?? 0;
+                                                            const pendente = (raw.headcountPendente as number | undefined) ?? 0;
                                                             const limite = autorizado + provisorio;
                                                             const acima = ocupado > autorizado;
                                                             const muitoAcima = ocupado > autorizado + 1;
                                                             const alertaAtivo = !!(raw.alertaVagaSemFill as boolean | undefined);
                                                             const diasSemFill = raw.alertaDiasSemFill as number | undefined;
                                                             const provisorioExpira = raw.headcountProvisorioExpiresAtUtc as string | undefined;
+                                                            const alertaHCProvVencido = !!(raw.alertaHCProvVencido as boolean | undefined);
 
                                                             const corTexto = muitoAcima
                                                                 ? "text-red-600 dark:text-red-400 font-semibold"
@@ -1116,12 +1237,12 @@ export default function VagasScreen() {
 
                                                             return (
                                                                 <div className="flex flex-col gap-0.5">
-                                                                    <div className="flex items-center gap-1.5">
+                                                                    <div className="flex items-center gap-1.5 flex-wrap">
                                                                         <span
                                                                             className={`text-xs tabular-nums ${corTexto}`}
                                                                             title={tooltip}
                                                                         >
-                                                                            {ocupado}/{limite}
+                                                                            {pendente > 0 ? `(${ocupado}/${limite})` : `${ocupado}/${limite}`}
                                                                             {acima && " ⚠"}
                                                                         </span>
                                                                         {provisorio > 0 && (
@@ -1129,10 +1250,20 @@ export default function VagasScreen() {
                                                                                 +{provisorio} prov.
                                                                             </span>
                                                                         )}
+                                                                        {pendente > 0 && (
+                                                                            <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium cursor-pointer" title="Headcount aprovado aguardando decisão do RH — clique para filtrar" onClick={() => setHcPendentesMode(true)}>
+                                                                                +{pendente} pend.
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                     {alertaAtivo && (
                                                                         <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 w-fit">
                                                                             Sem fill há {diasSemFill}d
+                                                                        </span>
+                                                                    )}
+                                                                    {alertaHCProvVencido && (
+                                                                        <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 w-fit" title="Prazo do headcount provisório expirou — RH deve revisar">
+                                                                            HC Prov. Vencido
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -1167,6 +1298,10 @@ export default function VagasScreen() {
                                                                 <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
                                                                     <PenSquare className="mr-2 size-4" />
                                                                     Editar
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => openSolicitacaoEditor(null, { vagaId: vaga.id, jobPositionId: (vaga as any).jobPositionId ?? null, titulo: vaga.titulo ?? "" })}>
+                                                                    <Plus className="mr-2 size-4" />
+                                                                    Nova Requisição
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => void copyPortalLink(vaga.id)}>
                                                                     <Copy className="mr-2 size-4" />
@@ -1294,10 +1429,12 @@ export default function VagasScreen() {
                                                                         const ocupado = (raw.headcountOcupado as number | undefined) ?? 0;
                                                                         const autorizado = (raw.headcountAutorizado as number | undefined) ?? 1;
                                                                         const provisorio = (raw.headcountProvisorio as number | undefined) ?? 0;
+                                                                        const pendente = (raw.headcountPendente as number | undefined) ?? 0;
                                                                         const limite = autorizado + provisorio;
                                                                         const acima = ocupado > autorizado;
                                                                         const alertaAtivo = !!(raw.alertaVagaSemFill as boolean | undefined);
                                                                         const diasSemFill = raw.alertaDiasSemFill as number | undefined;
+                                                                        const alertaHCProvVencido = !!(raw.alertaHCProvVencido as boolean | undefined);
                                                                         const corTexto = acima
                                                                             ? ocupado > autorizado + 1
                                                                                 ? "text-red-500"
@@ -1316,9 +1453,19 @@ export default function VagasScreen() {
                                                                                         +{provisorio}p
                                                                                     </span>
                                                                                 )}
+                                                                                {pendente > 0 && (
+                                                                                    <span className="rounded-full px-1 py-0.5 text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" title="Headcount pendente de decisão RH">
+                                                                                        +{pendente}p
+                                                                                    </span>
+                                                                                )}
                                                                                 {alertaAtivo && (
                                                                                     <span className="rounded-full px-1 py-0.5 text-[9px] bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
                                                                                         {diasSemFill}d
+                                                                                    </span>
+                                                                                )}
+                                                                                {alertaHCProvVencido && (
+                                                                                    <span className="rounded-full px-1 py-0.5 text-[9px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" title="HC Prov. Vencido">
+                                                                                        HC✗
                                                                                     </span>
                                                                                 )}
                                                                             </>
@@ -1344,6 +1491,9 @@ export default function VagasScreen() {
                                                                         <DropdownMenuSeparator />
                                                                         <DropdownMenuItem onClick={() => openEdit(vaga.id)}>
                                                                             <PenSquare className="mr-2 size-3.5" />Editar
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => openSolicitacaoEditor(null, { vagaId: vaga.id, jobPositionId: (vaga as any).jobPositionId ?? null, titulo: vaga.titulo ?? "" })}>
+                                                                            <Plus className="mr-2 size-3.5" />Nova Requisição
                                                                         </DropdownMenuItem>
                                                                         <DropdownMenuItem onClick={() => void copyPortalLink(vaga.id)}>
                                                                             <Copy className="mr-2 size-3.5" />Copiar link
@@ -1702,13 +1852,16 @@ export default function VagasScreen() {
             <SolicitacaoFormModal
                 open={solicitacaoOpen}
                 editId={solicitacaoEditId}
+                initialData={solicitacaoInitialData}
                 onClose={() => {
                     setSolicitacaoOpen(false);
                     setSolicitacaoEditId(null);
+                    setSolicitacaoInitialData(null);
                 }}
                 onSaved={() => {
                     setSolicitacaoOpen(false);
                     setSolicitacaoEditId(null);
+                    setSolicitacaoInitialData(null);
                     void Promise.all([loadSolicitacoes(), loadApprovals()]);
                 }}
             />

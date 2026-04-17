@@ -86,7 +86,9 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                     v.HeadcountProvisorioExpiresAtUtc,
                     false,
                     null,
-                    v.AlertaVagaSemFillSnoozeAteUtc
+                    v.AlertaVagaSemFillSnoozeAteUtc,
+                    v.HeadcountPendente,
+                    false
                 ))
                 .ToList();
 

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.Vagas;
@@ -309,7 +310,13 @@ public sealed record VagaResponse(
     DateTimeOffset UpdatedAtUtc,
     string? SolicitanteNome,
     string? AprovadorNome,
-    DateTimeOffset? DataAprovacao
+    DateTimeOffset? DataAprovacao,
+    int HeadcountPendente,
+    Guid? SolicitacaoPendenteDecisaoId,
+    TipoDecisaoHeadcount? DecisaoRH,
+    string? DecisaoRHRevisadoPorNome,
+    DateTimeOffset? DecisaoRHEmUtc,
+    int? DecisaoRHPrazoMeses
 );
 
 public sealed record VagaBeneficioRequest(

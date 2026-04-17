@@ -46,6 +46,8 @@ export interface SolicitacaoDraft {
     empresaId: string | null;
     centroCustoId: string | null;
     unidadeLotacaoId: string | null;
+    /** Vaga pré-vinculada quando solicitação é criada a partir do painel de vagas */
+    vagaId: string | null;
 }
 
 interface Props {
@@ -101,6 +103,7 @@ const emptyDraft: SolicitacaoDraft = {
     empresaId: null,
     centroCustoId: null,
     unidadeLotacaoId: null,
+    vagaId: null,
 };
 
 /* ──────────────────────────── AutocompleteSelect ──────────────────────────── */
@@ -197,6 +200,8 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
     const [saving, setSaving] = useState(false);
     const [loadingEdit, setLoadingEdit] = useState(false);
     const [activeTab, setActiveTab] = useState("identificacao");
+    const [observacaoAprovador, setObservacaoAprovador] = useState<string | null>(null);
+    const [statusCarregado, setStatusCarregado] = useState<string | number | null>(null);
 
     /* ── lookups ── */
     const [cargos, setCargos] = useState<LookupItem[]>([]);
@@ -264,6 +269,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             empresaId: d?.empresaId ? String(d.empresaId) : null,
             centroCustoId: d?.centroCustoId ? String(d.centroCustoId) : null,
             unidadeLotacaoId: d?.unidadeLotacaoId ? String(d.unidadeLotacaoId) : null,
+            vagaId: d?.vagaId ? String(d.vagaId) : null,
         };
     }
 
@@ -272,11 +278,18 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
         setActiveTab("identificacao");
         loadLookups();
 
+        setObservacaoAprovador(null);
+        setStatusCarregado(null);
         const sourceId = editId ?? copySourceId ?? null;
         if (sourceId) {
             setLoadingEdit(true);
             fetchJson<Record<string, unknown>>(`${API}/${sourceId}`)
-                .then((d) => setDraft(parseDraft(d, copySourceId ? " (cópia)" : "")))
+                .then((d) => {
+                    setDraft(parseDraft(d, copySourceId ? " (cópia)" : ""));
+                    setObservacaoAprovador(d?.observacaoAprovador ? String(d.observacaoAprovador) : null);
+                    const s = d?.status;
+                    setStatusCarregado(typeof s === "string" || typeof s === "number" ? s : null);
+                })
                 .catch(() => toast.error("Falha ao carregar solicitação."))
                 .finally(() => setLoadingEdit(false));
         } else {
@@ -326,6 +339,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             empresaId: draft.empresaId,
             centroCustoId: draft.centroCustoId,
             unidadeLotacaoId: draft.unidadeLotacaoId,
+            vagaId: draft.vagaId || null,
         };
 
         try {
@@ -392,6 +406,20 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                         {viewOnly ? "Visualizar Requisição de Pessoal" : copySourceId ? "Copiar Requisição de Pessoal" : editId ? "Editar Requisição de Pessoal" : "Requisição de Pessoal"}
                     </DialogTitle>
                 </DialogHeader>
+
+                {/* Banner de motivo de reprovação / observação do aprovador */}
+                {!loadingEdit && observacaoAprovador && (
+                    <div className={`rounded-md border px-3 py-2 text-sm ${
+                        statusCarregado === "Reprovada" || statusCarregado === 3
+                            ? "bg-red-500/10 border-red-400/40 text-red-800 dark:text-red-300"
+                            : "bg-amber-500/10 border-amber-400/40 text-amber-800 dark:text-amber-300"
+                    }`}>
+                        <span className="font-semibold mr-1">
+                            {statusCarregado === "Reprovada" || statusCarregado === 3 ? "Motivo da recusa:" : "Observação:"}
+                        </span>
+                        {observacaoAprovador}
+                    </div>
+                )}
 
                 {loadingEdit ? (
                     <div className="flex items-center justify-center py-12">

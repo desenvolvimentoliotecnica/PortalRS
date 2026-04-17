@@ -15,5 +15,17 @@ public enum SolicitacaoVagaStatus : short
     PendenteAprovacaoRh = 5,
 
     /// <summary>Cancelada pelo solicitante antes de ser aprovada.</summary>
-    Cancelada = 6
+    Cancelada = 6,
+
+    /// <summary>RH/Admin acionou "Efetivar" — enviando requisição ao TOTVS ERP.</summary>
+    EmIntegracao = 7,
+
+    /// <summary>TOTVS confirmou recebimento da requisição — vaga foi aberta automaticamente.</summary>
+    Concluida = 8,
+
+    /// <summary>VagaNova aprovada pelo fluxo de gestores; RH ainda não tomou a decisão de headcount.</summary>
+    AguardandoDecisaoRH = 9,
+
+    /// <summary>RH escalou para aprovação de aumento definitivo de headcount; aguarda aprovação configurável.</summary>
+    PendenteAprovacaoAumentoHC = 10
 }

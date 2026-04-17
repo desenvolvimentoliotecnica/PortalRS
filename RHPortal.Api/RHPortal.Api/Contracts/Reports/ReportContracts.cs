@@ -21,6 +21,11 @@ public sealed record ReportDataResponse(
     IReadOnlyList<IReadOnlyList<ReportCellResponse>> Rows
 );
 
+public sealed record ReportLotacaoLookupResponse(
+    Guid Id,
+    string? Description
+);
+
 public sealed record ReportVagaLookupResponse(
     Guid Id,
     string? Codigo,

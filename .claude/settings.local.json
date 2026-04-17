@@ -40,7 +40,13 @@
       "Bash(powershell -Command 'foreach \\($port in @\\(5056, 3000, 3001\\)\\) { $pids = netstat -ano 2>$null | Select-String \":$port\\\\s\" | Select-String '\\\\''LISTENING'\\\\'' | ForEach-Object { \\($_ -split '\\\\''\\\\s+'\\\\''\\)[-1] } | Select-Object -Unique; foreach \\($p in $pids\\) { if \\($p -match '\\\\''^\\\\d+$'\\\\''\\) { taskkill /PID $p /T /F 2>$null } } }')",
       "Bash(powershell -Command '$a = [System.Reflection.Assembly]::LoadFrom\\('\\\\''C:\\\\Users\\\\Lucas Algarve\\\\OneDrive - qualiit.com.br\\\\Documentos\\\\GitHub\\\\Voltage.RenderRH\\\\RHPortal.Api\\\\RHPortal.Api\\\\bin\\\\Debug\\\\net8.0\\\\RHPortal.Api.dll'\\\\''\\); $a.GetManifestResourceNames\\(\\) | Where-Object { $_ -like '\\\\''*eed*'\\\\'' }')",
       "Bash(powershell -Command '$a = [System.Reflection.Assembly]::LoadFrom\\('\\\\''C:\\\\Users\\\\Lucas Algarve\\\\OneDrive - qualiit.com.br\\\\Documentos\\\\GitHub\\\\Voltage.RenderRH\\\\RHPortal.Api\\\\RHPortal.Api\\\\bin\\\\Debug\\\\net8.0\\\\RHPortal.Api.dll'\\\\''\\); $a.GetManifestResourceNames\\(\\)')",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(ls -la /Users/victoralves/Projects/Voltage.RenderRH/*.md)",
+      "Bash(grep -r \"SolicitacaoDesligamento\\\\|Desligamento\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Migrations/*.cs --include=\"*.cs\" -l)",
+      "Bash(ls -la Migrations/*AddPayRange*)",
+      "Bash(grep -E \"\\\\.cs$\")",
+      "Bash(npm run:*)",
+      "Bash(git stash:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

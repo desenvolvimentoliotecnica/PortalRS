@@ -67,3 +67,57 @@ public sealed record AlterarSenhaRequest(
     string SenhaAtual,
     string NovaSenha
 );
+
+// ── Histórico de Carreira ──
+
+public sealed record HistoricoCarreiraItemResponse(
+    Guid Id,
+    string? VagaDescricao,
+    string? CargoNome,
+    string? AreaNome,
+    DateTime DataEntrada,
+    DateTime? DataSaida,
+    string? MotivoSaida,
+    bool IsProvisorio
+);
+
+// ── Dados Bancários ──
+
+public sealed record DadosBancariosResponse(
+    Guid Id,
+    string Banco,
+    string Agencia,
+    /// <summary>Conta mascarada (ex: ****1234) quando exibida para não-RH.</summary>
+    string Conta,
+    TipoContaBancaria TipoConta,
+    string? Pix,
+    DateTimeOffset UpdatedAtUtc
+);
+
+public sealed record DadosBancariosUpsertRequest(
+    string Banco,
+    string Agencia,
+    string Conta,
+    TipoContaBancaria TipoConta,
+    string? Pix
+);
+
+// ── Holerites ──
+
+public sealed record HoleriteResponse(
+    Guid Id,
+    int MesReferencia,
+    int AnoReferencia,
+    string ArquivoNome,
+    long TamanhoBytes,
+    /// <summary>Null = enviado via TOTVS. Preenchido = upload manual pelo RH.</summary>
+    Guid? EnviadoPorId,
+    string? EnviadoPorNome,
+    DateTimeOffset EnviadoEmUtc
+);
+
+public sealed record HoleriteUploadRequest(
+    Guid FuncionarioId,
+    int MesReferencia,
+    int AnoReferencia
+);

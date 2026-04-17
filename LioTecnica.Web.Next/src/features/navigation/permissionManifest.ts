@@ -36,6 +36,7 @@ const NAV_MANIFEST: ReadonlyArray<{
 
     // ── Gestão de Pessoas & Feedback ───────────────────────────────────
     { id: "nav-gestao-dashboard",          label: "Dashboard Gestão",            href: "/gestao/dashboard",               icon: "layoutdashboard",  permission: "gestao.dashboard" },
+    { id: "nav-meu-time",                  label: "Meu Time",                    href: "/gestao/meu-time",                icon: "users",            permission: "gestao.dashboard" },
     { id: "nav-batidaponto",               label: "Batida de Ponto",             href: "/gestao/batida-ponto",            icon: "bi-clock-history", permission: "agenda.view" }, // Reusing general view
     { id: "nav-comissoes",                 label: "Pagamento extra",             href: "/gestao/comissoes",               icon: "bi-bar-chart",     permission: "relatorios.view" }, // Reusing general view
     { id: "nav-desligamentos",             label: "Desligamentos",               href: "/gestao/desligamentos",           icon: "user-minus",       permission: "gestao.resumo" },
@@ -54,6 +55,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-areas",                     label: "Áreas",                       href: "/areas",                          icon: "grid",             permission: "areas.view" },
     { id: "nav-categorias",                label: "Funções",                     href: "/categorias",                     icon: "tags",             permission: "categories.view" },
     { id: "nav-cargos",                    label: "Cargos",                      href: "/cargos",                         icon: "briefcase",        permission: "jobpositions.view" },
+    { id: "nav-nivel-cargo",               label: "Cargos - Nível de Cargo",         href: "/nivel-cargo",                    icon: "layers",           permission: "jobpositions.view" },
     { id: "nav-unidades",                  label: "Unidades",                    href: "/unidades",                       icon: "map-pin",          permission: "units.view" },
     { id: "nav-centros-custo",             label: "Centros de Custo",            href: "/centros-custo",                  icon: "landmark",         permission: "areas.view" },
     { id: "nav-categorias-salariais",      label: "Categorias Salariais",        href: "/categorias-salariais",           icon: "badge-dollar-sign", permission: "categories.view" },
@@ -71,21 +73,9 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-configuracao-aprovacoes",   label: "Configuração de Aprovações",  href: "/admin/configuracao-aprovacoes",  icon: "settings2",         permission: "access.manage" },
     { id: "nav-aprovadores-alternativos",  label: "Aprovadores Alternativos",    href: "/admin/aprovadores-alternativos", icon: "user-check",        permission: "access.manage" },
     { id: "nav-admin-accesses",            label: "Acessos",                     href: "/admin/accesses",                 icon: "bi-shield-lock",    permission: "access.manage" },
-    { id: "nav-admin-gestores",            label: "Gestores",                    href: "/admin/gestores",                 icon: "usercheck",         permission: "access.manage" },
-    { id: "nav-admin-hierarquia",          label: "Hierarquia",                  href: "/admin/hierarquia",               icon: "bi-diagram-3",      permission: "access.manage" },
     { id: "nav-admin-organograma",         label: "Organograma",                 href: "/admin/organograma",              icon: "bi-diagram-2",      permission: "access.manage" },
-    { id: "nav-admin-headcount",           label: "Headcount",                   href: "/admin/configuracoes-headcount",  icon: "users",             permission: "access.manage" },
-    { id: "nav-admin-doc-padrao",          label: "Documentação Padrão",         href: "/admin/documentacao-padrao",      icon: "bi-journal-text",   permission: "access.manage" },
-    { id: "nav-admin-email-config",        label: "Config. de E-mail",           href: "/admin/email-config",             icon: "bi-gear",           permission: "access.manage" },
-    { id: "nav-admin-email-templates",     label: "Templates de E-mail",         href: "/admin/email-templates",          icon: "bi-envelope-paper", permission: "access.manage" },
-    { id: "nav-admin-emails",              label: "E-mails Enviados",            href: "/admin/emails",                   icon: "bi-envelope",       permission: "access.manage" },
-    { id: "nav-admin-entra-id",            label: "Entra ID",                    href: "/admin/entra-id",                 icon: "bi-microsoft",      permission: "access.manage" },
-    { id: "nav-admin-api-keys",            label: "API Keys",                    href: "/admin/api-keys",                 icon: "bi-key",            permission: "access.manage" },
-    { id: "nav-admin-localization",        label: "Localização",                 href: "/admin/localization",             icon: "bi-translate",      permission: "access.manage" },
-    { id: "nav-admin-menus",               label: "Menus",                       href: "/admin/menus",                    icon: "bi-list-check",     permission: "access.manage" },
+
     { id: "nav-admin-tenant-config",       label: "Configurações",               href: "/admin/tenant-configuracao",      icon: "bi-gear",           permission: "access.manage" },
-    { id: "nav-admin-logs",                label: "Logs",                        href: "/admin/logs",                     icon: "bi-journal-text",   permission: "access.manage" },
-    { id: "nav-admin-operational-logs",    label: "Logs Operacionais",           href: "/admin/operational-logs",         icon: "activity",          permission: "access.manage" },
 ] as const;
 
 /** Returns true if the permission set grants access to `key`. */

@@ -90,6 +90,12 @@ public sealed class SolicitacaoPromocao : ITenantEntity
     public string? ObservacaoAprovador { get; set; }
     public string? Observacoes { get; set; }
 
+    /// <summary>
+    /// Sinaliza que o salário proposto está fora da faixa salarial configurada para o novo cargo.
+    /// Preenchido durante validação na aprovação (warning mode) ou bloqueia (block mode).
+    /// </summary>
+    public bool ForaFaixaSalarial { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public DateTimeOffset? ApprovedAtUtc { get; set; }
@@ -102,4 +108,7 @@ public sealed class SolicitacaoPromocao : ITenantEntity
     public string? IntegracaoMensagem { get; set; }
 
     public DateTimeOffset? IntegradaEmUtc { get; set; }
+
+    public int TentativasIntegracao { get; set; }
+    public DateTimeOffset? UltimaTentativaUtc { get; set; }
 }

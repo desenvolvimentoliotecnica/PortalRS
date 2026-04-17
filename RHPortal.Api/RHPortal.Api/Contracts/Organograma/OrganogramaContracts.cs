@@ -19,7 +19,10 @@ public sealed record OrganogramaLotacaoDto(
     int Level,
     Guid? ParentId,
     OrganogramaFuncionarioDto? Responsavel,
-    IReadOnlyList<OrganogramaFuncionarioDto> Funcionarios
+    IReadOnlyList<OrganogramaFuncionarioDto> Funcionarios,
+    int HeadcountAutorizado,
+    int HeadcountOcupado,
+    int HeadcountProvisorio
 );
 
 /// <summary>Resposta completa do organograma estrutural.</summary>
