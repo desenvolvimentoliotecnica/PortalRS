@@ -18,8 +18,7 @@ public interface IAdmissaoPortalService
     Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct);
     Task<AdmissaoPortalDataResponse?> GetDataAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
     Task<BlipDocumentosResponse?> GetDocumentosByIdentificadorAsync(string? cpf, string? telefone, CancellationToken ct);
-    Task<BlipDocumentosResponse?> UploadDocBlipAsync(BlipUploadDocumentoRequest request, CancellationToken ct);
-    Task<(int HttpStatus, string Mensagem, BlipDocumentosResponse? Documentos)> ValidarDocumentoBlipAsync(BlipValidarDocumentoRequest request, CancellationToken ct);
+    Task<(int HttpStatus, string Mensagem)> EnviarDocumentoBlipAsync(BlipEnviarDocumentoRequest request, CancellationToken ct);
     Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest request, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse?> UploadDocAsync(Guid preAdmissaoId, string cpf, TipoDocumento tipo, LadoDocumento lado, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
     Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
@@ -359,144 +358,52 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         if (pa is null) return null;
 
-        // Tipos que exigem frente E costas separados
-        var tiposComVerso = new HashSet<TipoDocumento>
-        {
-            TipoDocumento.RG,
-            TipoDocumento.CNH,
-            TipoDocumento.CarteiraTrabalhoCTPS
-        };
-
         var documentos = new List<BlipDocumentoItem>();
 
         foreach (var ds in pa.DocumentosSolicitados.Where(d => d.Obrigatorio))
         {
             var label = PreAdmissaoService.TipoDocumentoLabel(ds.TipoDocumento);
 
-            if (tiposComVerso.Contains(ds.TipoDocumento))
+            switch (ds.TipoDocumento)
             {
-                // Frente — apenas o upload mais recente
-                var maisRecenteFrente = pa.Documentos
-                    .Where(d => d.Tipo == ds.TipoDocumento && d.Lado == LadoDocumento.Frente)
-                    .OrderByDescending(d => d.CreatedAtUtc)
-                    .FirstOrDefault();
-                var enviadosFrente = maisRecenteFrente is null
-                    ? new List<BlipDocumentoEnviadoItem>()
-                    : new List<BlipDocumentoEnviadoItem> { new((int)maisRecenteFrente.Lado, maisRecenteFrente.NomeArquivo, (int)maisRecenteFrente.Status) };
-
-                documentos.Add(new BlipDocumentoItem(
-                    Tipo: (int)ds.TipoDocumento,
-                    Label: $"{label} — Frente",
-                    Obrigatorio: true,
-                    JaEnviado: maisRecenteFrente is not null,
-                    Lado: (int)LadoDocumento.Frente,
-                    Enviados: enviadosFrente));
-
-                // Costas — apenas o upload mais recente
-                var maisRecenteCostas = pa.Documentos
-                    .Where(d => d.Tipo == ds.TipoDocumento && d.Lado == LadoDocumento.Verso)
-                    .OrderByDescending(d => d.CreatedAtUtc)
-                    .FirstOrDefault();
-                var enviadosCostas = maisRecenteCostas is null
-                    ? new List<BlipDocumentoEnviadoItem>()
-                    : new List<BlipDocumentoEnviadoItem> { new((int)maisRecenteCostas.Lado, maisRecenteCostas.NomeArquivo, (int)maisRecenteCostas.Status) };
-
-                documentos.Add(new BlipDocumentoItem(
-                    Tipo: (int)ds.TipoDocumento,
-                    Label: $"{label} — Costas",
-                    Obrigatorio: true,
-                    JaEnviado: maisRecenteCostas is not null,
-                    Lado: (int)LadoDocumento.Verso,
-                    Enviados: enviadosCostas));
-            }
-            else
-            {
-                // Documento de lado único — apenas o upload mais recente
-                var maisRecente = pa.Documentos
-                    .Where(d => d.Tipo == ds.TipoDocumento)
-                    .OrderByDescending(d => d.CreatedAtUtc)
-                    .FirstOrDefault();
-                var enviados = maisRecente is null
-                    ? new List<BlipDocumentoEnviadoItem>()
-                    : new List<BlipDocumentoEnviadoItem> { new((int)maisRecente.Lado, maisRecente.NomeArquivo, (int)maisRecente.Status) };
-
-                documentos.Add(new BlipDocumentoItem(
-                    Tipo: (int)ds.TipoDocumento,
-                    Label: label,
-                    Obrigatorio: true,
-                    JaEnviado: maisRecente is not null,
-                    Lado: (int)LadoDocumento.Unico,
-                    Enviados: enviados));
+                case TipoDocumento.RG:
+                {
+                    var frente = pa.Documentos.Where(d => d.Tipo == TipoDocumento.RG && d.Lado == LadoDocumento.Frente).OrderByDescending(d => d.CreatedAtUtc).FirstOrDefault();
+                    var costas = pa.Documentos.Where(d => d.Tipo == TipoDocumento.RG && d.Lado == LadoDocumento.Verso).OrderByDescending(d => d.CreatedAtUtc).FirstOrDefault();
+                    documentos.Add(new BlipDocumentoItem(100, $"{label} (Frente)", true, frente is not null, frente is null ? [] : [new((int)frente.Lado, frente.NomeArquivo, (int)frente.Status)]));
+                    documentos.Add(new BlipDocumentoItem(101, $"{label} (Costas)", true, costas is not null, costas is null ? [] : [new((int)costas.Lado, costas.NomeArquivo, (int)costas.Status)]));
+                    break;
+                }
+                case TipoDocumento.CNH:
+                {
+                    var frente = pa.Documentos.Where(d => d.Tipo == TipoDocumento.CNH && d.Lado == LadoDocumento.Frente).OrderByDescending(d => d.CreatedAtUtc).FirstOrDefault();
+                    var costas = pa.Documentos.Where(d => d.Tipo == TipoDocumento.CNH && d.Lado == LadoDocumento.Verso).OrderByDescending(d => d.CreatedAtUtc).FirstOrDefault();
+                    documentos.Add(new BlipDocumentoItem(102, $"{label} (Frente)", true, frente is not null, frente is null ? [] : [new((int)frente.Lado, frente.NomeArquivo, (int)frente.Status)]));
+                    documentos.Add(new BlipDocumentoItem(103, $"{label} (Costas)", true, costas is not null, costas is null ? [] : [new((int)costas.Lado, costas.NomeArquivo, (int)costas.Status)]));
+                    break;
+                }
+                case TipoDocumento.CarteiraTrabalhoCTPS:
+                {
+                    var frente = pa.Documentos.Where(d => d.Tipo == TipoDocumento.CarteiraTrabalhoCTPS && d.Lado == LadoDocumento.Frente).OrderByDescending(d => d.CreatedAtUtc).FirstOrDefault();
+                    var costas = pa.Documentos.Where(d => d.Tipo == TipoDocumento.CarteiraTrabalhoCTPS && d.Lado == LadoDocumento.Verso).OrderByDescending(d => d.CreatedAtUtc).FirstOrDefault();
+                    documentos.Add(new BlipDocumentoItem(104, $"{label} (Frente)", true, frente is not null, frente is null ? [] : [new((int)frente.Lado, frente.NomeArquivo, (int)frente.Status)]));
+                    documentos.Add(new BlipDocumentoItem(105, $"{label} (Costas)", true, costas is not null, costas is null ? [] : [new((int)costas.Lado, costas.NomeArquivo, (int)costas.Status)]));
+                    break;
+                }
+                default:
+                {
+                    var maisRecente = pa.Documentos.Where(d => d.Tipo == ds.TipoDocumento).OrderByDescending(d => d.CreatedAtUtc).FirstOrDefault();
+                    documentos.Add(new BlipDocumentoItem((int)ds.TipoDocumento, label, true, maisRecente is not null, maisRecente is null ? [] : [new((int)maisRecente.Lado, maisRecente.NomeArquivo, (int)maisRecente.Status)]));
+                    break;
+                }
             }
         }
 
         return new BlipDocumentosResponse(pa.Nome, pa.Celular, documentos);
     }
 
-    public async Task<BlipDocumentosResponse?> UploadDocBlipAsync(BlipUploadDocumentoRequest request, CancellationToken ct)
-    {
-        var cpfNorm = NormalizeCpf(request.Cpf);
-        if (string.IsNullOrWhiteSpace(cpfNorm)) return null;
-
-        var allowedStatuses = new[]
-        {
-            PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado,
-            PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido
-        };
-
-        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
-            .Include(x => x.Documentos)
-            .Include(x => x.DocumentosSolicitados)
-            .Where(x => allowedStatuses.Contains(x.Status) && x.Cpf == cpfNorm)
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .FirstOrDefaultAsync(ct);
-
-        if (pa is null) return null;
-
-        // Decodifica base64 e faz upload
-        var bytes = Convert.FromBase64String(request.Base64);
-        var tipo = (TipoDocumento)request.Tipo;
-        var lado = (LadoDocumento)request.Lado;
-
-        var folder = pa.CandidatoId.HasValue
-            ? $"{_tenantContext.TenantId}/candidatos/{pa.CandidatoId.Value:N}"
-            : $"{_tenantContext.TenantId}/admissao/{pa.Id:N}";
-        var ext = Path.GetExtension(request.NomeArquivo).ToLowerInvariant();
-        var storagePath = $"{folder}/{(int)tipo}_{Guid.NewGuid():N}{ext}";
-
-        using var stream = new MemoryStream(bytes);
-        await _storage.UploadAsync(stream, storagePath, request.MimeType, ct);
-
-        var doc = new PreAdmissaoDocumento
-        {
-            Id = Guid.NewGuid(),
-            TenantId = _tenantContext.TenantId,
-            PreAdmissaoId = pa.Id,
-            Tipo = tipo,
-            Lado = lado,
-            NomeArquivo = request.NomeArquivo,
-            ContentType = request.MimeType,
-            TamanhoBytes = bytes.Length,
-            StoragePath = storagePath,
-            Status = StatusDocumento.PendenteValidacao,
-            CreatedAtUtc = DateTimeOffset.UtcNow,
-            UpdatedAtUtc = DateTimeOffset.UtcNow,
-        };
-        _db.Set<PreAdmissaoDocumento>().Add(doc);
-
-        if (pa.Status == PreAdmissaoStatus.Enviado || pa.Status == PreAdmissaoStatus.Acessado)
-            pa.Status = PreAdmissaoStatus.PreenchidoParcial;
-        pa.LastActivityUtc = DateTimeOffset.UtcNow;
-
-        await _db.SaveChangesAsync(ct);
-        await BroadcastProgressAsync(pa, "blip_upload_doc", ct);
-
-        // Retorna lista atualizada (com o doc recém-enviado já marcado como enviado)
-        return await GetDocumentosByIdentificadorAsync(request.Cpf, null, ct);
-    }
-
-    public async Task<(int HttpStatus, string Mensagem, BlipDocumentosResponse? Documentos)> ValidarDocumentoBlipAsync(
-        BlipValidarDocumentoRequest request, CancellationToken ct)
+    public async Task<(int HttpStatus, string Mensagem)> EnviarDocumentoBlipAsync(
+        BlipEnviarDocumentoRequest request, CancellationToken ct)
     {
         // 1. Verifica se o candidato existe pelo CPF
         var cpfNorm = NormalizeCpf(request.Cpf);
@@ -513,7 +420,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             .FirstOrDefaultAsync(ct);
 
         if (pa is null)
-            return (404, "CPF informado não foi encontrado", null);
+            return (404, "CPF informado não foi encontrado");
 
         // 2. Baixa o arquivo a partir da URL
         byte[] bytes;
@@ -529,13 +436,23 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         }
         catch (Exception)
         {
-            return (400, "Não foi possível baixar o arquivo. Verifique se o link é válido e tente novamente.", null);
+            return (400, "Não foi possível baixar o arquivo. Verifique se o link é válido e tente novamente.");
         }
 
         // 3. Valida com GPT-4o
         var base64 = Convert.ToBase64String(bytes);
-        var tipo = (TipoDocumento)request.Tipo;
-        var lado = (LadoDocumento)request.Lado;
+
+        // Traduz tipo virtual (100-105) para tipo real + lado
+        var (tipo, lado) = request.Tipo switch
+        {
+            100 => (TipoDocumento.RG,                   LadoDocumento.Frente),
+            101 => (TipoDocumento.RG,                   LadoDocumento.Verso),
+            102 => (TipoDocumento.CNH,                  LadoDocumento.Frente),
+            103 => (TipoDocumento.CNH,                  LadoDocumento.Verso),
+            104 => (TipoDocumento.CarteiraTrabalhoCTPS, LadoDocumento.Frente),
+            105 => (TipoDocumento.CarteiraTrabalhoCTPS, LadoDocumento.Verso),
+            _   => ((TipoDocumento)request.Tipo,        LadoDocumento.Unico)
+        };
         var tipoLabel = BlipDocumentoValidator.TipoDocumentoLabel(tipo);
 
         bool valido;
@@ -547,11 +464,11 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         }
         catch (Exception)
         {
-            return (400, "Erro ao acessar o serviço de análise de documentos. Tente novamente.", null);
+            return (400, "Erro ao acessar o serviço de análise de documentos. Tente novamente.");
         }
 
         if (!valido)
-            return (400, mensagemErro ?? $"Documento inválido. Envie uma imagem nítida do {tipoLabel}.", null);
+            return (400, mensagemErro ?? $"Documento inválido. Envie uma imagem nítida do {tipoLabel}.");
 
         // 4. Salva o documento após validação bem-sucedida
         var extFromMime = mimeType switch
@@ -576,7 +493,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             PreAdmissaoId = pa.Id,
             Tipo = tipo,
             Lado = lado,
-            NomeArquivo = $"doc_{(int)tipo}_lado{(int)lado}{extFromMime}",
+            NomeArquivo = $"doc_{(int)tipo}_{lado}{extFromMime}",
             ContentType = mimeType,
             TamanhoBytes = bytes.Length,
             StoragePath = storagePath,
@@ -593,8 +510,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "blip_validar_doc", ct);
 
-        var documentos = await GetDocumentosByIdentificadorAsync(request.Cpf, null, ct);
-        return (200, $"{tipoLabel} validado com sucesso.", documentos);
+        return (200, $"{tipoLabel} validado com sucesso.");
     }
 
     private static string DetectMimeTypeFromUrl(string url)

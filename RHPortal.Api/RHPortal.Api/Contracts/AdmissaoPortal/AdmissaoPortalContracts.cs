@@ -204,8 +204,6 @@ public sealed record BlipDocumentoItem(
     string Label,
     bool Obrigatorio,
     bool JaEnviado,
-    /// <summary>Lado que este item representa: 0=Único, 1=Frente, 2=Costas. Use este valor no campo `lado` do POST de upload.</summary>
-    int Lado,
     List<BlipDocumentoEnviadoItem> Enviados
 );
 
@@ -214,27 +212,13 @@ public sealed record BlipDocumentoItem(
 public sealed record BlipDocumentoEnviadoItem(int Lado, string NomeArquivo, int Status);
 
 /// <summary>Payload de upload de documento via Blip (base64).</summary>
-public sealed record BlipUploadDocumentoRequest(
-    string Cpf,
-    int Tipo,
-    /// <summary>0=Único, 1=Frente, 2=Verso</summary>
-    int Lado,
-    string NomeArquivo,
-    string MimeType,
-    string Base64
-);
-
-// ── Blip: validar documento por URL ──
-
 /// <summary>
-/// Payload para validação de documento via URL (Blip envia a URL da mídia do WhatsApp).
-/// A API baixa o arquivo, converte para base64 e valida com GPT-4o.
+/// Payload para envio de documento via URL (Blip envia a URL da mídia do WhatsApp).
+/// A API baixa o arquivo, valida com GPT-4o e salva se válido.
 /// </summary>
-public sealed record BlipValidarDocumentoRequest(
+public sealed record BlipEnviarDocumentoRequest(
     string Cpf,
     int Tipo,
-    /// <summary>0=Único, 1=Frente, 2=Verso</summary>
-    int Lado,
     /// <summary>URL pública ou presigned do arquivo (imagem ou PDF).</summary>
     string UrlArquivo
 );

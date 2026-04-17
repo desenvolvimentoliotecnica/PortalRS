@@ -41,48 +41,28 @@ public sealed class AdmissaoPortalController : ControllerBase
             : Ok(result);
     }
 
-    /// <summary>Blip: candidato envia um documento (base64). Retorna a lista atualizada de pendentes.</summary>
-    [HttpPost("blip/documentos")]
-    [ProducesResponseType(typeof(BlipDocumentosResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [RequestSizeLimit(15 * 1024 * 1024)]
-    public async Task<IActionResult> PostDocumentoBlip(
-        [FromBody] BlipUploadDocumentoRequest request, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(request.Cpf))
-            return BadRequest(new { message = "CPF obrigatório." });
-        if (string.IsNullOrWhiteSpace(request.Base64))
-            return BadRequest(new { message = "Base64 do documento obrigatório." });
-
-        var result = await _service.UploadDocBlipAsync(request, ct);
-        return result is null
-            ? NotFound(new { message = "Nenhuma admissão ativa encontrada para o CPF informado." })
-            : Ok(result);
-    }
-
     /// <summary>
-    /// Blip: valida um documento a partir de uma URL pública (ex: mídia do WhatsApp).
-    /// A API baixa o arquivo, converte para base64 e valida com GPT-4o.
-    /// Retorna 200 se válido, 400 se inválido (com mensagem clara), 404 se CPF não encontrado.
+    /// Blip: candidato envia um documento via URL (mídia do WhatsApp).
+    /// A API baixa o arquivo, valida com GPT-4o e salva se válido.
+    /// Retorna 200 + lista atualizada, 400 se inválido, 404 se CPF não encontrado.
     /// </summary>
-    [HttpPost("blip/documentos/validar")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [HttpPost("blip/documentos")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> ValidarDocumentoBlip(
-        [FromBody] BlipValidarDocumentoRequest request, CancellationToken ct)
+    public async Task<IActionResult> PostDocumentoBlip(
+        [FromBody] BlipEnviarDocumentoRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Cpf))
             return BadRequest(new { mensagem = "CPF obrigatório." });
         if (string.IsNullOrWhiteSpace(request.UrlArquivo))
             return BadRequest(new { mensagem = "URL do arquivo obrigatória." });
 
-        var (httpStatus, mensagem, documentos) = await _service.ValidarDocumentoBlipAsync(request, ct);
+        var (httpStatus, mensagem) = await _service.EnviarDocumentoBlipAsync(request, ct);
 
         return httpStatus switch
         {
-            200 => Ok(new { mensagem, documentos }),
+            200 => Ok(new { mensagem }),
             404 => NotFound(new { mensagem }),
             _   => BadRequest(new { mensagem })
         };
