@@ -4,6 +4,10 @@ import { use } from "react";
 import { AuthGuard } from "@/hooks/useAuth";
 import FuncionarioPerfil360Screen from "@/features/funcionarios/perfil/FuncionarioPerfil360Screen";
 
+export function generateStaticParams() {
+    return [];
+}
+
 export default function FuncionarioPerfilPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
 
