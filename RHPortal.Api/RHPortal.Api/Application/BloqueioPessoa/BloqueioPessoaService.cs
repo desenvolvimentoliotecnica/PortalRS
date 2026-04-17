@@ -139,7 +139,7 @@ public sealed class BloqueioPessoaService : IBloqueioPessoaService
         else
         {
             var pessoa = await _pessoaService.GetOrCreateByEmailAsync(
-                funcionario.Email,
+                funcionario.Email ?? string.Empty,
                 funcionario.Name,
                 funcionario.Phone,
                 null, null, null, null,

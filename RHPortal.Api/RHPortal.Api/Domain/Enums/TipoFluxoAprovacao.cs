@@ -8,5 +8,8 @@ public enum TipoFluxoAprovacao : short
     Ferias              = 4,
     Beneficio           = 5,
     Dependente          = 6,
-    Endereco            = 7
+    Endereco            = 7,
+
+    /// <summary>Fluxo configurável para aprovação de aumento definitivo de headcount (escalado pelo RH à Diretoria).</summary>
+    AumentoHeadcount    = 8
 }

@@ -41,5 +41,20 @@ public sealed record VagaListItemResponse(
 
     int HeadcountAutorizado,
     int HeadcountOcupado,
-    bool IsEstrutural
+    bool IsEstrutural,
+
+    // Headcount provisório (substituição em andamento)
+    int HeadcountProvisorio,
+    DateTimeOffset? HeadcountProvisorioExpiresAtUtc,
+
+    // Alerta de vaga sem preenchimento
+    bool AlertaVagaSemFill,
+    int? AlertaDiasSemFill,
+    DateTimeOffset? AlertaSnoozeAteUtc,
+
+    // Headcount pendente de decisão do RH (VagaNova aprovada, RH ainda não decidiu)
+    int HeadcountPendente,
+
+    // Alerta: headcount provisório (substituição) com prazo vencido
+    bool AlertaHCProvVencido
 );

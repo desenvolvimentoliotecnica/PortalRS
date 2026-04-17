@@ -98,7 +98,7 @@ public static class RolePermissionManifest
             return ["*"];
 
         // Full-access tenant roles: Admin, RH, Recrutador, Operacional
-        if (roleList.Any(r => r.Tipo == RoleTipo.Admin || r.Tipo == RoleTipo.RH ||
+        if (roleList.Any(r => r.Tipo == RoleTipo.Admin || r.Tipo == RoleTipo.RhRecrutamentoSelecao || r.Tipo == RoleTipo.RhAdmissao ||
                               string.Equals(r.Name, "Admin", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(r.Name, "Administrador", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(r.Name, "RH", StringComparison.OrdinalIgnoreCase) ||

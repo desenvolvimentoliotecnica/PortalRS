@@ -20,6 +20,8 @@ import {
     GitBranch,
     TrendingUp,
     UserMinus,
+    CheckCheck,
+    X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { usePendencias } from "@/contexts/PendenciasContext";
@@ -54,7 +56,7 @@ import {
 
 /* ──────────────────────────── types ──────────────────────────── */
 
-type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 type UrgenciaKey = 0 | 1 | 2 | 3;
 
 // StatusAprovacao: 0=Pendente, 1=Aprovado, 2=Reprovado
@@ -135,13 +137,17 @@ function pick(row: GenericRow, key: string, fb = "—") {
 }
 
 const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
-    0: { label: "Rascunho",   color: "bg-zinc-400/15 text-zinc-600",    icon: FileText },
-    1: { label: "Pendente",   color: "bg-amber-500/15 text-amber-700",  icon: Clock },
-    2: { label: "Aprovada",   color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    3: { label: "Reprovada",  color: "bg-red-500/15 text-red-700",      icon: XCircle },
-    4: { label: "Ajustes",    color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
-    5: { label: "Aguarda RH", color: "bg-purple-500/15 text-purple-700", icon: Clock },
-    6: { label: "Cancelada",  color: "bg-zinc-500/15 text-zinc-500",    icon: XCircle },
+    0:  { label: "Rascunho",             color: "bg-zinc-400/15 text-zinc-600",    icon: FileText },
+    1:  { label: "Pendente",             color: "bg-amber-500/15 text-amber-700",  icon: Clock },
+    2:  { label: "Aprovada",             color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    3:  { label: "Reprovada",            color: "bg-red-500/15 text-red-700",      icon: XCircle },
+    4:  { label: "Ajustes",              color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
+    5:  { label: "Aguarda RH",           color: "bg-purple-500/15 text-purple-700", icon: Clock },
+    6:  { label: "Cancelada",            color: "bg-zinc-500/15 text-zinc-500",    icon: XCircle },
+    7:  { label: "Em Integração",        color: "bg-blue-500/15 text-blue-700",    icon: Clock },
+    8:  { label: "Concluída",            color: "bg-emerald-600/15 text-emerald-800", icon: CheckCheck },
+    9:  { label: "Aguarda Decisão RH",   color: "bg-amber-600/15 text-amber-800",  icon: AlertTriangle },
+    10: { label: "Aguarda Aprovação HC", color: "bg-violet-500/15 text-violet-700", icon: Clock },
 };
 
 const URGENCIA_MAP: Record<UrgenciaKey, { label: string; color: string }> = {
@@ -390,7 +396,7 @@ const TABS: TabDef[] = [
     {
         id: "contratacao", label: "Contratação", icon: Briefcase,
         color: "text-violet-600", bgColor: "bg-violet-500/15",
-        api: "/api/solicitacoes-vaga?statuses=1&statuses=5",
+        api: "/api/solicitacoes-vaga?statuses=1&statuses=5&statuses=9&statuses=10",
         assumirApi: "/api/solicitacoes-vaga",
         columns: [
             { key: "titulo", label: "Título" },
@@ -483,15 +489,38 @@ const TABS: TabDef[] = [
 /* ──────────────────────────── component ──────────────────────────── */
 
 const VALID_TAB_IDS: TabId[] = ["_all", "contratacao", "ferias", "beneficio", "dependentes", "endereco", "promocao", "desligamento"];
+const LS_TAB_KEY = "aprovacoes:activeTab";
 
 export default function AprovacoesScreen({ initialTab }: { initialTab?: string }) {
     const pendencias = usePendencias();
 
-    const resolvedInitial: TabId = VALID_TAB_IDS.includes(initialTab as TabId) ? (initialTab as TabId) : "contratacao";
+    const resolvedInitial: TabId = (() => {
+        if (VALID_TAB_IDS.includes(initialTab as TabId)) return initialTab as TabId;
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem(LS_TAB_KEY);
+            if (saved && VALID_TAB_IDS.includes(saved as TabId)) return saved as TabId;
+        }
+        return "_all";
+    })();
     const [activeTab, setActiveTab] = useState<TabId>(resolvedInitial);
+
+    const handleTabChange = useCallback((tab: TabId) => {
+        setActiveTab(tab);
+        localStorage.setItem(LS_TAB_KEY, tab);
+    }, []);
     const [q, setQ] = useState("");
+    const [typeFilter, setTypeFilter] = useState<"todos" | "direta" | "fila">("todos");
     const [approvalObs, setApprovalObs] = useState("");
     const [acting, setActing] = useState(false);
+    const [rejectTarget, setRejectTarget] = useState<{ row: GenericRow; isContratacao: boolean } | null>(null);
+    const [rejectObs, setRejectObs] = useState("");
+
+    /* ── Bulk action state ── */
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkConfirmAction, setBulkConfirmAction] = useState<"approve" | "reject" | null>(null);
+    const [bulkObs, setBulkObs] = useState("");
+    const [bulkActing, setBulkActing] = useState(false);
+    const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
     /* ── My identity (to filter nominated tasks) ── */
     const [myFuncionarioId, setMyFuncionarioId] = useState<string | null>(null);
@@ -550,6 +579,9 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     }, [fetchTab]);
 
     useEffect(() => { refreshAll(); }, [refreshAll]);
+
+    /* ── Clear selection when tab changes ── */
+    useEffect(() => { setSelectedIds(new Set()); }, [activeTab]);
 
     /* ── Row relevance: show only tasks assigned to me OR open fila items ── */
     const isMyRow = useCallback((row: GenericRow): boolean => {
@@ -617,13 +649,34 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         } else {
             rows = dataMap[activeTab].filter(isMyRow);
         }
+        // Type filter: differentiate direct approver vs queue steps
+        if (typeFilter === "direta") rows = rows.filter(r => !r.etapaPendenteIsQueue);
+        if (typeFilter === "fila")   rows = rows.filter(r => Boolean(r.etapaPendenteIsQueue));
         const term = q.trim().toLowerCase();
         if (!term) return rows;
         return rows.filter(r => {
             const blob = Object.values(r).filter(v => typeof v === "string").join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [dataMap, activeTab, q, isMyRow, isAllMode]);
+    }, [dataMap, activeTab, q, isMyRow, isAllMode, typeFilter]);
+
+    /* ── Selectable rows (non-fila items I can directly approve/reject) ── */
+    const selectableRows = useMemo(() => filtered.filter(r => !isFilaRow(r)), [filtered]);
+    const selectedRows = useMemo(() => selectableRows.filter(r => selectedIds.has(r.id)), [selectableRows, selectedIds]);
+    const allSelectableSelected = selectableRows.length > 0 && selectableRows.every(r => selectedIds.has(r.id));
+    const someSelected = selectedIds.size > 0;
+
+    function toggleSelect(id: string) {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    }
+    function toggleSelectAll() {
+        if (allSelectableSelected) setSelectedIds(new Set());
+        else setSelectedIds(new Set(selectableRows.map(r => r.id)));
+    }
 
     /* ── Contratação detail actions ── */
     async function openContratacaoDetail(row: GenericRow) {
@@ -641,14 +694,14 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         }
     }
 
-    async function doContratacaoAction(id: string, action: "approve" | "reject" | "request-changes") {
+    async function doContratacaoAction(id: string, action: "approve" | "reject" | "request-changes", obs?: string) {
         const labels = { approve: "Aprovada", reject: "Reprovada", "request-changes": "Ajustes solicitados" };
         setActing(true);
         try {
             await fetchJson(`/api/solicitacoes-vaga/${id}/${action}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ observacao: approvalObs || null }),
+                body: JSON.stringify({ observacao: obs !== undefined ? (obs || null) : (approvalObs || null) }),
             });
             toast.success(`Solicitação: ${labels[action]}!`);
             if (action === "approve" && detail) {
@@ -671,8 +724,9 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         setApprovalObs("");
     }
 
-    async function doGenericAction(row: GenericRow, action: "approve" | "reject" | "request-changes") {
-        const tab = TABS.find(t => t.id === activeTab)!;
+    async function doGenericAction(row: GenericRow, action: "approve" | "reject" | "request-changes", obs?: string) {
+        const tabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
+        const tab = TABS.find(t => t.id === tabId)!;
         const baseApi = tab.api.split("?")[0];
         const labels = { approve: "Aprovada", reject: "Reprovada", "request-changes": "Ajustes solicitados" };
         setActing(true);
@@ -680,7 +734,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             await fetchJson(`${baseApi}/${row.id}/${action}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ observacao: approvalObs || null }),
+                body: JSON.stringify({ observacao: obs !== undefined ? (obs || null) : (approvalObs || null) }),
             });
             toast.success(`Solicitação: ${labels[action]}!`);
             setGenericDetailOpen(false);
@@ -695,7 +749,8 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
 
     /* ── Assumir (Fila de Perfil) — atomically claim the task ── */
     async function doAssumir(row: GenericRow) {
-        const tab = TABS.find(t => t.id === activeTab)!;
+        const tabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
+        const tab = TABS.find(t => t.id === tabId)!;
         setActing(true);
         try {
             await fetchJson(`${tab.assumirApi}/${row.id}/assumir`, { method: "POST" });
@@ -722,6 +777,47 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         } finally {
             setActing(false);
         }
+    }
+
+    /* ── Bulk action (Aprovar / Recusar selecionados) ── */
+    async function doBulkAction(action: "approve" | "reject") {
+        const targets = selectedRows;
+        if (targets.length === 0) return;
+
+        setBulkActing(true);
+        setBulkProgress({ done: 0, total: targets.length });
+        let success = 0;
+        let failed = 0;
+
+        for (let i = 0; i < targets.length; i++) {
+            const row = targets[i];
+            const tabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
+            const tab = TABS.find(t => t.id === tabId)!;
+            const baseApi = tab.api.split("?")[0];
+            try {
+                await fetchJson(`${baseApi}/${row.id}/${action}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ observacao: bulkObs || null }),
+                });
+                success++;
+            } catch {
+                failed++;
+            }
+            setBulkProgress({ done: i + 1, total: targets.length });
+        }
+
+        const actionLabel = action === "approve" ? "aprovada" : "recusada";
+        if (success > 0) toast.success(`${success} solicitação${success > 1 ? "ões" : ""} ${actionLabel}${success > 1 ? "s" : ""}!`);
+        if (failed > 0) toast.error(`${failed} falha${failed > 1 ? "s" : ""} ao processar.`);
+
+        setBulkActing(false);
+        setBulkProgress(null);
+        setBulkConfirmAction(null);
+        setBulkObs("");
+        setSelectedIds(new Set());
+        pendencias.refresh();
+        refreshAll();
     }
 
     /* ──────────────────────────── render ──────────────────────────── */
@@ -774,7 +870,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 {/* Total — clickable to show all */}
                 <button
                     type="button"
-                    onClick={() => setActiveTab("_all")}
+                    onClick={() => handleTabChange("_all")}
                     className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 backdrop-blur text-left transition-all ${
                         isAllMode
                             ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
@@ -792,7 +888,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                         <button
                             key={tab.id}
                             type="button"
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => handleTabChange(tab.id)}
                             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 backdrop-blur text-left transition-all ${
                                 activeTab === tab.id
                                     ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
@@ -809,152 +905,463 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 })}
             </div>
 
-            {/* ── Table ── */}
-            <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <div className="font-semibold flex items-center gap-2">
-                            {isAllMode ? (
-                                <><Clock className="size-4 text-amber-600" />Todas as Pendências</>
-                            ) : (() => {
-                                const Icon = activeTabDef.icon;
-                                return <><Icon className={`size-4 ${activeTabDef.color}`} />{activeTabDef.label}</>;
-                            })()}
-                        </div>
-                        <div className="text-muted-foreground text-sm">
-                            {isLoading ? "Carregando…" : `${filtered.length} pendência${filtered.length !== 1 ? "s" : ""}`}
-                        </div>
-                    </div>
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input className="w-[260px] pl-8" placeholder="Buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
+            {/* ── Bulk action bar ── */}
+            {!isLoading && selectableRows.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/50 bg-muted/40 px-4 py-3">
+                    {/* Select all toggle */}
+                    <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+                        <input
+                            type="checkbox"
+                            className="size-4 rounded border-gray-300 accent-primary cursor-pointer"
+                            checked={allSelectableSelected}
+                            onChange={toggleSelectAll}
+                        />
+                        <span className="text-sm font-medium text-foreground">
+                            {someSelected
+                                ? `${selectedIds.size} selecionada${selectedIds.size > 1 ? "s" : ""}`
+                                : "Selecionar todas"}
+                        </span>
+                        {someSelected && (
+                            <span className="text-xs text-muted-foreground">
+                                de {selectableRows.length}
+                            </span>
+                        )}
+                    </label>
+
+                    <div className="flex-1" />
+
+                    <div className="flex gap-2 shrink-0">
+                        <Button
+                            size="sm"
+                            disabled={!someSelected}
+                            className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 disabled:opacity-40"
+                            onClick={() => { setBulkObs(""); setBulkConfirmAction("approve"); }}
+                        >
+                            <CheckCheck className="size-4" />
+                            <span>Aprovar{someSelected ? ` (${selectedIds.size})` : ""}</span>
+                        </Button>
+                        <Button
+                            size="sm"
+                            disabled={!someSelected}
+                            variant="outline"
+                            className="text-red-600 border-red-300 hover:bg-red-50 gap-1.5 disabled:opacity-40"
+                            onClick={() => { setBulkObs(""); setBulkConfirmAction("reject"); }}
+                        >
+                            <X className="size-4" />
+                            <span>Recusar{someSelected ? ` (${selectedIds.size})` : ""}</span>
+                        </Button>
                     </div>
                 </div>
+            )}
 
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            {displayColumns.map(col => (
-                                <TableHead key={col.key}>{col.label}</TableHead>
-                            ))}
-                            <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={displayColumns.length + 1} className="text-center text-muted-foreground py-8">
-                                    Carregando…
-                                </TableCell>
-                            </TableRow>
-                        ) : filtered.length ? (
-                            filtered.map((row) => {
-                                const isFila = isFilaRow(row);
-                                const rowTabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
-                                const isContratacao = rowTabId === "contratacao";
-                                const isDesligamento = rowTabId === "desligamento";
-                                const isPromocao = rowTabId === "promocao";
-                                const openDetail = () => {
-                                    if (isContratacao) void openContratacaoDetail(row);
-                                    else if (isDesligamento) setViewDesligamentoId(row.id);
-                                    else if (isPromocao) setViewPromocaoId(row.id);
-                                    else openGenericDetail(row);
-                                };
-                                return (
-                                    <TableRow
-                                        key={`${rowTabId}-${row.id}`}
-                                        className={`cursor-pointer hover:bg-muted/40 ${isFila ? "border-l-[3px] border-l-violet-400" : ""}`}
+            {/* ── Content: Mobile cards + Desktop table ── */}
+            <div className="card-soft rounded-xl border border-border/40 bg-card/60 backdrop-blur">
+                {/* Toolbar */}
+                <div className="p-4 pb-2 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <div className="font-semibold flex items-center gap-2">
+                                {isAllMode ? (
+                                    <><Clock className="size-4 text-amber-600" />Todas as Pendências</>
+                                ) : (() => {
+                                    const Icon = activeTabDef.icon;
+                                    return <><Icon className={`size-4 ${activeTabDef.color}`} />{activeTabDef.label}</>;
+                                })()}
+                            </div>
+                            <div className="text-muted-foreground text-sm">
+                                {isLoading ? "Carregando…" : `${filtered.length} pendência${filtered.length !== 1 ? "s" : ""}`}
+                            </div>
+                        </div>
+                        <div className="relative w-full sm:w-auto">
+                            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input className="w-full sm:w-[260px] pl-8" placeholder="Buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
+                        </div>
+                    </div>
+                    {/* Type chips */}
+                    {(() => {
+                        const base = isAllMode
+                            ? TABS.flatMap(tab => dataMap[tab.id].filter(isMyRow))
+                            : dataMap[activeTab].filter(isMyRow);
+                        const countDireta = base.filter(r => !r.etapaPendenteIsQueue).length;
+                        const countFila   = base.filter(r => Boolean(r.etapaPendenteIsQueue)).length;
+                        return (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                {([
+                                    { key: "todos",  label: "Todos",           count: base.length,   cls: "data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:border-primary/30" },
+                                    { key: "direta", label: "Aprovação direta",count: countDireta,   cls: "data-[active=true]:bg-amber-500/15 data-[active=true]:text-amber-700 data-[active=true]:border-amber-400/50" },
+                                    { key: "fila",   label: "Fila de aprovação",count: countFila,    cls: "data-[active=true]:bg-violet-500/15 data-[active=true]:text-violet-700 data-[active=true]:border-violet-400/50" },
+                                ] as const).map(({ key, label, count, cls }) => (
+                                    <button
+                                        key={key}
+                                        data-active={typeFilter === key}
+                                        onClick={() => setTypeFilter(key)}
+                                        className={`inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 ${cls}`}
+                                    >
+                                        {label}
+                                        <span className="rounded-full bg-current/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none opacity-80">{count}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* ── Mobile card list (hidden on sm+) ── */}
+                <div className="sm:hidden px-3 pb-3 space-y-2">
+                    {isLoading ? (
+                        <div className="text-center text-muted-foreground py-8">Carregando…</div>
+                    ) : filtered.length === 0 ? (
+                        <div className="text-center text-muted-foreground py-8">
+                            {meLoaded ? "Nenhuma pendência encontrada para você." : "Carregando seus dados…"}
+                        </div>
+                    ) : filtered.map((row) => {
+                        const isFila = isFilaRow(row);
+                        const rowTabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
+                        const tabDef = TABS.find(t => t.id === rowTabId) ?? TABS[0];
+                        const TabIcon = tabDef.icon;
+                        const isContratacao = rowTabId === "contratacao";
+                        const isDesligamento = rowTabId === "desligamento";
+                        const isPromocao = rowTabId === "promocao";
+                        const openDetail = () => {
+                            if (isContratacao) void openContratacaoDetail(row);
+                            else if (isDesligamento) setViewDesligamentoId(row.id);
+                            else if (isPromocao) setViewPromocaoId(row.id);
+                            else openGenericDetail(row);
+                        };
+                        // Primary label — first column value
+                        const firstCol = tabDef.columns[0];
+                        const primaryLabel = firstCol?.render ? firstCol.render(row) : pick(row, firstCol?.key ?? "id");
+                        // Secondary meta — next 1-2 columns
+                        const metaCols = tabDef.columns.slice(1, 3).filter(c => c.key !== "etapaPendenteLabel");
+                        const isSelected = selectedIds.has(row.id);
+
+                        return (
+                            <div
+                                key={`${rowTabId}-${row.id}`}
+                                className={`rounded-xl border p-4 space-y-3 transition-colors active:bg-muted/30 ${
+                                    isFila ? "border-l-4 border-l-violet-400 bg-background" : isSelected ? "border-primary/40 bg-primary/5" : "border-border/60 bg-background"
+                                }`}
+                            >
+                                {/* Card header */}
+                                <div className="flex items-start gap-3">
+                                    {!isFila && (
+                                        <input
+                                            type="checkbox"
+                                            className="mt-0.5 size-5 rounded border-gray-300 accent-primary cursor-pointer shrink-0"
+                                            checked={isSelected}
+                                            onChange={() => toggleSelect(row.id)}
+                                        />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                            {isAllMode && (
+                                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tabDef.color} ${tabDef.bgColor}`}>
+                                                    <TabIcon className="size-3" />{tabDef.label}
+                                                </span>
+                                            )}
+                                            {isFila && <FilaBadge />}
+                                        </div>
+                                        <div className="font-semibold text-sm leading-snug">{primaryLabel}</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">{formatDate(pick(row, "createdAtUtc"))}</div>
+                                    </div>
+                                    {/* Etapa badge */}
+                                    {pick(row, "etapaPendenteLabel") !== "—" && (
+                                        <span className="inline-flex items-center rounded-full bg-amber-500/10 text-amber-700 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold shrink-0">
+                                            {pick(row, "etapaPendenteLabel")}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Meta fields */}
+                                {metaCols.length > 0 && (
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                        {metaCols.map(col => (
+                                            <div key={col.key} className="text-xs">
+                                                <span className="text-muted-foreground">{col.label}: </span>
+                                                <span className="font-medium">{col.render ? col.render(row) : pick(row, col.key)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Action buttons — large, full-width touch targets */}
+                                <div className="flex gap-2 pt-1">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-1.5 shrink-0"
                                         onClick={openDetail}
                                     >
-                                        {displayColumns.map((col, i) => (
-                                            <TableCell key={col.key} className={i === 0 ? "font-semibold" : "text-sm"}>
-                                                {i === 0 ? (
-                                                    <div>
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                            <span>{col.render ? col.render(row) : pick(row, col.key)}</span>
-                                                            {isFila && !isAllMode && <FilaBadge />}
-                                                        </div>
-                                                        <button
-                                                            className="text-[10px] font-mono text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-                                                            title={`ID: ${row.id} — clique para copiar`}
-                                                            onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(row.id); }}
-                                                        >
-                                                            {row.id}
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    col.render ? col.render(row) : pick(row, col.key)
+                                        <Eye className="size-4" />
+                                        <span>Ver</span>
+                                    </Button>
+                                    {isFila ? (
+                                        <Button
+                                            size="sm"
+                                            disabled={acting}
+                                            className="flex-1 bg-violet-600 hover:bg-violet-700 gap-1.5"
+                                            onClick={() => void doAssumir(row)}
+                                        >
+                                            <UserCheck className="size-4" />
+                                            Assumir
+                                        </Button>
+                                    ) : (
+                                        <>
+                                            <Button
+                                                size="sm"
+                                                disabled={acting}
+                                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                                                onClick={() => {
+                                                    setApprovalObs("");
+                                                    if (isContratacao) void doContratacaoAction(row.id, "approve");
+                                                    else void doGenericAction(row, "approve");
+                                                }}
+                                            >
+                                                <CheckCircle2 className="size-4" />
+                                                Aprovar
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                disabled={acting}
+                                                variant="destructive"
+                                                className="flex-1 gap-1.5"
+                                                onClick={() => {
+                                                    setRejectObs("");
+                                                    setRejectTarget({ row, isContratacao });
+                                                }}
+                                            >
+                                                <XCircle className="size-4" />
+                                                Recusar
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* ── Desktop table (hidden on mobile) ── */}
+                <div className="hidden sm:block px-4 pb-4">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-10">
+                                    {selectableRows.length > 0 && (
+                                        <input
+                                            type="checkbox"
+                                            className="size-4 rounded border-gray-300 accent-primary cursor-pointer"
+                                            checked={allSelectableSelected}
+                                            onChange={toggleSelectAll}
+                                            title="Selecionar todas"
+                                        />
+                                    )}
+                                </TableHead>
+                                {displayColumns.map(col => (
+                                    <TableHead key={col.key}>{col.label}</TableHead>
+                                ))}
+                                <TableHead className="text-right">Ações</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={displayColumns.length + 2} className="text-center text-muted-foreground py-8">
+                                        Carregando…
+                                    </TableCell>
+                                </TableRow>
+                            ) : filtered.length ? (
+                                filtered.map((row) => {
+                                    const isFila = isFilaRow(row);
+                                    const isSelected = selectedIds.has(row.id);
+                                    const rowTabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
+                                    const isContratacao = rowTabId === "contratacao";
+                                    const isDesligamento = rowTabId === "desligamento";
+                                    const isPromocao = rowTabId === "promocao";
+                                    const openDetail = () => {
+                                        if (isContratacao) void openContratacaoDetail(row);
+                                        else if (isDesligamento) setViewDesligamentoId(row.id);
+                                        else if (isPromocao) setViewPromocaoId(row.id);
+                                        else openGenericDetail(row);
+                                    };
+                                    return (
+                                        <TableRow
+                                            key={`${rowTabId}-${row.id}`}
+                                            className={`cursor-pointer hover:bg-muted/40 ${isFila ? "border-l-[3px] border-l-violet-400" : ""} ${isSelected ? "bg-primary/5" : ""}`}
+                                            onClick={openDetail}
+                                        >
+                                            <TableCell onClick={(e) => e.stopPropagation()} className="w-10">
+                                                {!isFila && (
+                                                    <input
+                                                        type="checkbox"
+                                                        className="size-4 rounded border-gray-300 accent-primary cursor-pointer"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleSelect(row.id)}
+                                                    />
                                                 )}
                                             </TableCell>
-                                        ))}
-                                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex items-center justify-end gap-1">
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon-xs"
-                                                    title="Ver detalhes"
-                                                    onClick={openDetail}
-                                                >
-                                                    <Eye />
-                                                </Button>
-                                                {isFila ? (
-                                                    /* Fila de Perfil: only Assumir available */
+                                            {displayColumns.map((col, i) => (
+                                                <TableCell key={col.key} className={i === 0 ? "font-semibold" : "text-sm"}>
+                                                    {i === 0 ? (
+                                                        <div>
+                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                <span>{col.render ? col.render(row) : pick(row, col.key)}</span>
+                                                                {isFila && !isAllMode && <FilaBadge />}
+                                                            </div>
+                                                            <button
+                                                                className="text-[10px] font-mono text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                                                                title={`ID: ${row.id} — clique para copiar`}
+                                                                onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(row.id); }}
+                                                            >
+                                                                {row.id}
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        col.render ? col.render(row) : pick(row, col.key)
+                                                    )}
+                                                </TableCell>
+                                            ))}
+                                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-end gap-1">
                                                     <Button
-                                                        size="sm"
-                                                        disabled={acting}
-                                                        className="bg-violet-600 hover:bg-violet-700 gap-1"
-                                                        onClick={() => void doAssumir(row)}
-                                                        title="Assumir esta tarefa como aprovador"
+                                                        variant="outline"
+                                                        size="icon-xs"
+                                                        title="Ver detalhes"
+                                                        onClick={openDetail}
                                                     >
-                                                        <UserCheck className="size-3" />
-                                                        <span className="hidden sm:inline">Assumir</span>
+                                                        <Eye />
                                                     </Button>
-                                                ) : (
-                                                    /* Nominated: Approve / Reject inline */
-                                                    <>
+                                                    {isFila ? (
+                                                        /* Fila de Perfil: only Assumir available */
                                                         <Button
                                                             size="sm"
-                                                            className="bg-emerald-600 hover:bg-emerald-700"
-                                                            title="Aprovar"
-                                                            onClick={() => {
-                                                                setApprovalObs("");
-                                                                if (isContratacao) void doContratacaoAction(row.id, "approve");
-                                                                else void doGenericAction(row, "approve");
-                                                            }}
+                                                            disabled={acting}
+                                                            className="bg-violet-600 hover:bg-violet-700 gap-1"
+                                                            onClick={() => void doAssumir(row)}
+                                                            title="Assumir esta tarefa como aprovador"
                                                         >
-                                                            <CheckCircle2 className="size-3" />
+                                                            <UserCheck className="size-3" />
+                                                            <span className="hidden sm:inline">Assumir</span>
                                                         </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="destructive"
-                                                            title="Reprovar"
-                                                            onClick={() => {
-                                                                setApprovalObs("");
-                                                                if (isContratacao) void doContratacaoAction(row.id, "reject");
-                                                                else void doGenericAction(row, "reject");
-                                                            }}
-                                                        >
-                                                            <XCircle className="size-3" />
-                                                        </Button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={displayColumns.length + 1} className="text-center text-muted-foreground py-8">
-                                    {meLoaded
-                                        ? "Nenhuma pendência encontrada para você."
-                                        : "Carregando seus dados…"}
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                                                    ) : (
+                                                        /* Nominated: Approve / Reject inline */
+                                                        <>
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-emerald-600 hover:bg-emerald-700"
+                                                                title="Aprovar"
+                                                                onClick={() => {
+                                                                    setApprovalObs("");
+                                                                    if (isContratacao) void doContratacaoAction(row.id, "approve");
+                                                                    else void doGenericAction(row, "approve");
+                                                                }}
+                                                            >
+                                                                <CheckCircle2 className="size-3" />
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="destructive"
+                                                                title="Reprovar"
+                                                                onClick={() => {
+                                                                    setRejectObs("");
+                                                                    setRejectTarget({ row, isContratacao });
+                                                                }}
+                                                            >
+                                                                <XCircle className="size-3" />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={displayColumns.length + 2} className="text-center text-muted-foreground py-8">
+                                        {meLoaded
+                                            ? "Nenhuma pendência encontrada para você."
+                                            : "Carregando seus dados…"}
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
+
+            {/* ── Bulk Confirmation Dialog ── */}
+            <Dialog open={bulkConfirmAction !== null} onOpenChange={(open) => { if (!open && !bulkActing) setBulkConfirmAction(null); }}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            {bulkConfirmAction === "approve" ? (
+                                <><CheckCheck className="size-5 text-emerald-600" /> Aprovar Todos</>
+                            ) : (
+                                <><X className="size-5 text-red-600" /> Recusar Todos</>
+                            )}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {bulkConfirmAction === "approve"
+                                ? `Você está prestes a aprovar ${selectedRows.length} solicitação${selectedRows.length !== 1 ? "ões" : ""} de uma vez.`
+                                : `Você está prestes a recusar ${selectedRows.length} solicitação${selectedRows.length !== 1 ? "ões" : ""} de uma vez.`}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-sm font-medium text-foreground mb-1.5 block">
+                                Observação <span className="text-muted-foreground font-normal">(opcional — aplicada a todas)</span>
+                            </label>
+                            <textarea
+                                className="w-full rounded-md border border-input bg-background p-2.5 text-sm placeholder:text-muted-foreground resize-none"
+                                rows={3}
+                                placeholder="Ex.: Aprovado conforme análise em reunião..."
+                                value={bulkObs}
+                                onChange={(e) => setBulkObs(e.target.value)}
+                                disabled={bulkActing}
+                            />
+                        </div>
+
+                        {/* Progress indicator */}
+                        {bulkProgress && (
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>Processando…</span>
+                                    <span>{bulkProgress.done} / {bulkProgress.total}</span>
+                                </div>
+                                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-primary transition-all duration-300"
+                                        style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-2 pt-1">
+                            <Button
+                                variant="outline"
+                                onClick={() => setBulkConfirmAction(null)}
+                                disabled={bulkActing}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                disabled={bulkActing}
+                                className={bulkConfirmAction === "approve"
+                                    ? "bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                                    : "bg-red-600 hover:bg-red-700 gap-1.5"}
+                                onClick={() => void doBulkAction(bulkConfirmAction!)}
+                            >
+                                {bulkConfirmAction === "approve"
+                                    ? <><CheckCheck className="size-4" />{bulkActing ? "Aprovando…" : `Aprovar ${selectedRows.length}`}</>
+                                    : <><X className="size-4" />{bulkActing ? "Recusando…" : `Recusar ${selectedRows.length}`}</>
+                                }
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* ── Contratação Detail Dialog ── */}
             <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
@@ -980,30 +1387,30 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
 
                                 {/* ── Tab: Identificação ── */}
                                 <TabsContent value="identificacao" className="mt-4">
-                                    <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-3">
                                         <SectionDivider title="Identificação" />
-                                        <div className="col-span-2"><DetailField label="Empresa" value={detail.empresaNome} /></div>
+                                        <div className="sm:col-span-2"><DetailField label="Empresa" value={detail.empresaNome} /></div>
                                         <DetailField label="Tipo de Contrato" value={enumLabel(TIPO_CONTRATO_MAP, detail.tipoContrato)} />
-                                        <div className="col-span-2"><DetailField label="Local (Unidade)" value={detail.unitName} /></div>
+                                        <div className="sm:col-span-2"><DetailField label="Local (Unidade)" value={detail.unitName} /></div>
                                         <DetailField label="Prazo (dias)" value={detail.tipoContrato !== 0 && detail.prazoDias ? `${detail.prazoDias} dias` : "—"} />
-                                        <div className="col-span-2"><DetailField label="Centro de Custo" value={detail.centroCustoNome} /></div>
+                                        <div className="sm:col-span-2"><DetailField label="Centro de Custo" value={detail.centroCustoNome} /></div>
                                         <DetailField label="Qtd. Posições" value={<span className="font-mono font-semibold">{detail.qtdPosicoes}</span>} />
-                                        <div className="col-span-2"><DetailField label="Lotação" value={detail.unidadeLotacaoNome} /></div>
+                                        <div className="sm:col-span-2"><DetailField label="Lotação" value={detail.unidadeLotacaoNome} /></div>
                                         <DetailField label="Urgência" value={urgenciaBadge(detail.urgencia)} />
 
                                         <SectionDivider title="Dados da Vaga" />
-                                        <div className="col-span-3"><DetailField label="Título da Vaga" value={<span className="font-semibold">{detail.titulo}</span>} /></div>
+                                        <div className="sm:col-span-3"><DetailField label="Título da Vaga" value={<span className="font-semibold">{detail.titulo}</span>} /></div>
                                         <DetailField label="Cargo" value={detail.jobPositionName} />
                                         <DetailField label="Tipo de Solicitação" value={enumLabel(TIPO_SOLICITACAO_MAP, detail.tipoSolicitacao)} />
                                         <DetailField label="Substituído" value={detail.tipoSolicitacao === 1 ? detail.substituidoNome : "—"} />
-                                        <div className="col-span-3"><DetailField label="Motivo da Requisição" value={enumLabel(MOTIVO_REQUISICAO_MAP, detail.motivoRequisicao)} /></div>
-                                        <div className="col-span-3 flex flex-wrap items-center gap-4">
+                                        <div className="sm:col-span-3"><DetailField label="Motivo da Requisição" value={enumLabel(MOTIVO_REQUISICAO_MAP, detail.motivoRequisicao)} /></div>
+                                        <div className="sm:col-span-3 flex flex-wrap items-center gap-4">
                                             <div className="flex items-center gap-1.5 text-xs"><span className="text-muted-foreground">CNH obrigatória:</span> <BoolBadge value={detail.cnhObrigatoria} /></div>
                                             <div className="flex items-center gap-1.5 text-xs"><span className="text-muted-foreground">Disp. viagens:</span> <BoolBadge value={detail.disponibilidadeViagens} /></div>
                                             <div className="flex items-center gap-1.5 text-xs"><span className="text-muted-foreground">Confidencial:</span> <BoolBadge value={detail.isConfidencial} /></div>
                                         </div>
                                         {detail.justificativa && (
-                                            <div className="col-span-3">
+                                            <div className="sm:col-span-3">
                                                 <div className="text-xs text-muted-foreground uppercase">Justificativa</div>
                                                 <div className="mt-1 text-sm rounded-md bg-muted/30 p-3">{detail.justificativa}</div>
                                             </div>
@@ -1063,7 +1470,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                             value={approvalObs}
                                             onChange={(e) => setApprovalObs(e.target.value)}
                                         />
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-wrap gap-2">
                                             <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doContratacaoAction(detail.id, "approve")}>
                                                 <CheckCircle2 className="size-4" /> Aprovar
                                             </Button>
@@ -1172,7 +1579,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         value={approvalObs}
                                         onChange={(e) => setApprovalObs(e.target.value)}
                                     />
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap gap-2">
                                         <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doGenericAction(genericDetail, "approve")}>
                                             <CheckCircle2 className="size-4" /> Aprovar
                                         </Button>
@@ -1187,6 +1594,50 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                             )}
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+            {/* ── Reject reason dialog (quick-action buttons) ── */}
+            <Dialog open={rejectTarget !== null} onOpenChange={(open) => { if (!open) setRejectTarget(null); }}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <XCircle className="size-5" /> Recusar Solicitação
+                        </DialogTitle>
+                        <DialogDescription>
+                            Informe o motivo da recusa. Ele ficará visível para o solicitante.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <textarea
+                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
+                        rows={3}
+                        placeholder="Motivo da recusa (opcional)..."
+                        value={rejectObs}
+                        onChange={(e) => setRejectObs(e.target.value)}
+                        autoFocus
+                    />
+                    <div className="flex justify-end gap-2 pt-1">
+                        <Button variant="outline" size="sm" onClick={() => setRejectTarget(null)}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={acting}
+                            onClick={() => {
+                                if (!rejectTarget) return;
+                                const target = rejectTarget;
+                                setRejectTarget(null);
+                                if (target.isContratacao) {
+                                    void doContratacaoAction(target.row.id, "reject", rejectObs);
+                                } else {
+                                    void doGenericAction(target.row, "reject", rejectObs);
+                                }
+                            }}
+                        >
+                            <XCircle className="size-4" />
+                            {acting ? "Recusando…" : "Confirmar recusa"}
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </section>

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -179,8 +180,22 @@ public static class DbSeeder
 
             await ReportAsync("seed-core", "Aplicando seeds essenciais...", 35);
             // ✅ Seeds essenciais sempre (mesmo com Seed:Enabled=false)
-            await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder
-                .EnsureDefaultMenusAsync(masterDb, scope.ServiceProvider, tenantContext, roleManager, localizer, ct);
+            // Garante pt-BR no thread para que IStringLocalizer resolva corretamente
+            // (sem HTTP context, CultureInfo padrão seria Invariant e o .resx neutro não existe)
+            var previousCulture = CultureInfo.CurrentCulture;
+            var previousUiCulture = CultureInfo.CurrentUICulture;
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("pt-BR");
+                CultureInfo.CurrentUICulture = new CultureInfo("pt-BR");
+                await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder
+                    .EnsureDefaultMenusAsync(masterDb, scope.ServiceProvider, tenantContext, roleManager, localizer, ct);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+                CultureInfo.CurrentUICulture = previousUiCulture;
+            }
 
             await ReportAsync("done", "Concluído.", 100);
         }

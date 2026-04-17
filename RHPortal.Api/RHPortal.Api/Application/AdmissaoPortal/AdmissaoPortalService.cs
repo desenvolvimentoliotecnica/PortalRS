@@ -16,6 +16,8 @@ public interface IAdmissaoPortalService
 {
     Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct);
     Task<AdmissaoPortalDataResponse?> GetDataAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
+    Task<BlipDocumentosResponse?> GetDocumentosByIdentificadorAsync(string? cpf, string? telefone, CancellationToken ct);
+    Task<BlipDocumentosResponse?> UploadDocBlipAsync(BlipUploadDocumentoRequest request, CancellationToken ct);
     Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest request, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse?> UploadDocAsync(Guid preAdmissaoId, string cpf, TipoDocumento tipo, LadoDocumento lado, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
     Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
@@ -320,6 +322,115 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
     }
 
     // ── Helpers ──
+
+    public async Task<BlipDocumentosResponse?> GetDocumentosByIdentificadorAsync(string? cpf, string? telefone, CancellationToken ct)
+    {
+        var cpfNorm = string.IsNullOrWhiteSpace(cpf) ? null : NormalizeCpf(cpf);
+        var telNorm = string.IsNullOrWhiteSpace(telefone) ? null
+            : new string(telefone.Where(char.IsDigit).ToArray());
+
+        if (cpfNorm is null && telNorm is null) return null;
+
+        var allowedStatuses = new[]
+        {
+            PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado,
+            PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido
+        };
+
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
+            .AsNoTracking()
+            .Include(x => x.Documentos)
+            .Include(x => x.DocumentosSolicitados)
+            .Where(x => allowedStatuses.Contains(x.Status))
+            .Where(x => (cpfNorm != null && x.Cpf == cpfNorm)
+                     || (telNorm != null && (x.Telefone == telNorm || x.Celular == telNorm)))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+
+        if (pa is null) return null;
+
+        var documentos = pa.DocumentosSolicitados
+            .Where(ds => ds.Obrigatorio)
+            .Select(ds =>
+            {
+                var enviados = pa.Documentos
+                    .Where(d => d.Tipo == ds.TipoDocumento)
+                    .Select(d => new BlipDocumentoEnviadoItem((int)d.Lado, d.NomeArquivo, (int)d.Status))
+                    .ToList();
+
+                return new BlipDocumentoItem(
+                    Tipo: (int)ds.TipoDocumento,
+                    Label: PreAdmissaoService.TipoDocumentoLabel(ds.TipoDocumento),
+                    Obrigatorio: true,
+                    JaEnviado: enviados.Any(),
+                    Enviados: enviados);
+            }).ToList();
+
+        return new BlipDocumentosResponse(pa.Nome, pa.Celular, documentos);
+    }
+
+    public async Task<BlipDocumentosResponse?> UploadDocBlipAsync(BlipUploadDocumentoRequest request, CancellationToken ct)
+    {
+        var cpfNorm = NormalizeCpf(request.Cpf);
+        if (string.IsNullOrWhiteSpace(cpfNorm)) return null;
+
+        var allowedStatuses = new[]
+        {
+            PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado,
+            PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido
+        };
+
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
+            .Include(x => x.Documentos)
+            .Include(x => x.DocumentosSolicitados)
+            .Where(x => allowedStatuses.Contains(x.Status) && x.Cpf == cpfNorm)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+
+        if (pa is null) return null;
+
+        // Decodifica base64 e faz upload
+        var bytes = Convert.FromBase64String(request.Base64);
+        var tipo = (TipoDocumento)request.Tipo;
+        var lado = (LadoDocumento)request.Lado;
+
+        var folder = pa.CandidatoId.HasValue
+            ? $"{_tenantContext.TenantId}/candidatos/{pa.CandidatoId.Value:N}"
+            : $"{_tenantContext.TenantId}/admissao/{pa.Id:N}";
+        var ext = Path.GetExtension(request.NomeArquivo).ToLowerInvariant();
+        var storagePath = $"{folder}/{(int)tipo}_{Guid.NewGuid():N}{ext}";
+
+        using var stream = new MemoryStream(bytes);
+        await _storage.UploadAsync(stream, storagePath, request.MimeType, ct);
+
+        var doc = new PreAdmissaoDocumento
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            PreAdmissaoId = pa.Id,
+            Tipo = tipo,
+            Lado = lado,
+            NomeArquivo = request.NomeArquivo,
+            ContentType = request.MimeType,
+            TamanhoBytes = bytes.Length,
+            StoragePath = storagePath,
+            Status = StatusDocumento.PendenteValidacao,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        _db.Set<PreAdmissaoDocumento>().Add(doc);
+
+        if (pa.Status == PreAdmissaoStatus.Enviado || pa.Status == PreAdmissaoStatus.Acessado)
+            pa.Status = PreAdmissaoStatus.PreenchidoParcial;
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "blip_upload_doc", ct);
+
+        // Retorna lista atualizada (com o doc recém-enviado já marcado como enviado)
+        return await GetDocumentosByIdentificadorAsync(request.Cpf, null, ct);
+    }
+
 
     private async Task<Domain.Entities.PreAdmissao?> LoadAndValidate(Guid id, string cpf, CancellationToken ct)
     {

@@ -17,7 +17,9 @@ export default function Sidebar({ items }: { items: BffNavItem[] }) {
       {!isCollapsed && (
         <div className="border-t border-white/10 bg-black/5 px-4 py-4">
           <div className="text-xs font-semibold text-white/85">Ambiente</div>
-          <div className="text-xs text-white/70">DEV</div>
+          <div className="text-xs text-white/70">
+            DEV <span className="text-white/40">v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
+          </div>
         </div>
       )}
     </div>

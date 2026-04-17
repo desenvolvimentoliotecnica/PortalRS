@@ -45,5 +45,7 @@ public enum PreenchidoPor : short
 public enum IntegracaoResultado : short
 {
     Sucesso = 1,
-    Falha = 2
+    Falha = 2,
+    /// <summary>Máximo de tentativas atingido — requer intervenção manual do RH.</summary>
+    FalhaDefinitiva = 3
 }

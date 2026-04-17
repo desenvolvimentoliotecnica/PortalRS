@@ -165,6 +165,8 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
             Label = r.Label,
             AprovadorId = r.AprovadorId,
             RoleFilaId = r.RoleFilaId,
+            AcaoEtapa = r.AcaoEtapa,
+            MomentoAcao = r.MomentoAcao,
             Status = StatusAprovacao.Pendente,
         }).ToList();
 
@@ -201,6 +203,16 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
         entity.ObservacaoAprovador = observacao;
         entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Marcar etapas pendentes como Aprovado (incluindo etapas de processo como EnviarIntegracao)
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Beneficio && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+        foreach (var ep in etapasPendentes)
+        {
+            ep.Status = StatusAprovacao.Aprovado;
+            ep.DataUtc = DateTimeOffset.UtcNow;
+        }
 
         await _db.SaveChangesAsync(ct);
 

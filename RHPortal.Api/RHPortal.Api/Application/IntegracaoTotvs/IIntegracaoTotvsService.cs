@@ -9,4 +9,5 @@ public interface IIntegracaoTotvsService
     Task<object?> GetDetalheAsync(TipoIntegracao tipo, Guid id, CancellationToken ct);
     Task RegistrarResultadoAsync(TipoIntegracao tipo, Guid id, IntegracaoTotvsResultadoRequest request, CancellationToken ct);
     Task RetryAsync(TipoIntegracao tipo, Guid id, CancellationToken ct);
+    Task<IntegracaoReconciliacaoResponse> ReconciliacaoAsync(int diasMinimos, CancellationToken ct);
 }

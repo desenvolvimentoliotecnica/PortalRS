@@ -34,9 +34,7 @@ export default function DocumentCard({
             <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-semibold">{label}</span>
                 {obrigatorio && (
-                    <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded-full font-medium">
-                        Obrigatorio
-                    </span>
+                    <span className="text-red-500 font-bold text-base leading-none" title="Obrigatório">*</span>
                 )}
             </div>
 
@@ -52,8 +50,7 @@ export default function DocumentCard({
             <input
                 ref={fileRefFrente}
                 type="file"
-                accept="image/*,.pdf"
-                capture="environment"
+                accept="image/*"
                 className="hidden"
                 onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -76,8 +73,7 @@ export default function DocumentCard({
                     <input
                         ref={fileRefVerso}
                         type="file"
-                        accept="image/*,.pdf"
-                        capture="environment"
+                        accept="image/*"
                         className="hidden"
                         onChange={(e) => {
                             const f = e.target.files?.[0];

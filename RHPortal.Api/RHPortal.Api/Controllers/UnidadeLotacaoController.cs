@@ -170,7 +170,7 @@ public sealed class UnidadeLotacaoController : ControllerBase
         var entity = new UnidadeLotacao
         {
             Id = Guid.NewGuid(),
-            CdnPlanoLotac = request.CdnPlanoLotac.Trim(),
+            CdnPlanoLotac = string.IsNullOrWhiteSpace(request.CdnPlanoLotac) ? "" : request.CdnPlanoLotac.Trim(),
             Code = request.Code.Trim(),
             Description = request.Description.Trim(),
             Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim(),
@@ -233,7 +233,8 @@ public sealed class UnidadeLotacaoController : ControllerBase
                 return Conflict(new { message = "Funcionário responsável não encontrado" });
         }
 
-        entity.CdnPlanoLotac = request.CdnPlanoLotac.Trim();
+        if (!string.IsNullOrWhiteSpace(request.CdnPlanoLotac))
+            entity.CdnPlanoLotac = request.CdnPlanoLotac.Trim();
         entity.Code = request.Code.Trim();
         entity.Description = request.Description.Trim();
         entity.Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();

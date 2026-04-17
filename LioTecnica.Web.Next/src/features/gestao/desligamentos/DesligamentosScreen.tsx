@@ -92,6 +92,9 @@ type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 const API = "/api/solicitacoes-desligamento";
 
+// "Ativas" = solicitações que ainda precisam de atenção ou estão em andamento
+const ATIVAS = new Set(["0", "1", "4", "6", "7"]); // Rascunho, Pendente, Ajustes, Aguarda Fila, Em Integração
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, {
         ...init,
@@ -200,7 +203,7 @@ export default function DesligamentosScreen() {
 
     /* ── filters ── */
     const [q, setQ] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
+    const [statusFilter, setStatusFilter] = useState("ativas");
     const [areaFilter, setAreaFilter] = useState("all");
     const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
 
@@ -267,7 +270,11 @@ export default function DesligamentosScreen() {
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter((r) => {
-            if (statusFilter !== "all" && String(r.status) !== statusFilter) return false;
+            const s = String(r.status);
+            if (statusFilter === "ativas"    && !ATIVAS.has(s)) return false;
+            if (statusFilter === "aprovadas" && s !== "2") return false;
+            if (statusFilter === "reprovadas"&& s !== "3") return false;
+            if (statusFilter === "concluidas"&& s !== "8") return false;
             if (!term) return true;
             const blob = [r.funcionarioNome, r.solicitanteNome].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
@@ -628,11 +635,12 @@ export default function DesligamentosScreen() {
 
             {/* ── filters + table ── */}
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                {/* Row 1: title + search + area */}
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <div className="font-semibold">Solicitações de desligamento</div>
                         <div className="text-muted-foreground text-sm">
-                            {loading ? "Carregando…" : `${filtered.length} solicitações`}
+                            {loading ? "Carregando…" : `${filtered.length} solicitação${filtered.length !== 1 ? "ões" : ""}`}
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -645,21 +653,6 @@ export default function DesligamentosScreen() {
                                 onChange={(e) => setQ(e.target.value)}
                             />
                         </div>
-                        <select
-                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                            <option value="all">Todos status</option>
-                            <option value="0">Rascunho</option>
-                            <option value="1">Pendente</option>
-                            <option value="2">Aprovada</option>
-                            <option value="3">Reprovada</option>
-                            <option value="4">Ajustes</option>
-                            <option value="6">Aguarda Fila</option>
-                            <option value="7">Em Integração</option>
-                            <option value="8">Concluída</option>
-                        </select>
                         {areas.length > 0 && (
                             <select
                                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
@@ -673,6 +666,26 @@ export default function DesligamentosScreen() {
                             </select>
                         )}
                     </div>
+                </div>
+                {/* Row 2: status chips */}
+                <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                    {([
+                        { key: "ativas",     label: "Ativas",      count: rows.filter(r => ATIVAS.has(String(r.status))).length,  cls: "data-[active=true]:bg-amber-500/15 data-[active=true]:text-amber-700 data-[active=true]:border-amber-400/50" },
+                        { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => r.status === 2).length,                cls: "data-[active=true]:bg-emerald-500/15 data-[active=true]:text-emerald-700 data-[active=true]:border-emerald-400/50" },
+                        { key: "reprovadas", label: "Reprovadas",  count: rows.filter(r => r.status === 3).length,                cls: "data-[active=true]:bg-red-500/15 data-[active=true]:text-red-700 data-[active=true]:border-red-400/50" },
+                        { key: "concluidas", label: "Concluídas",  count: rows.filter(r => r.status === 8).length,                cls: "data-[active=true]:bg-teal-500/15 data-[active=true]:text-teal-700 data-[active=true]:border-teal-400/50" },
+                        { key: "all",        label: "Todas",       count: rows.length,                                           cls: "data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:border-primary/30" },
+                    ] as const).map(({ key, label, count, cls }) => (
+                        <button
+                            key={key}
+                            data-active={statusFilter === key}
+                            onClick={() => setStatusFilter(key)}
+                            className={`inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 ${cls}`}
+                        >
+                            {label}
+                            <span className="rounded-full bg-current/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none opacity-80">{count}</span>
+                        </button>
+                    ))}
                 </div>
 
                 {selected.size > 0 && (
@@ -882,7 +895,9 @@ export default function DesligamentosScreen() {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                                    Nenhuma solicitação de desligamento encontrada.
+                                    {statusFilter === "ativas"
+                                ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
+                                : "Nenhuma solicitação encontrada."}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -1028,8 +1043,14 @@ export default function DesligamentosScreen() {
 
                             {detail.observacaoAprovador && (
                                 <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Observação do Aprovador</div>
-                                    <div className="mt-1 text-sm rounded-md bg-amber-500/10 p-3 border border-amber-500/20">
+                                    <div className="text-xs text-muted-foreground uppercase">
+                                        {detail.status === 3 ? "Motivo da Recusa" : "Observação do Aprovador"}
+                                    </div>
+                                    <div className={`mt-1 text-sm rounded-md p-3 border ${
+                                        detail.status === 3
+                                            ? "bg-red-500/10 border-red-500/30 text-red-800 dark:text-red-300"
+                                            : "bg-amber-500/10 border-amber-500/20"
+                                    }`}>
                                         {detail.observacaoAprovador}
                                     </div>
                                 </div>

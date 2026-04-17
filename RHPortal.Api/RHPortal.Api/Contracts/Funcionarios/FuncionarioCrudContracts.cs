@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RhPortal.Api.Contracts.Colaborador;
 using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.Funcionarios;
@@ -174,6 +175,45 @@ public sealed record FuncionarioImportResult(
     int Skipped,
     List<string> Errors,
     List<string> Warnings
+);
+
+/// <summary>Visão unificada 360° de um funcionário. Agrega todos os dados relevantes em um único objeto.</summary>
+public sealed record FuncionarioPerfil360Response(
+    // ── Dados cadastrais ──
+    Guid Id,
+    string Nome,
+    string? Email,
+    string? Telefone,
+    FuncionarioStatus Status,
+    string? AvatarUrl,
+    DateOnly? DataAdmissao,
+    DateOnly? DataNascimento,
+    string? Sexo,
+    bool EmExperiencia,
+    int? DiasRestantesExperiencia,
+    int? ProgressoExperiencia,
+    // ── Cargo e estrutura ──
+    string? CargoNome,
+    string? AreaNome,
+    string? UnidadeNome,
+    string? UnidadeLotacaoNome,
+    string? NivelHierarquicoNome,
+    string? NivelCargoNome,
+    string? CentroCustoNome,
+    // ── Hierarquia ──
+    Guid? GestorDiretoId,
+    string? GestorDiretoNome,
+    string? GestorDiretoAvatarUrl,
+    // ── Chaves TOTVS ──
+    string? CdnFuncionario,
+    string? CdnEmpresa,
+    string? CdnEstab,
+    // ── Sublistas ──
+    IReadOnlyList<HistoricoCarreiraItemResponse> HistoricoCarreira,
+    IReadOnlyList<DependenteResponse> Dependentes,
+    IReadOnlyList<DocumentoResponse> Documentos,
+    IReadOnlyList<HoleriteResponse> Holerites,
+    DadosBancariosResponse? DadosBancarios
 );
 
 public sealed record FuncionarioResponse(

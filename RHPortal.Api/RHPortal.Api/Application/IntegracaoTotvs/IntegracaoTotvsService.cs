@@ -1,9 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.Common;
 using RhPortal.Api.Application.OcupacaoHistorico;
+using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Contracts.IntegracaoTotvs;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Enums; // VagaStatus e outros enums com namespace RH maiúsculo
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.IntegracaoTotvs;
 
@@ -11,11 +15,22 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
 {
     private readonly AppDbContext _db;
     private readonly IOcupacaoHistoricoService _ocupacaoService;
+    private readonly IPreAdmissaoService _preAdmissaoService;
+    private readonly ApprovalWorkflowHelper _workflow;
+    private readonly IEmailQueueService _emailQueue;
 
-    public IntegracaoTotvsService(AppDbContext db, IOcupacaoHistoricoService ocupacaoService)
+    public IntegracaoTotvsService(
+        AppDbContext db,
+        IOcupacaoHistoricoService ocupacaoService,
+        IPreAdmissaoService preAdmissaoService,
+        ApprovalWorkflowHelper workflow,
+        IEmailQueueService emailQueue)
     {
         _db = db;
         _ocupacaoService = ocupacaoService;
+        _preAdmissaoService = preAdmissaoService;
+        _workflow = workflow;
+        _emailQueue = emailQueue;
     }
 
     public async Task<IntegracaoTotvsPainelResponse> ListPainelAsync(IntegracaoTotvsPainelQuery query, CancellationToken ct)
@@ -203,6 +218,30 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 ))
                 .ToListAsync(ct);
             all.AddRange(ferias);
+        }
+
+        // ── 9. Requisição de Pessoal (SolicitacaoVaga) ──
+        if (query.Tipo is null or TipoIntegracao.SolicitacaoVaga)
+        {
+            var solicitacoesVaga = await _db.SolicitacoesVaga
+                .AsNoTracking()
+                .Include(s => s.Solicitante)
+                .Where(s => s.Status == SolicitacaoVagaStatus.EmIntegracao
+                         || s.Status == SolicitacaoVagaStatus.Concluida)
+                .Select(s => new IntegracaoTotvsListItem(
+                    s.Id,
+                    (short)TipoIntegracao.SolicitacaoVaga,
+                    "Requisição de Pessoal",
+                    s.Solicitante != null ? s.Solicitante.Name : "—",
+                    null,
+                    "Req. Pessoal — " + s.Titulo,
+                    s.ApprovedAtUtc,
+                    s.IntegracaoResultado,
+                    s.IntegracaoMensagem,
+                    s.IntegradaEmUtc
+                ))
+                .ToListAsync(ct);
+            all.AddRange(solicitacoesVaga);
         }
 
         // ── Filtros ──
@@ -452,6 +491,34 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
             }
+            case TipoIntegracao.SolicitacaoVaga:
+            {
+                var s = await _db.SolicitacoesVaga.AsNoTracking()
+                    .Include(x => x.Solicitante)
+                    .Include(x => x.JobPosition)
+                    .Include(x => x.Area)
+                    .Include(x => x.Empresa)
+                    .Include(x => x.CentroCusto)
+                    .Include(x => x.UnidadeLotacao)
+                    .FirstOrDefaultAsync(x => x.Id == id, ct);
+                if (s is null) return null;
+                return new
+                {
+                    s.Id, tipoIntegracao = (short)TipoIntegracao.SolicitacaoVaga, tipoIntegracaoLabel = "Requisição de Pessoal",
+                    solicitante = s.Solicitante?.Name ?? "—", solicitanteId = s.SolicitanteId,
+                    s.Titulo, s.Justificativa, s.QtdPosicoes,
+                    urgencia = s.Urgencia.ToString(), status = s.Status.ToString(),
+                    tipoSolicitacao = s.TipoSolicitacao.ToString(), s.IsConfidencial,
+                    cargoNome = s.JobPosition?.Description, areaNome = s.Area?.Description,
+                    empresaNome = s.Empresa?.Description, centroCustoNome = s.CentroCusto?.Description,
+                    unidadeLotacaoNome = s.UnidadeLotacao?.Description,
+                    tipoContrato = s.TipoContrato.ToString(), s.PrazoDias,
+                    motivoRequisicao = s.MotivoRequisicao?.ToString(),
+                    s.CnhObrigatoria, s.DisponibilidadeViagens, s.EscalaTrabalho,
+                    s.VagaId,
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                };
+            }
             default:
                 return null;
         }
@@ -460,6 +527,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
     public async Task RegistrarResultadoAsync(TipoIntegracao tipo, Guid id, IntegracaoTotvsResultadoRequest request, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
+        Guid? solicitanteId = null;
+        string tipoLabel;
+        string resumo;
 
         switch (tipo)
         {
@@ -470,6 +540,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegracaoResultado = request.Resultado;
                 entity.IntegracaoMensagem = request.Mensagem;
                 entity.IntegradaEmUtc = now;
+                entity.UpdatedAtUtc = now;
+                solicitanteId = entity.AprovadoPorId;
+                tipoLabel = "admissão";
+                resumo = entity.Nome;
+                // Admissao sucesso: materializar Funcionario após salvar o resultado
+                // (chamado abaixo, fora do switch, após SaveChanges)
                 break;
             }
             case TipoIntegracao.PagamentoExtra:
@@ -479,6 +555,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegracaoResultado = request.Resultado;
                 entity.IntegracaoMensagem = request.Mensagem;
                 entity.IntegradaEmUtc = now;
+                solicitanteId = entity.SolicitanteId;
+                tipoLabel = "pagamento extra";
+                resumo = entity.TipoPagamentoExtra.ToString();
                 break;
             }
             case TipoIntegracao.Desligamento:
@@ -497,6 +576,11 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     await _ocupacaoService.FecharOcupacaoAsync(
                         entity.FuncionarioId, MotivoSaidaOcupacao.Desligamento, entity.Id, ct);
                 }
+                solicitanteId = entity.SolicitanteId;
+                tipoLabel = "desligamento";
+                var funcDeslig = await _db.Set<Funcionario>().AsNoTracking()
+                    .FirstOrDefaultAsync(f => f.Id == entity.FuncionarioId, ct);
+                resumo = funcDeslig?.Name ?? "funcionário";
                 break;
             }
             case TipoIntegracao.Promocao:
@@ -509,6 +593,11 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.UpdatedAtUtc = now;
                 if (request.Resultado == IntegracaoResultado.Sucesso)
                     entity.Status = SolicitacaoStatus.Concluida;
+                solicitanteId = entity.SolicitanteId;
+                tipoLabel = "movimentação";
+                var funcProm = await _db.Set<Funcionario>().AsNoTracking()
+                    .FirstOrDefaultAsync(f => f.Id == entity.FuncionarioId, ct);
+                resumo = funcProm?.Name ?? "funcionário";
                 break;
             }
             case TipoIntegracao.AlteracaoEndereco:
@@ -518,6 +607,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegracaoResultado = request.Resultado;
                 entity.IntegracaoMensagem = request.Mensagem;
                 entity.IntegradaEmUtc = now;
+                solicitanteId = entity.SolicitanteId;
+                tipoLabel = "alteração de endereço";
+                resumo = "seus dados de endereço";
                 break;
             }
             case TipoIntegracao.Dependente:
@@ -527,6 +619,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegracaoResultado = request.Resultado;
                 entity.IntegracaoMensagem = request.Mensagem;
                 entity.IntegradaEmUtc = now;
+                solicitanteId = entity.SolicitanteId;
+                tipoLabel = "dependente";
+                resumo = entity.NomeCompleto;
                 break;
             }
             case TipoIntegracao.Beneficio:
@@ -536,6 +631,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegracaoResultado = request.Resultado;
                 entity.IntegracaoMensagem = request.Mensagem;
                 entity.IntegradaEmUtc = now;
+                solicitanteId = entity.SolicitanteId;
+                tipoLabel = "benefício";
+                resumo = entity.TipoBeneficio.ToString();
                 break;
             }
             case TipoIntegracao.Ferias:
@@ -545,6 +643,33 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegracaoResultado = request.Resultado;
                 entity.IntegracaoMensagem = request.Mensagem;
                 entity.IntegradaEmUtc = now;
+                solicitanteId = entity.SolicitanteId;
+                tipoLabel = "férias";
+                resumo = $"{entity.DataInicio:dd/MM/yyyy}";
+                break;
+            }
+            case TipoIntegracao.SolicitacaoVaga:
+            {
+                var entity = await _db.SolicitacoesVaga.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoVaga {id} não encontrada.");
+                entity.IntegracaoResultado = request.Resultado;
+                entity.IntegracaoMensagem = request.Mensagem;
+                entity.IntegradaEmUtc = now;
+                entity.UpdatedAtUtc = now;
+                if (request.Resultado == IntegracaoResultado.Sucesso)
+                {
+                    entity.Status = SolicitacaoVagaStatus.Concluida;
+                    // Se há uma vaga vinculada, abri-la automaticamente
+                    if (entity.VagaId.HasValue)
+                    {
+                        var vaga = await _db.Vagas.FindAsync(new object[] { entity.VagaId.Value }, ct);
+                        if (vaga is not null)
+                            vaga.Status = RHPortal.Api.Domain.Enums.VagaStatus.Aberta;
+                    }
+                }
+                solicitanteId = entity.SolicitanteId;
+                tipoLabel = "requisição de pessoal";
+                resumo = entity.Titulo;
                 break;
             }
             default:
@@ -552,6 +677,66 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         }
 
         await _db.SaveChangesAsync(ct);
+
+        // Admissão confirmada: materializar Funcionario (cria registro no banco e migra dependentes)
+        if (tipo == TipoIntegracao.Admissao && request.Resultado == IntegracaoResultado.Sucesso)
+        {
+            try
+            {
+                await _preAdmissaoService.MaterializarFuncionarioAsync(id, request.CdnFuncionario, ct);
+            }
+            catch (Exception ex)
+            {
+                // Não bloqueia o registro do resultado — RH pode acionar manualmente
+                // O IntegracaoMensagem já está salvo; a materialização pode ser reprocessada
+                _ = ex; // log já feito dentro de MaterializarFuncionarioAsync
+            }
+        }
+
+        // Notificar solicitante com resultado da integração (in-app + email)
+        if (solicitanteId.HasValue)
+        {
+            await NotifyResultadoIntegracaoAsync(
+                solicitanteId.Value, tipoLabel, resumo, request.Resultado, request.Mensagem, ct);
+        }
+    }
+
+    /// <summary>
+    /// Notifica o solicitante com o resultado da integração (Sucesso/Falha) via in-app + email.
+    /// Falhas aqui não bloqueiam a operação de integração (best-effort).
+    /// </summary>
+    private async Task NotifyResultadoIntegracaoAsync(
+        Guid solicitanteId, string tipoLabel, string resumo,
+        IntegracaoResultado resultado, string? mensagem, CancellationToken ct)
+    {
+        var sucesso = resultado == IntegracaoResultado.Sucesso;
+        var titulo = sucesso
+            ? $"Integração de {tipoLabel} concluída"
+            : $"Falha na integração de {tipoLabel}";
+        var mensagemInApp = sucesso
+            ? $"A integração de {tipoLabel} ({resumo}) foi concluída com sucesso no TOTVS."
+            : $"A integração de {tipoLabel} ({resumo}) falhou no TOTVS." +
+              (!string.IsNullOrWhiteSpace(mensagem) ? $" Erro: {mensagem}" : "");
+
+        await _workflow.NotifyByFuncionarioIdAsync(
+            solicitanteId, titulo, mensagemInApp,
+            "/gestao/solicitacoes", ct,
+            sucesso ? "success" : "warning");
+
+        var solicitante = await _db.Set<Funcionario>().AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == solicitanteId, ct);
+        if (!string.IsNullOrWhiteSpace(solicitante?.Email))
+        {
+            var erroHtml = !string.IsNullOrWhiteSpace(mensagem)
+                ? $"<p><strong>Mensagem do ERP:</strong> {mensagem}</p>" : "";
+            var bodyHtml = sucesso
+                ? $"<p>Olá {solicitante.Name},</p><p>A integração de <strong>{tipoLabel}</strong> ({resumo}) foi <strong>concluída com sucesso</strong> no TOTVS.</p>"
+                : $"<p>Olá {solicitante.Name},</p><p>A integração de <strong>{tipoLabel}</strong> ({resumo}) <strong>falhou</strong> no TOTVS.</p>{erroHtml}<p>Acesse o portal para verificar detalhes.</p>";
+
+            await _emailQueue.EnqueueRawAsync(
+                solicitante.Email, titulo, bodyHtml,
+                null, false, "IntegracaoTotvs", ct);
+        }
     }
 
     public async Task RetryAsync(TipoIntegracao tipo, Guid id, CancellationToken ct)
@@ -630,10 +815,178 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegradaEmUtc = null;
                 break;
             }
+            case TipoIntegracao.SolicitacaoVaga:
+            {
+                var entity = await _db.SolicitacoesVaga.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoVaga {id} não encontrada.");
+                entity.IntegracaoResultado = null;
+                entity.IntegracaoMensagem = null;
+                entity.IntegradaEmUtc = null;
+                break;
+            }
             default:
                 throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de integração desconhecido.");
         }
 
         await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IntegracaoReconciliacaoResponse> ReconciliacaoAsync(int diasMinimos, CancellationToken ct)
+    {
+        var corte = DateTimeOffset.UtcNow.AddDays(-diasMinimos);
+        var pendentes = new List<IntegracaoReconciliacaoItemResponse>();
+        var emFalha = new List<IntegracaoReconciliacaoItemResponse>();
+        var falhaDefinitiva = new List<IntegracaoReconciliacaoItemResponse>();
+
+        void Classify(IntegracaoReconciliacaoItemResponse item)
+        {
+            if (item.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva)
+                falhaDefinitiva.Add(item);
+            else if (item.IntegracaoResultado == IntegracaoResultado.Falha)
+                emFalha.Add(item);
+            else
+                pendentes.Add(item);
+        }
+
+        // PreAdmissão
+        foreach (var x in await _db.PreAdmissoes.AsNoTracking()
+            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
+                     && (e.IntegracaoResultado == null
+                         || e.IntegracaoResultado == IntegracaoResultado.Falha
+                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
+            .ToListAsync(ct))
+        {
+            Classify(new IntegracaoReconciliacaoItemResponse(
+                x.Id, (short)TipoIntegracao.Admissao, "Admissão", x.Nome,
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.TentativasIntegracao, x.UltimaTentativaUtc,
+                x.IntegradaEmUtc, x.ApprovedAtUtc));
+        }
+
+        // Desligamento
+        foreach (var x in await _db.SolicitacoesDesligamento.AsNoTracking()
+            .Include(e => e.Funcionario)
+            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
+                     && (e.IntegracaoResultado == null
+                         || e.IntegracaoResultado == IntegracaoResultado.Falha
+                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
+            .ToListAsync(ct))
+        {
+            Classify(new IntegracaoReconciliacaoItemResponse(
+                x.Id, (short)TipoIntegracao.Desligamento, "Desligamento", x.Funcionario?.Name ?? "—",
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.TentativasIntegracao, x.UltimaTentativaUtc,
+                x.IntegradaEmUtc, x.ApprovedAtUtc));
+        }
+
+        // Promoção
+        foreach (var x in await _db.SolicitacoesPromocao.AsNoTracking()
+            .Include(e => e.Funcionario)
+            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
+                     && (e.IntegracaoResultado == null
+                         || e.IntegracaoResultado == IntegracaoResultado.Falha
+                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
+            .ToListAsync(ct))
+        {
+            Classify(new IntegracaoReconciliacaoItemResponse(
+                x.Id, (short)TipoIntegracao.Promocao, "Promoção", x.Funcionario?.Name ?? "—",
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.TentativasIntegracao, x.UltimaTentativaUtc,
+                x.IntegradaEmUtc, x.ApprovedAtUtc));
+        }
+
+        // Pagamento Extra
+        foreach (var x in await _db.SolicitacoesPagamentoExtra.AsNoTracking()
+            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
+                     && (e.IntegracaoResultado == null
+                         || e.IntegracaoResultado == IntegracaoResultado.Falha
+                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
+            .ToListAsync(ct))
+        {
+            Classify(new IntegracaoReconciliacaoItemResponse(
+                x.Id, (short)TipoIntegracao.PagamentoExtra, "Pagamento Extra", x.TipoPagamentoExtra.ToString(),
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.TentativasIntegracao, x.UltimaTentativaUtc,
+                x.IntegradaEmUtc, x.ApprovedAtUtc));
+        }
+
+        // Alt. Endereço
+        foreach (var x in await _db.SolicitacoesEndereco.AsNoTracking()
+            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
+                     && (e.IntegracaoResultado == null
+                         || e.IntegracaoResultado == IntegracaoResultado.Falha
+                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
+            .ToListAsync(ct))
+        {
+            Classify(new IntegracaoReconciliacaoItemResponse(
+                x.Id, (short)TipoIntegracao.AlteracaoEndereco, "Alt. Endereço", $"{x.Cidade}/{x.Uf}",
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.TentativasIntegracao, x.UltimaTentativaUtc,
+                x.IntegradaEmUtc, x.ApprovedAtUtc));
+        }
+
+        // Dependente
+        foreach (var x in await _db.SolicitacoesDependente.AsNoTracking()
+            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
+                     && (e.IntegracaoResultado == null
+                         || e.IntegracaoResultado == IntegracaoResultado.Falha
+                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
+            .ToListAsync(ct))
+        {
+            Classify(new IntegracaoReconciliacaoItemResponse(
+                x.Id, (short)TipoIntegracao.Dependente, "Dependente", x.NomeCompleto,
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.TentativasIntegracao, x.UltimaTentativaUtc,
+                x.IntegradaEmUtc, x.ApprovedAtUtc));
+        }
+
+        // Benefício
+        foreach (var x in await _db.SolicitacoesBeneficio.AsNoTracking()
+            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
+                     && (e.IntegracaoResultado == null
+                         || e.IntegracaoResultado == IntegracaoResultado.Falha
+                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
+            .ToListAsync(ct))
+        {
+            Classify(new IntegracaoReconciliacaoItemResponse(
+                x.Id, (short)TipoIntegracao.Beneficio, "Benefício", x.TipoBeneficio.ToString(),
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.TentativasIntegracao, x.UltimaTentativaUtc,
+                x.IntegradaEmUtc, x.ApprovedAtUtc));
+        }
+
+        // Férias
+        foreach (var x in await _db.SolicitacoesFerias.AsNoTracking()
+            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
+                     && (e.IntegracaoResultado == null
+                         || e.IntegracaoResultado == IntegracaoResultado.Falha
+                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
+            .ToListAsync(ct))
+        {
+            Classify(new IntegracaoReconciliacaoItemResponse(
+                x.Id, (short)TipoIntegracao.Ferias, "Férias", $"{x.DataInicio:dd/MM/yyyy}",
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.TentativasIntegracao, x.UltimaTentativaUtc,
+                x.IntegradaEmUtc, x.ApprovedAtUtc));
+        }
+
+        // Requisição de Pessoal
+        foreach (var x in await _db.SolicitacoesVaga.AsNoTracking()
+            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
+                     && (e.IntegracaoResultado == null
+                         || e.IntegracaoResultado == IntegracaoResultado.Falha
+                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
+            .ToListAsync(ct))
+        {
+            Classify(new IntegracaoReconciliacaoItemResponse(
+                x.Id, (short)TipoIntegracao.SolicitacaoVaga, "Req. Pessoal", x.Titulo,
+                x.IntegracaoResultado, x.IntegracaoMensagem,
+                x.TentativasIntegracao, x.UltimaTentativaUtc,
+                x.IntegradaEmUtc, x.ApprovedAtUtc));
+        }
+
+        return new IntegracaoReconciliacaoResponse(
+            pendentes, emFalha, falhaDefinitiva,
+            pendentes.Count + emFalha.Count + falhaDefinitiva.Count);
     }
 }

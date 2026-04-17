@@ -93,53 +93,78 @@ public sealed class VagaService : IVagaService
         if (query.DepartmentId.HasValue && query.DepartmentId.Value != Guid.Empty)
             q = q.Where(v => v.DepartmentId == query.DepartmentId.Value);
 
+        // Carregar configuração do tenant para calcular alerta
+        var tenantConfig = await _db.TenantConfiguracoes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == _tenantContext.TenantId, ct);
+
+        var diasAlerta = tenantConfig?.DiasAlertaVagaSemFill ?? 60;
+        var agora = DateTimeOffset.UtcNow;
+
         var items = await q
-            .Select(v => new VagaListItemResponse(
-                v.Id,
-                v.Codigo,
-                v.Titulo,
-                v.Status,
-
+            .Select(v => new
+            {
+                v.Id, v.Codigo, v.Titulo, v.Status,
                 v.AreaId,
-                v.Area != null ? v.Area.Code : null,
-                v.Area != null ? v.Area.Name : null,
-
+                AreaCode = v.Area != null ? v.Area.Code : null,
+                AreaName = v.Area != null ? v.Area.Name : null,
                 v.DepartmentId,
-                v.Department != null ? v.Department.Code : null,
-                v.Department != null ? v.Department.Name : null,
-
-                v.Modalidade,
-                v.Senioridade,
-                v.QuantidadeVagas,
-                v.MatchMinimoPercentual,
-
-                v.Confidencial,
-                v.Urgente,
-                v.AceitaPcd,
-
-                v.DataInicio,
-                v.DataEncerramento,
-                v.DataAbertura,
-                v.SlaDiasMetaFechamento,
-
-                v.Cidade,
-                v.Uf,
-
-                v.Requisitos.Count(),
-                v.Requisitos.Count(r => r.Obrigatorio),
-
-                v.CreatedAtUtc,
-                v.UpdatedAtUtc,
-
+                DepartmentCode = v.Department != null ? v.Department.Code : null,
+                DepartmentName = v.Department != null ? v.Department.Name : null,
+                v.Modalidade, v.Senioridade, v.QuantidadeVagas, v.MatchMinimoPercentual,
+                v.Confidencial, v.Urgente, v.AceitaPcd,
+                v.DataInicio, v.DataEncerramento, v.DataAbertura, v.SlaDiasMetaFechamento,
+                v.Cidade, v.Uf,
+                RequisitosTotal = v.Requisitos.Count(),
+                RequisitosObrigatorios = v.Requisitos.Count(r => r.Obrigatorio),
+                v.CreatedAtUtc, v.UpdatedAtUtc,
                 v.HeadcountAutorizado,
-                v.Ocupacoes.Count(o => o.DataSaida == null),
-                v.IsEstrutural
-            ))
+                HeadcountOcupado = v.Ocupacoes.Count(o => o.DataSaida == null),
+                v.IsEstrutural,
+                v.HeadcountProvisorio,
+                v.HeadcountProvisorioExpiresAtUtc,
+                v.AlertaVagaSemFillSnoozeAteUtc,
+                v.HeadcountPendente,
+            })
             .ToListAsync(ct);
 
         return items
             .OrderByDescending(x => x.UpdatedAtUtc)
             .ThenByDescending(x => x.CreatedAtUtc)
+            .Select(v =>
+            {
+                // Calcular alerta: vaga aberta há mais de N dias, sem snooze ativo
+                int? diasSemFill = null;
+                bool alertaAtivo = false;
+                if (v.Status == VagaStatus.Aberta && v.DataAbertura.HasValue)
+                {
+                    diasSemFill = (int)(agora - v.DataAbertura.Value).TotalDays;
+                    var snoozeAtivo = v.AlertaVagaSemFillSnoozeAteUtc.HasValue
+                        && v.AlertaVagaSemFillSnoozeAteUtc.Value > agora;
+                    alertaAtivo = diasSemFill >= diasAlerta && !snoozeAtivo;
+                }
+
+                var alertaHCProvVencido = v.HeadcountProvisorio > 0
+                    && v.HeadcountProvisorioExpiresAtUtc.HasValue
+                    && v.HeadcountProvisorioExpiresAtUtc.Value < agora;
+
+                return new VagaListItemResponse(
+                    v.Id, v.Codigo, v.Titulo, v.Status,
+                    v.AreaId, v.AreaCode, v.AreaName,
+                    v.DepartmentId, v.DepartmentCode, v.DepartmentName,
+                    v.Modalidade, v.Senioridade, v.QuantidadeVagas, v.MatchMinimoPercentual,
+                    v.Confidencial, v.Urgente, v.AceitaPcd,
+                    v.DataInicio, v.DataEncerramento, v.DataAbertura, v.SlaDiasMetaFechamento,
+                    v.Cidade, v.Uf,
+                    v.RequisitosTotal, v.RequisitosObrigatorios,
+                    v.CreatedAtUtc, v.UpdatedAtUtc,
+                    v.HeadcountAutorizado, v.HeadcountOcupado, v.IsEstrutural,
+                    v.HeadcountProvisorio, v.HeadcountProvisorioExpiresAtUtc,
+                    alertaAtivo, alertaAtivo ? diasSemFill : null, v.AlertaVagaSemFillSnoozeAteUtc,
+                    v.HeadcountPendente,
+                    alertaHCProvVencido
+                );
+            })
             .ToList();
     }
 
@@ -169,16 +194,24 @@ public sealed class VagaService : IVagaService
             .AsNoTracking()
             .Include(s => s.Solicitante)
             .Include(s => s.Aprovador)
+            .Include(s => s.DecisaoRHRevisadoPor)
             .Where(s => s.VagaId == id)
+            .OrderByDescending(s => s.CreatedAtUtc)
             .FirstOrDefaultAsync(ct);
 
         if (solic != null)
         {
+            var isPendenteDecisao = solic.Status == SolicitacaoVagaStatus.AguardandoDecisaoRH;
             response = response with
             {
                 SolicitanteNome = solic.Solicitante?.Name,
                 AprovadorNome = solic.Aprovador?.Name,
                 DataAprovacao = solic.ApprovedAtUtc,
+                SolicitacaoPendenteDecisaoId = isPendenteDecisao ? solic.Id : null,
+                DecisaoRH = solic.DecisaoRH,
+                DecisaoRHRevisadoPorNome = solic.DecisaoRHRevisadoPor?.Name,
+                DecisaoRHEmUtc = solic.DecisaoRHEmUtc,
+                DecisaoRHPrazoMeses = solic.DecisaoRHPrazoMeses,
             };
         }
 
@@ -449,14 +482,21 @@ public sealed class VagaService : IVagaService
         if (entity is null) return null;
         EnsureTenantOwnership(entity);
 
-        // Rascunho → Aberta: exigir campos obrigatórios
-        if (entity.Status == VagaStatus.Rascunho && newStatus == VagaStatus.Aberta)
+        // Rascunho/Preenchida → Aberta: exigir campos obrigatórios e decisão de headcount
+        if (newStatus == VagaStatus.Aberta)
         {
-            var missing = new List<string>();
-            if (string.IsNullOrWhiteSpace(entity.Titulo)) missing.Add("Título");
-            if (entity.QuantidadeVagas < 1) missing.Add("Quantidade de vagas");
-            if (missing.Count > 0)
-                throw new InvalidOperationException($"Preencha os campos obrigatórios antes de abrir a vaga: {string.Join(", ", missing)}");
+            if (entity.HeadcountPendente > 0)
+                throw new InvalidOperationException(
+                    "Existe headcount pendente de decisão do RH para esta vaga. Defina a decisão antes de publicar.");
+
+            if (entity.Status == VagaStatus.Rascunho)
+            {
+                var missing = new List<string>();
+                if (string.IsNullOrWhiteSpace(entity.Titulo)) missing.Add("Título");
+                if (entity.QuantidadeVagas < 1) missing.Add("Quantidade de vagas");
+                if (missing.Count > 0)
+                    throw new InvalidOperationException($"Preencha os campos obrigatórios antes de abrir a vaga: {string.Join(", ", missing)}");
+            }
         }
 
         entity.Status = newStatus;
@@ -464,7 +504,7 @@ public sealed class VagaService : IVagaService
             entity.DataAbertura = DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        // Ao cancelar a vaga, cancelar automaticamente os workflows ativos associados
+        // Ao cancelar a vaga, cancelar automaticamente os workflows ativos e SolicitacoesVaga pendentes
         if (newStatus == VagaStatus.Cancelada)
         {
             var workflows = await _db.WorkflowsRH
@@ -478,6 +518,8 @@ public sealed class VagaService : IVagaService
                 wf.Status = WorkflowRHStatus.Cancelado;
                 wf.UpdatedAtUtc = DateTimeOffset.UtcNow;
             }
+
+            await CancelarSolicitacoesVinculadasAsync(entity, ct);
         }
 
         await _db.SaveChangesAsync(ct);
@@ -503,9 +545,54 @@ public sealed class VagaService : IVagaService
                 throw new InvalidOperationException("Apenas vagas em rascunho podem ser excluídas. Utilize 'Cancelar' para vagas que já foram movimentadas.");
         }
 
+        await CancelarSolicitacoesVinculadasAsync(entity, ct);
         _db.Vagas.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;
+    }
+
+    /// <summary>
+    /// Cancela (ou marca como Reprovada) todas as SolicitacaoVaga vinculadas à vaga
+    /// que ainda estejam em estados ativos (pendente de aprovação, aguardando decisão RH, etc.).
+    /// Também zera HeadcountPendente da vaga antes de removê-la/cancelá-la.
+    /// </summary>
+    private async Task CancelarSolicitacoesVinculadasAsync(Vaga vaga, CancellationToken ct)
+    {
+        var statusAtivos = new[]
+        {
+            SolicitacaoVagaStatus.PendenteAprovacao,
+            SolicitacaoVagaStatus.AguardandoDecisaoRH,
+            SolicitacaoVagaStatus.PendenteAprovacaoAumentoHC,
+        };
+
+        var solicsPendentes = await _db.SolicitacoesVaga
+            .Where(s => s.VagaId == vaga.Id && statusAtivos.Contains(s.Status))
+            .ToListAsync(ct);
+
+        if (solicsPendentes.Count == 0) return;
+
+        // Cancelar as etapas de aprovação pendentes
+        var solicIds = solicsPendentes.Select(s => s.Id).ToList();
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => solicIds.Contains(e.SolicitacaoId) && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+
+        foreach (var etapa in etapasPendentes)
+        {
+            etapa.Status = StatusAprovacao.Cancelado;
+            etapa.DataUtc = DateTimeOffset.UtcNow;
+        }
+
+        // Cancelar as solicitações e zerar headcount pendente
+        foreach (var solic in solicsPendentes)
+        {
+            solic.Status = SolicitacaoVagaStatus.Cancelada;
+            solic.ObservacaoAprovador = "Cancelada automaticamente: vaga associada foi encerrada.";
+            solic.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        vaga.HeadcountPendente = 0;
+        vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
     private static VagaResponse MapToResponse(Vaga v)
@@ -624,7 +711,14 @@ public sealed class VagaService : IVagaService
             v.UpdatedAtUtc,
             null, // SolicitanteNome - preenchido em GetByIdAsync
             null, // AprovadorNome
-            null  // DataAprovacao
+            null, // DataAprovacao
+            v.HeadcountPendente,
+            null, // SolicitacaoPendenteDecisaoId - preenchido em GetByIdAsync
+            null, // DecisaoRH
+            null, // DecisaoRHRevisadoPorNome
+            null, // DecisaoRHEmUtc
+            null, // DecisaoRHPrazoMeses
+            v.HeadcountProvisorioExpiresAtUtc
         );
     }
 

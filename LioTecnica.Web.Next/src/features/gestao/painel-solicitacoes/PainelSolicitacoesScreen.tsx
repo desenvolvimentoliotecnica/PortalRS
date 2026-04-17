@@ -36,6 +36,7 @@ import {
 
 import AcompanhamentoModal, { type AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -247,6 +248,9 @@ function tipoBadge(tipo: TipoKey) {
 /* ──────────────────────────── component ──────────────────────────── */
 
 export default function PainelSolicitacoesScreen() {
+    const { me } = useAuth();
+    const isAdmin = me?.isAdmin ?? false;
+
     const [rows, setRows] = useState<UnifiedRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [q, setQ] = useState("");
@@ -518,13 +522,17 @@ export default function PainelSolicitacoesScreen() {
                                     <TableCell className="text-sm">{formatDate(row.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1">
-                                            {row.etapaPendenteCanAssume && row.etapaPendenteCom && (
+                                            {(row.etapaPendenteCanAssume || (row.etapaPendenteIsQueue && isAdmin)) && (
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
                                                     className="gap-1 border-violet-400 text-violet-700 hover:bg-violet-50"
                                                     disabled={acting}
-                                                    title={`Assumir esta tarefa do grupo "${row.etapaPendenteCom}" para você`}
+                                                    title={
+                                                        row.etapaPendenteCom
+                                                            ? `Assumir esta tarefa do grupo "${row.etapaPendenteCom}" para você`
+                                                            : "Assumir esta tarefa (admin)"
+                                                    }
                                                     onClick={() => void doAssumir(row)}
                                                 >
                                                     <UserCheck className="size-3" />

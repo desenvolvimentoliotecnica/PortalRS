@@ -204,4 +204,65 @@ public sealed class ColaboradorController : ControllerBase
         var ok = await _service.DeleteAvatarAsync(GetFuncionarioId(), ct);
         return ok ? NoContent() : NotFound();
     }
+
+    // ── Histórico de Carreira ──
+
+    /// <summary>Retorna o histórico de movimentações de cargo do colaborador logado.</summary>
+    [HttpGet("historico-carreira")]
+    [ProducesResponseType(typeof(IReadOnlyList<HistoricoCarreiraItemResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetHistoricoCarreira(CancellationToken ct)
+    {
+        var fid = TryGetFuncionarioId();
+        if (fid is null) return Ok(Array.Empty<HistoricoCarreiraItemResponse>());
+        return Ok(await _service.GetHistoricoCarreiraAsync(fid.Value, ct));
+    }
+
+    // ── Dados Bancários ──
+
+    /// <summary>Retorna os dados bancários do colaborador logado.</summary>
+    [HttpGet("dados-bancarios")]
+    [ProducesResponseType(typeof(DadosBancariosResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDadosBancarios(CancellationToken ct)
+    {
+        var fid = TryGetFuncionarioId();
+        if (fid is null) return NotFound();
+        var result = await _service.GetDadosBancariosAsync(fid.Value, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>Cria ou atualiza os dados bancários do colaborador logado.</summary>
+    [HttpPut("dados-bancarios")]
+    [ProducesResponseType(typeof(DadosBancariosResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpsertDadosBancarios([FromBody] DadosBancariosUpsertRequest request, CancellationToken ct)
+    {
+        var result = await _service.UpsertDadosBancariosAsync(GetFuncionarioId(), request, ct);
+        return Ok(result);
+    }
+
+    // ── Holerites ──
+
+    /// <summary>Lista os holerites do colaborador logado, opcionalmente filtrado por ano.</summary>
+    [HttpGet("holerites")]
+    [ProducesResponseType(typeof(IReadOnlyList<HoleriteResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListHolerites([FromQuery] int? ano, CancellationToken ct)
+    {
+        var fid = TryGetFuncionarioId();
+        if (fid is null) return Ok(Array.Empty<HoleriteResponse>());
+        return Ok(await _service.ListHoleritesAsync(fid.Value, ano, ct));
+    }
+
+    /// <summary>Download de um holerite do colaborador logado.</summary>
+    [HttpGet("holerites/{id:guid}/download")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DownloadHolerite(Guid id, CancellationToken ct)
+    {
+        var fid = TryGetFuncionarioId();
+        if (fid is null) return NotFound();
+        var result = await _service.DownloadHoleriteAsync(fid.Value, id, ct);
+        if (result is null) return NotFound();
+        var (stream, contentType, fileName) = result.Value;
+        return File(stream, contentType, fileName);
+    }
 }

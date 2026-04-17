@@ -385,7 +385,7 @@ export default function UnidadeLotacaoCadastroScreen() {
     try {
       setSaving(true);
       const payload = {
-        cdnPlanoLotac: draft.cdnPlanoLotac,
+        cdnPlanoLotac: draft.cdnPlanoLotac.trim() || null,
         code: draft.code.trim(),
         description: draft.description.trim(),
         location: draft.location?.trim() || null,
@@ -729,6 +729,11 @@ export default function UnidadeLotacaoCadastroScreen() {
             <DialogDescription>Preencha os dados da unidade organizacional.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* Plano de Lotação */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Plano (TOTVS)</label>
+              <Input placeholder="Ex: 101" value={draft.cdnPlanoLotac} onChange={(e) => setDraft((d) => ({ ...d, cdnPlanoLotac: e.target.value }))} maxLength={10} />
+            </div>
             {/* Código */}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Código *</label>
@@ -740,7 +745,7 @@ export default function UnidadeLotacaoCadastroScreen() {
               />
             </div>
             {/* Descrição */}
-            <div>
+            <div className="sm:col-span-2">
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
               <Input placeholder="Ex: Matriz" value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} maxLength={120} />
             </div>

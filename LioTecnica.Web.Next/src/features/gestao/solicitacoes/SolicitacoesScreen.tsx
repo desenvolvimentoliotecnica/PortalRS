@@ -269,7 +269,8 @@ function SolicitacoesVagaContent() {
 
     /* ── filters ── */
     const [q, setQ] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
+    // "ativas" = padrão enterprise: mostra apenas itens que exigem ação/atenção
+    const [statusFilter, setStatusFilter] = useState("ativas");
     const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
         if (typeof window === "undefined") return "list";
         return (localStorage.getItem("renderrh.solicitacoes.viewMode") as "list" | "kanban") || "list";
@@ -351,10 +352,17 @@ function SolicitacoesVagaContent() {
     }, [syncList]);
 
     /* ── filtering ── */
+    const ATIVAS = new Set(["Rascunho", "PendenteAprovacao", "AjustesNecessarios", "PendenteAprovacaoRh", "0", "1", "4", "5"]);
+
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter((r) => {
-            if (statusFilter !== "all" && String(r.status) !== statusFilter) return false;
+            const s = String(r.status);
+            if (statusFilter === "ativas" && !ATIVAS.has(s)) return false;
+            if (statusFilter === "aprovadas" && s !== "Aprovada" && s !== "2") return false;
+            if (statusFilter === "reprovadas" && s !== "Reprovada" && s !== "3") return false;
+            if (statusFilter === "canceladas" && s !== "Cancelada" && s !== "6") return false;
+            // "todas" — sem filtro de status
             if (!term) return true;
             const blob = [r.titulo, r.solicitanteNome, r.areaName].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
@@ -631,39 +639,59 @@ function SolicitacoesVagaContent() {
 
             {/* ── filters + table ── */}
             <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
-                <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <div className="font-semibold">Minhas solicitações</div>
-                        <div className="text-muted-foreground text-sm">
-                            {loading ? "Carregando…" : `${filtered.length} solicitações`}
+                {/* ── Header + filtros ── */}
+                <div className="mb-3 space-y-3">
+                    {/* linha 1: título + busca + view toggle */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <div className="font-semibold">Minhas solicitações</div>
+                            <div className="text-muted-foreground text-sm">
+                                {loading ? "Carregando…" : `${filtered.length} solicitação${filtered.length !== 1 ? "ões" : ""}`}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="relative min-w-[200px]">
+                                <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    className="pl-9 h-8"
+                                    placeholder="Buscar título, área…"
+                                    value={q}
+                                    onChange={(e) => setQ(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex items-center rounded-md border border-input bg-background p-0.5">
+                                <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista"><List className="size-3.5" /></button>
+                                <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban"><Columns3 className="size-3.5" /></button>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative min-w-[220px] flex-1">
-                            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                className="pl-9"
-                                placeholder="Buscar título, área…"
-                                value={q}
-                                onChange={(e) => setQ(e.target.value)}
-                            />
-                        </div>
-                        <select
-                            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                            <option value="all">Todos status</option>
-                            <option value="Rascunho">Rascunho</option>
-                            <option value="PendenteAprovacao">Pendente</option>
-                            <option value="Aprovada">Aprovada</option>
-                            <option value="Reprovada">Reprovada</option>
-                        </select>
-                        <div className="flex items-center rounded-md border border-input bg-background p-0.5">
-                            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista"><List className="size-3.5" /></button>
-                            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban"><Columns3 className="size-3.5" /></button>
-                        </div>
-                    </div>
+
+                    {/* linha 2: chips de filtro por status */}
+                    {(() => {
+                        const chips = [
+                            { key: "ativas",     label: "Ativas",      count: rows.filter(r => ATIVAS.has(String(r.status))).length,                                          cls: "bg-amber-500/10 text-amber-700 border-amber-300 data-[active=true]:bg-amber-500 data-[active=true]:text-white data-[active=true]:border-amber-500" },
+                            { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => String(r.status) === "Aprovada"  || String(r.status) === "2").length,           cls: "bg-emerald-500/10 text-emerald-700 border-emerald-300 data-[active=true]:bg-emerald-600 data-[active=true]:text-white data-[active=true]:border-emerald-600" },
+                            { key: "reprovadas", label: "Reprovadas",  count: rows.filter(r => String(r.status) === "Reprovada" || String(r.status) === "3").length,           cls: "bg-red-500/10 text-red-700 border-red-300 data-[active=true]:bg-red-600 data-[active=true]:text-white data-[active=true]:border-red-600" },
+                            { key: "canceladas", label: "Canceladas",  count: rows.filter(r => String(r.status) === "Cancelada" || String(r.status) === "6").length,           cls: "bg-zinc-500/10 text-zinc-600 border-zinc-300 data-[active=true]:bg-zinc-600 data-[active=true]:text-white data-[active=true]:border-zinc-600" },
+                            { key: "todas",      label: "Todas",       count: rows.length,                                                                                     cls: "bg-muted text-muted-foreground border-border data-[active=true]:bg-foreground data-[active=true]:text-background data-[active=true]:border-foreground" },
+                        ] as const;
+                        return (
+                            <div className="flex flex-wrap gap-1.5">
+                                {chips.map(c => (
+                                    <button
+                                        key={c.key}
+                                        type="button"
+                                        data-active={statusFilter === c.key}
+                                        onClick={() => setStatusFilter(c.key)}
+                                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-medium transition-all ${c.cls}`}
+                                    >
+                                        {c.label}
+                                        <span className="rounded-full bg-black/10 px-1.5 py-px text-[10px] font-semibold tabular-nums">{c.count}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {viewMode === "list" ? (
@@ -785,7 +813,9 @@ function SolicitacoesVagaContent() {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                                    Nenhuma solicitação ainda. Crie sua primeira solicitação de vaga para iniciar o processo.
+                                    {statusFilter === "ativas"
+                                        ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
+                                        : "Nenhuma solicitação encontrada para o filtro selecionado."}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -1012,8 +1042,14 @@ function SolicitacoesVagaContent() {
 
                             {detail.observacaoAprovador && (
                                 <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Observação do Aprovador</div>
-                                    <div className="mt-1 text-sm rounded-md bg-amber-500/10 p-3 border border-amber-500/20">
+                                    <div className="text-xs text-muted-foreground uppercase">
+                                        {detail.status === 3 || detail.status === "Reprovada" ? "Motivo da Recusa" : "Observação do Aprovador"}
+                                    </div>
+                                    <div className={`mt-1 text-sm rounded-md p-3 border ${
+                                        detail.status === 3 || detail.status === "Reprovada"
+                                            ? "bg-red-500/10 border-red-500/30 text-red-800 dark:text-red-300"
+                                            : "bg-amber-500/10 border-amber-500/20"
+                                    }`}>
                                         {detail.observacaoAprovador}
                                     </div>
                                 </div>

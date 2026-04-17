@@ -143,11 +143,19 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
     public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
+    public DbSet<ApprovalMagicLink> ApprovalMagicLinks => Set<ApprovalMagicLink>();
+    public DbSet<TemplateEntrevistaSaida> TemplatesEntrevistaSaida => Set<TemplateEntrevistaSaida>();
+    public DbSet<PerguntaEntrevistaSaida> PerguntasEntrevistaSaida => Set<PerguntaEntrevistaSaida>();
+    public DbSet<EntrevistaSaida> EntrevistasSaida => Set<EntrevistaSaida>();
+    public DbSet<RespostaEntrevistaSaida> RespostasEntrevistaSaida => Set<RespostaEntrevistaSaida>();
     public DbSet<AprovadorAlternativo> AprovadoresAlternativos => Set<AprovadorAlternativo>();
+    public DbSet<DocumentacaoPadraoConfig> DocumentacaoPadraoConfigs => Set<DocumentacaoPadraoConfig>();
     public DbSet<WorkflowRH> WorkflowsRH => Set<WorkflowRH>();
     public DbSet<EtapaWorkflowRH> EtapasWorkflowRH => Set<EtapaWorkflowRH>();
     public DbSet<EtapaConfigWorkflowRH> EtapasConfigWorkflowRH => Set<EtapaConfigWorkflowRH>();
     public DbSet<HistoricoAlteracaoWorkflowRH> HistoricosAlteracaoWorkflowRH => Set<HistoricoAlteracaoWorkflowRH>();
+    public DbSet<DadosBancarios> DadosBancarios => Set<DadosBancarios>();
+    public DbSet<Holerite> Holerites => Set<Holerite>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1805,6 +1813,73 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<ApprovalMagicLink>(b =>
+        {
+            b.ToTable("ApprovalMagicLinks");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Token).HasMaxLength(64).IsRequired();
+            b.Property(x => x.IpAddress).HasMaxLength(45);
+            b.Property(x => x.UserAgent).HasMaxLength(512);
+            b.HasIndex(x => new { x.TenantId, x.Token }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<TemplateEntrevistaSaida>(b =>
+        {
+            b.ToTable("TemplatesEntrevistaSaida");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(120).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.Ativo });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<PerguntaEntrevistaSaida>(b =>
+        {
+            b.ToTable("PerguntasEntrevistaSaida");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Texto).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Opcoes).HasMaxLength(1000);
+            b.HasOne(x => x.Template)
+                .WithMany(t => t.Perguntas)
+                .HasForeignKey(x => x.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.TemplateId, x.Ordem });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EntrevistaSaida>(b =>
+        {
+            b.ToTable("EntrevistasSaida");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Token).HasMaxLength(64).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.Token }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.DesligamentoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RespostaEntrevistaSaida>(b =>
+        {
+            b.ToTable("RespostasEntrevistaSaida");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ValorTexto).HasMaxLength(2000);
+            b.Property(x => x.ValorOpcao).HasMaxLength(200);
+            b.HasOne(x => x.Entrevista)
+                .WithMany(e => e.Respostas)
+                .HasForeignKey(x => x.EntrevistaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Pergunta)
+                .WithMany()
+                .HasForeignKey(x => x.PerguntaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.TenantId, x.EntrevistaId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<AprovadorAlternativo>(b =>
         {
             b.ToTable("AprovadoresAlternativos");
@@ -1813,6 +1888,17 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Gestor).WithMany().HasForeignKey(x => x.GestorId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.Aprovador).WithMany().HasForeignKey(x => x.AprovadorId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(x => new { x.TenantId, x.GestorId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<DocumentacaoPadraoConfig>(b =>
+        {
+            b.ToTable("DocumentacaoPadraoConfigs");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TipoDocumento).IsRequired();
+            b.Property(x => x.Configuracao).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.TipoDocumento }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

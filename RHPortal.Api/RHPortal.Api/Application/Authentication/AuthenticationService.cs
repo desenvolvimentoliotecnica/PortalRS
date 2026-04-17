@@ -58,7 +58,7 @@ public sealed class AuthenticationService
         if (!validPassword) return null;
 
         var roleNames = await _userManager.GetRolesAsync(user);
-        var roleEntities = await _roleManager.Roles.Where(r => roleNames.Contains(r.Name)).ToListAsync(ct);
+        var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
 
         // DEBUG
@@ -99,7 +99,7 @@ public sealed class AuthenticationService
         if (user is null) return null;
 
         var roleNames = await _userManager.GetRolesAsync(user);
-        var roleEntities = await _roleManager.Roles.Where(r => roleNames.Contains(r.Name)).ToListAsync(ct);
+        var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var areaId = user.Funcionario?.AreaId;
@@ -129,7 +129,7 @@ public sealed class AuthenticationService
         if (user is null || !user.IsActive) return null;
 
         var roleNames = await _userManager.GetRolesAsync(user);
-        var roleEntities = await _roleManager.Roles.Where(r => roleNames.Contains(r.Name)).ToListAsync(ct);
+        var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         return CreateJwtToken(user, roleNames, permissions, tenantId, visibilityScope, vagasDataScope, accessMode);
@@ -159,7 +159,7 @@ public sealed class AuthenticationService
             return null;
 
         var roleNames = await _userManager.GetRolesAsync(userWithFuncionario);
-        var roleEntities = await _roleManager.Roles.Where(r => roleNames.Contains(r.Name)).ToListAsync(ct);
+        var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(userWithFuncionario, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);

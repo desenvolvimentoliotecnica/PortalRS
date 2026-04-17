@@ -96,7 +96,34 @@ public sealed class SolicitacaoVaga : ITenantEntity
     /// <summary>Escala de trabalho (ex: Comercial, Turno A/B, 12x36).</summary>
     public string? EscalaTrabalho { get; set; }
 
+    // ── Decisão RH pós-aprovação (VagaNova) ──
+
+    /// <summary>Decisão do RH: substituição provisória ou aumento definitivo de headcount.</summary>
+    public TipoDecisaoHeadcount? DecisaoRH { get; set; }
+
+    /// <summary>Funcionário do RH que tomou a decisão.</summary>
+    public Guid? DecisaoRHRevisadoPorId { get; set; }
+    public Funcionario? DecisaoRHRevisadoPor { get; set; }
+
+    /// <summary>Data/hora em que o RH tomou a decisão.</summary>
+    public DateTimeOffset? DecisaoRHEmUtc { get; set; }
+
+    /// <summary>Prazo em meses para a substituição provisória (quando DecisaoRH = SubstituicaoProvisoria).</summary>
+    public int? DecisaoRHPrazoMeses { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public DateTimeOffset? ApprovedAtUtc { get; set; }
+
+    // ── Integração TOTVS ──
+
+    public IntegracaoResultado? IntegracaoResultado { get; set; }
+
+    [System.ComponentModel.DataAnnotations.StringLength(2000)]
+    public string? IntegracaoMensagem { get; set; }
+
+    public DateTimeOffset? IntegradaEmUtc { get; set; }
+
+    public int TentativasIntegracao { get; set; }
+    public DateTimeOffset? UltimaTentativaUtc { get; set; }
 }

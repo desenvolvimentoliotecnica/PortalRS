@@ -17,7 +17,7 @@ public interface IPreAdmissaoService
     Task<IReadOnlyList<PreAdmissaoGridRow>> ListAsync(PreAdmissaoListQuery query, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<PreAdmissaoDetailResponse> CreateAsync(PreAdmissaoCreateRequest request, CancellationToken ct);
-    Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest request, CancellationToken ct);
+    Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest request, bool isPrivileged, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> SubmitAsync(Guid id, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> ApproveAsync(Guid id, Guid aprovadorId, PreAdmissaoApproveRequest request, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> RejectAsync(Guid id, PreAdmissaoRejectRequest request, CancellationToken ct);
@@ -49,6 +49,13 @@ public interface IPreAdmissaoService
     /// Cria pré-admissão em Rascunho pré-preenchida com os dados básicos do candidato.
     /// </summary>
     Task<PreAdmissaoDetailResponse> IniciarManualAsync(IniciarManualRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Chamado pelo webhook do TOTVS quando a admissão é confirmada (Sucesso).
+    /// Cria o Funcionario a partir dos dados da PreAdmissão e marca FuncionarioIdMaterializado.
+    /// É idempotente: chamadas repetidas são no-op.
+    /// </summary>
+    Task MaterializarFuncionarioAsync(Guid preAdmissaoId, string? cdnFuncionario, CancellationToken ct);
 }
 
 public sealed class PreAdmissaoService : IPreAdmissaoService
@@ -160,12 +167,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     // ── Update ──
 
-    public async Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest r, CancellationToken ct)
+    public async Task<PreAdmissaoDetailResponse?> UpdateAsync(Guid id, PreAdmissaoUpdateRequest r, bool isPrivileged, CancellationToken ct)
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.Enviado)
-            throw new InvalidOperationException("Só é possível editar pré-admissões em rascunho.");
+
+        var isDraft = e.Status == PreAdmissaoStatus.Rascunho || e.Status == PreAdmissaoStatus.Enviado;
+        var isPostFill = e.Status is PreAdmissaoStatus.Acessado or PreAdmissaoStatus.PreenchidoParcial or PreAdmissaoStatus.Preenchido;
+
+        if (!isDraft && !(isPostFill && isPrivileged))
+            throw new InvalidOperationException("Não é possível editar uma admissão neste status.");
 
         // Pessoal
         e.Nome = r.Nome.Trim();
@@ -312,8 +323,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.Rascunho && e.Status != PreAdmissaoStatus.Enviado)
-            throw new InvalidOperationException("Só rascunhos podem ser submetidos.");
+        var submissíveis = new[]
+        {
+            PreAdmissaoStatus.Rascunho,
+            PreAdmissaoStatus.Enviado,
+            PreAdmissaoStatus.Acessado,
+            PreAdmissaoStatus.PreenchidoParcial,
+            PreAdmissaoStatus.Preenchido,
+        };
+        if (!submissíveis.Contains(e.Status))
+            throw new InvalidOperationException("Não é possível submeter uma admissão neste status.");
 
         // Run validations
         e.ValidacaoCpfOk = ValidarCpf(e.Cpf);
@@ -366,31 +385,33 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        // ── Auto-create User + Funcionario ──
+        // ── Auto-create ApplicationUser (candidato precisa acessar o portal enquanto aguarda TOTVS) ──
+        // O Funcionario é criado DEPOIS, quando o TOTVS confirma a integração via webhook (MaterializarFuncionarioAsync).
         try
         {
-            await CriarColaboradorAsync(e, ct);
+            await CriarUsuarioAsync(e, ct);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha ao criar colaborador automaticamente para PreAdmissão {Id}. A aprovação foi concluída, mas o colaborador precisa ser criado manualmente.", id);
+            _logger.LogWarning(ex, "Falha ao criar usuário automaticamente para PreAdmissão {Id}. A aprovação foi concluída, mas o acesso ao portal precisa ser criado manualmente.", id);
         }
 
         return await GetByIdAsync(id, ct);
     }
 
-    /// <summary>Creates ApplicationUser + Funcionario from approved PreAdmissão.</summary>
-    private async Task CriarColaboradorAsync(Domain.Entities.PreAdmissao pa, CancellationToken ct)
+    /// <summary>
+    /// Cria o ApplicationUser para o candidato aprovado.
+    /// Chamado em ApproveAsync para dar acesso imediato ao portal.
+    /// O Funcionario só é criado após TOTVS confirmar (MaterializarFuncionarioAsync).
+    /// </summary>
+    private async Task CriarUsuarioAsync(Domain.Entities.PreAdmissao pa, CancellationToken ct)
     {
-        // Skip if no email
         var email = pa.Email?.Trim();
         if (string.IsNullOrWhiteSpace(email)) return;
 
-        // Check if user already exists
         var existing = await _userManager.FindByEmailAsync(email);
         if (existing is not null) return;
 
-        // Temporary password: first 4 CPF digits + random suffix for uniqueness
         var cpfDigits = (pa.Cpf ?? "").Replace(".", "").Replace("-", "").PadRight(4, '0')[..4];
         var rand = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(6))
             .Replace("+", "A").Replace("/", "B").Replace("=", "C")[..6];
@@ -406,7 +427,52 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         var result = await _userManager.CreateAsync(user, tempPassword);
         if (!result.Succeeded) return;
 
-        // Create Funcionario
+        try
+        {
+            await _emailQueue.EnqueueRawAsync(
+                to: email,
+                subject: "Bem-vindo ao RenderRH — seu acesso foi criado",
+                bodyHtml: $"""
+                    <p>Olá, <strong>{pa.Nome}</strong>!</p>
+                    <p>Sua admissão foi aprovada e seu acesso ao sistema foi criado.</p>
+                    <p><strong>Senha temporária:</strong> <code>{tempPassword}</code></p>
+                    <p>Por segurança, altere sua senha no primeiro acesso.</p>
+                    <p>Seu cadastro completo no sistema será finalizado após confirmação da integração com o ERP.</p>
+                    """,
+                bodyText: $"Olá {pa.Nome}! Sua admissão foi aprovada. Senha temporária: {tempPassword}. Altere no primeiro acesso.",
+                isSystem: true,
+                source: "PreAdmissao.CriarUsuario",
+                ct: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao enfileirar email de boas-vindas para {Email}", email);
+        }
+    }
+
+    /// <summary>
+    /// Materializa o Funcionario a partir da PreAdmissão após TOTVS confirmar a integração.
+    /// É idempotente: se FuncionarioIdMaterializado já estiver preenchido, retorna sem fazer nada.
+    /// </summary>
+    public async Task MaterializarFuncionarioAsync(Guid preAdmissaoId, string? cdnFuncionario, CancellationToken ct)
+    {
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
+            .Include(x => x.Dependentes)
+            .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct);
+        if (pa is null) return;
+
+        // Idempotência
+        if (pa.FuncionarioIdMaterializado.HasValue) return;
+
+        // Encontrar ApplicationUser criado na aprovação (pelo email)
+        Guid? userId = null;
+        var email = pa.Email?.Trim();
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            userId = user?.Id;
+        }
+
         var func = new Funcionario
         {
             Id = Guid.NewGuid(),
@@ -415,21 +481,20 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Email = email,
             Phone = pa.Celular ?? pa.Telefone,
             Status = FuncionarioStatus.Active,
-            UserId = user.Id,
+            UserId = userId,
             UnitId = pa.UnitId,
             AreaId = pa.AreaId,
             JobPositionId = pa.JobPositionId,
             RequisitoCategoriaId = pa.RequisitoCategoriaId,
+            CdnFuncionario = cdnFuncionario,
+            CdnEmpresa = pa.CodEmpresa,
+            CdnEstab = pa.EstabelecimentoCodigo,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
         _db.Set<Funcionario>().Add(func);
 
-        // Migrar dependentes da pré-admissão para o novo funcionário
-        var preDeps = await _db.Set<PreAdmissaoDependente>()
-            .Where(x => x.PreAdmissaoId == pa.Id)
-            .ToListAsync(ct);
-        foreach (var pd in preDeps)
+        foreach (var pd in pa.Dependentes)
         {
             _db.Set<Dependente>().Add(new Dependente
             {
@@ -446,30 +511,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             });
         }
 
+        pa.FuncionarioIdMaterializado = func.Id;
+        pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
         await _db.SaveChangesAsync(ct);
 
-        // Notificar o novo colaborador por email
-        try
-        {
-            await _emailQueue.EnqueueRawAsync(
-                to: email,
-                subject: "Bem-vindo ao RenderRH — seu acesso foi criado",
-                bodyHtml: $"""
-                    <p>Olá, <strong>{pa.Nome}</strong>!</p>
-                    <p>Sua admissão foi aprovada e seu acesso ao sistema foi criado.</p>
-                    <p><strong>Senha temporária:</strong> <code>{tempPassword}</code></p>
-                    <p>Por segurança, altere sua senha no primeiro acesso.</p>
-                    """,
-                bodyText: $"Olá {pa.Nome}! Sua admissão foi aprovada. Senha temporária: {tempPassword}. Altere no primeiro acesso.",
-                isSystem: true,
-                source: "PreAdmissao.CriarColaborador",
-                ct: ct);
-        }
-        catch (Exception ex)
-        {
-            // Não bloquear o fluxo se o email falhar — só logar
-            _logger.LogWarning(ex, "Falha ao enfileirar email de boas-vindas para {Email}", email);
-        }
+        _logger.LogInformation(
+            "Funcionário materializado para PreAdmissão {PreAdmissaoId}: FuncionarioId={FuncionarioId}, CdnFuncionario={CdnFuncionario}",
+            preAdmissaoId, func.Id, cdnFuncionario);
     }
 
     // ── Reject ──
@@ -814,23 +863,46 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);
 
-        // Auto-criar documentos solicitados por tipo de contratação
-        var docsTipo = entity.TipoContratacao switch
+        // Carrega configuração padrão do tenant; se não houver, usa lista hardcoded por tipo de contratação
+        var configsPadrao = await _db.Set<DocumentacaoPadraoConfig>()
+            .Where(c => c.Configuracao != 2)
+            .ToListAsync(ct);
+
+        if (configsPadrao.Count > 0)
         {
-            TipoContratacaoAdmissao.PJ => new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas },
-            _ => new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario },
-        };
-        foreach (var tipo in docsTipo)
-        {
-            _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+            foreach (var config in configsPadrao)
             {
-                Id = Guid.NewGuid(),
-                TenantId = _tenantContext.TenantId,
-                PreAdmissaoId = entity.Id,
-                TipoDocumento = tipo,
-                Obrigatorio = true,
-                CreatedAtUtc = DateTimeOffset.UtcNow,
-            });
+                _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId,
+                    PreAdmissaoId = entity.Id,
+                    TipoDocumento = (TipoDocumento)config.TipoDocumento,
+                    Obrigatorio = config.Configuracao == 0,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                });
+            }
+        }
+        else
+        {
+            // Fallback: lista padrão por tipo de contratação
+            var docsTipo = entity.TipoContratacao switch
+            {
+                TipoContratacaoAdmissao.PJ => new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas },
+                _ => new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario },
+            };
+            foreach (var tipo in docsTipo)
+            {
+                _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId,
+                    PreAdmissaoId = entity.Id,
+                    TipoDocumento = tipo,
+                    Obrigatorio = true,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                });
+            }
         }
         await _db.SaveChangesAsync(ct);
 

@@ -215,12 +215,22 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             Label = r.Label,
             AprovadorId = r.AprovadorId,
             RoleFilaId = r.RoleFilaId,
+            AcaoEtapa = r.AcaoEtapa,
+            MomentoAcao = r.MomentoAcao,
             Status = StatusAprovacao.Pendente,
         }).ToList();
 
         _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
 
+        // Auto-avança etapas de processo no início do fluxo
         var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
+        while (primeiraEtapa is not null && IsProcessoStep(primeiraEtapa))
+        {
+            ExecutarAcaoEtapa(primeiraEtapa.AcaoEtapa, entity);
+            primeiraEtapa.Status = StatusAprovacao.Aprovado;
+            primeiraEtapa.DataUtc = DateTimeOffset.UtcNow;
+            primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault(e => e.Ordem > primeiraEtapa.Ordem);
+        }
 
         await _db.SaveChangesAsync(ct);
 
@@ -272,6 +282,13 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             .ToListAsync(ct);
 
         var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
+        while (proximaEtapa is not null && IsProcessoStep(proximaEtapa))
+        {
+            ExecutarAcaoEtapa(proximaEtapa.AcaoEtapa, entity);
+            proximaEtapa.Status = StatusAprovacao.Aprovado;
+            proximaEtapa.DataUtc = DateTimeOffset.UtcNow;
+            proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
+        }
 
         if (proximaEtapa is not null)
         {
@@ -413,6 +430,18 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
+    }
+
+    private static bool IsProcessoStep(SolicitacaoAprovacaoEtapa e) =>
+        e.AprovadorId == null && e.RoleFilaId == null && e.AcaoEtapa != AcaoEtapa.Nenhuma;
+
+    private static void ExecutarAcaoEtapa(AcaoEtapa acao, SolicitacaoFerias entity)
+    {
+        if (acao == AcaoEtapa.EnviarIntegracao)
+        {
+            entity.Status = SolicitacaoStatus.Aprovada;
+            entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+        }
     }
 
     private static SolicitacaoFeriasResponse MapToResponse(

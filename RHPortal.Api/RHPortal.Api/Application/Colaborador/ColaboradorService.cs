@@ -26,6 +26,19 @@ public interface IColaboradorService
     Task<string?> UploadAvatarAsync(Guid funcionarioId, string fileName, string contentType, Stream stream, CancellationToken ct);
     Task<(Stream stream, string contentType, string fileName)?> GetAvatarAsync(Guid funcionarioId, CancellationToken ct);
     Task<bool> DeleteAvatarAsync(Guid funcionarioId, CancellationToken ct);
+
+    // ── Histórico de Carreira ──
+    Task<IReadOnlyList<HistoricoCarreiraItemResponse>> GetHistoricoCarreiraAsync(Guid funcionarioId, CancellationToken ct);
+
+    // ── Dados Bancários ──
+    Task<DadosBancariosResponse?> GetDadosBancariosAsync(Guid funcionarioId, CancellationToken ct);
+    Task<DadosBancariosResponse> UpsertDadosBancariosAsync(Guid funcionarioId, DadosBancariosUpsertRequest request, CancellationToken ct);
+
+    // ── Holerites ──
+    Task<IReadOnlyList<HoleriteResponse>> ListHoleritesAsync(Guid funcionarioId, int? ano, CancellationToken ct);
+    Task<(Stream stream, string contentType, string fileName)?> DownloadHoleriteAsync(Guid funcionarioId, Guid holeriteId, CancellationToken ct);
+    Task<HoleriteResponse> UploadHoleriteRhAsync(Guid funcionarioIdAlvo, Guid enviadoPorId, int mes, int ano, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
+    Task<bool> DeleteHoleriteAsync(Guid holeriteId, CancellationToken ct);
 }
 
 public sealed class ColaboradorService : IColaboradorService
@@ -69,7 +82,7 @@ public sealed class ColaboradorService : IColaboradorService
     private static ColaboradorPerfilResponse MapPerfil(Funcionario f) => new(
         f.Id,
         f.Name,
-        f.Email,
+        f.Email ?? string.Empty,
         f.Phone,
         f.Area?.Name,
         f.Unit?.Name,
@@ -252,6 +265,161 @@ public sealed class ColaboradorService : IColaboradorService
 
         func.AvatarFileName = null;
         func.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    // ── Histórico de Carreira ──
+
+    public async Task<IReadOnlyList<HistoricoCarreiraItemResponse>> GetHistoricoCarreiraAsync(Guid funcionarioId, CancellationToken ct)
+    {
+        var list = await _db.OcupacoesHistorico.AsNoTracking()
+            .Include(h => h.Vaga)
+                .ThenInclude(v => v!.JobPosition)
+            .Include(h => h.Vaga)
+                .ThenInclude(v => v!.Area)
+            .Where(h => h.FuncionarioId == funcionarioId && h.TenantId == _tenantContext.TenantId)
+            .OrderByDescending(h => h.DataEntrada)
+            .ToListAsync(ct);
+
+        return list.Select(h => new HistoricoCarreiraItemResponse(
+            h.Id,
+            h.Vaga?.Titulo,
+            h.Vaga?.JobPosition?.Description,
+            h.Vaga?.Area?.Description,
+            h.DataEntrada,
+            h.DataSaida,
+            h.MotivoSaida?.ToString(),
+            h.IsProvisorio
+        )).ToList();
+    }
+
+    // ── Dados Bancários ──
+
+    public async Task<DadosBancariosResponse?> GetDadosBancariosAsync(Guid funcionarioId, CancellationToken ct)
+    {
+        var db = await _db.DadosBancarios.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.FuncionarioId == funcionarioId && x.TenantId == _tenantContext.TenantId, ct);
+        if (db is null) return null;
+        return new DadosBancariosResponse(db.Id, db.Banco, db.Agencia, db.Conta, db.TipoConta, db.Pix, db.UpdatedAtUtc);
+    }
+
+    public async Task<DadosBancariosResponse> UpsertDadosBancariosAsync(Guid funcionarioId, DadosBancariosUpsertRequest request, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var entity = await _db.DadosBancarios
+            .FirstOrDefaultAsync(x => x.FuncionarioId == funcionarioId && x.TenantId == _tenantContext.TenantId, ct);
+
+        if (entity is null)
+        {
+            entity = new DadosBancarios
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId,
+                FuncionarioId = funcionarioId,
+                CreatedAtUtc = now
+            };
+            _db.DadosBancarios.Add(entity);
+        }
+
+        entity.Banco = request.Banco;
+        entity.Agencia = request.Agencia;
+        entity.Conta = request.Conta;
+        entity.TipoConta = request.TipoConta;
+        entity.Pix = request.Pix;
+        entity.UpdatedAtUtc = now;
+
+        await _db.SaveChangesAsync(ct);
+        return new DadosBancariosResponse(entity.Id, entity.Banco, entity.Agencia, entity.Conta, entity.TipoConta, entity.Pix, entity.UpdatedAtUtc);
+    }
+
+    // ── Holerites ──
+
+    private string HoleritesDir(string tenantId) =>
+        Path.Combine("wwwroot", "holerites", tenantId);
+
+    public async Task<IReadOnlyList<HoleriteResponse>> ListHoleritesAsync(Guid funcionarioId, int? ano, CancellationToken ct)
+    {
+        var q = _db.Holerites.AsNoTracking()
+            .Include(h => h.EnviadoPor)
+            .Where(h => h.FuncionarioId == funcionarioId && h.TenantId == _tenantContext.TenantId);
+        if (ano.HasValue) q = q.Where(h => h.AnoReferencia == ano.Value);
+        var list = await q.OrderByDescending(h => h.AnoReferencia).ThenByDescending(h => h.MesReferencia).ToListAsync(ct);
+        return list.Select(h => new HoleriteResponse(
+            h.Id, h.MesReferencia, h.AnoReferencia, h.ArquivoNome, h.TamanhoBytes,
+            h.EnviadoPorId, h.EnviadoPor?.Name, h.EnviadoEmUtc)).ToList();
+    }
+
+    public async Task<(Stream stream, string contentType, string fileName)?> DownloadHoleriteAsync(Guid funcionarioId, Guid holeriteId, CancellationToken ct)
+    {
+        var h = await _db.Holerites.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == holeriteId && x.FuncionarioId == funcionarioId && x.TenantId == _tenantContext.TenantId, ct);
+        if (h is null) return null;
+
+        var fullPath = Path.Combine(HoleritesDir(_tenantContext.TenantId), h.ArquivoPath);
+        if (!File.Exists(fullPath)) return null;
+
+        return (File.OpenRead(fullPath), "application/pdf", h.ArquivoNome);
+    }
+
+    public async Task<HoleriteResponse> UploadHoleriteRhAsync(
+        Guid funcionarioIdAlvo, Guid enviadoPorId,
+        int mes, int ano,
+        string nomeArquivo, string contentType, long tamanho, Stream stream,
+        CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var dir = HoleritesDir(_tenantContext.TenantId);
+        Directory.CreateDirectory(dir);
+
+        var storedName = $"{funcionarioIdAlvo}_{ano}_{mes:D2}_{Guid.NewGuid():N}.pdf";
+        var fullPath = Path.Combine(dir, storedName);
+        using (var fs = File.Create(fullPath))
+        {
+            await stream.CopyToAsync(fs, ct);
+        }
+
+        // Remove holerite anterior do mesmo mês/ano se existir
+        var existing = await _db.Holerites
+            .FirstOrDefaultAsync(h => h.FuncionarioId == funcionarioIdAlvo
+                && h.TenantId == _tenantContext.TenantId
+                && h.AnoReferencia == ano && h.MesReferencia == mes, ct);
+        if (existing is not null)
+        {
+            var oldPath = Path.Combine(dir, existing.ArquivoPath);
+            if (File.Exists(oldPath)) File.Delete(oldPath);
+            _db.Holerites.Remove(existing);
+        }
+
+        var entity = new Holerite
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            FuncionarioId = funcionarioIdAlvo,
+            MesReferencia = mes,
+            AnoReferencia = ano,
+            ArquivoPath = storedName,
+            ArquivoNome = nomeArquivo,
+            TamanhoBytes = tamanho,
+            EnviadoPorId = enviadoPorId,
+            EnviadoEmUtc = now,
+            CreatedAtUtc = now
+        };
+        _db.Holerites.Add(entity);
+        await _db.SaveChangesAsync(ct);
+
+        return new HoleriteResponse(entity.Id, mes, ano, nomeArquivo, tamanho, enviadoPorId, null, now);
+    }
+
+    public async Task<bool> DeleteHoleriteAsync(Guid holeriteId, CancellationToken ct)
+    {
+        var h = await _db.Holerites.FirstOrDefaultAsync(x => x.Id == holeriteId && x.TenantId == _tenantContext.TenantId, ct);
+        if (h is null) return false;
+
+        var fullPath = Path.Combine(HoleritesDir(_tenantContext.TenantId), h.ArquivoPath);
+        if (File.Exists(fullPath)) File.Delete(fullPath);
+
+        _db.Holerites.Remove(h);
         await _db.SaveChangesAsync(ct);
         return true;
     }

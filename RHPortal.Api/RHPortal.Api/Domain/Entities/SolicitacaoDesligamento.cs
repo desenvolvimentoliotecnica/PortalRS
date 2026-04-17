@@ -77,4 +77,7 @@ public sealed class SolicitacaoDesligamento : ITenantEntity
     public string? IntegracaoMensagem { get; set; }
 
     public DateTimeOffset? IntegradaEmUtc { get; set; }
+
+    public int TentativasIntegracao { get; set; }
+    public DateTimeOffset? UltimaTentativaUtc { get; set; }
 }
