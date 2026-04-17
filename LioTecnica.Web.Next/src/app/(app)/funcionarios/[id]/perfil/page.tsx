@@ -1,19 +1,9 @@
-"use client";
-
-import { use } from "react";
-import { AuthGuard } from "@/hooks/useAuth";
-import FuncionarioPerfil360Screen from "@/features/funcionarios/perfil/FuncionarioPerfil360Screen";
+import FuncionarioPerfilPageClient from "./FuncionarioPerfilPageClient";
 
 export function generateStaticParams() {
-    return [];
+    return [{ id: "__" }];
 }
 
-export default function FuncionarioPerfilPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
-
-    return (
-        <AuthGuard>
-            <FuncionarioPerfil360Screen id={id} />
-        </AuthGuard>
-    );
+export default function Page() {
+    return <FuncionarioPerfilPageClient />;
 }
