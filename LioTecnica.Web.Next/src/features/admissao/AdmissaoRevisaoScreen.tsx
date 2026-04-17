@@ -81,6 +81,7 @@ interface PreAdmissao {
     categoriaSalarial: number | null;
     grauInstrucao: number | null;
     codTurno: number | null;
+    tipoEstatistica: number | null;
     centroCusto: string | null;
     unidadeLotacao: string | null;
     tituloEleitorNumero: string | null;
@@ -364,6 +365,7 @@ export default function AdmissaoRevisaoScreen() {
                         <Info label="Cargo TOTVS" value={data.codCargoTotvs != null ? String(data.codCargoTotvs) : null} />
                         <Info label="Vínculo" value={data.codVinculoEmpregaticio != null ? String(data.codVinculoEmpregaticio) : null} />
                         <Info label="Tipo Func." value={data.tipoFuncionario != null ? String(data.tipoFuncionario) : null} />
+                        <Info label="Tipo Estatística" value={data.tipoEstatistica != null ? String(data.tipoEstatistica) : null} />
                         <Info label="Cat. Salarial" value={data.categoriaSalarial != null ? String(data.categoriaSalarial) : null} />
                         <Info label="Grau Instrução" value={data.grauInstrucao != null ? String(data.grauInstrucao) : null} />
                         <Info label="Turno" value={data.codTurno != null ? String(data.codTurno) : null} />

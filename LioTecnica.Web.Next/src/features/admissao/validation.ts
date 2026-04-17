@@ -31,6 +31,7 @@ export interface PreAdmissaoFormLike {
   codCargoTotvs?: number | null;
   codVinculoEmpregaticio?: number | null;
   tipoFuncionario?: number | null;
+  tipoEstatistica?: number | null;
   estabelecimentoCodigo?: string | null;
   centroCusto?: string | null;
   unidadeLotacao?: string | null;
@@ -73,6 +74,7 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (isBlank(form.codCargoTotvs)) errors.push({ field: "codCargoTotvs", label: "Cargo TOTVS", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o cargo TOTVS." });
   if (isBlank(form.codVinculoEmpregaticio)) errors.push({ field: "codVinculoEmpregaticio", label: "Vínculo Empregatício", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o vínculo empregatício." });
   if (isBlank(form.tipoFuncionario)) errors.push({ field: "tipoFuncionario", label: "Tipo Funcionário", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de funcionário." });
+  if (isBlank(form.tipoEstatistica)) errors.push({ field: "tipoEstatistica", label: "Tipo Estatística", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de estatística." });
   if (isBlank(form.cargaHorariaSemanal)) errors.push({ field: "cargaHorariaSemanal", label: "Carga Horária Semanal", stepIndex: STEP_INDEX.trabalhista, message: "Informe a carga horária semanal." });
 
   // Regra existente (já no UI): se salário fora da faixa, justificativa obrigatória.
