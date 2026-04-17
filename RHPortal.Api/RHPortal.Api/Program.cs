@@ -271,6 +271,8 @@ builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<EmailDispatchWorker>();
 builder.Services.AddHostedService<CvImportWorker>();
+builder.Services.AddHostedService<RhPortal.Api.Infrastructure.Scheduling.ApprovalReminderService>();
+builder.Services.AddHostedService<RhPortal.Api.Infrastructure.Scheduling.IntegracaoRetryService>();
 
 // PostgreSQL + EF Core
 builder.Services.AddDbContextPool<MasterDbContext>(options =>
@@ -415,6 +417,8 @@ builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
 builder.Services.AddScoped<ISolicitacaoVagaService, SolicitacaoVagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.PublicApproval.IMagicLinkService, RhPortal.Api.Application.PublicApproval.MagicLinkService>();
+builder.Services.AddScoped<RhPortal.Api.Application.EntrevistasSaida.IEntrevistaSaidaService, RhPortal.Api.Application.EntrevistasSaida.EntrevistaSaidaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.WorkflowRH.IWorkflowRHService, RhPortal.Api.Application.WorkflowRH.WorkflowRHService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Common.ApprovalWorkflowHelper>();
 builder.Services.AddScoped<RhPortal.Api.Application.EtapasConfigAprovacao.IEtapaConfigAprovacaoService, RhPortal.Api.Application.EtapasConfigAprovacao.EtapaConfigAprovacaoService>();

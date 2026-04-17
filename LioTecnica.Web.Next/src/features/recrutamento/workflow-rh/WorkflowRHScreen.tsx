@@ -16,15 +16,26 @@ import {
   UserCheck,
   ChevronDown,
   ChevronUp,
+  Filter,
   ExternalLink,
   TrendingUp,
   UserMinus,
   Palmtree,
+  CalendarDays,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import {
+  AGING_BUCKETS,
+  type AgingBucket,
+  daysSince,
+  matchesAgingBucket,
+  slaStatus,
+  urgenciaMeta,
+} from "@/features/shared/urgencia";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableHeader,
@@ -34,6 +45,14 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import EmptyState from "@/components/ui/EmptyState";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import StepperProgress from "@/components/feedback/StepperProgress";
 import type { StepperStep } from "@/components/feedback/StepperProgress";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
@@ -79,6 +98,8 @@ interface FilaRhItem {
   areaName: string | null;
   urgencia?: number;
   createdAtUtc: string;
+  headcountPendente?: number;
+  alertaHCProvVencido?: boolean;
 }
 
 /* ─── Status helpers ────────────────────────────────────── */
@@ -95,12 +116,6 @@ const TIPO_MAP: Record<number, { label: string; icon: React.ElementType }> = {
   2: { label: "Pós-Efetivação", icon: UserCheck },
 };
 
-const URGENCIA_MAP: Record<number, { label: string; cls: string }> = {
-  0: { label: "Baixa",   cls: "text-zinc-500" },
-  1: { label: "Média",   cls: "text-amber-600" },
-  2: { label: "Alta",    cls: "text-orange-600" },
-  3: { label: "Crítica", cls: "text-red-600 font-semibold" },
-};
 
 function StatusBadge({ status }: { status: number }) {
   const cfg = STATUS_MAP[status] ?? STATUS_MAP[0];
@@ -128,10 +143,6 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   );
 }
 
-function daysSince(isoDate: string): number {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
-}
 
 /* ─── KPI Card ─────────────────────────────────────────── */
 
@@ -140,14 +151,18 @@ function KpiCard({
   value,
   icon: Icon,
   color,
+  onClick,
+  active,
 }: {
   label: string;
   value: number;
   icon: React.ElementType;
   color: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-card px-4 py-3 shadow-sm">
+  const inner = (
+    <>
       <div className={`flex size-10 items-center justify-center rounded-lg ${color}`}>
         <Icon className="size-5" />
       </div>
@@ -155,6 +170,27 @@ function KpiCard({
         <div className="text-2xl font-bold tabular-nums">{value}</div>
         <div className="text-xs text-muted-foreground">{label}</div>
       </div>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title={`Filtrar por: ${label}`}
+        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 shadow-sm text-left transition-colors hover:bg-muted/40 ${
+          active
+            ? "border-primary bg-primary/5"
+            : "border-border/40 bg-card"
+        }`}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-card px-4 py-3 shadow-sm">
+      {inner}
     </div>
   );
 }
@@ -166,8 +202,11 @@ function RecrutamentoContent() {
   const [items, setItems] = useState<WorkflowGridRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [tipoFilter, setTipoFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [tipoFilter, setTipoFilter] = useState<string[]>([]);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
 
   const [filaRh, setFilaRh] = useState<FilaRhItem[]>([]);
   const [filaRhOpen, setFilaRhOpen] = useState(true);
@@ -177,8 +216,10 @@ function RecrutamentoContent() {
     try {
       const params = new URLSearchParams();
       if (search) params.set("q", search);
-      if (statusFilter !== "all") params.set("status", statusFilter);
-      if (tipoFilter !== "all") params.set("tipoWorkflow", tipoFilter);
+      // "sla" is client-side only; numeric values go to the API
+      const apiStatuses = statusFilter.filter(s => s !== "sla");
+      if (apiStatuses.length === 1) params.set("status", apiStatuses[0]);
+      if (tipoFilter.length === 1) params.set("tipoWorkflow", tipoFilter[0]);
       params.set("pageSize", "50");
 
       const res = await apiFetch(`/api/workflow-rh?${params}`);
@@ -190,7 +231,8 @@ function RecrutamentoContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, tipoFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, statusFilter.join(","), tipoFilter.join(",")]);
 
   const fetchFilaRh = useCallback(async () => {
     try {
@@ -242,6 +284,24 @@ function RecrutamentoContent() {
     }));
   }, [items]);
 
+  /** Client-side refinement: date range, aging bucket, tipo multi-select, and "sla" pseudo-filter */
+  const filteredItems = useMemo(() => {
+    return items.filter((row) => {
+      // multi-select tipo (client-side when >1 selected, since API only accepts single)
+      if (tipoFilter.length > 1 && !tipoFilter.includes(String(row.tipoWorkflow))) return false;
+      // "sla" is a virtual status value handled client-side
+      if (statusFilter.includes("sla") && !row.slaExcedido) return false;
+      // numeric status values (when multiple selected, filter client-side)
+      const numericStatuses = statusFilter.filter(s => s !== "sla");
+      if (numericStatuses.length > 1 && !numericStatuses.includes(String(row.status))) return false;
+      const dateField = row.createdAtUtc;
+      if (dateFrom && dateField && new Date(dateField) < new Date(dateFrom)) return false;
+      if (dateTo && dateField && new Date(dateField) > new Date(`${dateTo}T23:59:59`)) return false;
+      if (!matchesAgingBucket(dateField, agingBucket)) return false;
+      return true;
+    });
+  }, [items, statusFilter, tipoFilter, dateFrom, dateTo, agingBucket]);
+
   function handleRowClick(row: WorkflowGridRow) {
     if (row.vagaId) {
       router.push(`/vagas/hub?id=${encodeURIComponent(row.vagaId)}`);
@@ -268,31 +328,39 @@ function RecrutamentoContent() {
         </Button>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — clicáveis como atalho de filtro (J3) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard
           label="Aguardando Início"
           value={kpis.aguardando}
           icon={PauseCircle}
           color="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+          active={statusFilter.includes("0")}
+          onClick={() => setStatusFilter(prev => prev.includes("0") ? prev.filter(s => s !== "0") : [...prev, "0"])}
         />
         <KpiCard
           label="Em Andamento"
           value={kpis.emAndamento}
           icon={PlayCircle}
           color="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300"
+          active={statusFilter.includes("1")}
+          onClick={() => setStatusFilter(prev => prev.includes("1") ? prev.filter(s => s !== "1") : [...prev, "1"])}
         />
         <KpiCard
           label="SLA Excedido"
           value={kpis.slaExcedido}
           icon={AlertTriangle}
           color="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300"
+          active={statusFilter.includes("sla")}
+          onClick={() => setStatusFilter(prev => prev.includes("sla") ? prev.filter(s => s !== "sla") : [...prev, "sla"])}
         />
         <KpiCard
           label="Concluídos (30d)"
           value={kpis.concluidos30d}
           icon={CheckCircle2}
           color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300"
+          active={statusFilter.includes("2")}
+          onClick={() => setStatusFilter(prev => prev.includes("2") ? prev.filter(s => s !== "2") : [...prev, "2"])}
         />
       </div>
 
@@ -330,19 +398,35 @@ function RecrutamentoContent() {
             <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {filaRh.map((item) => {
                 const days = daysSince(item.createdAtUtc);
-                const urgMeta = URGENCIA_MAP[item.urgencia ?? 0];
+                const meta = urgenciaMeta(item.urgencia ?? 0);
+                const isUrgent = days > 7 || item.alertaHCProvVencido;
+                const hasPendente = (item.headcountPendente ?? 0) > 0;
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between rounded-lg border border-amber-200/60 bg-white dark:bg-card px-3 py-2.5 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors cursor-pointer"
+                    className={`flex items-center justify-between rounded-lg border bg-white dark:bg-card px-3 py-2.5 transition-colors cursor-pointer ${
+                      isUrgent
+                        ? "border-red-300/70 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        : "border-amber-200/60 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                    }`}
                     onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(item.id)}`)}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate">{item.titulo}</div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                         {item.areaName && <span>{item.areaName}</span>}
-                        {urgMeta && <span className={urgMeta.cls}>{urgMeta.label}</span>}
-                        <span>{days}d atrás</span>
+                        <span className={meta.text}>{meta.label}</span>
+                        <span className={isUrgent ? "text-red-600 font-medium" : ""}>{days}d atrás</span>
+                        {hasPendente && (
+                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                            +{item.headcountPendente} HC pend.
+                          </span>
+                        )}
+                        {item.alertaHCProvVencido && (
+                          <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                            HC Prov. Vencido
+                          </span>
+                        )}
                       </div>
                     </div>
                     <ExternalLink className="size-3.5 text-muted-foreground shrink-0 ml-2" />
@@ -360,7 +444,7 @@ function RecrutamentoContent() {
           <div>
             <div className="font-semibold">Pipeline de Recrutamento</div>
             <div className="text-muted-foreground text-sm">
-              {loading ? "Carregando…" : `${items.length} workflows`}
+              {loading ? "Carregando…" : `${filteredItems.length} workflow(s)`}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -373,27 +457,120 @@ function RecrutamentoContent() {
                 className="pl-9"
               />
             </div>
-            <select
-              value={tipoFilter}
-              onChange={(e) => setTipoFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="all">Todos os tipos</option>
-              <option value="1">Triagem Vaga</option>
-              <option value="2">Pós-Efetivação</option>
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="all">Todos os status</option>
-              <option value="0">Não Iniciado</option>
-              <option value="1">Em Andamento</option>
-              <option value="2">Concluído</option>
-              <option value="3">Cancelado</option>
-            </select>
+            {/* Multi-select — Tipo */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <Filter className="size-3.5 opacity-60" />
+                  {tipoFilter.length === 0
+                    ? "Todos os tipos"
+                    : tipoFilter.length === 1
+                      ? (tipoFilter[0] === "1" ? "Triagem Vaga" : "Pós-Efetivação")
+                      : `${tipoFilter.length} tipos`}
+                  <ChevronDown className="size-3.5 opacity-60" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[160px]">
+                <DropdownMenuCheckboxItem checked={tipoFilter.length === 0} onCheckedChange={() => setTipoFilter([])}>
+                  Todos os tipos
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                {[{ value: "1", label: "Triagem Vaga" }, { value: "2", label: "Pós-Efetivação" }].map(opt => (
+                  <DropdownMenuCheckboxItem
+                    key={opt.value}
+                    checked={tipoFilter.includes(opt.value)}
+                    onCheckedChange={(checked) => setTipoFilter(prev => checked ? [...prev, opt.value] : prev.filter(t => t !== opt.value))}
+                  >
+                    {opt.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Multi-select — Status */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  {statusFilter.length === 0
+                    ? "Todos os status"
+                    : `${statusFilter.length} status`}
+                  <ChevronDown className="size-3.5 opacity-60" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[170px]">
+                <DropdownMenuCheckboxItem checked={statusFilter.length === 0} onCheckedChange={() => setStatusFilter([])}>
+                  Todos os status
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                {[
+                  { value: "0",   label: "Não Iniciado" },
+                  { value: "1",   label: "Em Andamento" },
+                  { value: "2",   label: "Concluído"    },
+                  { value: "3",   label: "Cancelado"    },
+                  { value: "sla", label: "SLA Excedido" },
+                ].map(opt => (
+                  <DropdownMenuCheckboxItem
+                    key={opt.value}
+                    checked={statusFilter.includes(opt.value)}
+                    onCheckedChange={(checked) => setStatusFilter(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value))}
+                  >
+                    {opt.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+        </div>
+
+        {/* F1 — Date range filter + F2 — Aging bucket chips */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CalendarDays className="size-3.5" />
+            <span>Criado em:</span>
+          </div>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            title="Data inicial"
+          />
+          <span className="text-xs text-muted-foreground">–</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            title="Data final"
+          />
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={() => { setDateFrom(""); setDateTo(""); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              Limpar
+            </button>
+          )}
+
+          <div className="ml-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="size-3.5" />
+            <span>Aging:</span>
+          </div>
+          {AGING_BUCKETS.map((b) => (
+            <button
+              key={b.value}
+              type="button"
+              onClick={() => setAgingBucket(prev => prev === b.value ? "" : b.value)}
+              className={`inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-medium transition-colors ${
+                agingBucket === b.value
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-input bg-background text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {b.label}
+            </button>
+          ))}
         </div>
 
         <Table>
@@ -410,20 +587,48 @@ function RecrutamentoContent() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.length === 0 && !loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                  Nenhum workflow encontrado.
+            {/* J2 — Skeleton rows while loading */}
+            {loading && Array.from({ length: 5 }).map((_, i) => (
+              <TableRow key={`skel-${i}`}>
+                {Array.from({ length: 8 }).map((__, j) => (
+                  <TableCell key={j}>
+                    <Skeleton className="h-4 rounded" />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+
+            {/* J2 — Rich empty state */}
+            {!loading && filteredItems.length === 0 && (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="py-4">
+                  <EmptyState
+                    icon={Briefcase}
+                    title="Nenhum workflow encontrado"
+                    description={
+                      dateFrom || dateTo || agingBucket || statusFilter.length > 0 || tipoFilter.length > 0
+                        ? "Nenhum resultado para os filtros aplicados. Tente ajustá-los."
+                        : "Não há workflows de recrutamento em andamento no momento."
+                    }
+                    actions={
+                      dateFrom || dateTo || agingBucket || statusFilter.length > 0 || tipoFilter.length > 0
+                        ? [{ label: "Limpar filtros", onClick: () => { setSearch(""); setStatusFilter([]); setTipoFilter([]); setDateFrom(""); setDateTo(""); setAgingBucket(""); } }]
+                        : []
+                    }
+                  />
                 </TableCell>
               </TableRow>
-            ) : null}
-            {items.map((row) => {
+            )}
+
+            {/* A2 — Rows with red left-border for overdue SLA */}
+            {!loading && filteredItems.map((row) => {
               const tipo = TIPO_MAP[row.tipoWorkflow];
               const TipoIcon = tipo?.icon ?? Briefcase;
+              const slaSt = slaStatus(row.slaPrazoDias, row.slaExcedido);
               return (
                 <TableRow
                   key={row.id}
-                  className="cursor-pointer hover:bg-muted/50"
+                  className={`cursor-pointer hover:bg-muted/50 ${slaSt === "overdue" ? "border-l-4 border-red-500" : slaSt === "warning" ? "border-l-4 border-amber-400" : ""}`}
                   onClick={() => handleRowClick(row)}
                 >
                   <TableCell className="font-medium">
@@ -445,12 +650,18 @@ function RecrutamentoContent() {
                   <TableCell className="text-sm text-muted-foreground">
                     {row.responsavelNome ?? "Não atribuído"}
                   </TableCell>
+                  {/* A2 + A4 — SLA column with unified visual */}
                   <TableCell>
-                    {row.slaExcedido ? (
-                      <Badge variant="destructive" className="gap-1">
+                    {slaSt === "overdue" ? (
+                      <Badge variant="destructive" className="gap-1 animate-pulse">
                         <AlertTriangle className="size-3" />
                         Excedido
                       </Badge>
+                    ) : slaSt === "warning" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                        <Clock className="size-3" />
+                        Faltam {row.slaPrazoDias}d
+                      </span>
                     ) : row.slaPrazoDias ? (
                       <span className="text-sm text-muted-foreground">
                         <Clock className="inline size-3 mr-1" />

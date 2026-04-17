@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { User, Users, FileText, Lock, MapPin, Heart, Palmtree } from "lucide-react";
+import { User, Users, FileText, Lock, MapPin, Heart, Palmtree, CreditCard, Receipt, Briefcase } from "lucide-react";
 import PerfilScreen from "@/features/colaborador/perfil/PerfilScreen";
 import DocumentosScreen from "@/features/colaborador/documentos/DocumentosScreen";
 import SenhaScreen from "@/features/colaborador/senha/SenhaScreen";
@@ -9,6 +9,9 @@ import EnderecoScreen from "@/features/colaborador/endereco/EnderecoScreen";
 import SolicitacaoDependentesScreen from "@/features/colaborador/solicitacao-dependentes/SolicitacaoDependentesScreen";
 import BeneficiosScreen from "@/features/colaborador/beneficios/BeneficiosScreen";
 import FeriasScreen from "@/features/colaborador/ferias/FeriasScreen";
+import DadosBancariosScreen from "@/features/colaborador/dados-bancarios/DadosBancariosScreen";
+import HoleriteScreen from "@/features/colaborador/holerites/HoleriteScreen";
+import HistoricoCarreiraScreen from "@/features/colaborador/historico-carreira/HistoricoCarreiraScreen";
 
 const TABS = [
     { id: "perfil", label: "Dados Pessoais", icon: User },
@@ -16,6 +19,9 @@ const TABS = [
     { id: "endereco", label: "Endereço", icon: MapPin },
     { id: "beneficios", label: "Benefícios", icon: Heart },
     { id: "ferias", label: "Férias", icon: Palmtree },
+    { id: "dados-bancarios", label: "Dados Bancários", icon: CreditCard },
+    { id: "holerites", label: "Holerites", icon: Receipt },
+    { id: "historico-carreira", label: "Histórico", icon: Briefcase },
     { id: "documentos", label: "Documentos", icon: FileText },
     { id: "senha", label: "Alterar Senha", icon: Lock },
 ] as const;
@@ -65,6 +71,9 @@ export default function PerfilTabsPage() {
                 {activeTab === "endereco" && <EnderecoScreen />}
                 {activeTab === "beneficios" && <BeneficiosScreen />}
                 {activeTab === "ferias" && <FeriasScreen />}
+                {activeTab === "dados-bancarios" && <DadosBancariosScreen />}
+                {activeTab === "holerites" && <HoleriteScreen />}
+                {activeTab === "historico-carreira" && <HistoricoCarreiraScreen />}
                 {activeTab === "documentos" && <DocumentosScreen />}
                 {activeTab === "senha" && <SenhaScreen />}
             </div>

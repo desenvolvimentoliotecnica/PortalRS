@@ -49,6 +49,13 @@ public interface IPreAdmissaoService
     /// Cria pré-admissão em Rascunho pré-preenchida com os dados básicos do candidato.
     /// </summary>
     Task<PreAdmissaoDetailResponse> IniciarManualAsync(IniciarManualRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Chamado pelo webhook do TOTVS quando a admissão é confirmada (Sucesso).
+    /// Cria o Funcionario a partir dos dados da PreAdmissão e marca FuncionarioIdMaterializado.
+    /// É idempotente: chamadas repetidas são no-op.
+    /// </summary>
+    Task MaterializarFuncionarioAsync(Guid preAdmissaoId, string? cdnFuncionario, CancellationToken ct);
 }
 
 public sealed class PreAdmissaoService : IPreAdmissaoService
@@ -378,31 +385,33 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        // ── Auto-create User + Funcionario ──
+        // ── Auto-create ApplicationUser (candidato precisa acessar o portal enquanto aguarda TOTVS) ──
+        // O Funcionario é criado DEPOIS, quando o TOTVS confirma a integração via webhook (MaterializarFuncionarioAsync).
         try
         {
-            await CriarColaboradorAsync(e, ct);
+            await CriarUsuarioAsync(e, ct);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha ao criar colaborador automaticamente para PreAdmissão {Id}. A aprovação foi concluída, mas o colaborador precisa ser criado manualmente.", id);
+            _logger.LogWarning(ex, "Falha ao criar usuário automaticamente para PreAdmissão {Id}. A aprovação foi concluída, mas o acesso ao portal precisa ser criado manualmente.", id);
         }
 
         return await GetByIdAsync(id, ct);
     }
 
-    /// <summary>Creates ApplicationUser + Funcionario from approved PreAdmissão.</summary>
-    private async Task CriarColaboradorAsync(Domain.Entities.PreAdmissao pa, CancellationToken ct)
+    /// <summary>
+    /// Cria o ApplicationUser para o candidato aprovado.
+    /// Chamado em ApproveAsync para dar acesso imediato ao portal.
+    /// O Funcionario só é criado após TOTVS confirmar (MaterializarFuncionarioAsync).
+    /// </summary>
+    private async Task CriarUsuarioAsync(Domain.Entities.PreAdmissao pa, CancellationToken ct)
     {
-        // Skip if no email
         var email = pa.Email?.Trim();
         if (string.IsNullOrWhiteSpace(email)) return;
 
-        // Check if user already exists
         var existing = await _userManager.FindByEmailAsync(email);
         if (existing is not null) return;
 
-        // Temporary password: first 4 CPF digits + random suffix for uniqueness
         var cpfDigits = (pa.Cpf ?? "").Replace(".", "").Replace("-", "").PadRight(4, '0')[..4];
         var rand = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(6))
             .Replace("+", "A").Replace("/", "B").Replace("=", "C")[..6];
@@ -418,7 +427,52 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         var result = await _userManager.CreateAsync(user, tempPassword);
         if (!result.Succeeded) return;
 
-        // Create Funcionario
+        try
+        {
+            await _emailQueue.EnqueueRawAsync(
+                to: email,
+                subject: "Bem-vindo ao RenderRH — seu acesso foi criado",
+                bodyHtml: $"""
+                    <p>Olá, <strong>{pa.Nome}</strong>!</p>
+                    <p>Sua admissão foi aprovada e seu acesso ao sistema foi criado.</p>
+                    <p><strong>Senha temporária:</strong> <code>{tempPassword}</code></p>
+                    <p>Por segurança, altere sua senha no primeiro acesso.</p>
+                    <p>Seu cadastro completo no sistema será finalizado após confirmação da integração com o ERP.</p>
+                    """,
+                bodyText: $"Olá {pa.Nome}! Sua admissão foi aprovada. Senha temporária: {tempPassword}. Altere no primeiro acesso.",
+                isSystem: true,
+                source: "PreAdmissao.CriarUsuario",
+                ct: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao enfileirar email de boas-vindas para {Email}", email);
+        }
+    }
+
+    /// <summary>
+    /// Materializa o Funcionario a partir da PreAdmissão após TOTVS confirmar a integração.
+    /// É idempotente: se FuncionarioIdMaterializado já estiver preenchido, retorna sem fazer nada.
+    /// </summary>
+    public async Task MaterializarFuncionarioAsync(Guid preAdmissaoId, string? cdnFuncionario, CancellationToken ct)
+    {
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
+            .Include(x => x.Dependentes)
+            .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct);
+        if (pa is null) return;
+
+        // Idempotência
+        if (pa.FuncionarioIdMaterializado.HasValue) return;
+
+        // Encontrar ApplicationUser criado na aprovação (pelo email)
+        Guid? userId = null;
+        var email = pa.Email?.Trim();
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            userId = user?.Id;
+        }
+
         var func = new Funcionario
         {
             Id = Guid.NewGuid(),
@@ -427,21 +481,20 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Email = email,
             Phone = pa.Celular ?? pa.Telefone,
             Status = FuncionarioStatus.Active,
-            UserId = user.Id,
+            UserId = userId,
             UnitId = pa.UnitId,
             AreaId = pa.AreaId,
             JobPositionId = pa.JobPositionId,
             RequisitoCategoriaId = pa.RequisitoCategoriaId,
+            CdnFuncionario = cdnFuncionario,
+            CdnEmpresa = pa.CodEmpresa,
+            CdnEstab = pa.EstabelecimentoCodigo,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
         _db.Set<Funcionario>().Add(func);
 
-        // Migrar dependentes da pré-admissão para o novo funcionário
-        var preDeps = await _db.Set<PreAdmissaoDependente>()
-            .Where(x => x.PreAdmissaoId == pa.Id)
-            .ToListAsync(ct);
-        foreach (var pd in preDeps)
+        foreach (var pd in pa.Dependentes)
         {
             _db.Set<Dependente>().Add(new Dependente
             {
@@ -458,30 +511,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             });
         }
 
+        pa.FuncionarioIdMaterializado = func.Id;
+        pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
         await _db.SaveChangesAsync(ct);
 
-        // Notificar o novo colaborador por email
-        try
-        {
-            await _emailQueue.EnqueueRawAsync(
-                to: email,
-                subject: "Bem-vindo ao RenderRH — seu acesso foi criado",
-                bodyHtml: $"""
-                    <p>Olá, <strong>{pa.Nome}</strong>!</p>
-                    <p>Sua admissão foi aprovada e seu acesso ao sistema foi criado.</p>
-                    <p><strong>Senha temporária:</strong> <code>{tempPassword}</code></p>
-                    <p>Por segurança, altere sua senha no primeiro acesso.</p>
-                    """,
-                bodyText: $"Olá {pa.Nome}! Sua admissão foi aprovada. Senha temporária: {tempPassword}. Altere no primeiro acesso.",
-                isSystem: true,
-                source: "PreAdmissao.CriarColaborador",
-                ct: ct);
-        }
-        catch (Exception ex)
-        {
-            // Não bloquear o fluxo se o email falhar — só logar
-            _logger.LogWarning(ex, "Falha ao enfileirar email de boas-vindas para {Email}", email);
-        }
+        _logger.LogInformation(
+            "Funcionário materializado para PreAdmissão {PreAdmissaoId}: FuncionarioId={FuncionarioId}, CdnFuncionario={CdnFuncionario}",
+            preAdmissaoId, func.Id, cdnFuncionario);
     }
 
     // ── Reject ──

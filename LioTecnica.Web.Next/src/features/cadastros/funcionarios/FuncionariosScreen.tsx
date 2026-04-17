@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, RefreshCw, Trash2, Eye, Download, Upload, AlertTriangle, ChevronUp, ChevronDown, ChevronsUpDown, X } from "lucide-react";
+import { Search, RefreshCw, Trash2, Eye, Download, Upload, AlertTriangle, ChevronUp, ChevronDown, ChevronsUpDown, X, UserCircle } from "lucide-react";
+import Link from "next/link";
 import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
 import { getScreenCache, setScreenCache } from "@/lib/screenCache";
@@ -691,6 +692,9 @@ export default function FuncionariosScreen() {
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-1">
                                         <Button variant="outline" size="icon-xs" title="Ver detalhes" onClick={() => void openDetail(f.id)}><Eye /></Button>
+                                        <Link href={`/funcionarios/${f.id}/perfil`}>
+                                            <Button variant="outline" size="icon-xs" title="Ver Perfil 360°"><UserCircle /></Button>
+                                        </Link>
                                         <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(f)}><Trash2 /></Button>
                                     </div>
                                 </TableCell>

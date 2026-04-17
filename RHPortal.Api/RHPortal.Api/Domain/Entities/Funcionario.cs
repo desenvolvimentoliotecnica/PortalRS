@@ -86,6 +86,22 @@ public sealed class Funcionario : ITenantEntity
     /// </summary>
     public bool HasIncompleteData { get; set; }
 
+    /// <summary>Data de admissão oficial (populada na materialização do PreAdmissao ou import TOTVS).</summary>
+    public DateOnly? DataAdmissao { get; set; }
+
+    /// <summary>
+    /// Duração do período de experiência em dias (padrão 90).
+    /// Em experiência quando DataAdmissao + PeriodoExperienciaDias > hoje.
+    /// </summary>
+    public int PeriodoExperienciaDias { get; set; } = 90;
+
+    /// <summary>Data de nascimento para pirâmide etária e relatórios de diversidade.</summary>
+    public DateOnly? DataNascimento { get; set; }
+
+    /// <summary>Sexo: "M", "F" ou null. Populado na materialização do PreAdmissao ou import TOTVS.</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(1)]
+    public string? Sexo { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 

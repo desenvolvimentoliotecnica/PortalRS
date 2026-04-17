@@ -113,6 +113,8 @@ const LOCKED_NAV_HREFS = new Set([
   "/matching",
   "/triagem",
   "/gestao/processo-seletivo",
+  // Admin — em breve
+  "/admin/accesses",
 ]);
 
 function isNavLocked(href: string): boolean {

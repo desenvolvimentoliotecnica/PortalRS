@@ -18,6 +18,7 @@ public static class TipoIntegracaoExtensions
         TipoIntegracao.Dependente        => "apisfdependente.p",
         TipoIntegracao.Beneficio         => "apisfbeneficio.p",
         TipoIntegracao.Ferias            => "apisfferias.p",
+        TipoIntegracao.SolicitacaoVaga   => "apisfrequisicao.p",  // TODO: confirmar procedure com equipe TOTVS
         _ => throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de integração desconhecido")
     };
 
@@ -34,6 +35,7 @@ public static class TipoIntegracaoExtensions
         TipoIntegracao.Dependente        => "Cadastro / alteração de dependente",
         TipoIntegracao.Beneficio         => "Benefício / vale-transporte",
         TipoIntegracao.Ferias            => "Programação de férias",
+        TipoIntegracao.SolicitacaoVaga   => "Requisição de pessoal",
         _ => "Desconhecido"
     };
 }

@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Common;
+using RhPortal.Api.Application.EntrevistasSaida;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.SolicitacoesDesligamento;
 using RhPortal.Api.Domain.Entities;
@@ -34,19 +36,25 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
     private readonly IEmailQueueService _emailQueue;
+    private readonly IEntrevistaSaidaService _entrevistaSaida;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public SolicitacaoDesligamentoService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
         ApprovalWorkflowHelper workflow,
-        IEmailQueueService emailQueue)
+        IEmailQueueService emailQueue,
+        IEntrevistaSaidaService entrevistaSaida,
+        IHttpContextAccessor httpContextAccessor)
     {
         _db = db;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _workflow = workflow;
         _emailQueue = emailQueue;
+        _entrevistaSaida = entrevistaSaida;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<IReadOnlyList<SolicitacaoDesligamentoGridRow>> ListAsync(
@@ -251,14 +259,26 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             Label = r.Label,
             AprovadorId = r.AprovadorId,
             RoleFilaId = r.RoleFilaId,
+            AcaoEtapa = r.AcaoEtapa,
+            MomentoAcao = r.MomentoAcao,
             Status = StatusAprovacao.Pendente,
         }).ToList();
 
         _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
+
+        // Auto-avança etapas de processo no início do fluxo
+        var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
+        while (primeiraEtapa is not null && IsProcessoStep(primeiraEtapa))
+        {
+            ExecutarAcaoEtapa(primeiraEtapa.AcaoEtapa, entity);
+            primeiraEtapa.Status = StatusAprovacao.Aprovado;
+            primeiraEtapa.DataUtc = DateTimeOffset.UtcNow;
+            primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault(e => e.Ordem > primeiraEtapa.Ordem);
+        }
+
         await _db.SaveChangesAsync(ct);
 
         // Notify first step
-        var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
         if (primeiraEtapa is not null)
         {
             var nomeFuncionario = (await _db.Set<Funcionario>().AsNoTracking().FirstOrDefaultAsync(f => f.Id == entity.FuncionarioId, ct))?.Name ?? "um funcionário";
@@ -304,11 +324,20 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         etapaAtual.DataUtc = DateTimeOffset.UtcNow;
         etapaAtual.Observacao = observacao;
 
-        // Check next step
-        var proximaEtapa = await _db.SolicitacoesAprovacaoEtapa
-            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Desligamento && e.Ordem > etapaAtual.Ordem)
+        // Carregar todas as etapas para auto-avançar process steps
+        var todasEtapas = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Desligamento)
             .OrderBy(e => e.Ordem)
-            .FirstOrDefaultAsync(ct);
+            .ToListAsync(ct);
+
+        var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
+        while (proximaEtapa is not null && IsProcessoStep(proximaEtapa))
+        {
+            ExecutarAcaoEtapa(proximaEtapa.AcaoEtapa, entity);
+            proximaEtapa.Status = StatusAprovacao.Aprovado;
+            proximaEtapa.DataUtc = DateTimeOffset.UtcNow;
+            proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
+        }
 
         if (proximaEtapa is not null)
         {
@@ -380,6 +409,16 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         entity.Status = SolicitacaoStatus.EmIntegracao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        // Disparar entrevista de saída ao funcionário (best-effort)
+        try
+        {
+            var httpCtx = _httpContextAccessor.HttpContext;
+            await _entrevistaSaida.CriarEEnviarAsync(
+                entity.Id, entity.FuncionarioId,
+                httpCtx?.Request.Scheme, httpCtx?.Request.Host.Host, ct);
+        }
+        catch { /* best-effort */ }
 
         return await GetByIdAsync(id, ct);
     }
@@ -591,6 +630,18 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         _db.SolicitacoesDesligamento.Add(copy);
         await _db.SaveChangesAsync(ct);
         return (await GetByIdAsync(copy.Id, ct))!;
+    }
+
+    private static bool IsProcessoStep(SolicitacaoAprovacaoEtapa e) =>
+        e.AprovadorId == null && e.RoleFilaId == null && e.AcaoEtapa != AcaoEtapa.Nenhuma;
+
+    private static void ExecutarAcaoEtapa(AcaoEtapa acao, SolicitacaoDesligamento entity)
+    {
+        if (acao == AcaoEtapa.EnviarIntegracao)
+        {
+            entity.Status = SolicitacaoStatus.Aprovada;
+            entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+        }
     }
 
     private static SolicitacaoDesligamentoResponse MapToResponse(

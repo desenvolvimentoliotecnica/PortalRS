@@ -12,5 +12,7 @@ public enum TipoIntegracao : short
     AlteracaoEndereco = 5,
     Dependente = 6,
     Beneficio = 7,
-    Ferias = 8
+    Ferias = 8,
+    /// <summary>Requisição de Pessoal enviada ao TOTVS para abrir a vaga no ERP.</summary>
+    SolicitacaoVaga = 9
 }

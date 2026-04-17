@@ -263,14 +263,26 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             Label = r.Label,
             AprovadorId = r.AprovadorId,
             RoleFilaId = r.RoleFilaId,
+            AcaoEtapa = r.AcaoEtapa,
+            MomentoAcao = r.MomentoAcao,
             Status = StatusAprovacao.Pendente,
         }).ToList();
 
         _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
+
+        // Auto-avança etapas de processo no início do fluxo
+        var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
+        while (primeiraEtapa is not null && IsProcessoStep(primeiraEtapa))
+        {
+            ExecutarAcaoEtapa(primeiraEtapa.AcaoEtapa, entity);
+            primeiraEtapa.Status = StatusAprovacao.Aprovado;
+            primeiraEtapa.DataUtc = DateTimeOffset.UtcNow;
+            primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault(e => e.Ordem > primeiraEtapa.Ordem);
+        }
+
         await _db.SaveChangesAsync(ct);
 
-        // Notify first step
-        var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
+        // Notify first step (first human step after any auto-processed process steps)
         if (primeiraEtapa is not null)
         {
             var nomeFuncionario = (await _db.Set<Funcionario>().AsNoTracking().FirstOrDefaultAsync(f => f.Id == entity.FuncionarioId, ct))?.Name ?? "um funcionário";
@@ -297,6 +309,9 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
 
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
+        // Valida faixa salarial — bloqueia ou marca flag conforme política do tenant
+        await ValidatePayRangeAsync(entity, ct);
+
         var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
             .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.MovimentacaoPessoal && e.Status == StatusAprovacao.Pendente)
             .OrderBy(e => e.Ordem)
@@ -316,11 +331,20 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         etapaAtual.DataUtc = DateTimeOffset.UtcNow;
         etapaAtual.Observacao = observacao;
 
-        // Check next step
-        var proximaEtapa = await _db.SolicitacoesAprovacaoEtapa
-            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.MovimentacaoPessoal && e.Ordem > etapaAtual.Ordem)
+        // Carregar todas as etapas para auto-avançar process steps
+        var todasEtapas = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.MovimentacaoPessoal)
             .OrderBy(e => e.Ordem)
-            .FirstOrDefaultAsync(ct);
+            .ToListAsync(ct);
+
+        var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
+        while (proximaEtapa is not null && IsProcessoStep(proximaEtapa))
+        {
+            ExecutarAcaoEtapa(proximaEtapa.AcaoEtapa, entity);
+            proximaEtapa.Status = StatusAprovacao.Aprovado;
+            proximaEtapa.DataUtc = DateTimeOffset.UtcNow;
+            proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
+        }
 
         if (proximaEtapa is not null)
         {
@@ -657,6 +681,18 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         return (await GetByIdAsync(copy.Id, ct))!;
     }
 
+    private static bool IsProcessoStep(SolicitacaoAprovacaoEtapa e) =>
+        e.AprovadorId == null && e.RoleFilaId == null && e.AcaoEtapa != AcaoEtapa.Nenhuma;
+
+    private static void ExecutarAcaoEtapa(AcaoEtapa acao, SolicitacaoPromocao entity)
+    {
+        if (acao == AcaoEtapa.EnviarIntegracao)
+        {
+            entity.Status = SolicitacaoStatus.Aprovada;
+            entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+        }
+    }
+
     private static SolicitacaoPromocaoResponse MapToResponse(
         SolicitacaoPromocao s,
         IReadOnlyList<EtapaAprovacaoResponse> etapaResponses)
@@ -704,5 +740,60 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             s.IntegradaEmUtc,
             etapaResponses.ToList()
         );
+    }
+
+    /// <summary>
+    /// Valida se o NovoSalario está dentro da faixa configurada para o novo cargo + estabelecimento.
+    /// Comportamento:
+    ///  - Sem NovoSalario → retorna (nada a validar)
+    ///  - Sem faixa cadastrada para o cargo → retorna (nada a validar)
+    ///  - Fora da faixa + BloqueiaSalarioForaFaixa=true → lança InvalidOperationException
+    ///  - Fora da faixa + BloqueiaSalarioForaFaixa=false → apenas marca ForaFaixaSalarial=true
+    /// </summary>
+    private async Task ValidatePayRangeAsync(SolicitacaoPromocao entity, CancellationToken ct)
+    {
+        if (!entity.NovoSalario.HasValue) return;
+
+        var config = await _db.Set<RhPortal.Api.Domain.Entities.TenantConfiguracao>().AsNoTracking().FirstOrDefaultAsync(ct);
+        var bloqueia = config?.BloqueiaSalarioForaFaixa ?? false;
+
+        var estabelecimento = await _db.Set<Funcionario>().AsNoTracking()
+            .Where(f => f.Id == entity.FuncionarioId)
+            .Select(f => f.CdnEstab)
+            .FirstOrDefaultAsync(ct);
+
+        // Busca faixa: prioriza estabelecimento específico; fallback para faixa sem estabelecimento
+        var faixa = await _db.Set<FaixaSalarial>().AsNoTracking()
+            .FirstOrDefaultAsync(f =>
+                f.JobPositionId == entity.NovoCargoId &&
+                f.EstabelecimentoCodigo == estabelecimento, ct);
+
+        if (faixa is null && !string.IsNullOrWhiteSpace(estabelecimento))
+        {
+            faixa = await _db.Set<FaixaSalarial>().AsNoTracking()
+                .FirstOrDefaultAsync(f =>
+                    f.JobPositionId == entity.NovoCargoId &&
+                    f.EstabelecimentoCodigo == null, ct);
+        }
+
+        if (faixa is null)
+        {
+            // Sem faixa cadastrada — não há como validar. Limpa flag.
+            entity.ForaFaixaSalarial = false;
+            return;
+        }
+
+        var forafaixa =
+            entity.NovoSalario.Value < faixa.SalarioMinimo ||
+            entity.NovoSalario.Value > faixa.SalarioMaximo;
+        entity.ForaFaixaSalarial = forafaixa;
+
+        if (forafaixa && bloqueia)
+        {
+            throw new InvalidOperationException(
+                $"Salário proposto (R$ {entity.NovoSalario.Value:N2}) está fora da faixa " +
+                $"configurada para o novo cargo (R$ {faixa.SalarioMinimo:N2} a R$ {faixa.SalarioMaximo:N2}). " +
+                "Ajuste o valor ou altere a política de bloqueio nas configurações do tenant.");
+        }
     }
 }

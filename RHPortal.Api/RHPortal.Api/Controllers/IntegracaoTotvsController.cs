@@ -74,6 +74,16 @@ public sealed class IntegracaoTotvsController : ControllerBase
         }
     }
 
+    /// <summary>Relatório de reconciliação: pendentes e com falha há mais de N dias.</summary>
+    [HttpGet("reconciliacao")]
+    [ProducesResponseType(typeof(IntegracaoReconciliacaoResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Reconciliacao(
+        [FromQuery] int diasMinimos = 2,
+        CancellationToken ct = default)
+    {
+        return Ok(await _service.ReconciliacaoAsync(diasMinimos, ct));
+    }
+
     /// <summary>Reenvia uma integração (limpa resultado para reprocessamento).</summary>
     [HttpPost("{tipo:int}/{id:guid}/retry")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

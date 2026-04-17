@@ -33,6 +33,9 @@ public sealed class SolicitacaoVagaCreateRequest
     public Guid? UnitId { get; set; }
     public Guid? AprovadorId { get; set; }
 
+    // Vaga pré-vinculada (quando solicitação é criada a partir do painel de vagas)
+    public Guid? VagaId { get; set; }
+
     // Sprint 1
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }
@@ -67,6 +70,9 @@ public sealed class SolicitacaoVagaUpdateRequest
     public Guid? UnitId { get; set; }
     public Guid? AprovadorId { get; set; }
 
+    // Vaga pré-vinculada (quando solicitação é criada a partir do painel de vagas)
+    public Guid? VagaId { get; set; }
+
     // Sprint 1
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }
@@ -91,6 +97,19 @@ public sealed class SolicitacaoVagaApprovalRequest
     [MaxLength(2000)]
     public string? Observacao { get; set; }
 }
+
+// ── Decisão de headcount pelo RH ──
+
+public sealed record DecisaoHeadcountRequest(
+    TipoDecisaoHeadcount Decisao,
+    int? PrazoMeses,
+    /// <summary>
+    /// Data/hora alvo calculada pelo front-end para qualquer unidade de prazo
+    /// (minutos, dias, meses ou data específica). Quando presente, substitui PrazoMeses
+    /// no cálculo de HeadcountProvisorioExpiresAtUtc.
+    /// </summary>
+    DateTimeOffset? PrazoDataAlvo
+);
 
 // ── Workflow etapa snapshot ──
 
@@ -146,7 +165,12 @@ public sealed record SolicitacaoVagaResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     DateTimeOffset? ApprovedAtUtc,
-    IReadOnlyList<EtapaFluxoInfo> EtapasFluxo
+    IReadOnlyList<EtapaFluxoInfo> EtapasFluxo,
+    // Decisão RH pós-aprovação (VagaNova)
+    TipoDecisaoHeadcount? DecisaoRH,
+    string? DecisaoRHRevisadoPorNome,
+    DateTimeOffset? DecisaoRHEmUtc,
+    int? DecisaoRHPrazoMeses
 );
 
 public sealed record SolicitacaoVagaGridRow(

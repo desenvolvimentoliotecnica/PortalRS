@@ -136,7 +136,9 @@ public sealed class ApprovalWorkflowHelper
 
     public static void ValidateCanApproveAny(SolicitacaoVagaStatus status)
     {
-        if (status != SolicitacaoVagaStatus.PendenteAprovacao && status != SolicitacaoVagaStatus.PendenteAprovacaoRh)
+        if (status != SolicitacaoVagaStatus.PendenteAprovacao
+            && status != SolicitacaoVagaStatus.PendenteAprovacaoRh
+            && status != SolicitacaoVagaStatus.PendenteAprovacaoAumentoHC)
             throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
     }
 
