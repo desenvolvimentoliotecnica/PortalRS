@@ -51,6 +51,7 @@ public static class RolePermissionManifest
         "roles.manage",
         "menus.manage",
         "access.manage",
+        "api-keys.manage",
         "audit.view",
         "logs.view",
         "email-templates.manage",
