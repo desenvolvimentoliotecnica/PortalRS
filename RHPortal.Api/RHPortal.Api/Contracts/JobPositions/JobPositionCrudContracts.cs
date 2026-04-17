@@ -69,7 +69,8 @@ public sealed record JobPositionLookupItem(
     string Name,
     Guid? AreaId,
     string? AreaName,
-    string? Seniority
+    string? Seniority,
+    int? TotvsCargoBasicId
 );
 
 public sealed record JobPositionResponse(

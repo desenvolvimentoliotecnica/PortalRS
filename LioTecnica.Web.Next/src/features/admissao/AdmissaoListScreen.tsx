@@ -15,6 +15,7 @@ import {
     Loader2,
     Pencil,
     AlertTriangle,
+    ArrowRightLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +60,7 @@ interface PreAdmissaoRow {
     cargoNome: string | null;
     areaNome: string | null;
     unitNome: string | null;
-    status: number;
+    status: number | string;
     dataAdmissao: string | null;
     salario: number | null;
     preenchidoPor: number;
@@ -68,6 +69,8 @@ interface PreAdmissaoRow {
     documentosPendentes: number;
     documentosValidados: number;
     documentosRejeitados: number;
+    integracaoResultado: number | string | null;
+    integracaoMensagem: string | null;
 }
 
 const STATUS_MAP: Record<number | string, { label: string; color: string; icon: React.ElementType }> = {
@@ -89,6 +92,26 @@ const STATUS_MAP: Record<number | string, { label: string; color: string; icon: 
     Acessado: { label: "Acessado", color: "bg-violet-500/15 text-violet-700", icon: Eye },
     PreenchidoParcial: { label: "Preenchido Parcial", color: "bg-orange-500/15 text-orange-700", icon: Clock },
 };
+
+const PENDENTE_TOTVS = { label: "Pendente TOTVS", color: "bg-amber-500/15 text-amber-700", icon: ArrowRightLeft };
+const FALHA_TOTVS = { label: "Falha TOTVS", color: "bg-red-500/15 text-red-700", icon: XCircle };
+
+function isStatusAprovada(status: number | string): boolean {
+    return status === 3 || status === "Aprovada";
+}
+
+function isFalhaIntegracao(v: number | string | null | undefined): boolean {
+    if (v === null || v === undefined) return false;
+    return v === 2 || v === 3 || v === "Falha" || v === "FalhaDefinitiva";
+}
+
+function resolveStatusDisplay(row: PreAdmissaoRow): { label: string; color: string; icon: React.ElementType } {
+    if (isStatusAprovada(row.status)) {
+        if (isFalhaIntegracao(row.integracaoResultado)) return FALHA_TOTVS;
+        if (row.integracaoResultado === null || row.integracaoResultado === undefined) return PENDENTE_TOTVS;
+    }
+    return STATUS_MAP[row.status] ?? STATUS_MAP[0];
+}
 
 /* ── component ── */
 
@@ -205,10 +228,10 @@ export default function AdmissaoListScreen() {
 
     const kpis = {
         total: data.length,
-        rascunhos: data.filter(r => r.status <= 1).length,
-        emRevisao: data.filter(r => r.status === 2).length,
-        aprovadas: data.filter(r => r.status === 3 || r.status === 5).length,
-        rejeitadas: data.filter(r => r.status === 4).length,
+        rascunhos: data.filter(r => r.status === 0 || r.status === 1 || r.status === "Rascunho" || r.status === "Enviado").length,
+        emRevisao: data.filter(r => r.status === 2 || r.status === "Preenchido").length,
+        aprovadas: data.filter(r => r.status === 3 || r.status === 5 || r.status === "Aprovada" || r.status === "Integrada").length,
+        rejeitadas: data.filter(r => r.status === 4 || r.status === "Rejeitada").length,
     };
 
     return (
@@ -291,16 +314,15 @@ export default function AdmissaoListScreen() {
                             <TableHead className="text-center">Status</TableHead>
                             <TableHead className="text-center">Docs</TableHead>
                             <TableHead className="text-right">Criado em</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading && (
-                            <TableRow><TableCell colSpan={10} className="py-4"><TableSkeleton rows={5} /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={9} className="py-4"><TableSkeleton rows={5} /></TableCell></TableRow>
                         )}
                         {!isLoading && filtered.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={10} className="py-16 text-center">
+                                <TableCell colSpan={9} className="py-16 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Users className="size-10 opacity-20" />
                                         <p className="text-sm font-medium">Nenhuma admissão em andamento</p>
@@ -310,13 +332,15 @@ export default function AdmissaoListScreen() {
                             </TableRow>
                         )}
                         {filtered.map((r) => {
-                            const s = STATUS_MAP[r.status] ?? STATUS_MAP[0];
+                            const s = resolveStatusDisplay(r);
                             const Icon = s.icon;
+                            const isDraft = r.status === 0 || r.status === 1 || r.status === "Rascunho" || r.status === "Enviado";
                             return (
                                 <TableRow
                                     key={r.id}
                                     className="cursor-pointer hover:bg-muted/40"
-                                    onClick={() => r.status <= 1 ? router.push(`/admissao/nova?id=${r.id}`) : router.push(`/admissao/revisao?id=${r.id}`)}
+                                    onClick={() => isDraft ? router.push(`/admissao/nova?id=${r.id}`) : router.push(`/admissao/revisao?id=${r.id}`)}
+                                    title={s.label === "Falha TOTVS" && r.integracaoMensagem ? r.integracaoMensagem : undefined}
                                 >
                                     <TableCell className="font-semibold text-sm">{r.nome}</TableCell>
                                     <TableCell className="text-sm font-mono">{r.cpf || "—"}</TableCell>
@@ -345,27 +369,6 @@ export default function AdmissaoListScreen() {
                                     </TableCell>
                                     <TableCell className="text-right text-xs text-muted-foreground">
                                         {new Date(r.createdAtUtc).toLocaleDateString("pt-BR")}
-                                    </TableCell>
-                                    <TableCell className="text-right flex items-center justify-end gap-1">
-                                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/admissao/nova?id=${r.id}`); }} title="Editar dados">
-                                            <Pencil className="size-3.5" />
-                                        </Button>
-                                        {(r.status === 2 || String(r.status) === "Preenchido") && (
-                                            <Button
-                                                size="sm"
-                                                className="btn-approve"
-                                                disabled={concluindoId === r.id}
-                                                onClick={(e) => { e.stopPropagation(); void handleConcluir(r.id); }}
-                                            >
-                                                {concluindoId === r.id
-                                                    ? <Loader2 className="size-3.5 mr-1 animate-spin" />
-                                                    : <CheckCircle2 className="size-3.5 mr-1" />}
-                                                Concluir
-                                            </Button>
-                                        )}
-                                        {(r.status === 3 || String(r.status) === "Aprovada") && (
-                                            <span className="text-xs text-emerald-600 font-medium">Pendente TOTVS</span>
-                                        )}
                                     </TableCell>
                                 </TableRow>
                             );

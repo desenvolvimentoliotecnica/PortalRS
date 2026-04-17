@@ -65,7 +65,8 @@ public sealed class JobPositionsController : ControllerBase
                 x.Name,
                 x.AreaId,
                 x.Area != null ? x.Area.Name : null,
-                x.Seniority.ToString()))
+                x.Seniority.ToString(),
+                x.TotvsCargoBasicId))
             .ToListAsync(ct);
 
         return Ok(items);

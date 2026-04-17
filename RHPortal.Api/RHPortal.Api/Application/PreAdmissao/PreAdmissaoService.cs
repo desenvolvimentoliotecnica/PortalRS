@@ -126,7 +126,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             x.Documentos.Count(d => d.Status == StatusDocumento.Rejeitado),
             x.WizardCurrentStep,
             x.WizardCompletionPercent,
-            x.LastActivityUtc
+            x.LastActivityUtc,
+            x.IntegracaoResultado,
+            x.IntegracaoMensagem
         )).ToListAsync(ct);
     }
 

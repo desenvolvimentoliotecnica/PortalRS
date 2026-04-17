@@ -480,11 +480,18 @@ export default function AdmissaoWizardScreen() {
                             <div>
                                 <label className="text-xs text-muted-foreground block mb-1">Banco (FEBRABAN)</label>
                                 <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.bancoCodigo || ""} onChange={e => {
-                                    const [cod, ...nome] = e.target.value.split("-");
-                                    set("bancoCodigo", cod); set("bancoNome", nome.join("-"));
+                                    const cod = e.target.value;
+                                    if (!cod) { set("bancoCodigo", null); set("bancoNome", null); return; }
+                                    const banco = BANCOS.find(b => b.startsWith(cod + "-"));
+                                    set("bancoCodigo", cod);
+                                    set("bancoNome", banco ? banco.substring(cod.length + 1) : null);
                                 }}>
                                     <option value="">Selecione…</option>
-                                    {BANCOS.map(b => <option key={b} value={b}>{b}</option>)}
+                                    {BANCOS.map(b => {
+                                        const dash = b.indexOf("-");
+                                        const cod = b.substring(0, dash);
+                                        return <option key={b} value={cod}>{b}</option>;
+                                    })}
                                 </select>
                             </div>
                             <Select label="Tipo de Conta" value={form.tipoConta} options={TIPO_CONTA} onChange={v => set("tipoConta", Number(v))} />
@@ -544,7 +551,11 @@ export default function AdmissaoWizardScreen() {
                                 <label className="text-xs text-muted-foreground block mb-1">Cargo TOTVS</label>
                                 <CargoAutocomplete
                                   value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : ""}
-                                  onChange={(code) => set("codCargoTotvs", toIntOrNull(code))}
+                                  onChange={() => {}}
+                                  onSelect={(cargo) => {
+                                    set("codCargoTotvs", cargo.totvsCargoBasicId ?? null);
+                                    set("jobPositionId", cargo.id || null);
+                                  }}
                                 />
                             </div>
                             <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
