@@ -150,6 +150,9 @@ public sealed record PreAdmissaoDetailResponse(
     int? RegimeTrabalhista, int? RegimePrevidenciario, int? RegimeJornada,
     string? MatriculaESocial, string? PaisNacionalidadeValue,
 
+    // TOTVS: Estatistica
+    int? TipoEstatistica,
+
     // TOTVS: CAGED
     int? OcorrenciaCAGED,
 
@@ -306,6 +309,9 @@ public sealed record PreAdmissaoUpdateRequest(
     int? MunicipioNascimentoIbge, int? TipoAdmissaoESocial,
     int? RegimeTrabalhista, int? RegimePrevidenciario, int? RegimeJornada,
     string? MatriculaESocial,
+
+    // TOTVS: Estatistica
+    int? TipoEstatistica,
 
     // TOTVS: CAGED
     int? OcorrenciaCAGED,
