@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 interface MagicLinkSummary {
   solicitacaoId: string;
@@ -20,14 +20,18 @@ type PageState =
   | { kind: "done"; action: "approve" | "reject" };
 
 export default function PublicApprovePage() {
-  const { token } = useParams<{ token: string }>();
   const searchParams = useSearchParams();
+  const token = searchParams.get("token");
   const action = searchParams.get("action") as "approve" | "reject" | null;
 
   const [state, setState] = useState<PageState>({ kind: "loading" });
   const [observacao, setObservacao] = useState("");
 
   useEffect(() => {
+    if (!token) {
+      setState({ kind: "error", message: "Link inválido — token não encontrado." });
+      return;
+    }
     fetch(`/api/public/approve/${token}`)
       .then((r) => {
         if (!r.ok) throw new Error("Token inválido ou expirado.");
@@ -38,7 +42,7 @@ export default function PublicApprovePage() {
   }, [token, action]);
 
   const handleConfirm = async () => {
-    if (state.kind !== "summary") return;
+    if (state.kind !== "summary" || !token) return;
     const acaoCode = state.action === "approve" ? 1 : 2;
     setState({ kind: "confirming", action: state.action! });
 
