@@ -1253,13 +1253,25 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         if (request.Decisao == TipoDecisaoHeadcount.SubstituicaoProvisoria)
         {
-            if (!request.PrazoMeses.HasValue || request.PrazoMeses.Value <= 0)
-                throw new InvalidOperationException("Informe o prazo em meses para a substituição provisória.");
+            // Aceita data alvo calculada pelo front (qualquer unidade) ou fallback em meses
+            DateTimeOffset expiresAt;
+            if (request.PrazoDataAlvo.HasValue && request.PrazoDataAlvo.Value > DateTimeOffset.UtcNow)
+            {
+                expiresAt = request.PrazoDataAlvo.Value;
+            }
+            else if (request.PrazoMeses.HasValue && request.PrazoMeses.Value > 0)
+            {
+                expiresAt = DateTimeOffset.UtcNow.AddMonths(request.PrazoMeses.Value);
+            }
+            else
+            {
+                throw new InvalidOperationException("Informe o prazo para a substituição provisória.");
+            }
 
             entity.DecisaoRHPrazoMeses = request.PrazoMeses;
 
             vaga.HeadcountProvisorio += entity.QtdPosicoes;
-            vaga.HeadcountProvisorioExpiresAtUtc = DateTimeOffset.UtcNow.AddMonths(request.PrazoMeses.Value);
+            vaga.HeadcountProvisorioExpiresAtUtc = expiresAt;
             vaga.HeadcountPendente = Math.Max(0, vaga.HeadcountPendente - entity.QtdPosicoes);
             vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
@@ -1286,7 +1298,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             await _workflow.NotifyByFuncionarioIdAsync(
                 entity.SolicitanteId,
                 "Decisão de headcount registrada — substituição provisória",
-                $"O RH definiu substituição provisória de {request.PrazoMeses} meses para \"{entity.Titulo}\".",
+                $"O RH definiu substituição provisória para \"{entity.Titulo}\", com revisão prevista em {expiresAt:dd/MM/yyyy}.",
                 $"/rs/solicitacoes/{entity.Id}",
                 ct);
         }

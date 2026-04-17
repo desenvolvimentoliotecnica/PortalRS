@@ -24,33 +24,44 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
     {
         try
         {
-            // Passo 1: IDs de vagas de solicitações aprovadas
-            var vagaIdList = await _db.SolicitacoesVaga
+            // Passo 1a: IDs de vagas de solicitações Aprovadas (rascunho criado, aguarda triagem)
+            var vagaIdAprovadas = await _db.SolicitacoesVaga
                 .AsNoTracking()
                 .Where(s => (short)s.Status == 2 && s.VagaId != null)
                 .Select(s => s.VagaId!.Value)
                 .Distinct()
                 .ToListAsync(ct);
 
-            Console.Error.WriteLine($"[pendencias-rh] vagaIdList={vagaIdList.Count}");
+            // Passo 1b: IDs de vagas com headcount pendente de decisão RH (AguardandoDecisaoRH = 9)
+            var vagaIdHCPendente = await _db.Vagas
+                .AsNoTracking()
+                .Where(v => v.HeadcountPendente > 0)
+                .Select(v => v.Id)
+                .ToListAsync(ct);
 
-            if (vagaIdList.Count == 0)
+            var vagaIdSet = vagaIdAprovadas.Union(vagaIdHCPendente).ToHashSet();
+
+            Console.Error.WriteLine($"[pendencias-rh] vagaIdList={vagaIdSet.Count} (aprovadas={vagaIdAprovadas.Count}, hcPendente={vagaIdHCPendente.Count})");
+
+            if (vagaIdSet.Count == 0)
                 return Array.Empty<VagaListItemResponse>();
 
-            var vagaIdSet = vagaIdList.ToHashSet();
-
-            // Passo 2: Vagas em rascunho (status=1 hardcoded para evitar ambiguidade de enum)
+            // Passo 2: Vagas em rascunho OU com headcount pendente
             var vagas = await _db.Vagas
                 .AsNoTracking()
-                .Where(v => (short)v.Status == 1)
+                .Where(v => vagaIdSet.Contains(v.Id))
                 .OrderByDescending(v => v.CreatedAtUtc)
                 .ToListAsync(ct);
 
-            Console.Error.WriteLine($"[pendencias-rh] vagasRascunho={vagas.Count}");
+            Console.Error.WriteLine($"[pendencias-rh] vagas={vagas.Count}");
 
-            // Passo 3: Filtrar em memória
+            // Passo 3: Para rascunho, exige que exista solic aprovada; para hcPendente, sempre inclui
+            var vagaIdAprovadasSet = vagaIdAprovadas.ToHashSet();
+            var vagaIdHCPendenteSet = vagaIdHCPendente.ToHashSet();
+
             var result = vagas
-                .Where(v => vagaIdSet.Contains(v.Id))
+                .Where(v => (vagaIdAprovadasSet.Contains(v.Id) && (short)v.Status == 1)
+                         || vagaIdHCPendenteSet.Contains(v.Id))
                 .Select(v => new VagaListItemResponse(
                     v.Id,
                     v.Codigo,
