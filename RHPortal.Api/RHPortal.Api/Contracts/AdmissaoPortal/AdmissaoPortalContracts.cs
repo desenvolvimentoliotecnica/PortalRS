@@ -51,6 +51,7 @@ public sealed record PortalDadosPessoais(
     string? NomeMae, string? NomePai,
     string? PaisNascimento, string? NaturalCidade, string? NaturalUf,
     int? GrauInstrucao, string? FuncDoador,
+    int? OrigemFuncionario,
 
     // Endereco
     string? Cep, string? Logradouro, string? Numero,
@@ -105,6 +106,7 @@ public sealed record PortalSalvarDadosRequest(
     string? NomeMae, string? NomePai,
     string? PaisNascimento, string? NaturalCidade, string? NaturalUf,
     int? GrauInstrucao, string? FuncDoador,
+    int? OrigemFuncionario,
 
     // Endereco
     string? Cep, string? Logradouro, string? Numero,
@@ -231,6 +233,8 @@ public sealed record BlipUploadDocumentoRequest(
 public sealed record BlipValidarDocumentoRequest(
     string Cpf,
     int Tipo,
+    /// <summary>0=Único, 1=Frente, 2=Verso</summary>
+    int Lado,
     /// <summary>URL pública ou presigned do arquivo (imagem ou PDF).</summary>
     string UrlArquivo
 );

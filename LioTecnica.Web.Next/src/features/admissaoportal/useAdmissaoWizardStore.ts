@@ -14,6 +14,7 @@ export interface DadosPessoais {
     nomeMae?: string | null; nomePai?: string | null;
     paisNascimento?: string | null; naturalCidade?: string | null; naturalUf?: string | null;
     grauInstrucao?: number | null; funcDoador?: string | null;
+    origemFuncionario?: number | null;
     // Endereco
     cep?: string | null; logradouro?: string | null; numero?: string | null;
     complemento?: string | null; bairro?: string | null; cidade?: string | null; uf?: string | null;

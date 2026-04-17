@@ -16,14 +16,32 @@ export interface ValidationError {
 }
 
 export interface PreAdmissaoFormLike {
+  // Pessoal
   nome?: string | null;
+  nomeAbreviado?: string | null;
   cpf?: string | null;
   dataNascimento?: string | null;
   sexo?: number | null;
+  estadoCivil?: number | null;
+  nacionalidade?: string | null;
+  paisNacionalidade?: string | null;
+  paisNascimento?: string | null;
+  naturalUf?: string | null;
+  naturalCidade?: string | null;
+  grauInstrucao?: number | null;
+  origemFuncionario?: number | null;
+  // Características físicas
+  cutis?: number | null;
+  cabelo?: number | null;
+  olhos?: number | null;
+  // Endereço
   cep?: string | null;
   logradouro?: string | null;
+  bairro?: string | null;
   cidade?: string | null;
   uf?: string | null;
+  municipioEnderecoIbge?: number | null;
+  // Trabalhista / TOTVS
   dataAdmissao?: string | null;
   salario?: number | null;
   tipoContratacao?: number | null;
@@ -31,10 +49,13 @@ export interface PreAdmissaoFormLike {
   codCargoTotvs?: number | null;
   codVinculoEmpregaticio?: number | null;
   tipoFuncionario?: number | null;
+  categoriaSalarial?: number | null;
   estabelecimentoCodigo?: string | null;
   centroCusto?: string | null;
   unidadeLotacao?: string | null;
   pisPasep?: string | null;
+  emitCartPonto?: string | null;
+  tipoEstatistica?: number | null;
   validacaoSalarioJustificativa?: string | null;
   validacaoSalarioOk?: boolean | null;
   [key: string]: unknown;
@@ -62,20 +83,45 @@ function isBlank(v: unknown): boolean {
 export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  // Dados pessoais
-  if (isBlank(form.nome)) errors.push({ field: "nome", label: "Nome Completo", stepIndex: STEP_INDEX.pessoal, message: "Informe o nome completo." });
-  if (isBlank(form.cpf)) errors.push({ field: "cpf", label: "CPF", stepIndex: STEP_INDEX.pessoal, message: "Informe o CPF." });
-  if (isBlank(form.dataNascimento)) errors.push({ field: "dataNascimento", label: "Data de Nascimento", stepIndex: STEP_INDEX.pessoal, message: "Informe a data de nascimento." });
+  // ── FP1440 Cadastral ──────────────────────────────────────────────────────
+  if (isBlank(form.nome))             errors.push({ field: "nome",            label: "Nome Completo",     stepIndex: STEP_INDEX.pessoal,    message: "Informe o nome completo." });
+  if (isBlank(form.nomeAbreviado))    errors.push({ field: "nomeAbreviado",   label: "Nome Abreviado",    stepIndex: STEP_INDEX.pessoal,    message: "Informe o nome abreviado." });
+  if (isBlank(form.cpf))              errors.push({ field: "cpf",             label: "CPF",               stepIndex: STEP_INDEX.pessoal,    message: "Informe o CPF." });
+  if (isBlank(form.dataNascimento))   errors.push({ field: "dataNascimento",  label: "Data de Nascimento",stepIndex: STEP_INDEX.pessoal,    message: "Informe a data de nascimento." });
+  if (!form.sexo || form.sexo === 0)  errors.push({ field: "sexo",            label: "Sexo",              stepIndex: STEP_INDEX.pessoal,    message: "Selecione o sexo." });
+  if (!form.estadoCivil || form.estadoCivil === 0) errors.push({ field: "estadoCivil", label: "Estado Civil", stepIndex: STEP_INDEX.pessoal, message: "Selecione o estado civil." });
+  if (isBlank(form.paisNacionalidade)) errors.push({ field: "paisNacionalidade", label: "País (Nacionalidade)", stepIndex: STEP_INDEX.pessoal, message: "Informe o país de nacionalidade (ex: BRA)." });
+  if (isBlank(form.paisNascimento))   errors.push({ field: "paisNascimento",  label: "País Nascimento",   stepIndex: STEP_INDEX.pessoal,    message: "Informe o país de nascimento (ex: BRA)." });
+  if (isBlank(form.naturalUf))        errors.push({ field: "naturalUf",       label: "UF Nascimento",     stepIndex: STEP_INDEX.pessoal,    message: "Informe a UF de nascimento." });
+  if (isBlank(form.naturalCidade))    errors.push({ field: "naturalCidade",   label: "Naturalidade",      stepIndex: STEP_INDEX.pessoal,    message: "Informe a cidade de nascimento." });
+  if (!form.origemFuncionario || form.origemFuncionario === 0) errors.push({ field: "origemFuncionario", label: "Origem", stepIndex: STEP_INDEX.pessoal, message: "Selecione a origem (Brasileiro/Naturalizado/Estrangeiro)." });
 
-  // Dados trabalhistas — os que o TOTVS já rejeita hoje quando ausentes.
-  if (isBlank(form.dataAdmissao)) errors.push({ field: "dataAdmissao", label: "Data de Admissão", stepIndex: STEP_INDEX.trabalhista, message: "Informe a data de admissão." });
-  if (isBlank(form.salario)) errors.push({ field: "salario", label: "Salário", stepIndex: STEP_INDEX.trabalhista, message: "Informe o salário." });
-  if (isBlank(form.codCargoTotvs)) errors.push({ field: "codCargoTotvs", label: "Cargo TOTVS", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o cargo TOTVS." });
-  if (isBlank(form.codVinculoEmpregaticio)) errors.push({ field: "codVinculoEmpregaticio", label: "Vínculo Empregatício", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o vínculo empregatício." });
-  if (isBlank(form.tipoFuncionario)) errors.push({ field: "tipoFuncionario", label: "Tipo Funcionário", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de funcionário." });
-  if (isBlank(form.cargaHorariaSemanal)) errors.push({ field: "cargaHorariaSemanal", label: "Carga Horária Semanal", stepIndex: STEP_INDEX.trabalhista, message: "Informe a carga horária semanal." });
+  // ── FP1440 Tipo Físico ────────────────────────────────────────────────────
+  if (!form.cutis  || form.cutis  === 0) errors.push({ field: "cutis",  label: "Raça/Cor", stepIndex: STEP_INDEX.pessoal, message: "Selecione a raça/cor." });
+  if (!form.cabelo || form.cabelo === 0) errors.push({ field: "cabelo", label: "Cabelo",   stepIndex: STEP_INDEX.pessoal, message: "Selecione a cor do cabelo." });
+  if (!form.olhos  || form.olhos  === 0) errors.push({ field: "olhos",  label: "Olhos",    stepIndex: STEP_INDEX.pessoal, message: "Selecione a cor dos olhos." });
 
-  // Regra existente (já no UI): se salário fora da faixa, justificativa obrigatória.
+  // ── FP1440 Endereço ───────────────────────────────────────────────────────
+  if (isBlank(form.cep))        errors.push({ field: "cep",        label: "CEP",       stepIndex: STEP_INDEX.endereco, message: "Informe o CEP." });
+  if (isBlank(form.logradouro)) errors.push({ field: "logradouro", label: "Endereço",  stepIndex: STEP_INDEX.endereco, message: "Informe o logradouro." });
+  if (isBlank(form.bairro))     errors.push({ field: "bairro",     label: "Bairro",    stepIndex: STEP_INDEX.endereco, message: "Informe o bairro." });
+  if (isBlank(form.cidade))     errors.push({ field: "cidade",     label: "Cidade",    stepIndex: STEP_INDEX.endereco, message: "Informe a cidade." });
+  if (isBlank(form.uf))         errors.push({ field: "uf",         label: "UF",        stepIndex: STEP_INDEX.endereco, message: "Selecione a UF." });
+  if (!form.municipioEnderecoIbge || form.municipioEnderecoIbge === 0) errors.push({ field: "municipioEnderecoIbge", label: "Município (cód. IBGE)", stepIndex: STEP_INDEX.endereco, message: "Informe o código IBGE do município." });
+
+  // ── FP1500 Cadastral / TOTVS ──────────────────────────────────────────────
+  if (isBlank(form.dataAdmissao))           errors.push({ field: "dataAdmissao",          label: "Data de Admissão",       stepIndex: STEP_INDEX.trabalhista, message: "Informe a data de admissão." });
+  if (isBlank(form.salario))                errors.push({ field: "salario",               label: "Salário",                stepIndex: STEP_INDEX.trabalhista, message: "Informe o salário." });
+  if (isBlank(form.codCargoTotvs))          errors.push({ field: "codCargoTotvs",         label: "Cargo TOTVS",            stepIndex: STEP_INDEX.trabalhista, message: "Selecione o cargo TOTVS." });
+  if (isBlank(form.codVinculoEmpregaticio)) errors.push({ field: "codVinculoEmpregaticio",label: "Vínculo Empregatício",   stepIndex: STEP_INDEX.trabalhista, message: "Selecione o vínculo empregatício." });
+  if (isBlank(form.tipoFuncionario))        errors.push({ field: "tipoFuncionario",        label: "Tipo Funcionário",       stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de funcionário." });
+  if (!form.categoriaSalarial || form.categoriaSalarial === 0) errors.push({ field: "categoriaSalarial", label: "Categoria Salarial", stepIndex: STEP_INDEX.trabalhista, message: "Selecione a categoria salarial." });
+  if (!form.grauInstrucao || form.grauInstrucao === 0)         errors.push({ field: "grauInstrucao",     label: "Grau de Instrução",  stepIndex: STEP_INDEX.trabalhista, message: "Selecione o grau de instrução." });
+  if (isBlank(form.cargaHorariaSemanal))    errors.push({ field: "cargaHorariaSemanal",   label: "Carga Horária Semanal",  stepIndex: STEP_INDEX.trabalhista, message: "Informe a carga horária semanal." });
+  if (isBlank(form.emitCartPonto))          errors.push({ field: "emitCartPonto",         label: "Emite Cartão Ponto",     stepIndex: STEP_INDEX.trabalhista, message: "Selecione a opção de cartão ponto." });
+  if (!form.tipoEstatistica || form.tipoEstatistica === 0) errors.push({ field: "tipoEstatistica", label: "Tipo Estatística", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo estatística." });
+
+  // Regra existente: se salário fora da faixa, justificativa obrigatória.
   if (form.validacaoSalarioOk === false && isBlank(form.validacaoSalarioJustificativa)) {
     errors.push({
       field: "validacaoSalarioJustificativa",

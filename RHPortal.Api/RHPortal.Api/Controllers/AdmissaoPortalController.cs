@@ -78,11 +78,11 @@ public sealed class AdmissaoPortalController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.UrlArquivo))
             return BadRequest(new { mensagem = "URL do arquivo obrigatória." });
 
-        var (httpStatus, mensagem) = await _service.ValidarDocumentoBlipAsync(request, ct);
+        var (httpStatus, mensagem, documentos) = await _service.ValidarDocumentoBlipAsync(request, ct);
 
         return httpStatus switch
         {
-            200 => Ok(new { mensagem }),
+            200 => Ok(new { mensagem, documentos }),
             404 => NotFound(new { mensagem }),
             _   => BadRequest(new { mensagem })
         };
