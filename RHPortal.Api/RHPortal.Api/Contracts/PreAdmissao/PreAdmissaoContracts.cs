@@ -24,7 +24,9 @@ public sealed record PreAdmissaoGridRow(
     int DocumentosRejeitados,
     int? WizardCurrentStep,
     int? WizardCompletionPercent,
-    DateTimeOffset? LastActivityUtc
+    DateTimeOffset? LastActivityUtc,
+    IntegracaoResultado? IntegracaoResultado,
+    string? IntegracaoMensagem
 );
 
 public sealed record PreAdmissaoListQuery(
