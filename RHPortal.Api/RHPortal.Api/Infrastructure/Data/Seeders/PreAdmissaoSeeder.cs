@@ -141,7 +141,7 @@ public static class PreAdmissaoSeeder
                     // ── TOTVS: Jornada, Ponto e Sindicato (mocks para teste) ──
                     CodTurma                    = 100 + i,
                     IndFuncVinculado            = 1,
-                    TipoMaoDeObra               = i % 2 == 0 ? "D" : "I",
+                    TipoMaoDeObra               = (i % 4) switch { 0 => "ADM", 1 => "COM", 2 => "GER", _ => "OPE" },
                     CodSindicato                = 10 + i,
                     CodLocalMarcacao            = 200 + i,
                     CodClassFuncPontoEletronico = 300 + i,
@@ -273,7 +273,7 @@ public static class PreAdmissaoSeeder
             // ── TOTVS: Jornada, Ponto e Sindicato (7 campos novos) ──
             CodTurma                    = 105,
             IndFuncVinculado            = 1,
-            TipoMaoDeObra               = "D",  // Direta
+            TipoMaoDeObra               = "ADM",  // Administrativo
             CodSindicato                = 15,
             CodLocalMarcacao            = 205,
             CodClassFuncPontoEletronico = 305,

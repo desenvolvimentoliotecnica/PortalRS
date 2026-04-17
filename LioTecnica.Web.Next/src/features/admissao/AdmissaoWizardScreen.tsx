@@ -588,8 +588,10 @@ export default function AdmissaoWizardScreen() {
                                 <label className="text-xs text-muted-foreground block mb-1">Ind. Tipo Mão-de-Obra</label>
                                 <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.tipoMaoDeObra ?? ""} onChange={e => set("tipoMaoDeObra", e.target.value || null)}>
                                     <option value="">Selecione…</option>
-                                    <option value="D">D — Direta</option>
-                                    <option value="I">I — Indireta</option>
+                                    <option value="ADM">ADM — Administrativo</option>
+                                    <option value="COM">COM — Comercial</option>
+                                    <option value="GER">GER — Gerencial</option>
+                                    <option value="OPE">OPE — Operacional</option>
                                 </select>
                             </div>
                             <Field label="Cód. Sindicato" value={form.codSindicato != null ? String(form.codSindicato) : ""} onChange={v => set("codSindicato", toIntOrNull(v))} type="number" />
