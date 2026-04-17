@@ -112,12 +112,15 @@ public sealed class UnidadeLotacaoController : ControllerBase
                 x.Description.ToLower().Contains(s));
         }
 
-        var items = await query
+        var raw = await query
             .OrderBy(x => x.Code)
-            .Select(x => new UnidadeLotacaoLookupItem(
-                x.Id, x.Code, x.Description,
-                $"{x.Code} - {x.Description}"))
+            .Select(x => new { x.Id, x.Code, x.Description })
             .ToListAsync(ct);
+
+        var items = raw
+            .DistinctBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(x => new UnidadeLotacaoLookupItem(x.Id, x.Code, x.Description, $"{x.Code} - {x.Description}"))
+            .ToList();
 
         return Ok(items);
     }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.Blip;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Contracts.AdmissaoPortal;
 using RhPortal.Api.Contracts.PreAdmissao;
@@ -18,6 +19,7 @@ public interface IAdmissaoPortalService
     Task<AdmissaoPortalDataResponse?> GetDataAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
     Task<BlipDocumentosResponse?> GetDocumentosByIdentificadorAsync(string? cpf, string? telefone, CancellationToken ct);
     Task<BlipDocumentosResponse?> UploadDocBlipAsync(BlipUploadDocumentoRequest request, CancellationToken ct);
+    Task<(int HttpStatus, string Mensagem)> ValidarDocumentoBlipAsync(BlipValidarDocumentoRequest request, CancellationToken ct);
     Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest request, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse?> UploadDocAsync(Guid preAdmissaoId, string cpf, TipoDocumento tipo, LadoDocumento lado, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
     Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
@@ -36,19 +38,25 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
     private readonly IS3StorageService _storage;
     private readonly DocumentAiExtractor _aiExtractor;
     private readonly IHubContext<NotificationsHub> _hub;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly BlipDocumentoValidator _blipValidator;
 
     public AdmissaoPortalService(
         AppDbContext db,
         ITenantContext tenantContext,
         IS3StorageService storage,
         DocumentAiExtractor aiExtractor,
-        IHubContext<NotificationsHub> hub)
+        IHubContext<NotificationsHub> hub,
+        IHttpClientFactory httpClientFactory,
+        BlipDocumentoValidator blipValidator)
     {
         _db = db;
         _tenantContext = tenantContext;
         _storage = storage;
         _aiExtractor = aiExtractor;
         _hub = hub;
+        _httpClientFactory = httpClientFactory;
+        _blipValidator = blipValidator;
     }
 
     public async Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct)
@@ -349,22 +357,67 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         if (pa is null) return null;
 
-        var documentos = pa.DocumentosSolicitados
-            .Where(ds => ds.Obrigatorio)
-            .Select(ds =>
+        // Tipos que exigem frente E costas separados
+        var tiposComVerso = new HashSet<TipoDocumento>
+        {
+            TipoDocumento.RG,
+            TipoDocumento.CNH,
+            TipoDocumento.CarteiraTrabalhoCTPS
+        };
+
+        var documentos = new List<BlipDocumentoItem>();
+
+        foreach (var ds in pa.DocumentosSolicitados.Where(d => d.Obrigatorio))
+        {
+            var label = PreAdmissaoService.TipoDocumentoLabel(ds.TipoDocumento);
+
+            if (tiposComVerso.Contains(ds.TipoDocumento))
             {
+                // Frente
+                var enviadosFrente = pa.Documentos
+                    .Where(d => d.Tipo == ds.TipoDocumento && d.Lado == LadoDocumento.Frente)
+                    .Select(d => new BlipDocumentoEnviadoItem((int)d.Lado, d.NomeArquivo, (int)d.Status))
+                    .ToList();
+
+                documentos.Add(new BlipDocumentoItem(
+                    Tipo: (int)ds.TipoDocumento,
+                    Label: $"{label} — Frente",
+                    Obrigatorio: true,
+                    JaEnviado: enviadosFrente.Any(),
+                    Lado: (int)LadoDocumento.Frente,
+                    Enviados: enviadosFrente));
+
+                // Costas
+                var enviadosCostas = pa.Documentos
+                    .Where(d => d.Tipo == ds.TipoDocumento && d.Lado == LadoDocumento.Verso)
+                    .Select(d => new BlipDocumentoEnviadoItem((int)d.Lado, d.NomeArquivo, (int)d.Status))
+                    .ToList();
+
+                documentos.Add(new BlipDocumentoItem(
+                    Tipo: (int)ds.TipoDocumento,
+                    Label: $"{label} — Costas",
+                    Obrigatorio: true,
+                    JaEnviado: enviadosCostas.Any(),
+                    Lado: (int)LadoDocumento.Verso,
+                    Enviados: enviadosCostas));
+            }
+            else
+            {
+                // Documento de lado único
                 var enviados = pa.Documentos
                     .Where(d => d.Tipo == ds.TipoDocumento)
                     .Select(d => new BlipDocumentoEnviadoItem((int)d.Lado, d.NomeArquivo, (int)d.Status))
                     .ToList();
 
-                return new BlipDocumentoItem(
+                documentos.Add(new BlipDocumentoItem(
                     Tipo: (int)ds.TipoDocumento,
-                    Label: PreAdmissaoService.TipoDocumentoLabel(ds.TipoDocumento),
+                    Label: label,
                     Obrigatorio: true,
                     JaEnviado: enviados.Any(),
-                    Enviados: enviados);
-            }).ToList();
+                    Lado: (int)LadoDocumento.Unico,
+                    Enviados: enviados));
+            }
+        }
 
         return new BlipDocumentosResponse(pa.Nome, pa.Celular, documentos);
     }
@@ -431,6 +484,75 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         return await GetDocumentosByIdentificadorAsync(request.Cpf, null, ct);
     }
 
+    public async Task<(int HttpStatus, string Mensagem)> ValidarDocumentoBlipAsync(
+        BlipValidarDocumentoRequest request, CancellationToken ct)
+    {
+        // 1. Verifica se o candidato existe pelo CPF
+        var cpfNorm = NormalizeCpf(request.Cpf);
+        var allowedStatuses = new[]
+        {
+            PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado,
+            PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido
+        };
+
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
+            .AsNoTracking()
+            .Where(x => allowedStatuses.Contains(x.Status) && x.Cpf == cpfNorm)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+
+        if (pa is null)
+            return (404, "CPF informado não foi encontrado");
+
+        // 2. Baixa o arquivo a partir da URL
+        byte[] bytes;
+        string mimeType;
+        try
+        {
+            using var http = _httpClientFactory.CreateClient();
+            using var response = await http.GetAsync(request.UrlArquivo, ct);
+            response.EnsureSuccessStatusCode();
+            bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            mimeType = response.Content.Headers.ContentType?.MediaType
+                       ?? DetectMimeTypeFromUrl(request.UrlArquivo);
+        }
+        catch (Exception)
+        {
+            return (400, "Não foi possível baixar o arquivo. Verifique se o link é válido e tente novamente.");
+        }
+
+        // 3. Converte para base64 e valida com GPT-4o (prompts do consigaz-lambda)
+        var base64 = Convert.ToBase64String(bytes);
+        var tipo = (TipoDocumento)request.Tipo;
+        var tipoLabel = BlipDocumentoValidator.TipoDocumentoLabel(tipo);
+
+        try
+        {
+            var (valido, tipoDetectado, mensagemErro) =
+                await _blipValidator.ValidarAsync(_tenantContext.TenantId, tipo, base64, mimeType, ct);
+
+            if (!valido)
+                return (400, mensagemErro ?? $"Documento inválido. Envie uma imagem nítida do {tipoLabel}.");
+
+            return (200, $"{tipoLabel} validado com sucesso.");
+        }
+        catch (Exception)
+        {
+            return (400, "Erro ao acessar o serviço de análise de documentos. Tente novamente.");
+        }
+    }
+
+    private static string DetectMimeTypeFromUrl(string url)
+    {
+        var ext = Path.GetExtension(url.Split('?')[0]).ToLowerInvariant();
+        return ext switch
+        {
+            ".pdf"  => "application/pdf",
+            ".png"  => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            _ => "image/jpeg"
+        };
+    }
 
     private async Task<Domain.Entities.PreAdmissao?> LoadAndValidate(Guid id, string cpf, CancellationToken ct)
     {

@@ -61,6 +61,33 @@ public sealed class AdmissaoPortalController : ControllerBase
             : Ok(result);
     }
 
+    /// <summary>
+    /// Blip: valida um documento a partir de uma URL pública (ex: mídia do WhatsApp).
+    /// A API baixa o arquivo, converte para base64 e valida com GPT-4o.
+    /// Retorna 200 se válido, 400 se inválido (com mensagem clara), 404 se CPF não encontrado.
+    /// </summary>
+    [HttpPost("blip/documentos/validar")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ValidarDocumentoBlip(
+        [FromBody] BlipValidarDocumentoRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Cpf))
+            return BadRequest(new { mensagem = "CPF obrigatório." });
+        if (string.IsNullOrWhiteSpace(request.UrlArquivo))
+            return BadRequest(new { mensagem = "URL do arquivo obrigatória." });
+
+        var (httpStatus, mensagem) = await _service.ValidarDocumentoBlipAsync(request, ct);
+
+        return httpStatus switch
+        {
+            200 => Ok(new { mensagem }),
+            404 => NotFound(new { mensagem }),
+            _   => BadRequest(new { mensagem })
+        };
+    }
+
     /// <summary>Candidato faz login com CPF para acessar o portal de documentos.</summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(AdmissaoPortalLoginResponse), StatusCodes.Status200OK)]
