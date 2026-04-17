@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import FuncionarioPerfilPageClient from "./FuncionarioPerfilPageClient";
 
 export function generateStaticParams() {
@@ -5,5 +6,9 @@ export function generateStaticParams() {
 }
 
 export default function Page() {
-    return <FuncionarioPerfilPageClient />;
+    return (
+        <Suspense fallback={<p className="text-gray-500 text-center p-8">Carregando...</p>}>
+            <FuncionarioPerfilPageClient />
+        </Suspense>
+    );
 }
