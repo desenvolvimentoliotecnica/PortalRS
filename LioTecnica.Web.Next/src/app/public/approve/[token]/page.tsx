@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import PublicApprovePageClient from "./PublicApprovePageClient";
 
 export function generateStaticParams() {
@@ -5,5 +6,9 @@ export function generateStaticParams() {
 }
 
 export default function Page() {
-  return <PublicApprovePageClient />;
+  return (
+    <Suspense fallback={<p className="text-gray-500 text-center p-8">Carregando...</p>}>
+      <PublicApprovePageClient />
+    </Suspense>
+  );
 }
