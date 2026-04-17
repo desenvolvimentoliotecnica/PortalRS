@@ -717,7 +717,8 @@ public sealed class VagaService : IVagaService
             null, // DecisaoRH
             null, // DecisaoRHRevisadoPorNome
             null, // DecisaoRHEmUtc
-            null  // DecisaoRHPrazoMeses
+            null, // DecisaoRHPrazoMeses
+            v.HeadcountProvisorioExpiresAtUtc
         );
     }
 

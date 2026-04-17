@@ -46,7 +46,8 @@
       "Bash(ls -la Migrations/*AddPayRange*)",
       "Bash(grep -E \"\\\\.cs$\")",
       "Bash(npm run:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(grep -n \"pendencias-rh\\\\|PendenciasRh\\\\|FilaRh\\\\|fila-rh\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Controllers/*.cs)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

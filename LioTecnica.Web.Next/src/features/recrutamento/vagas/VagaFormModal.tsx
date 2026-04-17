@@ -840,9 +840,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [solicitacaoPendenteDecisaoId, setSolicitacaoPendenteDecisaoId] = useState<string | null>(null);
   const [decisaoRHFeita, setDecisaoRHFeita] = useState<{
     tipo: number; revisadoPorNome: string | null; emUtc: string | null; prazoMeses: number | null;
+    expiresAtUtc: string | null;
   } | null>(null);
   const [decisaoRHSelecionada, setDecisaoRHSelecionada] = useState<"1" | "2" | "">("");
-  const [decisaoRHPrazoMeses, setDecisaoRHPrazoMeses] = useState(3);
+  const [prazoUnidade, setPrazoUnidade] = useState<"minutos" | "dias" | "meses" | "data">("meses");
+  const [prazoValor, setPrazoValor] = useState(3);
+  const [prazoDataEspecifica, setPrazoDataEspecifica] = useState("");
   const [savingDecisao, setSavingDecisao] = useState(false);
 
   const stepCompletion = useMemo(() => {
@@ -872,7 +875,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       setSolicitacaoPendenteDecisaoId(null);
       setDecisaoRHFeita(null);
       setDecisaoRHSelecionada("");
-      setDecisaoRHPrazoMeses(3);
+      setPrazoUnidade("meses");
+      setPrazoValor(3);
+      setPrazoDataEspecifica("");
       return;
     }
     if (loaded.current) return;
@@ -1008,6 +1013,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           revisadoPorNome: v.decisaoRHRevisadoPorNome ? String(v.decisaoRHRevisadoPorNome) : null,
           emUtc: v.decisaoRHEmUtc ? String(v.decisaoRHEmUtc) : null,
           prazoMeses: v.decisaoRHPrazoMeses != null ? Number(v.decisaoRHPrazoMeses) : null,
+          expiresAtUtc: v.headcountProvisorioExpiresAtUtc ? String(v.headcountProvisorioExpiresAtUtc) : null,
         });
       } else {
         setDecisaoRHFeita(null);
@@ -1022,26 +1028,55 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     toast.success("Dados copiados. Edite e salve como nova.");
   }
 
+  function calcPrazoDataAlvo(): string | null {
+    if (decisaoRHSelecionada !== "1") return null;
+    const now = new Date();
+    if (prazoUnidade === "minutos") {
+      return new Date(now.getTime() + prazoValor * 60_000).toISOString();
+    } else if (prazoUnidade === "dias") {
+      return new Date(now.getTime() + prazoValor * 86_400_000).toISOString();
+    } else if (prazoUnidade === "meses") {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() + prazoValor);
+      return d.toISOString();
+    } else {
+      // data específica
+      return prazoDataEspecifica ? new Date(prazoDataEspecifica).toISOString() : null;
+    }
+  }
+
   async function handleConfirmarDecisaoRH() {
     if (!solicitacaoPendenteDecisaoId) return;
     if (!decisaoRHSelecionada) { toast.error("Selecione o tipo de decisão."); return; }
-    if (decisaoRHSelecionada === "1" && decisaoRHPrazoMeses < 1) { toast.error("Informe o prazo em meses."); return; }
+    if (decisaoRHSelecionada === "1") {
+      if (prazoUnidade === "data" && !prazoDataEspecifica) { toast.error("Selecione a data/hora de notificação."); return; }
+      if (prazoUnidade !== "data" && prazoValor < 1) { toast.error("Informe um prazo válido."); return; }
+    }
     setSavingDecisao(true);
+    const prazoDataAlvo = calcPrazoDataAlvo();
+    const prazoMesesParaBackend = prazoUnidade === "meses" ? prazoValor : null;
     try {
       await fetchJson(`${BASE}/api/solicitacoes-vaga/${encodeURIComponent(solicitacaoPendenteDecisaoId)}/decisao-rh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           decisao: Number(decisaoRHSelecionada),
-          prazoMeses: decisaoRHSelecionada === "1" ? decisaoRHPrazoMeses : null,
+          prazoMeses: prazoMesesParaBackend,
+          prazoDataAlvo,
         }),
       });
-      toast.success(decisaoRHSelecionada === "1"
-        ? "Substituição provisória registrada."
-        : "Aumento de headcount encaminhado para aprovação da Diretoria.");
+      if (decisaoRHSelecionada === "1") {
+        const dtFmt = prazoDataAlvo ? new Date(prazoDataAlvo).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "";
+        toast.success(`Substituição provisória registrada. Revisão prevista em ${dtFmt}.`);
+      } else {
+        toast.success("Aumento de headcount encaminhado para aprovação da Diretoria.");
+      }
       setHeadcountPendente(0);
       setSolicitacaoPendenteDecisaoId(null);
       setDecisaoRHSelecionada("");
+      setPrazoUnidade("meses");
+      setPrazoValor(3);
+      setPrazoDataEspecifica("");
       if (vagaId) void loadVagaIntoDraft(vagaId, enums);
       onSaved(vagaId ?? undefined);
     } catch (err: unknown) {
@@ -1214,14 +1249,48 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 </span>
               </label>
               {decisaoRHSelecionada === "1" && (
-                <div className="ml-5 flex items-center gap-2 mt-1">
-                  <label className="text-xs text-amber-700 dark:text-amber-400 shrink-0">Prazo (meses):</label>
-                  <input
-                    type="number" min={1} max={24}
-                    value={decisaoRHPrazoMeses}
-                    onChange={(e) => setDecisaoRHPrazoMeses(Math.max(1, Math.min(24, parseInt(e.target.value) || 1)))}
-                    className="w-20 rounded-md border border-amber-300 bg-white dark:bg-amber-950 px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-amber-400"
-                  />
+                <div className="ml-5 mt-2 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="text-xs text-amber-700 dark:text-amber-400 shrink-0 font-medium">Prazo de revisão:</label>
+                    <select
+                      value={prazoUnidade}
+                      onChange={(e) => setPrazoUnidade(e.target.value as "minutos" | "dias" | "meses" | "data")}
+                      className="rounded-md border border-amber-300 bg-white dark:bg-amber-950 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    >
+                      <option value="minutos">Minutos</option>
+                      <option value="dias">Dias</option>
+                      <option value="meses">Meses</option>
+                      <option value="data">Data específica</option>
+                    </select>
+                    {prazoUnidade !== "data" && (
+                      <input
+                        type="number" min={1} max={prazoUnidade === "minutos" ? 1440 : prazoUnidade === "dias" ? 365 : 24}
+                        value={prazoValor}
+                        onChange={(e) => setPrazoValor(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-20 rounded-md border border-amber-300 bg-white dark:bg-amber-950 px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      />
+                    )}
+                    {prazoUnidade === "data" && (
+                      <input
+                        type="datetime-local"
+                        value={prazoDataEspecifica}
+                        onChange={(e) => setPrazoDataEspecifica(e.target.value)}
+                        min={new Date().toISOString().slice(0, 16)}
+                        className="rounded-md border border-amber-300 bg-white dark:bg-amber-950 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      />
+                    )}
+                  </div>
+                  {prazoUnidade !== "data" && prazoValor > 0 && (() => {
+                    const d = new Date();
+                    if (prazoUnidade === "minutos") d.setMinutes(d.getMinutes() + prazoValor);
+                    else if (prazoUnidade === "dias") d.setDate(d.getDate() + prazoValor);
+                    else d.setMonth(d.getMonth() + prazoValor);
+                    return (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                        Revisão prevista: {d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                      </p>
+                    );
+                  })()}
                 </div>
               )}
               <label className="flex items-start gap-2 cursor-pointer">
@@ -1248,9 +1317,13 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
             <p className="text-xs text-emerald-700 dark:text-emerald-400">
               <strong>Decisão de HC:</strong>{" "}
               {decisaoRHFeita.tipo === 1
-                ? `Substituição provisória (${decisaoRHFeita.prazoMeses} meses)`
+                ? `Substituição provisória${decisaoRHFeita.expiresAtUtc
+                    ? ` — revisão em ${new Date(decisaoRHFeita.expiresAtUtc).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`
+                    : decisaoRHFeita.prazoMeses
+                      ? ` (${decisaoRHFeita.prazoMeses} meses)`
+                      : ""}`
                 : "Aumento definitivo (encaminhado para aprovação)"}
-              {decisaoRHFeita.revisadoPorNome && ` — revisado por ${decisaoRHFeita.revisadoPorNome}`}
+              {decisaoRHFeita.revisadoPorNome && ` — por ${decisaoRHFeita.revisadoPorNome}`}
               {decisaoRHFeita.emUtc && ` em ${new Date(decisaoRHFeita.emUtc).toLocaleDateString("pt-BR")}`}
             </p>
           </div>
