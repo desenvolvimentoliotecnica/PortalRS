@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
+// Required for output: "export" — tokens are dynamic, so we return an empty array
+// and rely on client-side rendering.
+export function generateStaticParams() {
+  return [];
+}
+
 interface MagicLinkSummary {
   solicitacaoId: string;
   tipoFluxoLabel: string;
