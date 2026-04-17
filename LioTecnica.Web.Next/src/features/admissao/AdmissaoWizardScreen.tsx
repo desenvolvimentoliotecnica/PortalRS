@@ -91,9 +91,16 @@ interface PreAdmissao {
     categoriaSalarial: number | null;
     grauInstrucao: number | null;
     codTurno: number | null;
+    codTurma: number | null;
     tipoEstatistica: number | null;
     centroCusto: string | null;
     unidadeLotacao: string | null;
+    indFuncVinculado: number | null;
+    tipoMaoDeObra: string | null;
+    codSindicato: number | null;
+    codLocalMarcacao: number | null;
+    codClassFuncPontoEletronico: number | null;
+    codLocalidade: number | null;
     // Saúde e docs complementares TOTVS
     grupoSanguineo: number | null;
     fatorRh: number | null;
@@ -573,6 +580,23 @@ export default function AdmissaoWizardScreen() {
                                 />
                             </div>
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border/30 pt-3 mt-2">
+                            <div className="col-span-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">Jornada, Ponto e Sindicato (TOTVS)</div>
+                            <Field label="Cód. Turma" value={form.codTurma != null ? String(form.codTurma) : ""} onChange={v => set("codTurma", toIntOrNull(v))} type="number" />
+                            <Field label="Ind. Func. Vinculado" value={form.indFuncVinculado != null ? String(form.indFuncVinculado) : ""} onChange={v => set("indFuncVinculado", toIntOrNull(v))} type="number" />
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Ind. Tipo Mão-de-Obra</label>
+                                <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.tipoMaoDeObra ?? ""} onChange={e => set("tipoMaoDeObra", e.target.value || null)}>
+                                    <option value="">Selecione…</option>
+                                    <option value="D">D — Direta</option>
+                                    <option value="I">I — Indireta</option>
+                                </select>
+                            </div>
+                            <Field label="Cód. Sindicato" value={form.codSindicato != null ? String(form.codSindicato) : ""} onChange={v => set("codSindicato", toIntOrNull(v))} type="number" />
+                            <Field label="Cód. Local Marcação" value={form.codLocalMarcacao != null ? String(form.codLocalMarcacao) : ""} onChange={v => set("codLocalMarcacao", toIntOrNull(v))} type="number" />
+                            <Field label="Classif. Func. Ponto Eletrônico" value={form.codClassFuncPontoEletronico != null ? String(form.codClassFuncPontoEletronico) : ""} onChange={v => set("codClassFuncPontoEletronico", toIntOrNull(v))} type="number" />
+                            <Field label="Cód. Localidade" value={form.codLocalidade != null ? String(form.codLocalidade) : ""} onChange={v => set("codLocalidade", toIntOrNull(v))} type="number" />
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-border/30 pt-3 mt-2">
                             <Field label="Título Eleitor Nº" value={form.tituloEleitorNumero} onChange={v => set("tituloEleitorNumero", v)} />
                             <Field label="Zona" value={form.tituloEleitorZona} onChange={v => set("tituloEleitorZona", v)} />
@@ -696,6 +720,13 @@ export default function AdmissaoWizardScreen() {
                             <Info label="Grau Instrução" value={GRAU_INSTRUCAO.find(v => v.value === form.grauInstrucao)?.label} />
                             <Info label="Centro Custo" value={form.centroCusto} />
                             <Info label="Unid. Lotação" value={form.unidadeLotacao} />
+                            <Info label="Cód. Turma" value={form.codTurma != null ? String(form.codTurma) : null} />
+                            <Info label="Ind. Func. Vinc." value={form.indFuncVinculado != null ? String(form.indFuncVinculado) : null} />
+                            <Info label="Tipo Mão-de-Obra" value={form.tipoMaoDeObra} />
+                            <Info label="Cód. Sindicato" value={form.codSindicato != null ? String(form.codSindicato) : null} />
+                            <Info label="Local Marcação" value={form.codLocalMarcacao != null ? String(form.codLocalMarcacao) : null} />
+                            <Info label="Classif. Ponto Eletr." value={form.codClassFuncPontoEletronico != null ? String(form.codClassFuncPontoEletronico) : null} />
+                            <Info label="Cód. Localidade" value={form.codLocalidade != null ? String(form.codLocalidade) : null} />
                             <Info label="Documentos" value={`${form.documentos?.length ?? 0} arquivo(s)`} />
                         </div>
                         <div className="rounded-md bg-sky-500/10 p-3 text-sm text-sky-700">
