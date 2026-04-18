@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 interface MagicLinkSummary {
   solicitacaoId: string;
@@ -19,15 +19,19 @@ type PageState =
   | { kind: "confirming"; action: "approve" | "reject" }
   | { kind: "done"; action: "approve" | "reject" };
 
-export default function PublicApprovePageClient() {
-  const { token } = useParams<{ token: string }>();
+export default function PublicApprovePage() {
   const searchParams = useSearchParams();
+  const token = searchParams.get("token");
   const action = searchParams.get("action") as "approve" | "reject" | null;
 
   const [state, setState] = useState<PageState>({ kind: "loading" });
   const [observacao, setObservacao] = useState("");
 
   useEffect(() => {
+    if (!token) {
+      setState({ kind: "error", message: "Link inválido — token não encontrado." });
+      return;
+    }
     fetch(`/api/public/approve/${token}`)
       .then((r) => {
         if (!r.ok) throw new Error("Token inválido ou expirado.");
@@ -38,7 +42,7 @@ export default function PublicApprovePageClient() {
   }, [token, action]);
 
   const handleConfirm = async () => {
-    if (state.kind !== "summary") return;
+    if (state.kind !== "summary" || !token) return;
     const acaoCode = state.action === "approve" ? 1 : 2;
     setState({ kind: "confirming", action: state.action! });
 
@@ -79,10 +83,10 @@ export default function PublicApprovePageClient() {
       <Layout>
         <div className={`rounded-lg border p-6 text-center ${approved ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
           <p className={`text-lg font-semibold ${approved ? "text-green-700" : "text-red-700"}`}>
-            {approved ? "Solicitacao aprovada com sucesso!" : "Solicitacao reprovada."}
+            {approved ? "✅ Solicitação aprovada com sucesso!" : "❌ Solicitação reprovada."}
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            O solicitante sera notificado automaticamente.
+            O solicitante será notificado automaticamente.
           </p>
         </div>
       </Layout>
@@ -100,8 +104,8 @@ export default function PublicApprovePageClient() {
     return (
       <Layout>
         <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-6 text-center">
-          <p className="text-yellow-700 font-medium">Este link expirou.</p>
-          <p className="text-sm text-gray-500 mt-2">Acesse o portal para aprovar ou reprovar a solicitacao.</p>
+          <p className="text-yellow-700 font-medium">⚠️ Este link expirou.</p>
+          <p className="text-sm text-gray-500 mt-2">Acesse o portal para aprovar ou reprovar a solicitação.</p>
         </div>
       </Layout>
     );
@@ -111,7 +115,7 @@ export default function PublicApprovePageClient() {
     return (
       <Layout>
         <div className="rounded-lg bg-gray-50 border border-gray-200 p-6 text-center">
-          <p className="text-gray-700 font-medium">Este link ja foi utilizado.</p>
+          <p className="text-gray-700 font-medium">Este link já foi utilizado.</p>
         </div>
       </Layout>
     );
@@ -132,7 +136,7 @@ export default function PublicApprovePageClient() {
 
         {!isApprove && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Motivo da reprovacao (opcional)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Motivo da reprovação (opcional)</label>
             <textarea
               className="w-full rounded-md border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
               rows={3}
@@ -147,11 +151,11 @@ export default function PublicApprovePageClient() {
           onClick={handleConfirm}
           className={`w-full rounded-lg py-3 px-6 text-white font-semibold text-sm transition ${actionColor}`}
         >
-          {actionLabel} solicitacao
+          {actionLabel} solicitação
         </button>
 
         <p className="text-center text-xs text-gray-400">
-          Acao irreversivel via este link. Para solicitar ajustes, acesse o portal.
+          Ação irreversível via este link. Para solicitar ajustes, acesse o portal.
         </p>
       </div>
     </Layout>
@@ -163,7 +167,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <h1 className="text-xl font-bold text-gray-800">Portal RH — Aprovacao</h1>
+          <h1 className="text-xl font-bold text-gray-800">Portal RH — Aprovação</h1>
         </div>
         {children}
       </div>
