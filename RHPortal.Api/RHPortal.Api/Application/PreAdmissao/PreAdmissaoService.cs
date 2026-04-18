@@ -264,6 +264,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Ponto
         e.EmitCartPonto = r.EmitCartPonto?.Trim(); e.CodLocalMarcacao = r.CodLocalMarcacao;
         e.CodClassFuncPontoEletronico = r.CodClassFuncPontoEletronico;
+        e.TipoEstatistica = r.TipoEstatistica;
 
         // Docs avulsos
         e.TituloEleitorNumero = r.TituloEleitorNumero?.Trim();
@@ -1134,6 +1135,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ProvAcumFerias, e.ProvAcumInssFerias, e.ProvAcumFgtsFerias, e.ProvAcumFerias13,
         // Ponto
         e.EmitCartPonto, e.CodLocalMarcacao, e.CodClassFuncPontoEletronico,
+        e.TipoEstatistica,
         // Docs avulsos
         e.TituloEleitorNumero, e.TituloEleitorZona, e.TituloEleitorSecao,
         e.TituloEleitorCidade, e.TituloEleitorUf,

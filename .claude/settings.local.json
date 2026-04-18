@@ -48,6 +48,7 @@
       "Bash(npm run:*)",
       "Bash(git stash:*)",
       "Bash(grep -n \"pendencias-rh\\\\|PendenciasRh\\\\|FilaRh\\\\|fila-rh\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Controllers/*.cs)",
+      "Bash(git fetch:*)",
       "Bash(git merge:*)",
       "Bash(git checkout:*)"
     ],

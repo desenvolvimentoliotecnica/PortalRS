@@ -69,8 +69,11 @@ const GRAU_INSTRUCAO_OPTIONS = [
     { value: 9, label: "Mestrado" }, { value: 10, label: "Doutorado" },
 ];
 const CUTIS_OPTIONS = [
-    { value: 1, label: "Branca" }, { value: 2, label: "Morena" },
-    { value: 3, label: "Negra" }, { value: 4, label: "Amarela" }, { value: 5, label: "Indigena" },
+    { value: 1, label: "Branca" }, { value: 2, label: "Parda" },
+    { value: 3, label: "Preta" }, { value: 4, label: "Amarela" }, { value: 5, label: "Indigena" },
+];
+const ORIGEM_FUNCIONARIO_OPTIONS = [
+    { value: 1, label: "Brasileiro" }, { value: 2, label: "Naturalizado" }, { value: 3, label: "Estrangeiro" },
 ];
 const CABELO_OPTIONS = [
     { value: 1, label: "Preto" }, { value: 2, label: "Castanho" },
@@ -147,7 +150,7 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Nome Completo" field="nome" form={formData} set={set} disabled={disabled} required />
                     <Field label="Nome Social" field="nomeSocial" form={formData} set={set} disabled={disabled} placeholder="Opcional" />
-                    <Field label="Nome Abreviado" field="nomeAbreviado" form={formData} set={set} disabled={disabled} placeholder="Ex: JOAO" />
+                    <Field label="Nome Abreviado" field="nomeAbreviado" form={formData} set={set} disabled={disabled} placeholder="Ex: JOAO" required />
                     <Field label="CPF" field="cpf" form={formData} set={set} disabled className="bg-muted" required />
                     <Field label="RG" field="rg" form={formData} set={set} disabled={disabled} required />
                     <Field label="Orgao Expedidor" field="rgOrgaoExpedidor" form={formData} set={set} disabled={disabled} required />
@@ -157,14 +160,15 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <SelectField label="Sexo" field="sexo" form={formData} set={set} disabled={disabled} options={SEXO_OPTIONS} cls={selectCls} required />
                     <SelectField label="Estado Civil" field="estadoCivil" form={formData} set={set} disabled={disabled} options={ESTADO_CIVIL_OPTIONS} cls={selectCls} required />
                     <Field label="Nacionalidade" field="nacionalidade" form={formData} set={set} disabled={disabled} placeholder="Brasileira" required />
-                    <Field label="Pais da Nacionalidade" field="paisNacionalidade" form={formData} set={set} disabled={disabled} placeholder="BRA" />
+                    <Field label="Pais da Nacionalidade" field="paisNacionalidade" form={formData} set={set} disabled={disabled} placeholder="BRA" required />
                     <CityField label="Cidade de Nascimento" field="naturalCidade" ufField="naturalUf" form={formData} set={set} disabled={disabled} required />
                     <AutocompleteField label="UF de Nascimento" field="naturalUf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
-                    <Field label="Pais de Nascimento" field="paisNascimento" form={formData} set={set} disabled={disabled} placeholder="BRA" />
+                    <Field label="Pais de Nascimento" field="paisNascimento" form={formData} set={set} disabled={disabled} placeholder="BRA" required />
                     <Field label="Nome da Mae" field="nomeMae" form={formData} set={set} disabled={disabled} required />
                     <Field label="Nome do Pai" field="nomePai" form={formData} set={set} disabled={disabled} />
                     <SelectField label="Escolaridade" field="grauInstrucao" form={formData} set={set} disabled={disabled} options={GRAU_INSTRUCAO_OPTIONS} cls={selectCls} required />
                     <StringSelectField label="Doador de Orgaos" field="funcDoador" form={formData} set={set} disabled={disabled} options={[{value:"S",label:"Sim"},{value:"N",label:"Nao"}]} cls={selectCls} />
+                    <SelectField label="Origem" field="origemFuncionario" form={formData} set={set} disabled={disabled} options={ORIGEM_FUNCIONARIO_OPTIONS} cls={selectCls} required />
                 </div>
             </Section>
 
@@ -284,9 +288,9 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="Cartao SUS" field="cartaoSus" form={formData} set={set} disabled={disabled} />
                     <Field label="Altura (cm)" field="altura" form={formData} set={set} disabled={disabled} type="number" />
                     <Field label="Peso (kg)" field="peso" form={formData} set={set} disabled={disabled} type="number" />
-                    <SelectField label="Cutis" field="cutis" form={formData} set={set} disabled={disabled} options={CUTIS_OPTIONS} cls={selectCls} />
-                    <SelectField label="Cabelo" field="cabelo" form={formData} set={set} disabled={disabled} options={CABELO_OPTIONS} cls={selectCls} />
-                    <SelectField label="Olhos" field="olhos" form={formData} set={set} disabled={disabled} options={OLHOS_OPTIONS} cls={selectCls} />
+                    <SelectField label="Cutis" field="cutis" form={formData} set={set} disabled={disabled} options={CUTIS_OPTIONS} cls={selectCls} required />
+                    <SelectField label="Cabelo" field="cabelo" form={formData} set={set} disabled={disabled} options={CABELO_OPTIONS} cls={selectCls} required />
+                    <SelectField label="Olhos" field="olhos" form={formData} set={set} disabled={disabled} options={OLHOS_OPTIONS} cls={selectCls} required />
                     <Field label="Manequim" field="manequim" form={formData} set={set} disabled={disabled} type="number" />
                     <Field label="Sapato" field="sapato" form={formData} set={set} disabled={disabled} type="number" />
                 </div>
