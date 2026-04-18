@@ -56,6 +56,14 @@ export interface PreAdmissaoFormLike {
   pisPasep?: string | null;
   emitCartPonto?: string | null;
   tipoEstatistica?: number | null;
+  // Jornada, Ponto e Sindicato (TOTVS)
+  codTurma?: number | null;
+  indFuncVinculado?: number | null;
+  tipoMaoDeObra?: string | null;
+  codSindicato?: number | null;
+  codLocalMarcacao?: number | null;
+  codClassFuncPontoEletronico?: number | null;
+  codLocalidade?: number | null;
   validacaoSalarioJustificativa?: string | null;
   validacaoSalarioOk?: boolean | null;
   [key: string]: unknown;
@@ -120,6 +128,15 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (isBlank(form.cargaHorariaSemanal))    errors.push({ field: "cargaHorariaSemanal",   label: "Carga Horária Semanal",  stepIndex: STEP_INDEX.trabalhista, message: "Informe a carga horária semanal." });
   if (isBlank(form.emitCartPonto))          errors.push({ field: "emitCartPonto",         label: "Emite Cartão Ponto",     stepIndex: STEP_INDEX.trabalhista, message: "Selecione a opção de cartão ponto." });
   if (!form.tipoEstatistica || form.tipoEstatistica === 0) errors.push({ field: "tipoEstatistica", label: "Tipo Estatística", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo estatística." });
+
+  // ── Jornada, Ponto e Sindicato (TOTVS) ───────────────────────────────────
+  if (isBlank(form.codTurma))                   errors.push({ field: "codTurma",                   label: "Cód. Turma",                       stepIndex: STEP_INDEX.trabalhista, message: "Informe o código da turma." });
+  if (isBlank(form.indFuncVinculado))            errors.push({ field: "indFuncVinculado",            label: "Ind. Func. Vinculado",              stepIndex: STEP_INDEX.trabalhista, message: "Informe o indicador de funcionário vinculado." });
+  if (isBlank(form.tipoMaoDeObra))               errors.push({ field: "tipoMaoDeObra",               label: "Tipo Mão-de-Obra",                  stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de mão-de-obra." });
+  if (isBlank(form.codSindicato))                errors.push({ field: "codSindicato",                label: "Cód. Sindicato",                    stepIndex: STEP_INDEX.trabalhista, message: "Informe o código do sindicato." });
+  if (isBlank(form.codLocalMarcacao))            errors.push({ field: "codLocalMarcacao",            label: "Cód. Local Marcação",               stepIndex: STEP_INDEX.trabalhista, message: "Informe o código do local de marcação." });
+  if (isBlank(form.codClassFuncPontoEletronico)) errors.push({ field: "codClassFuncPontoEletronico", label: "Classif. Func. Ponto Eletrônico",   stepIndex: STEP_INDEX.trabalhista, message: "Informe a classificação funcional do ponto eletrônico." });
+  if (isBlank(form.codLocalidade))               errors.push({ field: "codLocalidade",               label: "Cód. Localidade",                   stepIndex: STEP_INDEX.trabalhista, message: "Informe o código da localidade." });
 
   // Regra existente: se salário fora da faixa, justificativa obrigatória.
   if (form.validacaoSalarioOk === false && isBlank(form.validacaoSalarioJustificativa)) {
