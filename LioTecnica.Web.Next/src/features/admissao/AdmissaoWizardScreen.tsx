@@ -100,11 +100,11 @@ interface PreAdmissao {
     categoriaSalarial: number | null;
     grauInstrucao: number | null;
     codTurno: number | null;
+    codTurma: number | null;
+    tipoEstatistica: number | null;
     centroCusto: string | null;
     unidadeLotacao: string | null;
     emitCartPonto: string | null;
-    tipoEstatistica: number | null;
-    codTurma: number | null;
     indFuncVinculado: number | null;
     tipoMaoDeObra: string | null;
     codSindicato: number | null;
@@ -245,6 +245,12 @@ const GRAU_INSTRUCAO = [
 const CATEGORIA_SALARIAL = [
     { value: 1, label: "A" }, { value: 2, label: "B" }, { value: 3, label: "C" },
     { value: 4, label: "D" }, { value: 5, label: "E" },
+];
+const TIPO_ESTATISTICA = [
+    { value: 1, label: "Normal" },
+    { value: 2, label: "Afastado" },
+    { value: 3, label: "Cedido" },
+    { value: 4, label: "Pendente" },
 ];
 const TIPO_DOC_ALL = [
     { value: 0, label: "RG" }, { value: 1, label: "CPF" }, { value: 2, label: "CNH" },
@@ -546,11 +552,18 @@ export default function AdmissaoWizardScreen() {
                             <div>
                                 <label className="text-xs text-muted-foreground block mb-1">Banco (FEBRABAN)</label>
                                 <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.bancoCodigo || ""} onChange={e => {
-                                    const [cod, ...nome] = e.target.value.split("-");
-                                    set("bancoCodigo", cod); set("bancoNome", nome.join("-"));
+                                    const cod = e.target.value;
+                                    if (!cod) { set("bancoCodigo", null); set("bancoNome", null); return; }
+                                    const banco = BANCOS.find(b => b.startsWith(cod + "-"));
+                                    set("bancoCodigo", cod);
+                                    set("bancoNome", banco ? banco.substring(cod.length + 1) : null);
                                 }}>
                                     <option value="">Selecione…</option>
-                                    {BANCOS.map(b => <option key={b} value={b}>{b}</option>)}
+                                    {BANCOS.map(b => {
+                                        const dash = b.indexOf("-");
+                                        const cod = b.substring(0, dash);
+                                        return <option key={b} value={cod}>{b}</option>;
+                                    })}
                                 </select>
                             </div>
                             <Select label="Tipo de Conta" value={form.tipoConta} options={TIPO_CONTA} onChange={v => set("tipoConta", Number(v))} />
@@ -619,6 +632,7 @@ export default function AdmissaoWizardScreen() {
                             </div>
                             <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
                             <Select label="Tipo Funcionário" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
+                            <Select label="Tipo Estatística" value={form.tipoEstatistica} options={TIPO_ESTATISTICA} onChange={v => set("tipoEstatistica", Number(v))} />
                             <div>
                                 <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial</label>
                                 <CategoriaSalarialAutocomplete
@@ -789,6 +803,7 @@ export default function AdmissaoWizardScreen() {
                             <Info label="Cargo TOTVS" value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : null} />
                             <Info label="Vínculo" value={VINCULO_EMPREGATICIO.find(v => v.value === form.codVinculoEmpregaticio)?.label} />
                             <Info label="Tipo Func." value={TIPO_FUNCIONARIO_TOTVS.find(v => v.value === form.tipoFuncionario)?.label} />
+                            <Info label="Tipo Estatística" value={TIPO_ESTATISTICA.find(v => v.value === form.tipoEstatistica)?.label} />
                             <Info label="Grau Instrução" value={GRAU_INSTRUCAO.find(v => v.value === form.grauInstrucao)?.label} />
                             <Info label="Tipo Estatística" value={TIPO_ESTATISTICA.find(v => v.value === form.tipoEstatistica)?.label} />
                             <Info label="Centro Custo" value={form.centroCusto} />

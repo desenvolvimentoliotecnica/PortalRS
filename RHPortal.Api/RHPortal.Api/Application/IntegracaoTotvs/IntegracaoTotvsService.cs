@@ -311,25 +311,34 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.Id, tipoIntegracao = (short)TipoIntegracao.Admissao, tipoIntegracaoLabel = "Admissão",
                     // Dados pessoais
                     p.CodEmpresa, p.EstabelecimentoCodigo, p.MatriculaRM,
-                    p.Nome, p.NomeAbreviado, p.Cpf, p.Email, p.EmailAlternativo, p.Telefone, p.DddTelefone, p.Celular,
-                    p.DataNascimento, sexo = p.Sexo.ToString(), estadoCivil = p.EstadoCivil.ToString(),
+                    p.Nome, p.NomeAbreviado,
+                    cpf = TotvsPayloadHelper.OnlyDigits(p.Cpf),
+                    p.Email, p.EmailAlternativo, p.Telefone, p.DddTelefone, p.Celular,
+                    dataNascimento = TotvsPayloadHelper.FormatDate(p.DataNascimento),
+                    sexo = p.Sexo.ToString(), estadoCivil = p.EstadoCivil.ToString(),
                     p.NomeMae, p.NomePai, p.Nacionalidade, p.PaisNascimento, p.NaturalCidade, p.NaturalUf,
                     // Documentos
-                    p.Rg, p.RgOrgaoExpedidor, p.RgUfExpedidor, p.RgDataExpedicao,
+                    p.Rg, p.RgOrgaoExpedidor, p.RgUfExpedidor,
+                    rgDataExpedicao = TotvsPayloadHelper.FormatDate(p.RgDataExpedicao),
                     p.PisPasep,
                     p.TituloEleitorNumero, p.TituloEleitorZona, p.TituloEleitorSecao, p.TituloEleitorCidade, p.TituloEleitorUf,
                     p.Ctps, p.CtpsSerie, p.CtpsUf, p.CtpsModelo, p.CtpsSerieESocial,
                     p.ReservistaNumero, p.DocMilitarTipo, p.DocMilitarNumero, p.DocMilitarSerie, p.DocMilitarRegiao,
-                    p.CnhNumero, p.CategoriaCnh, p.CnhUf, p.CnhOrgaoEmissor, p.CnhDataExpedicao, p.CnhPrimeiraHabilitacao, p.ValidadeCnh,
+                    p.CnhNumero, p.CategoriaCnh, p.CnhUf, p.CnhOrgaoEmissor,
+                    p.CnhDataExpedicao, p.CnhPrimeiraHabilitacao,
+                    validadeCnh = TotvsPayloadHelper.FormatDate(p.ValidadeCnh),
                     p.CartaoSus, p.PossuiDeficiencia,
                     // Características físicas
                     p.GrauInstrucao, p.GrupoSanguineo, p.FatorRh, p.FuncDoador,
-                    p.Altura, p.Peso, p.Cutis, p.Cabelo, p.Olhos, p.Manequim, p.Sapato,
+                    p.Altura,
+                    peso = TotvsPayloadHelper.PesoKgParaGramas(p.Peso),
+                    p.Cutis, p.Cabelo, p.Olhos, p.Manequim, p.Sapato,
                     // Endereço
                     p.Cep, p.Logradouro, p.Numero, p.Complemento, p.Bairro, p.Cidade, p.Uf,
                     p.PontoReferencia, p.TipoLogradouroESocial, p.MunicipioEnderecoIbge, p.MunicipioNascimentoIbge,
                     // Contrato e salário
-                    p.DataAdmissao, p.Salario, p.SalarioSimulado, tipoContratacao = p.TipoContratacao.ToString(), p.CargaHorariaSemanal,
+                    dataAdmissao = TotvsPayloadHelper.FormatDate(p.DataAdmissao),
+                    p.Salario, p.SalarioSimulado, tipoContratacao = p.TipoContratacao.ToString(), p.CargaHorariaSemanal,
                     p.CodCargoTotvs, p.CodNivel, p.CategoriaSalarial, p.CodTurno, p.CodTurma,
                     p.CentroCusto, p.UnidadeLotacao, p.CodPlanoLotacao,
                     p.CodVinculoEmpregaticio, p.TipoFuncionario, p.TipoMaoDeObra,
@@ -362,8 +371,13 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.PaisLocalidade, p.CodLocalidade, p.CodFpas,
                     // Diversos
                     p.OrigemFuncionario, p.TipoVistoEstrangeiro, p.OcorrenciaCAGED,
+                    validadeVisto = TotvsPayloadHelper.FormatDate(p.ValidadeVisto),
+                    dataOpcaoFgts = TotvsPayloadHelper.FormatDate(p.DataOpcaoFgts),
                     // Integração
-                    p.IntegracaoResultado, p.IntegracaoMensagem, p.IntegradaEmUtc, p.ApprovedAtUtc, p.CreatedAtUtc,
+                    p.IntegracaoResultado, p.IntegracaoMensagem,
+                    integradaEmUtc = TotvsPayloadHelper.FormatDate(p.IntegradaEmUtc),
+                    approvedAtUtc = TotvsPayloadHelper.FormatDate(p.ApprovedAtUtc),
+                    createdAtUtc = TotvsPayloadHelper.FormatDate(p.CreatedAtUtc),
                 };
             }
             case TipoIntegracao.Desligamento:

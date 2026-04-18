@@ -75,8 +75,8 @@ public sealed class MagicLinkService : IMagicLinkService
         var scheme = httpScheme ?? "http";
         var host = httpHost ?? "localhost";
         var baseUrl = $"{scheme}://{host}:3000";
-        var approveUrl = $"{baseUrl}/public/approve/{token}?action=approve";
-        var rejectUrl  = $"{baseUrl}/public/approve/{token}?action=reject";
+        var approveUrl = $"{baseUrl}/app/public/approve?token={token}&action=approve";
+        var rejectUrl  = $"{baseUrl}/app/public/approve?token={token}&action=reject";
         var portalUrl  = $"{baseUrl}/rs/solicitacoes/{solicitacaoId}";
         var tipoLabel  = TipoFluxoLabel(tipoFluxo);
 

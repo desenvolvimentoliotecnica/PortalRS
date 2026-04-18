@@ -24,7 +24,9 @@ public sealed record PreAdmissaoGridRow(
     int DocumentosRejeitados,
     int? WizardCurrentStep,
     int? WizardCompletionPercent,
-    DateTimeOffset? LastActivityUtc
+    DateTimeOffset? LastActivityUtc,
+    IntegracaoResultado? IntegracaoResultado,
+    string? IntegracaoMensagem
 );
 
 public sealed record PreAdmissaoListQuery(
@@ -150,6 +152,9 @@ public sealed record PreAdmissaoDetailResponse(
     int? MunicipioNascimentoIbge, int? TipoAdmissaoESocial,
     int? RegimeTrabalhista, int? RegimePrevidenciario, int? RegimeJornada,
     string? MatriculaESocial, string? PaisNacionalidadeValue,
+
+    // TOTVS: Estatistica
+    int? TipoEstatistica,
 
     // TOTVS: CAGED
     int? OcorrenciaCAGED,
@@ -308,6 +313,9 @@ public sealed record PreAdmissaoUpdateRequest(
     int? MunicipioNascimentoIbge, int? TipoAdmissaoESocial,
     int? RegimeTrabalhista, int? RegimePrevidenciario, int? RegimeJornada,
     string? MatriculaESocial,
+
+    // TOTVS: Estatistica
+    int? TipoEstatistica,
 
     // TOTVS: CAGED
     int? OcorrenciaCAGED,

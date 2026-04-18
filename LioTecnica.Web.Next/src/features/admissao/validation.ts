@@ -50,12 +50,12 @@ export interface PreAdmissaoFormLike {
   codVinculoEmpregaticio?: number | null;
   tipoFuncionario?: number | null;
   categoriaSalarial?: number | null;
+  tipoEstatistica?: number | null;
   estabelecimentoCodigo?: string | null;
   centroCusto?: string | null;
   unidadeLotacao?: string | null;
   pisPasep?: string | null;
   emitCartPonto?: string | null;
-  tipoEstatistica?: number | null;
   // Jornada, Ponto e Sindicato (TOTVS)
   codTurma?: number | null;
   indFuncVinculado?: number | null;

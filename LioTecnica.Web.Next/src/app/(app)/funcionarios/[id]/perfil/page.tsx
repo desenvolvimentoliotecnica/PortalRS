@@ -1,15 +1,14 @@
-"use client";
+import { Suspense } from "react";
+import FuncionarioPerfilPageClient from "./FuncionarioPerfilPageClient";
 
-import { use } from "react";
-import { AuthGuard } from "@/hooks/useAuth";
-import FuncionarioPerfil360Screen from "@/features/funcionarios/perfil/FuncionarioPerfil360Screen";
+export function generateStaticParams() {
+    return [{ id: "__" }];
+}
 
-export default function FuncionarioPerfilPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
-
+export default function Page() {
     return (
-        <AuthGuard>
-            <FuncionarioPerfil360Screen id={id} />
-        </AuthGuard>
+        <Suspense fallback={<p className="text-gray-500 text-center p-8">Carregando...</p>}>
+            <FuncionarioPerfilPageClient />
+        </Suspense>
     );
 }

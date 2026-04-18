@@ -30,7 +30,7 @@ interface IntegracaoTotvsListItem {
     cpf: string | null;
     descricao: string;
     approvedAtUtc: string | null;
-    integracaoResultado: number | null;
+    integracaoResultado: number | string | null;
     integracaoMensagem: string | null;
     integradaEmUtc: string | null;
 }
@@ -205,13 +205,13 @@ export default function IntegracaoDetalhesDrawer({
                 <div className="flex flex-wrap items-center gap-4 py-2 border-b border-border">
                     <div>
                         <p className="text-xs font-medium text-muted-foreground mb-0.5">Resultado</p>
-                        {resultado === 1 ? (
+                        {resultado === 1 || resultado === "Sucesso" ? (
                             <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/15 text-emerald-700">
                                 <CheckCircle2 className="size-3" /> Sucesso
                             </span>
-                        ) : resultado === 2 ? (
+                        ) : resultado === 2 || resultado === 3 || resultado === "Falha" || resultado === "FalhaDefinitiva" ? (
                             <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-500/15 text-red-700">
-                                <XCircle className="size-3" /> Falha
+                                <XCircle className="size-3" /> {resultado === 3 || resultado === "FalhaDefinitiva" ? "Falha Definitiva" : "Falha"}
                             </span>
                         ) : (
                             <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/15 text-amber-700">

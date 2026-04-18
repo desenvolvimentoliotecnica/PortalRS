@@ -29,15 +29,20 @@ interface PainelIntegracaoRow {
     cpf: string | null;
     dataAdmissao: string | null;
     status: number;
-    integracaoResultado: number | null; // 1=Sucesso, 2=Falha
+    // API serializa enum como string via JsonStringEnumConverter.
+    integracaoResultado: number | string | null;
     integracaoMensagem: string | null;
     approvedAtUtc: string | null;
     integradaEmUtc: string | null;
 }
 
-const RESULTADO_MAP: Record<number, { label: string; color: string; icon: React.ElementType }> = {
-    1: { label: "Sucesso", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    2: { label: "Falha", color: "bg-red-500/15 text-red-700", icon: XCircle },
+const RESULTADO_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+    "1": { label: "Sucesso", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    "2": { label: "Falha", color: "bg-red-500/15 text-red-700", icon: XCircle },
+    "3": { label: "Falha Definitiva", color: "bg-red-700/20 text-red-800", icon: XCircle },
+    Sucesso: { label: "Sucesso", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    Falha: { label: "Falha", color: "bg-red-500/15 text-red-700", icon: XCircle },
+    FalhaDefinitiva: { label: "Falha Definitiva", color: "bg-red-700/20 text-red-800", icon: XCircle },
 };
 
 type Filtro = "all" | "pendente" | "1" | "2";
@@ -76,7 +81,13 @@ export default function AdmissaoIntegracaoScreen() {
     const rows = filtro === "pendente"
         ? merged.filter((r) => r.integracaoResultado === null)
         : filtro === "1" || filtro === "2"
-        ? merged.filter((r) => r.integracaoResultado === Number(filtro))
+        ? merged.filter((r) => {
+            const v = r.integracaoResultado;
+            if (v === null) return false;
+            // API pode devolver string ("Sucesso"/"Falha") ou number (1/2)
+            const numeric = typeof v === "number" ? v : (v === "Sucesso" ? 1 : v === "Falha" ? 2 : NaN);
+            return numeric === Number(filtro);
+        })
         : merged;
 
     return (
@@ -150,7 +161,7 @@ export default function AdmissaoIntegracaoScreen() {
                             </TableRow>
                         )}
                         {rows.map((r) => {
-                            const res = r.integracaoResultado != null ? RESULTADO_MAP[r.integracaoResultado] : null;
+                            const res = r.integracaoResultado != null ? RESULTADO_MAP[String(r.integracaoResultado)] : null;
                             const ResIcon = res?.icon;
                             return (
                                 <TableRow
