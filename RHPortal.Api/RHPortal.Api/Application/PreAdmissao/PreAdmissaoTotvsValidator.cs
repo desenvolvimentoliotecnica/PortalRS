@@ -68,6 +68,12 @@ public static class PreAdmissaoTotvsValidator
             (p.RgOrgaoExpedidor, "RgOrgaoExpedidor","Órgão Emissor RG"),
             (p.RgUfExpedidor,    "RgUfExpedidor",   "UF Emissão RG"));
 
+        // RIC — Registro Identidade Civil (novo documento exigido pelo TOTVS/Datasul)
+        Req(e, p.RegIdentidCivilNumero,    "RegIdentidCivilNumero",    "Nº Registro Identidade Civil (RIC)", "FP1440 — Documentos");
+        Req(e, p.RegIdentidCivilOrgEmiss,  "RegIdentidCivilOrgEmiss",  "Órgão Emissor RIC",                   "FP1440 — Documentos");
+        Req(e, p.RegIdentidCivilUf,        "RegIdentidCivilUf",        "UF Emissão RIC",                      "FP1440 — Documentos");
+        Req(e, p.RegIdentidCivilCidade,    "RegIdentidCivilCidade",    "Cidade Emissão RIC",                  "FP1440 — Documentos");
+
         // Condicional: Estrangeiro
         if (p.OrigemFuncionario == OrigemEstrangeiro)
         {

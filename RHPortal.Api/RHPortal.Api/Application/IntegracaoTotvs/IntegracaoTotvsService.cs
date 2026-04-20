@@ -325,7 +325,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     // Documentos
                     p.Rg, p.RgOrgaoExpedidor, p.RgUfExpedidor,
                     rgDataExpedicao = TotvsPayloadHelper.FormatDate(p.RgDataExpedicao),
-                    // RIC (Registro Identidade Civil)
+                    // RIC (Registro Identidade Civil) — mapper externo lê dos nomes camelCase
                     p.RegIdentidCivilNumero, p.RegIdentidCivilUf,
                     p.RegIdentidCivilCidade, p.RegIdentidCivilOrgEmiss,
                     regIdentidCivilDataExped = TotvsPayloadHelper.FormatDate(p.RegIdentidCivilDataExped),
@@ -371,7 +371,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     // Ponto
                     p.NumCartaoPonto, p.EmitCartPonto, p.CodLocalMarcacao, p.CodClassFuncPontoEletronico,
                     // Banco
-                    p.BancoCodigo, p.BancoNome, p.Agencia, p.AgenciaDigito, p.Conta, p.ContaDigito, tipoConta = p.TipoConta.ToString(),
+                    p.BancoCodigo, p.BancoNome, p.Agencia, p.AgenciaDigito, p.Conta, p.ContaDigito,
+                    // Enum TipoContaBancaria serializado como int (0=CorrentE, 1=Poupança, 2=Salário).
+                    // Mapper do employee-sync-service faz parseInt — string quebra e vira 0 silenciosamente.
+                    tipoConta = (int?)p.TipoConta,
                     // Contato emergência
                     p.ContatoEmergenciaNome,
                     contatoEmergenciaFone = TotvsPayloadHelper.PhoneOnlyNumber(p.ContatoEmergenciaFone),

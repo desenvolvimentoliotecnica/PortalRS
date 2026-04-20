@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Send, Loader2, CheckCircle2, User, MapPin, Phone, CreditCard, Briefcase, Users } from "lucide-react";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
+import { validatePreAdmissao } from "@/features/admissao/validation";
 
 const PARENTESCO_LABEL: Record<number, string> = { 0: "Conjuge", 1: "Filho(a)", 2: "Pai", 3: "Mae", 4: "Outro" };
 
@@ -17,6 +19,15 @@ export default function ReviewStep({ onSubmit, disabled }: Props) {
     const [submitting, setSubmitting] = useState(false);
 
     async function handleSubmit() {
+        // Valida antes de enviar — evita erro 422 tardio do backend/Datasul.
+        // Usa a mesma função do wizard RH (validatePreAdmissao) para manter uma única fonte de verdade.
+        const errors = validatePreAdmissao(formData);
+        if (errors.length > 0) {
+            const first = errors[0];
+            const extra = errors.length > 1 ? ` (+${errors.length - 1} campo${errors.length > 2 ? "s" : ""} pendente${errors.length > 2 ? "s" : ""})` : "";
+            toast.error(`${first.label}: ${first.message}${extra}`);
+            return;
+        }
         setSubmitting(true);
         try {
             await onSubmit();
