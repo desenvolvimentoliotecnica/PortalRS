@@ -94,8 +94,18 @@ public sealed class IntegracaoTotvsController : ControllerBase
     }
 
     /// <summary>Registra o resultado de uma integração (sucesso ou falha).</summary>
+    /// <remarks>
+    /// <c>resultado</c> aceita apenas os valores do enum <c>IntegracaoResultado</c>:
+    /// <list type="bullet">
+    ///   <item><c>1</c> ou <c>"Sucesso"</c> — integração concluída com sucesso</item>
+    ///   <item><c>2</c> ou <c>"Falha"</c> — falhou, pode tentar novamente</item>
+    ///   <item><c>3</c> ou <c>"FalhaDefinitiva"</c> — falha sem retry automático</item>
+    /// </list>
+    /// Qualquer outro valor (<c>0</c>, <c>null</c>, strings desconhecidas) retorna HTTP 400.
+    /// </remarks>
     [HttpPost("{tipo:int}/{id:guid}/resultado")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RegistrarResultado(
         int tipo,
@@ -105,6 +115,15 @@ public sealed class IntegracaoTotvsController : ControllerBase
     {
         if (!Enum.IsDefined(typeof(TipoIntegracao), (short)tipo))
             return BadRequest(new { message = "Tipo de integração inválido." });
+
+        // Validação explícita — o binder do System.Text.Json aceita qualquer short
+        // como enum, então precisa filtrar valores fora do conjunto definido.
+        if (!Enum.IsDefined(typeof(IntegracaoResultado), request.Resultado))
+            return BadRequest(new
+            {
+                message = "Campo 'resultado' inválido. Valores aceitos: 'Sucesso' (1), 'Falha' (2) ou 'FalhaDefinitiva' (3).",
+                recebido = (int)request.Resultado
+            });
 
         try
         {
