@@ -4,7 +4,7 @@
 // Regras aplicadas (confirmadas pela resposta de erro do TOTVS):
 //   • cCpf / cPis  → apenas dígitos, máx 11 caracteres
 //   • iPeso        → em GRAMAS (mínimo 1000 = 1 kg)
-//   • datas        → string "dd/MM/yyyy" (pt-BR)
+//   • datas        → string "yyyy-MM-dd" (ISO 8601)
 //
 // Dados são fictícios — gerados para uso em ambiente QA.
 // ────────────────────────────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ export const mockData = {
     cNomAbrevFunc:         "MARIANA",
     iSexo:                 2,
     iEstadoCivil:          1,
-    iDtNascimento:         "22/07/1994",
+    iDtNascimento:         "1994-07-22",
     iOrigemFunc:           1,
     cPaisNascimento:       "BRA",
     cCodUFNascimento:      "SP",
@@ -76,8 +76,8 @@ export const mockData = {
     cEnderEletrInternet:   "",
 
     // ── Dados de admissão / contrato ─────────────────────────────────────
-    iDtAdmissao:           "03/11/2025",
-    iDtAdmissTransf:       "01/01/0001",
+    iDtAdmissao:           "2025-11-03",
+    iDtAdmissTransf:       "0001-01-01",
     iCodCategSalarial:     1,
     iCodPlanoLotac:        101,
     cCodUnidLotac:         "00001001",
@@ -99,17 +99,17 @@ export const mockData = {
     iCodTabSal:            0,
     iFaixaSalTab:          0,
     iNivelSalFaixa:        0,
-    iDtUltAlterSal:        "01/01/0001",
+    iDtUltAlterSal:        "0001-01-01",
     iMotivoUltAlterSal:    0,
     iCodCargBasAtual:      427,
     iCodNivelAtual:        0,
     dSalAtual:             5240.00,
     dSalSimulado:          5240.00,
-    iDtTermContrato:       "01/01/0001",
-    iDtUltAlterEnderFunc:  "01/01/0001",
+    iDtTermContrato:       "0001-01-01",
+    iDtUltAlterEnderFunc:  "0001-01-01",
     iNumMesesTrabAnter:    0,
-    iDtExperFunc:          "01/01/0001",
-    iDtVenctoHabilit:      "15/08/2029",
+    iDtExperFunc:          "0001-01-01",
+    iDtVenctoHabilit:      "2029-08-15",
     iLocalPagto:           0,
     iQtdeDiasContratExper: 90,
 
@@ -127,8 +127,8 @@ export const mockData = {
     iGrpSanguineo:         2,
     iIndFatRhGrpSanguineo: 1,
     cIndFuncDoador:        "S",
-    iDtUltExMedico:        "15/10/2025",
-    iDtLaudDoencaGrave:    "01/01/0001",
+    iDtUltExMedico:        "2025-10-15",
+    iDtLaudDoencaGrave:    "0001-01-01",
 
     // ── Filiação ─────────────────────────────────────────────────────────
     cNomePai:              "Carlos Eduardo Costa",
@@ -142,19 +142,19 @@ export const mockData = {
 
     // ── Dependentes ──────────────────────────────────────────────────────
     iNumDependSalFam:      0,
-    iDtVenctoCotSalFam:    "01/01/0001",
+    iDtVenctoCotSalFam:    "0001-01-01",
     iNumDependImpRenda:    0,
 
     // ── FGTS / INSS ──────────────────────────────────────────────────────
     cIndOptanteFGTS:       "S",
-    iDtOpcaoFGTS:          "03/11/2025",
+    iDtOpcaoFGTS:          "2025-11-03",
     dCodSistemaFGTS:       0,
     iTipoAdmissFGTS:       1,
     cIndRecolheFGTS:       "S",
     iNumMesNOptanteFGTS:   0,
     cIndFuncRecolheINSS:   "S",
     iclassINSSFuncSemVinc: 0,
-    iDtMudClassINSS:       "01/01/0001",
+    iDtMudClassINSS:       "0001-01-01",
 
     // ── Forma de pagamento ───────────────────────────────────────────────
     iFormaPagto:           1,
@@ -223,9 +223,9 @@ export const mockData = {
     cGerarCAGED:         "N",
 
     // ── CTPS / PIS adicionais ────────────────────────────────────────────
-    iDtCartTrab:      "01/01/0001",
-    iDtValidCartTrab: "01/01/0001",
-    iDtPISPASEP:      "01/01/0001",
+    iDtCartTrab:      "0001-01-01",
+    iDtValidCartTrab: "0001-01-01",
+    iDtPISPASEP:      "0001-01-01",
 
     // ── Histórico anterior ───────────────────────────────────────────────
     cNumCartTrabAnter:  "",
@@ -238,9 +238,9 @@ export const mockData = {
 
     // ── Estrangeiro ──────────────────────────────────────────────────────
     iIndTpVistoEstrang:         0,
-    iDtValidCartIdentidEstrang: "01/01/0001",
-    iEmissIdentidad:            "18/04/2012",
-    iValidIDEstadual:           "01/01/0001",
+    iDtValidCartIdentidEstrang: "0001-01-01",
+    iEmissIdentidad:            "2012-04-18",
+    iValidIDEstadual:           "0001-01-01",
 
     // ── Jornadas ─────────────────────────────────────────────────────────
     iCodJornadTraba1:    0,
@@ -279,22 +279,22 @@ export const mockData = {
     cUfRegIdentidCivil:       "",
     cCidadRegIdentidCivil:    "",
     cOrgEmissRegIdentidCivil: "",
-    iExpedRegIdentidCivil:    "01/01/0001",
+    iExpedRegIdentidCivil:    "0001-01-01",
 
     // ── CNH detalhado ────────────────────────────────────────────────────
     cCategCartNacHabilit:    "B",
     cUfCartNacHabilit:       "SP",
     cOrgEmissCartNacHabilit: "SSP",
-    iExpedCartNacHabilit:    "15/08/2024",
-    iDtPrimeirCartNacHabilit:"22/09/2014",
+    iExpedCartNacHabilit:    "2024-08-15",
+    iDtPrimeirCartNacHabilit:"2014-09-22",
 
     // ── Estrangeiro adicionais ───────────────────────────────────────────
-    iExpedRegNacEstrang:    "01/01/0001",
+    iExpedRegNacEstrang:    "0001-01-01",
     cOrgEmissRegNacEstrang: "",
     cResidExterior:         "N",
     cCodEnderPostResidExt:  "",
-    iDtChegBrasEstrang:     "01/01/0001",
-    iDtNaturalizacao:       "01/01/0001",
+    iDtChegBrasEstrang:     "0001-01-01",
+    iDtNaturalizacao:       "0001-01-01",
     cCasadBrasileiroEstrang:"N",
     cTemFilhoBrasileiro:    "N",
 
@@ -316,10 +316,10 @@ export const mockData = {
     cDescSalVariavel:          "",
     cCnpjEmpregadorAnter:      "",
     cMatricESocialAnter:       "",
-    iDtIniVinculo:             "01/01/0001",
+    iDtIniVinculo:             "0001-01-01",
     cCnpjEmpCedente:           "",
     cMatricESocialEmpCedente:  "",
-    iDtAdmissEmpCedente:       "01/01/0001",
+    iDtAdmissEmpCedente:       "0001-01-01",
     iOnusCessao:               0,
     cContratTrabTempor:        "N",
     iMotcontratacao:           0,
@@ -332,9 +332,9 @@ export const mockData = {
     // ── Cargo público ────────────────────────────────────────────────────
     iProvimento:   0,
     iTpProvimento: 0,
-    iDtNomeacao:   "01/01/0001",
-    iDtPosse:      "01/01/0001",
-    iDtExercicio:  "01/01/0001",
+    iDtNomeacao:   "0001-01-01",
+    iDtPosse:      "0001-01-01",
+    iDtExercicio:  "0001-01-01",
 
     // ── Identificação alternativa ────────────────────────────────────────
     cNomESocial:       "",
@@ -348,7 +348,7 @@ export const mockData = {
     iCategOrigDirigSindical:  0,
     cCnpjOrigDirigSindical:   "",
     cMatricOrigDirigSindical: "",
-    iDtAdmissOrigDirigSindical:"01/01/0001",
+    iDtAdmissOrigDirigSindical:"0001-01-01",
 
     // ── Trabalho doméstico ───────────────────────────────────────────────
     cTpLogradLocTrabDomestic:    "",
@@ -383,10 +383,10 @@ export const mockData = {
     cCodDefcncia:            "",
     cReabilitadoInss:        "",
     cCodCrachaTsa:           "",
-    iDtUltAvaliaFunc:        "01/01/0001",
+    iDtUltAvaliaFunc:        "0001-01-01",
     dPercentAdiantConced:    0,
     iDiasProrrog:            0,
-    iDtVenctoProrrog:        "01/01/0001",
+    iDtVenctoProrrog:        "0001-01-01",
     iNumSeqRegArq:           0,
     dCompensacao:            0,
     dCompensacaoMes:         0,
