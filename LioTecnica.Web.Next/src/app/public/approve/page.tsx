@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface MagicLinkSummary {
@@ -19,7 +19,7 @@ type PageState =
   | { kind: "confirming"; action: "approve" | "reject" }
   | { kind: "done"; action: "approve" | "reject" };
 
-export default function PublicApprovePage() {
+function PublicApproveContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const action = searchParams.get("action") as "approve" | "reject" | null;
@@ -159,6 +159,14 @@ export default function PublicApprovePage() {
         </p>
       </div>
     </Layout>
+  );
+}
+
+export default function PublicApprovePage() {
+  return (
+    <Suspense fallback={<Layout><p className="text-gray-500">Carregando...</p></Layout>}>
+      <PublicApproveContent />
+    </Suspense>
   );
 }
 
