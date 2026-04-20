@@ -199,6 +199,13 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ValidadeVisto = r.ValidadeVisto; e.TipoVisto = r.TipoVisto?.Trim();
         e.ResideExterior = r.ResideExterior?.Trim(); e.TipoVistoEstrangeiro = r.TipoVistoEstrangeiro;
 
+        // RIC (Registro Identidade Civil)
+        e.RegIdentidCivilNumero = r.RegIdentidCivilNumero?.Trim();
+        e.RegIdentidCivilUf = r.RegIdentidCivilUf?.Trim();
+        e.RegIdentidCivilCidade = r.RegIdentidCivilCidade?.Trim();
+        e.RegIdentidCivilOrgEmiss = r.RegIdentidCivilOrgEmiss?.Trim();
+        e.RegIdentidCivilDataExped = r.RegIdentidCivilDataExped;
+
         // Endereço — CEP só dígitos
         e.Cep = TotvsPayloadHelper.OnlyDigits(r.Cep?.Trim()); e.Logradouro = r.Logradouro?.Trim(); e.Numero = r.Numero?.Trim();
         e.Complemento = r.Complemento?.Trim(); e.Bairro = r.Bairro?.Trim();
@@ -1131,6 +1138,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Estrangeiro
         e.Passaporte, e.RnmRne, e.ValidadeVisto, e.TipoVisto,
         e.ResideExterior, e.TipoVistoEstrangeiro,
+        // RIC
+        e.RegIdentidCivilNumero, e.RegIdentidCivilUf,
+        e.RegIdentidCivilCidade, e.RegIdentidCivilOrgEmiss,
+        e.RegIdentidCivilDataExped,
         // Endereco
         e.Cep, e.Logradouro, e.Numero, e.Complemento, e.Bairro, e.Cidade, e.Uf,
         e.PontoReferencia, e.TipoLogradouroESocial, e.MunicipioEnderecoIbge,
