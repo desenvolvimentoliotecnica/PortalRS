@@ -66,6 +66,11 @@ public sealed record PreAdmissaoDetailResponse(
     string? Passaporte, string? RnmRne, DateOnly? ValidadeVisto, string? TipoVisto,
     string? ResideExterior, int? TipoVistoEstrangeiro,
 
+    // RIC (Registro Identidade Civil)
+    string? RegIdentidCivilNumero, string? RegIdentidCivilUf,
+    string? RegIdentidCivilCidade, string? RegIdentidCivilOrgEmiss,
+    DateOnly? RegIdentidCivilDataExped,
+
     // Endereço
     string? Cep, string? Logradouro, string? Numero, string? Complemento,
     string? Bairro, string? Cidade, string? Uf,
@@ -225,6 +230,11 @@ public sealed record PreAdmissaoUpdateRequest(
     // Estrangeiro
     string? Passaporte, string? RnmRne, DateOnly? ValidadeVisto, string? TipoVisto,
     string? ResideExterior, int? TipoVistoEstrangeiro,
+
+    // RIC (Registro Identidade Civil)
+    string? RegIdentidCivilNumero, string? RegIdentidCivilUf,
+    string? RegIdentidCivilCidade, string? RegIdentidCivilOrgEmiss,
+    DateOnly? RegIdentidCivilDataExped,
 
     // Endereço
     string? Cep, string? Logradouro, string? Numero, string? Complemento,

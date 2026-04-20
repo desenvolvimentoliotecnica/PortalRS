@@ -319,10 +319,16 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     celular = TotvsPayloadHelper.PhoneOnlyNumber(p.Celular),
                     dataNascimento = TotvsPayloadHelper.FormatDate(p.DataNascimento),
                     sexo = p.Sexo.ToString(), estadoCivil = p.EstadoCivil.ToString(),
-                    p.NomeMae, p.NomePai, p.Nacionalidade, p.PaisNascimento, p.NaturalCidade, p.NaturalUf,
+                    p.NomeMae, p.NomePai, p.Nacionalidade, p.PaisNacionalidade, p.PaisNascimento, p.NaturalCidade, p.NaturalUf,
+                    // Estrangeiro / residência no exterior
+                    p.ResideExterior, p.Passaporte, p.RnmRne, p.TipoVisto,
                     // Documentos
                     p.Rg, p.RgOrgaoExpedidor, p.RgUfExpedidor,
                     rgDataExpedicao = TotvsPayloadHelper.FormatDate(p.RgDataExpedicao),
+                    // RIC (Registro Identidade Civil)
+                    p.RegIdentidCivilNumero, p.RegIdentidCivilUf,
+                    p.RegIdentidCivilCidade, p.RegIdentidCivilOrgEmiss,
+                    regIdentidCivilDataExped = TotvsPayloadHelper.FormatDate(p.RegIdentidCivilDataExped),
                     p.PisPasep,
                     p.TituloEleitorNumero, p.TituloEleitorZona, p.TituloEleitorSecao, p.TituloEleitorCidade, p.TituloEleitorUf,
                     p.Ctps, p.CtpsSerie, p.CtpsUf, p.CtpsModelo, p.CtpsSerieESocial,

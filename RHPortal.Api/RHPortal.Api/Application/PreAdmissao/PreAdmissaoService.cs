@@ -199,6 +199,13 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ValidadeVisto = r.ValidadeVisto; e.TipoVisto = r.TipoVisto?.Trim();
         e.ResideExterior = r.ResideExterior?.Trim(); e.TipoVistoEstrangeiro = r.TipoVistoEstrangeiro;
 
+        // RIC (Registro Identidade Civil)
+        e.RegIdentidCivilNumero = r.RegIdentidCivilNumero?.Trim();
+        e.RegIdentidCivilUf = r.RegIdentidCivilUf?.Trim();
+        e.RegIdentidCivilCidade = r.RegIdentidCivilCidade?.Trim();
+        e.RegIdentidCivilOrgEmiss = r.RegIdentidCivilOrgEmiss?.Trim();
+        e.RegIdentidCivilDataExped = r.RegIdentidCivilDataExped;
+
         // Endereço — CEP só dígitos
         e.Cep = TotvsPayloadHelper.OnlyDigits(r.Cep?.Trim()); e.Logradouro = r.Logradouro?.Trim(); e.Numero = r.Numero?.Trim();
         e.Complemento = r.Complemento?.Trim(); e.Bairro = r.Bairro?.Trim();
@@ -360,7 +367,35 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.Status = PreAdmissaoStatus.Preenchido;
         e.SubmittedAtUtc = DateTimeOffset.UtcNow;
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Auto-aprovar: se os campos obrigatórios do TOTVS estiverem todos preenchidos,
+        // já avança direto para Aprovada (Pendente TOTVS), sem exigir ação manual do RH.
+        // Se a validação falhar, mantém Preenchido e relança os erros para o chamador.
+        var issues = PreAdmissaoTotvsValidator.Validate(e);
+        if (issues.Count == 0)
+        {
+            e.Status = PreAdmissaoStatus.Aprovada;
+            e.ApprovedAtUtc = DateTimeOffset.UtcNow;
+        }
+
         await _db.SaveChangesAsync(ct);
+
+        if (issues.Count > 0)
+            throw new TotvsValidationException(issues);
+
+        // Se auto-aprovou, criar acesso ao portal (mesmo fluxo de ApproveAsync).
+        if (e.Status == PreAdmissaoStatus.Aprovada)
+        {
+            try
+            {
+                await CriarUsuarioAsync(e, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao criar usuário automaticamente para PreAdmissão {Id}. A auto-aprovação foi concluída, mas o acesso ao portal precisa ser criado manualmente.", id);
+            }
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -1103,6 +1138,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Estrangeiro
         e.Passaporte, e.RnmRne, e.ValidadeVisto, e.TipoVisto,
         e.ResideExterior, e.TipoVistoEstrangeiro,
+        // RIC
+        e.RegIdentidCivilNumero, e.RegIdentidCivilUf,
+        e.RegIdentidCivilCidade, e.RegIdentidCivilOrgEmiss,
+        e.RegIdentidCivilDataExped,
         // Endereco
         e.Cep, e.Logradouro, e.Numero, e.Complemento, e.Bairro, e.Cidade, e.Uf,
         e.PontoReferencia, e.TipoLogradouroESocial, e.MunicipioEnderecoIbge,
