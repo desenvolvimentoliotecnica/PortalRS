@@ -145,6 +145,18 @@ public static class PreAdmissaoTotvsValidator
         ReqInt(e, p.TipoAdmissaoFgts,        "TipoAdmissaoFgts",       "Tipo Admissão FGTS",   "FP1500 — Cadastral");
         ReqPaisIso3(e, p.PaisLocalidade,     "PaisLocalidade",         "País Localidade",      "FP1500 — Cadastral");
 
+        // ══════════════════════════════════════════════════════════════════════
+        // Documento Militar / Visto / CAGED — Datasul rejeita estes ints com < 1
+        // ══════════════════════════════════════════════════════════════════════
+        // Todos devem ser >= 1 no payload enviado ao Datasul, mesmo quando o campo
+        // não se aplica (ex: mulher, brasileiro). O seeder aplica default 1. Se
+        // alguém zerar explicitamente via update direto, o validator barra.
+        ReqInt(e, p.DocMilitarTipo,          "DocMilitarTipo",         "Tipo Doc. Militar",    "FP1440 — Documentos");
+        ReqInt(e, p.DocMilitarRegiao,        "DocMilitarRegiao",       "Região Militar",       "FP1440 — Documentos");
+        ReqInt(e, p.DocMilitarCircunscricao, "DocMilitarCircunscricao","Circunscrição Militar","FP1440 — Documentos");
+        ReqInt(e, p.TipoVistoEstrangeiro,    "TipoVistoEstrangeiro",   "Tipo Visto Estrangeiro","FP1440 — Documentos");
+        ReqInt(e, p.OcorrenciaCAGED,         "OcorrenciaCAGED",        "Ocorrência CAGED",     "FP1440A — eSocial");
+
         // Condicional: Prazo Determinado
         if (p.CodVinculoEmpregaticio == VinculoPrazoDeterminado)
             CondInt(e, p.DataTerminoContrato, "DataTerminoContrato",

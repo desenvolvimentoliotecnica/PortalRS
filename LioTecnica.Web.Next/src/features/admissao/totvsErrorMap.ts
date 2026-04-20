@@ -87,6 +87,12 @@ export const TOTVS_FIELD_MAP: Record<string, TotvsFieldMeta> = {
     FormaPagamento:         { label: "Forma de Pagamento",    formField: "formaPagamento",        stepIndex: STEP_INDEX.trabalhista },
     TipoAdmissaoFgts:       { label: "Tipo Admissão FGTS",    formField: "tipoAdmissaoFgts",      stepIndex: STEP_INDEX.trabalhista },
     PaisLocalidade:         { label: "País Localidade",       formField: "paisLocalidade",        stepIndex: STEP_INDEX.trabalhista },
+
+    // Documentos Militares / CAGED (TOTVS rejeita < 1 mesmo para casos onde não se aplica)
+    DocMilitarTipo:         { label: "Tipo Doc. Militar",      formField: "docMilitarTipo",        stepIndex: STEP_INDEX.trabalhista },
+    DocMilitarRegiao:       { label: "Região Militar",         formField: "docMilitarRegiao",      stepIndex: STEP_INDEX.trabalhista },
+    DocMilitarCircunscricao:{ label: "Circunscrição Militar",  formField: "docMilitarCircunscricao", stepIndex: STEP_INDEX.trabalhista },
+    OcorrenciaCAGED:        { label: "Ocorrência CAGED",       formField: "ocorrenciaCAGED",       stepIndex: STEP_INDEX.trabalhista },
 };
 
 export interface TotvsValidationIssue {
@@ -125,6 +131,11 @@ const DATASUL_KEYWORD_TO_FIELD: Array<{ keyword: RegExp; field: string }> = [
     { keyword: /reside\s*(no\s*)?exterior/i,   field: "CidadeExterior" },
     { keyword: /emiss[aã]o\s*cart[aã]o\s*ponto/i, field: "EmitCartPonto" },
     { keyword: /tipo\s*admiss[aã]o\s*fgts/i,   field: "TipoAdmissaoFgts" },
+    { keyword: /docmilitartipo|doc\s*militar\s*tipo/i, field: "DocMilitarTipo" },
+    { keyword: /docmilitarregiao|regi[aã]o\s*militar/i, field: "DocMilitarRegiao" },
+    { keyword: /docmilitarcircun|circun[s]?cri[çc][aã]o/i, field: "DocMilitarCircunscricao" },
+    { keyword: /tipovistoestrang|visto\s*estrangeiro/i, field: "TipoVistoEstrangeiro" },
+    { keyword: /ocorrcaged|ocorr[eê]ncia\s*caged|caged/i, field: "OcorrenciaCAGED" },
 ];
 
 export function parseDatasulMessage(mensagem: string): TotvsFieldMeta | null {

@@ -315,7 +315,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.Id, tipoIntegracao = (short)TipoIntegracao.Admissao, tipoIntegracaoLabel = "Admissão",
                     // Dados pessoais
                     p.CodEmpresa, p.EstabelecimentoCodigo, p.MatriculaRM,
-                    p.Nome, p.NomeAbreviado,
+                    p.Nome, p.NomeAbreviado, p.NomeSocial,
                     cpf = TotvsPayloadHelper.OnlyDigits(p.Cpf),
                     p.Email, p.EmailAlternativo,
                     telefone = TotvsPayloadHelper.PhoneOnlyNumber(p.Telefone),
@@ -337,6 +337,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.TituloEleitorNumero, p.TituloEleitorZona, p.TituloEleitorSecao, p.TituloEleitorCidade, p.TituloEleitorUf,
                     p.Ctps, p.CtpsSerie, p.CtpsUf, p.CtpsModelo, p.CtpsSerieESocial,
                     p.ReservistaNumero, p.DocMilitarTipo, p.DocMilitarNumero, p.DocMilitarSerie, p.DocMilitarRegiao,
+                    p.DocMilitarCircunscricao,
                     p.CnhNumero, p.CategoriaCnh, p.CnhUf, p.CnhOrgaoEmissor,
                     cnhDataExpedicao = TotvsPayloadHelper.FormatIntDate(p.CnhDataExpedicao),
                     cnhPrimeiraHabilitacao = TotvsPayloadHelper.FormatIntDate(p.CnhPrimeiraHabilitacao),
@@ -389,6 +390,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.MatriculaESocial,
                     // Localidade
                     p.PaisLocalidade, p.CodLocalidade, p.CodFpas,
+                    // Reside exterior (obrigatório quando ResideExterior = "S")
+                    p.CodEnderecoPostalExterior, p.CidadeExterior,
+                    // Estatística (iTipoEstatistic em apisfadmissao.p)
+                    p.TipoEstatistica,
                     // Diversos
                     p.OrigemFuncionario, p.TipoVistoEstrangeiro, p.OcorrenciaCAGED,
                     validadeVisto = TotvsPayloadHelper.FormatDate(p.ValidadeVisto),
