@@ -5,7 +5,7 @@ namespace RhPortal.Api.Application.IntegracaoTotvs;
 /// O objetivo é manter o formato amigável na UI/armazenamento, mas expor ao ERP
 /// exatamente o que ele espera.
 /// </summary>
-internal static class TotvsPayloadHelper
+public static class TotvsPayloadHelper
 {
     /// <summary>
     /// CPF/CNPJ/CEP etc.: TOTVS aceita apenas dígitos, sem pontos, traços ou barras.

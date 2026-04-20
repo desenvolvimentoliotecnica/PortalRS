@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Application.ItaloIntegracao;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
@@ -183,7 +184,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Pessoal
         e.Nome = r.Nome.Trim();
         e.NomeSocial = r.NomeSocial?.Trim(); e.NomeAbreviado = r.NomeAbreviado?.Trim();
-        e.Cpf = r.Cpf?.Trim(); e.Rg = r.Rg?.Trim(); e.RgOrgaoExpedidor = r.RgOrgaoExpedidor?.Trim();
+        // CPF é sempre persistido só com dígitos — qualquer máscara vinda da UI é removida aqui.
+        e.Cpf = TotvsPayloadHelper.OnlyDigits(r.Cpf?.Trim()); e.Rg = r.Rg?.Trim(); e.RgOrgaoExpedidor = r.RgOrgaoExpedidor?.Trim();
         e.RgUfExpedidor = r.RgUfExpedidor?.Trim();
         e.RgDataExpedicao = r.RgDataExpedicao; e.DataNascimento = r.DataNascimento;
         e.Sexo = r.Sexo ?? Sexo.NaoInformado; e.EstadoCivil = r.EstadoCivil ?? EstadoCivil.NaoInformado;
@@ -197,8 +199,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ValidadeVisto = r.ValidadeVisto; e.TipoVisto = r.TipoVisto?.Trim();
         e.ResideExterior = r.ResideExterior?.Trim(); e.TipoVistoEstrangeiro = r.TipoVistoEstrangeiro;
 
-        // Endereço
-        e.Cep = r.Cep?.Trim(); e.Logradouro = r.Logradouro?.Trim(); e.Numero = r.Numero?.Trim();
+        // Endereço — CEP só dígitos
+        e.Cep = TotvsPayloadHelper.OnlyDigits(r.Cep?.Trim()); e.Logradouro = r.Logradouro?.Trim(); e.Numero = r.Numero?.Trim();
         e.Complemento = r.Complemento?.Trim(); e.Bairro = r.Bairro?.Trim();
         e.Cidade = r.Cidade?.Trim(); e.Uf = r.Uf?.Trim();
         e.PontoReferencia = r.PontoReferencia?.Trim();
@@ -222,7 +224,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.RequisitoCategoriaId = r.RequisitoCategoriaId;
         e.DataAdmissao = r.DataAdmissao; e.Salario = r.Salario;
         e.TipoContratacao = r.TipoContratacao; e.CargaHorariaSemanal = r.CargaHorariaSemanal;
-        e.PisPasep = r.PisPasep?.Trim();
+        // PIS/PASEP só dígitos — TOTVS recusa máscara.
+        e.PisPasep = TotvsPayloadHelper.OnlyDigits(r.PisPasep?.Trim());
 
         // TOTVS: Cargo/Vinculo
         e.CodCargoTotvs = r.CodCargoTotvs; e.CodVinculoEmpregaticio = r.CodVinculoEmpregaticio;
