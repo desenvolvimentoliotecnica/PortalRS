@@ -313,7 +313,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.CodEmpresa, p.EstabelecimentoCodigo, p.MatriculaRM,
                     p.Nome, p.NomeAbreviado,
                     cpf = TotvsPayloadHelper.OnlyDigits(p.Cpf),
-                    p.Email, p.EmailAlternativo, p.Telefone, p.DddTelefone, p.Celular,
+                    p.Email, p.EmailAlternativo,
+                    telefone = TotvsPayloadHelper.PhoneOnlyNumber(p.Telefone),
+                    p.DddTelefone,
+                    celular = TotvsPayloadHelper.PhoneOnlyNumber(p.Celular),
                     dataNascimento = TotvsPayloadHelper.FormatDate(p.DataNascimento),
                     sexo = p.Sexo.ToString(), estadoCivil = p.EstadoCivil.ToString(),
                     p.NomeMae, p.NomePai, p.Nacionalidade, p.PaisNascimento, p.NaturalCidade, p.NaturalUf,
@@ -325,7 +328,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.Ctps, p.CtpsSerie, p.CtpsUf, p.CtpsModelo, p.CtpsSerieESocial,
                     p.ReservistaNumero, p.DocMilitarTipo, p.DocMilitarNumero, p.DocMilitarSerie, p.DocMilitarRegiao,
                     p.CnhNumero, p.CategoriaCnh, p.CnhUf, p.CnhOrgaoEmissor,
-                    p.CnhDataExpedicao, p.CnhPrimeiraHabilitacao,
+                    cnhDataExpedicao = TotvsPayloadHelper.FormatIntDate(p.CnhDataExpedicao),
+                    cnhPrimeiraHabilitacao = TotvsPayloadHelper.FormatIntDate(p.CnhPrimeiraHabilitacao),
                     validadeCnh = TotvsPayloadHelper.FormatDate(p.ValidadeCnh),
                     p.CartaoSus, p.PossuiDeficiencia,
                     // Características físicas
@@ -342,7 +346,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.CodCargoTotvs, p.CodNivel, p.CategoriaSalarial, p.CodTurno, p.CodTurma,
                     p.CentroCusto, p.UnidadeLotacao, p.CodPlanoLotacao,
                     p.CodVinculoEmpregaticio, p.TipoFuncionario, p.TipoMaoDeObra,
-                    p.FormaPagamento, p.DataTerminoContrato,
+                    p.FormaPagamento,
+                    dataTerminoContrato = TotvsPayloadHelper.FormatIntDate(p.DataTerminoContrato),
                     // FGTS / INSS
                     p.OptanteFgts, p.TipoAdmissaoFgts, p.RecolheFgts, p.RecolheInss,
                     p.FuncQualificado, p.IndFuncVinculado,
@@ -362,7 +367,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     // Banco
                     p.BancoCodigo, p.BancoNome, p.Agencia, p.AgenciaDigito, p.Conta, p.ContaDigito, tipoConta = p.TipoConta.ToString(),
                     // Contato emergência
-                    p.ContatoEmergenciaNome, p.ContatoEmergenciaFone, p.DddTelContato,
+                    p.ContatoEmergenciaNome,
+                    contatoEmergenciaFone = TotvsPayloadHelper.PhoneOnlyNumber(p.ContatoEmergenciaFone),
+                    p.DddTelContato,
                     // eSocial
                     p.CategoriaTrabalhoESocial, p.IndAdmissao, p.NaturezaAtividade,
                     p.TipoAdmissaoESocial, p.RegimeTrabalhista, p.RegimePrevidenciario, p.RegimeJornada,
