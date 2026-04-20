@@ -51,7 +51,9 @@
       "Bash(git fetch:*)",
       "Bash(git merge:*)",
       "Bash(git checkout:*)",
-      "Bash(grep -l \"SolicitacaoVagaStatus\\\\|CandidateStatus\\\\|VagaStatus\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Domain/Enums/*.cs)"
+      "Bash(grep -l \"SolicitacaoVagaStatus\\\\|CandidateStatus\\\\|VagaStatus\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Domain/Enums/*.cs)",
+      "Bash(grep -l \"Vaga\\\\|SolicitacaoVaga\\\\|Candidato\\\\|PreAdmissao\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Controllers/*.cs)",
+      "Bash(grep -r \"enum.*Status\\\\|enum.*Vaga\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Domain/Enums/*.cs)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

@@ -23,6 +23,16 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-agendas",                   label: "Agenda",                     href: "/agendas",                        icon: "calendar",         permission: "agenda.view" },
 
     // ── Colaborador ────────────────────────────────────────────────────
+    { id: "nav-colab-perfil",          label: "Dados Pessoais",        href: "/colaborador/perfil",             icon: "user",          permission: "colaborador.perfil" },
+    { id: "nav-colab-dependentes",     label: "Dependentes",           href: "/colaborador/dependentes",        icon: "users",         permission: "colaborador.dependentes" },
+    { id: "nav-colab-endereco",        label: "Endereço",              href: "/colaborador/endereco",           icon: "map-pin",       permission: "colaborador.endereco" },
+    { id: "nav-colab-dados-bancarios", label: "Dados Bancários",       href: "/colaborador/dados-bancarios",    icon: "credit-card",   permission: "colaborador.perfil" },
+    { id: "nav-colab-ferias",          label: "Férias",                href: "/colaborador/ferias",             icon: "palmtree",      permission: "colaborador.ferias" },
+    { id: "nav-colab-beneficios",      label: "Benefícios",            href: "/colaborador/beneficios",         icon: "heart",         permission: "colaborador.beneficios" },
+    { id: "nav-colab-holerites",       label: "Holerites",             href: "/colaborador/holerites",          icon: "receipt",       permission: "colaborador.perfil" },
+    { id: "nav-colab-documentos",      label: "Documentos",            href: "/colaborador/documentos",         icon: "file-text",     permission: "colaborador.documentos" },
+    { id: "nav-colab-historico",       label: "Histórico de Carreira", href: "/colaborador/historico-carreira", icon: "briefcase",     permission: "colaborador.perfil" },
+    { id: "nav-colab-senha",           label: "Alterar Senha",         href: "/colaborador/senha",              icon: "lock",          permission: "colaborador.senha" },
 
     // ── Recrutamento & Seleção ─────────────────────────────────────────
     { id: "nav-vagas",                     label: "Vagas",                       href: "/vagas",                          icon: "briefcase",        permission: "vagas.view" },
