@@ -307,9 +307,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.RegimeTrabalhista = r.RegimeTrabalhista; e.RegimePrevidenciario = r.RegimePrevidenciario;
         e.RegimeJornada = r.RegimeJornada; e.MatriculaESocial = r.MatriculaESocial?.Trim();
 
-        // Estatistica
-        e.TipoEstatistica = r.TipoEstatistica;
-
         // CAGED
         e.OcorrenciaCAGED = r.OcorrenciaCAGED;
 
@@ -1158,8 +1155,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.MunicipioNascimentoIbge, e.TipoAdmissaoESocial,
         e.RegimeTrabalhista, e.RegimePrevidenciario, e.RegimeJornada,
         e.MatriculaESocial, e.PaisNacionalidade,
-        // Estatistica
-        e.TipoEstatistica,
         // CAGED
         e.OcorrenciaCAGED,
         // Registro exterior
