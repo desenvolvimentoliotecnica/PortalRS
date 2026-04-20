@@ -163,6 +163,11 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
+
+        // Aplica defaults obrigatórios do TOTVS/Datasul (país=BRA, optanteFGTS=S, etc).
+        // Evita que o RH precise preencher valores-padrão manualmente e falhar na integração.
+        await PreAdmissaoDefaultsSeeder.ApplyAsync(entity, _db, _tenantContext.TenantId!, ct);
+
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);
         return (await GetByIdAsync(entity.Id, ct))!;

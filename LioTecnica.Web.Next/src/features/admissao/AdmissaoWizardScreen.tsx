@@ -17,6 +17,7 @@ import { EstabelecimentoAutocomplete } from "@/components/autocomplete/Estabelec
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
 import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
 import { validatePreAdmissao, firstErrorStep } from "@/features/admissao/validation";
+import { mapTotvsIssuesToErrors, type TotvsValidationIssue } from "@/features/admissao/totvsErrorMap";
 
 /** Converte string do autocomplete em número, retornando null quando não numérico. */
 function toIntOrNull(v: string | null | undefined): number | null {
@@ -36,6 +37,12 @@ interface PreAdmissao {
     rgOrgaoExpedidor: string | null;
     rgUfExpedidor: string | null;
     rgDataExpedicao: string | null;
+    // RIC — Registro Identidade Civil (documento que substitui o RG)
+    regIdentidCivilNumero: string | null;
+    regIdentidCivilUf: string | null;
+    regIdentidCivilCidade: string | null;
+    regIdentidCivilOrgEmiss: string | null;
+    regIdentidCivilDataExped: string | null;
     dataNascimento: string | null;
     sexo: number;
     estadoCivil: number;
@@ -105,6 +112,9 @@ interface PreAdmissao {
     centroCusto: string | null;
     unidadeLotacao: string | null;
     emitCartPonto: string | null;
+    formaPagamento: number | null;
+    tipoAdmissaoFgts: number | null;
+    paisLocalidade: string | null;
     indFuncVinculado: number | null;
     tipoMaoDeObra: string | null;
     codSindicato: number | null;
@@ -216,10 +226,11 @@ const OLHOS_OPTIONS = [
     { value: 5, label: "Outros" },
     { value: 9, label: "Anonimizado" },
 ];
+// Códigos TOTVS/Datasul (cEmitCartPonto em apisfadmissao.p).
+// Datasul aceita "1" (Sim) / "2" (Não). "S"/"N" retorna erro "Tipo Emissão Cartão Ponto Incorreto".
 const EMIT_CART_PONTO = [
-    { value: "T", label: "Turno" },
-    { value: "S", label: "Sim" },
-    { value: "N", label: "Não" },
+    { value: "1", label: "Sim (emite)" },
+    { value: "2", label: "Não" },
 ];
 const TIPO_ESTATISTICA = [
     { value: 1, label: "Orçado" },
@@ -229,6 +240,20 @@ const TIPO_ESTATISTICA = [
     { value: 5, label: "Afastado" },
     { value: 6, label: "Cedido" },
     { value: 7, label: "Pendente" },
+];
+// Códigos TOTVS Datasul (iFormaPagto em apisfadmissao.p)
+const FORMA_PAGAMENTO = [
+    { value: 1, label: "1 - Banco" },
+    { value: 2, label: "2 - Dinheiro" },
+    { value: 3, label: "3 - Cheque" },
+    { value: 4, label: "4 - Cartão Salário" },
+];
+// Códigos TOTVS Datasul (iTipoAdmissFGTS em apisfadmissao.p)
+const TIPO_ADMISSAO_FGTS = [
+    { value: 1, label: "1 - Admissão Normal" },
+    { value: 2, label: "2 - Trabalhador Avulso" },
+    { value: 3, label: "3 - Sucessão/Incorporação/Transferência" },
+    { value: 4, label: "4 - Primeiro Emprego" },
 ];
 const GRAU_INSTRUCAO = [
     { value: 1, label: "Analfabeto" },
@@ -358,8 +383,25 @@ export default function AdmissaoWizardScreen() {
             setSubmitting(true);
             await save();
             const res = await apiFetch(`/api/pre-admissao/${id}/submit`, { method: "POST" });
-            if (res.ok) { toast.success("Admissão finalizada com sucesso!"); router.push("/admissao?submitted=1"); }
-            else toast.error("Erro ao submeter");
+            if (res.ok) { toast.success("Admissão finalizada com sucesso!"); router.push("/admissao?submitted=1"); return; }
+
+            // 422 → backend identificou campo TOTVS faltando; redireciona ao step culpado.
+            if (res.status === 422) {
+                const body = await res.json().catch(() => null) as
+                    | { type?: string; message?: string; errors?: TotvsValidationIssue[] }
+                    | null;
+                if (body?.type === "totvs_validation" && body.errors?.length) {
+                    const mapped = mapTotvsIssuesToErrors(body.errors);
+                    const firstStep = firstErrorStep(mapped) ?? 0;
+                    setStep(firstStep);
+                    const first = mapped[0];
+                    toast.error(`${first.label}: ${first.message}${mapped.length > 1 ? ` (+${mapped.length - 1} campo(s) com pendência)` : ""}`);
+                    return;
+                }
+            }
+
+            const fallback = await res.text().catch(() => "");
+            toast.error(fallback || "Erro ao submeter");
         } catch { toast.error("Erro de conexão"); }
         finally { setSubmitting(false); }
     }
@@ -374,7 +416,16 @@ export default function AdmissaoWizardScreen() {
             clearTimeout(timeoutId);
             const data = await res.json();
             if (data.erro) { toast.error("CEP não encontrado"); return; }
-            setForm(prev => ({ ...prev, logradouro: data.logradouro, bairro: data.bairro, cidade: data.localidade, uf: data.uf }));
+            // IBGE é obrigatório TOTVS/eSocial — ViaCEP retorna como string, convertemos para int.
+            const ibgeNum = data.ibge ? Number(data.ibge) : null;
+            setForm(prev => ({
+                ...prev,
+                logradouro: data.logradouro,
+                bairro: data.bairro,
+                cidade: data.localidade,
+                uf: data.uf,
+                ...(Number.isFinite(ibgeNum) ? { municipioEnderecoIbge: ibgeNum } : {}),
+            }));
             toast.success("Endereço preenchido via CEP!");
         } catch (e) {
             if ((e as Error).name === "AbortError") toast.error("Busca de CEP demorou demais — preencha o endereço manualmente");
@@ -455,6 +506,14 @@ export default function AdmissaoWizardScreen() {
                             <Field label="Órgão Expedidor RG" value={form.rgOrgaoExpedidor} onChange={v => set("rgOrgaoExpedidor", v)} />
                             <Select label="UF Expedidor RG" value={form.rgUfExpedidor} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("rgUfExpedidor", v)} />
                             <Field label="Data Expedição RG" value={form.rgDataExpedicao} onChange={v => set("rgDataExpedicao", v)} type="date" />
+
+                            {/* ── RIC — Registro Identidade Civil (obrigatório TOTVS) ── */}
+                            <Field label="RIC (Nº Reg. Identidade Civil) *" value={form.regIdentidCivilNumero} onChange={v => set("regIdentidCivilNumero", v)} />
+                            <Field label="Órgão Expedidor RIC *" value={form.regIdentidCivilOrgEmiss} onChange={v => set("regIdentidCivilOrgEmiss", v)} placeholder="SSP" />
+                            <Select label="UF RIC *" value={form.regIdentidCivilUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("regIdentidCivilUf", v)} />
+                            <Field label="Cidade RIC *" value={form.regIdentidCivilCidade} onChange={v => set("regIdentidCivilCidade", v)} />
+                            <Field label="Data Expedição RIC" value={form.regIdentidCivilDataExped} onChange={v => set("regIdentidCivilDataExped", v)} type="date" />
+
                             <Field label="Data Nascimento *" value={form.dataNascimento} onChange={v => set("dataNascimento", v)} type="date" />
                             <Select label="Sexo *" value={form.sexo} options={SEXO_OPTIONS} onChange={v => set("sexo", Number(v))} />
                             <Select label="Estado Civil *" value={form.estadoCivil} options={ESTADO_CIVIL_OPTIONS} onChange={v => set("estadoCivil", Number(v))} />
@@ -501,7 +560,7 @@ export default function AdmissaoWizardScreen() {
                         <h5 className="font-semibold text-sm flex items-center gap-2"><MapPin className="size-4" /> Endereço</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">CEP</label>
+                                <label className="text-xs text-muted-foreground block mb-1">CEP *</label>
                                 <div className="flex gap-2">
                                     <Input value={form.cep || ""} onChange={e => set("cep", e.target.value)} placeholder="00000-000" />
                                     <Button variant="outline" size="sm" onClick={handleCep} type="button">Buscar</Button>
@@ -582,8 +641,8 @@ export default function AdmissaoWizardScreen() {
                                     valueAsCode
                                 />
                             </div>
-                            <Field label="Data Admissão" value={form.dataAdmissao} onChange={v => set("dataAdmissao", v)} type="date" />
-                            <Field label="Salário (R$)" value={form.salario != null ? String(form.salario) : ""} onChange={v => {
+                            <Field label="Data Admissão *" value={form.dataAdmissao} onChange={v => set("dataAdmissao", v)} type="date" />
+                            <Field label="Salário (R$) *" value={form.salario != null ? String(form.salario) : ""} onChange={v => {
                                 if (!v) { set("salario", null); return; }
                                 const n = parseFloat(v);
                                 set("salario", Number.isFinite(n) ? n : null);
@@ -601,8 +660,8 @@ export default function AdmissaoWizardScreen() {
                                     />
                                 </div>
                             )}
-                            <Select label="Tipo Contratação" value={form.tipoContratacao} options={TIPO_CONTRATACAO} onChange={v => set("tipoContratacao", Number(v))} />
-                            <Field label="Carga Horária Semanal" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => {
+                            <Select label="Tipo Contratação *" value={form.tipoContratacao} options={TIPO_CONTRATACAO} onChange={v => set("tipoContratacao", Number(v))} />
+                            <Field label="Carga Horária Semanal *" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => {
                                 if (!v) { set("cargaHorariaSemanal", null); return; }
                                 const n = parseInt(v, 10);
                                 if (!Number.isFinite(n) || n < 0) { set("cargaHorariaSemanal", null); return; }
@@ -624,10 +683,10 @@ export default function AdmissaoWizardScreen() {
                                   }}
                                 />
                             </div>
-                            <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
-                            <Select label="Tipo Funcionário" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
+                            <Select label="Vínculo Empregatício *" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
+                            <Select label="Tipo Funcionário *" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial</label>
+                                <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial *</label>
                                 <CategoriaSalarialAutocomplete
                                   value={form.categoriaSalarial != null ? String(form.categoriaSalarial) : ""}
                                   onChange={(code) => set("categoriaSalarial", toIntOrNull(code))}
@@ -636,22 +695,25 @@ export default function AdmissaoWizardScreen() {
                             <Select label="Grau de Instrução *" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
                             <Select label="Emite Cartão Ponto *" value={form.emitCartPonto} options={EMIT_CART_PONTO} onChange={v => set("emitCartPonto", v)} />
                             <Select label="Tipo Estatística *" value={form.tipoEstatistica} options={TIPO_ESTATISTICA} onChange={v => set("tipoEstatistica", Number(v))} />
+                            <Select label="Forma de Pagamento *" value={form.formaPagamento} options={FORMA_PAGAMENTO} onChange={v => set("formaPagamento", Number(v))} />
+                            <Select label="Tipo Admissão FGTS *" value={form.tipoAdmissaoFgts} options={TIPO_ADMISSAO_FGTS} onChange={v => set("tipoAdmissaoFgts", Number(v))} />
+                            <Field label="País Localidade *" value={form.paisLocalidade} onChange={v => set("paisLocalidade", v)} placeholder="BRA" />
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Cód. Turno</label>
+                                <label className="text-xs text-muted-foreground block mb-1">Cód. Turno *</label>
                                 <TurnoAutocomplete
                                     value={form.codTurno ?? null}
                                     onChange={(code) => set("codTurno", toIntOrNull(code))}
                                 />
                             </div>
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Centro de Custo</label>
+                                <label className="text-xs text-muted-foreground block mb-1">Centro de Custo *</label>
                                 <CentroCustoAutocomplete
                                     value={form.centroCusto ?? null}
                                     onChange={(code) => set("centroCusto", code || null)}
                                 />
                             </div>
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Unidade Lotação</label>
+                                <label className="text-xs text-muted-foreground block mb-1">Unidade Lotação *</label>
                                 <UnidadeLotacaoAutocomplete
                                     value={form.unidadeLotacao ?? null}
                                     onChange={(code) => set("unidadeLotacao", code || null)}
@@ -660,10 +722,10 @@ export default function AdmissaoWizardScreen() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border/30 pt-3 mt-2">
                             <div className="col-span-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">Jornada, Ponto e Sindicato (TOTVS)</div>
-                            <Field label="Cód. Turma" value={form.codTurma != null ? String(form.codTurma) : ""} onChange={v => set("codTurma", toIntOrNull(v))} type="number" />
-                            <Field label="Ind. Func. Vinculado" value={form.indFuncVinculado != null ? String(form.indFuncVinculado) : ""} onChange={v => set("indFuncVinculado", toIntOrNull(v))} type="number" />
+                            <Field label="Cód. Turma *" value={form.codTurma != null ? String(form.codTurma) : ""} onChange={v => set("codTurma", toIntOrNull(v))} type="number" />
+                            <Field label="Ind. Func. Vinculado *" value={form.indFuncVinculado != null ? String(form.indFuncVinculado) : ""} onChange={v => set("indFuncVinculado", toIntOrNull(v))} type="number" />
                             <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Ind. Tipo Mão-de-Obra</label>
+                                <label className="text-xs text-muted-foreground block mb-1">Ind. Tipo Mão-de-Obra *</label>
                                 <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.tipoMaoDeObra ?? ""} onChange={e => set("tipoMaoDeObra", e.target.value || null)}>
                                     <option value="">Selecione…</option>
                                     <option value="ADM">ADM — Administrativo</option>
@@ -672,10 +734,10 @@ export default function AdmissaoWizardScreen() {
                                     <option value="OPE">OPE — Operacional</option>
                                 </select>
                             </div>
-                            <Field label="Cód. Sindicato" value={form.codSindicato != null ? String(form.codSindicato) : ""} onChange={v => set("codSindicato", toIntOrNull(v))} type="number" />
-                            <Field label="Cód. Local Marcação" value={form.codLocalMarcacao != null ? String(form.codLocalMarcacao) : ""} onChange={v => set("codLocalMarcacao", toIntOrNull(v))} type="number" />
-                            <Field label="Classif. Func. Ponto Eletrônico" value={form.codClassFuncPontoEletronico != null ? String(form.codClassFuncPontoEletronico) : ""} onChange={v => set("codClassFuncPontoEletronico", toIntOrNull(v))} type="number" />
-                            <Field label="Cód. Localidade" value={form.codLocalidade != null ? String(form.codLocalidade) : ""} onChange={v => set("codLocalidade", toIntOrNull(v))} type="number" />
+                            <Field label="Cód. Sindicato *" value={form.codSindicato != null ? String(form.codSindicato) : ""} onChange={v => set("codSindicato", toIntOrNull(v))} type="number" />
+                            <Field label="Cód. Local Marcação *" value={form.codLocalMarcacao != null ? String(form.codLocalMarcacao) : ""} onChange={v => set("codLocalMarcacao", toIntOrNull(v))} type="number" />
+                            <Field label="Classif. Func. Ponto Eletrônico *" value={form.codClassFuncPontoEletronico != null ? String(form.codClassFuncPontoEletronico) : ""} onChange={v => set("codClassFuncPontoEletronico", toIntOrNull(v))} type="number" />
+                            <Field label="Cód. Localidade *" value={form.codLocalidade != null ? String(form.codLocalidade) : ""} onChange={v => set("codLocalidade", toIntOrNull(v))} type="number" />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-border/30 pt-3 mt-2">
                             <Field label="Título Eleitor Nº" value={form.tituloEleitorNumero} onChange={v => set("tituloEleitorNumero", v)} />

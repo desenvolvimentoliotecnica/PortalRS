@@ -68,20 +68,22 @@ const GRAU_INSTRUCAO_OPTIONS = [
     { value: 7, label: "Superior Completo" }, { value: 8, label: "Pos-Graduacao" },
     { value: 9, label: "Mestrado" }, { value: 10, label: "Doutorado" },
 ];
+// Códigos alinhados com eSocial / AdmissaoWizardScreen (não trocar 2 e 3 sob pena
+// de candidato selecionar "Preta" e chegar "Parda" ao Datasul — bug histórico corrigido).
 const CUTIS_OPTIONS = [
-    { value: 1, label: "Branca" }, { value: 2, label: "Parda" },
-    { value: 3, label: "Preta" }, { value: 4, label: "Amarela" }, { value: 5, label: "Indigena" },
+    { value: 1, label: "Branca" }, { value: 2, label: "Preta" },
+    { value: 3, label: "Parda" }, { value: 4, label: "Amarela" }, { value: 5, label: "Indigena" },
 ];
 const ORIGEM_FUNCIONARIO_OPTIONS = [
     { value: 1, label: "Brasileiro" }, { value: 2, label: "Naturalizado" }, { value: 3, label: "Estrangeiro" },
 ];
 const CABELO_OPTIONS = [
-    { value: 1, label: "Preto" }, { value: 2, label: "Castanho" },
+    { value: 1, label: "Castanho" }, { value: 2, label: "Preto" },
     { value: 3, label: "Loiro" }, { value: 4, label: "Ruivo" }, { value: 5, label: "Grisalho" },
 ];
 const OLHOS_OPTIONS = [
-    { value: 1, label: "Castanho" }, { value: 2, label: "Azul" },
-    { value: 3, label: "Verde" }, { value: 4, label: "Preto" },
+    { value: 1, label: "Castanho" }, { value: 2, label: "Preto" },
+    { value: 3, label: "Azul" }, { value: 4, label: "Verde" },
 ];
 
 interface Props {
@@ -132,6 +134,12 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                         if (d.bairro) set("bairro", d.bairro);
                         if (d.localidade) set("cidade", d.localidade);
                         if (d.uf) set("uf", d.uf);
+                        // Código IBGE do município (obrigatório TOTVS/eSocial).
+                        // ViaCEP retorna como string; TOTVS armazena como int.
+                        if (d.ibge) {
+                            const ibgeNum = Number(d.ibge);
+                            if (Number.isFinite(ibgeNum)) set("municipioEnderecoIbge", ibgeNum);
+                        }
                     }
                 }).catch(() => {});
         }
@@ -156,6 +164,14 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="Orgao Expedidor" field="rgOrgaoExpedidor" form={formData} set={set} disabled={disabled} required />
                     <AutocompleteField label="UF Expedidor RG" field="rgUfExpedidor" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
                     <Field label="Data Emissao RG" field="rgDataExpedicao" form={formData} set={set} disabled={disabled} type="date" required />
+
+                    {/* RIC — Registro Identidade Civil (obrigatório TOTVS/Datasul) */}
+                    <Field label="RIC (Numero Reg. Identidade Civil)" field="regIdentidCivilNumero" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Orgao Emissor RIC" field="regIdentidCivilOrgEmiss" form={formData} set={set} disabled={disabled} placeholder="SSP" required />
+                    <AutocompleteField label="UF RIC" field="regIdentidCivilUf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
+                    <Field label="Cidade RIC" field="regIdentidCivilCidade" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Data Expedicao RIC" field="regIdentidCivilDataExped" form={formData} set={set} disabled={disabled} type="date" />
+
                     <Field label="Data de Nascimento" field="dataNascimento" form={formData} set={set} disabled={disabled} type="date" required />
                     <SelectField label="Sexo" field="sexo" form={formData} set={set} disabled={disabled} options={SEXO_OPTIONS} cls={selectCls} required />
                     <SelectField label="Estado Civil" field="estadoCivil" form={formData} set={set} disabled={disabled} options={ESTADO_CIVIL_OPTIONS} cls={selectCls} required />
