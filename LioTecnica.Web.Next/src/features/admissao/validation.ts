@@ -73,6 +73,11 @@ export interface PreAdmissaoFormLike {
   formaPagamento?: number | null;
   tipoAdmissaoFgts?: number | null;
   paisLocalidade?: string | null;
+  // Documentos militares / CAGED (TOTVS rejeita < 1 mesmo para mulheres/brasileiros)
+  docMilitarTipo?: number | null;
+  docMilitarRegiao?: number | null;
+  docMilitarCircunscricao?: number | null;
+  ocorrenciaCAGED?: number | null;
   // RG (conjunto — se algum, todos obrigatórios)
   rg?: string | null;
   rgOrgaoExpedidor?: string | null;
@@ -190,6 +195,15 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (!form.tipoAdmissaoFgts || form.tipoAdmissaoFgts === 0) errors.push({ field: "tipoAdmissaoFgts", label: "Tipo Admissão FGTS", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de admissão do FGTS." });
   if (isIso3Invalid(form.paisLocalidade))                  errors.push({ field: "paisLocalidade",   label: "País Localidade",    stepIndex: STEP_INDEX.trabalhista, message: "Use código ISO de 3 letras (ex: BRA)." });
 
+  // ── Doc Militar / Visto Estrangeiro / CAGED — obrigatórios sempre (TOTVS rejeita < 1) ──
+  // Datasul devolve "iDocMilitarTipo nao pode ser menor que 1" mesmo para mulheres/maiores
+  // de 45 anos, e "iTipoVistoEstrang" mesmo para brasileiros. Por isso exigimos sempre ≥ 1.
+  if (!form.docMilitarTipo || form.docMilitarTipo < 1)             errors.push({ field: "docMilitarTipo",         label: "Tipo Doc. Militar",        stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de documento militar (TOTVS exige ≥ 1)." });
+  if (!form.docMilitarRegiao || form.docMilitarRegiao < 1)          errors.push({ field: "docMilitarRegiao",       label: "Região Militar",           stepIndex: STEP_INDEX.trabalhista, message: "Informe a Região Militar (TOTVS exige ≥ 1)." });
+  if (!form.docMilitarCircunscricao || form.docMilitarCircunscricao < 1) errors.push({ field: "docMilitarCircunscricao", label: "Circunscrição Militar",    stepIndex: STEP_INDEX.trabalhista, message: "Informe a Circunscrição Militar (TOTVS exige ≥ 1)." });
+  if (!form.tipoVistoEstrangeiro || form.tipoVistoEstrangeiro < 1)  errors.push({ field: "tipoVistoEstrangeiro",    label: "Tipo Visto Estrangeiro",   stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de visto estrangeiro (TOTVS exige ≥ 1, use 1 para brasileiros)." });
+  if (!form.ocorrenciaCAGED || form.ocorrenciaCAGED < 1)            errors.push({ field: "ocorrenciaCAGED",         label: "Ocorrência CAGED",         stepIndex: STEP_INDEX.trabalhista, message: "Selecione a ocorrência CAGED (TOTVS exige ≥ 1, use 1 para admissão normal)." });
+
   // ── Conjunto RG: se algum preenchido, todos obrigatórios ─────────────────
   const rgAny = !isBlank(form.rg) || !isBlank(form.rgOrgaoExpedidor) || !isBlank(form.rgUfExpedidor);
   if (rgAny) {
@@ -206,7 +220,6 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
       errors.push({ field: "passaporte", label: "Passaporte ou RNM/RNE", stepIndex: STEP_INDEX.pessoal, message: "Para estrangeiros, informe Passaporte ou RNM/RNE." });
     }
     if (isBlank(form.validadeVisto))            errors.push({ field: "validadeVisto",        label: "Validade do Visto",      stepIndex: STEP_INDEX.pessoal, message: "Validade do visto obrigatória para estrangeiros." });
-    if (!form.tipoVistoEstrangeiro || form.tipoVistoEstrangeiro === 0) errors.push({ field: "tipoVistoEstrangeiro", label: "Tipo de Visto Estrangeiro", stepIndex: STEP_INDEX.pessoal, message: "Selecione o tipo de visto estrangeiro." });
   }
 
   // ── Condicional: Naturalizado (origemFuncionario === 2) ──────────────────

@@ -150,6 +150,9 @@ interface PreAdmissao {
     docMilitarNumero: string | null;
     docMilitarSerie: string | null;
     docMilitarRegiao: number | null;
+    docMilitarCircunscricao: number | null;
+    tipoVistoEstrangeiro: number | null;
+    ocorrenciaCAGED: number | null;
     cartaoSus: string | null;
     tituloEleitorCidade: string | null;
     tituloEleitorUf: string | null;
@@ -275,6 +278,28 @@ const TIPO_ADMISSAO_FGTS = [
     { value: 2, label: "2 - Trabalhador Avulso" },
     { value: 3, label: "3 - Sucessão/Incorporação/Transferência" },
     { value: 4, label: "4 - Primeiro Emprego" },
+];
+// Datasul rejeita iDocMilitarTipo < 1 mesmo para mulheres/acima de 45 — default "1".
+const DOC_MILITAR_TIPO = [
+    { value: 1, label: "1 - Cert. Reservista" },
+    { value: 2, label: "2 - Cert. Dispensa" },
+    { value: 3, label: "3 - Cert. Alistamento" },
+];
+// Datasul rejeita iTipoVistoEstrang < 1 mesmo para brasileiros — default "1".
+const TIPO_VISTO_ESTRANGEIRO = [
+    { value: 1, label: "1 - Passaporte Comum" },
+    { value: 2, label: "2 - Temporário" },
+    { value: 3, label: "3 - Permanente" },
+    { value: 4, label: "4 - Oficial/Diplomático" },
+    { value: 5, label: "5 - Outros" },
+];
+// Datasul (iOcorrCaged em apisfadmissao.p) — default "1" (admissão normal).
+const OCORRENCIA_CAGED = [
+    { value: 1, label: "1 - Admissão Normal" },
+    { value: 2, label: "2 - Reintegração" },
+    { value: 3, label: "3 - Reemprego" },
+    { value: 4, label: "4 - Transferência Entrada" },
+    { value: 5, label: "5 - Trabalho Temporário" },
 ];
 const GRAU_INSTRUCAO = [
     { value: 1, label: "Analfabeto" },
@@ -759,6 +784,16 @@ export default function AdmissaoWizardScreen() {
                             <Field label="Cód. Local Marcação *" value={form.codLocalMarcacao != null ? String(form.codLocalMarcacao) : ""} onChange={v => set("codLocalMarcacao", toIntOrNull(v))} type="number" />
                             <Field label="Classif. Func. Ponto Eletrônico *" value={form.codClassFuncPontoEletronico != null ? String(form.codClassFuncPontoEletronico) : ""} onChange={v => set("codClassFuncPontoEletronico", toIntOrNull(v))} type="number" />
                             <Field label="Cód. Localidade *" value={form.codLocalidade != null ? String(form.codLocalidade) : ""} onChange={v => set("codLocalidade", toIntOrNull(v))} type="number" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-border/30 pt-3 mt-2">
+                            <div className="col-span-3 text-xs text-muted-foreground uppercase tracking-wider font-medium">Documentos Militares / Estrangeiro / CAGED (TOTVS)</div>
+                            <Select label="Tipo Doc. Militar *" value={form.docMilitarTipo} options={DOC_MILITAR_TIPO} onChange={v => set("docMilitarTipo", Number(v))} />
+                            <Field label="Região Militar *" value={form.docMilitarRegiao != null ? String(form.docMilitarRegiao) : ""} onChange={v => set("docMilitarRegiao", toIntOrNull(v))} type="number" />
+                            <Field label="Circunscrição Militar *" value={form.docMilitarCircunscricao != null ? String(form.docMilitarCircunscricao) : ""} onChange={v => set("docMilitarCircunscricao", toIntOrNull(v))} type="number" />
+                            <Field label="Doc. Militar Nº" value={form.docMilitarNumero} onChange={v => set("docMilitarNumero", v)} />
+                            <Field label="Doc. Militar Série" value={form.docMilitarSerie} onChange={v => set("docMilitarSerie", v)} />
+                            <Select label="Tipo Visto Estrangeiro *" value={form.tipoVistoEstrangeiro} options={TIPO_VISTO_ESTRANGEIRO} onChange={v => set("tipoVistoEstrangeiro", Number(v))} />
+                            <Select label="Ocorrência CAGED *" value={form.ocorrenciaCAGED} options={OCORRENCIA_CAGED} onChange={v => set("ocorrenciaCAGED", Number(v))} />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-border/30 pt-3 mt-2">
                             <Field label="Título Eleitor Nº" value={form.tituloEleitorNumero} onChange={v => set("tituloEleitorNumero", v)} />

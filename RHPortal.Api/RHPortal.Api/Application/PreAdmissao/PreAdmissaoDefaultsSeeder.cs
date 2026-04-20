@@ -81,6 +81,22 @@ public static class PreAdmissaoDefaultsSeeder
 
         // --- Origem funcionário (default brasileiro) ---
         e.OrigemFuncionario ??= 1;
+
+        // --- Documento Militar ---
+        // Datasul rejeita com "iDocMilitarTipo nao pode ser menor que 1" mesmo para
+        // candidatas mulheres ou maiores de 45 anos. Valor neutro = 1 (Cert. Reservista)
+        // como fallback seguro; RH corrige manualmente quando aplicável.
+        e.DocMilitarTipo        ??= 1;
+        e.DocMilitarRegiao      ??= 1;
+        e.DocMilitarCircunscricao ??= 1;
+
+        // --- Estrangeiro / Visto ---
+        // Datasul exige >= 1 mesmo para brasileiros; default 1 (passaporte comum).
+        e.TipoVistoEstrangeiro  ??= 1;
+
+        // --- CAGED (ocorrência de movimentação eSocial) ---
+        // 1 = admissão normal (default para novo funcionário).
+        e.OcorrenciaCAGED       ??= 1;
     }
 
     /// <summary>

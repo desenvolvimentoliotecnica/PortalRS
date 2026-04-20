@@ -49,6 +49,9 @@ export interface DadosPessoais {
     docMilitarRegiao?: number | null; docMilitarCircunscricao?: number | null;
     // Estrangeiro
     passaporte?: string | null; rnmRne?: string | null; validadeVisto?: string | null; tipoVisto?: string | null;
+    tipoVistoEstrangeiro?: number | null;
+    // CAGED (TOTVS)
+    ocorrenciaCAGED?: number | null;
     // Saude e caracteristicas fisicas
     grupoSanguineo?: number | null; fatorRh?: number | null; possuiDeficiencia?: string | null;
     cartaoSus?: string | null; altura?: number | null; peso?: number | null;

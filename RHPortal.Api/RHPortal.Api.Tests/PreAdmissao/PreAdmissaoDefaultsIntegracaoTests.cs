@@ -690,4 +690,107 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
         Assert.Contains(issues, i => i.Campo == "RegIdentidCivilNumero" && i.TipoRegra == "Formato");
         Assert.Contains(issues, i => i.Campo == "RegIdentidCivilCidade" && i.TipoRegra == "Formato");
     }
+
+    // ── 7. Cenário DocMilitar / Visto Estrangeiro / CAGED ───────────────────
+
+    [Fact]
+    public async Task Create_AplicaDefaultsTotvs_DocMilitarVistoCaged()
+    {
+        // Datasul rejeita iDocMilitarTipo/iTipoVistoEstrang/iOcorrCaged < 1 mesmo para
+        // casos onde não se aplica. Seeder agora preenche todos com "1" como fallback seguro.
+        var (db, svc) = CriarServico();
+
+        var result = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+
+        var entity = await db.Set<Domain.Entities.PreAdmissao>()
+            .IgnoreQueryFilters()
+            .FirstAsync(x => x.Id == result.Id);
+
+        Assert.Equal(1, entity.DocMilitarTipo);
+        Assert.Equal(1, entity.DocMilitarRegiao);
+        Assert.Equal(1, entity.DocMilitarCircunscricao);
+        Assert.Equal(1, entity.TipoVistoEstrangeiro);
+        Assert.Equal(1, entity.OcorrenciaCAGED);
+    }
+
+    [Fact]
+    public async Task Submit_SemDocMilitar_LancaTotvsValidationException()
+    {
+        // Garante que validator bloqueia se campos DocMilitar/VistoEstrang/CAGED estiverem
+        // nulos (simula submit burlando o seeder — ex: entity criada antes do seeder existir).
+        var (db, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+        await svc.UpdateAsync(created.Id, PayloadHappyPath(), isPrivileged: true, CancellationToken.None);
+
+        // Bypass do seeder do submit — zera direto antes de chamar o validator.
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        entity.DocMilitarTipo = null;
+        entity.DocMilitarRegiao = null;
+        entity.DocMilitarCircunscricao = null;
+        entity.TipoVistoEstrangeiro = null;
+        entity.OcorrenciaCAGED = null;
+
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+
+        Assert.Contains(issues, i => i.Campo == "DocMilitarTipo");
+        Assert.Contains(issues, i => i.Campo == "DocMilitarRegiao");
+        Assert.Contains(issues, i => i.Campo == "DocMilitarCircunscricao");
+        Assert.Contains(issues, i => i.Campo == "TipoVistoEstrangeiro");
+        Assert.Contains(issues, i => i.Campo == "OcorrenciaCAGED");
+    }
+
+    [Fact]
+    public async Task Submit_CenarioDocMilitarZerado_SeederPreencheDefaults()
+    {
+        // Simula entity antiga sem os defaults DocMilitar/Visto/CAGED. Submit deve
+        // chamar seeder, preencher com 1, e auto-aprovar.
+        var (db, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+
+        var e = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        e.DocMilitarTipo = null;
+        e.DocMilitarRegiao = null;
+        e.DocMilitarCircunscricao = null;
+        e.TipoVistoEstrangeiro = null;
+        e.OcorrenciaCAGED = null;
+        await db.SaveChangesAsync();
+
+        await svc.UpdateAsync(created.Id, PayloadHappyPath() with
+        {
+            DocMilitarTipo = null,
+            DocMilitarRegiao = null,
+            DocMilitarCircunscricao = null,
+            TipoVistoEstrangeiro = null,
+            OcorrenciaCAGED = null,
+        }, isPrivileged: true, CancellationToken.None);
+
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.DocMilitarTipo);
+        Assert.Equal(1, result.DocMilitarRegiao);
+        Assert.Equal(1, result.DocMilitarCircunscricao);
+        Assert.Equal(1, result.TipoVistoEstrangeiro);
+        Assert.Equal(1, result.OcorrenciaCAGED);
+        Assert.Equal(PreAdmissaoStatus.Aprovada, result.Status);
+    }
+
+    [Fact]
+    public void Validator_DocMilitarVistoCagedAusentes_RetornaErrosObrigatorio()
+    {
+        // Unit test puro — valida que o validator exige DocMilitar/Visto/CAGED mesmo
+        // sem outras dependências (ex: mulher maior de 45 ainda precisa desses defaults).
+        var entity = new Domain.Entities.PreAdmissao
+        {
+            // Campos DocMilitar/Visto/CAGED deixados null de propósito.
+        };
+
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+
+        Assert.Contains(issues, i => i.Campo == "DocMilitarTipo"          && i.TipoRegra == "Obrigatório");
+        Assert.Contains(issues, i => i.Campo == "DocMilitarRegiao"        && i.TipoRegra == "Obrigatório");
+        Assert.Contains(issues, i => i.Campo == "DocMilitarCircunscricao" && i.TipoRegra == "Obrigatório");
+        Assert.Contains(issues, i => i.Campo == "TipoVistoEstrangeiro"    && i.TipoRegra == "Obrigatório");
+        Assert.Contains(issues, i => i.Campo == "OcorrenciaCAGED"         && i.TipoRegra == "Obrigatório");
+    }
 }

@@ -311,11 +311,11 @@ export default function ReviewDataStep({ session, disabled }: Props) {
             <Section title="Documento Militar / Reservista">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Numero Reservista" field="reservistaNumero" form={formData} set={set} disabled={disabled} />
-                    <SelectField label="Tipo Doc Militar" field="docMilitarTipo" form={formData} set={set} disabled={disabled} options={[{value:1,label:"Cert. Reservista"},{value:2,label:"Cert. Dispensa"},{value:3,label:"Cert. Alistamento"}]} cls={selectCls} />
+                    <SelectField label="Tipo Doc Militar *" field="docMilitarTipo" form={formData} set={set} disabled={disabled} options={[{value:1,label:"Cert. Reservista"},{value:2,label:"Cert. Dispensa"},{value:3,label:"Cert. Alistamento"}]} cls={selectCls} />
                     <Field label="Numero" field="docMilitarNumero" form={formData} set={set} disabled={disabled} />
                     <Field label="Serie" field="docMilitarSerie" form={formData} set={set} disabled={disabled} />
-                    <Field label="Regiao" field="docMilitarRegiao" form={formData} set={set} disabled={disabled} type="number" />
-                    <Field label="Circunscricao" field="docMilitarCircunscricao" form={formData} set={set} disabled={disabled} type="number" />
+                    <Field label="Regiao *" field="docMilitarRegiao" form={formData} set={set} disabled={disabled} type="number" />
+                    <Field label="Circunscricao *" field="docMilitarCircunscricao" form={formData} set={set} disabled={disabled} type="number" />
                 </div>
             </Section>
 
@@ -325,7 +325,9 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="Passaporte" field="passaporte" form={formData} set={set} disabled={disabled} />
                     <Field label="RNM/RNE" field="rnmRne" form={formData} set={set} disabled={disabled} />
                     <Field label="Validade do Visto" field="validadeVisto" form={formData} set={set} disabled={disabled} type="date" />
-                    <Field label="Tipo de Visto" field="tipoVisto" form={formData} set={set} disabled={disabled} />
+                    <Field label="Tipo de Visto (texto)" field="tipoVisto" form={formData} set={set} disabled={disabled} />
+                    <SelectField label="Tipo Visto Estrangeiro (TOTVS) *" field="tipoVistoEstrangeiro" form={formData} set={set} disabled={disabled} options={[{value:1,label:"1 - Passaporte Comum"},{value:2,label:"2 - Temporário"},{value:3,label:"3 - Permanente"},{value:4,label:"4 - Oficial/Diplomático"},{value:5,label:"5 - Outros"}]} cls={selectCls} />
+                    <SelectField label="Ocorrência CAGED *" field="ocorrenciaCAGED" form={formData} set={set} disabled={disabled} options={[{value:1,label:"1 - Admissão Normal"},{value:2,label:"2 - Reintegração"},{value:3,label:"3 - Reemprego"},{value:4,label:"4 - Transferência Entrada"},{value:5,label:"5 - Trabalho Temporário"}]} cls={selectCls} />
                 </div>
             </Section>
 
