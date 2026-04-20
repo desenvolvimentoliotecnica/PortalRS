@@ -764,6 +764,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.IntegracaoResultado = null;
                 entity.IntegracaoMensagem = null;
                 entity.IntegradaEmUtc = null;
+                entity.TentativasIntegracao = 0;
+                entity.UltimaTentativaUtc = null;
                 break;
             }
             case TipoIntegracao.PagamentoExtra:

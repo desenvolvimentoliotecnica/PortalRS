@@ -726,9 +726,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     public async Task<IReadOnlyList<PreAdmissaoPendenteIntegracaoRow>> ListPendentesIntegracaoAsync(CancellationToken ct)
     {
+        // TOTVS só deve ver registros que NUNCA foram reportados (IntegracaoResultado == null).
+        // Se o ERP reportou Falha/FalhaDefinitiva, o registro sai da fila e só volta via
+        // retry manual (POST /api/integracao-totvs/{tipo}/{id}/retry), que zera IntegracaoResultado.
         return await _db.Set<Domain.Entities.PreAdmissao>()
             .AsNoTracking()
-            .Where(x => x.TenantId == _tenantContext.TenantId && x.Status == PreAdmissaoStatus.Aprovada)
+            .Where(x => x.TenantId == _tenantContext.TenantId
+                     && x.Status == PreAdmissaoStatus.Aprovada
+                     && x.IntegracaoResultado == null)
             .OrderBy(x => x.ApprovedAtUtc)
             .Select(x => new PreAdmissaoPendenteIntegracaoRow(x.Id, x.Nome, x.Cpf, x.DataAdmissao, x.Status))
             .ToListAsync(ct);

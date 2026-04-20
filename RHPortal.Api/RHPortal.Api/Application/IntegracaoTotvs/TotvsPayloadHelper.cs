@@ -25,9 +25,17 @@ public static class TotvsPayloadHelper
     /// </summary>
     public static int? PesoKgParaGramas(int? pesoKg) => pesoKg.HasValue ? pesoKg.Value * 1000 : null;
 
-    /// <summary>Data sem hora no formato ISO <c>yyyy-MM-dd</c>.</summary>
-    public static string? FormatDate(DateOnly? date) => date?.ToString("yyyy-MM-dd");
+    /// <summary>
+    /// Data no formato exigido pelo TOTVS Progress Datasul: <c>dd/MM/yyyy</c>.
+    /// Culture fixada em <c>InvariantCulture</c> pra não depender do servidor.
+    /// </summary>
+    public static string? FormatDate(DateOnly? date) =>
+        date?.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
 
-    /// <summary>Data sem hora no formato ISO <c>yyyy-MM-dd</c> (converte UTC para a data do dia em UTC).</summary>
-    public static string? FormatDate(DateTimeOffset? dateTime) => dateTime?.UtcDateTime.ToString("yyyy-MM-dd");
+    /// <summary>
+    /// Data no formato exigido pelo TOTVS Progress Datasul: <c>dd/MM/yyyy</c>.
+    /// Converte o instante UTC para a data calendário (sem fuso local).
+    /// </summary>
+    public static string? FormatDate(DateTimeOffset? dateTime) =>
+        dateTime?.UtcDateTime.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
 }
