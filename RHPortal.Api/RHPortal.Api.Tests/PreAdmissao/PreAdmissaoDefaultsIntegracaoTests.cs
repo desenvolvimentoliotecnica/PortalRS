@@ -476,4 +476,218 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
         // ── Status final auto-aprovado ──
         Assert.Equal(PreAdmissaoStatus.Aprovada, detail.Status);
     }
+
+    // ── 6. Cenário Sophie — gaps descobertos em produção ────────────────────
+
+    [Fact]
+    public async Task Submit_CenarioSophie_PaisBrasilPorExtensoENormalizadoParaBRA()
+    {
+        // Sophie teve paisNacionalidade="Brasil" vindo da UI — Datasul rejeitou
+        // "Pais inexistente". Seeder agora normaliza automaticamente.
+        var (db, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+        var payload = PayloadHappyPath() with
+        {
+            PaisNacionalidade = "Brasil",
+            PaisNascimento = "BRAZIL",
+            PaisLocalidade = "BR",
+        };
+        await svc.UpdateAsync(created.Id, payload, isPrivileged: true, CancellationToken.None);
+
+        // Submit roda seeder, normaliza os 3 países, e auto-aprova.
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("BRA", result.PaisNacionalidade);
+        Assert.Equal("BRA", result.PaisNascimento);
+        Assert.Equal("BRA", result.PaisLocalidade);
+        Assert.Equal(PreAdmissaoStatus.Aprovada, result.Status);
+    }
+
+    [Fact]
+    public async Task Submit_CenarioSophie_CodEmpresaVazioEhPreenchidoViaSeederNoSubmit()
+    {
+        // Sophie tinha codEmpresa=null porque foi criada antes do seeder existir
+        // (ou via IniciarManualAsync reaproveitando registro antigo). No retry/submit,
+        // seeder preenche com a primeira Empresa ativa do tenant.
+        var (db, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+
+        // Simula o cenário Sophie: zera codEmpresa direto no banco (bypass do seeder do Create).
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        entity.CodEmpresa = null;
+        await db.SaveChangesAsync();
+
+        await svc.UpdateAsync(created.Id, PayloadHappyPath() with { CodEmpresa = null }, isPrivileged: true, CancellationToken.None);
+
+        // Submit → seeder roda de novo → codEmpresa preenchido antes do validator checar.
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("99", result.CodEmpresa); // Empresa code="99" que o factory semeia
+        Assert.Equal(PreAdmissaoStatus.Aprovada, result.Status);
+    }
+
+    [Fact]
+    public async Task Submit_CenarioSophie_RicComPlaceholder1_RejeitaComErroDeTamanhoMinimo()
+    {
+        // Sophie preencheu regIdentidCivilNumero="1" e regIdentidCivilCidade="1"
+        // (placeholder lixo) — passou pelo validator antigo (só checava blank).
+        // Novo validator rejeita por tamanho mínimo.
+        var (_, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+        var payload = PayloadHappyPath() with
+        {
+            RegIdentidCivilNumero = "1",
+            RegIdentidCivilCidade = "1",
+        };
+        await svc.UpdateAsync(created.Id, payload, isPrivileged: true, CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
+            svc.SubmitAsync(created.Id, CancellationToken.None));
+
+        Assert.Contains(ex.Issues, i => i.Campo == "RegIdentidCivilNumero" && i.TipoRegra == "Formato");
+        Assert.Contains(ex.Issues, i => i.Campo == "RegIdentidCivilCidade" && i.TipoRegra == "Formato");
+    }
+
+    [Fact]
+    public async Task Submit_CenarioSophie_PaisNaoISO3_RejeitaComFormatoInvalido()
+    {
+        // Cenário: UI antiga enviou "Brasil" e seeder não rodou (ex: integração direta).
+        // Validator agora rejeita formato não-ISO3.
+        var (db, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+        var payload = PayloadHappyPath() with { PaisNacionalidade = "BRA" };
+        await svc.UpdateAsync(created.Id, payload, isPrivileged: true, CancellationToken.None);
+
+        // Simula: alguém escreveu direto no banco "Brasil" (burlando o seeder).
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        entity.PaisNacionalidade = "Brasil";
+        await db.SaveChangesAsync();
+
+        // Chama validator direto para não acionar normalização do seeder.
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+        Assert.Contains(issues, i => i.Campo == "PaisNacionalidade" && i.TipoRegra == "Formato");
+    }
+
+    [Fact]
+    public async Task Submit_CenarioSophie_CamposSNDefaultsPreenchidosNoSeeder()
+    {
+        // Sophie teve optanteFgts/recolheFgts/sindicalizado etc null. Seeder aplica
+        // defaults S/N compatíveis com CLT brasileiro padrão.
+        var (db, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+
+        // Simula cenário Sophie: entity antiga sem os defaults.
+        var e = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        e.OptanteFgts = null; e.RecolheFgts = null; e.RecolheInss = null;
+        e.Sindicalizado = null; e.ResideExterior = null;
+        e.CargaAutomTurno = null; e.Calcula13 = null; e.RecebeFerias = null;
+        e.RecebePericul = null; e.RecebeInsalub = null; e.RecebeAdiantamento = null;
+        e.ConsidEmissRAIS = null; e.TipoLogradouroESocial = null;
+        await db.SaveChangesAsync();
+
+        await svc.UpdateAsync(created.Id, PayloadHappyPath() with
+        {
+            OptanteFgts = null, RecolheFgts = null, RecolheInss = null,
+            Sindicalizado = null, ResideExterior = null,
+            CargaAutomTurno = null, Calcula13 = null, RecebeFerias = null,
+            RecebePericul = null, RecebeInsalub = null, RecebeAdiantamento = null,
+            ConsidEmissRAIS = null, TipoLogradouroESocial = null,
+        }, isPrivileged: true, CancellationToken.None);
+
+        // Submit deve chamar seeder e preencher tudo.
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("S", result.OptanteFgts);
+        Assert.Equal("S", result.RecolheFgts);
+        Assert.Equal("S", result.RecolheInss);
+        Assert.Equal("N", result.Sindicalizado);
+        Assert.Equal("N", result.ResideExterior);
+        Assert.Equal("S", result.CargaAutomTurno);
+        Assert.Equal("S", result.Calcula13);
+        Assert.Equal("S", result.RecebeFerias);
+        Assert.Equal("N", result.RecebePericul);
+        Assert.Equal("N", result.RecebeInsalub);
+        Assert.Equal("N", result.RecebeAdiantamento);
+        Assert.Equal("S", result.ConsidEmissRAIS);
+        // Validator já deveria ter passado, então status = Aprovada
+        Assert.Equal(PreAdmissaoStatus.Aprovada, result.Status);
+    }
+
+    [Fact]
+    public async Task Submit_SemFormaPagamentoOuTipoAdmissaoFgts_LancaException()
+    {
+        // Novos campos obrigatórios do validator (depois do bug da Sophie).
+        var (_, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+        var payload = PayloadHappyPath() with
+        {
+            FormaPagamento = null,
+            TipoAdmissaoFgts = null,
+        };
+        await svc.UpdateAsync(created.Id, payload, isPrivileged: true, CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
+            svc.SubmitAsync(created.Id, CancellationToken.None));
+
+        Assert.Contains(ex.Issues, i => i.Campo == "FormaPagamento");
+        Assert.Contains(ex.Issues, i => i.Campo == "TipoAdmissaoFgts");
+    }
+
+    [Fact]
+    public async Task Submit_SemTipoLogradouroESocial_LancaException()
+    {
+        // tipoLogradouroESocial agora é obrigatório no validator.
+        var (db, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+
+        // Bypass do seeder do create — limpa direto na entity.
+        var e = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        e.TipoLogradouroESocial = null;
+        await db.SaveChangesAsync();
+
+        await svc.UpdateAsync(created.Id, PayloadHappyPath() with { TipoLogradouroESocial = null }, isPrivileged: true, CancellationToken.None);
+        // TipoLogradouroESocial fica null no update; seeder do submit preenche "R".
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal("R", result.TipoLogradouroESocial);
+    }
+
+    [Fact]
+    public void Validator_PaisComStringBrasil_RetornaErroDeFormato()
+    {
+        // Teste unitário do validator isoladamente — garante que "Brasil" gera erro
+        // mesmo que o seeder por algum motivo não rode antes.
+        var entity = new Domain.Entities.PreAdmissao
+        {
+            PaisNacionalidade = "Brasil",
+            PaisNascimento    = "Brasil",
+            PaisLocalidade    = "Brasil",
+        };
+
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+
+        Assert.Contains(issues, i => i.Campo == "PaisNacionalidade" && i.TipoRegra == "Formato");
+        Assert.Contains(issues, i => i.Campo == "PaisNascimento"    && i.TipoRegra == "Formato");
+        Assert.Contains(issues, i => i.Campo == "PaisLocalidade"    && i.TipoRegra == "Formato");
+    }
+
+    [Fact]
+    public void Validator_RicComPlaceholder1_RetornaErroDeTamanhoMinimo()
+    {
+        var entity = new Domain.Entities.PreAdmissao
+        {
+            RegIdentidCivilNumero = "1",
+            RegIdentidCivilCidade = "1",
+            RegIdentidCivilOrgEmiss = "SSP",
+            RegIdentidCivilUf = "SP",
+        };
+
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+
+        Assert.Contains(issues, i => i.Campo == "RegIdentidCivilNumero" && i.TipoRegra == "Formato");
+        Assert.Contains(issues, i => i.Campo == "RegIdentidCivilCidade" && i.TipoRegra == "Formato");
+    }
 }

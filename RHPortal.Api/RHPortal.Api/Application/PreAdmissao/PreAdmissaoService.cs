@@ -352,6 +352,12 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         if (!submissíveis.Contains(e.Status))
             throw new InvalidOperationException("Não é possível submeter uma admissão neste status.");
 
+        // Re-aplica defaults TOTVS — garante que pré-admissões criadas antes do
+        // seeder (ou com IniciarManualAsync reusando registro antigo) tenham
+        // codEmpresa, flags S/N, país BRA, etc. Seeder só preenche se o campo
+        // ainda está null, então não sobrescreve valores do RH.
+        await PreAdmissaoDefaultsSeeder.ApplyAsync(e, _db, _tenantContext.TenantId!, ct);
+
         // Run validations
         e.ValidacaoCpfOk = ValidarCpf(e.Cpf);
         e.ValidacaoCepOk = !string.IsNullOrWhiteSpace(e.Cep);

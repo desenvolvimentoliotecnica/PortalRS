@@ -46,6 +46,22 @@ const BANKS = [
 ];
 
 // Cache por UF: { "SP": ["São Paulo", "Campinas", ...], ... }
+/**
+ * TOTVS Datasul aceita país só em ISO 3166-1 alpha-3 (3 letras).
+ * Nomes por extenso ("Brasil") causam "Pais inexistente" no Datasul.
+ * Converte nomes comuns em PT/EN para o código ISO.
+ */
+function normalizePaisIso3Portal(v: string): string {
+    const t = v.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+    const mapa: Record<string, string> = {
+        BRASIL: "BRA", BRAZIL: "BRA", BR: "BRA",
+        ARGENTINA: "ARG", URUGUAI: "URY", PARAGUAI: "PRY", CHILE: "CHL",
+        "ESTADOS UNIDOS": "USA", "UNITED STATES": "USA", PORTUGAL: "PRT",
+    };
+    if (mapa[t]) return mapa[t];
+    return t.slice(0, 3);
+}
+
 const ibgeCacheByUf: Record<string, string[]> = {};
 const ibgeFetchingUf: Record<string, Promise<void>> = {};
 
@@ -176,10 +192,28 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <SelectField label="Sexo" field="sexo" form={formData} set={set} disabled={disabled} options={SEXO_OPTIONS} cls={selectCls} required />
                     <SelectField label="Estado Civil" field="estadoCivil" form={formData} set={set} disabled={disabled} options={ESTADO_CIVIL_OPTIONS} cls={selectCls} required />
                     <Field label="Nacionalidade" field="nacionalidade" form={formData} set={set} disabled={disabled} placeholder="Brasileira" required />
-                    <Field label="Pais da Nacionalidade" field="paisNacionalidade" form={formData} set={set} disabled={disabled} placeholder="BRA" required />
+                    <FieldWrapper label="Pais Nacionalidade (ISO 3 letras)" field="paisNacionalidade" form={formData} required>
+                        <Input
+                            value={String(formData.paisNacionalidade ?? "")}
+                            onChange={e => set("paisNacionalidade", normalizePaisIso3Portal(e.target.value))}
+                            placeholder="BRA"
+                            maxLength={3}
+                            disabled={disabled}
+                            className="h-11"
+                        />
+                    </FieldWrapper>
                     <CityField label="Cidade de Nascimento" field="naturalCidade" ufField="naturalUf" form={formData} set={set} disabled={disabled} required />
                     <AutocompleteField label="UF de Nascimento" field="naturalUf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
-                    <Field label="Pais de Nascimento" field="paisNascimento" form={formData} set={set} disabled={disabled} placeholder="BRA" required />
+                    <FieldWrapper label="Pais de Nascimento (ISO 3 letras)" field="paisNascimento" form={formData} required>
+                        <Input
+                            value={String(formData.paisNascimento ?? "")}
+                            onChange={e => set("paisNascimento", normalizePaisIso3Portal(e.target.value))}
+                            placeholder="BRA"
+                            maxLength={3}
+                            disabled={disabled}
+                            className="h-11"
+                        />
+                    </FieldWrapper>
                     <Field label="Nome da Mae" field="nomeMae" form={formData} set={set} disabled={disabled} required />
                     <Field label="Nome do Pai" field="nomePai" form={formData} set={set} disabled={disabled} />
                     <SelectField label="Escolaridade" field="grauInstrucao" form={formData} set={set} disabled={disabled} options={GRAU_INSTRUCAO_OPTIONS} cls={selectCls} required />
