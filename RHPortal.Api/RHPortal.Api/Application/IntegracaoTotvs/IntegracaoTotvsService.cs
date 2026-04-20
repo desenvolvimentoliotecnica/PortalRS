@@ -7,6 +7,7 @@ using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Enums; // VagaStatus e outros enums com namespace RH maiúsculo
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.IntegracaoTotvs;
@@ -18,19 +19,22 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
     private readonly IPreAdmissaoService _preAdmissaoService;
     private readonly ApprovalWorkflowHelper _workflow;
     private readonly IEmailQueueService _emailQueue;
+    private readonly ITenantContext _tenantContext;
 
     public IntegracaoTotvsService(
         AppDbContext db,
         IOcupacaoHistoricoService ocupacaoService,
         IPreAdmissaoService preAdmissaoService,
         ApprovalWorkflowHelper workflow,
-        IEmailQueueService emailQueue)
+        IEmailQueueService emailQueue,
+        ITenantContext tenantContext)
     {
         _db = db;
         _ocupacaoService = ocupacaoService;
         _preAdmissaoService = preAdmissaoService;
         _workflow = workflow;
         _emailQueue = emailQueue;
+        _tenantContext = tenantContext;
     }
 
     public async Task<IntegracaoTotvsPainelResponse> ListPainelAsync(IntegracaoTotvsPainelQuery query, CancellationToken ct)
@@ -777,6 +781,11 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             {
                 var entity = await _db.PreAdmissoes.FindAsync(new object[] { id }, ct)
                     ?? throw new KeyNotFoundException($"PreAdmissao {id} não encontrada.");
+                // Retry/reenviar re-aplica defaults TOTVS e normalizações de país.
+                // Casos típicos: pré-admissões criadas antes do seeder, ou com
+                // "Brasil" em vez de "BRA" vindo de UI antiga. Sem isso, o Datasul
+                // recusa de novo com os mesmos erros.
+                await PreAdmissaoDefaultsSeeder.ApplyAsync(entity, _db, _tenantContext.TenantId!, ct);
                 entity.IntegracaoResultado = null;
                 entity.IntegracaoMensagem = null;
                 entity.IntegradaEmUtc = null;

@@ -31,13 +31,19 @@ public static class PreAdmissaoTotvsValidator
         var e = new List<TotvsValidationIssue>();
 
         // ══════════════════════════════════════════════════════════════════════
+        // Identificação da empresa / estabelecimento (TOTVS Datasul rejeita sem esses)
+        // ══════════════════════════════════════════════════════════════════════
+        Req(e, p.CodEmpresa,              "CodEmpresa",             "Código da Empresa",          "Identificação");
+        Req(e, p.EstabelecimentoCodigo,   "EstabelecimentoCodigo",  "Código do Estabelecimento",  "Identificação");
+
+        // ══════════════════════════════════════════════════════════════════════
         // FP1440 — Aba Cadastral (Pessoa Física)
         // ══════════════════════════════════════════════════════════════════════
         Req(e, p.NomeAbreviado,    "NomeAbreviado",   "Nome Abreviado",    "FP1440 — Cadastral");
         Req(e, p.Nome,             "Nome",            "Nome Relat. Legais","FP1440 — Cadastral");
-        Req(e, p.PaisNacionalidade,"PaisNacionalidade","País",             "FP1440 — Cadastral");
+        ReqPaisIso3(e, p.PaisNacionalidade, "PaisNacionalidade", "País (Nacionalidade)", "FP1440 — Cadastral");
         Req(e, p.DataNascimento,   "DataNascimento",  "Data Nascimento",   "FP1440 — Cadastral");
-        Req(e, p.PaisNascimento,   "PaisNascimento",  "País Nascimento",   "FP1440 — Cadastral");
+        ReqPaisIso3(e, p.PaisNascimento, "PaisNascimento", "País Nascimento", "FP1440 — Cadastral");
         Req(e, p.NaturalUf,        "NaturalUf",       "UF Nascimento",     "FP1440 — Cadastral");
         Req(e, p.NaturalCidade,    "NaturalCidade",   "Naturalidade",      "FP1440 — Cadastral");
         ReqInt(e, p.GrauInstrucao, "GrauInstrucao",   "Grau Instrução",    "FP1440 — Cadastral");
@@ -69,10 +75,10 @@ public static class PreAdmissaoTotvsValidator
             (p.RgUfExpedidor,    "RgUfExpedidor",   "UF Emissão RG"));
 
         // RIC — Registro Identidade Civil (novo documento exigido pelo TOTVS/Datasul)
-        Req(e, p.RegIdentidCivilNumero,    "RegIdentidCivilNumero",    "Nº Registro Identidade Civil (RIC)", "FP1440 — Documentos");
-        Req(e, p.RegIdentidCivilOrgEmiss,  "RegIdentidCivilOrgEmiss",  "Órgão Emissor RIC",                   "FP1440 — Documentos");
-        Req(e, p.RegIdentidCivilUf,        "RegIdentidCivilUf",        "UF Emissão RIC",                      "FP1440 — Documentos");
-        Req(e, p.RegIdentidCivilCidade,    "RegIdentidCivilCidade",    "Cidade Emissão RIC",                  "FP1440 — Documentos");
+        ReqMinLen(e, p.RegIdentidCivilNumero, 3, "RegIdentidCivilNumero", "Nº Registro Identidade Civil (RIC)", "FP1440 — Documentos");
+        Req(e, p.RegIdentidCivilOrgEmiss,  "RegIdentidCivilOrgEmiss",  "Órgão Emissor RIC",                  "FP1440 — Documentos");
+        Req(e, p.RegIdentidCivilUf,        "RegIdentidCivilUf",        "UF Emissão RIC",                     "FP1440 — Documentos");
+        ReqMinLen(e, p.RegIdentidCivilCidade, 3, "RegIdentidCivilCidade", "Cidade Emissão RIC",              "FP1440 — Documentos");
 
         // Condicional: Estrangeiro
         if (p.OrigemFuncionario == OrigemEstrangeiro)
@@ -113,7 +119,9 @@ public static class PreAdmissaoTotvsValidator
         // ══════════════════════════════════════════════════════════════════════
         // País Nacionalidade já validado em Cadastral (PaisNacionalidade)
         // Município de endereço (código IBGE)
-        ReqInt(e, p.MunicipioEnderecoIbge, "MunicipioEnderecoIbge", "Município (cód. IBGE)", "FP1440A — eSocial");
+        ReqInt(e, p.MunicipioEnderecoIbge,    "MunicipioEnderecoIbge",    "Município Endereço (cód. IBGE)",  "FP1440A — eSocial");
+        ReqInt(e, p.MunicipioNascimentoIbge,  "MunicipioNascimentoIbge",  "Município Nascimento (cód. IBGE)","FP1440A — eSocial");
+        Req(e, p.TipoLogradouroESocial,       "TipoLogradouroESocial",    "Tipo Logradouro eSocial (R/AV/etc)","FP1440A — eSocial");
 
         // Condicional: Reside no Exterior
         if (p.ResideExterior == "S")
@@ -133,6 +141,9 @@ public static class PreAdmissaoTotvsValidator
         ReqInt(e, p.CodVinculoEmpregaticio,  "CodVinculoEmpregaticio", "Vínculo",              "FP1500 — Cadastral");
         Req(e, p.EmitCartPonto,              "EmitCartPonto",          "Emite Cartão Ponto",   "FP1500 — Cadastral");
         ReqInt(e, p.TipoEstatistica,         "TipoEstatistica",        "Tipo Estatística",     "FP1500 — Cadastral");
+        ReqInt(e, p.FormaPagamento,          "FormaPagamento",         "Forma de Pagamento",   "FP1500 — Cadastral");
+        ReqInt(e, p.TipoAdmissaoFgts,        "TipoAdmissaoFgts",       "Tipo Admissão FGTS",   "FP1500 — Cadastral");
+        ReqPaisIso3(e, p.PaisLocalidade,     "PaisLocalidade",         "País Localidade",      "FP1500 — Cadastral");
 
         // Condicional: Prazo Determinado
         if (p.CodVinculoEmpregaticio == VinculoPrazoDeterminado)
@@ -158,6 +169,36 @@ public static class PreAdmissaoTotvsValidator
     {
         if (v is null || v == 0)
             e.Add(new(campo, label, secao, "Obrigatório", $"'{label}' é obrigatório."));
+    }
+
+    /// <summary>Texto com comprimento mínimo (descarta placeholders tipo "1", "N/A").</summary>
+    private static void ReqMinLen(List<TotvsValidationIssue> e, string? v, int minLen,
+        string campo, string label, string secao)
+    {
+        if (string.IsNullOrWhiteSpace(v))
+            e.Add(new(campo, label, secao, "Obrigatório", $"'{label}' é obrigatório."));
+        else if (v.Trim().Length < minLen)
+            e.Add(new(campo, label, secao, "Formato", $"'{label}' deve ter pelo menos {minLen} caracteres (recebido: '{v}')."));
+    }
+
+    /// <summary>
+    /// País no formato ISO 3166-1 alpha-3 (3 letras maiúsculas).
+    /// TOTVS Datasul rejeita nomes por extenso como "Brasil" — aceita só "BRA".
+    /// Seeder converte automaticamente no backend, mas valida aqui pra garantir que
+    /// não passou "Brasil" por outro caminho (ex: seed antigo, integração externa).
+    /// </summary>
+    private static void ReqPaisIso3(List<TotvsValidationIssue> e, string? v,
+        string campo, string label, string secao)
+    {
+        if (string.IsNullOrWhiteSpace(v))
+        {
+            e.Add(new(campo, label, secao, "Obrigatório", $"'{label}' é obrigatório."));
+            return;
+        }
+        var t = v.Trim();
+        if (t.Length != 3 || !t.All(char.IsLetter) || t != t.ToUpperInvariant())
+            e.Add(new(campo, label, secao, "Formato",
+                $"'{label}' deve ser código ISO de 3 letras maiúsculas (ex: BRA). Recebido: '{v}'."));
     }
 
     /// <summary>Enum com sentinela "não informado" — recusa o valor default.</summary>

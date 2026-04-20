@@ -26,6 +26,27 @@ function toIntOrNull(v: string | null | undefined): number | null {
     return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
+/**
+ * Normaliza input de país: força uppercase, remove acentos e limita a 3 chars.
+ * Converte nomes comuns em português/inglês pro código ISO 3166-1 alpha-3.
+ * TOTVS Datasul aceita só o código de 3 letras — "Brasil" retorna "Pais inexistente".
+ */
+function normalizePaisIso3(v: string): string {
+    const t = v.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+    const mapa: Record<string, string> = {
+        BRASIL: "BRA", BRAZIL: "BRA", BR: "BRA",
+        ARGENTINA: "ARG", AR: "ARG",
+        URUGUAI: "URY", URUGUAY: "URY", UY: "URY",
+        PARAGUAI: "PRY", PARAGUAY: "PRY", PY: "PRY",
+        CHILE: "CHL", CL: "CHL",
+        "ESTADOS UNIDOS": "USA", "UNITED STATES": "USA", US: "USA",
+        PORTUGAL: "PRT", PT: "PRT",
+    };
+    if (mapa[t]) return mapa[t];
+    // Já é código ISO-3 ou texto livre — trunca em 3 caracteres.
+    return t.slice(0, 3);
+}
+
 /* ── types ── */
 
 interface PreAdmissao {
@@ -519,10 +540,10 @@ export default function AdmissaoWizardScreen() {
                             <Select label="Estado Civil *" value={form.estadoCivil} options={ESTADO_CIVIL_OPTIONS} onChange={v => set("estadoCivil", Number(v))} />
                             <Select label="Origem *" value={form.origemFuncionario} options={ORIGEM_FUNCIONARIO} onChange={v => set("origemFuncionario", Number(v))} />
                             <Field label="Nacionalidade" value={form.nacionalidade} onChange={v => set("nacionalidade", v)} placeholder="Brasileira" />
-                            <Field label="País Nacionalidade *" value={form.paisNacionalidade} onChange={v => set("paisNacionalidade", v)} placeholder="BRA" />
+                            <Field label="País Nacionalidade (ISO 3 letras) *" value={form.paisNacionalidade} onChange={v => set("paisNacionalidade", normalizePaisIso3(v))} placeholder="BRA" />
                             <Field label="Natural de (Cidade) *" value={form.naturalCidade} onChange={v => set("naturalCidade", v)} />
                             <Select label="Natural UF *" value={form.naturalUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("naturalUf", v)} />
-                            <Field label="País Nascimento *" value={form.paisNascimento} onChange={v => set("paisNascimento", v)} placeholder="BRA" />
+                            <Field label="País Nascimento (ISO 3 letras) *" value={form.paisNascimento} onChange={v => set("paisNascimento", normalizePaisIso3(v))} placeholder="BRA" />
                             <Field label="Nome da Mãe" value={form.nomeMae} onChange={v => set("nomeMae", v)} />
                             <Field label="Nome do Pai" value={form.nomePai} onChange={v => set("nomePai", v)} />
                         </div>
@@ -697,7 +718,7 @@ export default function AdmissaoWizardScreen() {
                             <Select label="Tipo Estatística *" value={form.tipoEstatistica} options={TIPO_ESTATISTICA} onChange={v => set("tipoEstatistica", Number(v))} />
                             <Select label="Forma de Pagamento *" value={form.formaPagamento} options={FORMA_PAGAMENTO} onChange={v => set("formaPagamento", Number(v))} />
                             <Select label="Tipo Admissão FGTS *" value={form.tipoAdmissaoFgts} options={TIPO_ADMISSAO_FGTS} onChange={v => set("tipoAdmissaoFgts", Number(v))} />
-                            <Field label="País Localidade *" value={form.paisLocalidade} onChange={v => set("paisLocalidade", v)} placeholder="BRA" />
+                            <Field label="País Localidade (ISO 3 letras) *" value={form.paisLocalidade} onChange={v => set("paisLocalidade", normalizePaisIso3(v))} placeholder="BRA" />
                             <div>
                                 <label className="text-xs text-muted-foreground block mb-1">Cód. Turno *</label>
                                 <TurnoAutocomplete

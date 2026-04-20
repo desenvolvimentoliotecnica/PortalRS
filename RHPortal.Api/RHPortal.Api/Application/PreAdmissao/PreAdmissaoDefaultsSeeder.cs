@@ -41,9 +41,9 @@ public static class PreAdmissaoDefaultsSeeder
             e.CodEmpresa = empresaCode ?? "1";
         }
 
-        e.PaisNacionalidade ??= "BRA";
-        e.PaisNascimento    ??= "BRA";
-        e.PaisLocalidade    ??= "BRA";
+        e.PaisNacionalidade = NormalizePais(e.PaisNacionalidade);
+        e.PaisNascimento    = NormalizePais(e.PaisNascimento);
+        e.PaisLocalidade    = NormalizePais(e.PaisLocalidade);
         e.TipoLogradouroESocial ??= "R"; // RUA
 
         // --- Flags S/N que o Datasul exige preenchidas ---
@@ -81,5 +81,30 @@ public static class PreAdmissaoDefaultsSeeder
 
         // --- Origem funcionário (default brasileiro) ---
         e.OrigemFuncionario ??= 1;
+    }
+
+    /// <summary>
+    /// Normaliza nome de país para código ISO 3166-1 alpha-3 (ex: "Brasil" → "BRA").
+    /// TOTVS Datasul aceita o código de 3 letras, não o nome. Se vier null ou vazio,
+    /// aplica "BRA" como default brasileiro. Nomes desconhecidos são retornados em
+    /// uppercase (3 primeiras letras) — o Datasul rejeita, mas o erro fica claro.
+    /// </summary>
+    private static string? NormalizePais(string? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor)) return "BRA";
+        var t = valor.Trim().ToUpperInvariant();
+        // Se já for código ISO (3 chars), retorna como está.
+        if (t.Length == 3) return t;
+        return t switch
+        {
+            "BRASIL" or "BRAZIL" or "BR"                          => "BRA",
+            "ARGENTINA" or "AR"                                    => "ARG",
+            "URUGUAI" or "URUGUAY" or "UY"                         => "URY",
+            "PARAGUAI" or "PARAGUAY" or "PY"                       => "PRY",
+            "CHILE" or "CL"                                        => "CHL",
+            "ESTADOS UNIDOS" or "UNITED STATES" or "USA" or "US"   => "USA",
+            "PORTUGAL" or "PT"                                     => "PRT",
+            _ => t.Length >= 3 ? t[..3] : t
+        };
     }
 }

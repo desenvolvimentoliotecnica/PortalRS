@@ -114,6 +114,18 @@ function isBlank(v: unknown): boolean {
   return false;
 }
 
+/**
+ * País TOTVS: obrigatório e deve estar no formato ISO 3166-1 alpha-3
+ * (3 letras maiúsculas, ex: BRA, USA). Datasul rejeita "Brasil" e nomes por extenso.
+ */
+function isIso3Invalid(v: unknown): boolean {
+  if (typeof v !== "string") return true;
+  const t = v.trim();
+  if (t.length !== 3) return true;
+  if (!/^[A-Z]{3}$/.test(t)) return true;
+  return false;
+}
+
 /** Valida o form completo. Retorna lista de erros (vazia = OK). */
 export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -125,17 +137,19 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (isBlank(form.dataNascimento))   errors.push({ field: "dataNascimento",  label: "Data de Nascimento",stepIndex: STEP_INDEX.pessoal,    message: "Informe a data de nascimento." });
   if (!form.sexo || form.sexo === 0)  errors.push({ field: "sexo",            label: "Sexo",              stepIndex: STEP_INDEX.pessoal,    message: "Selecione o sexo." });
   if (!form.estadoCivil || form.estadoCivil === 0) errors.push({ field: "estadoCivil", label: "Estado Civil", stepIndex: STEP_INDEX.pessoal, message: "Selecione o estado civil." });
-  if (isBlank(form.paisNacionalidade)) errors.push({ field: "paisNacionalidade", label: "País (Nacionalidade)", stepIndex: STEP_INDEX.pessoal, message: "Informe o país de nacionalidade (ex: BRA)." });
-  if (isBlank(form.paisNascimento))   errors.push({ field: "paisNascimento",  label: "País Nascimento",   stepIndex: STEP_INDEX.pessoal,    message: "Informe o país de nascimento (ex: BRA)." });
+  if (isIso3Invalid(form.paisNacionalidade)) errors.push({ field: "paisNacionalidade", label: "País (Nacionalidade)", stepIndex: STEP_INDEX.pessoal, message: "Use código ISO de 3 letras (ex: BRA). TOTVS rejeita \"Brasil\" por extenso." });
+  if (isIso3Invalid(form.paisNascimento))    errors.push({ field: "paisNascimento",  label: "País Nascimento",    stepIndex: STEP_INDEX.pessoal, message: "Use código ISO de 3 letras (ex: BRA)." });
   if (isBlank(form.naturalUf))        errors.push({ field: "naturalUf",       label: "UF Nascimento",     stepIndex: STEP_INDEX.pessoal,    message: "Informe a UF de nascimento." });
   if (isBlank(form.naturalCidade))    errors.push({ field: "naturalCidade",   label: "Naturalidade",      stepIndex: STEP_INDEX.pessoal,    message: "Informe a cidade de nascimento." });
   if (!form.origemFuncionario || form.origemFuncionario === 0) errors.push({ field: "origemFuncionario", label: "Origem", stepIndex: STEP_INDEX.pessoal, message: "Selecione a origem (Brasileiro/Naturalizado/Estrangeiro)." });
 
   // ── RIC — Registro Identidade Civil (obrigatório TOTVS) ───────────────────
   if (isBlank(form.regIdentidCivilNumero))    errors.push({ field: "regIdentidCivilNumero",    label: "RIC (Nº Reg. Identidade Civil)", stepIndex: STEP_INDEX.pessoal, message: "Informe o número do RIC." });
+  else if (String(form.regIdentidCivilNumero).trim().length < 3) errors.push({ field: "regIdentidCivilNumero", label: "RIC (Nº Reg. Identidade Civil)", stepIndex: STEP_INDEX.pessoal, message: "Número do RIC muito curto (mín. 3 caracteres)." });
   if (isBlank(form.regIdentidCivilOrgEmiss))  errors.push({ field: "regIdentidCivilOrgEmiss",  label: "Órgão Emissor RIC",              stepIndex: STEP_INDEX.pessoal, message: "Informe o órgão emissor do RIC (ex: SSP)." });
   if (isBlank(form.regIdentidCivilUf))        errors.push({ field: "regIdentidCivilUf",        label: "UF RIC",                         stepIndex: STEP_INDEX.pessoal, message: "Selecione a UF do RIC." });
   if (isBlank(form.regIdentidCivilCidade))    errors.push({ field: "regIdentidCivilCidade",    label: "Cidade RIC",                     stepIndex: STEP_INDEX.pessoal, message: "Informe a cidade de emissão do RIC." });
+  else if (String(form.regIdentidCivilCidade).trim().length < 3) errors.push({ field: "regIdentidCivilCidade", label: "Cidade RIC", stepIndex: STEP_INDEX.pessoal, message: "Nome da cidade muito curto (mín. 3 caracteres)." });
 
   // ── FP1440 Tipo Físico ────────────────────────────────────────────────────
   if (!form.cutis  || form.cutis  === 0) errors.push({ field: "cutis",  label: "Raça/Cor", stepIndex: STEP_INDEX.pessoal, message: "Selecione a raça/cor." });
@@ -174,7 +188,7 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   // ── Novos campos TOTVS obrigatórios (iFormaPagto, iTipoAdmissFGTS, cPaisLocalidade) ──
   if (!form.formaPagamento || form.formaPagamento === 0)   errors.push({ field: "formaPagamento",   label: "Forma de Pagamento",  stepIndex: STEP_INDEX.trabalhista, message: "Selecione a forma de pagamento." });
   if (!form.tipoAdmissaoFgts || form.tipoAdmissaoFgts === 0) errors.push({ field: "tipoAdmissaoFgts", label: "Tipo Admissão FGTS", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de admissão do FGTS." });
-  if (isBlank(form.paisLocalidade))                        errors.push({ field: "paisLocalidade",   label: "País Localidade",    stepIndex: STEP_INDEX.trabalhista, message: "Informe o país da localidade (ex: BRA)." });
+  if (isIso3Invalid(form.paisLocalidade))                  errors.push({ field: "paisLocalidade",   label: "País Localidade",    stepIndex: STEP_INDEX.trabalhista, message: "Use código ISO de 3 letras (ex: BRA)." });
 
   // ── Conjunto RG: se algum preenchido, todos obrigatórios ─────────────────
   const rgAny = !isBlank(form.rg) || !isBlank(form.rgOrgaoExpedidor) || !isBlank(form.rgUfExpedidor);
