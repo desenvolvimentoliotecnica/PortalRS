@@ -23,6 +23,10 @@ public sealed class IntegracaoTotvsController : ControllerBase
     }
 
     /// <summary>Lista o painel unificado de integração com filtros e paginação.</summary>
+    /// <remarks>
+    /// Usado pelo portal — retorna TUDO (Pendente, Sucesso, Falha, FalhaDefinitiva).
+    /// Para consumo pelo integrador TOTVS, use o endpoint dedicado <c>GET /pendentes</c>.
+    /// </remarks>
     [HttpGet("painel")]
     [ProducesResponseType(typeof(IntegracaoTotvsPainelResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListPainel(
@@ -35,6 +39,32 @@ public sealed class IntegracaoTotvsController : ControllerBase
     {
         var query = new IntegracaoTotvsPainelQuery(tipo, resultado, search, skip, take);
         return Ok(await _service.ListPainelAsync(query, ct));
+    }
+
+    /// <summary>
+    /// Fila de integrações ainda não reportadas ao TOTVS (<c>integracaoResultado == null</c>).
+    /// </summary>
+    /// <remarks>
+    /// Endpoint dedicado ao integrador Node.js. Não retorna registros com Sucesso nem Falha —
+    /// quando o ERP já reportou resultado, o item só reaparece aqui após retry manual
+    /// (<c>POST /{tipo}/{id}/retry</c>).
+    /// </remarks>
+    [HttpGet("pendentes")]
+    [ProducesResponseType(typeof(IntegracaoTotvsPainelResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListPendentes(
+        [FromQuery] TipoIntegracao? tipo,
+        [FromQuery] string? search,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 50,
+        CancellationToken ct = default)
+    {
+        // Reusa o painel com filtro fixo "ainda não reportado".
+        var full = await _service.ListPainelAsync(
+            new IntegracaoTotvsPainelQuery(tipo, null, search, 0, int.MaxValue), ct);
+        var pendentes = full.Items.Where(i => i.IntegracaoResultado is null).ToList();
+        var page = pendentes.Skip(skip).Take(take).ToList();
+        return Ok(new IntegracaoTotvsPainelResponse(
+            page, pendentes.Count, pendentes.Count, 0, 0));
     }
 
     /// <summary>Retorna todos os dados de uma solicitação específica para integração.</summary>
