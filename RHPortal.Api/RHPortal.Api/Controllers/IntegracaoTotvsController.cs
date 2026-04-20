@@ -50,7 +50,7 @@ public sealed class IntegracaoTotvsController : ControllerBase
     /// (<c>POST /{tipo}/{id}/retry</c>).
     /// </remarks>
     [HttpGet("pendentes")]
-    [ProducesResponseType(typeof(IntegracaoTotvsPainelResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ListPendentes(
         [FromQuery] TipoIntegracao? tipo,
         [FromQuery] string? search,
@@ -62,9 +62,22 @@ public sealed class IntegracaoTotvsController : ControllerBase
         var full = await _service.ListPainelAsync(
             new IntegracaoTotvsPainelQuery(tipo, null, search, 0, int.MaxValue), ct);
         var pendentes = full.Items.Where(i => i.IntegracaoResultado is null).ToList();
-        var page = pendentes.Skip(skip).Take(take).ToList();
-        return Ok(new IntegracaoTotvsPainelResponse(
-            page, pendentes.Count, pendentes.Count, 0, 0));
+        var page = pendentes.Skip(skip).Take(take)
+            .Select(i => new
+            {
+                i.Id,
+                i.TipoIntegracao,
+                i.TipoIntegracaoLabel,
+                i.Nome,
+                i.Cpf,
+                i.Descricao,
+                approvedAtUtc = TotvsPayloadHelper.FormatDate(i.ApprovedAtUtc),
+                i.IntegracaoResultado,
+                i.IntegracaoMensagem,
+                integradaEmUtc = TotvsPayloadHelper.FormatDate(i.IntegradaEmUtc),
+            })
+            .ToList();
+        return Ok(new { items = page, total = pendentes.Count, pendentes = pendentes.Count, sucesso = 0, falha = 0 });
     }
 
     /// <summary>Retorna todos os dados de uma solicitação específica para integração.</summary>
