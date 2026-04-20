@@ -24,6 +24,8 @@ import {
   Clock,
   CloudUpload,
   Coins,
+  CreditCard,
+  FileText,
   FileUp,
   Filter,
   Gauge,
@@ -46,6 +48,7 @@ import {
   MessageSquare,
   Network,
   NotebookPen,
+  Palmtree,
   PartyPopper,
   PieChart,
   Receipt,
@@ -212,6 +215,12 @@ const ICONS: Record<string, LucideIcon> = {
   "user-minus": UserMinus,
   users: Users,
   "user-x": UserX,
+  // Colaborador
+  "credit-card": CreditCard,
+  "file-text":   FileText,
+  "palmtree":    Palmtree,
+  "receipt":     Receipt,
+  "lock":        LockKeyhole,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -308,8 +317,8 @@ function normalizeHref(raw: string): string {
 /* ═══════════════════════════════════════════════════════════════════
    MODULE CLASSIFICATION (mirrors Razor GetModuleKey)
    ═══════════════════════════════════════════════════════════════════ */
-type ModuleKey = "Principais" | "Recrutamento" | "Cadastros Pessoas" | "Cadastros Operacionais" | "Relatórios" | "Gestão de Pessoas" | "Operacional" | "Feedback" | "Admin" | "Owner";
-const MODULE_ORDER: ModuleKey[] = ["Principais", "Recrutamento", "Operacional", "Gestão de Pessoas", "Cadastros Pessoas", "Cadastros Operacionais", "Relatórios", "Feedback", "Admin", "Owner"];
+type ModuleKey = "Principais" | "Minha Área" | "Recrutamento" | "Cadastros Pessoas" | "Cadastros Operacionais" | "Relatórios" | "Gestão de Pessoas" | "Operacional" | "Feedback" | "Admin" | "Owner";
+const MODULE_ORDER: ModuleKey[] = ["Principais", "Minha Área", "Recrutamento", "Operacional", "Gestão de Pessoas", "Cadastros Pessoas", "Cadastros Operacionais", "Relatórios", "Feedback", "Admin", "Owner"];
 
 // Itens de 1º nível (sem header de módulo) — vêm antes de Recrutamento
 const PRINCIPAIS_ROUTES = new Set<string>(PRINCIPAIS_ORDER as unknown as string[]);
@@ -344,6 +353,20 @@ const GESTAO_PESSOAS_ROUTES = new Set([
   "/gestao/dashboard", "/gestao/planosdesenvolvimento",
   "/gestao/humor", "/gestao/resumoatividades",
 ]);
+const COLABORADOR_ROUTES = new Set([
+  "/colaborador/perfil",
+  "/colaborador/dependentes",
+  "/colaborador/endereco",
+  "/colaborador/dados-bancarios",
+  "/colaborador/ferias",
+  "/colaborador/beneficios",
+  "/colaborador/holerites",
+  "/colaborador/documentos",
+  "/colaborador/historico-carreira",
+  "/colaborador/senha",
+  "/colaborador/solicitacao-dependentes",
+]);
+
 const HIDDEN_ROUTES = new Set([
   "/departamentos", "/gestao/pipeline",
   "/portalvagas",
@@ -368,6 +391,7 @@ function getModuleKey(href: string, children?: BffNavItem[]): ModuleKey {
     return "Recrutamento";
   }
   const r = href.replace(/\/+$/, "").toLowerCase();
+  if (r.startsWith("/colaborador/") || COLABORADOR_ROUTES.has(r)) return "Minha Área";
   if (PRINCIPAIS_ROUTES.has(r)) return "Principais";
   if (r.startsWith("/owner")) return "Owner";
   if (r.startsWith("/admin")) return "Admin";
@@ -831,6 +855,15 @@ export default function SidebarNavClient({ items, isCollapsed = false }: { items
 
   // Filtro de permissão por perfil — Gestor/Compliance veem apenas rotas da allowlist.
   const allowedHrefs = useMemo(() => (me ? getVisibleMenuHrefs(me) : null), [me]);
+
+  // Colaborador puro: não tem acesso irrestrito nem "access.manage"
+  const isPureColaborador = useMemo(() =>
+    !!me &&
+    !me.permissions.includes("*") &&
+    !me.permissions.includes("access.manage") &&
+    me.permissions.some((p) => p.startsWith("colaborador.")),
+    [me],
+  );
   const filteredItems = useMemo(() => {
     if (!allowedHrefs) return items;
     const filterTree = (list: BffNavItem[]): BffNavItem[] =>
@@ -849,6 +882,7 @@ export default function SidebarNavClient({ items, isCollapsed = false }: { items
   const grouped = useMemo(() => {
     const map: Record<ModuleKey, BffNavItem[]> = {
       Principais: [],
+      "Minha Área": [],
       Recrutamento: [],
       "Operacional": [],
       "Gestão de Pessoas": [],
@@ -928,20 +962,27 @@ export default function SidebarNavClient({ items, isCollapsed = false }: { items
     return map;
   }, [filteredItems]);
 
+  // "Minha Área" só aparece no sidebar para colaboradores puros.
+  // Admin/RH/Gestor acessam via dashboard.
+  const visibleGrouped = useMemo<Record<ModuleKey, BffNavItem[]>>(() => {
+    if (isPureColaborador) return grouped;
+    return { ...grouped, "Minha Área": [] };
+  }, [grouped, isPureColaborador]);
+
   const renderedItems = useMemo(
-    () => MODULE_ORDER.flatMap((mod) => grouped[mod]),
-    [grouped],
+    () => MODULE_ORDER.flatMap((mod) => visibleGrouped[mod]),
+    [visibleGrouped],
   );
 
   // ── 2. Detect which module owns the current route ──
   const activeModule = useMemo<ModuleKey>(() => {
     for (const mod of MODULE_ORDER) {
-      for (const item of grouped[mod]) {
+      for (const item of visibleGrouped[mod]) {
         if (hasActiveDescendant(item, normalized)) return mod;
       }
     }
-    return MODULE_ORDER.find((m) => grouped[m].length > 0) ?? "Recrutamento";
-  }, [grouped, normalized]);
+    return MODULE_ORDER.find((m) => visibleGrouped[m].length > 0) ?? "Recrutamento";
+  }, [visibleGrouped, normalized]);
 
   // ── 3. Module open/close: synchronous, no useEffect ──
   const [moduleOverrides, setModuleOverrides] = useState<Record<string, boolean>>({});
@@ -1007,7 +1048,7 @@ export default function SidebarNavClient({ items, isCollapsed = false }: { items
         <ModuleSection
           key={mod}
           label={mod}
-          items={grouped[mod]}
+          items={visibleGrouped[mod]}
           normalized={normalized}
           moduleOpen={resolvedModuleOpen[mod]}
           onModuleOpenChange={handleModuleOpenChange(mod)}

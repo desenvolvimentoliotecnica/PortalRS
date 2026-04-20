@@ -267,6 +267,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Ponto
         e.EmitCartPonto = r.EmitCartPonto?.Trim(); e.CodLocalMarcacao = r.CodLocalMarcacao;
         e.CodClassFuncPontoEletronico = r.CodClassFuncPontoEletronico;
+        e.TipoEstatistica = r.TipoEstatistica;
 
         // Docs avulsos
         e.TituloEleitorNumero = r.TituloEleitorNumero?.Trim();
@@ -308,9 +309,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.TipoAdmissaoESocial = r.TipoAdmissaoESocial;
         e.RegimeTrabalhista = r.RegimeTrabalhista; e.RegimePrevidenciario = r.RegimePrevidenciario;
         e.RegimeJornada = r.RegimeJornada; e.MatriculaESocial = r.MatriculaESocial?.Trim();
-
-        // Estatistica
-        e.TipoEstatistica = r.TipoEstatistica;
 
         // CAGED
         e.OcorrenciaCAGED = r.OcorrenciaCAGED;
@@ -1137,6 +1135,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ProvAcumFerias, e.ProvAcumInssFerias, e.ProvAcumFgtsFerias, e.ProvAcumFerias13,
         // Ponto
         e.EmitCartPonto, e.CodLocalMarcacao, e.CodClassFuncPontoEletronico,
+        e.TipoEstatistica,
         // Docs avulsos
         e.TituloEleitorNumero, e.TituloEleitorZona, e.TituloEleitorSecao,
         e.TituloEleitorCidade, e.TituloEleitorUf,
@@ -1159,8 +1158,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.MunicipioNascimentoIbge, e.TipoAdmissaoESocial,
         e.RegimeTrabalhista, e.RegimePrevidenciario, e.RegimeJornada,
         e.MatriculaESocial, e.PaisNacionalidade,
-        // Estatistica
-        e.TipoEstatistica,
         // CAGED
         e.OcorrenciaCAGED,
         // Registro exterior

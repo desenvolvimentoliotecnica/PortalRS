@@ -119,6 +119,7 @@ public sealed record PreAdmissaoDetailResponse(
 
     // TOTVS: Ponto
     string? EmitCartPonto, int? CodLocalMarcacao, int? CodClassFuncPontoEletronico,
+    int? TipoEstatistica,
 
     // Docs avulsos
     string? TituloEleitorNumero, string? TituloEleitorZona, string? TituloEleitorSecao,
@@ -151,9 +152,6 @@ public sealed record PreAdmissaoDetailResponse(
     int? MunicipioNascimentoIbge, int? TipoAdmissaoESocial,
     int? RegimeTrabalhista, int? RegimePrevidenciario, int? RegimeJornada,
     string? MatriculaESocial, string? PaisNacionalidadeValue,
-
-    // TOTVS: Estatistica
-    int? TipoEstatistica,
 
     // TOTVS: CAGED
     int? OcorrenciaCAGED,
@@ -279,6 +277,7 @@ public sealed record PreAdmissaoUpdateRequest(
 
     // TOTVS: Ponto
     string? EmitCartPonto, int? CodLocalMarcacao, int? CodClassFuncPontoEletronico,
+    int? TipoEstatistica,
 
     // Docs avulsos
     string? TituloEleitorNumero, string? TituloEleitorZona, string? TituloEleitorSecao,
@@ -311,9 +310,6 @@ public sealed record PreAdmissaoUpdateRequest(
     int? MunicipioNascimentoIbge, int? TipoAdmissaoESocial,
     int? RegimeTrabalhista, int? RegimePrevidenciario, int? RegimeJornada,
     string? MatriculaESocial,
-
-    // TOTVS: Estatistica
-    int? TipoEstatistica,
 
     // TOTVS: CAGED
     int? OcorrenciaCAGED,

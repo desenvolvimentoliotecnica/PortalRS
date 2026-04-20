@@ -41,24 +41,31 @@ public sealed class AdmissaoPortalController : ControllerBase
             : Ok(result);
     }
 
-    /// <summary>Blip: candidato envia um documento (base64). Retorna a lista atualizada de pendentes.</summary>
+    /// <summary>
+    /// Blip: candidato envia um documento via URL (mídia do WhatsApp).
+    /// A API baixa o arquivo, valida com GPT-4o e salva se válido.
+    /// Retorna 200 + lista atualizada, 400 se inválido, 404 se CPF não encontrado.
+    /// </summary>
     [HttpPost("blip/documentos")]
-    [ProducesResponseType(typeof(BlipDocumentosResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [RequestSizeLimit(15 * 1024 * 1024)]
     public async Task<IActionResult> PostDocumentoBlip(
-        [FromBody] BlipUploadDocumentoRequest request, CancellationToken ct)
+        [FromBody] BlipEnviarDocumentoRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Cpf))
-            return BadRequest(new { message = "CPF obrigatório." });
-        if (string.IsNullOrWhiteSpace(request.Base64))
-            return BadRequest(new { message = "Base64 do documento obrigatório." });
+            return BadRequest(new { mensagem = "CPF obrigatório." });
+        if (string.IsNullOrWhiteSpace(request.UrlArquivo))
+            return BadRequest(new { mensagem = "URL do arquivo obrigatória." });
 
-        var result = await _service.UploadDocBlipAsync(request, ct);
-        return result is null
-            ? NotFound(new { message = "Nenhuma admissão ativa encontrada para o CPF informado." })
-            : Ok(result);
+        var (httpStatus, mensagem) = await _service.EnviarDocumentoBlipAsync(request, ct);
+
+        return httpStatus switch
+        {
+            200 => Ok(new { mensagem }),
+            404 => NotFound(new { mensagem }),
+            _   => BadRequest(new { mensagem })
+        };
     }
 
     /// <summary>Candidato faz login com CPF para acessar o portal de documentos.</summary>

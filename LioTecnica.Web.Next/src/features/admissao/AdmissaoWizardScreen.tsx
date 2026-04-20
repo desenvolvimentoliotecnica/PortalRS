@@ -30,18 +30,26 @@ function toIntOrNull(v: string | null | undefined): number | null {
 interface PreAdmissao {
     id: string;
     nome: string;
+    nomeAbreviado: string | null;
     cpf: string | null;
     rg: string | null;
     rgOrgaoExpedidor: string | null;
+    rgUfExpedidor: string | null;
     rgDataExpedicao: string | null;
     dataNascimento: string | null;
     sexo: number;
     estadoCivil: number;
     nacionalidade: string | null;
+    paisNacionalidade: string | null;
+    paisNascimento: string | null;
     nomeMae: string | null;
     nomePai: string | null;
     naturalCidade: string | null;
     naturalUf: string | null;
+    origemFuncionario: number | null;
+    cutis: number | null;
+    cabelo: number | null;
+    olhos: number | null;
     passaporte: string | null;
     rnmRne: string | null;
     validadeVisto: string | null;
@@ -53,6 +61,7 @@ interface PreAdmissao {
     bairro: string | null;
     cidade: string | null;
     uf: string | null;
+    municipioEnderecoIbge: number | null;
     email: string | null;
     telefone: string | null;
     celular: string | null;
@@ -95,6 +104,7 @@ interface PreAdmissao {
     tipoEstatistica: number | null;
     centroCusto: string | null;
     unidadeLotacao: string | null;
+    emitCartPonto: string | null;
     indFuncVinculado: number | null;
     tipoMaoDeObra: string | null;
     codSindicato: number | null;
@@ -175,6 +185,51 @@ const TIPO_FUNCIONARIO_TOTVS = [
     { value: 3, label: "Diarista" },
     { value: 4, label: "Tarefeiro" },
 ];
+const ORIGEM_FUNCIONARIO = [
+    { value: 1, label: "Brasileiro" },
+    { value: 2, label: "Naturalizado" },
+    { value: 3, label: "Estrangeiro" },
+];
+const CUTIS_OPTIONS = [
+    { value: 1, label: "Branca" },
+    { value: 2, label: "Preta" },
+    { value: 3, label: "Parda" },
+    { value: 4, label: "Amarela" },
+    { value: 5, label: "Indígena" },
+    { value: 6, label: "Não Informada" },
+    { value: 9, label: "Anonimizado" },
+];
+const CABELO_OPTIONS = [
+    { value: 1, label: "Castanho" },
+    { value: 2, label: "Preto" },
+    { value: 3, label: "Loiro" },
+    { value: 4, label: "Ruivo" },
+    { value: 5, label: "Grisalho" },
+    { value: 6, label: "Outros" },
+    { value: 9, label: "Anonimizado" },
+];
+const OLHOS_OPTIONS = [
+    { value: 1, label: "Castanho" },
+    { value: 2, label: "Preto" },
+    { value: 3, label: "Azul" },
+    { value: 4, label: "Verde" },
+    { value: 5, label: "Outros" },
+    { value: 9, label: "Anonimizado" },
+];
+const EMIT_CART_PONTO = [
+    { value: "T", label: "Turno" },
+    { value: "S", label: "Sim" },
+    { value: "N", label: "Não" },
+];
+const TIPO_ESTATISTICA = [
+    { value: 1, label: "Orçado" },
+    { value: 2, label: "Não Orçado" },
+    { value: 3, label: "Substituído" },
+    { value: 4, label: "Normal" },
+    { value: 5, label: "Afastado" },
+    { value: 6, label: "Cedido" },
+    { value: 7, label: "Pendente" },
+];
 const GRAU_INSTRUCAO = [
     { value: 1, label: "Analfabeto" },
     { value: 2, label: "Fundamental Incompleto" },
@@ -190,12 +245,6 @@ const GRAU_INSTRUCAO = [
 const CATEGORIA_SALARIAL = [
     { value: 1, label: "A" }, { value: 2, label: "B" }, { value: 3, label: "C" },
     { value: 4, label: "D" }, { value: 5, label: "E" },
-];
-const TIPO_ESTATISTICA = [
-    { value: 1, label: "Normal" },
-    { value: 2, label: "Afastado" },
-    { value: 3, label: "Cedido" },
-    { value: 4, label: "Pendente" },
 ];
 const TIPO_DOC_ALL = [
     { value: 0, label: "RG" }, { value: 1, label: "CPF" }, { value: 2, label: "CNH" },
@@ -400,18 +449,31 @@ export default function AdmissaoWizardScreen() {
                         <h5 className="font-semibold text-sm flex items-center gap-2"><User className="size-4" /> Dados Pessoais</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <Field label="Nome Completo *" value={form.nome} onChange={v => set("nome", v)} />
+                            <Field label="Nome Abreviado *" value={form.nomeAbreviado} onChange={v => set("nomeAbreviado", v)} placeholder="Máx. 12 caracteres" />
                             <Field label="CPF *" value={form.cpf} onChange={v => set("cpf", v)} placeholder="000.000.000-00" />
                             <Field label="RG" value={form.rg} onChange={v => set("rg", v)} />
-                            <Field label="Órgão Expedidor" value={form.rgOrgaoExpedidor} onChange={v => set("rgOrgaoExpedidor", v)} />
+                            <Field label="Órgão Expedidor RG" value={form.rgOrgaoExpedidor} onChange={v => set("rgOrgaoExpedidor", v)} />
+                            <Select label="UF Expedidor RG" value={form.rgUfExpedidor} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("rgUfExpedidor", v)} />
                             <Field label="Data Expedição RG" value={form.rgDataExpedicao} onChange={v => set("rgDataExpedicao", v)} type="date" />
                             <Field label="Data Nascimento *" value={form.dataNascimento} onChange={v => set("dataNascimento", v)} type="date" />
-                            <Select label="Sexo" value={form.sexo} options={SEXO_OPTIONS} onChange={v => set("sexo", Number(v))} />
-                            <Select label="Estado Civil" value={form.estadoCivil} options={ESTADO_CIVIL_OPTIONS} onChange={v => set("estadoCivil", Number(v))} />
+                            <Select label="Sexo *" value={form.sexo} options={SEXO_OPTIONS} onChange={v => set("sexo", Number(v))} />
+                            <Select label="Estado Civil *" value={form.estadoCivil} options={ESTADO_CIVIL_OPTIONS} onChange={v => set("estadoCivil", Number(v))} />
+                            <Select label="Origem *" value={form.origemFuncionario} options={ORIGEM_FUNCIONARIO} onChange={v => set("origemFuncionario", Number(v))} />
                             <Field label="Nacionalidade" value={form.nacionalidade} onChange={v => set("nacionalidade", v)} placeholder="Brasileira" />
+                            <Field label="País Nacionalidade *" value={form.paisNacionalidade} onChange={v => set("paisNacionalidade", v)} placeholder="BRA" />
+                            <Field label="Natural de (Cidade) *" value={form.naturalCidade} onChange={v => set("naturalCidade", v)} />
+                            <Select label="Natural UF *" value={form.naturalUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("naturalUf", v)} />
+                            <Field label="País Nascimento *" value={form.paisNascimento} onChange={v => set("paisNascimento", v)} placeholder="BRA" />
                             <Field label="Nome da Mãe" value={form.nomeMae} onChange={v => set("nomeMae", v)} />
                             <Field label="Nome do Pai" value={form.nomePai} onChange={v => set("nomePai", v)} />
-                            <Field label="Natural de (Cidade)" value={form.naturalCidade} onChange={v => set("naturalCidade", v)} />
-                            <Select label="Natural UF" value={form.naturalUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("naturalUf", v)} />
+                        </div>
+                        <div className="mt-4 space-y-2">
+                            <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Características Físicas *</div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <Select label="Raça/Cor *" value={form.cutis} options={CUTIS_OPTIONS} onChange={v => set("cutis", Number(v))} />
+                                <Select label="Cabelo *" value={form.cabelo} options={CABELO_OPTIONS} onChange={v => set("cabelo", Number(v))} />
+                                <Select label="Olhos *" value={form.olhos} options={OLHOS_OPTIONS} onChange={v => set("olhos", Number(v))} />
+                            </div>
                         </div>
                         {form.nacionalidade && form.nacionalidade.toLowerCase() !== "brasileira" && (
                             <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
@@ -448,9 +510,13 @@ export default function AdmissaoWizardScreen() {
                             <Field label="Logradouro" value={form.logradouro} onChange={v => set("logradouro", v)} />
                             <Field label="Número" value={form.numero} onChange={v => set("numero", v)} />
                             <Field label="Complemento" value={form.complemento} onChange={v => set("complemento", v)} />
-                            <Field label="Bairro" value={form.bairro} onChange={v => set("bairro", v)} />
-                            <Field label="Cidade" value={form.cidade} onChange={v => set("cidade", v)} />
-                            <Select label="UF" value={form.uf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("uf", v)} />
+                            <Field label="Bairro *" value={form.bairro} onChange={v => set("bairro", v)} />
+                            <Field label="Cidade *" value={form.cidade} onChange={v => set("cidade", v)} />
+                            <Select label="UF *" value={form.uf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("uf", v)} />
+                            <Field label="Município (cód. IBGE) *" value={form.municipioEnderecoIbge != null ? String(form.municipioEnderecoIbge) : ""} onChange={v => {
+                                const n = parseInt(v, 10);
+                                set("municipioEnderecoIbge", Number.isFinite(n) ? n : null);
+                            }} type="number" placeholder="Ex: 3550308" />
                         </div>
                     </div>
                 )}
@@ -560,7 +626,6 @@ export default function AdmissaoWizardScreen() {
                             </div>
                             <Select label="Vínculo Empregatício" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
                             <Select label="Tipo Funcionário" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
-                            <Select label="Tipo Estatística" value={form.tipoEstatistica} options={TIPO_ESTATISTICA} onChange={v => set("tipoEstatistica", Number(v))} />
                             <div>
                                 <label className="text-xs text-muted-foreground block mb-1">Categoria Salarial</label>
                                 <CategoriaSalarialAutocomplete
@@ -568,7 +633,9 @@ export default function AdmissaoWizardScreen() {
                                   onChange={(code) => set("categoriaSalarial", toIntOrNull(code))}
                                 />
                             </div>
-                            <Select label="Grau de Instrução" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
+                            <Select label="Grau de Instrução *" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
+                            <Select label="Emite Cartão Ponto *" value={form.emitCartPonto} options={EMIT_CART_PONTO} onChange={v => set("emitCartPonto", v)} />
+                            <Select label="Tipo Estatística *" value={form.tipoEstatistica} options={TIPO_ESTATISTICA} onChange={v => set("tipoEstatistica", Number(v))} />
                             <div>
                                 <label className="text-xs text-muted-foreground block mb-1">Cód. Turno</label>
                                 <TurnoAutocomplete
@@ -729,8 +796,8 @@ export default function AdmissaoWizardScreen() {
                             <Info label="Cargo TOTVS" value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : null} />
                             <Info label="Vínculo" value={VINCULO_EMPREGATICIO.find(v => v.value === form.codVinculoEmpregaticio)?.label} />
                             <Info label="Tipo Func." value={TIPO_FUNCIONARIO_TOTVS.find(v => v.value === form.tipoFuncionario)?.label} />
-                            <Info label="Tipo Estatística" value={TIPO_ESTATISTICA.find(v => v.value === form.tipoEstatistica)?.label} />
                             <Info label="Grau Instrução" value={GRAU_INSTRUCAO.find(v => v.value === form.grauInstrucao)?.label} />
+                            <Info label="Tipo Estatística" value={TIPO_ESTATISTICA.find(v => v.value === form.tipoEstatistica)?.label} />
                             <Info label="Centro Custo" value={form.centroCusto} />
                             <Info label="Unid. Lotação" value={form.unidadeLotacao} />
                             <Info label="Cód. Turma" value={form.codTurma != null ? String(form.codTurma) : null} />

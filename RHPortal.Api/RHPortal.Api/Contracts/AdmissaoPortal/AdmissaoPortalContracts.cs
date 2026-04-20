@@ -51,6 +51,7 @@ public sealed record PortalDadosPessoais(
     string? NomeMae, string? NomePai,
     string? PaisNascimento, string? NaturalCidade, string? NaturalUf,
     int? GrauInstrucao, string? FuncDoador,
+    int? OrigemFuncionario,
 
     // Endereco
     string? Cep, string? Logradouro, string? Numero,
@@ -105,6 +106,7 @@ public sealed record PortalSalvarDadosRequest(
     string? NomeMae, string? NomePai,
     string? PaisNascimento, string? NaturalCidade, string? NaturalUf,
     int? GrauInstrucao, string? FuncDoador,
+    int? OrigemFuncionario,
 
     // Endereco
     string? Cep, string? Logradouro, string? Numero,
@@ -210,12 +212,13 @@ public sealed record BlipDocumentoItem(
 public sealed record BlipDocumentoEnviadoItem(int Lado, string NomeArquivo, int Status);
 
 /// <summary>Payload de upload de documento via Blip (base64).</summary>
-public sealed record BlipUploadDocumentoRequest(
+/// <summary>
+/// Payload para envio de documento via URL (Blip envia a URL da mídia do WhatsApp).
+/// A API baixa o arquivo, valida com GPT-4o e salva se válido.
+/// </summary>
+public sealed record BlipEnviarDocumentoRequest(
     string Cpf,
     int Tipo,
-    /// <summary>0=Único, 1=Frente, 2=Verso</summary>
-    int Lado,
-    string NomeArquivo,
-    string MimeType,
-    string Base64
+    /// <summary>URL pública ou presigned do arquivo (imagem ou PDF).</summary>
+    string UrlArquivo
 );
