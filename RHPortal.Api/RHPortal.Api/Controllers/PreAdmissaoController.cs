@@ -68,14 +68,34 @@ public sealed class PreAdmissaoController : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
-    /// <summary>Submete a pré-admissão para revisão do RH (Rascunho → EmRevisão).</summary>
+    /// <summary>Submete a pré-admissão. Se os campos obrigatórios do TOTVS estiverem completos, auto-aprova (Preenchido → Aprovada/Pendente TOTVS). Caso contrário, retorna 422 com os campos faltantes.</summary>
     [HttpPost("{id:guid}/submit")]
     [ProducesResponseType(typeof(PreAdmissaoDetailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Submit(Guid id, CancellationToken ct)
     {
-        var result = await _service.SubmitAsync(id, ct);
-        return result is null ? NotFound() : Ok(result);
+        try
+        {
+            var result = await _service.SubmitAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (TotvsValidationException ex)
+        {
+            return UnprocessableEntity(new
+            {
+                type    = "totvs_validation",
+                message = ex.Message,
+                errors  = ex.Issues.Select(i => new
+                {
+                    campo    = i.Campo,
+                    label    = i.Label,
+                    secao    = i.Secao,
+                    tipoRegra = i.TipoRegra,
+                    mensagem  = i.Mensagem,
+                })
+            });
+        }
     }
 
     /// <summary>Aprova a pré-admissão (EmRevisão → Aprovada).</summary>

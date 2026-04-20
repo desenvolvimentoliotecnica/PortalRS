@@ -360,7 +360,35 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.Status = PreAdmissaoStatus.Preenchido;
         e.SubmittedAtUtc = DateTimeOffset.UtcNow;
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Auto-aprovar: se os campos obrigatórios do TOTVS estiverem todos preenchidos,
+        // já avança direto para Aprovada (Pendente TOTVS), sem exigir ação manual do RH.
+        // Se a validação falhar, mantém Preenchido e relança os erros para o chamador.
+        var issues = PreAdmissaoTotvsValidator.Validate(e);
+        if (issues.Count == 0)
+        {
+            e.Status = PreAdmissaoStatus.Aprovada;
+            e.ApprovedAtUtc = DateTimeOffset.UtcNow;
+        }
+
         await _db.SaveChangesAsync(ct);
+
+        if (issues.Count > 0)
+            throw new TotvsValidationException(issues);
+
+        // Se auto-aprovou, criar acesso ao portal (mesmo fluxo de ApproveAsync).
+        if (e.Status == PreAdmissaoStatus.Aprovada)
+        {
+            try
+            {
+                await CriarUsuarioAsync(e, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao criar usuário automaticamente para PreAdmissão {Id}. A auto-aprovação foi concluída, mas o acesso ao portal precisa ser criado manualmente.", id);
+            }
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
