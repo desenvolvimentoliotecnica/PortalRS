@@ -182,8 +182,13 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         var isDraft = e.Status == PreAdmissaoStatus.Rascunho || e.Status == PreAdmissaoStatus.Enviado;
         var isPostFill = e.Status is PreAdmissaoStatus.Acessado or PreAdmissaoStatus.PreenchidoParcial or PreAdmissaoStatus.Preenchido;
+        // RH pode re-editar quando a integração TOTVS falhou (permite corrigir e reenviar).
+        // Status fica em Aprovada + IntegracaoResultado=Falha — ex: "iDocMilitarTipo < 1" retornado pelo Datasul.
+        var isIntegracaoFalha = e.Status == PreAdmissaoStatus.Aprovada
+                               && (e.IntegracaoResultado == IntegracaoResultado.Falha
+                                   || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva);
 
-        if (!isDraft && !(isPostFill && isPrivileged))
+        if (!isDraft && !(isPostFill && isPrivileged) && !(isIntegracaoFalha && isPrivileged))
             throw new InvalidOperationException("Não é possível editar uma admissão neste status.");
 
         // Pessoal
@@ -329,6 +334,17 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.CodRegistroExterior = r.CodRegistroExterior?.Trim();
 
         e.ValidacaoSalarioJustificativa = r.ValidacaoSalarioJustificativa?.Trim();
+
+        // Edit em Aprovada+Falha: limpa estado de integração TOTVS para que o worker
+        // (ou um Retry manual) reintegre com os dados corrigidos.
+        if (isIntegracaoFalha)
+        {
+            e.IntegracaoResultado = null;
+            e.IntegracaoMensagem = null;
+            e.IntegradaEmUtc = null;
+            e.TentativasIntegracao = 0;
+            e.UltimaTentativaUtc = null;
+        }
 
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
