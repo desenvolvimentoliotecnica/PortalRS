@@ -11,7 +11,8 @@ public sealed record SolicitacaoVagaListQuery(
     SolicitacaoVagaStatus[]? Statuses,
     bool? ApenasMeus,
     int? Page,
-    int? PageSize
+    int? PageSize,
+    Guid? VagaId = null
 );
 
 // ── Create / Update ──

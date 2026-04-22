@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using RhPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Entities;
 
 namespace RhPortal.Api.Domain.Entities;
 
@@ -187,6 +188,10 @@ public sealed class PreAdmissao : ITenantEntity
 
     public Guid? RequisitoCategoriaId { get; set; }
     public RequisitoCategoria? RequisitoCategoria { get; set; }
+
+    /// <summary>Vaga de recrutamento que originou esta admissão. Usado na materialização para criar OcupacaoHistorico.</summary>
+    public Guid? VagaId { get; set; }
+    public Vaga? Vaga { get; set; }
 
     public DateOnly? DataAdmissao { get; set; }
 
@@ -478,6 +483,9 @@ public sealed class PreAdmissao : ITenantEntity
     public string? IntegracaoMensagem { get; set; }
 
     public DateTimeOffset? IntegradaEmUtc { get; set; }
+
+    public Guid? EfetivadoManualmentePorId { get; set; }
+    public DateTimeOffset? EfetivadoManualmenteEmUtc { get; set; }
 
     public int TentativasIntegracao { get; set; }
     public DateTimeOffset? UltimaTentativaUtc { get; set; }

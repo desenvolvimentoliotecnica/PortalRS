@@ -803,30 +803,30 @@ export default function DesligamentosScreen() {
                                             )}
                                             {/* Pendente: ações inline se pode aprovar, senão editar */}
                                             {r.status === 1 && r.etapaPendenteCanAssume ? (
-                                                <div className="flex items-center gap-1 flex-wrap">
-                                                    <Button size="sm" variant="outline"
-                                                        className="h-7 px-2 text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                                                <>
+                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
+                                                        className="hover:text-emerald-600 hover:border-emerald-300"
                                                         onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
-                                                        <CheckCircle2 className="size-3 mr-1" /> Aprovar
+                                                        <CheckCircle2 />
                                                     </Button>
                                                     {r.etapaPendenteIsQueue && (
-                                                        <Button size="sm" variant="outline"
-                                                            className="h-7 px-2 text-xs text-blue-700 border-blue-300 hover:bg-blue-50"
+                                                        <Button variant="outline" size="icon-xs" title="Assumir"
+                                                            className="hover:text-blue-600 hover:border-blue-300"
                                                             onClick={(e) => { e.stopPropagation(); void quickAssume(r.id); }}>
-                                                            <UserCheck className="size-3 mr-1" /> Assumir
+                                                            <UserCheck />
                                                         </Button>
                                                     )}
-                                                    <Button size="sm" variant="outline"
-                                                        className="h-7 px-2 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
+                                                        className="hover:text-amber-600 hover:border-amber-300"
                                                         onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
-                                                        <AlertTriangle className="size-3 mr-1" /> Ajustes
+                                                        <AlertTriangle />
                                                     </Button>
-                                                    <Button size="sm" variant="outline"
-                                                        className="h-7 px-2 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
+                                                        className="hover:text-red-600 hover:border-red-300"
                                                         onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
-                                                        <XCircle className="size-3 mr-1" /> Reprovar
+                                                        <XCircle />
                                                     </Button>
-                                                </div>
+                                                </>
                                             ) : r.status === 1 ? (
                                                 <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
                                                     <Pencil />
@@ -836,13 +836,11 @@ export default function DesligamentosScreen() {
                                             {r.status === 2 && (
                                                 <>
                                                     {(isAdmin || isRH) && (
-                                                        <Button
-                                                            size="sm"
-                                                            className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                                                            title="Efetivar desligamento"
+                                                        <Button variant="outline" size="icon-xs" title="Efetivar desligamento"
+                                                            className="hover:text-blue-600 hover:border-blue-300"
                                                             onClick={(e) => { e.stopPropagation(); void efetivarDesligamento(r.id); }}
                                                         >
-                                                            <Zap className="size-3 mr-1" /> Efetivar
+                                                            <Zap />
                                                         </Button>
                                                     )}
                                                     <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>

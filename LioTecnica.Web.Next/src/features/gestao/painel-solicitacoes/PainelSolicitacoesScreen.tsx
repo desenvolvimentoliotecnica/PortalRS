@@ -19,6 +19,7 @@ import {
     GitBranch,
     Filter,
     UserCheck,
+    Timer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
@@ -214,6 +215,22 @@ function formatDate(iso: string | null | undefined) {
     catch { return "—"; }
 }
 
+function diasPendente(createdAtUtc: string): number {
+    return Math.floor((Date.now() - new Date(createdAtUtc).getTime()) / 86_400_000);
+}
+
+function atrasoBadge(createdAtUtc: string, status: number) {
+    if (status !== 1 && status !== 6) return null;
+    const dias = diasPendente(createdAtUtc);
+    if (dias < 3) return null;
+    const isAlta = dias > 7;
+    return (
+        <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${isAlta ? "bg-red-500/15 text-red-700" : "bg-amber-500/15 text-amber-700"}`}>
+            <Timer className="size-2.5" />{dias}d
+        </span>
+    );
+}
+
 type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
     0: { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
@@ -257,6 +274,7 @@ export default function PainelSolicitacoesScreen() {
     const [filterTipo, setFilterTipo] = useState<TipoKey | "">("");
     const [filterStatus, setFilterStatus] = useState<string>("");
 
+    const [filterAtrasados, setFilterAtrasados] = useState(false);
     const [acting, setActing] = useState(false);
 
     /* ── Timeline modal ── */
@@ -353,6 +371,7 @@ export default function PainelSolicitacoesScreen() {
         let list = rows;
         if (filterTipo) list = list.filter(r => r.tipo === filterTipo);
         if (filterStatus) list = list.filter(r => String(r.status) === filterStatus);
+        if (filterAtrasados) list = list.filter(r => (r.status === 1 || r.status === 6) && diasPendente(r.createdAtUtc) > 7);
         const term = q.trim().toLowerCase();
         if (term) list = list.filter(r =>
             r.descricao.toLowerCase().includes(term) ||
@@ -361,14 +380,16 @@ export default function PainelSolicitacoesScreen() {
             (r.etapaPendenteCom ?? "").toLowerCase().includes(term)
         );
         return list;
-    }, [rows, filterTipo, filterStatus, q]);
+    }, [rows, filterTipo, filterStatus, filterAtrasados, q]);
 
     /* ── KPI counts ── */
     const countByStatus = useMemo(() => {
-        const c = { pendente: 0, aprovada: 0, reprovada: 0, total: rows.length };
+        const c = { pendente: 0, aprovada: 0, reprovada: 0, atrasados: 0, total: rows.length };
         for (const r of rows) {
-            if (r.status === 1 || r.status === 6) c.pendente++;
-            else if (r.status === 2) c.aprovada++;
+            if (r.status === 1 || r.status === 6) {
+                c.pendente++;
+                if (diasPendente(r.createdAtUtc) > 7) c.atrasados++;
+            } else if (r.status === 2) c.aprovada++;
             else if (r.status === 3) c.reprovada++;
         }
         return c;
@@ -413,6 +434,16 @@ export default function PainelSolicitacoesScreen() {
                     <span className="text-[11px] text-muted-foreground font-medium">Reprovadas</span>
                     <span className="text-sm font-bold text-red-600">{loading ? "…" : countByStatus.reprovada}</span>
                 </div>
+                {!loading && countByStatus.atrasados > 0 && (
+                    <button
+                        onClick={() => setFilterAtrasados(v => !v)}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors ${filterAtrasados ? "border-red-400 bg-red-500/15" : "border-border/40 bg-card/60 hover:border-red-300 hover:bg-red-500/10"}`}
+                    >
+                        <Timer className="size-3.5 text-red-600" />
+                        <span className="text-[11px] text-muted-foreground font-medium">Atrasados</span>
+                        <span className="text-sm font-bold text-red-600">{countByStatus.atrasados}</span>
+                    </button>
+                )}
             </div>
 
             {/* Filters + table */}
@@ -450,8 +481,8 @@ export default function PainelSolicitacoesScreen() {
                         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input className="pl-8" placeholder="Buscar por descricao, solicitante, etapa..." value={q} onChange={(e) => setQ(e.target.value)} />
                     </div>
-                    {(filterTipo || filterStatus || q) && (
-                        <Button variant="ghost" size="sm" onClick={() => { setFilterTipo(""); setFilterStatus(""); setQ(""); }}>
+                    {(filterTipo || filterStatus || filterAtrasados || q) && (
+                        <Button variant="ghost" size="sm" onClick={() => { setFilterTipo(""); setFilterStatus(""); setFilterAtrasados(false); setQ(""); }}>
                             <Filter className="size-3.5" /> Limpar
                         </Button>
                     )}
@@ -519,7 +550,12 @@ export default function PainelSolicitacoesScreen() {
                                             row.etapaPendenteCom || "—"
                                         )}
                                     </TableCell>
-                                    <TableCell className="text-sm">{formatDate(row.createdAtUtc)}</TableCell>
+                                    <TableCell className="text-sm">
+                                        <div className="flex items-center gap-1.5">
+                                            {formatDate(row.createdAtUtc)}
+                                            {atrasoBadge(row.createdAtUtc, row.status)}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1">
                                             {(row.etapaPendenteCanAssume || (row.etapaPendenteIsQueue && isAdmin)) && (

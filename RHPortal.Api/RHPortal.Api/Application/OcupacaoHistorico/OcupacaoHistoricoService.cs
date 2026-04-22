@@ -8,7 +8,7 @@ namespace RhPortal.Api.Application.OcupacaoHistorico;
 
 public record OcupacaoHistoricoDto(
     Guid Id,
-    Guid FuncionarioId,
+    Guid? FuncionarioId,
     string FuncionarioNome,
     DateTime DataEntrada,
     DateTime? DataSaida,
@@ -47,7 +47,25 @@ public sealed class OcupacaoHistoricoService : IOcupacaoHistoricoService
 
         if (ocupacao is null)
         {
-            _logger.LogWarning("OcupacaoHistorico: nenhuma ocupação ativa encontrada para funcionário {FuncionarioId}. Ignorando.", funcionarioId);
+            _logger.LogWarning("OcupacaoHistorico: nenhuma ocupação ativa encontrada para funcionário {FuncionarioId}. Criando entrada de saída de fallback.", funcionarioId);
+            var func = await _db.Set<Funcionario>()
+                .AsNoTracking()
+                .Select(f => new { f.Id, f.DataAdmissao })
+                .FirstOrDefaultAsync(f => f.Id == funcionarioId, ct);
+
+            var dataEntrada = func?.DataAdmissao?.ToDateTime(TimeOnly.MinValue) ?? DateTime.UtcNow;
+
+            _db.OcupacoesHistorico.Add(new RhPortal.Api.Domain.Entities.OcupacaoHistorico
+            {
+                Id = Guid.NewGuid(),
+                FuncionarioId = funcionarioId,
+                VagaId = null,
+                DataEntrada = dataEntrada,
+                DataSaida = DateTime.UtcNow,
+                MotivoSaida = motivo,
+                SolicitacaoOrigemId = solicitacaoOrigemId,
+            });
+            await _db.SaveChangesAsync(ct);
             return;
         }
 
@@ -92,8 +110,8 @@ public sealed class OcupacaoHistoricoService : IOcupacaoHistoricoService
 
         // Para ocupantes ativos, verificar se há solicitação de desligamento pendente
         var activeFuncIds = ocupacoes
-            .Where(o => o.DataSaida == null)
-            .Select(o => o.FuncionarioId)
+            .Where(o => o.DataSaida == null && o.FuncionarioId.HasValue)
+            .Select(o => o.FuncionarioId!.Value)
             .Distinct()
             .ToList();
 
@@ -118,7 +136,7 @@ public sealed class OcupacaoHistoricoService : IOcupacaoHistoricoService
             o.DataEntrada,
             o.DataSaida,
             o.MotivoSaida != null ? o.MotivoSaida.ToString() : null,
-            o.DataSaida == null && desligamentoMap.TryGetValue(o.FuncionarioId, out var dId) ? dId : null
+            o.DataSaida == null && o.FuncionarioId.HasValue && desligamentoMap.TryGetValue(o.FuncionarioId.Value, out var dId) ? dId : null
         )).ToList();
     }
 }

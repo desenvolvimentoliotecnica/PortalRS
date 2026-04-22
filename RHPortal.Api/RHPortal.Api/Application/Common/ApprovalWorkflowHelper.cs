@@ -512,6 +512,17 @@ public sealed class ApprovalWorkflowHelper
     {
         if (userContext.IsAdmin) return true;
 
+        // Etapa foi atribuída explicitamente a este funcionário (diretamente ou via assunção de fila).
+        // AprovadorId é a prova de assignment — tem prioridade sobre qualquer outra verificação.
+        if (etapa.AprovadorId.HasValue && userContext.FuncionarioId.HasValue
+            && etapa.AprovadorId == userContext.FuncionarioId)
+            return true;
+
+        // Assumida por usuário sem FuncionarioId (ex: admin sem cadastro de funcionário)
+        if (etapa.AssumedByUserId.HasValue)
+            return etapa.AssumedByUserId == userContext.UserId;
+
+        // Fila de role ainda não assumida — qualquer membro do role pode aprovar
         if (etapa.RoleFilaId.HasValue)
         {
             var userId = userContext.UserId;
@@ -520,11 +531,7 @@ public sealed class ApprovalWorkflowHelper
                 .AnyAsync(ur => ur.RoleId == etapa.RoleFilaId.Value && ur.UserId == userId.Value, ct);
         }
 
-        // Claimed via consenso without Funcionario link
-        if (etapa.AssumedByUserId.HasValue)
-            return etapa.AssumedByUserId == userContext.UserId;
-
-        return etapa.AprovadorId.HasValue && etapa.AprovadorId == userContext.FuncionarioId;
+        return false;
     }
 
     /// <summary>

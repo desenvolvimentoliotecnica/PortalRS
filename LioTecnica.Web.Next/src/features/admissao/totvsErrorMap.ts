@@ -132,16 +132,20 @@ export interface TotvsValidationIssue {
  * Converte a lista de issues (422 do backend) em erros do wizard —
  * útil para redirecionar ao step culpado e destacar os campos.
  */
+const IGNORED_TOTVS_FIELDS = new Set(["CodEnderecoPostalExterior", "CidadeExterior"]);
+
 export function mapTotvsIssuesToErrors(issues: TotvsValidationIssue[]): ValidationError[] {
-    return issues.map(issue => {
-        const meta = TOTVS_FIELD_MAP[issue.campo];
-        return {
-            field:     meta?.formField ?? issue.campo,
-            label:     meta?.label ?? issue.label ?? issue.campo,
-            stepIndex: meta?.stepIndex ?? 0,
-            message:   issue.mensagem,
-        };
-    });
+    return issues
+        .filter(issue => !IGNORED_TOTVS_FIELDS.has(issue.campo))
+        .map(issue => {
+            const meta = TOTVS_FIELD_MAP[issue.campo];
+            return {
+                field:     meta?.formField ?? issue.campo,
+                label:     meta?.label ?? issue.label ?? issue.campo,
+                stepIndex: meta?.stepIndex ?? 0,
+                message:   issue.mensagem,
+            };
+        });
 }
 
 /**
@@ -153,7 +157,7 @@ export function mapTotvsIssuesToErrors(issues: TotvsValidationIssue[]): Validati
 const DATASUL_KEYWORD_TO_FIELD: Array<{ keyword: RegExp; field: string }> = [
     { keyword: /cidade\s*ric/i,                field: "RegIdentidCivilCidade" },
     { keyword: /pa[ií]s\s*inexistente/i,       field: "PaisNacionalidade" },
-    { keyword: /reside\s*(no\s*)?exterior/i,   field: "CidadeExterior" },
+
     { keyword: /emiss[aã]o\s*cart[aã]o\s*ponto/i, field: "EmitCartPonto" },
     { keyword: /tipo\s*admiss[aã]o\s*fgts/i,   field: "TipoAdmissaoFgts" },
     { keyword: /docmilitartipo|doc\s*militar\s*tipo/i, field: "DocMilitarTipo" },

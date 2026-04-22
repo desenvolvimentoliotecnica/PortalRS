@@ -171,7 +171,9 @@ async function prepareImageForAi(file: File): Promise<{ base64: string; mediaTyp
             const reader = new FileReader();
             reader.onload = () => {
                 const base64 = (reader.result as string).split(",")[1];
-                resolve({ base64, mediaType: file.type || "image/jpeg" });
+                const SUPPORTED = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+                const mediaType = SUPPORTED.includes(file.type) ? file.type : "image/jpeg";
+                resolve({ base64, mediaType });
             };
             reader.onerror = reject;
             reader.readAsDataURL(file);

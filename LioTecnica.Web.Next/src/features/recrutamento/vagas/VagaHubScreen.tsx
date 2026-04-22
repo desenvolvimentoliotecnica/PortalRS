@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   ArrowLeft,
   Banknote,
   Briefcase,
@@ -12,6 +13,7 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  ExternalLink,
   FileText,
   Globe,
   Mail,
@@ -22,14 +24,22 @@ import {
   Target,
   UserPlus,
   Users,
+  XCircle,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 
 import { apiFetch } from "@/lib/api";
@@ -110,8 +120,115 @@ const MOTIVO_LABEL: Record<string, string> = {
   manual: "Manual",
 };
 
+interface SolicitacaoLinked {
+  id: string;
+  titulo: string;
+  status: number;
+  urgencia: number;
+  solicitanteNome: string | null;
+  aprovadorNome: string | null;
+  qtdPosicoes: number;
+  etapaPendenteLabel: string | null;
+  etapaPendenteCom: string | null;
+  createdAtUtc: string;
+}
+
+const SOL_STATUS_MAP: Record<number, { label: string; cls: string; icon: React.ElementType }> = {
+  0: { label: "Rascunho",            cls: "bg-zinc-100 text-zinc-600",    icon: FileText      },
+  1: { label: "Pend. Aprovação",     cls: "bg-amber-100 text-amber-700",  icon: Clock         },
+  2: { label: "Aprovada",            cls: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
+  3: { label: "Reprovada",           cls: "bg-red-100 text-red-700",      icon: XCircle       },
+  4: { label: "Ajustes Necessários", cls: "bg-orange-100 text-orange-700",icon: AlertTriangle },
+  5: { label: "Pend. Aprovação RH",  cls: "bg-purple-100 text-purple-700",icon: Clock         },
+  6: { label: "Cancelada",           cls: "bg-zinc-100 text-zinc-500",    icon: XCircle       },
+  7: { label: "Em Integração",       cls: "bg-blue-100 text-blue-700",    icon: RefreshCw     },
+  8: { label: "Concluída",           cls: "bg-teal-100 text-teal-700",    icon: CheckCircle2  },
+  9: { label: "Aguarda Decisão RH",  cls: "bg-amber-100 text-amber-700",  icon: AlertTriangle },
+  10:{ label: "Pend. Aumento HC",    cls: "bg-violet-100 text-violet-700",icon: AlertTriangle },
+};
+
+const SOL_URGENCIA_MAP: Record<number, { label: string; cls: string }> = {
+  0: { label: "Baixa",   cls: "bg-sky-100 text-sky-700"    },
+  1: { label: "Média",   cls: "bg-amber-100 text-amber-700"},
+  2: { label: "Alta",    cls: "bg-orange-100 text-orange-700"},
+  3: { label: "Crítica", cls: "bg-red-100 text-red-700"    },
+};
+
+function parseSolStatus(raw: unknown): number {
+  if (typeof raw === "number") return raw;
+  if (typeof raw === "string") {
+    const n = Number(raw);
+    if (!isNaN(n)) return n;
+    const map: Record<string, number> = {
+      rascunho: 0, pendenteaprovacao: 1, aprovada: 2, reprovada: 3,
+      ajustesnecessarios: 4, pendenteaprovacaorh: 5, cancelada: 6,
+      emintegracao: 7, concluida: 8, aguardandodecisaorh: 9, pendenteaprovacaoaumentohc: 10,
+    };
+    return map[raw.toLowerCase().replace(/[^a-z]/g, "")] ?? 0;
+  }
+  return 0;
+}
+
+interface DesligamentoDetail {
+  id: string;
+  status: number;
+  funcionarioNome: string | null;
+  solicitanteNome: string | null;
+  dataDesligamento: string;
+  tipoDesligamento: number;
+  motivoDesligamento: string;
+  substituirPosicao: boolean;
+  observacoes: string | null;
+  createdAtUtc: string;
+  etapas: Array<{
+    ordem: number;
+    label: string;
+    aprovadorNome: string | null;
+    roleFilaNome: string | null;
+    status: string;
+    dataUtc: string | null;
+    observacao: string | null;
+  }>;
+}
+
+const DESL_STATUS_MAP: Record<number, { label: string; cls: string }> = {
+  0: { label: "Rascunho",            cls: "bg-zinc-100 text-zinc-600"        },
+  1: { label: "Pend. Aprovação",     cls: "bg-amber-100 text-amber-700"      },
+  2: { label: "Aprovada",            cls: "bg-emerald-100 text-emerald-700"  },
+  3: { label: "Reprovada",           cls: "bg-red-100 text-red-700"          },
+  4: { label: "Ajustes Necessários", cls: "bg-orange-100 text-orange-700"    },
+  5: { label: "Cancelada",           cls: "bg-zinc-100 text-zinc-500"        },
+  6: { label: "Pend. Aprovação RH",  cls: "bg-purple-100 text-purple-700"   },
+  7: { label: "Em Integração",       cls: "bg-blue-100 text-blue-700"        },
+  8: { label: "Concluída",           cls: "bg-teal-100 text-teal-700"        },
+};
+
+const TIPO_DESL_MAP: Record<number, string> = {
+  0: "Sem Justa Causa",
+  1: "Com Justa Causa",
+  2: "Pedido de Demissão",
+  3: "Acordo",
+  4: "Aposentadoria",
+};
+
+function parseDeslStatus(raw: unknown): number {
+  if (typeof raw === "number") return raw;
+  if (typeof raw === "string") {
+    const n = Number(raw);
+    if (!isNaN(n)) return n;
+    const map: Record<string, number> = {
+      rascunho: 0, pendenteaprovacao: 1, aprovada: 2, reprovada: 3,
+      ajustesnecessarios: 4, cancelada: 5, pendenteaprovacaorh: 6,
+      emintegracao: 7, concluida: 8,
+    };
+    return map[raw.toLowerCase().replace(/[^a-z]/g, "")] ?? 0;
+  }
+  return 0;
+}
+
 type OcupacaoItem = {
   id: string;
+  funcionarioId: string;
   funcionarioNome: string;
   dataEntrada: string;
   dataSaida?: string | null;
@@ -125,6 +242,58 @@ interface HistoricoEvent {
   dataHora: string;
   entidadeId: string | null;
   entidadeTipo: string | null;
+}
+
+interface FuncDetail {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  status: string;
+  headcount: number;
+  jobPositionName?: string;
+  jobPositionCode?: string;
+  notes?: string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+  gestorDiretoNome?: string;
+  nivelHierarquicoNome?: string;
+  unidadeLotacaoDescricao?: string;
+  unidadeLotacaoCode?: string;
+  centroCustoDescricao?: string;
+  centroCustoCode?: string;
+  cdnFuncionario?: string;
+  cdnEmpresa?: string;
+  cdnEstab?: string;
+}
+
+interface FuncHistoryItem {
+  id: string;
+  occurredAt: string;
+  state: string;
+  userName: string | null;
+  changedColumns: string | null;
+}
+
+function funcStatusBadge(s: string | null | undefined) {
+  const st = (s ?? "").toLowerCase();
+  if (st === "ativo" || st === "active")
+    return <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Ativo</span>;
+  return <span className="inline-flex items-center rounded-full bg-zinc-400/15 px-2.5 py-0.5 text-xs font-semibold text-zinc-600">Inativo</span>;
+}
+
+function fmtDateTime(iso: string | undefined) {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); }
+  catch { return iso; }
+}
+
+function stateLabel(state: string | null | undefined) {
+  const s = (state ?? "").toLowerCase();
+  if (s === "added") return "Criado";
+  if (s === "modified") return "Alterado";
+  if (s === "deleted") return "Removido";
+  return state || "—";
 }
 
 function HistoricoTimeline({ vagaId }: { vagaId: string }) {
@@ -206,6 +375,61 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [newCandPendingDocs, setNewCandPendingDocs] = useState<Array<{ id: string; tipo: string; desc: string; file: File; name: string; size: number }>>([]);
   const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
 
+  const [solicitacoesLinked, setSolicitacoesLinked] = useState<SolicitacaoLinked[]>([]);
+  const [cancelSolWorking, setCancelSolWorking] = useState<string | null>(null);
+  const [desligamentoDialog, setDesligamentoDialog] = useState<{ open: boolean; loading: boolean; data: DesligamentoDetail | null }>({ open: false, loading: false, data: null });
+
+  async function cancelSolicitacao(id: string) {
+    if (!confirm("Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.")) return;
+    setCancelSolWorking(id);
+    try {
+      await apiFetch(`/api/solicitacoes-vaga/${encodeURIComponent(id)}/cancel`, { method: "POST" });
+      toast.success("Solicitação cancelada com sucesso.");
+      void load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Erro ao cancelar solicitação.";
+      toast.error(msg);
+    } finally {
+      setCancelSolWorking(null);
+    }
+  }
+
+  async function openDesligamentoDialog(id: string) {
+    setDesligamentoDialog({ open: true, loading: true, data: null });
+    try {
+      const raw = await fetchJson<Record<string, unknown>>(`/api/solicitacoes-desligamento/${encodeURIComponent(id)}`);
+      const etapas = Array.isArray(raw.etapas) ? (raw.etapas as Record<string, unknown>[]).map((e) => ({
+        ordem: typeof e.ordem === "number" ? e.ordem : 0,
+        label: String(e.label ?? ""),
+        aprovadorNome: e.aprovadorNome ? String(e.aprovadorNome) : null,
+        roleFilaNome: e.roleFilaNome ? String(e.roleFilaNome) : null,
+        status: String(e.status ?? ""),
+        dataUtc: e.dataUtc ? String(e.dataUtc) : null,
+        observacao: e.observacao ? String(e.observacao) : null,
+      })) : [];
+      setDesligamentoDialog({
+        open: true,
+        loading: false,
+        data: {
+          id: String(raw.id ?? ""),
+          status: parseDeslStatus(raw.status),
+          funcionarioNome: raw.funcionarioNome ? String(raw.funcionarioNome) : null,
+          solicitanteNome: raw.solicitanteNome ? String(raw.solicitanteNome) : null,
+          dataDesligamento: String(raw.dataDesligamento ?? ""),
+          tipoDesligamento: typeof raw.tipoDesligamento === "number" ? raw.tipoDesligamento : 0,
+          motivoDesligamento: String(raw.motivoDesligamento ?? ""),
+          substituirPosicao: raw.substituirPosicao === true,
+          observacoes: raw.observacoes ? String(raw.observacoes) : null,
+          createdAtUtc: String(raw.createdAtUtc ?? ""),
+          etapas,
+        },
+      });
+    } catch {
+      toast.error("Erro ao carregar solicitação de desligamento");
+      setDesligamentoDialog({ open: false, loading: false, data: null });
+    }
+  }
+
   // Workflow RH data
   const [workflowData, setWorkflowData] = useState<{
     id: string;
@@ -226,6 +450,28 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         fetchJson<any>(`/api/workflow-rh?vagaId=${encodeURIComponent(vagaId)}&pageSize=1`).catch(() => null),
       ]);
       setVaga(data);
+
+      // Busca a solicitação diretamente pelo ID que a vaga já conhece
+      const solicitacaoId = data.solicitacaoPendenteDecisaoId as string | null | undefined;
+      if (solicitacaoId) {
+        const solData = await fetchJson<Record<string, unknown>>(`/api/solicitacoes-vaga/${encodeURIComponent(solicitacaoId)}`).catch(() => null);
+        if (solData) {
+          setSolicitacoesLinked([{
+            id: String(solData.id ?? ""),
+            titulo: String(solData.titulo ?? ""),
+            status: parseSolStatus(solData.status),
+            urgencia: typeof solData.urgencia === "number" ? solData.urgencia : 0,
+            solicitanteNome: solData.solicitanteNome ? String(solData.solicitanteNome) : null,
+            aprovadorNome: solData.aprovadorNome ? String(solData.aprovadorNome) : null,
+            qtdPosicoes: typeof solData.qtdPosicoes === "number" ? solData.qtdPosicoes : 1,
+            etapaPendenteLabel: null,
+            etapaPendenteCom: null,
+            createdAtUtc: String(solData.createdAtUtc ?? ""),
+          }]);
+        }
+      } else {
+        setSolicitacoesLinked([]);
+      }
       const items = candListData?.items ?? [];
       setCandidates(items);
       setCandidateCount(candListData?.totalCount ?? items.length);
@@ -338,6 +584,65 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [ocupacoes, setOcupacoes] = useState<OcupacaoItem[]>([]);
   const [ocupacoesLoading, setOcupacoesLoading] = useState(false);
 
+  const [funcDetailId, setFuncDetailId] = useState<string | null>(null);
+  const [funcDetailData, setFuncDetailData] = useState<FuncDetail | null>(null);
+  const [funcDetailLoading, setFuncDetailLoading] = useState(false);
+  const [funcDetailTab, setFuncDetailTab] = useState<"dados" | "historico">("dados");
+  const [funcHistory, setFuncHistory] = useState<FuncHistoryItem[]>([]);
+  const [funcHistoryLoading, setFuncHistoryLoading] = useState(false);
+
+  async function openFuncDetail(id: string) {
+    setFuncDetailId(id);
+    setFuncDetailData(null);
+    setFuncDetailLoading(true);
+    setFuncDetailTab("dados");
+    setFuncHistory([]);
+    setFuncHistoryLoading(true);
+    try {
+      const [d, histPayload] = await Promise.all([
+        fetchJson<Record<string, unknown>>(`/api/funcionarios/${id}`),
+        fetchJson<Record<string, unknown>>(`/api/audit/entity-changes?${new URLSearchParams({ entityName: "Funcionario", entityId: id, page: "1", pageSize: "50" })}`).catch(() => null),
+      ]);
+      setFuncDetailData({
+        id: String(d.id ?? id),
+        name: String(d.name ?? ""),
+        email: d.email ? String(d.email) : undefined,
+        phone: d.phone ? String(d.phone) : undefined,
+        status: String(d.status ?? ""),
+        headcount: typeof d.headcount === "number" ? d.headcount : 0,
+        jobPositionName: d.jobPositionName ? String(d.jobPositionName) : undefined,
+        jobPositionCode: d.jobPositionCode ? String(d.jobPositionCode) : undefined,
+        notes: d.notes ? String(d.notes) : undefined,
+        createdAtUtc: String(d.createdAtUtc ?? ""),
+        updatedAtUtc: String(d.updatedAtUtc ?? ""),
+        gestorDiretoNome: d.gestorDiretoNome ? String(d.gestorDiretoNome) : undefined,
+        nivelHierarquicoNome: d.nivelHierarquicoNome ? String(d.nivelHierarquicoNome) : undefined,
+        unidadeLotacaoDescricao: d.unidadeLotacaoDescricao ? String(d.unidadeLotacaoDescricao) : undefined,
+        unidadeLotacaoCode: d.unidadeLotacaoCode ? String(d.unidadeLotacaoCode) : undefined,
+        centroCustoDescricao: d.centroCustoDescricao ? String(d.centroCustoDescricao) : undefined,
+        centroCustoCode: d.centroCustoCode ? String(d.centroCustoCode) : undefined,
+        cdnFuncionario: d.cdnFuncionario ? String(d.cdnFuncionario) : undefined,
+        cdnEmpresa: d.cdnEmpresa ? String(d.cdnEmpresa) : undefined,
+        cdnEstab: d.cdnEstab ? String(d.cdnEstab) : undefined,
+      });
+      const list = Array.isArray(histPayload?.items) ? (histPayload.items as FuncHistoryItem[]) : [];
+      setFuncHistory(list);
+    } catch {
+      toast.error("Falha ao carregar dados do funcionário.");
+      setFuncDetailId(null);
+    } finally {
+      setFuncDetailLoading(false);
+      setFuncHistoryLoading(false);
+    }
+  }
+
+  function closeFuncDetail() {
+    setFuncDetailId(null);
+    setFuncDetailData(null);
+    setFuncHistory([]);
+    setFuncDetailTab("dados");
+  }
+
   useEffect(() => {
     if (!vagaId) return;
     setOcupacoesLoading(true);
@@ -347,6 +652,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           const rec = r as Record<string, unknown>;
           return {
             id: String(rec.id ?? ""),
+            funcionarioId: String(rec.funcionarioId ?? ""),
             funcionarioNome: String(rec.funcionarioNome ?? rec.nome ?? "—"),
             dataEntrada: String(rec.dataEntrada ?? ""),
             dataSaida: rec.dataSaida ? String(rec.dataSaida) : null,
@@ -385,7 +691,19 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const gestor = pick(vaga, "gestorRequisitante", "");
   const headcountAutorizado = pickNum(vaga, "headcountAutorizado", 1);
   const headcountOcupado = pickNum(vaga, "headcountOcupado", 0);
+  const headcountProvisorio = pickNum(vaga, "headcountProvisorio", 0);
+  const headcountPendente = pickNum(vaga, "headcountPendente", 0);
+  const alertaHCProvVencido = vaga?.alertaHCProvVencido === true;
   const isEstrutural = vaga?.isEstrutural === true;
+
+  const publishBlockReason: string | null = (() => {
+    if (headcountPendente > 0) return "Existe decisão de headcount pendente do RH — resolva antes de publicar";
+    if (status === "aberta") return "A vaga já está publicada";
+    if (status === "preenchida") return "A vaga está preenchida";
+    if (status === "cancelada") return "A vaga está cancelada";
+    if (status === "encerrada") return "A vaga está encerrada";
+    return null; // rascunho sem bloqueio → pode publicar
+  })();
 
   if (loading) {
     return (
@@ -429,18 +747,23 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           {!isReadOnly && (
             <Button size="sm" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}><PenSquare className="size-4 mr-1" /> {isRascunho ? "Preencher Dados" : "Editar"}</Button>
           )}
-          {isRascunho && (
-            <Button size="sm" variant="default" className="bg-emerald-600 hover:bg-emerald-700" disabled={publishing} onClick={() => void publicarVaga()}>
-              <Globe className="size-4 mr-1" /> {publishing ? "Publicando..." : "Publicar"}
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="default"
+            className="bg-emerald-600 hover:bg-emerald-700"
+            disabled={publishing || publishBlockReason !== null}
+            title={publishBlockReason ?? undefined}
+            onClick={() => void publicarVaga()}
+          >
+            <Globe className="size-4 mr-1" /> {publishing ? "Publicando..." : "Publicar"}
+          </Button>
         </div>
       </div>
 
       {/* ── Indicador rascunho ── */}
       {isRascunho && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
-          Vaga em <b>rascunho</b> — preencha os dados e mude o status para &quot;Aberta&quot; para publicar.
+          Vaga em <b>rascunho</b> — preencha os dados e clique em <b>Publicar</b> quando estiver pronta.
         </div>
       )}
 
@@ -467,7 +790,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           {workflowData && <TabsTrigger value="workflow">Workflow</TabsTrigger>}
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="posicao">
-            Posição {isEstrutural && headcountOcupado > 0 && <span className="ml-1 text-[10px] bg-blue-500/15 text-blue-700 rounded-full px-1.5">{headcountOcupado}</span>}
+            Posição {isEstrutural && <span className="ml-1 text-[10px] bg-blue-500/15 text-blue-700 rounded-full px-1.5">{headcountOcupado}/{headcountAutorizado}</span>}
           </TabsTrigger>
           <TabsTrigger value="matching" className="opacity-40">
             Matching IA
@@ -753,9 +1076,23 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           {/* Headcount summary */}
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Headcount autorizado</span>
+              <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Autorizado</span>
               <span className="font-bold text-lg leading-none">{headcountAutorizado}</span>
             </div>
+            {headcountProvisorio > 0 && (
+              <>
+                <div className="h-6 w-px bg-border" />
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Provisório</span>
+                  <span className={`font-bold text-lg leading-none ${alertaHCProvVencido ? "text-red-600" : "text-amber-600"}`}>
+                    +{headcountProvisorio}
+                  </span>
+                  {alertaHCProvVencido && (
+                    <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-red-100 text-red-700">Vencido</span>
+                  )}
+                </div>
+              </>
+            )}
             <div className="h-6 w-px bg-border" />
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Ocupado</span>
@@ -765,13 +1102,34 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Em aberto</span>
               {(() => {
-                const aberto = Math.max(0, headcountAutorizado - headcountOcupado);
+                const limite = headcountAutorizado + headcountProvisorio;
+                const aberto = Math.max(0, limite - headcountOcupado);
                 return aberto > 0
                   ? <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-700">{aberto} aberto{aberto > 1 ? "s" : ""}</span>
                   : <span className="rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">Completo</span>;
               })()}
             </div>
           </div>
+
+          {/* HC pending decision alert */}
+          {headcountPendente > 0 && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-800 dark:bg-violet-900/20">
+              <div className="flex items-center gap-2 text-sm text-violet-800 dark:text-violet-300">
+                <AlertTriangle className="size-4 shrink-0" />
+                <span>
+                  <b>+{headcountPendente} headcount</b> aprovado aguarda decisão do RH — a vaga não pode ser publicada até que o RH defina o tipo de headcount.
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 border-violet-300 text-violet-700 hover:bg-violet-100 dark:border-violet-700 dark:text-violet-300"
+                onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}
+              >
+                Resolver decisão
+              </Button>
+            </div>
+          )}
 
           {/* Occupancy history table */}
           <div>
@@ -791,6 +1149,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                       <th className="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Entrada</th>
                       <th className="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Saída</th>
                       <th className="px-4 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Status / Motivo</th>
+                      <th className="px-4 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground font-medium"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/30">
@@ -806,13 +1165,13 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                                 <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">
                                   Em Desligamento
                                 </span>
-                                <Link
-                                  href={`/app/gestao/solicitacoes?tab=desligamentos`}
+                                <button
+                                  onClick={() => void openDesligamentoDialog(o.desligamentoSolicitacaoId!)}
                                   className="inline-flex items-center gap-1 text-[10px] text-blue-600 hover:underline font-medium"
                                   title="Ver solicitação de desligamento"
                                 >
-                                  <FileText className="size-3" /> Ver
-                                </Link>
+                                  <FileText className="size-3" /> Ver sol.
+                                </button>
                               </div>
                             ) : (
                               <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">Ativo</span>
@@ -825,6 +1184,17 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                             </span>
                           )}
                         </td>
+                        <td className="px-4 py-2.5 text-right">
+                          {o.funcionarioId && (
+                            <button
+                              onClick={() => void openFuncDetail(o.funcionarioId)}
+                              className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-medium"
+                              title="Ver detalhes do funcionário"
+                            >
+                              <ExternalLink className="size-3" /> Ver
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -832,6 +1202,63 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               </div>
             )}
           </div>
+
+          {/* Solicitação vinculada a este HC */}
+          {solicitacoesLinked.length > 0 && (
+            <div>
+              <div className="border-t border-border/30 mb-4" />
+              <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">Nova Vaga Solicitada</div>
+              <div className="space-y-2">
+                {solicitacoesLinked.map((sol) => {
+                  const stMeta = SOL_STATUS_MAP[sol.status] ?? SOL_STATUS_MAP[0];
+                  const StIcon = stMeta.icon;
+                  const urgMeta = SOL_URGENCIA_MAP[sol.urgencia] ?? SOL_URGENCIA_MAP[0];
+                  return (
+                    <div key={sol.id} className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium truncate">{sol.titulo}</span>
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${stMeta.cls}`}>
+                              <StIcon className="size-3" />{stMeta.label}
+                            </span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${urgMeta.cls}`}>
+                              {urgMeta.label}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                            {sol.solicitanteNome && <span>Solicitante: <span className="font-medium text-foreground">{sol.solicitanteNome}</span></span>}
+                            {sol.aprovadorNome && <span>Aprovador: <span className="font-medium text-foreground">{sol.aprovadorNome}</span></span>}
+                            <span>{sol.qtdPosicoes} posição(ões)</span>
+                            <span>Criada em {fmtDate(sol.createdAtUtc)}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {![0, 2, 6, 8].includes(sol.status) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              disabled={cancelSolWorking === sol.id}
+                              onClick={() => void cancelSolicitacao(sol.id)}
+                            >
+                              {cancelSolWorking === sol.id ? "Cancelando…" : "Cancelar"}
+                            </Button>
+                          )}
+                          <Link
+                            href="/gestao/painel-solicitacoes"
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            <ExternalLink className="size-3" /> Ver solicitação
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -1017,6 +1444,245 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           </div>
         </div>
       )}
+
+      {/* ── Sheet: Solicitação de Desligamento ── */}
+      <Sheet open={desligamentoDialog.open} onOpenChange={(o) => setDesligamentoDialog((d) => ({ ...d, open: o }))}>
+        <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col gap-0 p-0">
+          <SheetHeader className="border-b px-6 py-4">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              Solicitação de Desligamento
+              {desligamentoDialog.data && (() => {
+                const st = DESL_STATUS_MAP[desligamentoDialog.data!.status] ?? DESL_STATUS_MAP[0];
+                return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${st.cls}`}>{st.label}</span>;
+              })()}
+            </SheetTitle>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+            {desligamentoDialog.loading && (
+              <div className="py-16 text-center text-sm text-muted-foreground">Carregando...</div>
+            )}
+            {!desligamentoDialog.loading && desligamentoDialog.data && (() => {
+              const d = desligamentoDialog.data!;
+              const etapas = d.etapas;
+              return (
+                <>
+                  {/* Dados principais */}
+                  <div>
+                    <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-3">Informações</p>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-0.5">Funcionário</p>
+                        <p className="font-medium">{d.funcionarioNome ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-0.5">Solicitante</p>
+                        <p>{d.solicitanteNome ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-0.5">Data Desligamento</p>
+                        <p>{d.dataDesligamento ? new Date(d.dataDesligamento).toLocaleDateString("pt-BR") : "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-0.5">Tipo</p>
+                        <p>{TIPO_DESL_MAP[d.tipoDesligamento] ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-0.5">Substituir Posição?</p>
+                        <p>{d.substituirPosicao ? "Sim" : "Não"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-0.5">Abertura</p>
+                        <p>{d.createdAtUtc ? new Date(d.createdAtUtc).toLocaleDateString("pt-BR") : "—"}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-0.5">Motivo</p>
+                        <p className="leading-relaxed">{d.motivoDesligamento || "—"}</p>
+                      </div>
+                      {d.observacoes && (
+                        <div className="col-span-2">
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-0.5">Observações</p>
+                          <p className="leading-relaxed">{d.observacoes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Etapas de aprovação */}
+                  {etapas.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider mb-3">Fluxo de Aprovação</p>
+                      <div className="space-y-2">
+                        {etapas.map((e) => {
+                          const isPendente = e.status === "Pendente";
+                          const isAprovado = e.status === "Aprovado";
+                          return (
+                            <div key={e.ordem} className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${isPendente ? "border-amber-200 bg-amber-50" : isAprovado ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+                              <div className="mt-0.5 shrink-0">
+                                {isPendente
+                                  ? <Clock className="size-4 text-amber-600" />
+                                  : isAprovado
+                                    ? <CheckCircle2 className="size-4 text-emerald-600" />
+                                    : <XCircle className="size-4 text-red-600" />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium">{e.label}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {e.aprovadorNome ?? e.roleFilaNome ?? "—"}
+                                  {e.dataUtc && ` · ${new Date(e.dataUtc).toLocaleDateString("pt-BR")}`}
+                                </p>
+                                {e.observacao && <p className="text-xs mt-1 italic text-muted-foreground">{e.observacao}</p>}
+                              </div>
+                              <span className={`shrink-0 text-[10px] font-semibold ${isPendente ? "text-amber-700" : isAprovado ? "text-emerald-700" : "text-red-700"}`}>{e.status}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+
+          <div className="border-t px-6 py-4">
+            <Button variant="outline" className="w-full" onClick={() => setDesligamentoDialog((d) => ({ ...d, open: false }))}>Fechar</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Dialog: Detalhes do Funcionário ── */}
+      <Dialog open={!!funcDetailId} onOpenChange={(o) => { if (!o) closeFuncDetail(); }}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{funcDetailData?.name ?? "Funcionário"}</DialogTitle>
+            <DialogDescription>Dados do colaborador. Somente leitura.</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-wrap gap-2">
+            {(["dados", "historico"] as const).map((t) => (
+              <Button key={t} type="button" size="sm" variant={funcDetailTab === t ? "default" : "outline"} onClick={() => setFuncDetailTab(t)}>
+                {t === "dados" ? "Dados" : "Histórico"}
+              </Button>
+            ))}
+          </div>
+
+          {funcDetailLoading ? (
+            <div className="py-12 text-center text-muted-foreground text-sm">Carregando…</div>
+          ) : funcDetailTab === "dados" && funcDetailData ? (
+            <div className="space-y-5">
+              {/* Banner dados incompletos */}
+              {(() => {
+                const missing: string[] = [];
+                if (!funcDetailData.jobPositionName) missing.push("Cargo");
+                if (!funcDetailData.unidadeLotacaoDescricao) missing.push("Unidade de Lotação");
+                if (!funcDetailData.nivelHierarquicoNome) missing.push("Nível do Cargo");
+                if (!funcDetailData.centroCustoDescricao) missing.push("Centro de Custo");
+                return missing.length > 0 ? (
+                  <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                    <div><span className="font-semibold">Dados incompletos: </span>{missing.join(", ")}</div>
+                  </div>
+                ) : null;
+              })()}
+
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</p>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                  <div className="col-span-2 sm:col-span-3">
+                    <dt className="text-xs font-medium text-muted-foreground">Nome</dt>
+                    <dd className="mt-0.5 text-sm font-semibold">{funcDetailData.name}</dd>
+                  </div>
+                  <div><dt className="text-xs font-medium text-muted-foreground">E-mail</dt><dd className="mt-0.5 text-sm">{funcDetailData.email || "—"}</dd></div>
+                  <div><dt className="text-xs font-medium text-muted-foreground">Telefone</dt><dd className="mt-0.5 text-sm">{funcDetailData.phone || "—"}</dd></div>
+                  <div><dt className="text-xs font-medium text-muted-foreground">Status</dt><dd className="mt-0.5">{funcStatusBadge(funcDetailData.status)}</dd></div>
+                  <div><dt className="text-xs font-medium text-muted-foreground">Headcount</dt><dd className="mt-0.5 text-sm">{funcDetailData.headcount}</dd></div>
+                </dl>
+              </div>
+
+              <hr className="border-border/40" />
+
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Organização Interna</p>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                  <div>
+                    <dt className="text-xs font-medium text-muted-foreground">Cargo</dt>
+                    <dd className="mt-0.5 text-sm">{funcDetailData.jobPositionName ? (funcDetailData.jobPositionCode ? `${funcDetailData.jobPositionCode} - ${funcDetailData.jobPositionName}` : funcDetailData.jobPositionName) : "—"}</dd>
+                  </div>
+                  <div><dt className="text-xs font-medium text-muted-foreground">Gestor Direto</dt><dd className="mt-0.5 text-sm">{funcDetailData.gestorDiretoNome || "—"}</dd></div>
+                  <div><dt className="text-xs font-medium text-muted-foreground">Nível do Cargo</dt><dd className="mt-0.5 text-sm">{funcDetailData.nivelHierarquicoNome || "—"}</dd></div>
+                </dl>
+              </div>
+
+              <hr className="border-border/40" />
+
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Integração TOTVS Datasul</p>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                  <div className="col-span-2 sm:col-span-3">
+                    <dt className="text-xs font-medium text-muted-foreground">Unidade de Lotação</dt>
+                    <dd className="mt-0.5 text-sm">{funcDetailData.unidadeLotacaoDescricao ? (funcDetailData.unidadeLotacaoCode ? `${funcDetailData.unidadeLotacaoCode} - ${funcDetailData.unidadeLotacaoDescricao}` : funcDetailData.unidadeLotacaoDescricao) : "—"}</dd>
+                  </div>
+                  <div><dt className="text-xs font-medium text-muted-foreground">Matrícula</dt><dd className="mt-0.5 font-mono text-sm">{funcDetailData.cdnFuncionario || "—"}</dd></div>
+                  <div><dt className="text-xs font-medium text-muted-foreground">Empresa</dt><dd className="mt-0.5 font-mono text-sm">{funcDetailData.cdnEmpresa || "—"}</dd></div>
+                  <div><dt className="text-xs font-medium text-muted-foreground">Estabelecimento</dt><dd className="mt-0.5 font-mono text-sm">{funcDetailData.cdnEstab || "—"}</dd></div>
+                  <div>
+                    <dt className="text-xs font-medium text-muted-foreground">Centro de Custo</dt>
+                    <dd className="mt-0.5 text-sm">{funcDetailData.centroCustoDescricao ? (funcDetailData.centroCustoCode ? `${funcDetailData.centroCustoCode} - ${funcDetailData.centroCustoDescricao}` : funcDetailData.centroCustoDescricao) : "—"}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              {(funcDetailData.notes || funcDetailData.createdAtUtc) && (
+                <>
+                  <hr className="border-border/40" />
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações e Auditoria</p>
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                      {funcDetailData.notes && (
+                        <div className="col-span-2 sm:col-span-3">
+                          <dt className="text-xs font-medium text-muted-foreground">Observações</dt>
+                          <dd className="mt-0.5 text-sm whitespace-pre-line">{funcDetailData.notes}</dd>
+                        </div>
+                      )}
+                      <div><dt className="text-xs font-medium text-muted-foreground">Criado em</dt><dd className="mt-0.5 text-sm">{fmtDateTime(funcDetailData.createdAtUtc)}</dd></div>
+                      <div><dt className="text-xs font-medium text-muted-foreground">Atualizado em</dt><dd className="mt-0.5 text-sm">{fmtDateTime(funcDetailData.updatedAtUtc)}</dd></div>
+                    </dl>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
+
+          {funcDetailTab === "historico" && (
+            <div className="mt-2">
+              {funcHistoryLoading ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">Carregando histórico…</div>
+              ) : funcHistory.length ? (
+                <div className="space-y-2">
+                  {funcHistory.map((h) => (
+                    <div key={h.id} className="rounded-xl border border-border/40 bg-card/50 p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-medium">
+                          {fmtDateTime(h.occurredAt)} — {stateLabel(h.state)}
+                          {h.changedColumns ? <span className="text-muted-foreground"> ({h.changedColumns})</span> : null}
+                        </div>
+                        <div className="text-xs text-muted-foreground">{h.userName ? `por ${h.userName}` : ""}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-6 text-center text-sm text-muted-foreground">Nenhuma alteração registrada.</div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeFuncDetail}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Edit Modal ── */}
       {editOpen && (

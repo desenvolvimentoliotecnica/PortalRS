@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import FuncionarioPerfilPageClient from "./FuncionarioPerfilPageClient";
 
 export function generateStaticParams() {
-    return [{ id: "__" }];
+    return [{ segments: ["__", "perfil"] }];
 }
 
 export default function Page() {

@@ -22,6 +22,10 @@ import {
   UserMinus,
   Palmtree,
   CalendarDays,
+  Heart,
+  MapPin,
+  DollarSign,
+  Users,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import {
@@ -58,16 +62,25 @@ import type { StepperStep } from "@/components/feedback/StepperProgress";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
 import FeriasScreen from "@/features/gestao/ferias/FeriasScreen";
+import DependentesScreen from "@/features/gestao/dependentes/DependentesScreen";
+import BeneficiosScreen from "@/features/gestao/beneficios/BeneficiosScreen";
+import EnderecosScreen from "@/features/gestao/enderecos/EnderecosScreen";
+import PagamentoExtraScreen from "@/features/gestao/pagamento-extra/PagamentoExtraScreen";
 
 /* ─── Tab config ─────────────────────────────────────────── */
 
-type PainelTab = "recrutamento" | "movimentacoes" | "desligamentos" | "ferias";
+type PainelTab = "recrutamento" | "movimentacoes" | "desligamentos" | "ferias"
+  | "dependentes" | "beneficios" | "enderecos" | "pagamento-extra";
 
 const PAINEL_TABS: { id: PainelTab; label: string; icon: React.ElementType }[] = [
-  { id: "recrutamento",  label: "Recrutamento",  icon: Briefcase  },
-  { id: "movimentacoes", label: "Movimentação",  icon: TrendingUp },
-  { id: "desligamentos", label: "Desligamento",  icon: UserMinus  },
-  { id: "ferias",        label: "Férias",        icon: Palmtree   },
+  { id: "recrutamento",   label: "Recrutamento",    icon: Briefcase   },
+  { id: "movimentacoes",  label: "Movimentação",    icon: TrendingUp  },
+  { id: "desligamentos",  label: "Desligamento",    icon: UserMinus   },
+  { id: "ferias",         label: "Férias",          icon: Palmtree    },
+  { id: "dependentes",    label: "Dependentes",     icon: Users       },
+  { id: "beneficios",     label: "Benefícios",      icon: Heart       },
+  { id: "enderecos",      label: "Endereço",        icon: MapPin      },
+  { id: "pagamento-extra", label: "Pagamento Extra", icon: DollarSign },
 ];
 
 /* ─── Types ─────────────────────────────────────────────── */
@@ -144,57 +157,6 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
 }
 
 
-/* ─── KPI Card ─────────────────────────────────────────── */
-
-function KpiCard({
-  label,
-  value,
-  icon: Icon,
-  color,
-  onClick,
-  active,
-}: {
-  label: string;
-  value: number;
-  icon: React.ElementType;
-  color: string;
-  onClick?: () => void;
-  active?: boolean;
-}) {
-  const inner = (
-    <>
-      <div className={`flex size-10 items-center justify-center rounded-lg ${color}`}>
-        <Icon className="size-5" />
-      </div>
-      <div>
-        <div className="text-2xl font-bold tabular-nums">{value}</div>
-        <div className="text-xs text-muted-foreground">{label}</div>
-      </div>
-    </>
-  );
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        title={`Filtrar por: ${label}`}
-        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 shadow-sm text-left transition-colors hover:bg-muted/40 ${
-          active
-            ? "border-primary bg-primary/5"
-            : "border-border/40 bg-card"
-        }`}
-      >
-        {inner}
-      </button>
-    );
-  }
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-card px-4 py-3 shadow-sm">
-      {inner}
-    </div>
-  );
-}
-
 /* ─── Recrutamento tab content (Talent Pipeline) ─────────── */
 
 function RecrutamentoContent() {
@@ -209,7 +171,21 @@ function RecrutamentoContent() {
   const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
 
   const [filaRh, setFilaRh] = useState<FilaRhItem[]>([]);
-  const [filaRhOpen, setFilaRhOpen] = useState(true);
+  const FILA_RH_KEY = "workflow-rh:fila-rh-open";
+  const [filaRhOpen, setFilaRhOpen] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(FILA_RH_KEY);
+    if (stored !== null) setFilaRhOpen(stored === "true");
+  }, []);
+
+  function toggleFilaRh() {
+    setFilaRhOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem(FILA_RH_KEY, String(next));
+      return next;
+    });
+  }
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -250,18 +226,6 @@ function RecrutamentoContent() {
     fetchList();
     fetchFilaRh();
   }, [fetchList, fetchFilaRh]);
-
-  const kpis = useMemo(() => {
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    return {
-      aguardando:   items.filter((i) => i.status === 0).length,
-      emAndamento:  items.filter((i) => i.status === 1).length,
-      slaExcedido:  items.filter((i) => i.slaExcedido && i.status !== 2 && i.status !== 3).length,
-      concluidos30d: items.filter(
-        (i) => i.status === 2 && new Date(i.createdAtUtc).getTime() > thirtyDaysAgo,
-      ).length,
-    };
-  }, [items]);
 
   const pipelineSteps = useMemo<StepperStep[]>(() => {
     const activeItems = items.filter((i) => i.status === 0 || i.status === 1);
@@ -328,42 +292,6 @@ function RecrutamentoContent() {
         </Button>
       </div>
 
-      {/* KPI Cards — clicáveis como atalho de filtro (J3) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard
-          label="Aguardando Início"
-          value={kpis.aguardando}
-          icon={PauseCircle}
-          color="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-          active={statusFilter.includes("0")}
-          onClick={() => setStatusFilter(prev => prev.includes("0") ? prev.filter(s => s !== "0") : [...prev, "0"])}
-        />
-        <KpiCard
-          label="Em Andamento"
-          value={kpis.emAndamento}
-          icon={PlayCircle}
-          color="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300"
-          active={statusFilter.includes("1")}
-          onClick={() => setStatusFilter(prev => prev.includes("1") ? prev.filter(s => s !== "1") : [...prev, "1"])}
-        />
-        <KpiCard
-          label="SLA Excedido"
-          value={kpis.slaExcedido}
-          icon={AlertTriangle}
-          color="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300"
-          active={statusFilter.includes("sla")}
-          onClick={() => setStatusFilter(prev => prev.includes("sla") ? prev.filter(s => s !== "sla") : [...prev, "sla"])}
-        />
-        <KpiCard
-          label="Concluídos (30d)"
-          value={kpis.concluidos30d}
-          icon={CheckCircle2}
-          color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300"
-          active={statusFilter.includes("2")}
-          onClick={() => setStatusFilter(prev => prev.includes("2") ? prev.filter(s => s !== "2") : [...prev, "2"])}
-        />
-      </div>
-
       {/* Pipeline Visual */}
       {pipelineSteps.length > 0 && (
         <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
@@ -380,7 +308,7 @@ function RecrutamentoContent() {
           <button
             type="button"
             className="flex w-full items-center justify-between px-4 py-3 text-left"
-            onClick={() => setFilaRhOpen(!filaRhOpen)}
+            onClick={toggleFilaRh}
           >
             <div className="flex items-center gap-2">
               <Briefcase className="size-4 text-amber-600" />
@@ -598,8 +526,63 @@ function RecrutamentoContent() {
               </TableRow>
             ))}
 
+            {/* Fila RH rows — vagas aguardando ação do RH */}
+            {!loading && filaRh.map((item) => {
+              const days = daysSince(item.createdAtUtc);
+              const meta = urgenciaMeta(item.urgencia ?? 0);
+              const isUrgent = days > 7 || item.alertaHCProvVencido;
+              const hasPendente = (item.headcountPendente ?? 0) > 0;
+              return (
+                <TableRow
+                  key={`fila-${item.id}`}
+                  className={`cursor-pointer border-l-4 ${isUrgent ? "border-red-400 bg-red-50/40 hover:bg-red-50/60 dark:bg-red-900/10 dark:hover:bg-red-900/20" : "border-amber-400 bg-amber-50/40 hover:bg-amber-50/60 dark:bg-amber-900/10 dark:hover:bg-amber-900/20"}`}
+                  onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(item.id)}`)}
+                >
+                  <TableCell className="font-medium">
+                    <div className="truncate max-w-[200px]">{item.titulo}</div>
+                    {item.areaName && <div className="text-xs text-muted-foreground truncate">{item.areaName}</div>}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Briefcase className="size-3.5 text-amber-600" />
+                      <span className="text-amber-700 font-medium">Contratação</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                      <AlertTriangle className="size-3" />
+                      Aguarda RH
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs text-muted-foreground italic">—</span>
+                  </TableCell>
+                  <TableCell className="text-sm text-amber-700">Ação do RH necessária</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">—</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className={`text-xs font-medium ${isUrgent ? "text-red-600" : "text-muted-foreground"}`}>{days}d atrás</span>
+                      {hasPendente && (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                          +{item.headcountPendente} HC pend.
+                        </span>
+                      )}
+                      {item.alertaHCProvVencido && (
+                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          HC Prov. Vencido
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                    {new Date(item.createdAtUtc).toLocaleDateString("pt-BR")}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+
             {/* J2 — Rich empty state */}
-            {!loading && filteredItems.length === 0 && (
+            {!loading && filteredItems.length === 0 && filaRh.length === 0 && (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={8} className="py-4">
                   <EmptyState
@@ -691,34 +674,6 @@ export default function WorkflowRHScreen() {
     (searchParams.get("tab") as PainelTab) ?? "recrutamento"
   );
 
-  /* ── Pending counts ── */
-  const [pendingCounts, setPendingCounts] = useState<{
-    desligamentos: number;
-    movimentacoes: number;
-    ferias: number;
-  }>({ desligamentos: 0, movimentacoes: 0, ferias: 0 });
-
-  useEffect(() => {
-    const fetchCount = async (url: string): Promise<number> => {
-      try {
-        const res = await apiFetch(url);
-        if (!res.ok) return 0;
-        const data = (await res.json()) as unknown[];
-        return Array.isArray(data) ? data.length : 0;
-      } catch {
-        return 0;
-      }
-    };
-
-    Promise.all([
-      fetchCount("/api/solicitacoes-desligamento?status=1&pageSize=200"),
-      fetchCount("/api/solicitacoes-promocao?status=1&pageSize=200"),
-      fetchCount("/api/colaborador/solicitacoes-ferias?status=1&pageSize=200"),
-    ]).then(([desligamentos, movimentacoes, ferias]) => {
-      setPendingCounts({ desligamentos, movimentacoes, ferias });
-    }).catch(() => { });
-  }, []);
-
   function handleTabChange(tab: PainelTab) {
     setActiveTab(tab);
     router.replace(`/painel-rh?tab=${tab}`, { scroll: false });
@@ -726,33 +681,6 @@ export default function WorkflowRHScreen() {
 
   return (
     <div className="space-y-4">
-      {/* ── Pending counts cards ── */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Desligamentos pendentes", count: pendingCounts.desligamentos, tab: "desligamentos" as PainelTab, color: "bg-red-500/10 text-red-600", icon: UserMinus },
-          { label: "Movimentações pendentes", count: pendingCounts.movimentacoes, tab: "movimentacoes" as PainelTab, color: "bg-amber-500/10 text-amber-700", icon: TrendingUp },
-          { label: "Férias pendentes",        count: pendingCounts.ferias,        tab: "ferias"        as PainelTab, color: "bg-sky-500/10 text-sky-700",   icon: Palmtree  },
-        ].map((c) => {
-          const Icon = c.icon;
-          return (
-            <button
-              key={c.tab}
-              type="button"
-              onClick={() => handleTabChange(c.tab)}
-              className="flex items-center gap-3 rounded-xl border border-border/40 bg-card/60 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
-            >
-              <div className={`flex size-9 items-center justify-center rounded-lg ${c.color}`}>
-                <Icon className="size-4" />
-              </div>
-              <div>
-                <div className="text-xl font-bold tabular-nums">{c.count}</div>
-                <div className="text-xs text-muted-foreground">{c.label}</div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
       {/* Tab bar */}
       <div className="flex gap-1 border-b border-border/40">
         {PAINEL_TABS.map((tab) => {
@@ -777,10 +705,14 @@ export default function WorkflowRHScreen() {
       </div>
 
       {/* Tab content */}
-      {activeTab === "recrutamento"  && <RecrutamentoContent />}
-      {activeTab === "movimentacoes" && <PromocoesScreen />}
-      {activeTab === "desligamentos" && <DesligamentosScreen />}
-      {activeTab === "ferias"        && <FeriasScreen />}
+      {activeTab === "recrutamento"    && <RecrutamentoContent />}
+      {activeTab === "movimentacoes"   && <PromocoesScreen />}
+      {activeTab === "desligamentos"   && <DesligamentosScreen />}
+      {activeTab === "ferias"          && <FeriasScreen />}
+      {activeTab === "dependentes"     && <DependentesScreen />}
+      {activeTab === "beneficios"      && <BeneficiosScreen />}
+      {activeTab === "enderecos"       && <EnderecosScreen />}
+      {activeTab === "pagamento-extra" && <PagamentoExtraScreen />}
     </div>
   );
 }

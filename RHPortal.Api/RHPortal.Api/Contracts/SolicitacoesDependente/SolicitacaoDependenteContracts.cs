@@ -51,5 +51,8 @@ public sealed class SolicitacaoDependenteApprovalRequest
 public sealed record SolicitacaoDependenteGridRow(
     Guid Id, SolicitacaoStatus Status, string? SolicitanteNome,
     TipoSolicitacaoDependente TipoSolicitacao, string NomeCompleto,
-    Parentesco Parentesco, DateTimeOffset CreatedAtUtc
+    Parentesco Parentesco, DateTimeOffset CreatedAtUtc,
+    string? EtapaPendenteLabel, string? EtapaPendenteCom,
+    bool EtapaPendenteIsQueue, Guid? EtapaPendenteAprovadorId,
+    bool EtapaPendenteCanAssume
 );
