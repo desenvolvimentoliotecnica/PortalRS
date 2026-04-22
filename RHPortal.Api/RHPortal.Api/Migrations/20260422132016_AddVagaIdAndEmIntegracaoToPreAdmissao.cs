@@ -12,9 +12,18 @@ namespace RhPortal.Api.Migrations
         {
             migrationBuilder.Sql("""
                 ALTER TABLE "PreAdmissoes" ADD COLUMN IF NOT EXISTS "VagaId" uuid NULL;
-                ALTER TABLE "PreAdmissoes"
-                    ADD CONSTRAINT IF NOT EXISTS "FK_PreAdmissoes_Vagas_VagaId"
-                    FOREIGN KEY ("VagaId") REFERENCES "Vagas"("Id") ON DELETE SET NULL;
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'FK_PreAdmissoes_Vagas_VagaId'
+                          AND conrelid = '"PreAdmissoes"'::regclass
+                    ) THEN
+                        ALTER TABLE "PreAdmissoes"
+                            ADD CONSTRAINT "FK_PreAdmissoes_Vagas_VagaId"
+                            FOREIGN KEY ("VagaId") REFERENCES "Vagas"("Id") ON DELETE SET NULL;
+                    END IF;
+                END $$;
                 CREATE INDEX IF NOT EXISTS "IX_PreAdmissoes_VagaId"
                     ON "PreAdmissoes" ("VagaId") WHERE "VagaId" IS NOT NULL;
                 """);
