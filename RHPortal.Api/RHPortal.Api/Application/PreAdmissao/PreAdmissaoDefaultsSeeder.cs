@@ -5,21 +5,17 @@ using RhPortal.Api.Infrastructure.Data;
 namespace RhPortal.Api.Application.PreAdmissao;
 
 /// <summary>
-/// Preenche defaults obrigatórios do TOTVS/Datasul na pré-admissão recém-criada.
+/// Responsável APENAS por:
+/// 1. Resolver <c>CodEmpresa</c> automaticamente a partir da tabela <see cref="Empresa"/> do tenant
+///    — RH não precisa saber o código técnico da empresa pra cada nova admissão.
+/// 2. Normalizar códigos de país (ex: "Brasil" → "BRA") pra prevenir erro no Datasul caso a UI
+///    ou uma integração externa envie o nome por extenso.
 ///
-/// Motivação: muitos campos exigidos pelo Datasul são constantes de negócio para
-/// uma admissão CLT brasileira padrão (país=BRA, optanteFGTS=S, recolheINSS=S, etc.).
-/// Deixar o RH ou o candidato preencher gera erro recorrente de integração. Esse
-/// seeder aplica os valores só quando ainda estão nulos — RH pode editar depois
-/// pelo wizard se for um caso especial (ex: funcionário cedido no exterior).
-///
-/// Chamado em <see cref="PreAdmissaoService.CreateAsync"/> logo após o Add.
+/// Nenhum outro campo é preenchido automaticamente. Todos os dados obrigatórios TOTVS/eSocial
+/// precisam ser preenchidos pelo RH via wizard — cada funcionário tem seu próprio contexto.
 /// </summary>
 public static class PreAdmissaoDefaultsSeeder
 {
-    /// <summary>
-    /// Aplica os defaults. Mutável — altera a entidade recebida.
-    /// </summary>
     public static async Task ApplyAsync(
         Domain.Entities.PreAdmissao e,
         AppDbContext db,
@@ -58,78 +54,29 @@ public static class PreAdmissaoDefaultsSeeder
                 .OrderBy(x => x.Code)
                 .Select(x => x.Code)
                 .FirstOrDefaultAsync(ct);
-            e.CodEmpresa = empresaCode ?? "1";
+            if (!string.IsNullOrWhiteSpace(empresaCode))
+                e.CodEmpresa = empresaCode;
         }
 
-        e.PaisNacionalidade = NormalizePais(e.PaisNacionalidade);
-        e.PaisNascimento    = NormalizePais(e.PaisNascimento);
-        e.PaisLocalidade    = NormalizePais(e.PaisLocalidade);
-        e.TipoLogradouroESocial ??= "R"; // RUA
-
-        // --- Flags S/N que o Datasul exige preenchidas ---
-        e.OptanteFgts   ??= "S";
-        e.RecolheFgts   ??= "S";
-        e.RecolheInss   ??= "S";
-        e.Sindicalizado ??= "N";
-        e.ResideExterior ??= "N";
-
-        // Flags de cálculo — default positivo para admissão CLT padrão
-        e.CargaAutomTurno   ??= "S";
-        e.ConsidEmissRAIS   ??= "S";
-        e.Calcula13         ??= "S";
-        e.RecebeFerias      ??= "S";
-
-        // Adicionais — default negativo (RH marca se aplicar)
-        e.RecebePericul        ??= "N";
-        e.RecebeInsalub        ??= "N";
-        e.RecebeAdiantamento   ??= "N";
-        e.DescContribSindical  ??= "N";
-
-        // --- Ponto eletrônico ---
-        // Datasul aceita "1" (emite) ou "2" (não emite). Default "2" (não emite).
-        if (string.IsNullOrWhiteSpace(e.EmitCartPonto))
-            e.EmitCartPonto = "2";
-
-        // --- Estatística / eSocial ---
-        e.TipoEstatistica         ??= 1;  // Normal
-        e.CategoriaTrabalhoESocial ??= 101; // Empregado - Geral
-        e.IndAdmissao             ??= 1;  // Admissão normal
-        e.TipoAdmissaoESocial     ??= 1;
-        e.RegimeTrabalhista       ??= 1;  // CLT
-        e.RegimePrevidenciario    ??= 1;  // RGPS
-        e.RegimeJornada           ??= 1;  // Submetido a horário de trabalho
-
-        // --- Origem funcionário (default brasileiro) ---
-        e.OrigemFuncionario ??= 1;
-
-        // --- Documento Militar ---
-        // Datasul rejeita com "iDocMilitarTipo nao pode ser menor que 1" mesmo para
-        // candidatas mulheres ou maiores de 45 anos. Valor neutro = 1 (Cert. Reservista)
-        // como fallback seguro; RH corrige manualmente quando aplicável.
-        e.DocMilitarTipo        ??= 1;
-        e.DocMilitarRegiao      ??= 1;
-        e.DocMilitarCircunscricao ??= 1;
-
-        // --- Estrangeiro / Visto ---
-        // Datasul exige >= 1 mesmo para brasileiros; default 1 (passaporte comum).
-        e.TipoVistoEstrangeiro  ??= 1;
-
-        // --- CAGED (ocorrência de movimentação eSocial) ---
-        // 1 = admissão normal (default para novo funcionário).
-        e.OcorrenciaCAGED       ??= 1;
+        // Normalização defensiva — se o RH digitar "Brasil" no input de país, converte pra "BRA".
+        // NÃO preenche quando o campo vem null/vazio; validator cobrará do RH.
+        if (!string.IsNullOrWhiteSpace(e.PaisNacionalidade))
+            e.PaisNacionalidade = NormalizePais(e.PaisNacionalidade);
+        if (!string.IsNullOrWhiteSpace(e.PaisNascimento))
+            e.PaisNascimento = NormalizePais(e.PaisNascimento);
+        if (!string.IsNullOrWhiteSpace(e.PaisLocalidade))
+            e.PaisLocalidade = NormalizePais(e.PaisLocalidade);
     }
 
     /// <summary>
-    /// Normaliza nome de país para código ISO 3166-1 alpha-3 (ex: "Brasil" → "BRA").
-    /// TOTVS Datasul aceita o código de 3 letras, não o nome. Se vier null ou vazio,
-    /// aplica "BRA" como default brasileiro. Nomes desconhecidos são retornados em
-    /// uppercase (3 primeiras letras) — o Datasul rejeita, mas o erro fica claro.
+    /// Converte nome de país para código ISO 3166-1 alpha-3. "Brasil" → "BRA",
+    /// "Argentina" → "ARG". Aceita input case-insensitive.
+    /// Se já estiver em formato ISO-3 válido, retorna como recebido (uppercase).
     /// </summary>
     private static string? NormalizePais(string? valor)
     {
-        if (string.IsNullOrWhiteSpace(valor)) return "BRA";
+        if (string.IsNullOrWhiteSpace(valor)) return valor;
         var t = valor.Trim().ToUpperInvariant();
-        // Se já for código ISO (3 chars), retorna como está.
         if (t.Length == 3) return t;
         return t switch
         {

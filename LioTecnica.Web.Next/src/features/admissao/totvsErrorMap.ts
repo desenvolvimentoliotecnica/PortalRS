@@ -93,6 +93,31 @@ export const TOTVS_FIELD_MAP: Record<string, TotvsFieldMeta> = {
     DocMilitarRegiao:       { label: "Região Militar",         formField: "docMilitarRegiao",      stepIndex: STEP_INDEX.trabalhista },
     DocMilitarCircunscricao:{ label: "Circunscrição Militar",  formField: "docMilitarCircunscricao", stepIndex: STEP_INDEX.trabalhista },
     OcorrenciaCAGED:        { label: "Ocorrência CAGED",       formField: "ocorrenciaCAGED",       stepIndex: STEP_INDEX.trabalhista },
+
+    // Empresa (código TOTVS — step Trabalhista)
+    CodEmpresa:             { label: "Empresa",                formField: "codEmpresa",            stepIndex: STEP_INDEX.trabalhista },
+
+    // Encargos / eSocial (antes eram default, agora RH preenche — step "encargos")
+    OptanteFgts:            { label: "Optante FGTS",           formField: "optanteFgts",           stepIndex: STEP_INDEX.encargos },
+    RecolheFgts:            { label: "Recolhe FGTS",           formField: "recolheFgts",           stepIndex: STEP_INDEX.encargos },
+    RecolheInss:            { label: "Recolhe INSS",           formField: "recolheInss",           stepIndex: STEP_INDEX.encargos },
+    Sindicalizado:          { label: "Sindicalizado",          formField: "sindicalizado",         stepIndex: STEP_INDEX.encargos },
+    DescContribSindical:    { label: "Desc. Contrib. Sindical",formField: "descContribSindical",   stepIndex: STEP_INDEX.encargos },
+    ResideExterior:         { label: "Reside no Exterior",     formField: "resideExterior",        stepIndex: STEP_INDEX.encargos },
+    CargaAutomTurno:        { label: "Carga Autom. Turno",     formField: "cargaAutomTurno",       stepIndex: STEP_INDEX.encargos },
+    Calcula13:              { label: "Calcula 13º",             formField: "calcula13",             stepIndex: STEP_INDEX.encargos },
+    RecebeFerias:           { label: "Recebe Férias",          formField: "recebeFerias",          stepIndex: STEP_INDEX.encargos },
+    ConsidEmissRAIS:        { label: "Considera RAIS",         formField: "considEmissRAIS",       stepIndex: STEP_INDEX.encargos },
+    RecebePericul:          { label: "Periculosidade",         formField: "recebePericul",         stepIndex: STEP_INDEX.encargos },
+    RecebeInsalub:          { label: "Insalubridade",          formField: "recebeInsalub",         stepIndex: STEP_INDEX.encargos },
+    RecebeAdiantamento:     { label: "Adiantamento",           formField: "recebeAdiantamento",    stepIndex: STEP_INDEX.encargos },
+    TipoLogradouroESocial:  { label: "Tipo Logradouro eSocial",formField: "tipoLogradouroESocial", stepIndex: STEP_INDEX.encargos },
+    CategoriaTrabalhoESocial:{ label: "Cat. Trabalhador eSocial", formField: "categoriaTrabalhoESocial", stepIndex: STEP_INDEX.encargos },
+    IndAdmissao:            { label: "Ind. Admissão",          formField: "indAdmissao",           stepIndex: STEP_INDEX.encargos },
+    TipoAdmissaoESocial:    { label: "Tipo Admissão eSocial",  formField: "tipoAdmissaoESocial",   stepIndex: STEP_INDEX.encargos },
+    RegimeTrabalhista:      { label: "Regime Trabalhista",     formField: "regimeTrabalhista",     stepIndex: STEP_INDEX.encargos },
+    RegimePrevidenciario:   { label: "Regime Previdenciário",  formField: "regimePrevidenciario",  stepIndex: STEP_INDEX.encargos },
+    RegimeJornada:          { label: "Regime Jornada",         formField: "regimeJornada",         stepIndex: STEP_INDEX.encargos },
 };
 
 export interface TotvsValidationIssue {
