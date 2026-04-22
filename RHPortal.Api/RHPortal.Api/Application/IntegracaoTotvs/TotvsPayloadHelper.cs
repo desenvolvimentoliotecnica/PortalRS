@@ -47,6 +47,18 @@ public static class TotvsPayloadHelper
         dateTime?.UtcDateTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
+    /// Data no formato brasileiro compacto <c>ddMMyyyy</c> (sem separadores) —
+    /// usado pelo TOTVS Datasul na API <c>apisfrescisao.p</c> (rescisão/desligamento).
+    /// Retorna string vazia quando data é nula (Datasul aceita "" como "sem data").
+    /// </summary>
+    /// <example>DateOnly(2026,4,16) → "16042026"</example>
+    public static string FormatDateBr(DateOnly? date) =>
+        date?.ToString("ddMMyyyy", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+
+    public static string FormatDateBr(DateTimeOffset? dateTime) =>
+        dateTime?.UtcDateTime.ToString("ddMMyyyy", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+
+    /// <summary>
     /// Converte data legada armazenada como int no formato <c>ddMMyyyy</c> para ISO <c>yyyy-MM-dd</c>.
     /// Retorna null se o valor for 0, nulo ou não puder ser parseado.
     /// </summary>

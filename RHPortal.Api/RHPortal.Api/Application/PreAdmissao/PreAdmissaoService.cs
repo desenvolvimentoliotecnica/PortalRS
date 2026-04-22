@@ -551,6 +551,11 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Email = email,
             Phone = pa.Celular ?? pa.Telefone,
             Status = FuncionarioStatus.Active,
+            // Headcount = 1: representa uma posição ocupada — valor padrão para funcionário
+            // ativo. Sem isso (0), o Funcionario fica invisível em relatórios de headcount
+            // e bloqueia fluxos posteriores (ex: solicitação de desligamento que espera
+            // ocupação > 0).
+            Headcount = 1,
             UserId = userId,
             UnitId = pa.UnitId,
             AreaId = pa.AreaId,
