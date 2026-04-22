@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RhPortal.Api.Infrastructure.Data;
 
 #nullable disable
 
-namespace RHPortal.Api.Migrations
+namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260420181606_AddRegIdentidCivilToPreAdmissao")]
+    partial class AddRegIdentidCivilToPreAdmissao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3377,7 +3380,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("FuncionarioId");
 
-                    b.ToTable("DadosBancarios", (string)null);
+                    b.ToTable("DadosBancarios");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Department", b =>
@@ -4744,7 +4747,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("FuncionarioId");
 
-                    b.ToTable("Holerites", (string)null);
+                    b.ToTable("Holerites");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.InboxAnexo", b =>
@@ -5289,7 +5292,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("NiveisCargo", (string)null);
+                    b.ToTable("NiveisCargo");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.NivelHierarquico", b =>
@@ -7162,7 +7165,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesBeneficio", (string)null);
+                    b.ToTable("SolicitacoesBeneficio");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDependente", b =>
@@ -7243,7 +7246,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesDependente", (string)null);
+                    b.ToTable("SolicitacoesDependente");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDesligamento", b =>
@@ -7343,7 +7346,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("UnitId");
 
-                    b.ToTable("SolicitacoesDesligamento", (string)null);
+                    b.ToTable("SolicitacoesDesligamento");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoEndereco", b =>
@@ -7422,7 +7425,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesEndereco", (string)null);
+                    b.ToTable("SolicitacoesEndereco");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoFerias", b =>
@@ -7497,7 +7500,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesFerias", (string)null);
+                    b.ToTable("SolicitacoesFerias");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoPagamentoExtra", b =>
@@ -7599,7 +7602,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesPagamentoExtra", (string)null);
+                    b.ToTable("SolicitacoesPagamentoExtra");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoPromocao", b =>
@@ -7731,7 +7734,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasIndex("UnitId");
 
-                    b.ToTable("SolicitacoesPromocao", (string)null);
+                    b.ToTable("SolicitacoesPromocao");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoVaga", b =>
@@ -8507,7 +8510,7 @@ namespace RHPortal.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TenantAwsSettings", (string)null);
+                    b.ToTable("TenantAwsSettings");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantConfiguracao", b =>

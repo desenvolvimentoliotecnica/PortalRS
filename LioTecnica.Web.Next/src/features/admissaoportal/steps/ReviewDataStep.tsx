@@ -46,6 +46,22 @@ const BANKS = [
 ];
 
 // Cache por UF: { "SP": ["São Paulo", "Campinas", ...], ... }
+/**
+ * TOTVS Datasul aceita país só em ISO 3166-1 alpha-3 (3 letras).
+ * Nomes por extenso ("Brasil") causam "Pais inexistente" no Datasul.
+ * Converte nomes comuns em PT/EN para o código ISO.
+ */
+function normalizePaisIso3Portal(v: string): string {
+    const t = v.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+    const mapa: Record<string, string> = {
+        BRASIL: "BRA", BRAZIL: "BRA", BR: "BRA",
+        ARGENTINA: "ARG", URUGUAI: "URY", PARAGUAI: "PRY", CHILE: "CHL",
+        "ESTADOS UNIDOS": "USA", "UNITED STATES": "USA", PORTUGAL: "PRT",
+    };
+    if (mapa[t]) return mapa[t];
+    return t.slice(0, 3);
+}
+
 const ibgeCacheByUf: Record<string, string[]> = {};
 const ibgeFetchingUf: Record<string, Promise<void>> = {};
 
@@ -68,20 +84,22 @@ const GRAU_INSTRUCAO_OPTIONS = [
     { value: 7, label: "Superior Completo" }, { value: 8, label: "Pos-Graduacao" },
     { value: 9, label: "Mestrado" }, { value: 10, label: "Doutorado" },
 ];
+// Códigos alinhados com eSocial / AdmissaoWizardScreen (não trocar 2 e 3 sob pena
+// de candidato selecionar "Preta" e chegar "Parda" ao Datasul — bug histórico corrigido).
 const CUTIS_OPTIONS = [
-    { value: 1, label: "Branca" }, { value: 2, label: "Parda" },
-    { value: 3, label: "Preta" }, { value: 4, label: "Amarela" }, { value: 5, label: "Indigena" },
+    { value: 1, label: "Branca" }, { value: 2, label: "Preta" },
+    { value: 3, label: "Parda" }, { value: 4, label: "Amarela" }, { value: 5, label: "Indigena" },
 ];
 const ORIGEM_FUNCIONARIO_OPTIONS = [
     { value: 1, label: "Brasileiro" }, { value: 2, label: "Naturalizado" }, { value: 3, label: "Estrangeiro" },
 ];
 const CABELO_OPTIONS = [
-    { value: 1, label: "Preto" }, { value: 2, label: "Castanho" },
+    { value: 1, label: "Castanho" }, { value: 2, label: "Preto" },
     { value: 3, label: "Loiro" }, { value: 4, label: "Ruivo" }, { value: 5, label: "Grisalho" },
 ];
 const OLHOS_OPTIONS = [
-    { value: 1, label: "Castanho" }, { value: 2, label: "Azul" },
-    { value: 3, label: "Verde" }, { value: 4, label: "Preto" },
+    { value: 1, label: "Castanho" }, { value: 2, label: "Preto" },
+    { value: 3, label: "Azul" }, { value: 4, label: "Verde" },
 ];
 
 interface Props {
@@ -132,6 +150,12 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                         if (d.bairro) set("bairro", d.bairro);
                         if (d.localidade) set("cidade", d.localidade);
                         if (d.uf) set("uf", d.uf);
+                        // Código IBGE do município (obrigatório TOTVS/eSocial).
+                        // ViaCEP retorna como string; TOTVS armazena como int.
+                        if (d.ibge) {
+                            const ibgeNum = Number(d.ibge);
+                            if (Number.isFinite(ibgeNum)) set("municipioEnderecoIbge", ibgeNum);
+                        }
                     }
                 }).catch(() => {});
         }
@@ -156,14 +180,40 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="Orgao Expedidor" field="rgOrgaoExpedidor" form={formData} set={set} disabled={disabled} required />
                     <AutocompleteField label="UF Expedidor RG" field="rgUfExpedidor" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
                     <Field label="Data Emissao RG" field="rgDataExpedicao" form={formData} set={set} disabled={disabled} type="date" required />
+
+                    {/* RIC — Registro Identidade Civil (obrigatório TOTVS/Datasul) */}
+                    <Field label="RIC (Numero Reg. Identidade Civil)" field="regIdentidCivilNumero" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Orgao Emissor RIC" field="regIdentidCivilOrgEmiss" form={formData} set={set} disabled={disabled} placeholder="SSP" required />
+                    <AutocompleteField label="UF RIC" field="regIdentidCivilUf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
+                    <Field label="Cidade RIC" field="regIdentidCivilCidade" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Data Expedicao RIC" field="regIdentidCivilDataExped" form={formData} set={set} disabled={disabled} type="date" />
+
                     <Field label="Data de Nascimento" field="dataNascimento" form={formData} set={set} disabled={disabled} type="date" required />
                     <SelectField label="Sexo" field="sexo" form={formData} set={set} disabled={disabled} options={SEXO_OPTIONS} cls={selectCls} required />
                     <SelectField label="Estado Civil" field="estadoCivil" form={formData} set={set} disabled={disabled} options={ESTADO_CIVIL_OPTIONS} cls={selectCls} required />
                     <Field label="Nacionalidade" field="nacionalidade" form={formData} set={set} disabled={disabled} placeholder="Brasileira" required />
-                    <Field label="Pais da Nacionalidade" field="paisNacionalidade" form={formData} set={set} disabled={disabled} placeholder="BRA" required />
+                    <FieldWrapper label="Pais Nacionalidade (ISO 3 letras)" field="paisNacionalidade" form={formData} required>
+                        <Input
+                            value={String(formData.paisNacionalidade ?? "")}
+                            onChange={e => set("paisNacionalidade", normalizePaisIso3Portal(e.target.value))}
+                            placeholder="BRA"
+                            maxLength={3}
+                            disabled={disabled}
+                            className="h-11"
+                        />
+                    </FieldWrapper>
                     <CityField label="Cidade de Nascimento" field="naturalCidade" ufField="naturalUf" form={formData} set={set} disabled={disabled} required />
                     <AutocompleteField label="UF de Nascimento" field="naturalUf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
-                    <Field label="Pais de Nascimento" field="paisNascimento" form={formData} set={set} disabled={disabled} placeholder="BRA" required />
+                    <FieldWrapper label="Pais de Nascimento (ISO 3 letras)" field="paisNascimento" form={formData} required>
+                        <Input
+                            value={String(formData.paisNascimento ?? "")}
+                            onChange={e => set("paisNascimento", normalizePaisIso3Portal(e.target.value))}
+                            placeholder="BRA"
+                            maxLength={3}
+                            disabled={disabled}
+                            className="h-11"
+                        />
+                    </FieldWrapper>
                     <Field label="Nome da Mae" field="nomeMae" form={formData} set={set} disabled={disabled} required />
                     <Field label="Nome do Pai" field="nomePai" form={formData} set={set} disabled={disabled} />
                     <SelectField label="Escolaridade" field="grauInstrucao" form={formData} set={set} disabled={disabled} options={GRAU_INSTRUCAO_OPTIONS} cls={selectCls} required />
@@ -261,11 +311,11 @@ export default function ReviewDataStep({ session, disabled }: Props) {
             <Section title="Documento Militar / Reservista">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Numero Reservista" field="reservistaNumero" form={formData} set={set} disabled={disabled} />
-                    <SelectField label="Tipo Doc Militar" field="docMilitarTipo" form={formData} set={set} disabled={disabled} options={[{value:1,label:"Cert. Reservista"},{value:2,label:"Cert. Dispensa"},{value:3,label:"Cert. Alistamento"}]} cls={selectCls} />
+                    <SelectField label="Tipo Doc Militar *" field="docMilitarTipo" form={formData} set={set} disabled={disabled} options={[{value:1,label:"Cert. Reservista"},{value:2,label:"Cert. Dispensa"},{value:3,label:"Cert. Alistamento"}]} cls={selectCls} />
                     <Field label="Numero" field="docMilitarNumero" form={formData} set={set} disabled={disabled} />
                     <Field label="Serie" field="docMilitarSerie" form={formData} set={set} disabled={disabled} />
-                    <Field label="Regiao" field="docMilitarRegiao" form={formData} set={set} disabled={disabled} type="number" />
-                    <Field label="Circunscricao" field="docMilitarCircunscricao" form={formData} set={set} disabled={disabled} type="number" />
+                    <Field label="Regiao *" field="docMilitarRegiao" form={formData} set={set} disabled={disabled} type="number" />
+                    <Field label="Circunscricao *" field="docMilitarCircunscricao" form={formData} set={set} disabled={disabled} type="number" />
                 </div>
             </Section>
 
@@ -275,7 +325,9 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="Passaporte" field="passaporte" form={formData} set={set} disabled={disabled} />
                     <Field label="RNM/RNE" field="rnmRne" form={formData} set={set} disabled={disabled} />
                     <Field label="Validade do Visto" field="validadeVisto" form={formData} set={set} disabled={disabled} type="date" />
-                    <Field label="Tipo de Visto" field="tipoVisto" form={formData} set={set} disabled={disabled} />
+                    <Field label="Tipo de Visto (texto)" field="tipoVisto" form={formData} set={set} disabled={disabled} />
+                    <SelectField label="Tipo Visto Estrangeiro (TOTVS) *" field="tipoVistoEstrangeiro" form={formData} set={set} disabled={disabled} options={[{value:1,label:"1 - Passaporte Comum"},{value:2,label:"2 - Temporário"},{value:3,label:"3 - Permanente"},{value:4,label:"4 - Oficial/Diplomático"},{value:5,label:"5 - Outros"}]} cls={selectCls} />
+                    <SelectField label="Ocorrência CAGED *" field="ocorrenciaCAGED" form={formData} set={set} disabled={disabled} options={[{value:1,label:"1 - Admissão Normal"},{value:2,label:"2 - Reintegração"},{value:3,label:"3 - Reemprego"},{value:4,label:"4 - Transferência Entrada"},{value:5,label:"5 - Trabalho Temporário"}]} cls={selectCls} />
                 </div>
             </Section>
 

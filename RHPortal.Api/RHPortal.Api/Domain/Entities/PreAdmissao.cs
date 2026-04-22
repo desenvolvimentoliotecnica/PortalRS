@@ -91,6 +91,21 @@ public sealed class PreAdmissao : ITenantEntity
     [StringLength(60)]
     public string? TipoVisto { get; set; }
 
+    // ── RIC (Registro Identidade Civil — novo documento que substitui o RG) ──
+    [StringLength(20)]
+    public string? RegIdentidCivilNumero { get; set; }
+
+    [StringLength(2)]
+    public string? RegIdentidCivilUf { get; set; }
+
+    [StringLength(120)]
+    public string? RegIdentidCivilCidade { get; set; }
+
+    [StringLength(20)]
+    public string? RegIdentidCivilOrgEmiss { get; set; }
+
+    public DateOnly? RegIdentidCivilDataExped { get; set; }
+
     // ── Endereço ──
 
     [StringLength(10)]

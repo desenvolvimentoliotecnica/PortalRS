@@ -30,6 +30,11 @@ export interface PreAdmissaoFormLike {
   naturalCidade?: string | null;
   grauInstrucao?: number | null;
   origemFuncionario?: number | null;
+  // RIC (Registro Identidade Civil) — obrigatório TOTVS
+  regIdentidCivilNumero?: string | null;
+  regIdentidCivilUf?: string | null;
+  regIdentidCivilCidade?: string | null;
+  regIdentidCivilOrgEmiss?: string | null;
   // Características físicas
   cutis?: number | null;
   cabelo?: number | null;
@@ -64,6 +69,33 @@ export interface PreAdmissaoFormLike {
   codLocalMarcacao?: number | null;
   codClassFuncPontoEletronico?: number | null;
   codLocalidade?: number | null;
+  // Selects TOTVS recém-adicionados ao wizard (obrigatórios Zod no sync-service)
+  formaPagamento?: number | null;
+  tipoAdmissaoFgts?: number | null;
+  paisLocalidade?: string | null;
+  // Documentos militares / CAGED (TOTVS rejeita < 1 mesmo para mulheres/brasileiros)
+  docMilitarTipo?: number | null;
+  docMilitarRegiao?: number | null;
+  docMilitarCircunscricao?: number | null;
+  ocorrenciaCAGED?: number | null;
+  // RG (conjunto — se algum, todos obrigatórios)
+  rg?: string | null;
+  rgOrgaoExpedidor?: string | null;
+  rgUfExpedidor?: string | null;
+  // Condicional: Estrangeiro (origemFuncionario === 3)
+  passaporte?: string | null;
+  rnmRne?: string | null;
+  validadeVisto?: string | null;
+  tipoVistoEstrangeiro?: number | null;
+  // Condicional: Naturalizado (origemFuncionario === 2)
+  portariaNaturalizacao?: string | null;
+  naturalizacao?: string | null;
+  // Condicional: Reside no exterior (resideExterior === "S")
+  resideExterior?: string | null;
+  codEnderecoPostalExterior?: string | null;
+  cidadeExterior?: string | null;
+  // Condicional: CLT prazo determinado (codVinculoEmpregaticio === 20)
+  dataTerminoContrato?: number | null;
   validacaoSalarioJustificativa?: string | null;
   validacaoSalarioOk?: boolean | null;
   [key: string]: unknown;
@@ -87,6 +119,18 @@ function isBlank(v: unknown): boolean {
   return false;
 }
 
+/**
+ * País TOTVS: obrigatório e deve estar no formato ISO 3166-1 alpha-3
+ * (3 letras maiúsculas, ex: BRA, USA). Datasul rejeita "Brasil" e nomes por extenso.
+ */
+function isIso3Invalid(v: unknown): boolean {
+  if (typeof v !== "string") return true;
+  const t = v.trim();
+  if (t.length !== 3) return true;
+  if (!/^[A-Z]{3}$/.test(t)) return true;
+  return false;
+}
+
 /** Valida o form completo. Retorna lista de erros (vazia = OK). */
 export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -98,11 +142,19 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (isBlank(form.dataNascimento))   errors.push({ field: "dataNascimento",  label: "Data de Nascimento",stepIndex: STEP_INDEX.pessoal,    message: "Informe a data de nascimento." });
   if (!form.sexo || form.sexo === 0)  errors.push({ field: "sexo",            label: "Sexo",              stepIndex: STEP_INDEX.pessoal,    message: "Selecione o sexo." });
   if (!form.estadoCivil || form.estadoCivil === 0) errors.push({ field: "estadoCivil", label: "Estado Civil", stepIndex: STEP_INDEX.pessoal, message: "Selecione o estado civil." });
-  if (isBlank(form.paisNacionalidade)) errors.push({ field: "paisNacionalidade", label: "País (Nacionalidade)", stepIndex: STEP_INDEX.pessoal, message: "Informe o país de nacionalidade (ex: BRA)." });
-  if (isBlank(form.paisNascimento))   errors.push({ field: "paisNascimento",  label: "País Nascimento",   stepIndex: STEP_INDEX.pessoal,    message: "Informe o país de nascimento (ex: BRA)." });
+  if (isIso3Invalid(form.paisNacionalidade)) errors.push({ field: "paisNacionalidade", label: "País (Nacionalidade)", stepIndex: STEP_INDEX.pessoal, message: "Use código ISO de 3 letras (ex: BRA). TOTVS rejeita \"Brasil\" por extenso." });
+  if (isIso3Invalid(form.paisNascimento))    errors.push({ field: "paisNascimento",  label: "País Nascimento",    stepIndex: STEP_INDEX.pessoal, message: "Use código ISO de 3 letras (ex: BRA)." });
   if (isBlank(form.naturalUf))        errors.push({ field: "naturalUf",       label: "UF Nascimento",     stepIndex: STEP_INDEX.pessoal,    message: "Informe a UF de nascimento." });
   if (isBlank(form.naturalCidade))    errors.push({ field: "naturalCidade",   label: "Naturalidade",      stepIndex: STEP_INDEX.pessoal,    message: "Informe a cidade de nascimento." });
   if (!form.origemFuncionario || form.origemFuncionario === 0) errors.push({ field: "origemFuncionario", label: "Origem", stepIndex: STEP_INDEX.pessoal, message: "Selecione a origem (Brasileiro/Naturalizado/Estrangeiro)." });
+
+  // ── RIC — Registro Identidade Civil (obrigatório TOTVS) ───────────────────
+  if (isBlank(form.regIdentidCivilNumero))    errors.push({ field: "regIdentidCivilNumero",    label: "RIC (Nº Reg. Identidade Civil)", stepIndex: STEP_INDEX.pessoal, message: "Informe o número do RIC." });
+  else if (String(form.regIdentidCivilNumero).trim().length < 3) errors.push({ field: "regIdentidCivilNumero", label: "RIC (Nº Reg. Identidade Civil)", stepIndex: STEP_INDEX.pessoal, message: "Número do RIC muito curto (mín. 3 caracteres)." });
+  if (isBlank(form.regIdentidCivilOrgEmiss))  errors.push({ field: "regIdentidCivilOrgEmiss",  label: "Órgão Emissor RIC",              stepIndex: STEP_INDEX.pessoal, message: "Informe o órgão emissor do RIC (ex: SSP)." });
+  if (isBlank(form.regIdentidCivilUf))        errors.push({ field: "regIdentidCivilUf",        label: "UF RIC",                         stepIndex: STEP_INDEX.pessoal, message: "Selecione a UF do RIC." });
+  if (isBlank(form.regIdentidCivilCidade))    errors.push({ field: "regIdentidCivilCidade",    label: "Cidade RIC",                     stepIndex: STEP_INDEX.pessoal, message: "Informe a cidade de emissão do RIC." });
+  else if (String(form.regIdentidCivilCidade).trim().length < 3) errors.push({ field: "regIdentidCivilCidade", label: "Cidade RIC", stepIndex: STEP_INDEX.pessoal, message: "Nome da cidade muito curto (mín. 3 caracteres)." });
 
   // ── FP1440 Tipo Físico ────────────────────────────────────────────────────
   if (!form.cutis  || form.cutis  === 0) errors.push({ field: "cutis",  label: "Raça/Cor", stepIndex: STEP_INDEX.pessoal, message: "Selecione a raça/cor." });
@@ -137,6 +189,55 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (isBlank(form.codLocalMarcacao))            errors.push({ field: "codLocalMarcacao",            label: "Cód. Local Marcação",               stepIndex: STEP_INDEX.trabalhista, message: "Informe o código do local de marcação." });
   if (isBlank(form.codClassFuncPontoEletronico)) errors.push({ field: "codClassFuncPontoEletronico", label: "Classif. Func. Ponto Eletrônico",   stepIndex: STEP_INDEX.trabalhista, message: "Informe a classificação funcional do ponto eletrônico." });
   if (isBlank(form.codLocalidade))               errors.push({ field: "codLocalidade",               label: "Cód. Localidade",                   stepIndex: STEP_INDEX.trabalhista, message: "Informe o código da localidade." });
+
+  // ── Novos campos TOTVS obrigatórios (iFormaPagto, iTipoAdmissFGTS, cPaisLocalidade) ──
+  if (!form.formaPagamento || form.formaPagamento === 0)   errors.push({ field: "formaPagamento",   label: "Forma de Pagamento",  stepIndex: STEP_INDEX.trabalhista, message: "Selecione a forma de pagamento." });
+  if (!form.tipoAdmissaoFgts || form.tipoAdmissaoFgts === 0) errors.push({ field: "tipoAdmissaoFgts", label: "Tipo Admissão FGTS", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de admissão do FGTS." });
+  if (isIso3Invalid(form.paisLocalidade))                  errors.push({ field: "paisLocalidade",   label: "País Localidade",    stepIndex: STEP_INDEX.trabalhista, message: "Use código ISO de 3 letras (ex: BRA)." });
+
+  // ── Doc Militar / Visto Estrangeiro / CAGED — obrigatórios sempre (TOTVS rejeita < 1) ──
+  // Datasul devolve "iDocMilitarTipo nao pode ser menor que 1" mesmo para mulheres/maiores
+  // de 45 anos, e "iTipoVistoEstrang" mesmo para brasileiros. Por isso exigimos sempre ≥ 1.
+  if (!form.docMilitarTipo || form.docMilitarTipo < 1)             errors.push({ field: "docMilitarTipo",         label: "Tipo Doc. Militar",        stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de documento militar (TOTVS exige ≥ 1)." });
+  if (!form.docMilitarRegiao || form.docMilitarRegiao < 1)          errors.push({ field: "docMilitarRegiao",       label: "Região Militar",           stepIndex: STEP_INDEX.trabalhista, message: "Informe a Região Militar (TOTVS exige ≥ 1)." });
+  if (!form.docMilitarCircunscricao || form.docMilitarCircunscricao < 1) errors.push({ field: "docMilitarCircunscricao", label: "Circunscrição Militar",    stepIndex: STEP_INDEX.trabalhista, message: "Informe a Circunscrição Militar (TOTVS exige ≥ 1)." });
+  if (!form.tipoVistoEstrangeiro || form.tipoVistoEstrangeiro < 1)  errors.push({ field: "tipoVistoEstrangeiro",    label: "Tipo Visto Estrangeiro",   stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de visto estrangeiro (TOTVS exige ≥ 1, use 1 para brasileiros)." });
+  if (!form.ocorrenciaCAGED || form.ocorrenciaCAGED < 1)            errors.push({ field: "ocorrenciaCAGED",         label: "Ocorrência CAGED",         stepIndex: STEP_INDEX.trabalhista, message: "Selecione a ocorrência CAGED (TOTVS exige ≥ 1, use 1 para admissão normal)." });
+
+  // ── Conjunto RG: se algum preenchido, todos obrigatórios ─────────────────
+  const rgAny = !isBlank(form.rg) || !isBlank(form.rgOrgaoExpedidor) || !isBlank(form.rgUfExpedidor);
+  if (rgAny) {
+    if (isBlank(form.rg))                errors.push({ field: "rg",                label: "RG",                        stepIndex: STEP_INDEX.pessoal, message: "RG obrigatório quando Órgão/UF foi informado." });
+    if (isBlank(form.rgOrgaoExpedidor))  errors.push({ field: "rgOrgaoExpedidor",  label: "Órgão Expedidor RG",        stepIndex: STEP_INDEX.pessoal, message: "Órgão Expedidor obrigatório quando RG/UF foi informado." });
+    if (isBlank(form.rgUfExpedidor))     errors.push({ field: "rgUfExpedidor",     label: "UF Expedidor RG",           stepIndex: STEP_INDEX.pessoal, message: "UF obrigatória quando RG/Órgão foi informado." });
+  }
+
+  // ── Condicional: Estrangeiro (origemFuncionario === 3) ───────────────────
+  if (form.origemFuncionario === 3) {
+    const hasPassaporte = !isBlank(form.passaporte);
+    const hasRnm = !isBlank(form.rnmRne);
+    if (!hasPassaporte && !hasRnm) {
+      errors.push({ field: "passaporte", label: "Passaporte ou RNM/RNE", stepIndex: STEP_INDEX.pessoal, message: "Para estrangeiros, informe Passaporte ou RNM/RNE." });
+    }
+    if (isBlank(form.validadeVisto))            errors.push({ field: "validadeVisto",        label: "Validade do Visto",      stepIndex: STEP_INDEX.pessoal, message: "Validade do visto obrigatória para estrangeiros." });
+  }
+
+  // ── Condicional: Naturalizado (origemFuncionario === 2) ──────────────────
+  if (form.origemFuncionario === 2) {
+    if (isBlank(form.portariaNaturalizacao))    errors.push({ field: "portariaNaturalizacao", label: "Portaria de Naturalização", stepIndex: STEP_INDEX.pessoal, message: "Portaria de naturalização obrigatória para naturalizados." });
+    if (isBlank(form.naturalizacao))            errors.push({ field: "naturalizacao",         label: "Data/Info Naturalização",   stepIndex: STEP_INDEX.pessoal, message: "Dados da naturalização obrigatórios para naturalizados." });
+  }
+
+  // ── Condicional: Reside no exterior (resideExterior === "S") ─────────────
+  if (form.resideExterior === "S") {
+    if (isBlank(form.codEnderecoPostalExterior)) errors.push({ field: "codEnderecoPostalExterior", label: "Cód. Endereço Postal Exterior", stepIndex: STEP_INDEX.endereco, message: "Informe o código de endereço postal no exterior." });
+    if (isBlank(form.cidadeExterior))            errors.push({ field: "cidadeExterior",            label: "Cidade no Exterior",             stepIndex: STEP_INDEX.endereco, message: "Informe a cidade no exterior." });
+  }
+
+  // ── Condicional: CLT Prazo Determinado (codVinculoEmpregaticio === 20) ───
+  if (form.codVinculoEmpregaticio === 20 && isBlank(form.dataTerminoContrato)) {
+    errors.push({ field: "dataTerminoContrato", label: "Data Término Contrato", stepIndex: STEP_INDEX.trabalhista, message: "Data de término obrigatória para CLT Prazo Determinado." });
+  }
 
   // Regra existente: se salário fora da faixa, justificativa obrigatória.
   if (form.validacaoSalarioOk === false && isBlank(form.validacaoSalarioJustificativa)) {

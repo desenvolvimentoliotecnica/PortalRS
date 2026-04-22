@@ -23,6 +23,10 @@ public sealed class IntegracaoTotvsController : ControllerBase
     }
 
     /// <summary>Lista o painel unificado de integração com filtros e paginação.</summary>
+    /// <remarks>
+    /// Usado pelo portal — retorna TUDO (Pendente, Sucesso, Falha, FalhaDefinitiva).
+    /// Para consumo pelo integrador TOTVS, use o endpoint dedicado <c>GET /pendentes</c>.
+    /// </remarks>
     [HttpGet("painel")]
     [ProducesResponseType(typeof(IntegracaoTotvsPainelResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListPainel(
@@ -35,6 +39,45 @@ public sealed class IntegracaoTotvsController : ControllerBase
     {
         var query = new IntegracaoTotvsPainelQuery(tipo, resultado, search, skip, take);
         return Ok(await _service.ListPainelAsync(query, ct));
+    }
+
+    /// <summary>
+    /// Fila de integrações ainda não reportadas ao TOTVS (<c>integracaoResultado == null</c>).
+    /// </summary>
+    /// <remarks>
+    /// Endpoint dedicado ao integrador Node.js. Não retorna registros com Sucesso nem Falha —
+    /// quando o ERP já reportou resultado, o item só reaparece aqui após retry manual
+    /// (<c>POST /{tipo}/{id}/retry</c>).
+    /// </remarks>
+    [HttpGet("pendentes")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListPendentes(
+        [FromQuery] TipoIntegracao? tipo,
+        [FromQuery] string? search,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 50,
+        CancellationToken ct = default)
+    {
+        // Reusa o painel com filtro fixo "ainda não reportado".
+        var full = await _service.ListPainelAsync(
+            new IntegracaoTotvsPainelQuery(tipo, null, search, 0, int.MaxValue), ct);
+        var pendentes = full.Items.Where(i => i.IntegracaoResultado is null).ToList();
+        var page = pendentes.Skip(skip).Take(take)
+            .Select(i => new
+            {
+                i.Id,
+                i.TipoIntegracao,
+                i.TipoIntegracaoLabel,
+                i.Nome,
+                i.Cpf,
+                i.Descricao,
+                approvedAtUtc = TotvsPayloadHelper.FormatDate(i.ApprovedAtUtc),
+                i.IntegracaoResultado,
+                i.IntegracaoMensagem,
+                integradaEmUtc = TotvsPayloadHelper.FormatDate(i.IntegradaEmUtc),
+            })
+            .ToList();
+        return Ok(new { items = page, total = pendentes.Count, pendentes = pendentes.Count, sucesso = 0, falha = 0 });
     }
 
     /// <summary>Retorna todos os dados de uma solicitação específica para integração.</summary>
@@ -51,8 +94,18 @@ public sealed class IntegracaoTotvsController : ControllerBase
     }
 
     /// <summary>Registra o resultado de uma integração (sucesso ou falha).</summary>
+    /// <remarks>
+    /// <c>resultado</c> aceita apenas os valores do enum <c>IntegracaoResultado</c>:
+    /// <list type="bullet">
+    ///   <item><c>1</c> ou <c>"Sucesso"</c> — integração concluída com sucesso</item>
+    ///   <item><c>2</c> ou <c>"Falha"</c> — falhou, pode tentar novamente</item>
+    ///   <item><c>3</c> ou <c>"FalhaDefinitiva"</c> — falha sem retry automático</item>
+    /// </list>
+    /// Qualquer outro valor (<c>0</c>, <c>null</c>, strings desconhecidas) retorna HTTP 400.
+    /// </remarks>
     [HttpPost("{tipo:int}/{id:guid}/resultado")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RegistrarResultado(
         int tipo,
@@ -62,6 +115,15 @@ public sealed class IntegracaoTotvsController : ControllerBase
     {
         if (!Enum.IsDefined(typeof(TipoIntegracao), (short)tipo))
             return BadRequest(new { message = "Tipo de integração inválido." });
+
+        // Validação explícita — o binder do System.Text.Json aceita qualquer short
+        // como enum, então precisa filtrar valores fora do conjunto definido.
+        if (!Enum.IsDefined(typeof(IntegracaoResultado), request.Resultado))
+            return BadRequest(new
+            {
+                message = "Campo 'resultado' inválido. Valores aceitos: 'Sucesso' (1), 'Falha' (2) ou 'FalhaDefinitiva' (3).",
+                recebido = (int)request.Resultado
+            });
 
         try
         {

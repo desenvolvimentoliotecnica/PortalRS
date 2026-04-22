@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Application.ItaloIntegracao;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
@@ -162,6 +163,11 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
+
+        // Aplica defaults obrigatórios do TOTVS/Datasul (país=BRA, optanteFGTS=S, etc).
+        // Evita que o RH precise preencher valores-padrão manualmente e falhar na integração.
+        await PreAdmissaoDefaultsSeeder.ApplyAsync(entity, _db, _tenantContext.TenantId!, ct);
+
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);
         return (await GetByIdAsync(entity.Id, ct))!;
@@ -176,14 +182,20 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         var isDraft = e.Status == PreAdmissaoStatus.Rascunho || e.Status == PreAdmissaoStatus.Enviado;
         var isPostFill = e.Status is PreAdmissaoStatus.Acessado or PreAdmissaoStatus.PreenchidoParcial or PreAdmissaoStatus.Preenchido;
+        // RH pode re-editar quando a integração TOTVS falhou (permite corrigir e reenviar).
+        // Status fica em Aprovada + IntegracaoResultado=Falha — ex: "iDocMilitarTipo < 1" retornado pelo Datasul.
+        var isIntegracaoFalha = e.Status == PreAdmissaoStatus.Aprovada
+                               && (e.IntegracaoResultado == IntegracaoResultado.Falha
+                                   || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva);
 
-        if (!isDraft && !(isPostFill && isPrivileged))
+        if (!isDraft && !(isPostFill && isPrivileged) && !(isIntegracaoFalha && isPrivileged))
             throw new InvalidOperationException("Não é possível editar uma admissão neste status.");
 
         // Pessoal
         e.Nome = r.Nome.Trim();
         e.NomeSocial = r.NomeSocial?.Trim(); e.NomeAbreviado = r.NomeAbreviado?.Trim();
-        e.Cpf = r.Cpf?.Trim(); e.Rg = r.Rg?.Trim(); e.RgOrgaoExpedidor = r.RgOrgaoExpedidor?.Trim();
+        // CPF é sempre persistido só com dígitos — qualquer máscara vinda da UI é removida aqui.
+        e.Cpf = TotvsPayloadHelper.OnlyDigits(r.Cpf?.Trim()); e.Rg = r.Rg?.Trim(); e.RgOrgaoExpedidor = r.RgOrgaoExpedidor?.Trim();
         e.RgUfExpedidor = r.RgUfExpedidor?.Trim();
         e.RgDataExpedicao = r.RgDataExpedicao; e.DataNascimento = r.DataNascimento;
         e.Sexo = r.Sexo ?? Sexo.NaoInformado; e.EstadoCivil = r.EstadoCivil ?? EstadoCivil.NaoInformado;
@@ -197,8 +209,15 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ValidadeVisto = r.ValidadeVisto; e.TipoVisto = r.TipoVisto?.Trim();
         e.ResideExterior = r.ResideExterior?.Trim(); e.TipoVistoEstrangeiro = r.TipoVistoEstrangeiro;
 
-        // Endereço
-        e.Cep = r.Cep?.Trim(); e.Logradouro = r.Logradouro?.Trim(); e.Numero = r.Numero?.Trim();
+        // RIC (Registro Identidade Civil)
+        e.RegIdentidCivilNumero = r.RegIdentidCivilNumero?.Trim();
+        e.RegIdentidCivilUf = r.RegIdentidCivilUf?.Trim();
+        e.RegIdentidCivilCidade = r.RegIdentidCivilCidade?.Trim();
+        e.RegIdentidCivilOrgEmiss = r.RegIdentidCivilOrgEmiss?.Trim();
+        e.RegIdentidCivilDataExped = r.RegIdentidCivilDataExped;
+
+        // Endereço — CEP só dígitos
+        e.Cep = TotvsPayloadHelper.OnlyDigits(r.Cep?.Trim()); e.Logradouro = r.Logradouro?.Trim(); e.Numero = r.Numero?.Trim();
         e.Complemento = r.Complemento?.Trim(); e.Bairro = r.Bairro?.Trim();
         e.Cidade = r.Cidade?.Trim(); e.Uf = r.Uf?.Trim();
         e.PontoReferencia = r.PontoReferencia?.Trim();
@@ -222,7 +241,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.RequisitoCategoriaId = r.RequisitoCategoriaId;
         e.DataAdmissao = r.DataAdmissao; e.Salario = r.Salario;
         e.TipoContratacao = r.TipoContratacao; e.CargaHorariaSemanal = r.CargaHorariaSemanal;
-        e.PisPasep = r.PisPasep?.Trim();
+        // PIS/PASEP só dígitos — TOTVS recusa máscara.
+        e.PisPasep = TotvsPayloadHelper.OnlyDigits(r.PisPasep?.Trim());
 
         // TOTVS: Cargo/Vinculo
         e.CodCargoTotvs = r.CodCargoTotvs; e.CodVinculoEmpregaticio = r.CodVinculoEmpregaticio;
@@ -315,6 +335,17 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         e.ValidacaoSalarioJustificativa = r.ValidacaoSalarioJustificativa?.Trim();
 
+        // Edit em Aprovada+Falha: limpa estado de integração TOTVS para que o worker
+        // (ou um Retry manual) reintegre com os dados corrigidos.
+        if (isIntegracaoFalha)
+        {
+            e.IntegracaoResultado = null;
+            e.IntegracaoMensagem = null;
+            e.IntegradaEmUtc = null;
+            e.TentativasIntegracao = 0;
+            e.UltimaTentativaUtc = null;
+        }
+
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
@@ -337,6 +368,12 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         if (!submissíveis.Contains(e.Status))
             throw new InvalidOperationException("Não é possível submeter uma admissão neste status.");
 
+        // Re-aplica defaults TOTVS — garante que pré-admissões criadas antes do
+        // seeder (ou com IniciarManualAsync reusando registro antigo) tenham
+        // codEmpresa, flags S/N, país BRA, etc. Seeder só preenche se o campo
+        // ainda está null, então não sobrescreve valores do RH.
+        await PreAdmissaoDefaultsSeeder.ApplyAsync(e, _db, _tenantContext.TenantId!, ct);
+
         // Run validations
         e.ValidacaoCpfOk = ValidarCpf(e.Cpf);
         e.ValidacaoCepOk = !string.IsNullOrWhiteSpace(e.Cep);
@@ -357,7 +394,35 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.Status = PreAdmissaoStatus.Preenchido;
         e.SubmittedAtUtc = DateTimeOffset.UtcNow;
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Auto-aprovar: se os campos obrigatórios do TOTVS estiverem todos preenchidos,
+        // já avança direto para Aprovada (Pendente TOTVS), sem exigir ação manual do RH.
+        // Se a validação falhar, mantém Preenchido e relança os erros para o chamador.
+        var issues = PreAdmissaoTotvsValidator.Validate(e);
+        if (issues.Count == 0)
+        {
+            e.Status = PreAdmissaoStatus.Aprovada;
+            e.ApprovedAtUtc = DateTimeOffset.UtcNow;
+        }
+
         await _db.SaveChangesAsync(ct);
+
+        if (issues.Count > 0)
+            throw new TotvsValidationException(issues);
+
+        // Se auto-aprovou, criar acesso ao portal (mesmo fluxo de ApproveAsync).
+        if (e.Status == PreAdmissaoStatus.Aprovada)
+        {
+            try
+            {
+                await CriarUsuarioAsync(e, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Falha ao criar usuário automaticamente para PreAdmissão {Id}. A auto-aprovação foi concluída, mas o acesso ao portal precisa ser criado manualmente.", id);
+            }
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -723,9 +788,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     public async Task<IReadOnlyList<PreAdmissaoPendenteIntegracaoRow>> ListPendentesIntegracaoAsync(CancellationToken ct)
     {
+        // TOTVS só deve ver registros que NUNCA foram reportados (IntegracaoResultado == null).
+        // Se o ERP reportou Falha/FalhaDefinitiva, o registro sai da fila e só volta via
+        // retry manual (POST /api/integracao-totvs/{tipo}/{id}/retry), que zera IntegracaoResultado.
         return await _db.Set<Domain.Entities.PreAdmissao>()
             .AsNoTracking()
-            .Where(x => x.TenantId == _tenantContext.TenantId && x.Status == PreAdmissaoStatus.Aprovada)
+            .Where(x => x.TenantId == _tenantContext.TenantId
+                     && x.Status == PreAdmissaoStatus.Aprovada
+                     && x.IntegracaoResultado == null)
             .OrderBy(x => x.ApprovedAtUtc)
             .Select(x => new PreAdmissaoPendenteIntegracaoRow(x.Id, x.Nome, x.Cpf, x.DataAdmissao, x.Status))
             .ToListAsync(ct);
@@ -1095,6 +1165,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Estrangeiro
         e.Passaporte, e.RnmRne, e.ValidadeVisto, e.TipoVisto,
         e.ResideExterior, e.TipoVistoEstrangeiro,
+        // RIC
+        e.RegIdentidCivilNumero, e.RegIdentidCivilUf,
+        e.RegIdentidCivilCidade, e.RegIdentidCivilOrgEmiss,
+        e.RegIdentidCivilDataExped,
         // Endereco
         e.Cep, e.Logradouro, e.Numero, e.Complemento, e.Bairro, e.Cidade, e.Uf,
         e.PontoReferencia, e.TipoLogradouroESocial, e.MunicipioEnderecoIbge,

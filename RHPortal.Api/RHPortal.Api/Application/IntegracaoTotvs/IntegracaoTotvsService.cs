@@ -7,6 +7,7 @@ using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RHPortal.Api.Domain.Enums; // VagaStatus e outros enums com namespace RH maiúsculo
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.IntegracaoTotvs;
@@ -18,19 +19,22 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
     private readonly IPreAdmissaoService _preAdmissaoService;
     private readonly ApprovalWorkflowHelper _workflow;
     private readonly IEmailQueueService _emailQueue;
+    private readonly ITenantContext _tenantContext;
 
     public IntegracaoTotvsService(
         AppDbContext db,
         IOcupacaoHistoricoService ocupacaoService,
         IPreAdmissaoService preAdmissaoService,
         ApprovalWorkflowHelper workflow,
-        IEmailQueueService emailQueue)
+        IEmailQueueService emailQueue,
+        ITenantContext tenantContext)
     {
         _db = db;
         _ocupacaoService = ocupacaoService;
         _preAdmissaoService = preAdmissaoService;
         _workflow = workflow;
         _emailQueue = emailQueue;
+        _tenantContext = tenantContext;
     }
 
     public async Task<IntegracaoTotvsPainelResponse> ListPainelAsync(IntegracaoTotvsPainelQuery query, CancellationToken ct)
@@ -311,21 +315,32 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.Id, tipoIntegracao = (short)TipoIntegracao.Admissao, tipoIntegracaoLabel = "Admissão",
                     // Dados pessoais
                     p.CodEmpresa, p.EstabelecimentoCodigo, p.MatriculaRM,
-                    p.Nome, p.NomeAbreviado,
+                    p.Nome, p.NomeAbreviado, p.NomeSocial,
                     cpf = TotvsPayloadHelper.OnlyDigits(p.Cpf),
-                    p.Email, p.EmailAlternativo, p.Telefone, p.DddTelefone, p.Celular,
+                    p.Email, p.EmailAlternativo,
+                    telefone = TotvsPayloadHelper.PhoneOnlyNumber(p.Telefone),
+                    p.DddTelefone,
+                    celular = TotvsPayloadHelper.PhoneOnlyNumber(p.Celular),
                     dataNascimento = TotvsPayloadHelper.FormatDate(p.DataNascimento),
                     sexo = p.Sexo.ToString(), estadoCivil = p.EstadoCivil.ToString(),
-                    p.NomeMae, p.NomePai, p.Nacionalidade, p.PaisNascimento, p.NaturalCidade, p.NaturalUf,
+                    p.NomeMae, p.NomePai, p.Nacionalidade, p.PaisNacionalidade, p.PaisNascimento, p.NaturalCidade, p.NaturalUf,
+                    // Estrangeiro / residência no exterior
+                    p.ResideExterior, p.Passaporte, p.RnmRne, p.TipoVisto,
                     // Documentos
                     p.Rg, p.RgOrgaoExpedidor, p.RgUfExpedidor,
                     rgDataExpedicao = TotvsPayloadHelper.FormatDate(p.RgDataExpedicao),
+                    // RIC (Registro Identidade Civil) — mapper externo lê dos nomes camelCase
+                    p.RegIdentidCivilNumero, p.RegIdentidCivilUf,
+                    p.RegIdentidCivilCidade, p.RegIdentidCivilOrgEmiss,
+                    regIdentidCivilDataExped = TotvsPayloadHelper.FormatDate(p.RegIdentidCivilDataExped),
                     p.PisPasep,
                     p.TituloEleitorNumero, p.TituloEleitorZona, p.TituloEleitorSecao, p.TituloEleitorCidade, p.TituloEleitorUf,
                     p.Ctps, p.CtpsSerie, p.CtpsUf, p.CtpsModelo, p.CtpsSerieESocial,
                     p.ReservistaNumero, p.DocMilitarTipo, p.DocMilitarNumero, p.DocMilitarSerie, p.DocMilitarRegiao,
+                    p.DocMilitarCircunscricao,
                     p.CnhNumero, p.CategoriaCnh, p.CnhUf, p.CnhOrgaoEmissor,
-                    p.CnhDataExpedicao, p.CnhPrimeiraHabilitacao,
+                    cnhDataExpedicao = TotvsPayloadHelper.FormatIntDate(p.CnhDataExpedicao),
+                    cnhPrimeiraHabilitacao = TotvsPayloadHelper.FormatIntDate(p.CnhPrimeiraHabilitacao),
                     validadeCnh = TotvsPayloadHelper.FormatDate(p.ValidadeCnh),
                     p.CartaoSus, p.PossuiDeficiencia,
                     // Características físicas
@@ -342,7 +357,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.CodCargoTotvs, p.CodNivel, p.CategoriaSalarial, p.CodTurno, p.CodTurma,
                     p.CentroCusto, p.UnidadeLotacao, p.CodPlanoLotacao,
                     p.CodVinculoEmpregaticio, p.TipoFuncionario, p.TipoMaoDeObra,
-                    p.FormaPagamento, p.DataTerminoContrato,
+                    p.FormaPagamento,
+                    dataTerminoContrato = TotvsPayloadHelper.FormatIntDate(p.DataTerminoContrato),
                     // FGTS / INSS
                     p.OptanteFgts, p.TipoAdmissaoFgts, p.RecolheFgts, p.RecolheInss,
                     p.FuncQualificado, p.IndFuncVinculado,
@@ -360,15 +376,24 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     // Ponto
                     p.NumCartaoPonto, p.EmitCartPonto, p.CodLocalMarcacao, p.CodClassFuncPontoEletronico,
                     // Banco
-                    p.BancoCodigo, p.BancoNome, p.Agencia, p.AgenciaDigito, p.Conta, p.ContaDigito, tipoConta = p.TipoConta.ToString(),
+                    p.BancoCodigo, p.BancoNome, p.Agencia, p.AgenciaDigito, p.Conta, p.ContaDigito,
+                    // Enum TipoContaBancaria serializado como int (0=CorrentE, 1=Poupança, 2=Salário).
+                    // Mapper do employee-sync-service faz parseInt — string quebra e vira 0 silenciosamente.
+                    tipoConta = (int?)p.TipoConta,
                     // Contato emergência
-                    p.ContatoEmergenciaNome, p.ContatoEmergenciaFone, p.DddTelContato,
+                    p.ContatoEmergenciaNome,
+                    contatoEmergenciaFone = TotvsPayloadHelper.PhoneOnlyNumber(p.ContatoEmergenciaFone),
+                    p.DddTelContato,
                     // eSocial
                     p.CategoriaTrabalhoESocial, p.IndAdmissao, p.NaturezaAtividade,
                     p.TipoAdmissaoESocial, p.RegimeTrabalhista, p.RegimePrevidenciario, p.RegimeJornada,
                     p.MatriculaESocial,
                     // Localidade
                     p.PaisLocalidade, p.CodLocalidade, p.CodFpas,
+                    // Reside exterior (obrigatório quando ResideExterior = "S")
+                    p.CodEnderecoPostalExterior, p.CidadeExterior,
+                    // Estatística (iTipoEstatistic em apisfadmissao.p)
+                    p.TipoEstatistica,
                     // Diversos
                     p.OrigemFuncionario, p.TipoVistoEstrangeiro, p.OcorrenciaCAGED,
                     validadeVisto = TotvsPayloadHelper.FormatDate(p.ValidadeVisto),
@@ -761,9 +786,16 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             {
                 var entity = await _db.PreAdmissoes.FindAsync(new object[] { id }, ct)
                     ?? throw new KeyNotFoundException($"PreAdmissao {id} não encontrada.");
+                // Retry/reenviar re-aplica defaults TOTVS e normalizações de país.
+                // Casos típicos: pré-admissões criadas antes do seeder, ou com
+                // "Brasil" em vez de "BRA" vindo de UI antiga. Sem isso, o Datasul
+                // recusa de novo com os mesmos erros.
+                await PreAdmissaoDefaultsSeeder.ApplyAsync(entity, _db, _tenantContext.TenantId!, ct);
                 entity.IntegracaoResultado = null;
                 entity.IntegracaoMensagem = null;
                 entity.IntegradaEmUtc = null;
+                entity.TentativasIntegracao = 0;
+                entity.UltimaTentativaUtc = null;
                 break;
             }
             case TipoIntegracao.PagamentoExtra:
