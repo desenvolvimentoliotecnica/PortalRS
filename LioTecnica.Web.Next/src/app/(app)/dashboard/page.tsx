@@ -17,8 +17,8 @@ function DashboardContent() {
 
   return (
     <div className="space-y-10">
+      <ColaboradorDashboardScreen showHeader={false} collapsible={true} />
       <DashboardScreen />
-      <ColaboradorDashboardScreen showHeader={false} />
     </div>
   );
 }

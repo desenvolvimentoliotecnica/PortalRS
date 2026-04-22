@@ -5,11 +5,13 @@ import Link from "next/link";
 import {
     BadgeCheck,
     CalendarDays,
+    ChevronDown,
     ChevronRight,
     FolderOpen,
     Home,
     Key,
     Landmark,
+    Lock,
     ScrollText,
     TrendingUp,
     UserCircle,
@@ -38,6 +40,7 @@ interface CardDef {
     iconColor: string;
     iconBg: string;
     badgeKey?: BadgeKey;
+    locked?: boolean;
 }
 
 const CARDS: CardDef[] = [
@@ -52,7 +55,7 @@ const CARDS: CardDef[] = [
     {
         title: "Dependentes",
         description: "Gerencie seus dependentes e solicitações",
-        href: "/colaborador/dependentes",
+        href: "/colaborador/solicitacao-dependentes",
         icon: Users,
         iconColor: "text-primary",
         iconBg: "bg-primary/8",
@@ -100,6 +103,7 @@ const CARDS: CardDef[] = [
         icon: ScrollText,
         iconColor: "text-primary",
         iconBg: "bg-primary/8",
+        locked: true,
     },
     {
         title: "Documentos",
@@ -144,9 +148,24 @@ async function fetchCount(url: string): Promise<number> {
 
 /* ─────────────────────────────────────────────────────────────────────── */
 
-export default function ColaboradorDashboardScreen({ showHeader = true }: { showHeader?: boolean }) {
+const COLLAPSED_KEY = "renderrh-meu-espaco-collapsed";
+
+export default function ColaboradorDashboardScreen({ showHeader = true, collapsible = false }: { showHeader?: boolean; collapsible?: boolean }) {
     const { me } = useAuth();
     const firstName = me?.displayName?.split(" ")[0] ?? "Colaborador";
+
+    const [collapsed, setCollapsed] = useState(() => {
+        if (typeof window === "undefined") return false;
+        return localStorage.getItem(COLLAPSED_KEY) === "true";
+    });
+
+    function toggleCollapsed() {
+        setCollapsed((prev) => {
+            const next = !prev;
+            localStorage.setItem(COLLAPSED_KEY, String(next));
+            return next;
+        });
+    }
 
     const [counts, setCounts] = useState<PendingCounts>({ ferias: 0, beneficios: 0, dependentes: 0, endereco: 0 });
 
@@ -177,19 +196,63 @@ export default function ColaboradorDashboardScreen({ showHeader = true }: { show
                     </p>
                 </div>
             ) : (
-                <div>
-                    <h2 className="text-lg font-semibold tracking-tight">Meu Espaço</h2>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                        Acesse seus dados pessoais e solicitações
-                    </p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-lg font-semibold tracking-tight">Meu Espaço</h2>
+                        {!collapsed && (
+                            <p className="mt-0.5 text-sm text-muted-foreground">
+                                Acesse seus dados pessoais e solicitações
+                            </p>
+                        )}
+                    </div>
+                    {collapsible && (
+                        <button
+                            type="button"
+                            onClick={toggleCollapsed}
+                            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                            aria-expanded={!collapsed}
+                        >
+                            <ChevronDown
+                                className="size-4 transition-transform duration-200"
+                                style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+                            />
+                            {collapsed ? "Expandir" : "Recolher"}
+                        </button>
+                    )}
                 </div>
             )}
 
             {/* Card grid */}
+            {(!collapsible || !collapsed) && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {CARDS.map((card) => {
                     const Icon = card.icon;
                     const pending = card.badgeKey ? counts[card.badgeKey] : 0;
+
+                    if (card.locked) {
+                        return (
+                            <div
+                                key={card.href}
+                                className="relative flex flex-col gap-3 rounded-xl border border-border/40 bg-muted/30 p-5 shadow-sm opacity-60 cursor-not-allowed select-none"
+                            >
+                                <div className={`inline-flex size-10 items-center justify-center rounded-lg ${card.iconBg} opacity-50`}>
+                                    <Icon className={`size-5 ${card.iconColor}`} aria-hidden />
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-semibold text-foreground">{card.title}</span>
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground border border-border/60">
+                                            <Lock className="size-2.5" aria-hidden />
+                                            Em breve
+                                        </span>
+                                    </div>
+                                    <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{card.description}</p>
+                                </div>
+                            </div>
+                        );
+                    }
+
                     return (
                         <Link
                             key={card.href}
@@ -223,6 +286,7 @@ export default function ColaboradorDashboardScreen({ showHeader = true }: { show
                     );
                 })}
             </div>
+            )}
         </section>
     );
 }

@@ -8,6 +8,7 @@ import {
     RefreshCw,
     Loader2,
     Download,
+    ShieldAlert,
 } from "lucide-react";
 import {
     Dialog,
@@ -109,6 +110,7 @@ const HIDDEN_FIELDS = new Set([
     "id", "tipoIntegracao", "tipoIntegracaoLabel",
     "integracaoResultado", "integracaoMensagem", "integradaEmUtc",
     "approvedAtUtc", "createdAtUtc",
+    "efetivadoManualmentePorId", "efetivadoManualmenteEmUtc",
 ]);
 
 function formatValue(key: string, value: unknown): string {
@@ -138,6 +140,10 @@ export default function IntegracaoDetalhesDrawer({
     const [retryError, setRetryError] = useState<string | null>(null);
     const [detalhe, setDetalhe] = useState<Record<string, unknown> | null>(null);
     const [loading, setLoading] = useState(false);
+
+    const [forcarOpen, setForcarOpen] = useState(false);
+    const [forcando, setForcando] = useState(false);
+    const [forcarError, setForcarError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!item || !open) { setDetalhe(null); return; }
@@ -177,120 +183,193 @@ export default function IntegracaoDetalhesDrawer({
         }
     };
 
+    const handleEfetivarManual = async () => {
+        if (!item) return;
+        setForcando(true);
+        setForcarError(null);
+        try {
+            const res = await apiFetch(
+                `/api/integracao-totvs/${item.tipoIntegracao}/${item.id}/efetivar-manual`,
+                { method: "POST" }
+            );
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({ message: `Erro HTTP ${res.status}` }));
+                throw new Error((body as { message?: string })?.message || `Erro HTTP ${res.status}`);
+            }
+            setForcarOpen(false);
+            onRetrySuccess();
+        } catch (e) {
+            setForcarError(e instanceof Error ? e.message : "Erro ao efetivar manualmente.");
+        } finally {
+            setForcando(false);
+        }
+    };
+
     if (!item) return null;
 
     const resultado = item.integracaoResultado;
+    const jaSucesso = resultado === 1 || resultado === "Sucesso";
 
     // Campos do detalhe, excluindo os hidden
     const fields = detalhe
         ? Object.entries(detalhe).filter(([k]) => !HIDDEN_FIELDS.has(k))
         : [];
 
-    return (
-        <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-            <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-3">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TIPO_COLORS[item.tipoIntegracao] ?? "bg-gray-100 text-gray-800"}`}>
-                            {item.tipoIntegracaoLabel}
-                        </span>
-                        {item.nome}
-                    </DialogTitle>
-                    <DialogDescription>
-                        Dados completos para integração TOTVS
-                    </DialogDescription>
-                </DialogHeader>
+    const efetivadoManualmenteEmUtc = detalhe?.efetivadoManualmenteEmUtc as string | null | undefined;
 
-                {/* Resultado + datas */}
-                <div className="flex flex-wrap items-center gap-4 py-2 border-b border-border">
-                    <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Resultado</p>
-                        {resultado === 1 || resultado === "Sucesso" ? (
-                            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/15 text-emerald-700">
-                                <CheckCircle2 className="size-3" /> Sucesso
+    return (
+        <>
+            <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+                <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-3">
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TIPO_COLORS[item.tipoIntegracao] ?? "bg-gray-100 text-gray-800"}`}>
+                                {item.tipoIntegracaoLabel}
                             </span>
-                        ) : resultado === 2 || resultado === 3 || resultado === "Falha" || resultado === "FalhaDefinitiva" ? (
-                            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-500/15 text-red-700">
-                                <XCircle className="size-3" /> {resultado === 3 || resultado === "FalhaDefinitiva" ? "Falha Definitiva" : "Falha"}
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/15 text-amber-700">
-                                <Clock className="size-3" /> Pendente
-                            </span>
+                            {item.nome}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Dados completos para integração TOTVS
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {/* Resultado + datas */}
+                    <div className="flex flex-wrap items-center gap-4 py-2 border-b border-border">
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-0.5">Resultado</p>
+                            {jaSucesso ? (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/15 text-emerald-700">
+                                    <CheckCircle2 className="size-3" /> Sucesso
+                                </span>
+                            ) : resultado === 2 || resultado === 3 || resultado === "Falha" || resultado === "FalhaDefinitiva" ? (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-500/15 text-red-700">
+                                    <XCircle className="size-3" /> {resultado === 3 || resultado === "FalhaDefinitiva" ? "Falha Definitiva" : "Falha"}
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/15 text-amber-700">
+                                    <Clock className="size-3" /> Pendente
+                                </span>
+                            )}
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-0.5">Aprovada em</p>
+                            <p className="text-sm">{item.approvedAtUtc ? new Date(item.approvedAtUtc).toLocaleString("pt-BR") : "—"}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-0.5">Integrada em</p>
+                            <p className="text-sm">{item.integradaEmUtc ? new Date(item.integradaEmUtc).toLocaleString("pt-BR") : "—"}</p>
+                        </div>
+                        {efetivadoManualmenteEmUtc && (
+                            <div>
+                                <p className="text-xs font-medium text-muted-foreground mb-0.5">Efetivado manualmente em</p>
+                                <p className="text-sm text-amber-700 font-medium">
+                                    {new Date(efetivadoManualmenteEmUtc).toLocaleString("pt-BR")}
+                                </p>
+                            </div>
                         )}
                     </div>
-                    <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Aprovada em</p>
-                        <p className="text-sm">{item.approvedAtUtc ? new Date(item.approvedAtUtc).toLocaleString("pt-BR") : "—"}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Integrada em</p>
-                        <p className="text-sm">{item.integradaEmUtc ? new Date(item.integradaEmUtc).toLocaleString("pt-BR") : "—"}</p>
-                    </div>
-                </div>
 
-                {/* Mensagem de integração */}
-                {item.integracaoMensagem && (
-                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm whitespace-pre-wrap break-words">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Mensagem da Integração</p>
-                        {item.integracaoMensagem}
-                    </div>
-                )}
-
-                {/* Dados completos */}
-                {loading ? (
-                    <div className="flex items-center justify-center py-8">
-                        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-                    </div>
-                ) : fields.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 py-2">
-                        {fields.map(([key, value]) => {
-                            const label = FIELD_LABELS[key] ?? key;
-                            const formatted = formatValue(key, value);
-                            if (formatted === "—") return null;
-                            return (
-                                <div key={key}>
-                                    <p className="text-xs font-medium text-muted-foreground">{label}</p>
-                                    <p className="text-sm break-words">{formatted}</p>
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : null}
-
-                {retryError && (
-                    <p className="text-xs text-red-600">{retryError}</p>
-                )}
-
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={onClose} className="mr-auto">
-                        Fechar
-                    </Button>
-                    <Button variant="secondary" onClick={() => {
-                        const data = detalhe ? { ...item, ...detalhe } : item;
-                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `integracao-${item.nome.replace(/\s+/g, "_")}-${item.id}.json`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    }}>
-                        <Download className="size-4 mr-2" />
-                        Baixar JSON
-                    </Button>
-                    {resultado !== null && (
-                        <Button onClick={handleRetry} disabled={retrying}>
-                            {retrying ? (
-                                <Loader2 className="size-4 mr-2 animate-spin" />
-                            ) : (
-                                <RefreshCw className="size-4 mr-2" />
-                            )}
-                            Reenviar
-                        </Button>
+                    {/* Mensagem de integração */}
+                    {item.integracaoMensagem && (
+                        <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm whitespace-pre-wrap break-words">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Mensagem da Integração</p>
+                            {item.integracaoMensagem}
+                        </div>
                     )}
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+
+                    {/* Dados completos */}
+                    {loading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : fields.length > 0 ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 py-2">
+                            {fields.map(([key, value]) => {
+                                const label = FIELD_LABELS[key] ?? key;
+                                const formatted = formatValue(key, value);
+                                if (formatted === "—") return null;
+                                return (
+                                    <div key={key}>
+                                        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                                        <p className="text-sm break-words">{formatted}</p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : null}
+
+                    {retryError && (
+                        <p className="text-xs text-red-600">{retryError}</p>
+                    )}
+
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={onClose} className="mr-auto">
+                            Fechar
+                        </Button>
+                        <Button variant="secondary" onClick={() => {
+                            const data = detalhe ? { ...item, ...detalhe } : item;
+                            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `integracao-${item.nome.replace(/\s+/g, "_")}-${item.id}.json`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                        }}>
+                            <Download className="size-4 mr-2" />
+                            Baixar JSON
+                        </Button>
+                        {!jaSucesso && (
+                            <Button
+                                variant="destructive"
+                                onClick={() => { setForcarError(null); setForcarOpen(true); }}
+                                disabled={forcando}
+                            >
+                                <ShieldAlert className="size-4 mr-2" />
+                                Forçar Efetivação Manual
+                            </Button>
+                        )}
+                        {resultado !== null && (
+                            <Button onClick={handleRetry} disabled={retrying}>
+                                {retrying ? (
+                                    <Loader2 className="size-4 mr-2 animate-spin" />
+                                ) : (
+                                    <RefreshCw className="size-4 mr-2" />
+                                )}
+                                Reenviar
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog de confirmação de efetivação manual */}
+            <Dialog open={forcarOpen} onOpenChange={(v) => !v && setForcarOpen(false)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Confirmar Efetivação Manual</DialogTitle>
+                        <DialogDescription>
+                            Esta ação força a efetivação da integração como &quot;Sucesso&quot; sem aguardar resposta do TOTVS.
+                            Ela executará todos os efeitos colaterais (materializar funcionário, fechar headcount, etc.)
+                            e ficará registrada com seu nome. Não pode ser desfeita.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {forcarError && (
+                        <p className="text-xs text-red-600 mt-1">{forcarError}</p>
+                    )}
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setForcarOpen(false)} disabled={forcando}>
+                            Cancelar
+                        </Button>
+                        <Button variant="destructive" onClick={handleEfetivarManual} disabled={forcando}>
+                            {forcando
+                                ? <Loader2 className="size-4 mr-2 animate-spin" />
+                                : <ShieldAlert className="size-4 mr-2" />}
+                            Confirmar Efetivação Manual
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }

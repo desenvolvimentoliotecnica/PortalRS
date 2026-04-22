@@ -120,7 +120,6 @@ public static class PreAdmissaoTotvsValidator
         // País Nacionalidade já validado em Cadastral (PaisNacionalidade)
         // Município de endereço (código IBGE)
         ReqInt(e, p.MunicipioEnderecoIbge,    "MunicipioEnderecoIbge",    "Município Endereço (cód. IBGE)",  "FP1440A — eSocial");
-        ReqInt(e, p.MunicipioNascimentoIbge,  "MunicipioNascimentoIbge",  "Município Nascimento (cód. IBGE)","FP1440A — eSocial");
         Req(e, p.TipoLogradouroESocial,       "TipoLogradouroESocial",    "Tipo Logradouro eSocial (R/AV/etc)","FP1440A — eSocial");
 
         // Condicional: Reside no Exterior

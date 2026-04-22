@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Contracts.IntegracaoTotvs;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
@@ -16,10 +17,12 @@ namespace RhPortal.Api.Controllers;
 public sealed class IntegracaoTotvsController : ControllerBase
 {
     private readonly IIntegracaoTotvsService _service;
+    private readonly ICurrentUserContext _userContext;
 
-    public IntegracaoTotvsController(IIntegracaoTotvsService service)
+    public IntegracaoTotvsController(IIntegracaoTotvsService service, ICurrentUserContext userContext)
     {
         _service = service;
+        _userContext = userContext;
     }
 
     /// <summary>Lista o painel unificado de integração com filtros e paginação.</summary>
@@ -144,6 +147,38 @@ public sealed class IntegracaoTotvsController : ControllerBase
         CancellationToken ct = default)
     {
         return Ok(await _service.ReconciliacaoAsync(diasMinimos, ct));
+    }
+
+    /// <summary>
+    /// Força a efetivação manual de uma integração que ficou sem resposta do TOTVS.
+    /// Registra Sucesso e executa todos os efeitos colaterais (materializar funcionário, fechar headcount, etc.),
+    /// registrando que a efetivação foi realizada manualmente e por quem.
+    /// Retorna HTTP 409 se a integração já possui resultado Sucesso.
+    /// </summary>
+    [HttpPost("{tipo:int}/{id:guid}/efetivar-manual")]
+    [ProducesResponseType(typeof(EfetivarManualResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> EfetivarManual(int tipo, Guid id, CancellationToken ct)
+    {
+        if (!Enum.IsDefined(typeof(TipoIntegracao), (short)tipo))
+            return BadRequest(new { message = "Tipo de integração inválido." });
+
+        try
+        {
+            var result = await _service.EfetivarManualAsync(
+                (TipoIntegracao)tipo, id, _userContext.FuncionarioId, ct);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 
     /// <summary>Reenvia uma integração (limpa resultado para reprocessamento).</summary>

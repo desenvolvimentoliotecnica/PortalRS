@@ -22,6 +22,30 @@ public static class PreAdmissaoDefaultsSeeder
         string tenantId,
         CancellationToken ct)
     {
+        // --- Cargo TOTVS — auto-fill a partir do JobPosition vinculado ---
+        // O campo CodCargoTotvs (cdn_cargo_basic) é obrigatório para o Datasul.
+        // Quando a pré-admissão vem de uma Vaga, o JobPositionId já está preenchido
+        // e o JobPosition tem TotvsCargoBasicId importado do TOTVS. Aqui garantimos
+        // que esse código seja propagado automaticamente sem precisar de ação manual do RH.
+        if (e.JobPositionId.HasValue && (e.CodCargoTotvs == null || e.CodNivel == null))
+        {
+            var jp = await db.Set<JobPosition>()
+                .AsNoTracking()
+                .Where(j => j.Id == e.JobPositionId.Value)
+                .Select(j => new { j.TotvsCargoBasicId, j.TotvsNivCargoId })
+                .FirstOrDefaultAsync(ct);
+
+            if (jp != null)
+            {
+                e.CodCargoTotvs ??= jp.TotvsCargoBasicId;
+                e.CodNivel      ??= jp.TotvsNivCargoId;
+            }
+        }
+
+        // --- Empresa / País / Localidade ---
+        // Usa a primeira Empresa ativa do tenant como default (mesma entidade do
+        // cadastro operacional de Empresas). RH pode editar depois se precisar
+        // selecionar outra empresa do grupo.
         if (string.IsNullOrWhiteSpace(e.CodEmpresa))
         {
             var empresaCode = await db.Set<Empresa>()

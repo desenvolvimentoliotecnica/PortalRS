@@ -76,7 +76,7 @@ interface SolicitacaoDetail {
     justificativa: string | null;
     qtdPosicoes: number;
     urgencia: number;
-    status: number;
+    status: number | string;
     solicitanteId: string;
     solicitanteNome: string | null;
     aprovadorId: string | null;
@@ -353,6 +353,10 @@ function WorkflowTimeline({ etapas }: { etapas: EtapaFluxoInfo[] }) {
  * For detail objects: checks etapasFluxo for an open (Pendente) queue step.
  * For grid rows: checks etapaPendenteIsQueue flag.
  */
+function isAguardandoDecisaoRH(status: unknown): boolean {
+    return status === 9 || status === "AguardandoDecisaoRH";
+}
+
 function isFilaRow(row: GenericRow | SolicitacaoDetail): boolean {
     const r = row as Record<string, unknown>;
     // Detail view — check etapasFluxo for pending queue step
@@ -553,6 +557,12 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const [detailLoading, setDetailLoading] = useState(false);
     const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
 
+    /* ── Decisão RH (AguardandoDecisaoRH) inline ── */
+    const [decisaoRH, setDecisaoRH] = useState<"1" | "2" | "3" | "">("");
+    const [prazoUnidade, setPrazoUnidade] = useState<"dias" | "meses">("meses");
+    const [prazoValor, setPrazoValor] = useState(3);
+    const [savingDecisao, setSavingDecisao] = useState(false);
+
     /* ── Generic detail for other types ── */
     const [genericDetailOpen, setGenericDetailOpen] = useState(false);
     const [genericDetail, setGenericDetail] = useState<GenericRow | null>(null);
@@ -661,7 +671,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     }, [dataMap, activeTab, q, isMyRow, isAllMode, typeFilter]);
 
     /* ── Selectable rows (non-fila items I can directly approve/reject) ── */
-    const selectableRows = useMemo(() => filtered.filter(r => !isFilaRow(r)), [filtered]);
+    const selectableRows = useMemo(() => filtered.filter(r => !isFilaRow(r) && !isAguardandoDecisaoRH(r.status)), [filtered]);
     const selectedRows = useMemo(() => selectableRows.filter(r => selectedIds.has(r.id)), [selectableRows, selectedIds]);
     const allSelectableSelected = selectableRows.length > 0 && selectableRows.every(r => selectedIds.has(r.id));
     const someSelected = selectedIds.size > 0;
@@ -683,6 +693,9 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         setDetailOpen(true);
         setDetailLoading(true);
         setApprovalObs("");
+        setDecisaoRH("");
+        setPrazoUnidade("meses");
+        setPrazoValor(3);
         try {
             const d = await fetchJson<SolicitacaoDetail>(`/api/solicitacoes-vaga/${row.id}`);
             setDetail(d);
@@ -691,6 +704,47 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             setDetailOpen(false);
         } finally {
             setDetailLoading(false);
+        }
+    }
+
+    async function handleCancelarDecisaoRH() {
+        if (!detail) return;
+        setSavingDecisao(true);
+        try {
+            await fetchJson(`/api/solicitacoes-vaga/${detail.id}/cancel`, { method: "POST" });
+            toast.success("Solicitação cancelada.");
+            setDetailOpen(false);
+            pendencias.refresh();
+            refreshAll();
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setSavingDecisao(false);
+        }
+    }
+
+    async function handleDecisaoRH() {
+        if (!detail || !decisaoRH) return;
+        if (decisaoRH === "1" && prazoValor < 1) { toast.error("Informe um prazo válido."); return; }
+        setSavingDecisao(true);
+        try {
+            const prazoMeses = decisaoRH === "1" && prazoUnidade === "meses" ? prazoValor : null;
+            const prazoDataAlvo = decisaoRH === "1" && prazoUnidade === "dias"
+                ? new Date(Date.now() + prazoValor * 86_400_000).toISOString()
+                : null;
+            await fetchJson(`/api/solicitacoes-vaga/${detail.id}/decisao-rh`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ decisao: Number(decisaoRH), prazoMeses, prazoDataAlvo }),
+            });
+            toast.success("Decisão de headcount registrada com sucesso!");
+            setDetailOpen(false);
+            pendencias.refresh();
+            refreshAll();
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setSavingDecisao(false);
         }
     }
 
@@ -1105,6 +1159,15 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                             <UserCheck className="size-4" />
                                             Assumir
                                         </Button>
+                                    ) : isAguardandoDecisaoRH(row.status) ? (
+                                        <Button
+                                            size="sm"
+                                            className="flex-1 bg-amber-600 hover:bg-amber-700 gap-1.5"
+                                            onClick={openDetail}
+                                        >
+                                            <AlertTriangle className="size-4" />
+                                            Decidir HC
+                                        </Button>
                                     ) : (
                                         <>
                                             <Button
@@ -1242,6 +1305,17 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                                         >
                                                             <UserCheck className="size-3" />
                                                             <span className="hidden sm:inline">Assumir</span>
+                                                        </Button>
+                                                    ) : isAguardandoDecisaoRH(row.status) ? (
+                                                        /* AguardandoDecisaoRH: abre dialog com UI de decisão inline */
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-amber-600 hover:bg-amber-700 gap-1"
+                                                            title="Registrar decisão de headcount"
+                                                            onClick={openDetail}
+                                                        >
+                                                            <AlertTriangle className="size-3" />
+                                                            <span className="hidden sm:inline">Decidir HC</span>
                                                         </Button>
                                                     ) : (
                                                         /* Nominated: Approve / Reject inline */
@@ -1420,7 +1494,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         <DetailField label="Solicitante" value={detail.solicitanteNome} />
                                         <DetailField label="Área" value={detail.areaName} />
                                         <DetailField label="Data criação" value={formatDate(detail.createdAtUtc)} />
-                                        <DetailField label="Status" value={statusBadge(detail.status)} />
+                                        <DetailField label="Status" value={statusBadge(Number(detail.status))} />
                                     </div>
                                 </TabsContent>
 
@@ -1439,7 +1513,79 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                             </Tabs>
 
                             {/* Actions — always visible */}
-                            {detail.status === 1 && (
+                            {isAguardandoDecisaoRH(detail.status) && (
+                                <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-4 space-y-3">
+                                    <div>
+                                        <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                                            ⚠ Decisão de Headcount pendente
+                                        </p>
+                                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                                            Esta solicitação foi aprovada pelo fluxo de gestores e aguarda definição do RH antes de ser publicada.
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="flex items-start gap-2 cursor-pointer">
+                                            <input type="radio" name="decisaoRHApr" value="1" checked={decisaoRH === "1"} onChange={() => setDecisaoRH("1")} className="mt-0.5" />
+                                            <span className="text-sm text-amber-800 dark:text-amber-200">
+                                                <strong>Substituição provisória</strong> — alguém está saindo; define prazo estimado de revisão
+                                            </span>
+                                        </label>
+                                        {decisaoRH === "1" && (
+                                            <div className="ml-5 flex items-center gap-2 flex-wrap">
+                                                <span className="text-xs text-amber-700 font-medium">Prazo:</span>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    value={prazoValor}
+                                                    onChange={(e) => setPrazoValor(Math.max(1, Number(e.target.value)))}
+                                                    className="w-16 rounded border border-amber-300 bg-white px-2 py-0.5 text-sm text-center"
+                                                />
+                                                <select
+                                                    value={prazoUnidade}
+                                                    onChange={(e) => setPrazoUnidade(e.target.value as "dias" | "meses")}
+                                                    className="rounded border border-amber-300 bg-white px-2 py-0.5 text-sm"
+                                                >
+                                                    <option value="dias">dias</option>
+                                                    <option value="meses">meses</option>
+                                                </select>
+                                            </div>
+                                        )}
+                                        <label className="flex items-start gap-2 cursor-pointer">
+                                            <input type="radio" name="decisaoRHApr" value="2" checked={decisaoRH === "2"} onChange={() => setDecisaoRH("2")} className="mt-0.5" />
+                                            <span className="text-sm text-amber-800 dark:text-amber-200">
+                                                <strong>Aumento definitivo de headcount</strong> — encaminha para aprovação da Diretoria
+                                            </span>
+                                        </label>
+                                        <label className="flex items-start gap-2 cursor-pointer">
+                                            <input type="radio" name="decisaoRHApr" value="3" checked={decisaoRH === "3"} onChange={() => setDecisaoRH("3")} className="mt-0.5" />
+                                            <span className="text-sm text-amber-800 dark:text-amber-200">
+                                                <strong>Consumir headcount disponível</strong> — utiliza posições existentes sem aumentar o headcount
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button
+                                            size="sm"
+                                            disabled={!decisaoRH || savingDecisao}
+                                            onClick={() => void handleDecisaoRH()}
+                                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                                        >
+                                            {savingDecisao ? "Registrando…" : "Confirmar decisão"}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={savingDecisao}
+                                            onClick={() => void handleCancelarDecisaoRH()}
+                                            className="text-red-600 border-red-300 hover:bg-red-50"
+                                        >
+                                            <XCircle className="size-4 mr-1" />
+                                            Cancelar fluxo
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && (
                                 isFilaRow(detail) ? (
                                     <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4">
                                         <div className="text-sm font-semibold text-violet-700 flex items-center gap-2">

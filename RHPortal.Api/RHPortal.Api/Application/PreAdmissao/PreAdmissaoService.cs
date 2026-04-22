@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Application.ItaloIntegracao;
+using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -22,6 +23,7 @@ public interface IPreAdmissaoService
     Task<PreAdmissaoDetailResponse?> SubmitAsync(Guid id, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> ApproveAsync(Guid id, Guid aprovadorId, PreAdmissaoApproveRequest request, CancellationToken ct);
     Task<PreAdmissaoDetailResponse?> RejectAsync(Guid id, PreAdmissaoRejectRequest request, CancellationToken ct);
+    Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<BuscaCpfResponse> BuscarPorCpfAsync(string cpf, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse> UploadDocumentoAsync(Guid preAdmissaoId, TipoDocumento tipo, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, Guid docId, CancellationToken ct);
@@ -57,6 +59,12 @@ public interface IPreAdmissaoService
     /// É idempotente: chamadas repetidas são no-op.
     /// </summary>
     Task MaterializarFuncionarioAsync(Guid preAdmissaoId, string? cdnFuncionario, CancellationToken ct);
+
+    /// <summary>
+    /// RH efetiva a admissão aprovada — move para EmIntegracao (aguardando TOTVS).
+    /// Análogo ao EfetivarAsync de SolicitacaoDesligamento.
+    /// </summary>
+    Task<PreAdmissaoDetailResponse?> EfetivarAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class PreAdmissaoService : IPreAdmissaoService
@@ -69,6 +77,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly IS3StorageService _storage;
     private readonly ILogger<PreAdmissaoService> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IOcupacaoHistoricoService _ocupacaoService;
 
     public PreAdmissaoService(
         AppDbContext db,
@@ -78,7 +87,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         IItaloIntegrationService italoService,
         IS3StorageService storage,
         ILogger<PreAdmissaoService> logger,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IOcupacaoHistoricoService ocupacaoService)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -88,6 +98,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _httpContextAccessor = httpContextAccessor;
         _storage = storage;
         _logger = logger;
+        _ocupacaoService = ocupacaoService;
     }
 
     // ── List ──
@@ -183,8 +194,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         var isDraft = e.Status == PreAdmissaoStatus.Rascunho || e.Status == PreAdmissaoStatus.Enviado;
         var isPostFill = e.Status is PreAdmissaoStatus.Acessado or PreAdmissaoStatus.PreenchidoParcial or PreAdmissaoStatus.Preenchido;
         // RH pode re-editar quando a integração TOTVS falhou (permite corrigir e reenviar).
-        // Status fica em Aprovada + IntegracaoResultado=Falha — ex: "iDocMilitarTipo < 1" retornado pelo Datasul.
-        var isIntegracaoFalha = e.Status == PreAdmissaoStatus.Aprovada
+        // Status fica em EmIntegracao + IntegracaoResultado=Falha — ex: "iDocMilitarTipo < 1" retornado pelo Datasul.
+        var isIntegracaoFalha = e.Status == PreAdmissaoStatus.EmIntegracao
                                && (e.IntegracaoResultado == IntegracaoResultado.Falha
                                    || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva);
 
@@ -437,6 +448,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         if (e.Status != PreAdmissaoStatus.Preenchido)
             throw new InvalidOperationException("Só é possível aprovar pré-admissões em revisão.");
 
+        // ── Auto-fill cargo TOTVS a partir do JobPosition (mesma lógica do DefaultsSeeder) ──
+        // ApproveAsync não chama o seeder, então garante aqui antes da validação.
+        await PreAdmissaoDefaultsSeeder.ApplyAsync(e, _db, _tenantContext.TenantId!, ct);
+
         // ── Validação TOTVS: garante que todos os campos obrigatórios/condicionais
         //    estão preenchidos antes de concluir a admissão.
         var issues = PreAdmissaoTotvsValidator.Validate(e);
@@ -564,6 +579,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             CdnFuncionario = cdnFuncionario,
             CdnEmpresa = pa.CodEmpresa,
             CdnEstab = pa.EstabelecimentoCodigo,
+            DataAdmissao = pa.DataAdmissao,
+            DataNascimento = pa.DataNascimento,
+            Sexo = pa.Sexo == Sexo.Masculino ? "M" : pa.Sexo == Sexo.Feminino ? "F" : null,
+            Headcount = 1,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -595,9 +614,32 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         await _db.SaveChangesAsync(ct);
 
+        if (pa.VagaId.HasValue)
+        {
+            var dataEntrada = pa.DataAdmissao?.ToDateTime(TimeOnly.MinValue) ?? DateTime.UtcNow;
+            await _ocupacaoService.AbrirOcupacaoAsync(func.Id, pa.VagaId.Value, dataEntrada, null, ct);
+        }
+
         _logger.LogInformation(
             "Funcionário materializado para PreAdmissão {PreAdmissaoId}: FuncionarioId={FuncionarioId}, CdnFuncionario={CdnFuncionario}",
             preAdmissaoId, func.Id, cdnFuncionario);
+    }
+
+    // ── Efetivar (Aprovada → EmIntegracao) ──
+
+    public async Task<PreAdmissaoDetailResponse?> EfetivarAsync(Guid id, CancellationToken ct)
+    {
+        var e = await _db.Set<Domain.Entities.PreAdmissao>()
+            .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == _tenantContext.TenantId, ct);
+        if (e is null) return null;
+
+        if (e.Status != PreAdmissaoStatus.Aprovada)
+            throw new InvalidOperationException("Apenas admissões com status 'Aprovada' podem ser efetivadas.");
+
+        e.Status = PreAdmissaoStatus.EmIntegracao;
+        e.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
     }
 
     // ── Reject ──
@@ -606,14 +648,40 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (e is null) return null;
-        if (e.Status != PreAdmissaoStatus.Preenchido)
-            throw new InvalidOperationException("Só é possível rejeitar pré-admissões em revisão.");
+
+        PreAdmissaoStatus[] terminais = [PreAdmissaoStatus.Aprovada, PreAdmissaoStatus.EmIntegracao, PreAdmissaoStatus.Integrada, PreAdmissaoStatus.Rejeitada];
+        if (terminais.Contains(e.Status))
+            throw new InvalidOperationException($"Não é possível cancelar uma admissão com status '{e.Status}'.");
 
         e.Status = PreAdmissaoStatus.Rejeitada;
         e.MotivoRejeicao = request.Motivo;
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
+    }
+
+    // ── Delete ──
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var e = await _db.Set<Domain.Entities.PreAdmissao>()
+            .Include(x => x.Documentos)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (e is null) return false;
+
+        PreAdmissaoStatus[] terminaisNaoDeletaveis = [PreAdmissaoStatus.Integrada];
+        if (terminaisNaoDeletaveis.Contains(e.Status))
+            throw new InvalidOperationException("Não é possível excluir uma admissão já integrada ao TOTVS.");
+
+        foreach (var doc in e.Documentos)
+        {
+            try { await _storage.DeleteAsync(doc.StoragePath, ct); }
+            catch { /* best-effort */ }
+        }
+
+        _db.Set<Domain.Entities.PreAdmissao>().Remove(e);
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     // ── Busca CPF (readmissão) ──
@@ -799,13 +867,12 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     public async Task<IReadOnlyList<PreAdmissaoPendenteIntegracaoRow>> ListPendentesIntegracaoAsync(CancellationToken ct)
     {
-        // TOTVS só deve ver registros que NUNCA foram reportados (IntegracaoResultado == null).
-        // Se o ERP reportou Falha/FalhaDefinitiva, o registro sai da fila e só volta via
-        // retry manual (POST /api/integracao-totvs/{tipo}/{id}/retry), que zera IntegracaoResultado.
+        // TOTVS só deve ver registros em EmIntegracao que NUNCA foram reportados (IntegracaoResultado == null).
+        // Se o ERP reportou Falha, o registro permanece em EmIntegracao e volta à fila após retry manual.
         return await _db.Set<Domain.Entities.PreAdmissao>()
             .AsNoTracking()
             .Where(x => x.TenantId == _tenantContext.TenantId
-                     && x.Status == PreAdmissaoStatus.Aprovada
+                     && x.Status == PreAdmissaoStatus.EmIntegracao
                      && x.IntegracaoResultado == null)
             .OrderBy(x => x.ApprovedAtUtc)
             .Select(x => new PreAdmissaoPendenteIntegracaoRow(x.Id, x.Nome, x.Cpf, x.DataAdmissao, x.Status))
@@ -817,7 +884,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         var q = _db.Set<Domain.Entities.PreAdmissao>()
             .AsNoTracking()
             .Where(x => x.TenantId == _tenantContext.TenantId
-                     && (x.Status == PreAdmissaoStatus.Aprovada || x.Status == PreAdmissaoStatus.Integrada));
+                     && (x.Status == PreAdmissaoStatus.Aprovada
+                      || x.Status == PreAdmissaoStatus.EmIntegracao
+                      || x.Status == PreAdmissaoStatus.Integrada));
 
         if (filtro.HasValue)
             q = q.Where(x => x.IntegracaoResultado == filtro.Value);
@@ -838,8 +907,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .FirstOrDefaultAsync(x => x.Id == id && x.TenantId == _tenantContext.TenantId, ct);
 
         if (e is null) return (null, null);
-        if (e.Status != PreAdmissaoStatus.Aprovada)
-            return (null, $"Pré-admissão não está no status 'Aprovada' (atual: {e.Status}).");
+        if (e.Status != PreAdmissaoStatus.EmIntegracao)
+            return (null, $"Pré-admissão não está no status 'EmIntegracao' (atual: {e.Status}).");
 
         var isSucesso = string.Equals(request.Status, "sucesso", StringComparison.OrdinalIgnoreCase);
         e.IntegracaoMensagem = request.Mensagem?.Trim();
@@ -853,7 +922,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         }
         else
         {
-            // Mantém Aprovada → reaparece na fila para retry
+            // Permanece EmIntegracao → reaparece na fila após retry manual (que zera IntegracaoResultado)
             e.IntegracaoResultado = IntegracaoResultado.Falha;
         }
 
@@ -867,7 +936,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         var q = _db.Set<Domain.Entities.PreAdmissao>()
             .AsNoTracking()
             .IgnoreQueryFilters()   // cross-tenant: Owner vê todos os tenants
-            .Where(x => x.Status == PreAdmissaoStatus.Aprovada || x.Status == PreAdmissaoStatus.Integrada);
+            .Where(x => x.Status == PreAdmissaoStatus.Aprovada
+                     || x.Status == PreAdmissaoStatus.EmIntegracao
+                     || x.Status == PreAdmissaoStatus.Integrada);
 
         if (!string.IsNullOrWhiteSpace(tenantId))
             q = q.Where(x => x.TenantId == tenantId);
@@ -900,6 +971,26 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             await _db.SaveChangesAsync(ct);
         }
 
+        // Buscar dados da vaga (com JobPosition) para preencher automaticamente
+        var vaga = candidato.VagaId != Guid.Empty
+            ? await _db.Vagas
+                .Include(v => v.JobPosition)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v => v.Id == candidato.VagaId, ct)
+            : null;
+
+        // JobPositionId: prioridade para o que vier no request; fallback da vaga
+        var jobPositionId = request.JobPositionId ?? vaga?.JobPositionId;
+
+        // Se o JobPosition ainda não foi carregado (request veio com Id diferente do da vaga)
+        JobPosition? jobPosition = vaga?.JobPosition;
+        if (jobPositionId.HasValue && jobPosition?.Id != jobPositionId)
+        {
+            jobPosition = await _db.Set<JobPosition>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(jp => jp.Id == jobPositionId.Value, ct);
+        }
+
         // Reusar pré-admissão existente do candidato (evita duplicar)
         var existing = await _db.Set<Domain.Entities.PreAdmissao>()
             .Where(pa => pa.CandidatoId == candidato.Id
@@ -914,15 +1005,17 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         {
             if (request.TipoContratacao.HasValue)
                 existing.TipoContratacao = request.TipoContratacao;
+            // Preencher cargo TOTVS automaticamente se ainda estiver vazio
+            if (existing.CodCargoTotvs == null && jobPosition?.TotvsCargoBasicId != null)
+                existing.CodCargoTotvs = jobPosition.TotvsCargoBasicId;
+            if (existing.JobPositionId == null && jobPositionId.HasValue)
+                existing.JobPositionId = jobPositionId;
+            if (existing.VagaId == null && candidato.VagaId != Guid.Empty)
+                existing.VagaId = candidato.VagaId;
             existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(ct);
             return (await GetByIdAsync(existing.Id, ct))!;
         }
-
-        // Buscar dados da vaga do candidato para preencher automaticamente
-        var vaga = candidato.VagaId != Guid.Empty
-            ? await _db.Vagas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == candidato.VagaId, ct)
-            : null;
 
         var entity = new Domain.Entities.PreAdmissao
         {
@@ -934,9 +1027,11 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Nome = candidato.Nome.Trim(),
             Email = candidato.Email?.Trim(),
             Celular = candidato.Fone?.Trim(),
-            JobPositionId = request.JobPositionId,
+            JobPositionId = jobPositionId,
+            CodCargoTotvs = jobPosition?.TotvsCargoBasicId,
             AreaId = request.AreaId ?? vaga?.AreaId,
             UnitId = request.UnitId,
+            VagaId = candidato.VagaId != Guid.Empty ? candidato.VagaId : null,
             DataAdmissao = request.DataAdmissao,
             Salario = request.Salario,
             TipoContratacao = request.TipoContratacao ?? (vaga?.TipoContratacao.HasValue == true ? (TipoContratacaoAdmissao?)(int)vaga.TipoContratacao.Value : null),

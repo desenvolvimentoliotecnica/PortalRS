@@ -288,7 +288,6 @@ export default function VagasScreen() {
     const { me } = useAuth();
     const deeplinkHandled = useRef(false);
     const pendenciasMode = searchParams.get("pendencias") === "1" || searchParams.get("mode") === "pendencias";
-    const [hcPendentesMode, setHcPendentesMode] = useState(false);
 
     const isGestor = useMemo(
         () => (me?.roles ?? []).some((r) => r.toLowerCase() === "gestor"),
@@ -299,7 +298,7 @@ export default function VagasScreen() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<VagaListItem[]>([]);
     const [q, setQ] = useState("");
-    const [status, setStatus] = useState<string[]>(() => pendenciasMode ? ["rascunho"] : []);
+    const [status, setStatus] = useState<string[]>([]);
     const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
         if (typeof window === "undefined") return "list";
         return (localStorage.getItem("renderrh.vagas.viewMode") as "list" | "kanban") || "list";
@@ -312,8 +311,7 @@ export default function VagasScreen() {
 
     useEffect(() => {
         if (!pendenciasMode) return;
-        // Pendências sempre parte de rascunho (vagas aprovadas pelos superiores e liberadas para RH preencher).
-        setStatus(["rascunho"]);
+        setStatus([]);
         setQ("");
     }, [pendenciasMode]);
 
@@ -495,8 +493,6 @@ export default function VagasScreen() {
         const qq = q.trim().toLowerCase();
         const result = rows.filter((v) => {
             if (status.length > 0 && !status.includes((v.status ?? "").toLowerCase())) return false;
-            // HC Pendentes filter
-            if (hcPendentesMode && !((v as Record<string, unknown>).headcountPendente as number | undefined)) return false;
             // F1 — Date range filter
             const dateField = ((v as Record<string, unknown>).createdAtUtc as string | null | undefined) ?? v.updatedAt;
             if (dateFrom && dateField && new Date(dateField) < new Date(dateFrom)) return false;
@@ -516,7 +512,7 @@ export default function VagasScreen() {
             return dateSort === "newest" ? db - da : da - db;
         });
         return result;
-    }, [rows, q, status, dateSort, dateFrom, dateTo, agingBucket, hcPendentesMode]);
+    }, [rows, q, status, dateSort, dateFrom, dateTo, agingBucket]);
 
     const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
         initialPageSize: 20,
@@ -922,7 +918,7 @@ export default function VagasScreen() {
 
             {/* ── Fila de Análise RH ── */}
             {(filaRhLoading || filaRh.length > 0) && (
-                <div className="rounded-xl border-2 border-amber-300 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-900/10 p-4 shadow-sm space-y-3">
+                <div className="rounded-xl border border-amber-200 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-900/10 p-4 shadow-sm space-y-3">
                     <div className="flex items-center gap-2">
                         <svg className="size-5 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
                         <div>
@@ -1038,18 +1034,15 @@ export default function VagasScreen() {
                         <CalendarDays className="size-3" />
                         {dateSort === "newest" ? "Recentes" : "Antigas"}
                     </button>
-                    <button type="button" className={`inline-flex items-center h-8 rounded-md border px-2 text-xs font-medium transition-colors ${pendenciasMode ? "bg-primary text-primary-foreground border-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"}`} onClick={() => { if (pendenciasMode) { setStatus([]); void router.replace("/vagas"); } else { void router.push("/vagas?pendencias=1"); } }}>
-                        Pendências
-                    </button>
                     <button
                         type="button"
-                        className={`inline-flex items-center h-8 rounded-md border px-2 text-xs font-medium transition-colors ${hcPendentesMode ? "bg-amber-600 text-white border-amber-600" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}
-                        onClick={() => setHcPendentesMode(v => !v)}
-                        title="Mostrar apenas vagas com headcount pendente de decisão do RH"
+                        className={`inline-flex items-center gap-1 h-8 rounded-md border px-2 text-xs font-medium transition-colors ${pendenciasMode ? "bg-primary text-primary-foreground border-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}
+                        onClick={() => { if (pendenciasMode) { setStatus([]); void router.replace("/vagas"); } else { void router.push("/vagas?pendencias=1"); } }}
+                        title="Vagas aguardando ação do RH (rascunhos aprovados e headcount pendente)"
                     >
-                        HC Pend.
-                        {!hcPendentesMode && rows.filter(v => !!((v as Record<string, unknown>).headcountPendente as number | undefined)).length > 0 && (
-                            <span className="ml-1 rounded-full bg-amber-500 text-white text-[9px] px-1 py-0 leading-tight">
+                        Pendências
+                        {!pendenciasMode && rows.filter(v => !!((v as Record<string, unknown>).headcountPendente as number | undefined)).length > 0 && (
+                            <span className="rounded-full bg-amber-500 text-white text-[9px] px-1 leading-tight">
                                 {rows.filter(v => !!((v as Record<string, unknown>).headcountPendente as number | undefined)).length}
                             </span>
                         )}
@@ -1251,9 +1244,13 @@ export default function VagasScreen() {
                                                                             </span>
                                                                         )}
                                                                         {pendente > 0 && (
-                                                                            <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium cursor-pointer" title="Headcount aprovado aguardando decisão do RH — clique para filtrar" onClick={() => setHcPendentesMode(true)}>
-                                                                                +{pendente} pend.
-                                                                            </span>
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); router.push(`/vagas/hub?id=${encodeURIComponent(vaga.id)}&tab=posicao`); }}
+                                                                                className="rounded-full px-1.5 py-0.5 text-[10px] bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium hover:bg-violet-200 transition-colors"
+                                                                                title="Headcount aprovado aguardando decisão do RH — clique para decidir"
+                                                                            >
+                                                                                +{pendente} HC pend.
+                                                                            </button>
                                                                         )}
                                                                     </div>
                                                                     {alertaAtivo && (
@@ -1512,6 +1509,7 @@ export default function VagasScreen() {
                         )}
                     </div>
                 )}
+
             </div>
 
             <Dialog open={vagaDetailOpen} onOpenChange={setVagaDetailOpen}>

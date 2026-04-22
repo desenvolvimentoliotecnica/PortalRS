@@ -401,6 +401,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     // Integração
                     p.IntegracaoResultado, p.IntegracaoMensagem,
                     integradaEmUtc = TotvsPayloadHelper.FormatDate(p.IntegradaEmUtc),
+                    p.EfetivadoManualmentePorId,
+                    p.EfetivadoManualmenteEmUtc,
                     approvedAtUtc = TotvsPayloadHelper.FormatDate(p.ApprovedAtUtc),
                     createdAtUtc = TotvsPayloadHelper.FormatDate(p.CreatedAtUtc),
                 };
@@ -499,9 +501,11 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.Observacoes,
                     status = s.Status.ToString(),
                     s.IntegracaoResultado, s.IntegracaoMensagem,
-                    integradaEmUtc = TotvsPayloadHelper.FormatDate(s.IntegradaEmUtc),
-                    approvedAtUtc  = TotvsPayloadHelper.FormatDate(s.ApprovedAtUtc),
-                    createdAtUtc   = TotvsPayloadHelper.FormatDate(s.CreatedAtUtc),
+                    integradaEmUtc            = TotvsPayloadHelper.FormatDate(s.IntegradaEmUtc),
+                    s.EfetivadoManualmentePorId,
+                    efetivadoManualmenteEmUtc = TotvsPayloadHelper.FormatDate(s.EfetivadoManualmenteEmUtc),
+                    approvedAtUtc             = TotvsPayloadHelper.FormatDate(s.ApprovedAtUtc),
+                    createdAtUtc              = TotvsPayloadHelper.FormatDate(s.CreatedAtUtc),
                 };
             }
             case TipoIntegracao.Promocao:
@@ -529,7 +533,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     unidadeLotacaoNome = s.UnidadeLotacao?.Description,
                     s.NovoSalario, s.NovaRemuneracao, s.HorarioProposto,
                     s.Observacoes, status = s.Status.ToString(),
-                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
+                    s.EfetivadoManualmentePorId, s.EfetivadoManualmenteEmUtc,
+                    s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
             }
             case TipoIntegracao.AlteracaoEndereco:
@@ -544,7 +550,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     nome = s.Solicitante?.Name ?? "—",
                     s.Cep, s.Logradouro, s.Numero, s.Bairro, s.Complemento, s.Cidade, s.Uf,
                     s.Observacoes, status = s.Status.ToString(),
-                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
+                    s.EfetivadoManualmentePorId, s.EfetivadoManualmenteEmUtc,
+                    s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
             }
             case TipoIntegracao.Dependente:
@@ -560,7 +568,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     tipoSolicitacao = s.TipoSolicitacao.ToString(),
                     s.NomeCompleto, parentesco = s.Parentesco.ToString(), s.Cpf, s.DataNascimento,
                     s.IsPcd, s.DependenteIR, s.Observacoes, status = s.Status.ToString(),
-                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
+                    s.EfetivadoManualmentePorId, s.EfetivadoManualmenteEmUtc,
+                    s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
             }
             case TipoIntegracao.Beneficio:
@@ -575,7 +585,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     nome = s.Solicitante?.Name ?? "—",
                     tipoBeneficio = s.TipoBeneficio.ToString(), tipoAlteracao = s.TipoAlteracao.ToString(),
                     s.Descricao, s.IncluirDependentes, s.Observacoes, status = s.Status.ToString(),
-                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
+                    s.EfetivadoManualmentePorId, s.EfetivadoManualmenteEmUtc,
+                    s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
             }
             case TipoIntegracao.Ferias:
@@ -591,7 +603,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.PeriodoAquisitivo, s.DataInicio, s.DataFim, s.QtdDias,
                     s.AbonoPecuniario, s.DiasAbono, s.Adiantamento13,
                     s.Observacoes, status = s.Status.ToString(),
-                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
+                    s.EfetivadoManualmentePorId, s.EfetivadoManualmenteEmUtc,
+                    s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
             }
             case TipoIntegracao.PagamentoExtra:
@@ -608,7 +622,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     tipoPagamentoExtra = s.TipoPagamentoExtra.ToString(),
                     s.Valor, s.Descricao, s.DataPagamento, s.Competencia,
                     s.Observacoes, status = s.Status.ToString(),
-                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
+                    s.EfetivadoManualmentePorId, s.EfetivadoManualmenteEmUtc,
+                    s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
             }
             case TipoIntegracao.SolicitacaoVaga:
@@ -636,7 +652,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     motivoRequisicao = s.MotivoRequisicao?.ToString(),
                     s.CnhObrigatoria, s.DisponibilidadeViagens, s.EscalaTrabalho,
                     s.VagaId,
-                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc, s.ApprovedAtUtc, s.CreatedAtUtc,
+                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
+                    s.EfetivadoManualmentePorId, s.EfetivadoManualmenteEmUtc,
+                    s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
             }
             default:
@@ -696,17 +714,13 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     await _ocupacaoService.FecharOcupacaoAsync(
                         entity.FuncionarioId, MotivoSaidaOcupacao.Desligamento, entity.Id, ct);
 
-                    // ── Inativa o Funcionario após confirmação do Datasul ──
-                    // Gap reportado: sync retorna sucesso → RH espera ver o funcionário como desligado
-                    // na lista. Seta Status=Inactive para sair dos filtros de "ativos" em dashboards,
-                    // relatórios e fluxos de avaliação/promoção. A data do desligamento fica em
-                    // SolicitacoesDesligamento.DataDesligamento (histórico).
-                    var func = await _db.Set<Funcionario>()
-                        .FirstOrDefaultAsync(f => f.Id == entity.FuncionarioId, ct);
-                    if (func is not null)
+                    // Marcar colaborador como inativo
+                    var funcionarioDeslig = await _db.Set<Funcionario>()
+                        .FindAsync(new object[] { entity.FuncionarioId }, ct);
+                    if (funcionarioDeslig is not null)
                     {
-                        func.Status = FuncionarioStatus.Inactive;
-                        func.UpdatedAtUtc = now;
+                        funcionarioDeslig.Status = FuncionarioStatus.Inactive;
+                        funcionarioDeslig.UpdatedAtUtc = now;
                     }
                 }
                 solicitanteId = entity.SolicitanteId;
@@ -968,6 +982,160 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de integração desconhecido.");
         }
 
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<EfetivarManualResponse> EfetivarManualAsync(
+        TipoIntegracao tipo, Guid id, Guid? responsavelId, CancellationToken ct)
+    {
+        if (await IsJaSucessoAsync(tipo, id, ct))
+            throw new InvalidOperationException(
+                "Esta integração já foi efetivada com Sucesso e não pode ser forçada novamente.");
+
+        var nome = await GetFuncionarioNomeAsync(responsavelId, ct);
+        var mensagem = nome is not null
+            ? $"Efetivado manualmente por {nome}"
+            : "Efetivado manualmente";
+
+        await RegistrarResultadoAsync(tipo, id,
+            new IntegracaoTotvsResultadoRequest(IntegracaoResultado.Sucesso, mensagem, null), ct);
+
+        var now = DateTimeOffset.UtcNow;
+        await StamparEfetivacaoManualAsync(tipo, id, responsavelId, now, ct);
+
+        return new EfetivarManualResponse(now, nome);
+    }
+
+    private async Task<bool> IsJaSucessoAsync(TipoIntegracao tipo, Guid id, CancellationToken ct)
+    {
+        return tipo switch
+        {
+            TipoIntegracao.Admissao =>
+                await _db.PreAdmissoes.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => (IntegracaoResultado?)x.IntegracaoResultado)
+                    .FirstOrDefaultAsync(ct) == IntegracaoResultado.Sucesso,
+            TipoIntegracao.Desligamento =>
+                await _db.SolicitacoesDesligamento.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => (IntegracaoResultado?)x.IntegracaoResultado)
+                    .FirstOrDefaultAsync(ct) == IntegracaoResultado.Sucesso,
+            TipoIntegracao.Promocao =>
+                await _db.SolicitacoesPromocao.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => (IntegracaoResultado?)x.IntegracaoResultado)
+                    .FirstOrDefaultAsync(ct) == IntegracaoResultado.Sucesso,
+            TipoIntegracao.PagamentoExtra =>
+                await _db.SolicitacoesPagamentoExtra.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => (IntegracaoResultado?)x.IntegracaoResultado)
+                    .FirstOrDefaultAsync(ct) == IntegracaoResultado.Sucesso,
+            TipoIntegracao.AlteracaoEndereco =>
+                await _db.SolicitacoesEndereco.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => (IntegracaoResultado?)x.IntegracaoResultado)
+                    .FirstOrDefaultAsync(ct) == IntegracaoResultado.Sucesso,
+            TipoIntegracao.Dependente =>
+                await _db.SolicitacoesDependente.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => (IntegracaoResultado?)x.IntegracaoResultado)
+                    .FirstOrDefaultAsync(ct) == IntegracaoResultado.Sucesso,
+            TipoIntegracao.Beneficio =>
+                await _db.SolicitacoesBeneficio.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => (IntegracaoResultado?)x.IntegracaoResultado)
+                    .FirstOrDefaultAsync(ct) == IntegracaoResultado.Sucesso,
+            TipoIntegracao.Ferias =>
+                await _db.SolicitacoesFerias.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => (IntegracaoResultado?)x.IntegracaoResultado)
+                    .FirstOrDefaultAsync(ct) == IntegracaoResultado.Sucesso,
+            TipoIntegracao.SolicitacaoVaga =>
+                await _db.SolicitacoesVaga.AsNoTracking()
+                    .Where(x => x.Id == id).Select(x => (IntegracaoResultado?)x.IntegracaoResultado)
+                    .FirstOrDefaultAsync(ct) == IntegracaoResultado.Sucesso,
+            _ => throw new ArgumentOutOfRangeException(nameof(tipo)),
+        };
+    }
+
+    private async Task<string?> GetFuncionarioNomeAsync(Guid? funcionarioId, CancellationToken ct)
+    {
+        if (!funcionarioId.HasValue) return null;
+        var f = await _db.Set<Funcionario>().AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == funcionarioId.Value, ct);
+        return f?.Name;
+    }
+
+    private async Task StamparEfetivacaoManualAsync(
+        TipoIntegracao tipo, Guid id, Guid? responsavelId, DateTimeOffset now, CancellationToken ct)
+    {
+        switch (tipo)
+        {
+            case TipoIntegracao.Admissao:
+            {
+                var e = await _db.PreAdmissoes.FindAsync(new object[] { id }, ct);
+                if (e is null) return;
+                e.EfetivadoManualmentePorId = responsavelId;
+                e.EfetivadoManualmenteEmUtc = now;
+                break;
+            }
+            case TipoIntegracao.Desligamento:
+            {
+                var e = await _db.SolicitacoesDesligamento.FindAsync(new object[] { id }, ct);
+                if (e is null) return;
+                e.EfetivadoManualmentePorId = responsavelId;
+                e.EfetivadoManualmenteEmUtc = now;
+                break;
+            }
+            case TipoIntegracao.Promocao:
+            {
+                var e = await _db.SolicitacoesPromocao.FindAsync(new object[] { id }, ct);
+                if (e is null) return;
+                e.EfetivadoManualmentePorId = responsavelId;
+                e.EfetivadoManualmenteEmUtc = now;
+                break;
+            }
+            case TipoIntegracao.PagamentoExtra:
+            {
+                var e = await _db.SolicitacoesPagamentoExtra.FindAsync(new object[] { id }, ct);
+                if (e is null) return;
+                e.EfetivadoManualmentePorId = responsavelId;
+                e.EfetivadoManualmenteEmUtc = now;
+                break;
+            }
+            case TipoIntegracao.AlteracaoEndereco:
+            {
+                var e = await _db.SolicitacoesEndereco.FindAsync(new object[] { id }, ct);
+                if (e is null) return;
+                e.EfetivadoManualmentePorId = responsavelId;
+                e.EfetivadoManualmenteEmUtc = now;
+                break;
+            }
+            case TipoIntegracao.Dependente:
+            {
+                var e = await _db.SolicitacoesDependente.FindAsync(new object[] { id }, ct);
+                if (e is null) return;
+                e.EfetivadoManualmentePorId = responsavelId;
+                e.EfetivadoManualmenteEmUtc = now;
+                break;
+            }
+            case TipoIntegracao.Beneficio:
+            {
+                var e = await _db.SolicitacoesBeneficio.FindAsync(new object[] { id }, ct);
+                if (e is null) return;
+                e.EfetivadoManualmentePorId = responsavelId;
+                e.EfetivadoManualmenteEmUtc = now;
+                break;
+            }
+            case TipoIntegracao.Ferias:
+            {
+                var e = await _db.SolicitacoesFerias.FindAsync(new object[] { id }, ct);
+                if (e is null) return;
+                e.EfetivadoManualmentePorId = responsavelId;
+                e.EfetivadoManualmenteEmUtc = now;
+                break;
+            }
+            case TipoIntegracao.SolicitacaoVaga:
+            {
+                var e = await _db.SolicitacoesVaga.FindAsync(new object[] { id }, ct);
+                if (e is null) return;
+                e.EfetivadoManualmentePorId = responsavelId;
+                e.EfetivadoManualmenteEmUtc = now;
+                break;
+            }
+        }
         await _db.SaveChangesAsync(ct);
     }
 

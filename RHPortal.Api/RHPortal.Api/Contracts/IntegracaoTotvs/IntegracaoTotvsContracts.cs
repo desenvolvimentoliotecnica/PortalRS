@@ -61,3 +61,8 @@ public sealed record IntegracaoTotvsResultadoRequest(
     /// </summary>
     [MaxLength(30)] string? CdnFuncionario = null
 );
+
+public sealed record EfetivarManualResponse(
+    DateTimeOffset EfetivadoManualmenteEmUtc,
+    string? ResponsavelNome
+);

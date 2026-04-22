@@ -130,6 +130,24 @@ public sealed class PreAdmissaoController : ControllerBase
         }
     }
 
+    /// <summary>Efetiva a admissão aprovada (Aprovada → EmIntegracao), enviando-a para processamento no TOTVS.</summary>
+    [HttpPost("{id:guid}/efetivar")]
+    [ProducesResponseType(typeof(PreAdmissaoDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Efetivar(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.EfetivarAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Rejeita a pré-admissão (EmRevisão → Rejeitada).</summary>
     [HttpPost("{id:guid}/reject")]
     [ProducesResponseType(typeof(PreAdmissaoDetailResponse), StatusCodes.Status200OK)]
@@ -138,6 +156,22 @@ public sealed class PreAdmissaoController : ControllerBase
     {
         var result = await _service.RejectAsync(id, request, ct);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>Exclui permanentemente uma pré-admissão (apenas RH/Admin, não permite Integrada).</summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        if (!_userContext.IsRH && !_userContext.IsAdmin)
+            return Forbid();
+        try
+        {
+            return await _service.DeleteAsync(id, ct) ? NoContent() : NotFound();
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     /// <summary>Busca por CPF para readmissão — retorna dados da pessoa se existir.</summary>

@@ -13,6 +13,7 @@ import {
     Clock,
     Eye,
     UserPlus,
+    AlertCircle,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -144,6 +145,7 @@ interface VagaPipeline {
     urgencia: number;
     approvedAt: string | null;
     etapas: EtapaResponse[];
+    status: number;
 }
 
 export default function PipelineScreen() {
@@ -155,18 +157,21 @@ export default function PipelineScreen() {
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedPipeline, setSelectedPipeline] = useState<VagaPipeline | null>(null);
 
-    /* ── load approved solicitações + their vagas ── */
+    /* ── load approved + awaiting-RH solicitações + their vagas ── */
     const syncData = useCallback(async () => {
-        // Fetch approved solicitações (status=2)
-        const sols = await fetchJson<SolicitacaoGridRow[]>("/api/solicitacoes-vaga?status=2");
-        const solList = Array.isArray(sols) ? sols : [];
+        const [approvedRaw, pendingRhRaw] = await Promise.all([
+            fetchJson<SolicitacaoGridRow[]>("/api/solicitacoes-vaga?status=2"),
+            fetchJson<SolicitacaoGridRow[]>("/api/solicitacoes-vaga?status=5"),
+        ]);
+        const solList = [
+            ...(Array.isArray(approvedRaw) ? approvedRaw : []),
+            ...(Array.isArray(pendingRhRaw) ? pendingRhRaw : []),
+        ];
 
-        // For each that has a vagaId, fetch the vaga details to get etapas
         const results: VagaPipeline[] = [];
         for (const sol of solList) {
             const detail = await fetchJson<SolicitacaoDetail>(`/api/solicitacoes-vaga/${sol.id}`).catch(() => null);
             if (!detail?.vagaId) {
-                // Approved but no vaga yet — show with default stages
                 results.push({
                     solicitacaoId: sol.id,
                     vagaId: "",
@@ -176,11 +181,11 @@ export default function PipelineScreen() {
                     urgencia: sol.urgencia,
                     approvedAt: detail?.approvedAtUtc ?? null,
                     etapas: [],
+                    status: sol.status,
                 });
                 continue;
             }
 
-            // Fetch the Vaga to get its etapas
             const vaga = await fetchJson<VagaDetail>(`/api/vagas/${detail.vagaId}`).catch(() => null);
             results.push({
                 solicitacaoId: sol.id,
@@ -191,6 +196,7 @@ export default function PipelineScreen() {
                 urgencia: sol.urgencia,
                 approvedAt: detail.approvedAtUtc ?? null,
                 etapas: vaga?.etapas ?? [],
+                status: sol.status,
             });
         }
 
@@ -209,10 +215,12 @@ export default function PipelineScreen() {
     /* ── filtering ── */
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
-        if (!term) return pipelines;
-        return pipelines.filter((p) =>
-            [p.titulo, p.areaName].filter(Boolean).join(" ").toLowerCase().includes(term)
-        );
+        const approved = pipelines.filter(p => p.status === 2);
+        const pendingRh = pipelines.filter(p => p.status === 5);
+        if (!term) return { approved, pendingRh };
+        const match = (p: VagaPipeline) =>
+            [p.titulo, p.areaName].filter(Boolean).join(" ").toLowerCase().includes(term);
+        return { approved: approved.filter(match), pendingRh: pendingRh.filter(match) };
     }, [q, pipelines]);
 
     /* ── default stages when vaga has no etapas ── */
@@ -275,7 +283,7 @@ export default function PipelineScreen() {
                         </div>
                         <div>
                             <div className="text-muted-foreground text-xs font-medium uppercase">Vagas Aprovadas</div>
-                            <div className="text-2xl font-bold">{loading ? "…" : pipelines.length}</div>
+                            <div className="text-2xl font-bold">{loading ? "…" : pipelines.filter(p => p.status === 2).length}</div>
                         </div>
                     </div>
                 </div>
@@ -290,14 +298,14 @@ export default function PipelineScreen() {
                         </div>
                     </div>
                 </div>
-                <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+                <div className={`card-soft rounded-xl border p-4 backdrop-blur ${!loading && pipelines.some(p => p.status === 5) ? "border-amber-400/60 bg-amber-500/10" : "border-border/40 bg-card/60"}`}>
                     <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-amber-500/15 p-2.5">
-                            <Clock className="size-5 text-amber-600" />
+                        <div className={`rounded-lg p-2.5 ${!loading && pipelines.some(p => p.status === 5) ? "bg-amber-500/20" : "bg-amber-500/15"}`}>
+                            <AlertCircle className="size-5 text-amber-600" />
                         </div>
                         <div>
-                            <div className="text-muted-foreground text-xs font-medium uppercase">Sem etapas</div>
-                            <div className="text-2xl font-bold">{loading ? "…" : pipelines.filter(p => p.etapas.length === 0).length}</div>
+                            <div className="text-muted-foreground text-xs font-medium uppercase">Aguardando RH</div>
+                            <div className="text-2xl font-bold text-amber-600">{loading ? "…" : pipelines.filter(p => p.status === 5).length}</div>
                         </div>
                     </div>
                 </div>
@@ -309,7 +317,7 @@ export default function PipelineScreen() {
                     <div>
                         <div className="font-semibold">Vagas em processo</div>
                         <div className="text-muted-foreground text-sm">
-                            {loading ? "Carregando…" : `${filtered.length} vagas`}
+                            {loading ? "Carregando…" : `${filtered.approved.length + filtered.pendingRh.length} vagas`}
                         </div>
                     </div>
                     <div className="relative">
@@ -327,13 +335,56 @@ export default function PipelineScreen() {
                     <div className="flex items-center justify-center py-12">
                         <div className="border-lt-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
                     </div>
-                ) : filtered.length === 0 ? (
+                ) : filtered.approved.length === 0 && filtered.pendingRh.length === 0 ? (
                     <div className="text-center text-muted-foreground py-12">
-                        Nenhuma vaga aprovada encontrada.
+                        Nenhuma vaga encontrada.
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        {filtered.map((pipeline) => {
+                    <div className="space-y-6">
+                        {/* ── Aguardando ação do RH ── */}
+                        {filtered.pendingRh.length > 0 && (
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle className="size-4 text-amber-600" />
+                                    <span className="text-sm font-semibold text-amber-700">Aguardando ação do RH</span>
+                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-700">{filtered.pendingRh.length}</span>
+                                </div>
+                                {filtered.pendingRh.map((pipeline) => (
+                                    <div
+                                        key={pipeline.solicitacaoId}
+                                        className="rounded-xl border border-amber-400/40 bg-amber-500/5 p-4"
+                                    >
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className="rounded-lg bg-amber-500/15 p-2">
+                                                    <Briefcase className="size-4 text-amber-600" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold">{pipeline.titulo}</div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {pipeline.areaName || "Sem área"} • {pipeline.qtdPosicoes} posição(ões) • Solicitada em {formatDate(pipeline.approvedAt)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {urgenciaBadge(pipeline.urgencia)}
+                                                <Button variant="outline" size="sm" className="border-amber-400 text-amber-700 hover:bg-amber-50" asChild>
+                                                    <Link href="/gestao/aprovacoes">
+                                                        <CheckCircle2 className="size-4" />
+                                                        <span>Revisar aprovação</span>
+                                                    </Link>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ── Vagas aprovadas no pipeline ── */}
+                        {filtered.approved.length > 0 && (
+                        <div className="space-y-4">
+                        {filtered.approved.map((pipeline) => {
                             const stages = getStages(pipeline);
                             return (
                                 <div
@@ -407,6 +458,8 @@ export default function PipelineScreen() {
                                 </div>
                             );
                         })}
+                        </div>
+                        )}
                     </div>
                 )}
             </div>
