@@ -48,6 +48,7 @@ public static class RolePermissionManifest
         "funcionarios.view",
         "bloqueio-pessoa.view",
         "users.read",
+        "users.write",
         "roles.manage",
         "menus.manage",
         "access.manage",

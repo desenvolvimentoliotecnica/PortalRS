@@ -53,7 +53,19 @@
       "Bash(git checkout:*)",
       "Bash(grep -l \"SolicitacaoVagaStatus\\\\|CandidateStatus\\\\|VagaStatus\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Domain/Enums/*.cs)",
       "Bash(grep -l \"Vaga\\\\|SolicitacaoVaga\\\\|Candidato\\\\|PreAdmissao\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Controllers/*.cs)",
-      "Bash(grep -r \"enum.*Status\\\\|enum.*Vaga\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Domain/Enums/*.cs)"
+      "Bash(grep -r \"enum.*Status\\\\|enum.*Vaga\" /Users/victoralves/Projects/Voltage.RenderRH/RHPortal.Api/RHPortal.Api/Domain/Enums/*.cs)",
+      "Bash(pkill -f \"RHPortal.Api\")",
+      "Bash(bash __scripts__/dev/dev-next.sh)",
+      "Bash(echo \"started pid $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/app/vagas/hub?id=e3465c27-d2b8-4f07-ad57-e64563ac4a06)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3000/app/vagas/hub?id=e3465c27-d2b8-4f07-ad57-e64563ac4a06\")",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(~/.dotnet/tools/dotnet-ef migrations *)",
+      "Bash(curl -sf -o /dev/null -w \"%{http_code}\" http://localhost:3000/app)",
+      "Bash(pnpm exec *)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
+      "Bash(npx next *)",
+      "Bash(dotnet test *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

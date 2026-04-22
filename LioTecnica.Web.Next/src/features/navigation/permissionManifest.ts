@@ -86,6 +86,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-admin-organograma",         label: "Organograma",                 href: "/admin/organograma",              icon: "bi-diagram-2",      permission: "access.manage" },
 
     { id: "nav-admin-tenant-config",       label: "Configurações",               href: "/admin/tenant-configuracao",      icon: "bi-gear",           permission: "access.manage" },
+    { id: "nav-admin-documentacao-padrao", label: "Documentação Padrão",         href: "/admin/documentacao-padrao",      icon: "file-text",         permission: "access.manage" },
     { id: "nav-admin-api-keys",            label: "Chaves de API",               href: "/admin/api-keys",                 icon: "bi-key-fill",       permission: "api-keys.manage" },
 ] as const;
 

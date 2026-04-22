@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2, CheckCircle2, User, MapPin, Phone, CreditCard, Briefcase, Users } from "lucide-react";
+import { Send, Loader2, AlertTriangle, ArrowRight, User, MapPin, Phone, CreditCard, Briefcase, Users } from "lucide-react";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
-import { validatePreAdmissao } from "@/features/admissao/validation";
+import { validatePortalForm, SECTION_LABELS, type PortalSection } from "../portalValidation";
 
 const PARENTESCO_LABEL: Record<number, string> = { 0: "Conjuge", 1: "Filho(a)", 2: "Pai", 3: "Mae", 4: "Outro" };
 
@@ -15,17 +14,24 @@ interface Props {
 }
 
 export default function ReviewStep({ onSubmit, disabled }: Props) {
-    const { formData, dependentes } = useAdmissaoWizardStore();
+    const { formData, dependentes, setStep } = useAdmissaoWizardStore();
     const [submitting, setSubmitting] = useState(false);
 
+    const validationErrors = validatePortalForm(formData as Record<string, unknown>);
+
+    const errorsBySection = validationErrors.reduce<Partial<Record<PortalSection, string[]>>>(
+        (acc, e) => {
+            if (!acc[e.section]) acc[e.section] = [];
+            acc[e.section]!.push(e.label);
+            return acc;
+        },
+        {},
+    );
+    const sectionKeys = Object.keys(errorsBySection) as PortalSection[];
+
     async function handleSubmit() {
-        // Valida antes de enviar — evita erro 422 tardio do backend/Datasul.
-        // Usa a mesma função do wizard RH (validatePreAdmissao) para manter uma única fonte de verdade.
-        const errors = validatePreAdmissao(formData);
-        if (errors.length > 0) {
-            const first = errors[0];
-            const extra = errors.length > 1 ? ` (+${errors.length - 1} campo${errors.length > 2 ? "s" : ""} pendente${errors.length > 2 ? "s" : ""})` : "";
-            toast.error(`${first.label}: ${first.message}${extra}`);
+        if (validationErrors.length > 0) {
+            setStep(2);
             return;
         }
         setSubmitting(true);
@@ -104,14 +110,51 @@ export default function ReviewStep({ onSubmit, disabled }: Props) {
                 </ReviewSection>
             )}
 
+            {/* Painel de erros inline */}
+            {validationErrors.length > 0 && (
+                <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle className="size-4 text-red-600 dark:text-red-400 shrink-0" />
+                        <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                            {validationErrors.length === 1
+                                ? "1 campo obrigatório pendente"
+                                : `${validationErrors.length} campos obrigatórios pendentes`}
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        {sectionKeys.map((section) => (
+                            <div key={section} className="rounded-lg bg-white/60 dark:bg-white/5 border border-red-100 dark:border-red-800/50 px-3 py-2">
+                                <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1">
+                                    {SECTION_LABELS[section]}
+                                </p>
+                                <p className="text-xs text-red-700/80 dark:text-red-300/80 leading-relaxed">
+                                    {errorsBySection[section]!.join(", ")}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setStep(2)}
+                        className="w-full border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/40 gap-1.5"
+                    >
+                        Ir para Seus Dados e corrigir
+                        <ArrowRight className="size-3.5" />
+                    </Button>
+                </div>
+            )}
+
             {/* Submit */}
             {!disabled && (
-                <div className="pt-4">
+                <div className="pt-2">
                     <Button
                         size="lg"
                         onClick={handleSubmit}
-                        disabled={submitting}
-                        className="w-full min-h-[56px] text-lg bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                        disabled={submitting || validationErrors.length > 0}
+                        className="w-full min-h-[56px] text-lg bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50"
                     >
                         {submitting ? (
                             <Loader2 className="size-5 animate-spin" />

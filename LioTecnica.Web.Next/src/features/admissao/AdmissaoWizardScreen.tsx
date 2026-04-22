@@ -355,6 +355,68 @@ const TIPOS_COM_VERSO = new Set([0, 2, 9]); // RG, CNH, CTPS
 const TIPO_DOC = TIPO_DOC_ALL; // fallback
 const UF_LIST = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
+// Mapas string enum → number para campos que chegam como string do JsonStringEnumConverter
+const SEXO_STR_MAP: Record<string, number> = { NaoInformado: 0, Masculino: 1, Feminino: 2, Outro: 3 };
+const ESTADO_CIVIL_STR_MAP: Record<string, number> = { NaoInformado: 0, Solteiro: 1, Casado: 2, Divorciado: 3, Viuvo: 4, UniaoEstavel: 5, Separado: 6 };
+const TIPO_CONTRATACAO_STR_MAP: Record<string, number> = { CLT: 0, PJ: 1, Estagio: 2, Temporario: 3, Aprendiz: 4, Terceirizado: 5 };
+const TIPO_CONTA_STR_MAP: Record<string, number> = { ContaCorrente: 0, ContaPoupanca: 1, ContaSalario: 2 };
+
+/**
+ * Normaliza a resposta da API para o estado do formulário.
+ * A API usa JsonStringEnumConverter — enums chegam como strings ("Masculino", "CLT", etc.)
+ * mas os Selects do wizard esperam valores numéricos (1, 0, etc.).
+ * Esta função converte os campos problemáticos de string → number.
+ */
+function normalizeApiForm(data: Record<string, unknown>): Partial<PreAdmissao> {
+    const resolveEnum = (val: unknown, map: Record<string, number>): number | null => {
+        if (val === null || val === undefined) return null;
+        if (typeof val === "number") return val;
+        if (typeof val === "string") return map[val] ?? null;
+        return null;
+    };
+    const resolveInt = (val: unknown): number | null => {
+        if (val === null || val === undefined) return null;
+        const n = Number(val);
+        return Number.isFinite(n) ? n : null;
+    };
+    return {
+        ...(data as Partial<PreAdmissao>),
+        // Enums não-nullable que chegam como string (ex: "Masculino")
+        sexo: resolveEnum(data.sexo, SEXO_STR_MAP) ?? 0,
+        estadoCivil: resolveEnum(data.estadoCivil, ESTADO_CIVIL_STR_MAP) ?? 0,
+        // Enums nullable
+        tipoContratacao: resolveEnum(data.tipoContratacao, TIPO_CONTRATACAO_STR_MAP),
+        tipoConta: resolveEnum(data.tipoConta, TIPO_CONTA_STR_MAP),
+        // Campos int? — garantir que nunca cheguem como string
+        cutis: resolveInt(data.cutis),
+        cabelo: resolveInt(data.cabelo),
+        olhos: resolveInt(data.olhos),
+        origemFuncionario: resolveInt(data.origemFuncionario),
+        grauInstrucao: resolveInt(data.grauInstrucao),
+        codCargoTotvs: resolveInt(data.codCargoTotvs),
+        codVinculoEmpregaticio: resolveInt(data.codVinculoEmpregaticio),
+        tipoFuncionario: resolveInt(data.tipoFuncionario),
+        categoriaSalarial: resolveInt(data.categoriaSalarial),
+        codTurno: resolveInt(data.codTurno),
+        tipoEstatistica: resolveInt(data.tipoEstatistica),
+        formaPagamento: resolveInt(data.formaPagamento),
+        tipoAdmissaoFgts: resolveInt(data.tipoAdmissaoFgts),
+        docMilitarTipo: resolveInt(data.docMilitarTipo),
+        docMilitarRegiao: resolveInt(data.docMilitarRegiao),
+        docMilitarCircunscricao: resolveInt(data.docMilitarCircunscricao),
+        tipoVistoEstrangeiro: resolveInt(data.tipoVistoEstrangeiro),
+        ocorrenciaCAGED: resolveInt(data.ocorrenciaCAGED),
+        municipioEnderecoIbge: resolveInt(data.municipioEnderecoIbge),
+        municipioNascimentoIbge: resolveInt(data.municipioNascimentoIbge),
+        codTurma: resolveInt(data.codTurma),
+        indFuncVinculado: resolveInt(data.indFuncVinculado),
+        codSindicato: resolveInt(data.codSindicato),
+        codLocalMarcacao: resolveInt(data.codLocalMarcacao),
+        codClassFuncPontoEletronico: resolveInt(data.codClassFuncPontoEletronico),
+        codLocalidade: resolveInt(data.codLocalidade),
+    };
+}
+
 /* ── component ── */
 
 export default function AdmissaoWizardScreen() {
@@ -388,7 +450,7 @@ export default function AdmissaoWizardScreen() {
         setLoadError(null);
         try {
             const res = await apiFetch(`/api/pre-admissao/${id}`);
-            if (res.ok) setForm(await res.json());
+            if (res.ok) setForm(normalizeApiForm(await res.json() as Record<string, unknown>));
             else setLoadError("Não foi possível carregar os dados da admissão.");
         } catch {
             setLoadError("Erro de conexão ao carregar a admissão.");
@@ -410,8 +472,11 @@ export default function AdmissaoWizardScreen() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(form),
             });
-            if (res.ok) { setForm(await res.json()); toast.success("Salvo!"); }
-            else toast.error("Erro ao salvar");
+            if (res.ok) { setForm(normalizeApiForm(await res.json() as Record<string, unknown>)); toast.success("Salvo!"); }
+            else {
+                const msg = await res.text().catch(() => "");
+                toast.error(`Erro ao salvar (${res.status})${msg ? `: ${msg.slice(0, 120)}` : ""}`);
+            }
         } catch { toast.error("Erro de conexão"); }
         finally { setSaving(false); }
     }

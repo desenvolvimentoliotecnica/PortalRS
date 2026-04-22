@@ -228,12 +228,6 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
     if (isBlank(form.naturalizacao))            errors.push({ field: "naturalizacao",         label: "Data/Info Naturalização",   stepIndex: STEP_INDEX.pessoal, message: "Dados da naturalização obrigatórios para naturalizados." });
   }
 
-  // ── Condicional: Reside no exterior (resideExterior === "S") ─────────────
-  if (form.resideExterior === "S") {
-    if (isBlank(form.codEnderecoPostalExterior)) errors.push({ field: "codEnderecoPostalExterior", label: "Cód. Endereço Postal Exterior", stepIndex: STEP_INDEX.endereco, message: "Informe o código de endereço postal no exterior." });
-    if (isBlank(form.cidadeExterior))            errors.push({ field: "cidadeExterior",            label: "Cidade no Exterior",             stepIndex: STEP_INDEX.endereco, message: "Informe a cidade no exterior." });
-  }
-
   // ── Condicional: CLT Prazo Determinado (codVinculoEmpregaticio === 20) ───
   if (form.codVinculoEmpregaticio === 20 && isBlank(form.dataTerminoContrato)) {
     errors.push({ field: "dataTerminoContrato", label: "Data Término Contrato", stepIndex: STEP_INDEX.trabalhista, message: "Data de término obrigatória para CLT Prazo Determinado." });

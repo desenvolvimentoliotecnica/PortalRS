@@ -340,7 +340,7 @@ const OPERACIONAL_ROUTES = new Set([
   "/gestao/desligamentos",
 ]);
 const CADASTROS_PESSOAS_ROUTES = new Set([
-  "/pessoas", "/funcionarios",
+  "/pessoas", "/funcionarios", "/bloqueiopessoa",
 ]);
 const CADASTROS_OPERACIONAIS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",

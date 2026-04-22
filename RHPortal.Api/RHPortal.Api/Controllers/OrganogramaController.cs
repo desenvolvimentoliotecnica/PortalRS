@@ -102,8 +102,8 @@ public sealed class OrganogramaController : ControllerBase
         var vagaLotacaoMap = vagaIdsByLotacao.ToDictionary(v => v.Id, v => v.LotacaoId);
 
         var ocupadoByLotacao = ocupadoSet
-            .Where(vagaLotacaoMap.ContainsKey)
-            .GroupBy(vagaId => vagaLotacaoMap[vagaId])
+            .Where(id => id.HasValue && vagaLotacaoMap.ContainsKey(id.Value))
+            .GroupBy(id => vagaLotacaoMap[id!.Value])
             .ToDictionary(g => g.Key, g => g.Count());
 
         var headcountMap = vagasByLotacao.ToDictionary(

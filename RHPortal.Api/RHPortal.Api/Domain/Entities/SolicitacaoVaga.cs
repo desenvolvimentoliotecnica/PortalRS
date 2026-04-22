@@ -124,6 +124,9 @@ public sealed class SolicitacaoVaga : ITenantEntity
 
     public DateTimeOffset? IntegradaEmUtc { get; set; }
 
+    public Guid? EfetivadoManualmentePorId { get; set; }
+    public DateTimeOffset? EfetivadoManualmenteEmUtc { get; set; }
+
     public int TentativasIntegracao { get; set; }
     public DateTimeOffset? UltimaTentativaUtc { get; set; }
 }

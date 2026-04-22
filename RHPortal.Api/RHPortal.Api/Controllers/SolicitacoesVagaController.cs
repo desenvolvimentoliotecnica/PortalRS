@@ -40,9 +40,10 @@ public sealed class SolicitacoesVagaController : ControllerBase
         [FromQuery] bool? apenasMeus,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
+        [FromQuery] Guid? vagaId,
         CancellationToken ct)
     {
-        var query = new SolicitacaoVagaListQuery(q, status, statuses, apenasMeus, page, pageSize);
+        var query = new SolicitacaoVagaListQuery(q, status, statuses, apenasMeus, page, pageSize, vagaId);
         return Ok(await _service.ListAsync(query, _userContext.FuncionarioId, ct));
     }
 

@@ -144,6 +144,10 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Ele
     "AjustesNecessarios": { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
     "PendenteAprovacaoRh": { label: "Aguarda RH", color: "bg-purple-500/15 text-purple-700", icon: Clock },
     "Cancelada": { label: "Cancelada", color: "bg-zinc-500/15 text-zinc-500", icon: XCircle },
+    "EmIntegracao": { label: "Em Integração", color: "bg-blue-500/15 text-blue-700", icon: Activity },
+    "Concluida": { label: "Concluída", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    "AguardandoDecisaoRH": { label: "Aguarda Decisão RH", color: "bg-violet-500/15 text-violet-700", icon: Clock },
+    "PendenteAprovacaoAumentoHC": { label: "Aguarda Aprovação HC", color: "bg-amber-500/15 text-amber-700", icon: Clock },
     // fallback numérico para compatibilidade
     0: { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
     1: { label: "Pendente", color: "bg-amber-500/15 text-amber-700", icon: Clock },
@@ -152,6 +156,10 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Ele
     4: { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
     5: { label: "Aguarda RH", color: "bg-purple-500/15 text-purple-700", icon: Clock },
     6: { label: "Cancelada", color: "bg-zinc-500/15 text-zinc-500", icon: XCircle },
+    7: { label: "Em Integração", color: "bg-blue-500/15 text-blue-700", icon: Activity },
+    8: { label: "Concluída", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    9: { label: "Aguarda Decisão RH", color: "bg-violet-500/15 text-violet-700", icon: Clock },
+    10: { label: "Aguarda Aprovação HC", color: "bg-amber-500/15 text-amber-700", icon: Clock },
 };
 
 const URGENCIA_MAP: Record<string, { label: string; color: string }> = {
@@ -352,14 +360,19 @@ function SolicitacoesVagaContent() {
     }, [syncList]);
 
     /* ── filtering ── */
-    const ATIVAS = new Set(["Rascunho", "PendenteAprovacao", "AjustesNecessarios", "PendenteAprovacaoRh", "0", "1", "4", "5"]);
+    const ATIVAS = new Set([
+        "Rascunho", "PendenteAprovacao", "AjustesNecessarios", "PendenteAprovacaoRh",
+        "AguardandoDecisaoRH", "PendenteAprovacaoAumentoHC", "EmIntegracao",
+        "0", "1", "4", "5", "7", "9", "10",
+    ]);
+    const APROVADAS = new Set(["Aprovada", "Concluida", "2", "8"]);
 
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter((r) => {
             const s = String(r.status);
             if (statusFilter === "ativas" && !ATIVAS.has(s)) return false;
-            if (statusFilter === "aprovadas" && s !== "Aprovada" && s !== "2") return false;
+            if (statusFilter === "aprovadas" && !APROVADAS.has(s)) return false;
             if (statusFilter === "reprovadas" && s !== "Reprovada" && s !== "3") return false;
             if (statusFilter === "canceladas" && s !== "Cancelada" && s !== "6") return false;
             // "todas" — sem filtro de status
@@ -424,6 +437,7 @@ function SolicitacoesVagaContent() {
             const v = await fetchJson<Record<string, unknown>>(`/api/vagas/${vagaId}`);
             const initial: Partial<SolicitacaoDraft> = {
                 origemVaga: "quadro",
+                vagaId: vagaId,
                 titulo: String(v.titulo ?? v.name ?? ""),
                 jobPositionId: v.jobPositionId ? String(v.jobPositionId) : null,
                 areaId: v.areaId ? String(v.areaId) : null,
@@ -670,7 +684,7 @@ function SolicitacoesVagaContent() {
                     {(() => {
                         const chips = [
                             { key: "ativas",     label: "Ativas",      count: rows.filter(r => ATIVAS.has(String(r.status))).length,                                          cls: "bg-amber-500/10 text-amber-700 border-amber-300 data-[active=true]:bg-amber-500 data-[active=true]:text-white data-[active=true]:border-amber-500" },
-                            { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => String(r.status) === "Aprovada"  || String(r.status) === "2").length,           cls: "bg-emerald-500/10 text-emerald-700 border-emerald-300 data-[active=true]:bg-emerald-600 data-[active=true]:text-white data-[active=true]:border-emerald-600" },
+                            { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => APROVADAS.has(String(r.status))).length,           cls: "bg-emerald-500/10 text-emerald-700 border-emerald-300 data-[active=true]:bg-emerald-600 data-[active=true]:text-white data-[active=true]:border-emerald-600" },
                             { key: "reprovadas", label: "Reprovadas",  count: rows.filter(r => String(r.status) === "Reprovada" || String(r.status) === "3").length,           cls: "bg-red-500/10 text-red-700 border-red-300 data-[active=true]:bg-red-600 data-[active=true]:text-white data-[active=true]:border-red-600" },
                             { key: "canceladas", label: "Canceladas",  count: rows.filter(r => String(r.status) === "Cancelada" || String(r.status) === "6").length,           cls: "bg-zinc-500/10 text-zinc-600 border-zinc-300 data-[active=true]:bg-zinc-600 data-[active=true]:text-white data-[active=true]:border-zinc-600" },
                             { key: "todas",      label: "Todas",       count: rows.length,                                                                                     cls: "bg-muted text-muted-foreground border-border data-[active=true]:bg-foreground data-[active=true]:text-background data-[active=true]:border-foreground" },
@@ -790,13 +804,25 @@ function SolicitacoesVagaContent() {
                                                     </Button>
                                                 </>
                                             )}
-                                            {/* Aprovada/Reprovada/AguardaRH: visualizar */}
+                                            {/* Aprovada/Reprovada: apenas visualizar */}
                                             {(r.status === 2 || r.status === "Aprovada" ||
-                                              r.status === 3 || r.status === "Reprovada" ||
-                                              r.status === 5 || r.status === "PendenteAprovacaoRh") && (
+                                              r.status === 3 || r.status === "Reprovada") && (
                                                 <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
                                                     <Eye />
                                                 </Button>
+                                            )}
+                                            {/* AguardaRH / AguardaDecisaoRH / AguardaHC: visualizar + cancelar se sem movimentação */}
+                                            {(r.status === 5 || r.status === "PendenteAprovacaoRh" ||
+                                              r.status === 9 || r.status === "AguardandoDecisaoRH" ||
+                                              r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
+                                                <>
+                                                    <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                                        <Eye />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
+                                                        <Ban />
+                                                    </Button>
+                                                </>
                                             )}
                                             {/* Copiar: todas as linhas */}
                                             <Button variant="outline" size="icon-xs" title="Copiar vaga" onClick={() => { setCopySourceId(r.id); setEditId(null); setViewId(null); setResubmit(false); setFormOpen(true); }}>

@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import {
     FileText, CheckCircle2, Loader2, AlertCircle, LogOut,
 } from "lucide-react";
+import { validatePortalForm } from "./portalValidation";
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
@@ -39,65 +40,6 @@ interface PortalData {
     dependentes: DependenteData[];
     wizardCurrentStep: number | null;
     wizardCompletionPercent: number | null;
-}
-
-// ── Validação dos campos obrigatórios do portal ──────────────────────────────
-
-function isBlank(v: unknown): boolean {
-    if (v === null || v === undefined) return true;
-    if (typeof v === "string") return v.trim() === "";
-    if (typeof v === "number") return !Number.isFinite(v) || v === 0;
-    return false;
-}
-
-const REQUIRED_TEXT: [string, string][] = [
-    ["nome",             "Nome Completo"],
-    ["nomeAbreviado",    "Nome Abreviado"],
-    ["rg",               "RG"],
-    ["rgOrgaoExpedidor", "Órgão Expedidor RG"],
-    ["rgUfExpedidor",    "UF Expedidor RG"],
-    ["rgDataExpedicao",  "Data Emissão RG"],
-    ["dataNascimento",   "Data de Nascimento"],
-    ["nacionalidade",    "Nacionalidade"],
-    ["paisNacionalidade","País da Nacionalidade"],
-    ["naturalCidade",    "Cidade de Nascimento"],
-    ["naturalUf",        "UF de Nascimento"],
-    ["paisNascimento",   "País de Nascimento"],
-    ["nomeMae",          "Nome da Mãe"],
-    ["cep",              "CEP"],
-    ["logradouro",       "Logradouro"],
-    ["numero",           "Número"],
-    ["bairro",           "Bairro"],
-    ["uf",               "UF"],
-    ["cidade",           "Cidade"],
-    ["email",            "E-mail"],
-    ["celular",          "Celular"],
-    ["bancoCodigo",      "Banco"],
-    ["agencia",          "Agência"],
-    ["conta",            "Conta"],
-];
-
-const REQUIRED_INT: [string, string][] = [
-    ["sexo",              "Sexo"],
-    ["estadoCivil",       "Estado Civil"],
-    ["grauInstrucao",     "Escolaridade"],
-    ["origemFuncionario", "Origem (Brasileiro/Naturalizado/Estrangeiro)"],
-    ["cutis",             "Cutis"],
-    ["cabelo",            "Cabelo"],
-    ["olhos",             "Olhos"],
-    ["tipoConta",         "Tipo de Conta"],
-];
-
-function validatePortalForm(form: Record<string, unknown>): string[] {
-    const missing: string[] = [];
-    for (const [field, label] of REQUIRED_TEXT) {
-        if (isBlank(form[field])) missing.push(label);
-    }
-    for (const [field, label] of REQUIRED_INT) {
-        const v = form[field];
-        if (v === null || v === undefined || v === 0 || v === "") missing.push(label);
-    }
-    return missing;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -202,13 +144,10 @@ export default function DocumentoAdmissaoScreen() {
     async function handleSubmit() {
         if (!session) return;
 
-        const missing = validatePortalForm(store.formData);
+        // Fallback de segurança — ReviewStep já bloqueia e exibe painel inline
+        const missing = validatePortalForm(store.formData as Record<string, unknown>);
         if (missing.length > 0) {
-            toast.error(
-                `Preencha os campos obrigatórios antes de enviar:\n${missing.join(", ")}`,
-                { duration: 8000 },
-            );
-            store.setStep(2); // volta para aba de dados pessoais
+            store.setStep(2);
             return;
         }
 

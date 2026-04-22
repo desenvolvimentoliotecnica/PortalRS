@@ -9,5 +9,6 @@ public enum PreAdmissaoStatus : short
     Rejeitada = 4,
     Integrada = 5,
     Acessado = 6,             // Candidato abriu o link (autenticou com CPF)
-    PreenchidoParcial = 7     // Dados pessoais preenchidos, documentos incompletos
+    PreenchidoParcial = 7,    // Dados pessoais preenchidos, documentos incompletos
+    EmIntegracao = 8          // RH efetivou; enviado ao TOTVS, aguardando confirmação
 }
