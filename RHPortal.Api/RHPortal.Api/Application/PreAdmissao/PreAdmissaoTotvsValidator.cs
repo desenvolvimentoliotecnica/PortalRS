@@ -157,6 +157,34 @@ public static class PreAdmissaoTotvsValidator
         ReqInt(e, p.TipoVistoEstrangeiro,    "TipoVistoEstrangeiro",   "Tipo Visto Estrangeiro","FP1440 — Documentos");
         ReqInt(e, p.OcorrenciaCAGED,         "OcorrenciaCAGED",        "Ocorrência CAGED",     "FP1440A — eSocial");
 
+        // ══════════════════════════════════════════════════════════════════════
+        // Encargos FGTS/INSS/Sindicato — flags S/N obrigatórias (antes eram default do seeder)
+        // ══════════════════════════════════════════════════════════════════════
+        // RH preenche cada uma explicitamente pelo wizard. Datasul rejeita vazio em qualquer desses.
+        ReqSN(e, p.OptanteFgts,         "OptanteFgts",        "Optante FGTS",             "FP1500 — Encargos");
+        ReqSN(e, p.RecolheFgts,         "RecolheFgts",        "Recolhe FGTS",             "FP1500 — Encargos");
+        ReqSN(e, p.RecolheInss,         "RecolheInss",        "Recolhe INSS",             "FP1500 — Encargos");
+        ReqSN(e, p.Sindicalizado,       "Sindicalizado",      "Sindicalizado",            "FP1500 — Sindicato");
+        ReqSN(e, p.DescContribSindical, "DescContribSindical","Desc. Contrib. Sindical",  "FP1500 — Sindicato");
+        ReqSN(e, p.ResideExterior,      "ResideExterior",     "Reside no Exterior",       "FP1440A — eSocial");
+        ReqSN(e, p.CargaAutomTurno,     "CargaAutomTurno",    "Carga Automática Turno",   "FP1500 — Folha");
+        ReqSN(e, p.Calcula13,           "Calcula13",          "Calcula 13º",              "FP1500 — Folha");
+        ReqSN(e, p.RecebeFerias,        "RecebeFerias",       "Recebe Férias",            "FP1500 — Folha");
+        ReqSN(e, p.ConsidEmissRAIS,     "ConsidEmissRAIS",    "Considera Emissão RAIS",   "FP1500 — Folha");
+        ReqSN(e, p.RecebePericul,       "RecebePericul",      "Recebe Periculosidade",    "FP1500 — Adicionais");
+        ReqSN(e, p.RecebeInsalub,       "RecebeInsalub",      "Recebe Insalubridade",     "FP1500 — Adicionais");
+        ReqSN(e, p.RecebeAdiantamento,  "RecebeAdiantamento", "Recebe Adiantamento",      "FP1500 — Adicionais");
+
+        // ══════════════════════════════════════════════════════════════════════
+        // eSocial — códigos TOTVS obrigatórios (categoria, regimes, etc.)
+        // ══════════════════════════════════════════════════════════════════════
+        ReqInt(e, p.CategoriaTrabalhoESocial, "CategoriaTrabalhoESocial", "Cat. Trabalhador eSocial", "FP1440A — eSocial");
+        ReqInt(e, p.IndAdmissao,              "IndAdmissao",              "Indicativo Admissão",       "FP1440A — eSocial");
+        ReqInt(e, p.TipoAdmissaoESocial,      "TipoAdmissaoESocial",      "Tipo Admissão eSocial",    "FP1440A — eSocial");
+        ReqInt(e, p.RegimeTrabalhista,        "RegimeTrabalhista",        "Regime Trabalhista",        "FP1440A — eSocial");
+        ReqInt(e, p.RegimePrevidenciario,     "RegimePrevidenciario",     "Regime Previdenciário",     "FP1440A — eSocial");
+        ReqInt(e, p.RegimeJornada,            "RegimeJornada",            "Regime de Jornada",         "FP1440A — eSocial");
+
         // Condicional: Prazo Determinado
         if (p.CodVinculoEmpregaticio == VinculoPrazoDeterminado)
             CondInt(e, p.DataTerminoContrato, "DataTerminoContrato",
@@ -181,6 +209,19 @@ public static class PreAdmissaoTotvsValidator
     {
         if (v is null || v == 0)
             e.Add(new(campo, label, secao, "Obrigatório", $"'{label}' é obrigatório."));
+    }
+
+    /// <summary>
+    /// Flag S/N obrigatória (aceita apenas "S" ou "N"). Datasul rejeita vazio em qualquer
+    /// campo booleano textual.
+    /// </summary>
+    private static void ReqSN(List<TotvsValidationIssue> e, string? v,
+        string campo, string label, string secao)
+    {
+        if (string.IsNullOrWhiteSpace(v))
+            e.Add(new(campo, label, secao, "Obrigatório", $"'{label}' é obrigatório (use S ou N)."));
+        else if (v.Trim() != "S" && v.Trim() != "N")
+            e.Add(new(campo, label, secao, "Formato", $"'{label}' deve ser 'S' ou 'N' (recebido: '{v}')."));
     }
 
     /// <summary>Texto com comprimento mínimo (descarta placeholders tipo "1", "N/A").</summary>

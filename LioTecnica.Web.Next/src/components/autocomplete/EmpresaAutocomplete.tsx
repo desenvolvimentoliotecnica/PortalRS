@@ -14,15 +14,20 @@ export interface EmpresaLookup {
 interface EmpresaAutocompleteProps {
   value: string | null;
   onChange: (id: string | null) => void;
+  /** Callback opcional que recebe o objeto completo quando uma empresa é escolhida (útil pra capturar o `code`). */
+  onSelect?: (empresa: EmpresaLookup | null) => void;
   defaultLabel?: { code: string; description: string };
   placeholder?: string;
+  className?: string;
 }
 
 export function EmpresaAutocomplete({
   value,
   onChange,
+  onSelect,
   defaultLabel,
   placeholder = "Selecione a empresa...",
+  className,
 }: EmpresaAutocompleteProps) {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<EmpresaLookup[]>([]);
@@ -61,6 +66,7 @@ export function EmpresaAutocomplete({
   const handleSelect = (item: EmpresaLookup) => {
     setSelected(item);
     onChange(item.id);
+    onSelect?.(item);
     setSearch("");
     setResults([]);
     setOpen(false);
@@ -71,10 +77,11 @@ export function EmpresaAutocomplete({
     setSearch("");
     setResults([]);
     onChange(null);
+    onSelect?.(null);
   };
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={`relative ${className ?? ""}`}>
       {selected ? (
         <div className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm flex items-center justify-between">
           <div className="flex flex-col gap-0.5">
