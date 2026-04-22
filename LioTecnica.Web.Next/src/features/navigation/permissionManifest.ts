@@ -38,7 +38,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-gestao-dashboard",          label: "Dashboard Gestão",            href: "/gestao/dashboard",               icon: "layoutdashboard",  permission: "gestao.dashboard" },
     { id: "nav-meu-time",                  label: "Meu Time",                    href: "/gestao/meu-time",                icon: "users",            permission: "gestao.dashboard" },
     { id: "nav-batidaponto",               label: "Batida de Ponto",             href: "/gestao/batida-ponto",            icon: "bi-clock-history", permission: "agenda.view" }, // Reusing general view
-    { id: "nav-comissoes",                 label: "Pagamento extra",             href: "/gestao/comissoes",               icon: "bi-bar-chart",     permission: "relatorios.view" }, // Reusing general view
+    { id: "nav-comissoes",                 label: "Pagamento extra",             href: "/gestao/comissoes",               icon: "bi-bar-chart",     permission: "gestao.dashboard" },
     { id: "nav-desligamentos",             label: "Desligamentos",               href: "/gestao/desligamentos",           icon: "user-minus",       permission: "gestao.resumo" },
     { id: "nav-planos-desenvolvimento",    label: "PDI",                         href: "/gestao/planosdesenvolvimento",   icon: "target",           permission: "feedback.desenvolvimento" },
     { id: "nav-humor",                     label: "Humor",                       href: "/gestao/humor",                   icon: "smile",            permission: "gestao.humor" },

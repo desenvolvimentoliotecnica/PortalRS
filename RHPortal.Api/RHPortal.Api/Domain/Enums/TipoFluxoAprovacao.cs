@@ -11,5 +11,8 @@ public enum TipoFluxoAprovacao : short
     Endereco            = 7,
 
     /// <summary>Fluxo configurável para aprovação de aumento definitivo de headcount (escalado pelo RH à Diretoria).</summary>
-    AumentoHeadcount    = 8
+    AumentoHeadcount    = 8,
+
+    /// <summary>Pagamento extra (comissão, bônus, PLR, etc.): Gestor → RH → Integração TOTVS.</summary>
+    PagamentoExtra      = 9
 }

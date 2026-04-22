@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RhPortal.Api.Infrastructure.Data;
 
 #nullable disable
 
-namespace RHPortal.Api.Migrations
+namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260422144536_AlterSolicitanteIdNullableNaSolicitacaoPagamentoExtra")]
+    partial class AlterSolicitanteIdNullableNaSolicitacaoPagamentoExtra
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -6236,6 +6239,25 @@ namespace RHPortal.Api.Migrations
                     b.Property<string>("RecolheInss")
                         .HasMaxLength(1)
                         .HasColumnType("character varying(1)");
+
+                    b.Property<string>("RegIdentidCivilCidade")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateOnly?>("RegIdentidCivilDataExped")
+                        .HasColumnType("date");
+
+                    b.Property<string>("RegIdentidCivilNumero")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RegIdentidCivilOrgEmiss")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RegIdentidCivilUf")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
 
                     b.Property<int?>("RegimeJornada")
                         .HasColumnType("integer");

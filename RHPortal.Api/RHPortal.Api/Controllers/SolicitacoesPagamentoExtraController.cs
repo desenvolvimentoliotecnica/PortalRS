@@ -127,6 +127,36 @@ public sealed class SolicitacoesPagamentoExtraController : ControllerBase
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
     }
 
+    [HttpPost("importar/confirmar")]
+    [ProducesResponseType(typeof(ImportacaoPagamentoExtraConfirmarResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ConfirmarImportacao(
+        [FromBody] ImportacaoPagamentoExtraConfirmarRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.ImportarAsync(request, _userContext.FuncionarioId, ct);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+    }
+
+    [HttpPost("importar/preview")]
+    [ProducesResponseType(typeof(ImportacaoPagamentoExtraPreviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> PreviewImportacao(IFormFile? file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "Arquivo não informado." });
+
+        if (!Path.GetExtension(file.FileName).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Apenas arquivos .xlsx são aceitos." });
+
+        using var stream = file.OpenReadStream();
+        var result = await _service.PreviewImportacaoAsync(stream, ct);
+        return Ok(result);
+    }
+
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -141,17 +171,23 @@ public sealed class SolicitacoesPagamentoExtraController : ControllerBase
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
     }
 
+    /// <summary>
+    /// Pré-check de autorização: retorna true se o usuário é Admin ou parece ser um aprovador.
+    /// O service's ApproveAsync/RejectAsync faz a verificação autoritativa via CanApproveStepAsync.
+    /// </summary>
     private async Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
     {
         if (_userContext.IsAdmin) return true;
+
         var sol = await _service.GetByIdAsync(solicitacaoId, ct);
-        if (sol is null) return true;
-        var funcId = _userContext.FuncionarioId;
-        if (funcId.HasValue)
-        {
-            if (sol.Aprovador1Id.HasValue && sol.Aprovador1Id.Value == funcId.Value) return true;
-            if (sol.Aprovador2Id.HasValue && sol.Aprovador2Id.Value == funcId.Value) return true;
-        }
-        return false;
+        if (sol is null) return true; // 404 no downstream
+
+        var pendingEtapa = sol.Etapas?.FirstOrDefault(e => e.Status == "Pendente");
+        if (pendingEtapa is null) return false;
+
+        // Fila de perfil: qualquer usuário do role pode aprovar — service faz a verificação definitiva
+        if (pendingEtapa.RoleFilaId.HasValue) return true;
+
+        return pendingEtapa.AprovadorId.HasValue && pendingEtapa.AprovadorId == _userContext.FuncionarioId;
     }
 }
