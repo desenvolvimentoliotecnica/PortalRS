@@ -379,12 +379,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.ValidacaoCepOk = !string.IsNullOrWhiteSpace(e.Cep);
         e.ValidacaoBancoOk = !string.IsNullOrWhiteSpace(e.BancoCodigo) && !string.IsNullOrWhiteSpace(e.Conta);
 
-        // Salary validation
+        // Validação de salário: só marca como inválido quando ultrapassa o TETO da faixa
+        // (salário abaixo do mínimo é ok — não exige justificativa). Quando acima do máximo,
+        // exige que RH preencha `ValidacaoSalarioJustificativa` pra explicar.
         if (e.Salario.HasValue && e.JobPositionId.HasValue)
         {
             var faixa = await _db.Set<FaixaSalarial>().FirstOrDefaultAsync(
                 f => f.JobPositionId == e.JobPositionId && (e.EstabelecimentoCodigo == null || f.EstabelecimentoCodigo == e.EstabelecimentoCodigo), ct);
-            e.ValidacaoSalarioOk = faixa is null || (e.Salario.Value >= faixa.SalarioMinimo && e.Salario.Value <= faixa.SalarioMaximo);
+            e.ValidacaoSalarioOk = faixa is null || e.Salario.Value <= faixa.SalarioMaximo;
         }
         else
         {
@@ -580,6 +582,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         }
 
         pa.FuncionarioIdMaterializado = func.Id;
+        // Persiste o código TOTVS na PreAdmissão — é o MatriculaRM exibido na UI
+        // e no JSON exportado pelo botão "Exportar JSON" (IntegracaoTotvsService.GetDetalheAsync).
+        if (!string.IsNullOrWhiteSpace(cdnFuncionario))
+            pa.MatriculaRM = cdnFuncionario;
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);

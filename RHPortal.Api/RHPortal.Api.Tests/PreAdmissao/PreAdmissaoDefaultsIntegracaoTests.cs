@@ -229,111 +229,89 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
 
     // ── 1. Defaults Seeder ───────────────────────────────────────────────────
 
-    [Fact]
-    public async Task Create_AplicaDefaultsTotvs_PaisBraAutomatico()
-    {
-        var (db, svc) = CriarServico();
+    // Seeder só faz 2 coisas: resolve CodEmpresa via lookup na tabela Empresa do tenant
+    // + normaliza código de país se RH digitar por extenso ("Brasil" → "BRA").
+    // Nenhum outro campo deve vir preenchido automaticamente.
 
+    [Fact]
+    public async Task Create_NaoAplicaDefaultsDeFlagsTotvs()
+    {
+        // RH tem que preencher TODAS as flags obrigatórias via wizard — seeder não chuta mais defaults.
+        var (db, svc) = CriarServico();
         var result = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
 
         var entity = await db.Set<Domain.Entities.PreAdmissao>()
             .IgnoreQueryFilters()
             .FirstAsync(x => x.Id == result.Id);
 
-        // Países default = BRA
-        Assert.Equal("BRA", entity.PaisNacionalidade);
-        Assert.Equal("BRA", entity.PaisNascimento);
-        Assert.Equal("BRA", entity.PaisLocalidade);
+        // Flags S/N ficam null após Create
+        Assert.Null(entity.OptanteFgts);
+        Assert.Null(entity.RecolheFgts);
+        Assert.Null(entity.RecolheInss);
+        Assert.Null(entity.Sindicalizado);
+        Assert.Null(entity.ResideExterior);
+        Assert.Null(entity.CargaAutomTurno);
+        Assert.Null(entity.Calcula13);
+        Assert.Null(entity.RecebeFerias);
+        Assert.Null(entity.RecebePericul);
+        Assert.Null(entity.RecebeInsalub);
+        // Códigos eSocial ficam null
+        Assert.Null(entity.TipoEstatistica);
+        Assert.Null(entity.CategoriaTrabalhoESocial);
+        Assert.Null(entity.IndAdmissao);
+        Assert.Null(entity.TipoAdmissaoESocial);
+        Assert.Null(entity.RegimeTrabalhista);
+        Assert.Null(entity.RegimePrevidenciario);
+        Assert.Null(entity.RegimeJornada);
+        Assert.Null(entity.OrigemFuncionario);
+        Assert.Null(entity.TipoLogradouroESocial);
+        Assert.Null(entity.EmitCartPonto);
+        // Países ficam null — RH preenche no wizard ("BRA")
+        Assert.Null(entity.PaisNacionalidade);
+        Assert.Null(entity.PaisNascimento);
+        Assert.Null(entity.PaisLocalidade);
+        // Doc militar / visto / CAGED ficam null
+        Assert.Null(entity.DocMilitarTipo);
+        Assert.Null(entity.DocMilitarRegiao);
+        Assert.Null(entity.DocMilitarCircunscricao);
+        Assert.Null(entity.TipoVistoEstrangeiro);
+        Assert.Null(entity.OcorrenciaCAGED);
     }
 
     [Fact]
-    public async Task Create_AplicaDefaultsTotvs_FlagsSN()
+    public async Task Create_CodEmpresaVemDaTabelaEmpresa()
     {
+        // Única resolução automática: CodEmpresa vem da primeira Empresa ativa do tenant.
         var (db, svc) = CriarServico();
-
         var result = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
 
         var entity = await db.Set<Domain.Entities.PreAdmissao>()
             .IgnoreQueryFilters()
             .FirstAsync(x => x.Id == result.Id);
 
-        // Flags que Datasul exige preenchidas
-        Assert.Equal("S", entity.OptanteFgts);
-        Assert.Equal("S", entity.RecolheFgts);
-        Assert.Equal("S", entity.RecolheInss);
-        Assert.Equal("N", entity.Sindicalizado);
-        Assert.Equal("N", entity.ResideExterior);
-        Assert.Equal("S", entity.CargaAutomTurno);
-        Assert.Equal("S", entity.Calcula13);
-        Assert.Equal("S", entity.RecebeFerias);
-        Assert.Equal("N", entity.RecebePericul);
-        Assert.Equal("N", entity.RecebeInsalub);
-    }
-
-    [Fact]
-    public async Task Create_AplicaDefaultsTotvs_CodEmpresaVemDaTabelaEmpresa()
-    {
-        var (db, svc) = CriarServico();
-
-        var result = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
-
-        var entity = await db.Set<Domain.Entities.PreAdmissao>()
-            .IgnoreQueryFilters()
-            .FirstAsync(x => x.Id == result.Id);
-
-        // CodEmpresa deve vir da primeira Empresa ativa do tenant (code "99" seedada no factory)
         Assert.Equal("99", entity.CodEmpresa);
     }
 
     [Fact]
-    public async Task Create_AplicaDefaultsTotvs_EmitCartPontoFallback2()
+    public async Task Seeder_NormalizaPaisQuandoUIEnviaPorExtenso()
     {
-        // Datasul rejeita vazio; default "2" (não emite) é fallback seguro.
+        // Mesmo que RH digite "Brasil" no campo ISO3, o seeder converte pra "BRA" antes de gravar.
         var (db, svc) = CriarServico();
+        var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
+        var payload = PayloadHappyPath() with
+        {
+            PaisNacionalidade = "Brasil",
+            PaisNascimento = "BRAZIL",
+            PaisLocalidade = "BR",
+        };
+        await svc.UpdateAsync(created.Id, payload, isPrivileged: true, CancellationToken.None);
+        // Submit chama seeder antes do validator — país normalizado.
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
 
-        var result = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
-
-        var entity = await db.Set<Domain.Entities.PreAdmissao>()
-            .IgnoreQueryFilters()
-            .FirstAsync(x => x.Id == result.Id);
-
-        Assert.Equal("2", entity.EmitCartPonto);
-    }
-
-    [Fact]
-    public async Task Create_AplicaDefaultsTotvs_RegimesESocialPadraoCLT()
-    {
-        var (db, svc) = CriarServico();
-
-        var result = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
-
-        var entity = await db.Set<Domain.Entities.PreAdmissao>()
-            .IgnoreQueryFilters()
-            .FirstAsync(x => x.Id == result.Id);
-
-        // Valores para CLT brasileiro padrão
-        Assert.Equal(1, entity.TipoEstatistica);
-        Assert.Equal(101, entity.CategoriaTrabalhoESocial);
-        Assert.Equal(1, entity.IndAdmissao);
-        Assert.Equal(1, entity.TipoAdmissaoESocial);
-        Assert.Equal(1, entity.RegimeTrabalhista);
-        Assert.Equal(1, entity.RegimePrevidenciario);
-        Assert.Equal(1, entity.RegimeJornada);
-        Assert.Equal(1, entity.OrigemFuncionario);
-    }
-
-    [Fact]
-    public async Task Create_AplicaDefaultsTotvs_TipoLogradouroESocialR()
-    {
-        var (db, svc) = CriarServico();
-
-        var result = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
-
-        var entity = await db.Set<Domain.Entities.PreAdmissao>()
-            .IgnoreQueryFilters()
-            .FirstAsync(x => x.Id == result.Id);
-
-        Assert.Equal("R", entity.TipoLogradouroESocial);
+        Assert.NotNull(result);
+        Assert.Equal("BRA", result.PaisNacionalidade);
+        Assert.Equal("BRA", result.PaisNascimento);
+        Assert.Equal("BRA", result.PaisLocalidade);
     }
 
     // ── 2. Update completo ───────────────────────────────────────────────────
@@ -571,49 +549,33 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
     }
 
     [Fact]
-    public async Task Submit_CenarioSophie_CamposSNDefaultsPreenchidosNoSeeder()
+    public async Task Submit_SemFlagsSN_LancaValidacaoExigindoPreenchimentoManual()
     {
-        // Sophie teve optanteFgts/recolheFgts/sindicalizado etc null. Seeder aplica
-        // defaults S/N compatíveis com CLT brasileiro padrão.
-        var (db, svc) = CriarServico();
+        // Comportamento novo: seeder NÃO preenche mais flags S/N por padrão.
+        // Se RH submeter sem preencher, validator lança exception com lista de campos faltando.
+        var (_, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
 
-        // Simula cenário Sophie: entity antiga sem os defaults.
-        var e = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
-        e.OptanteFgts = null; e.RecolheFgts = null; e.RecolheInss = null;
-        e.Sindicalizado = null; e.ResideExterior = null;
-        e.CargaAutomTurno = null; e.Calcula13 = null; e.RecebeFerias = null;
-        e.RecebePericul = null; e.RecebeInsalub = null; e.RecebeAdiantamento = null;
-        e.ConsidEmissRAIS = null; e.TipoLogradouroESocial = null;
-        await db.SaveChangesAsync();
-
-        await svc.UpdateAsync(created.Id, PayloadHappyPath() with
+        var payloadSemFlags = PayloadHappyPath() with
         {
             OptanteFgts = null, RecolheFgts = null, RecolheInss = null,
             Sindicalizado = null, ResideExterior = null,
             CargaAutomTurno = null, Calcula13 = null, RecebeFerias = null,
             RecebePericul = null, RecebeInsalub = null, RecebeAdiantamento = null,
             ConsidEmissRAIS = null, TipoLogradouroESocial = null,
-        }, isPrivileged: true, CancellationToken.None);
+            DescContribSindical = null,
+        };
+        await svc.UpdateAsync(created.Id, payloadSemFlags, isPrivileged: true, CancellationToken.None);
 
-        // Submit deve chamar seeder e preencher tudo.
-        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
+            svc.SubmitAsync(created.Id, CancellationToken.None));
 
-        Assert.NotNull(result);
-        Assert.Equal("S", result.OptanteFgts);
-        Assert.Equal("S", result.RecolheFgts);
-        Assert.Equal("S", result.RecolheInss);
-        Assert.Equal("N", result.Sindicalizado);
-        Assert.Equal("N", result.ResideExterior);
-        Assert.Equal("S", result.CargaAutomTurno);
-        Assert.Equal("S", result.Calcula13);
-        Assert.Equal("S", result.RecebeFerias);
-        Assert.Equal("N", result.RecebePericul);
-        Assert.Equal("N", result.RecebeInsalub);
-        Assert.Equal("N", result.RecebeAdiantamento);
-        Assert.Equal("S", result.ConsidEmissRAIS);
-        // Validator já deveria ter passado, então status = Aprovada
-        Assert.Equal(PreAdmissaoStatus.Aprovada, result.Status);
+        // Cada flag S/N ausente vira uma issue — RH sabe exatamente o que falta preencher.
+        Assert.Contains(ex.Issues, i => i.Campo == "OptanteFgts");
+        Assert.Contains(ex.Issues, i => i.Campo == "RecolheFgts");
+        Assert.Contains(ex.Issues, i => i.Campo == "RecolheInss");
+        Assert.Contains(ex.Issues, i => i.Campo == "Sindicalizado");
+        Assert.Contains(ex.Issues, i => i.Campo == "TipoLogradouroESocial");
     }
 
     [Fact]
@@ -639,20 +601,14 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
     [Fact]
     public async Task Submit_SemTipoLogradouroESocial_LancaException()
     {
-        // tipoLogradouroESocial agora é obrigatório no validator.
-        var (db, svc) = CriarServico();
+        // tipoLogradouroESocial agora é obrigatório — seeder não preenche mais.
+        var (_, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
-
-        // Bypass do seeder do create — limpa direto na entity.
-        var e = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
-        e.TipoLogradouroESocial = null;
-        await db.SaveChangesAsync();
-
         await svc.UpdateAsync(created.Id, PayloadHappyPath() with { TipoLogradouroESocial = null }, isPrivileged: true, CancellationToken.None);
-        // TipoLogradouroESocial fica null no update; seeder do submit preenche "R".
-        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
-        Assert.NotNull(result);
-        Assert.Equal("R", result.TipoLogradouroESocial);
+
+        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
+            svc.SubmitAsync(created.Id, CancellationToken.None));
+        Assert.Contains(ex.Issues, i => i.Campo == "TipoLogradouroESocial");
     }
 
     [Fact]
@@ -694,10 +650,9 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
     // ── 7. Cenário DocMilitar / Visto Estrangeiro / CAGED ───────────────────
 
     [Fact]
-    public async Task Create_AplicaDefaultsTotvs_DocMilitarVistoCaged()
+    public async Task Create_NaoAplicaDefaultsDeDocMilitarVistoCaged()
     {
-        // Datasul rejeita iDocMilitarTipo/iTipoVistoEstrang/iOcorrCaged < 1 mesmo para
-        // casos onde não se aplica. Seeder agora preenche todos com "1" como fallback seguro.
+        // Comportamento novo: seeder não chuta valor 1 — RH tem que selecionar no wizard.
         var (db, svc) = CriarServico();
 
         var result = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
@@ -706,11 +661,11 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
             .IgnoreQueryFilters()
             .FirstAsync(x => x.Id == result.Id);
 
-        Assert.Equal(1, entity.DocMilitarTipo);
-        Assert.Equal(1, entity.DocMilitarRegiao);
-        Assert.Equal(1, entity.DocMilitarCircunscricao);
-        Assert.Equal(1, entity.TipoVistoEstrangeiro);
-        Assert.Equal(1, entity.OcorrenciaCAGED);
+        Assert.Null(entity.DocMilitarTipo);
+        Assert.Null(entity.DocMilitarRegiao);
+        Assert.Null(entity.DocMilitarCircunscricao);
+        Assert.Null(entity.TipoVistoEstrangeiro);
+        Assert.Null(entity.OcorrenciaCAGED);
     }
 
     [Fact]
@@ -740,20 +695,12 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
     }
 
     [Fact]
-    public async Task Submit_CenarioDocMilitarZerado_SeederPreencheDefaults()
+    public async Task Submit_SemDocMilitar_LancaValidacaoExigindoPreenchimento()
     {
-        // Simula entity antiga sem os defaults DocMilitar/Visto/CAGED. Submit deve
-        // chamar seeder, preencher com 1, e auto-aprovar.
-        var (db, svc) = CriarServico();
+        // Novo comportamento: seeder não preenche mais DocMilitar/Visto/CAGED.
+        // Se RH mandar null no PUT, submit falha e cobra do RH preencher.
+        var (_, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
-
-        var e = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
-        e.DocMilitarTipo = null;
-        e.DocMilitarRegiao = null;
-        e.DocMilitarCircunscricao = null;
-        e.TipoVistoEstrangeiro = null;
-        e.OcorrenciaCAGED = null;
-        await db.SaveChangesAsync();
 
         await svc.UpdateAsync(created.Id, PayloadHappyPath() with
         {
@@ -764,15 +711,14 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
             OcorrenciaCAGED = null,
         }, isPrivileged: true, CancellationToken.None);
 
-        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
+            svc.SubmitAsync(created.Id, CancellationToken.None));
 
-        Assert.NotNull(result);
-        Assert.Equal(1, result.DocMilitarTipo);
-        Assert.Equal(1, result.DocMilitarRegiao);
-        Assert.Equal(1, result.DocMilitarCircunscricao);
-        Assert.Equal(1, result.TipoVistoEstrangeiro);
-        Assert.Equal(1, result.OcorrenciaCAGED);
-        Assert.Equal(PreAdmissaoStatus.Aprovada, result.Status);
+        Assert.Contains(ex.Issues, i => i.Campo == "DocMilitarTipo");
+        Assert.Contains(ex.Issues, i => i.Campo == "DocMilitarRegiao");
+        Assert.Contains(ex.Issues, i => i.Campo == "DocMilitarCircunscricao");
+        Assert.Contains(ex.Issues, i => i.Campo == "TipoVistoEstrangeiro");
+        Assert.Contains(ex.Issues, i => i.Campo == "OcorrenciaCAGED");
     }
 
     [Fact]

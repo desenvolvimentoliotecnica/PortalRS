@@ -23,6 +23,10 @@ const API_BASE  = process.env.E2E_API_BASE ?? FRONT_URL;
 const EMAIL     = process.env.E2E_EMAIL    ?? "admin@consigaz.com";
 const PASSWORD  = process.env.E2E_PASSWORD ?? "ChangeThisPassword123!";
 const TENANT    = process.env.E2E_TENANT   ?? "consigaz";
+// Em dev local o sync-service (employee-sync-service) geralmente não está rodando.
+// Defina E2E_SKIP_INTEGRATION_WAIT=1 para parar no redirect de sucesso e não aguardar
+// o worker TOTVS processar a fila.
+const SKIP_INTEGRATION = process.env.E2E_SKIP_INTEGRATION_WAIT === "1";
 
 test.describe.configure({ mode: "serial" });
 test.setTimeout(180_000); // 3min — integração TOTVS leva até ~60s
@@ -123,7 +127,7 @@ function payloadCompleto(nome: string, cpf: string) {
         matriculaESocial: null,
         tipoEstatistica: 1, ocorrenciaCAGED: 1,
         codRegistroExterior: null,
-        validacaoSalarioJustificativa: null,
+        validacaoSalarioJustificativa: "QA mock — salário validado pelo gestor.",
     };
 }
 
@@ -180,26 +184,34 @@ test("RH preenche admissão manual e integração TOTVS retorna Sucesso", async 
     await page.reload();
     await expect(page.getByRole("heading", { name: /Nova Admissão/i })).toBeVisible();
 
-    // Avança até o último step (Revisão)
-    for (let i = 0; i < 6; i++) {
-        const proximo = page.getByRole("button", { name: /Próximo/i });
-        if (await proximo.isVisible().catch(() => false)) {
-            await proximo.click();
-            await page.waitForTimeout(250);
-        }
-    }
+    // Vai direto para o step "Revisão e Envio" clicando na tab da barra de navegação
+    // (evita ter que acertar N cliques de "Próximo" com save entre eles).
+    await page.getByRole("button", { name: /Revisão e Envio/i }).click();
 
     // 6. Clica "Finalizar Admissão"
     const finalizar = page.getByRole("button", { name: /Finalizar Admissão/i });
     await expect(finalizar).toBeVisible({ timeout: 5_000 });
     await finalizar.click();
 
-    // 7. Espera redirect de sucesso ou toast
-    await Promise.race([
-        page.waitForURL(/\/admissao\?submitted=1/, { timeout: 20_000 }),
-        page.getByText(/finalizada com sucesso/i).waitFor({ timeout: 20_000 }),
+    // 7. Espera redirect de sucesso OU captura toast de erro pra diagnóstico
+    const resultado = await Promise.race([
+        page.waitForURL(/\/admissao\?submitted=1/, { timeout: 25_000 }).then(() => "ok" as const),
+        page.getByText(/finalizada com sucesso/i).waitFor({ timeout: 25_000 }).then(() => "ok" as const),
+        // Sonner marca toasts de erro com data-type="error" — ignora o "Salvo!" (success).
+        page.locator('[data-sonner-toast][data-type="error"]').first().waitFor({ timeout: 25_000 }).then(async () => {
+            const msg = await page.locator('[data-sonner-toast][data-type="error"]').first().innerText().catch(() => "");
+            return `erro: ${msg}` as const;
+        }),
     ]);
-    console.log(`🚀 Submit aceito, aguardando integração TOTVS…`);
+    if (resultado.startsWith("erro:")) {
+        throw new Error(`Submit rejeitado pelo wizard: ${resultado}`);
+    }
+    console.log(`🚀 Submit aceito${SKIP_INTEGRATION ? "" : ", aguardando integração TOTVS…"}`);
+
+    if (SKIP_INTEGRATION) {
+        console.log(`⏭️  Pulando espera do worker (E2E_SKIP_INTEGRATION_WAIT=1)`);
+        return;
+    }
 
     // 8. Poll na API até o worker processar (ou dar Falha)
     await expect

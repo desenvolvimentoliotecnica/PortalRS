@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ChevronLeft, CheckCircle2, XCircle, AlertTriangle, FileText, User, MapPin,
-    CreditCard, Briefcase, Phone, ShieldCheck, Loader2, Pencil, Download, Eye,
+    CreditCard, Briefcase, Phone, ShieldCheck, Loader2, Pencil, Download, Eye, Coins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,30 +22,51 @@ import {
 interface PreAdmissao {
     id: string;
     nome: string;
+    nomeSocial: string | null;
+    nomeAbreviado: string | null;
     cpf: string | null;
     email: string | null;
+    emailAlternativo: string | null;
     status: number;
     preenchidoPor: number;
     revisadoPorNome: string | null;
     aprovadoPorNome: string | null;
     observacaoRh: string | null;
     motivoRejeicao: string | null;
-    // all fields...
+    // Identificação / Físico
     rg: string | null;
     rgOrgaoExpedidor: string | null;
+    rgUfExpedidor: string | null;
     rgDataExpedicao: string | null;
+    regIdentidCivilNumero: string | null;
+    regIdentidCivilOrgEmiss: string | null;
+    regIdentidCivilUf: string | null;
+    regIdentidCivilCidade: string | null;
+    regIdentidCivilDataExped: string | null;
     dataNascimento: string | null;
     sexo: number;
     estadoCivil: number;
+    origemFuncionario: number | null;
     nacionalidade: string | null;
+    paisNacionalidade: string | null;
+    paisNascimento: string | null;
     nomeMae: string | null;
     nomePai: string | null;
     naturalCidade: string | null;
     naturalUf: string | null;
+    cutis: number | null;
+    cabelo: number | null;
+    olhos: number | null;
+    // Estrangeiro
     passaporte: string | null;
     rnmRne: string | null;
     validadeVisto: string | null;
     tipoVisto: string | null;
+    tipoVistoEstrangeiro: number | null;
+    resideExterior: string | null;
+    codEnderecoPostalExterior: string | null;
+    cidadeExterior: string | null;
+    // Endereço
     cep: string | null;
     logradouro: string | null;
     numero: string | null;
@@ -53,8 +74,15 @@ interface PreAdmissao {
     bairro: string | null;
     cidade: string | null;
     uf: string | null;
+    pontoReferencia: string | null;
+    municipioEnderecoIbge: number | null;
+    municipioNascimentoIbge: number | null;
+    tipoLogradouroESocial: string | null;
+    // Contato
     telefone: string | null;
     celular: string | null;
+    dddTelefone: number | null;
+    dddTelContato: number | null;
     contatoEmergenciaNome: string | null;
     contatoEmergenciaFone: string | null;
     bancoCodigo: string | null;
@@ -64,6 +92,7 @@ interface PreAdmissao {
     conta: string | null;
     contaDigito: string | null;
     tipoConta: number | null;
+    codEmpresa: string | null;
     estabelecimentoCodigo: string | null;
     matriculaRM: string | null;
     unitNome: string | null;
@@ -71,6 +100,7 @@ interface PreAdmissao {
     jobPositionNome: string | null;
     dataAdmissao: string | null;
     salario: number | null;
+    salarioSimulado: number | null;
     tipoContratacao: number | null;
     cargaHorariaSemanal: number | null;
     pisPasep: string | null;
@@ -81,9 +111,61 @@ interface PreAdmissao {
     categoriaSalarial: number | null;
     grauInstrucao: number | null;
     codTurno: number | null;
+    codTurma: number | null;
     tipoEstatistica: number | null;
     centroCusto: string | null;
     unidadeLotacao: string | null;
+    codPlanoLotacao: number | null;
+    tipoMaoDeObra: string | null;
+    indFuncVinculado: number | null;
+    codSindicato: number | null;
+    codLocalMarcacao: number | null;
+    codClassFuncPontoEletronico: number | null;
+    codLocalidade: number | null;
+    paisLocalidade: string | null;
+    emitCartPonto: string | null;
+    formaPagamento: number | null;
+    tipoAdmissaoFgts: number | null;
+    dataTerminoContrato: number | null;
+    // CAGED
+    ocorrenciaCAGED: number | null;
+    // Encargos e flags folha (S/N)
+    optanteFgts: string | null;
+    recolheFgts: string | null;
+    recolheInss: string | null;
+    sindicalizado: string | null;
+    descContribSindical: string | null;
+    contribSindicDia: string | null;
+    cargaAutomTurno: string | null;
+    calcula13: string | null;
+    recebeFerias: string | null;
+    considEmissRAIS: string | null;
+    recebePericul: string | null;
+    recebeInsalub: string | null;
+    recebeAdiantamento: string | null;
+    funcQualificado: string | null;
+    funcDoador: string | null;
+    // eSocial
+    categoriaTrabalhoESocial: number | null;
+    indAdmissao: number | null;
+    tipoAdmissaoESocial: number | null;
+    regimeTrabalhista: number | null;
+    regimePrevidenciario: number | null;
+    regimeJornada: number | null;
+    naturezaAtividade: number | null;
+    matriculaESocial: string | null;
+    dataOpcaoFgts: string | null;
+    // CNH detalhado
+    cnhNumero: string | null;
+    cnhUf: string | null;
+    cnhOrgaoEmissor: string | null;
+    cnhDataExpedicao: number | null;
+    cnhPrimeiraHabilitacao: number | null;
+    // Doc militar
+    docMilitarCircunscricao: number | null;
+    // Saúde complementar
+    manequim: number | null;
+    sapato: number | null;
     tituloEleitorNumero: string | null;
     tituloEleitorZona: string | null;
     tituloEleitorSecao: string | null;
@@ -133,6 +215,27 @@ const EST_CIVIL_L: Record<number, string> = { 0: "—", 1: "Solteiro(a)", 2: "Ca
 const TIPO_CONT_L: Record<number, string> = { 0: "CLT", 1: "PJ", 2: "Estágio", 3: "Temporário", 4: "Aprendiz", 5: "Terceirizado" };
 const TIPO_CONTA_L: Record<number, string> = { 0: "Conta Corrente", 1: "Conta Poupança", 2: "Conta Salário" };
 const TIPO_DOC_L: Record<number, string> = { 0: "RG", 1: "CPF", 2: "CNH", 3: "Comprovante Residência", 4: "Comprovante Bancário", 5: "Certidão", 6: "CTPS", 7: "Título Eleitor", 8: "Reservista", 9: "Outro" };
+// Labels dos códigos TOTVS/eSocial que agora aparecem na revisão
+const CUTIS_L: Record<number, string> = { 1: "Branca", 2: "Preta", 3: "Parda", 4: "Amarela", 5: "Indígena", 6: "Não Informada", 9: "Anonimizado" };
+const CABELO_L: Record<number, string> = { 1: "Castanho", 2: "Preto", 3: "Loiro", 4: "Ruivo", 5: "Grisalho", 6: "Outros", 9: "Anonimizado" };
+const OLHOS_L: Record<number, string> = { 1: "Castanho", 2: "Preto", 3: "Azul", 4: "Verde", 5: "Outros", 9: "Anonimizado" };
+const ORIGEM_L: Record<number, string> = { 1: "Brasileiro", 2: "Naturalizado", 3: "Estrangeiro" };
+const EMIT_PONTO_L: Record<string, string> = { "1": "Sim (emite)", "2": "Não" };
+const FORMA_PAGTO_L: Record<number, string> = { 1: "Banco", 2: "Dinheiro", 3: "Cheque", 4: "Cartão Salário" };
+const TIPO_ADM_FGTS_L: Record<number, string> = { 1: "Admissão Normal", 2: "Trabalhador Avulso", 3: "Sucessão/Transferência", 4: "Primeiro Emprego" };
+const CAGED_L: Record<number, string> = { 1: "Admissão Normal", 2: "Reintegração", 3: "Reemprego", 4: "Transferência Entrada", 5: "Trabalho Temporário" };
+const IND_ADM_L: Record<number, string> = { 1: "Admissão Normal", 2: "Transferência", 3: "Admissão Eletiva", 4: "Reforma Militar", 5: "Cargo Público" };
+const TIPO_ADM_ES_L: Record<number, string> = { 1: "Primeiro emprego no empregador", 2: "Readmissão", 3: "Trabalhador Transferido", 4: "Servidor Público Outro Órgão" };
+const REG_TRAB_L: Record<number, string> = { 1: "CLT", 2: "Estatutário/Especial" };
+const REG_PREV_L: Record<number, string> = { 1: "RGPS", 2: "RPPS", 3: "Exterior" };
+const REG_JORN_L: Record<number, string> = { 1: "Horário fixo (art. 58)", 2: "Externa/teletrabalho", 3: "Cargo de gestão (art. 62)", 4: "Tripulante aéreo", 9: "Sem tipificação" };
+const CAT_ES_L: Record<number, string> = { 101: "Empregado Geral (CLT)", 102: "Rural", 103: "Aprendiz", 104: "Doméstico", 105: "Rural Prazo Det.", 106: "Temporário (Lei 6.019)", 111: "Verde Amarelo" };
+const DOC_MIL_TIPO_L: Record<number, string> = { 1: "Cert. Reservista", 2: "Cert. Dispensa", 3: "Cert. Alistamento" };
+const VISTO_ESTRANG_L: Record<number, string> = { 1: "Passaporte Comum", 2: "Temporário", 3: "Permanente", 4: "Oficial/Diplomático", 5: "Outros" };
+const VINCULO_L: Record<number, string> = { 10: "CLT Prazo Indet.", 20: "CLT Prazo Det.", 30: "Estagiário", 40: "Temporário", 50: "Diretor s/ Vínculo", 55: "Diretor c/ Vínculo", 60: "Aprendiz", 70: "Autônomo", 80: "Cooperado" };
+const TIPO_FUNC_L: Record<number, string> = { 1: "Mensalista", 2: "Horista", 3: "Diarista", 4: "Tarefeiro" };
+const TIPO_MAO_OBRA_L: Record<string, string> = { ADM: "Administrativo", COM: "Comercial", GER: "Gerencial", OPE: "Operacional" };
+const snLabel = (v: string | null | undefined) => v === "S" ? "Sim" : v === "N" ? "Não" : null;
 
 /* ── component ── */
 
@@ -237,14 +340,22 @@ export default function AdmissaoRevisaoScreen() {
                     <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ${s.color}`}>
                         <Icon className="size-3.5" /> {s.label}
                     </span>
-                    <Button variant="outline" size="sm" onClick={() => {
-                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `admissao-${data.nome.replace(/\s+/g, "_")}-${data.id}.json`;
-                        a.click();
-                        URL.revokeObjectURL(url);
+                    <Button variant="outline" size="sm" onClick={async () => {
+                        // Baixa o payload EXATO consumido pelo sync-service TOTVS.
+                        // Fonte: IntegracaoTotvsService.GetDetalheAsync (lê a entidade direto,
+                        // então reflete toda atualização do sync — matriculaRM, integracaoResultado, etc).
+                        try {
+                            const res = await apiFetch(`/api/integracao-totvs/1/${data.id}`);
+                            if (!res.ok) { toast.error("Não foi possível obter o payload TOTVS"); return; }
+                            const payload = await res.json();
+                            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `admissao-totvs-${data.nome.replace(/\s+/g, "_")}-${data.id}.json`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                        } catch { toast.error("Erro de conexão ao exportar"); }
                     }}>
                         <Download className="size-4" /> Exportar JSON
                     </Button>
@@ -289,32 +400,54 @@ export default function AdmissaoRevisaoScreen() {
                     <TabsTrigger value="endereco" className="gap-1.5 text-xs"><MapPin className="size-3.5" /> Endereço & Contato</TabsTrigger>
                     <TabsTrigger value="bancario" className="gap-1.5 text-xs"><CreditCard className="size-3.5" /> Bancário</TabsTrigger>
                     <TabsTrigger value="trabalhista" className="gap-1.5 text-xs"><Briefcase className="size-3.5" /> Trabalhista</TabsTrigger>
+                    <TabsTrigger value="encargos" className="gap-1.5 text-xs"><Coins className="size-3.5" /> Encargos & eSocial</TabsTrigger>
                     <TabsTrigger value="documentos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Documentação</TabsTrigger>
                     <TabsTrigger value="arquivos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Arquivos Enviados{docsByTipo.size > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{docsByTipo.size}</span>}</TabsTrigger>
                 </TabsList>
 
                 {/* Aba: Pessoal */}
                 <TabsContent value="pessoal" className="p-4 space-y-4 mt-0">
-                    <Section title="Dados Pessoais" icon={User}>
-                        <Info label="Nome" value={data.nome} />
+                    <Section title="Identificação" icon={User}>
+                        <Info label="Nome Completo" value={data.nome} />
+                        <Info label="Nome Social" value={data.nomeSocial} />
+                        <Info label="Nome Abreviado" value={data.nomeAbreviado} />
                         <Info label="CPF" value={data.cpf} />
-                        <Info label="RG" value={data.rg} />
-                        <Info label="Órgão Exp." value={data.rgOrgaoExpedidor} />
-                        <Info label="Data Exp. RG" value={data.rgDataExpedicao} />
                         <Info label="Nascimento" value={data.dataNascimento} />
                         <Info label="Sexo" value={SEXO_L[data.sexo]} />
-                        <Info label="Est. Civil" value={EST_CIVIL_L[data.estadoCivil]} />
+                        <Info label="Estado Civil" value={EST_CIVIL_L[data.estadoCivil]} />
+                        <Info label="Origem" value={data.origemFuncionario != null ? ORIGEM_L[data.origemFuncionario] : null} />
                         <Info label="Nacionalidade" value={data.nacionalidade} />
-                        <Info label="Nome Mãe" value={data.nomeMae} />
-                        <Info label="Nome Pai" value={data.nomePai} />
+                        <Info label="País Nacionalidade" value={data.paisNacionalidade} />
+                        <Info label="País Nascimento" value={data.paisNascimento} />
                         <Info label="Natural de" value={[data.naturalCidade, data.naturalUf].filter(Boolean).join("/")} />
+                        <Info label="Nome da Mãe" value={data.nomeMae} />
+                        <Info label="Nome do Pai" value={data.nomePai} />
                     </Section>
-                    {data.nacionalidade && data.nacionalidade.toLowerCase() !== "brasileira" && (
+                    <Section title="RG" icon={FileText}>
+                        <Info label="RG" value={data.rg} />
+                        <Info label="Órgão Expedidor" value={data.rgOrgaoExpedidor} />
+                        <Info label="UF Expedidor" value={data.rgUfExpedidor} />
+                        <Info label="Data Expedição" value={data.rgDataExpedicao} />
+                    </Section>
+                    <Section title="RIC — Registro Identidade Civil" icon={FileText}>
+                        <Info label="Número" value={data.regIdentidCivilNumero} />
+                        <Info label="Órgão Emissor" value={data.regIdentidCivilOrgEmiss} />
+                        <Info label="UF" value={data.regIdentidCivilUf} />
+                        <Info label="Cidade" value={data.regIdentidCivilCidade} />
+                        <Info label="Data Expedição" value={data.regIdentidCivilDataExped} />
+                    </Section>
+                    <Section title="Características Físicas" icon={User}>
+                        <Info label="Raça/Cor" value={data.cutis != null ? CUTIS_L[data.cutis] : null} />
+                        <Info label="Cabelo" value={data.cabelo != null ? CABELO_L[data.cabelo] : null} />
+                        <Info label="Olhos" value={data.olhos != null ? OLHOS_L[data.olhos] : null} />
+                    </Section>
+                    {(data.origemFuncionario === 3 || data.passaporte || data.rnmRne) && (
                         <Section title="Estrangeiro" icon={AlertTriangle}>
                             <Info label="Passaporte" value={data.passaporte} />
                             <Info label="RNM/RNE" value={data.rnmRne} />
                             <Info label="Validade Visto" value={data.validadeVisto} />
-                            <Info label="Tipo Visto" value={data.tipoVisto} />
+                            <Info label="Tipo Visto (texto)" value={data.tipoVisto} />
+                            <Info label="Tipo Visto TOTVS" value={data.tipoVistoEstrangeiro != null ? VISTO_ESTRANG_L[data.tipoVistoEstrangeiro] : null} />
                         </Section>
                     )}
                 </TabsContent>
@@ -329,11 +462,22 @@ export default function AdmissaoRevisaoScreen() {
                         <Info label="Bairro" value={data.bairro} />
                         <Info label="Cidade" value={data.cidade} />
                         <Info label="UF" value={data.uf} />
+                        <Info label="Ponto Referência" value={data.pontoReferencia} />
+                        <Info label="Tipo Logradouro eSocial" value={data.tipoLogradouroESocial} />
+                        <Info label="Município (IBGE)" value={data.municipioEnderecoIbge?.toString()} />
+                        <Info label="Município Nascimento (IBGE)" value={data.municipioNascimentoIbge?.toString()} />
                     </Section>
+                    {data.resideExterior === "S" && (
+                        <Section title="Endereço no Exterior" icon={AlertTriangle}>
+                            <Info label="Cód. Endereço Postal" value={data.codEnderecoPostalExterior} />
+                            <Info label="Cidade" value={data.cidadeExterior} />
+                        </Section>
+                    )}
                     <Section title="Contato" icon={Phone}>
-                        <Info label="Email" value={data.email} />
-                        <Info label="Telefone" value={data.telefone} />
-                        <Info label="Celular" value={data.celular} />
+                        <Info label="E-mail" value={data.email} />
+                        <Info label="E-mail Alternativo" value={data.emailAlternativo} />
+                        <Info label="Telefone" value={[data.dddTelefone, data.telefone].filter(Boolean).join(" ") || null} />
+                        <Info label="Celular" value={[data.dddTelContato, data.celular].filter(Boolean).join(" ") || null} />
                         <Info label="Emerg. Nome" value={data.contatoEmergenciaNome} />
                         <Info label="Emerg. Fone" value={data.contatoEmergenciaFone} />
                     </Section>
@@ -350,49 +494,140 @@ export default function AdmissaoRevisaoScreen() {
                 </TabsContent>
 
                 {/* Aba: Trabalhista */}
-                <TabsContent value="trabalhista" className="p-4 mt-0">
-                    <Section title="Dados Trabalhistas" icon={Briefcase}>
-                        <Info label="Estab." value={data.estabelecimentoCodigo} />
+                <TabsContent value="trabalhista" className="p-4 space-y-4 mt-0">
+                    <Section title="Empresa e Admissão" icon={Briefcase}>
+                        <Info label="Empresa (cód.)" value={data.codEmpresa} />
+                        <Info label="Estabelecimento" value={data.estabelecimentoCodigo} />
                         <Info label="Matrícula RM" value={data.matriculaRM} />
+                        <Info label="Matrícula eSocial" value={data.matriculaESocial} />
                         <Info label="Unidade" value={data.unitNome} />
                         <Info label="Área" value={data.areaNome} />
-                        <Info label="Cargo" value={data.jobPositionNome} />
                         <Info label="Data Admissão" value={data.dataAdmissao} />
+                        <Info label="Data Opção FGTS" value={data.dataOpcaoFgts} />
+                        <Info label="Data Término Contrato" value={data.dataTerminoContrato?.toString()} />
                         <Info label="Salário" value={fmtBrl(data.salario)} />
+                        <Info label="Salário Simulado" value={fmtBrl(data.salarioSimulado)} />
                         <Info label="Contratação" value={data.tipoContratacao != null ? TIPO_CONT_L[data.tipoContratacao] : null} />
                         <Info label="Carga Hor." value={data.cargaHorariaSemanal != null ? `${data.cargaHorariaSemanal}h/sem` : null} />
                         <Info label="PIS/PASEP" value={data.pisPasep} />
-                        <Info label="Cargo TOTVS" value={data.codCargoTotvs != null ? String(data.codCargoTotvs) : null} />
-                        <Info label="Vínculo" value={data.codVinculoEmpregaticio != null ? String(data.codVinculoEmpregaticio) : null} />
-                        <Info label="Tipo Func." value={data.tipoFuncionario != null ? String(data.tipoFuncionario) : null} />
-                        <Info label="Tipo Estatística" value={data.tipoEstatistica != null ? String(data.tipoEstatistica) : null} />
-                        <Info label="Cat. Salarial" value={data.categoriaSalarial != null ? String(data.categoriaSalarial) : null} />
-                        <Info label="Grau Instrução" value={data.grauInstrucao != null ? String(data.grauInstrucao) : null} />
-                        <Info label="Turno" value={data.codTurno != null ? String(data.codTurno) : null} />
-                        <Info label="Centro Custo" value={data.centroCusto} />
+                    </Section>
+                    <Section title="Cargo e Vínculo TOTVS" icon={Briefcase}>
+                        <Info label="Cargo" value={data.jobPositionNome} />
+                        <Info label="Cargo (cód. TOTVS)" value={data.codCargoTotvs?.toString()} />
+                        <Info label="Vínculo" value={data.codVinculoEmpregaticio != null ? (VINCULO_L[data.codVinculoEmpregaticio] ?? String(data.codVinculoEmpregaticio)) : null} />
+                        <Info label="Tipo Funcionário" value={data.tipoFuncionario != null ? (TIPO_FUNC_L[data.tipoFuncionario] ?? String(data.tipoFuncionario)) : null} />
+                        <Info label="Cat. Salarial" value={data.categoriaSalarial?.toString()} />
+                        <Info label="Grau Instrução" value={data.grauInstrucao?.toString()} />
+                        <Info label="Tipo Estatística" value={data.tipoEstatistica?.toString()} />
+                        <Info label="Emite Cartão Ponto" value={data.emitCartPonto ? EMIT_PONTO_L[data.emitCartPonto] : null} />
+                        <Info label="Forma de Pagamento" value={data.formaPagamento != null ? FORMA_PAGTO_L[data.formaPagamento] : null} />
+                        <Info label="Tipo Admissão FGTS" value={data.tipoAdmissaoFgts != null ? TIPO_ADM_FGTS_L[data.tipoAdmissaoFgts] : null} />
+                        <Info label="País Localidade" value={data.paisLocalidade} />
+                    </Section>
+                    <Section title="Lotação e Turno" icon={Briefcase}>
+                        <Info label="Turno (cód.)" value={data.codTurno?.toString()} />
+                        <Info label="Centro de Custo" value={data.centroCusto} />
                         <Info label="Unid. Lotação" value={data.unidadeLotacao} />
+                        <Info label="Plano Lotação" value={data.codPlanoLotacao?.toString()} />
+                    </Section>
+                    <Section title="Jornada, Ponto e Sindicato" icon={Briefcase}>
+                        <Info label="Cód. Turma" value={data.codTurma?.toString()} />
+                        <Info label="Ind. Func. Vinculado" value={data.indFuncVinculado?.toString()} />
+                        <Info label="Tipo Mão-de-Obra" value={data.tipoMaoDeObra ? (TIPO_MAO_OBRA_L[data.tipoMaoDeObra] ?? data.tipoMaoDeObra) : null} />
+                        <Info label="Cód. Sindicato" value={data.codSindicato?.toString()} />
+                        <Info label="Cód. Local Marcação" value={data.codLocalMarcacao?.toString()} />
+                        <Info label="Classif. Func. Ponto" value={data.codClassFuncPontoEletronico?.toString()} />
+                        <Info label="Cód. Localidade" value={data.codLocalidade?.toString()} />
+                    </Section>
+                    <Section title="Documentos Militares / Visto / CAGED" icon={Briefcase}>
+                        <Info label="Tipo Doc. Militar" value={data.docMilitarTipo != null ? DOC_MIL_TIPO_L[data.docMilitarTipo] : null} />
+                        <Info label="Região Militar" value={data.docMilitarRegiao?.toString()} />
+                        <Info label="Circunscrição" value={data.docMilitarCircunscricao?.toString()} />
+                        <Info label="Doc. Militar Nº" value={data.docMilitarNumero} />
+                        <Info label="Doc. Militar Série" value={data.docMilitarSerie} />
+                        <Info label="Tipo Visto Estrangeiro" value={data.tipoVistoEstrangeiro != null ? VISTO_ESTRANG_L[data.tipoVistoEstrangeiro] : null} />
+                        <Info label="Ocorrência CAGED" value={data.ocorrenciaCAGED != null ? CAGED_L[data.ocorrenciaCAGED] : null} />
+                    </Section>
+                    {data.validacaoSalarioJustificativa && (
+                        <Section title="Justificativa Salarial" icon={AlertTriangle}>
+                            <Info label="Justificativa" value={data.validacaoSalarioJustificativa} />
+                        </Section>
+                    )}
+                </TabsContent>
+
+                {/* Aba: Encargos e eSocial */}
+                <TabsContent value="encargos" className="p-4 space-y-4 mt-0">
+                    <Section title="FGTS / INSS" icon={Coins}>
+                        <Info label="Optante FGTS" value={snLabel(data.optanteFgts)} />
+                        <Info label="Recolhe FGTS" value={snLabel(data.recolheFgts)} />
+                        <Info label="Recolhe INSS" value={snLabel(data.recolheInss)} />
+                    </Section>
+                    <Section title="Sindicato" icon={Coins}>
+                        <Info label="Sindicalizado" value={snLabel(data.sindicalizado)} />
+                        <Info label="Desc. Contrib. Sindical" value={snLabel(data.descContribSindical)} />
+                        <Info label="Contrib. Sindical / Dia" value={snLabel(data.contribSindicDia)} />
+                        <Info label="Reside no Exterior" value={snLabel(data.resideExterior)} />
+                    </Section>
+                    <Section title="Cálculo da Folha" icon={Coins}>
+                        <Info label="Carga Aut. Turno" value={snLabel(data.cargaAutomTurno)} />
+                        <Info label="Calcula 13º" value={snLabel(data.calcula13)} />
+                        <Info label="Recebe Férias" value={snLabel(data.recebeFerias)} />
+                        <Info label="Considera RAIS" value={snLabel(data.considEmissRAIS)} />
+                    </Section>
+                    <Section title="Adicionais" icon={Coins}>
+                        <Info label="Periculosidade" value={snLabel(data.recebePericul)} />
+                        <Info label="Insalubridade" value={snLabel(data.recebeInsalub)} />
+                        <Info label="Adiantamento" value={snLabel(data.recebeAdiantamento)} />
+                        <Info label="Func. Qualificado" value={snLabel(data.funcQualificado)} />
+                        <Info label="Doador" value={snLabel(data.funcDoador)} />
+                    </Section>
+                    <Section title="Parâmetros eSocial" icon={ShieldCheck}>
+                        <Info label="Cat. Trabalhador" value={data.categoriaTrabalhoESocial != null ? (CAT_ES_L[data.categoriaTrabalhoESocial] ?? data.categoriaTrabalhoESocial.toString()) : null} />
+                        <Info label="Ind. Admissão" value={data.indAdmissao != null ? IND_ADM_L[data.indAdmissao] : null} />
+                        <Info label="Tipo Admissão eSocial" value={data.tipoAdmissaoESocial != null ? TIPO_ADM_ES_L[data.tipoAdmissaoESocial] : null} />
+                        <Info label="Regime Trabalhista" value={data.regimeTrabalhista != null ? REG_TRAB_L[data.regimeTrabalhista] : null} />
+                        <Info label="Regime Previdenciário" value={data.regimePrevidenciario != null ? REG_PREV_L[data.regimePrevidenciario] : null} />
+                        <Info label="Regime Jornada" value={data.regimeJornada != null ? REG_JORN_L[data.regimeJornada] : null} />
+                        <Info label="Natureza Atividade" value={data.naturezaAtividade?.toString()} />
                     </Section>
                 </TabsContent>
 
                 {/* Aba: Documentação Complementar */}
-                <TabsContent value="documentos" className="p-4 mt-0">
-                    <Section title="Documentação Complementar" icon={FileText}>
-                        <Info label="Título Eleitor" value={data.tituloEleitorNumero} />
-                        <Info label="Zona/Seção" value={[data.tituloEleitorZona, data.tituloEleitorSecao].filter(Boolean).join("/")} />
-                        <Info label="Cidade/UF Título" value={[data.tituloEleitorCidade, data.tituloEleitorUf].filter(Boolean).join("/")} />
-                        <Info label="Reservista" value={data.reservistaNumero} />
-                        <Info label="CNH Cat." value={data.categoriaCnh} />
-                        <Info label="Val. CNH" value={data.validadeCnh} />
-                        <Info label="CTPS" value={[data.ctps, data.ctpsSerie].filter(Boolean).join(" Série ")} />
-                        <Info label="CTPS UF" value={data.ctpsUf} />
-                        <Info label="Modelo CTPS" value={data.ctpsModelo != null ? (data.ctpsModelo === 1 ? "Papel" : "Digital") : null} />
+                <TabsContent value="documentos" className="p-4 space-y-4 mt-0">
+                    <Section title="Título de Eleitor" icon={FileText}>
+                        <Info label="Número" value={data.tituloEleitorNumero} />
+                        <Info label="Zona" value={data.tituloEleitorZona} />
+                        <Info label="Seção" value={data.tituloEleitorSecao} />
+                        <Info label="Cidade" value={data.tituloEleitorCidade} />
+                        <Info label="UF" value={data.tituloEleitorUf} />
+                    </Section>
+                    <Section title="CTPS" icon={FileText}>
+                        <Info label="Número" value={data.ctps} />
+                        <Info label="Série" value={data.ctpsSerie} />
+                        <Info label="UF" value={data.ctpsUf} />
+                        <Info label="Modelo" value={data.ctpsModelo != null ? (data.ctpsModelo === 1 ? "Papel" : "Digital") : null} />
+                    </Section>
+                    <Section title="CNH" icon={FileText}>
+                        <Info label="Número" value={data.cnhNumero} />
+                        <Info label="Categoria" value={data.categoriaCnh} />
+                        <Info label="UF" value={data.cnhUf} />
+                        <Info label="Órgão Emissor" value={data.cnhOrgaoEmissor} />
+                        <Info label="Data Expedição" value={data.cnhDataExpedicao?.toString()} />
+                        <Info label="1ª Habilitação" value={data.cnhPrimeiraHabilitacao?.toString()} />
+                        <Info label="Validade" value={data.validadeCnh} />
+                    </Section>
+                    <Section title="Reservista" icon={FileText}>
+                        <Info label="Número" value={data.reservistaNumero} />
+                    </Section>
+                    <Section title="Saúde e Antropométricos" icon={FileText}>
                         <Info label="Grupo Sanguíneo" value={data.grupoSanguineo != null ? ["", "A", "B", "AB", "O"][data.grupoSanguineo] ?? String(data.grupoSanguineo) : null} />
                         <Info label="Fator Rh" value={data.fatorRh != null ? (data.fatorRh === 1 ? "Positivo (+)" : "Negativo (-)") : null} />
-                        <Info label="Deficiência" value={data.possuiDeficiencia === "S" ? "Sim" : data.possuiDeficiencia === "N" ? "Não" : null} />
+                        <Info label="Deficiência" value={snLabel(data.possuiDeficiencia)} />
                         <Info label="Cartão SUS" value={data.cartaoSus} />
                         <Info label="Altura" value={data.altura != null ? `${data.altura} cm` : null} />
                         <Info label="Peso" value={data.peso != null ? `${data.peso} kg` : null} />
-                        <Info label="Doc. Militar" value={data.docMilitarNumero ? `${data.docMilitarNumero} Série ${data.docMilitarSerie ?? ""}` : null} />
+                        <Info label="Manequim" value={data.manequim?.toString()} />
+                        <Info label="Sapato" value={data.sapato?.toString()} />
                     </Section>
                 </TabsContent>
 

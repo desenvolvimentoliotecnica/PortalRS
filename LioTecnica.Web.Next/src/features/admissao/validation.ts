@@ -56,6 +56,7 @@ export interface PreAdmissaoFormLike {
   tipoFuncionario?: number | null;
   categoriaSalarial?: number | null;
   tipoEstatistica?: number | null;
+  codEmpresa?: string | null;
   estabelecimentoCodigo?: string | null;
   centroCusto?: string | null;
   unidadeLotacao?: string | null;
@@ -98,6 +99,31 @@ export interface PreAdmissaoFormLike {
   dataTerminoContrato?: number | null;
   validacaoSalarioJustificativa?: string | null;
   validacaoSalarioOk?: boolean | null;
+
+  // ── Encargos e flags eSocial (antes eram default automático — agora obrigatórios) ──
+  // Flags S/N de FGTS/INSS/sindicato — Datasul exige preenchido.
+  optanteFgts?: string | null;
+  recolheFgts?: string | null;
+  recolheInss?: string | null;
+  sindicalizado?: string | null;
+  descContribSindical?: string | null;
+  // Flags S/N de cálculo folha
+  cargaAutomTurno?: string | null;
+  calcula13?: string | null;
+  recebeFerias?: string | null;
+  considEmissRAIS?: string | null;
+  // Flags S/N de adicionais (RH marca só se aplicar)
+  recebePericul?: string | null;
+  recebeInsalub?: string | null;
+  recebeAdiantamento?: string | null;
+  // eSocial — códigos TOTVS
+  tipoLogradouroESocial?: string | null;
+  categoriaTrabalhoESocial?: number | null;
+  indAdmissao?: number | null;
+  tipoAdmissaoESocial?: number | null;
+  regimeTrabalhista?: number | null;
+  regimePrevidenciario?: number | null;
+  regimeJornada?: number | null;
   [key: string]: unknown;
 }
 
@@ -108,8 +134,9 @@ export const STEP_INDEX = {
   contato: 2,
   bancario: 3,
   trabalhista: 4,
-  documentos: 5,
-  revisao: 6,
+  encargos: 5,      // FGTS/INSS/Sindicato + flags S/N + parâmetros eSocial
+  documentos: 6,
+  revisao: 7,
 } as const;
 
 function isBlank(v: unknown): boolean {
@@ -170,6 +197,7 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (!form.municipioEnderecoIbge || form.municipioEnderecoIbge === 0) errors.push({ field: "municipioEnderecoIbge", label: "Município (cód. IBGE)", stepIndex: STEP_INDEX.endereco, message: "Informe o código IBGE do município." });
 
   // ── FP1500 Cadastral / TOTVS ──────────────────────────────────────────────
+  if (isBlank(form.codEmpresa))             errors.push({ field: "codEmpresa",            label: "Empresa",                stepIndex: STEP_INDEX.trabalhista, message: "Selecione a empresa no autocomplete." });
   if (isBlank(form.dataAdmissao))           errors.push({ field: "dataAdmissao",          label: "Data de Admissão",       stepIndex: STEP_INDEX.trabalhista, message: "Informe a data de admissão." });
   if (isBlank(form.salario))                errors.push({ field: "salario",               label: "Salário",                stepIndex: STEP_INDEX.trabalhista, message: "Informe o salário." });
   if (isBlank(form.codCargoTotvs))          errors.push({ field: "codCargoTotvs",         label: "Cargo TOTVS",            stepIndex: STEP_INDEX.trabalhista, message: "Selecione o cargo TOTVS." });
@@ -239,13 +267,41 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
     errors.push({ field: "dataTerminoContrato", label: "Data Término Contrato", stepIndex: STEP_INDEX.trabalhista, message: "Data de término obrigatória para CLT Prazo Determinado." });
   }
 
-  // Regra existente: se salário fora da faixa, justificativa obrigatória.
-  if (form.validacaoSalarioOk === false && isBlank(form.validacaoSalarioJustificativa)) {
+  // ── Encargos / FGTS / INSS / Sindicato — flags S/N obrigatórias ──
+  // RH escolhe "S" ou "N" explicitamente; Datasul rejeita vazio.
+  const requerSN = (valor: string | null | undefined) => isBlank(valor) || !["S", "N"].includes(valor!);
+  if (requerSN(form.optanteFgts))          errors.push({ field: "optanteFgts",          label: "Optante FGTS",              stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para optante FGTS.' });
+  if (requerSN(form.recolheFgts))          errors.push({ field: "recolheFgts",          label: "Recolhe FGTS",              stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para recolhe FGTS.' });
+  if (requerSN(form.recolheInss))          errors.push({ field: "recolheInss",          label: "Recolhe INSS",              stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para recolhe INSS.' });
+  if (requerSN(form.sindicalizado))        errors.push({ field: "sindicalizado",        label: "Sindicalizado",             stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para sindicalizado.' });
+  if (requerSN(form.descContribSindical))  errors.push({ field: "descContribSindical",  label: "Desconta Contribuição Sindical", stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N".' });
+  if (requerSN(form.resideExterior))       errors.push({ field: "resideExterior",       label: "Reside no Exterior",        stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para reside no exterior.' });
+  // Flags S/N de cálculo folha
+  if (requerSN(form.cargaAutomTurno))      errors.push({ field: "cargaAutomTurno",      label: "Carga Automática Turno",    stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N".' });
+  if (requerSN(form.calcula13))            errors.push({ field: "calcula13",            label: "Calcula 13º",               stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para calcula 13º.' });
+  if (requerSN(form.recebeFerias))         errors.push({ field: "recebeFerias",         label: "Recebe Férias",             stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para recebe férias.' });
+  if (requerSN(form.considEmissRAIS))      errors.push({ field: "considEmissRAIS",      label: "Considera Emissão RAIS",    stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para RAIS.' });
+  // Flags S/N de adicionais (RH informa se o funcionário recebe)
+  if (requerSN(form.recebePericul))        errors.push({ field: "recebePericul",        label: "Recebe Periculosidade",    stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para periculosidade.' });
+  if (requerSN(form.recebeInsalub))        errors.push({ field: "recebeInsalub",        label: "Recebe Insalubridade",     stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para insalubridade.' });
+  if (requerSN(form.recebeAdiantamento))   errors.push({ field: "recebeAdiantamento",   label: "Recebe Adiantamento",      stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para adiantamento.' });
+
+  // ── eSocial — códigos TOTVS obrigatórios ──
+  if (isBlank(form.tipoLogradouroESocial))                       errors.push({ field: "tipoLogradouroESocial", label: "Tipo Logradouro eSocial", stepIndex: STEP_INDEX.encargos, message: "Selecione o tipo de logradouro (ex: R, AV)." });
+  if (!form.categoriaTrabalhoESocial || form.categoriaTrabalhoESocial < 1) errors.push({ field: "categoriaTrabalhoESocial", label: "Categoria Trabalhador eSocial", stepIndex: STEP_INDEX.encargos, message: "Selecione a categoria eSocial (101 = Empregado Geral)." });
+  if (!form.indAdmissao || form.indAdmissao < 1)                 errors.push({ field: "indAdmissao",           label: "Indicativo de Admissão",    stepIndex: STEP_INDEX.encargos, message: "Selecione o indicativo de admissão (1 = Normal)." });
+  if (!form.tipoAdmissaoESocial || form.tipoAdmissaoESocial < 1) errors.push({ field: "tipoAdmissaoESocial",   label: "Tipo Admissão eSocial",    stepIndex: STEP_INDEX.encargos, message: "Selecione o tipo de admissão eSocial." });
+  if (!form.regimeTrabalhista || form.regimeTrabalhista < 1)     errors.push({ field: "regimeTrabalhista",     label: "Regime Trabalhista",       stepIndex: STEP_INDEX.encargos, message: "Selecione o regime trabalhista (1 = CLT)." });
+  if (!form.regimePrevidenciario || form.regimePrevidenciario < 1) errors.push({ field: "regimePrevidenciario", label: "Regime Previdenciário",    stepIndex: STEP_INDEX.encargos, message: "Selecione o regime previdenciário (1 = RGPS)." });
+  if (!form.regimeJornada || form.regimeJornada < 1)             errors.push({ field: "regimeJornada",         label: "Regime de Jornada",        stepIndex: STEP_INDEX.encargos, message: "Selecione o regime de jornada." });
+
+  // Salário acima do teto da faixa → exige justificativa. Abaixo do mínimo passa silenciosamente.
+  if (form.salario && form.validacaoSalarioOk === false && isBlank(form.validacaoSalarioJustificativa)) {
     errors.push({
       field: "validacaoSalarioJustificativa",
       label: "Justificativa do Salário",
       stepIndex: STEP_INDEX.trabalhista,
-      message: "O salário está fora da faixa do cargo — informe uma justificativa.",
+      message: "Salário acima do teto da faixa do cargo — informe uma justificativa.",
     });
   }
 
