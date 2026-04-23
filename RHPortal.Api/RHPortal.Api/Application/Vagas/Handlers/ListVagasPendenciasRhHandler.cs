@@ -117,6 +117,8 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                     false,
                     v.UnidadeLotacaoId,
                     null,
+                    null,
+                    null,
                     null
                 ))
                 .ToList();

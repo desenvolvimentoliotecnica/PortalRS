@@ -68,7 +68,8 @@
       "Bash(dotnet test *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(grep -E \"\\(tsx|ts\\)$\")"
+      "Bash(grep -E \"\\(tsx|ts\\)$\")",
+      "Bash(find /Users/victoralves/Projects/Voltage.RenderRH -path \"*Contracts*\" -name \"*.cs\" -exec grep -l \"Projeto\\\\|Rodada\" {} \\\\;)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

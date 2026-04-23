@@ -11,7 +11,8 @@ namespace RhPortal.Api.Application.ProjetosVaga;
 
 public sealed record ProjetoVagaResponse(
     Guid Id, Guid VagaId, int Numero, string? Descricao,
-    StatusProjeto Status, int TotalCandidatos, DateTimeOffset CreatedAtUtc);
+    StatusProjeto Status, int TotalCandidatos, DateTimeOffset CreatedAtUtc,
+    DateOnly? DataInicio, DateOnly? DataEncerramento);
 
 public sealed record ProjetoVagaCreateRequest(
     string? Descricao,
@@ -51,6 +52,12 @@ public interface IProjetoVagaService
     Task<IReadOnlyList<ProjetoCandidatoResponse>> ListDisponiveisAsync(Guid projetoId, CancellationToken ct);
     Task<ProjetoCandidatoResponse?> AddCandidatoAsync(Guid projetoId, ProjetoCandidatoAddRequest request, CancellationToken ct);
     Task<ProjetoCandidatoResponse?> UpdateCandidatoAsync(Guid projetoId, Guid id, ProjetoCandidatoUpdateRequest request, CancellationToken ct);
+    /// <summary>Retorna a rodada ativa (Status = Ativo) mais recente para a vaga, ou null se não houver.</summary>
+    Task<ProjetoVaga?> GetActiveAsync(Guid vagaId, CancellationToken ct);
+    /// <summary>Cria automaticamente uma nova rodada ao publicar a vaga, se não houver rodada ativa.</summary>
+    Task<ProjetoVaga> EnsureActiveRodadaAsync(Guid vagaId, CancellationToken ct);
+    /// <summary>Finaliza a rodada ativa da vaga (ao encerrar/pausar/cancelar).</summary>
+    Task FinalizeActiveRodadaAsync(Guid vagaId, CancellationToken ct);
 }
 
 // ── Service ──
@@ -76,7 +83,7 @@ public sealed class ProjetoVagaService : IProjetoVagaService
             .Select(p => new ProjetoVagaResponse(
                 p.Id, p.VagaId, p.Numero, p.Descricao, p.Status,
                 _db.Set<ProjetoCandidato>().Count(pc => pc.ProjetoId == p.Id),
-                p.CreatedAtUtc))
+                p.CreatedAtUtc, p.DataInicio, p.DataEncerramento))
             .ToListAsync(ct);
     }
 
@@ -87,7 +94,7 @@ public sealed class ProjetoVagaService : IProjetoVagaService
         if (p is null) return null;
 
         var total = await _db.Set<ProjetoCandidato>().CountAsync(pc => pc.ProjetoId == projetoId, ct);
-        return new ProjetoVagaResponse(p.Id, p.VagaId, p.Numero, p.Descricao, p.Status, total, p.CreatedAtUtc);
+        return new ProjetoVagaResponse(p.Id, p.VagaId, p.Numero, p.Descricao, p.Status, total, p.CreatedAtUtc, p.DataInicio, p.DataEncerramento);
     }
 
     public async Task<ProjetoVagaResponse> CreateProjetoAsync(Guid vagaId, ProjetoVagaCreateRequest request, CancellationToken ct)
@@ -198,7 +205,7 @@ public sealed class ProjetoVagaService : IProjetoVagaService
             }
         }
 
-        return new ProjetoVagaResponse(entity.Id, entity.VagaId, entity.Numero, entity.Descricao, entity.Status, candidatosAnteriores.Count, entity.CreatedAtUtc);
+        return new ProjetoVagaResponse(entity.Id, entity.VagaId, entity.Numero, entity.Descricao, entity.Status, candidatosAnteriores.Count, entity.CreatedAtUtc, entity.DataInicio, entity.DataEncerramento);
     }
 
     public async Task<ProjetoVagaResponse?> UpdateProjetoAsync(Guid projetoId, ProjetoVagaUpdateRequest request, CancellationToken ct)
@@ -211,7 +218,7 @@ public sealed class ProjetoVagaService : IProjetoVagaService
         await _db.SaveChangesAsync(ct);
 
         var total = await _db.Set<ProjetoCandidato>().CountAsync(pc => pc.ProjetoId == projetoId, ct);
-        return new ProjetoVagaResponse(entity.Id, entity.VagaId, entity.Numero, entity.Descricao, entity.Status, total, entity.CreatedAtUtc);
+        return new ProjetoVagaResponse(entity.Id, entity.VagaId, entity.Numero, entity.Descricao, entity.Status, total, entity.CreatedAtUtc, entity.DataInicio, entity.DataEncerramento);
     }
 
     /// <summary>
@@ -334,5 +341,58 @@ public sealed class ProjetoVagaService : IProjetoVagaService
             entity.Candidato.LinkedinUrl, entity.Candidato.TrabalhandoAtualmente, entity.Candidato.PretensaoSalarial,
             entity.Status, entity.FaseAtualId, entity.FaseAtual?.Nome,
             entity.Observacoes, entity.CreatedAtUtc);
+    }
+
+    /// <inheritdoc/>
+    public async Task<ProjetoVaga?> GetActiveAsync(Guid vagaId, CancellationToken ct)
+    {
+        return await _db.Set<ProjetoVaga>()
+            .Where(p => p.VagaId == vagaId && p.Status == StatusProjeto.Ativo)
+            .OrderByDescending(p => p.Numero)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<ProjetoVaga> EnsureActiveRodadaAsync(Guid vagaId, CancellationToken ct)
+    {
+        // Se já existe rodada ativa, retorna sem criar nova
+        var existing = await GetActiveAsync(vagaId, ct);
+        if (existing is not null) return existing;
+
+        var tenantId = _tenantContext.TenantId;
+        var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+
+        var maxNumero = await _db.Set<ProjetoVaga>()
+            .Where(p => p.VagaId == vagaId)
+            .MaxAsync(p => (int?)p.Numero, ct) ?? 0;
+
+        var rodada = new ProjetoVaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            VagaId = vagaId,
+            Numero = maxNumero + 1,
+            Descricao = maxNumero == 0 ? "Publicação inicial" : $"Rodada {maxNumero + 1}",
+            Status = StatusProjeto.Ativo,
+            DataInicio = today,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+        };
+        _db.Set<ProjetoVaga>().Add(rodada);
+        await _db.SaveChangesAsync(ct);
+        return rodada;
+    }
+
+    /// <inheritdoc/>
+    public async Task FinalizeActiveRodadaAsync(Guid vagaId, CancellationToken ct)
+    {
+        var rodada = await GetActiveAsync(vagaId, ct);
+        if (rodada is null) return;
+
+        rodada.Status = StatusProjeto.Finalizado;
+        rodada.DataEncerramento = DateOnly.FromDateTime(DateTime.UtcNow);
+        rodada.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
     }
 }

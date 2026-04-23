@@ -1235,7 +1235,25 @@ export default function VagasScreen() {
                                                         {vaga.createdAtUtc ? new Date(vaga.createdAtUtc as string).toLocaleDateString("pt-BR") : vaga.updatedAt ? new Date(vaga.updatedAt as string).toLocaleDateString("pt-BR") : "—"}
                                                     </TableCell>
                                                     <TableCell onClick={(e) => { e.stopPropagation(); const s = (vaga.status ?? "").toLowerCase(); if (s) setStatus(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]); }}>
-                                                        <span className="cursor-pointer"><VagaStatusBadge status={vaga.status} /></span>
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="cursor-pointer"><VagaStatusBadge status={vaga.status} /></span>
+                                                            {(() => {
+                                                                const raw = vaga as Record<string, unknown>;
+                                                                const rodadaNum = raw.rodadaAtivaNumero as number | null | undefined;
+                                                                const rodadaCands = (raw.rodadaAtivaCandidatos as number | undefined) ?? 0;
+                                                                if (rodadaNum == null) return null;
+                                                                return (
+                                                                    <>
+                                                                        <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                                                            Publicada
+                                                                        </span>
+                                                                        <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground" title={`${rodadaCands} candidato(s) nesta rodada`}>
+                                                                            <Users className="size-3" />{rodadaCands}
+                                                                        </span>
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell onClick={(e) => e.stopPropagation()}>
                                                         {(() => {
@@ -1534,6 +1552,23 @@ export default function VagasScreen() {
                                                                     </DropdownMenuContent>
                                                                 </DropdownMenu>
                                                             </div>
+                                                            {/* ── Rodada ativa (Publicada) ── */}
+                                                            {(() => {
+                                                                const raw = vaga as Record<string, unknown>;
+                                                                const rodadaNum = raw.rodadaAtivaNumero as number | null | undefined;
+                                                                const rodadaCands = (raw.rodadaAtivaCandidatos as number | undefined) ?? 0;
+                                                                if (rodadaNum == null) return null;
+                                                                return (
+                                                                    <div className="mt-1.5 flex items-center gap-1.5">
+                                                                        <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                                                            Publicada
+                                                                        </span>
+                                                                        <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground" title={`${rodadaCands} candidato(s) nesta rodada`}>
+                                                                            <Users className="size-3" />{rodadaCands}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     );
                                                 })}

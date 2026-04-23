@@ -60,5 +60,9 @@ public sealed record VagaListItemResponse(
 
     Guid? UnidadeLotacaoId,
     string? UnidadeLotacaoCode,
-    string? UnidadeLotacaoName
+    string? UnidadeLotacaoName,
+
+    // Rodada (publicação) ativa — null se vaga não tiver rodada ativa
+    int? RodadaAtivaNumero,
+    int? RodadaAtivaCandidatos
 );

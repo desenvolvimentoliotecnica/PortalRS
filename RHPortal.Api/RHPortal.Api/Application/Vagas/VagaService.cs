@@ -13,6 +13,7 @@ using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.WorkflowRH;
 using RhPortal.Api.Application.Common;
+using RhPortal.Api.Application.ProjetosVaga;
 
 namespace RhPortal.Api.Application.Vagas;
 
@@ -38,6 +39,7 @@ public sealed class VagaService : IVagaService
     private readonly ICurrentUserContext _currentUser;
     private readonly IWorkflowRHService _workflowRH;
     private readonly StatusHistoricoService _statusHistorico;
+    private readonly IProjetoVagaService _projetoVaga;
 
     public VagaService(
         AppDbContext db,
@@ -47,6 +49,7 @@ public sealed class VagaService : IVagaService
         ICurrentUserContext currentUser,
         IWorkflowRHService workflowRH,
         StatusHistoricoService statusHistorico,
+        IProjetoVagaService projetoVaga,
         IRHPortalAiMatchClient? aiMatchClient = null,
         IVagaUnifiedMatchingCacheService? unifiedMatchingCache = null)
     {
@@ -57,6 +60,7 @@ public sealed class VagaService : IVagaService
         _currentUser = currentUser;
         _workflowRH = workflowRH;
         _statusHistorico = statusHistorico;
+        _projetoVaga = projetoVaga;
         _aiMatchClient = aiMatchClient;
         _unifiedMatchingCache = unifiedMatchingCache;
     }
@@ -139,6 +143,22 @@ public sealed class VagaService : IVagaService
             })
             .ToListAsync(ct);
 
+        // Rodadas ativas: busca separada para evitar subqueries complexas no EF
+        var vagaIds = items.Select(v => v.Id).ToList();
+        var rodadasAtivas = await _db.Set<ProjetoVaga>()
+            .AsNoTracking()
+            .Where(p => vagaIds.Contains(p.VagaId) && p.Status == StatusProjeto.Ativo)
+            .Select(p => new
+            {
+                p.VagaId, p.Numero,
+                TotalCandidatos = _db.Set<ProjetoCandidato>().Count(pc => pc.ProjetoId == p.Id),
+            })
+            .ToListAsync(ct);
+
+        var rodadaByVaga = rodadasAtivas
+            .GroupBy(r => r.VagaId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Numero).First());
+
         return items
             .OrderByDescending(x => x.UpdatedAtUtc)
             .ThenByDescending(x => x.CreatedAtUtc)
@@ -176,7 +196,9 @@ public sealed class VagaService : IVagaService
                     alertaHCProvVencido,
                     v.UnidadeLotacaoId,
                     v.UnidadeLotacaoCode,
-                    v.UnidadeLotacaoName
+                    v.UnidadeLotacaoName,
+                    rodadaByVaga.TryGetValue(v.Id, out var rodada) ? (int?)rodada.Numero : null,
+                    rodadaByVaga.TryGetValue(v.Id, out var rodada2) ? (int?)rodada2.TotalCandidatos : null
                 );
             })
             .ToList();
@@ -553,6 +575,9 @@ public sealed class VagaService : IVagaService
 
         if (newStatus == VagaStatus.Aberta)
         {
+            // Cria rodada automaticamente ao publicar a vaga
+            await _projetoVaga.EnsureActiveRodadaAsync(id, ct);
+
             var jaExiste = await _db.WorkflowsRH
                 .AnyAsync(w => w.VagaId == id
                             && w.TipoWorkflow == TipoWorkflowRH.TriagemVaga
@@ -560,6 +585,12 @@ public sealed class VagaService : IVagaService
             if (!jaExiste)
                 await _workflowRH.CreateFromTemplateAsync(
                     TipoWorkflowRH.TriagemVaga, vagaId: id, preAdmissaoId: null, ct);
+        }
+
+        // Finaliza rodada ativa ao encerrar/pausar/cancelar a vaga
+        if (newStatus is VagaStatus.Encerrada or VagaStatus.Pausada or VagaStatus.Cancelada or VagaStatus.Preenchida)
+        {
+            await _projetoVaga.FinalizeActiveRodadaAsync(id, ct);
         }
 
         return await GetByIdAsync(id, ct);
