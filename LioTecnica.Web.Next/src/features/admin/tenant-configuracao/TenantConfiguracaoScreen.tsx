@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Settings2, Users, Clock, ChevronDown, ChevronRight, Lock } from "lucide-react";
+import { Save, Settings2, Users, Clock, ChevronDown, ChevronRight, Lock, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ──────────────────────────── types ──────────────────────────── */
@@ -14,6 +14,9 @@ import { cn } from "@/lib/utils";
 interface ConfiguracaoHeadcountDto {
     diasProvisaoSubstituicao: number;
     diasAlertaVagaSemFill: number;
+    blipNumeroHospedeiro: string | null;
+    blipApiUrl: string | null;
+    blipApiKey: string | null;
 }
 
 interface SlaStatusConfigItem {
@@ -195,10 +198,14 @@ const STATUS_INFO_BY_TIPO: Record<string, Record<string, StatusInfo>> = {
 export default function TenantConfiguracaoScreen() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [savingBlip, setSavingBlip] = useState(false);
     const [savingSla, setSavingSla] = useState(false);
 
     const [diasProvisao, setDiasProvisao] = useState(30);
     const [diasAlerta, setDiasAlerta] = useState(60);
+    const [blipNumero, setBlipNumero] = useState<string>("");
+    const [blipApiUrl, setBlipApiUrl] = useState<string>("");
+    const [blipApiKey, setBlipApiKey] = useState<string>("");
 
     const [slaGroups, setSlaGroups] = useState<SlaStatusConfigGroup[]>([]);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -220,6 +227,9 @@ export default function TenantConfiguracaoScreen() {
 
             setDiasProvisao(headcountRes.diasProvisaoSubstituicao ?? 30);
             setDiasAlerta(headcountRes.diasAlertaVagaSemFill ?? 60);
+            setBlipNumero(headcountRes.blipNumeroHospedeiro ?? "");
+            setBlipApiUrl(headcountRes.blipApiUrl ?? "");
+            setBlipApiKey(headcountRes.blipApiKey ?? "");
             setSlaGroups(slaRes);
 
             const edits: Record<string, { slaHoras: number; ativo: boolean }> = {};
@@ -241,6 +251,16 @@ export default function TenantConfiguracaoScreen() {
 
     useEffect(() => { void load(); }, [load]);
 
+    async function buildPayload() {
+        return {
+            diasProvisaoSubstituicao: diasProvisao,
+            diasAlertaVagaSemFill: diasAlerta,
+            blipNumeroHospedeiro: blipNumero.trim() || null,
+            blipApiUrl: blipApiUrl.trim() || null,
+            blipApiKey: blipApiKey.trim() || null,
+        };
+    }
+
     async function save() {
         if (diasProvisao < 1 || diasAlerta < 1) {
             toast.error("Os dias devem ser maiores que zero.");
@@ -250,10 +270,8 @@ export default function TenantConfiguracaoScreen() {
         try {
             const res = await apiFetch("/api/admin/configuracoes-headcount", {
                 method: "PUT",
-                body: JSON.stringify({
-                    diasProvisaoSubstituicao: diasProvisao,
-                    diasAlertaVagaSemFill: diasAlerta,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(await buildPayload()),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             toast.success("Configurações de headcount salvas.");
@@ -261,6 +279,23 @@ export default function TenantConfiguracaoScreen() {
             toast.error(`Falha ao salvar: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
             setSaving(false);
+        }
+    }
+
+    async function saveBlip() {
+        setSavingBlip(true);
+        try {
+            const res = await apiFetch("/api/admin/configuracoes-headcount", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(await buildPayload()),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            toast.success("Número hospedeiro Blip salvo.");
+        } catch (e) {
+            toast.error(`Falha ao salvar: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setSavingBlip(false);
         }
     }
 
@@ -381,6 +416,69 @@ export default function TenantConfiguracaoScreen() {
                             <Button onClick={() => void save()} disabled={saving}>
                                 <Save className="size-4 mr-1.5" />
                                 {saving ? "Salvando…" : "Salvar headcount"}
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* ── Integração Blip ── */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <MessageCircle className="size-4 text-muted-foreground" />
+                            <h2 className="text-base font-semibold">Integração Blip (WhatsApp)</h2>
+                        </div>
+
+                        <div className="rounded-xl border border-border/40 bg-card p-6 space-y-6 max-w-xl">
+                            <div className="space-y-2">
+                                <Label htmlFor="blipNumero">Número hospedeiro</Label>
+                                <Input
+                                    id="blipNumero"
+                                    type="text"
+                                    placeholder="Ex: 5511999999999"
+                                    value={blipNumero}
+                                    onChange={(e) => setBlipNumero(e.target.value)}
+                                    className="w-64"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Número do WhatsApp hospedeiro configurado no bot Blip.
+                                    Usado para direcionar o candidato ao chatbot de envio de documentos.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="blipApiUrl">URL da API de mensagens</Label>
+                                <Input
+                                    id="blipApiUrl"
+                                    type="text"
+                                    placeholder="Ex: https://tenant.http.msging.net/messages"
+                                    value={blipApiUrl}
+                                    onChange={(e) => setBlipApiUrl(e.target.value)}
+                                    className="w-full"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Endpoint de envio de mensagens do bot Blip (específico por tenant).
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="blipApiKey">Chave de autorização (API Key)</Label>
+                                <Input
+                                    id="blipApiKey"
+                                    type="password"
+                                    placeholder="Chave após 'Key ' no header Authorization"
+                                    value={blipApiKey}
+                                    onChange={(e) => setBlipApiKey(e.target.value)}
+                                    className="w-full"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Token de autenticação do bot Blip. Enviado como <code>Authorization: Key {'<valor>'}</code>.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <Button onClick={() => void saveBlip()} disabled={savingBlip}>
+                                <Save className="size-4 mr-1.5" />
+                                {savingBlip ? "Salvando…" : "Salvar configurações"}
                             </Button>
                         </div>
                     </div>

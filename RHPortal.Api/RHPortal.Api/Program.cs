@@ -450,6 +450,7 @@ builder.Services.AddScoped<IPreAdmissaoService, PreAdmissaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.IntegracaoTotvs.IIntegracaoTotvsService, RhPortal.Api.Application.IntegracaoTotvs.IntegracaoTotvsService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.DocumentAiExtractor>();
 builder.Services.AddScoped<RhPortal.Api.Application.Blip.BlipDocumentoValidator>();
+builder.Services.AddScoped<RhPortal.Api.Application.Blip.BlipMessagingService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.IAdmissaoPortalService, RhPortal.Api.Application.AdmissaoPortal.AdmissaoPortalService>();
 builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService>(client =>
 {

@@ -67,6 +67,19 @@ public sealed class TenantConfiguracao : ITenantEntity
     public bool BloqueiaSalarioForaFaixa { get; set; } = false;
 
     // --------------------
+    // Integração Blip (WhatsApp)
+    // --------------------
+
+    /// <summary>Número hospedeiro do bot Blip no WhatsApp (ex: 5511999999999).</summary>
+    public string? BlipNumeroHospedeiro { get; set; }
+
+    /// <summary>URL da API de mensagens do bot Blip (ex: https://tenant.http.msging.net/messages).</summary>
+    public string? BlipApiUrl { get; set; }
+
+    /// <summary>Chave de autorização do bot Blip (valor após "Key " no header Authorization).</summary>
+    public string? BlipApiKey { get; set; }
+
+    // --------------------
     // Integração Azure AD
     // --------------------
 
