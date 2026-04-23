@@ -17,5 +17,10 @@ public sealed record PortalVagaCardResponse(
     decimal? SalarioMinimo,
     decimal? SalarioMaximo,
     DateTimeOffset CreatedAtUtc,
-    string? TenantName
+    string? TenantName,
+    string? DescricaoPublica,
+    bool Urgente,
+    bool AceitaPcd,
+    int? QuantidadeVagas,
+    IReadOnlyList<string> Etapas
 );

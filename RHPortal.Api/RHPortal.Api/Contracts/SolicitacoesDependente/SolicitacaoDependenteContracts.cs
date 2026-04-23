@@ -7,6 +7,7 @@ public sealed record SolicitacaoDependenteListQuery(string? Q, SolicitacaoStatus
 
 public sealed class SolicitacaoDependenteCreateRequest
 {
+    public Guid? FuncionarioId { get; set; }
     public TipoSolicitacaoDependente TipoSolicitacao { get; set; }
     public Guid? DependenteId { get; set; }
     [Required, MaxLength(200)] public string NomeCompleto { get; set; } = string.Empty;

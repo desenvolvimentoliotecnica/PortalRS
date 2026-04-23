@@ -67,7 +67,20 @@
       "Bash(npx next *)",
       "Bash(dotnet test *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(grep -E \"\\(tsx|ts\\)$\")",
+      "Bash(find /Users/victoralves/Projects/Voltage.RenderRH -path \"*Contracts*\" -name \"*.cs\" -exec grep -l \"Projeto\\\\|Rodada\" {} \\\\;)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/painel-rh)",
+      "Bash(awk '{print $9}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/painel-rh)",
+      "Bash(awk '{print $1, $2}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/)",
+      "Bash(awk '{print $2, $11, $12, $13}')",
+      "Bash(python3 -c \"import socket; s=socket.socket\\(\\); s.connect\\(\\('localhost', 10800\\)\\); s.close\\(\\); print\\('ok'\\)\")",
+      "Bash(python3 -c \"import socket; [\\(s:=socket.socket\\(\\), s.connect\\(\\('localhost',p\\)\\), print\\(p\\), s.close\\(\\)\\) for p in [3000,3001,3002,4000] if not __import__\\('contextlib'\\).suppress\\(Exception\\)]\")",
+      "Bash(curl -sv http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/painel-rh)",
+      "Bash(curl -s \"http://localhost:3000/painel-rh?tab=todos\" -o /tmp/painel.html)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.SolicitacoesPagamentoExtra;
 using RhPortal.Api.Contracts.SolicitacoesPagamentoExtra;
@@ -139,6 +140,28 @@ public sealed class SolicitacoesPagamentoExtraController : ControllerBase
             return ok ? NoContent() : NotFound();
         }
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromQuery] string? q,
+        [FromQuery] SolicitacaoStatus? status,
+        CancellationToken ct)
+    {
+        var apenasMeus = !_userContext.IsAdmin;
+        var query = new SolicitacaoPagamentoExtraListQuery(q, status, apenasMeus, null, null);
+        var rows = await _service.ListAsync(query, _userContext.FuncionarioId, ct);
+        var csv = BuildCsv(rows);
+        return File(Encoding.UTF8.GetBytes(csv), "text/csv; charset=utf-8", "pagamento-extra.csv");
+    }
+
+    private static string BuildCsv(IReadOnlyList<SolicitacaoPagamentoExtraGridRow> rows)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Solicitante;Beneficiário;Tipo;Valor;Data Pgto;Status");
+        foreach (var r in rows)
+            sb.AppendLine($"{r.SolicitanteNome};{r.FuncionarioNome};{r.TipoPagamentoExtra};{r.Valor:F2};{r.DataPagamento:dd/MM/yyyy};{r.Status}");
+        return sb.ToString();
     }
 
     private async Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)

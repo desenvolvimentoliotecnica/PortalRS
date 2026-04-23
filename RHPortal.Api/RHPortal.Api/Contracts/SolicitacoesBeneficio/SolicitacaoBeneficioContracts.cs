@@ -7,6 +7,7 @@ public sealed record SolicitacaoBeneficioListQuery(string? Q, SolicitacaoStatus?
 
 public sealed class SolicitacaoBeneficioCreateRequest
 {
+    public Guid? FuncionarioId { get; set; }
     public TipoBeneficio TipoBeneficio { get; set; }
     public TipoAlteracaoBeneficio TipoAlteracao { get; set; }
     [Required, MaxLength(2000)] public string Descricao { get; set; } = string.Empty;

@@ -230,8 +230,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             var solicitacoesVaga = await _db.SolicitacoesVaga
                 .AsNoTracking()
                 .Include(s => s.Solicitante)
-                .Where(s => s.Status == SolicitacaoVagaStatus.EmIntegracao
-                         || s.Status == SolicitacaoVagaStatus.Concluida)
+                .Where(s => s.Status == SolicitacaoStatus.EmIntegracao
+                         || s.Status == SolicitacaoStatus.Concluida)
                 .Select(s => new IntegracaoTotvsListItem(
                     s.Id,
                     (short)TipoIntegracao.SolicitacaoVaga,
@@ -805,7 +805,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 entity.UpdatedAtUtc = now;
                 if (request.Resultado == IntegracaoResultado.Sucesso)
                 {
-                    entity.Status = SolicitacaoVagaStatus.Concluida;
+                    entity.Status = SolicitacaoStatus.Concluida;
                     // Se há uma vaga vinculada, abri-la automaticamente
                     if (entity.VagaId.HasValue)
                     {

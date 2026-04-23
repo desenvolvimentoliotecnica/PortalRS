@@ -7,6 +7,7 @@ public sealed record SolicitacaoFeriasListQuery(string? Q, SolicitacaoStatus? St
 
 public sealed class SolicitacaoFeriasCreateRequest
 {
+    public Guid? FuncionarioId { get; set; }
     public string? PeriodoAquisitivo { get; set; }
     [Required] public DateOnly DataInicio { get; set; }
     [Required] public DateOnly DataFim { get; set; }

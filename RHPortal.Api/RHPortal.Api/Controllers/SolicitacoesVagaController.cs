@@ -35,8 +35,8 @@ public sealed class SolicitacoesVagaController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<SolicitacaoVagaGridRow>), StatusCodes.Status200OK)]
     public async Task<IActionResult> List(
         [FromQuery] string? q,
-        [FromQuery] SolicitacaoVagaStatus? status,
-        [FromQuery(Name = "statuses")] SolicitacaoVagaStatus[]? statuses,
+        [FromQuery] SolicitacaoStatus? status,
+        [FromQuery(Name = "statuses")] SolicitacaoStatus[]? statuses,
         [FromQuery] bool? apenasMeus,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,

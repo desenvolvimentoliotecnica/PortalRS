@@ -156,6 +156,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<HistoricoAlteracaoWorkflowRH> HistoricosAlteracaoWorkflowRH => Set<HistoricoAlteracaoWorkflowRH>();
     public DbSet<DadosBancarios> DadosBancarios => Set<DadosBancarios>();
     public DbSet<Holerite> Holerites => Set<Holerite>();
+    public DbSet<HistoricoStatus> HistoricosStatus => Set<HistoricoStatus>();
+    public DbSet<SlaStatusConfig> SlaStatusConfigs => Set<SlaStatusConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -2850,6 +2852,37 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        // ── SLA e Histórico de Status ────────────────────────────
+
+        modelBuilder.Entity<HistoricoStatus>(b =>
+        {
+            b.ToTable("HistoricosStatus");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.StatusAnterior).HasMaxLength(80).IsRequired();
+            b.Property(x => x.StatusNovo).HasMaxLength(80).IsRequired();
+            b.Property(x => x.AlteradoPorNome).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Observacao).HasMaxLength(1000);
+
+            b.HasIndex(x => new { x.TenantId, x.TipoEntidade, x.EntidadeId });
+            b.HasIndex(x => new { x.TenantId, x.AlteradoEmUtc });
+            b.HasIndex(x => new { x.TenantId, x.TipoEntidade, x.DentroDoSla });
+            b.HasIndex(x => new { x.TenantId, x.TipoEntidade, x.StatusNovo });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SlaStatusConfig>(b =>
+        {
+            b.ToTable("SlaStatusConfigs");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Status).HasMaxLength(80).IsRequired();
+
+            b.HasIndex(x => new { x.TenantId, x.TipoEntidade, x.Status }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
 
     }
 
