@@ -214,6 +214,24 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
+    /// <summary>Amarra manualmente um candidato contratado a esta solicitação de vaga (fora do fluxo automático de pré-admissão).</summary>
+    [HttpPut("{id:guid}/vincular-candidato")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> VincularCandidato(Guid id, [FromBody] VincularCandidatoRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.VincularCandidatoContratadoAsync(id, request.CandidatoId, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Cancela uma solicitação (somente pelo solicitante, enquanto não aprovada).</summary>
     [HttpPost("{id:guid}/cancel")]
     [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]

@@ -198,7 +198,7 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
             CtpsModelo: 3, CtpsSerieESocial: "272",
             // CNH
             CnhNumero: "5555685014", CnhUf: "SP", CnhOrgaoEmissor: "SSP",
-            CnhDataExpedicao: 25102018, CnhPrimeiraHabilitacao: 14062002,
+            CnhDataExpedicao: new DateOnly(2018, 10, 25), CnhPrimeiraHabilitacao: new DateOnly(2002, 6, 14),
             // Doc Militar
             DocMilitarTipo: 1, DocMilitarNumero: "399855", DocMilitarSerie: "A",
             DocMilitarRegiao: 2, DocMilitarCircunscricao: 1,
@@ -206,7 +206,7 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
             GrupoSanguineo: 1, FatorRh: 2,
             PossuiDeficiencia: "N", FuncDoador: "S",
             CartaoSus: "10000141200",
-            Altura: 180, Peso: 90,
+            Altura: 180, Peso: 90000,
             Cutis: 3, Cabelo: 1, Olhos: 1,
             Manequim: 40, Sapato: 42,
             // Contrato

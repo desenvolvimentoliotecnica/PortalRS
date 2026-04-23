@@ -1,8 +1,10 @@
 using RhPortal.Api.Application.Common;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using RhPortal.Api.Application.Pessoas;
 using RhPortal.Api.Application.PublicApproval;
+using RhPortal.Api.Application.SolicitacoesDesligamento;
 using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Application.WorkflowRH;
 using RhPortal.Api.Contracts.SolicitacoesVaga;
@@ -45,6 +47,24 @@ public interface ISolicitacaoVagaService
     /// substituição provisória (com prazo em meses) ou aumento definitivo (escalado à Diretoria).
     /// </summary>
     Task<SolicitacaoVagaResponse?> DecisaoRHAsync(Guid id, DecisaoHeadcountRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Propaga reprovação a partir do desligamento vinculado. Não valida permissões do usuário.
+    /// Idempotente: ignora se a vaga já está em estado terminal.
+    /// </summary>
+    Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct);
+
+    /// <summary>
+    /// Propaga cancelamento a partir do desligamento vinculado. Não valida permissões do usuário.
+    /// Idempotente: ignora se a vaga já está em estado terminal.
+    /// </summary>
+    Task CancelarEmCascataAsync(Guid id, CancellationToken ct);
+
+    /// <summary>
+    /// Amarra manualmente um candidato contratado a esta solicitação de vaga.
+    /// Usado quando a contratação acontece fora do fluxo de pré-admissão (ou para corrigir vínculo).
+    /// </summary>
+    Task<SolicitacaoVagaResponse?> VincularCandidatoContratadoAsync(Guid id, Guid candidatoId, CancellationToken ct);
 }
 
 public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
@@ -60,6 +80,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     private readonly IEmailQueueService _emailQueue;
     private readonly IMagicLinkService _magicLink;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IServiceProvider _serviceProvider;
 
     public SolicitacaoVagaService(
         AppDbContext db,
@@ -72,7 +93,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         IWorkflowRHService workflowRH,
         IEmailQueueService emailQueue,
         IMagicLinkService magicLink,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IServiceProvider serviceProvider)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -85,6 +107,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         _emailQueue = emailQueue;
         _magicLink = magicLink;
         _httpContextAccessor = httpContextAccessor;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<IReadOnlyList<SolicitacaoVagaGridRow>> ListAsync(
@@ -210,6 +233,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Include(x => x.CentroCusto)
             .Include(x => x.UnidadeLotacao)
             .Include(x => x.DecisaoRHRevisadoPor)
+            .Include(x => x.CandidatoContratado)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (s is null) return null;
@@ -340,14 +364,91 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             UnidadeLotacaoId = request.UnidadeLotacaoId,
             // Vaga pré-vinculada quando criada a partir do painel de vagas
             VagaId = request.VagaId,
+            // Dados desligamento (populados somente quando motivo ∈ {PedidoDemissao, DesligamentoSemJustaCausa})
+            DataDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.DataDesligamento : null,
+            TipoAvisoPrevioDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.TipoAvisoPrevioDesligamento : null,
+            DiasAvisoPrevioDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.DiasAvisoPrevioDesligamento : null,
+            PossuiEstabilidadeDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.PossuiEstabilidadeDesligamento : null,
+            MotivoDesligamentoTexto = IsMotivoDesligamento(request.MotivoRequisicao) ? request.MotivoDesligamentoTexto : null,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
 
+        ValidarCamposDesligamento(entity);
+
         _db.SolicitacoesVaga.Add(entity);
+
+        // Gera a SolicitacaoDesligamento em rascunho já na criação da vaga, quando o motivo for de desligamento.
+        // Ambas ficam vinculadas e visíveis imediatamente; o fluxo de cascata cuida de sync em cancel/reject.
+        await CriarDesligamentoVinculadoAsync(entity, ct);
+
         await _db.SaveChangesAsync(ct);
 
+        // Auto-submit: vaga (e desligamento vinculado, se houver) vão direto para PendenteAprovacao.
+        await SubmitAsync(entity.Id, ct);
+        if (entity.DesligamentoVinculadoId.HasValue)
+        {
+            var desligamentoService = _serviceProvider.GetRequiredService<ISolicitacaoDesligamentoService>();
+            try { await desligamentoService.SubmitAsync(entity.DesligamentoVinculadoId.Value, ct); }
+            catch { /* best-effort — se falhar a submissão do desligamento, a vaga ainda segue */ }
+        }
+
         return (await GetByIdAsync(entity.Id, ct))!;
+    }
+
+    private static bool IsMotivoDesligamento(MotivoRequisicaoVaga? m) =>
+        m == MotivoRequisicaoVaga.PedidoDemissao || m == MotivoRequisicaoVaga.DesligamentoSemJustaCausa;
+
+    private static void ValidarCamposDesligamento(SolicitacaoVaga s)
+    {
+        if (!IsMotivoDesligamento(s.MotivoRequisicao)) return;
+        if (!s.SubstituidoFuncionarioId.HasValue)
+            throw new InvalidOperationException("Informe o funcionário que será desligado.");
+        if (!s.DataDesligamento.HasValue)
+            throw new InvalidOperationException("Informe a data de desligamento.");
+    }
+
+    private async Task CriarDesligamentoVinculadoAsync(SolicitacaoVaga vaga, CancellationToken ct)
+    {
+        if (!IsMotivoDesligamento(vaga.MotivoRequisicao)) return;
+        if (vaga.DesligamentoVinculadoId.HasValue) return; // idempotente
+        if (!vaga.SubstituidoFuncionarioId.HasValue || !vaga.DataDesligamento.HasValue) return;
+
+        var tipo = vaga.MotivoRequisicao == MotivoRequisicaoVaga.PedidoDemissao
+            ? TipoDesligamento.PedidoDemissao
+            : TipoDesligamento.SemJustaCausa;
+
+        var solicitanteNome = (await _db.Set<Funcionario>().AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == vaga.SolicitanteId, ct))?.Name ?? "gestor";
+
+        var textoMotivo = string.IsNullOrWhiteSpace(vaga.MotivoDesligamentoTexto)
+            ? $"Gerado automaticamente a partir da requisição de vaga \"{vaga.Titulo}\" aprovada por {solicitanteNome}."
+            : vaga.MotivoDesligamentoTexto!.Trim();
+
+        var desligamento = new SolicitacaoDesligamento
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId,
+            SolicitanteId = vaga.SolicitanteId,
+            FuncionarioId = vaga.SubstituidoFuncionarioId.Value,
+            EmpresaId = vaga.EmpresaId,
+            UnitId = vaga.UnitId,
+            DataDesligamento = vaga.DataDesligamento.Value,
+            TipoDesligamento = tipo,
+            MotivoDesligamento = textoMotivo,
+            TipoAvisoPrevio = vaga.TipoAvisoPrevioDesligamento ?? TipoAvisoPrevio.Indenizado,
+            DiasAvisoPrevio = vaga.DiasAvisoPrevioDesligamento ?? 30,
+            PossuiEstabilidade = vaga.PossuiEstabilidadeDesligamento ?? false,
+            ElegivelRecontratacao = false,
+            SubstituirPosicao = false, // já existe vaga de origem — evita loop
+            SolicitacaoVagaOrigemId = vaga.Id,
+            Status = SolicitacaoStatus.Rascunho,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+
+        _db.SolicitacoesDesligamento.Add(desligamento);
+        vaga.DesligamentoVinculadoId = desligamento.Id;
     }
 
     public async Task<SolicitacaoVagaResponse> CopyAsync(Guid sourceId, Guid? solicitanteId, CancellationToken ct)
@@ -531,10 +632,88 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         // Vaga pré-vinculada: só atualiza se ainda estiver no rascunho (sem aprovação)
         if (request.VagaId.HasValue && !entity.VagaId.HasValue)
             entity.VagaId = request.VagaId;
+
+        // Dados desligamento (limpa quando motivo não é de desligamento)
+        if (IsMotivoDesligamento(request.MotivoRequisicao))
+        {
+            entity.DataDesligamento = request.DataDesligamento;
+            entity.TipoAvisoPrevioDesligamento = request.TipoAvisoPrevioDesligamento;
+            entity.DiasAvisoPrevioDesligamento = request.DiasAvisoPrevioDesligamento;
+            entity.PossuiEstabilidadeDesligamento = request.PossuiEstabilidadeDesligamento;
+            entity.MotivoDesligamentoTexto = request.MotivoDesligamentoTexto;
+        }
+        else
+        {
+            entity.DataDesligamento = null;
+            entity.TipoAvisoPrevioDesligamento = null;
+            entity.DiasAvisoPrevioDesligamento = null;
+            entity.PossuiEstabilidadeDesligamento = null;
+            entity.MotivoDesligamentoTexto = null;
+        }
+
+        ValidarCamposDesligamento(entity);
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Sync do desligamento vinculado:
+        //   (a) se motivo passou a ser de desligamento e ainda não há vínculo → cria agora
+        //   (b) se já existe vínculo e motivo ainda é de desligamento → atualiza dados
+        //   (c) se já existe vínculo mas motivo deixou de ser de desligamento → cancela em cascata
+        if (IsMotivoDesligamento(entity.MotivoRequisicao))
+        {
+            if (!entity.DesligamentoVinculadoId.HasValue)
+            {
+                await CriarDesligamentoVinculadoAsync(entity, ct);
+            }
+            else
+            {
+                await SincronizarDesligamentoVinculadoAsync(entity, ct);
+            }
+        }
+        else if (entity.DesligamentoVinculadoId.HasValue)
+        {
+            var vinculoId = entity.DesligamentoVinculadoId.Value;
+            entity.DesligamentoVinculadoId = null;
+            await _db.SaveChangesAsync(ct);
+            var desligamentoService = _serviceProvider.GetRequiredService<ISolicitacaoDesligamentoService>();
+            await desligamentoService.CancelarEmCascataAsync(vinculoId, ct);
+            return await GetByIdAsync(id, ct);
+        }
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
+    }
+
+    private async Task SincronizarDesligamentoVinculadoAsync(SolicitacaoVaga vaga, CancellationToken ct)
+    {
+        if (!vaga.DesligamentoVinculadoId.HasValue) return;
+        var desligamento = await _db.SolicitacoesDesligamento
+            .FirstOrDefaultAsync(d => d.Id == vaga.DesligamentoVinculadoId.Value, ct);
+        if (desligamento is null) return;
+
+        // Só sincroniza se ainda está em estado editável (Rascunho/AjustesNecessarios/PendenteAprovacao)
+        if (desligamento.Status != SolicitacaoStatus.Rascunho &&
+            desligamento.Status != SolicitacaoStatus.AjustesNecessarios &&
+            desligamento.Status != SolicitacaoStatus.PendenteAprovacao)
+            return;
+
+        var tipo = vaga.MotivoRequisicao == MotivoRequisicaoVaga.PedidoDemissao
+            ? TipoDesligamento.PedidoDemissao
+            : TipoDesligamento.SemJustaCausa;
+
+        if (vaga.SubstituidoFuncionarioId.HasValue)
+            desligamento.FuncionarioId = vaga.SubstituidoFuncionarioId.Value;
+        desligamento.EmpresaId = vaga.EmpresaId;
+        desligamento.UnitId = vaga.UnitId;
+        if (vaga.DataDesligamento.HasValue)
+            desligamento.DataDesligamento = vaga.DataDesligamento.Value;
+        desligamento.TipoDesligamento = tipo;
+        desligamento.TipoAvisoPrevio = vaga.TipoAvisoPrevioDesligamento ?? desligamento.TipoAvisoPrevio;
+        desligamento.DiasAvisoPrevio = vaga.DiasAvisoPrevioDesligamento ?? desligamento.DiasAvisoPrevio;
+        desligamento.PossuiEstabilidade = vaga.PossuiEstabilidadeDesligamento ?? desligamento.PossuiEstabilidade;
+        if (!string.IsNullOrWhiteSpace(vaga.MotivoDesligamentoTexto))
+            desligamento.MotivoDesligamento = vaga.MotivoDesligamentoTexto!.Trim();
+        desligamento.UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
         public async Task<bool> SubmitAsync(Guid id, CancellationToken ct)
@@ -648,6 +827,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         etapaAtual.Status = StatusAprovacao.Aprovado;
         etapaAtual.DataUtc = DateTimeOffset.UtcNow;
         if (observacao != null) etapaAtual.Observacao = observacao;
+
+        // Safety net: se a vaga foi criada antes do fix (sem desligamento vinculado), cria agora.
+        // Idempotente (no-op se já existe vínculo).
+        await CriarDesligamentoVinculadoAsync(entity, ct);
 
         var todasEtapas = await _db.SolicitacoesAprovacaoEtapa
             .Where(e => e.SolicitacaoId == id && e.TipoFluxo == tipoFluxoAtivo)
@@ -975,6 +1158,16 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 null, false, "SolicitacaoVaga", ct);
         }
 
+        // Cascata: se tem desligamento vinculado, reprova em cascata
+        if (entity.DesligamentoVinculadoId.HasValue)
+        {
+            var desligamentoService = _serviceProvider.GetRequiredService<ISolicitacaoDesligamentoService>();
+            await desligamentoService.ReprovarEmCascataAsync(
+                entity.DesligamentoVinculadoId.Value,
+                $"Reprovação automática: a vaga \"{entity.Titulo}\" foi reprovada.",
+                ct);
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -1076,6 +1269,14 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         }
 
         await _db.SaveChangesAsync(ct);
+
+        // Cascata: se tem desligamento vinculado, cancela em cascata
+        if (entity.DesligamentoVinculadoId.HasValue)
+        {
+            var desligamentoService = _serviceProvider.GetRequiredService<ISolicitacaoDesligamentoService>();
+            await desligamentoService.CancelarEmCascataAsync(entity.DesligamentoVinculadoId.Value, ct);
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -1436,6 +1637,123 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
     
 
+    public async Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return;
+
+        // Idempotente: não re-propaga se já está em estado terminal
+        if (entity.Status == SolicitacaoVagaStatus.Reprovada ||
+            entity.Status == SolicitacaoVagaStatus.Cancelada ||
+            entity.Status == SolicitacaoVagaStatus.Concluida)
+            return;
+
+        entity.Status = SolicitacaoVagaStatus.Reprovada;
+        entity.ObservacaoAprovador = observacao;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Marca etapas pendentes como canceladas
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id
+                && (e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+                    || e.TipoFluxo == TipoFluxoAprovacao.AumentoHeadcount)
+                && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+        foreach (var etapa in etapasPendentes)
+        {
+            etapa.Status = StatusAprovacao.Cancelado;
+            etapa.DataUtc = DateTimeOffset.UtcNow;
+            etapa.Observacao = observacao;
+        }
+
+        // Reverter vaga rascunho vinculada (se houver)
+        if (entity.VagaId.HasValue)
+        {
+            var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
+            if (vaga is not null)
+            {
+                vaga.HeadcountPendente = 0;
+                if (vaga.Status == VagaStatus.Rascunho)
+                    vaga.Status = VagaStatus.Cancelada;
+                vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        await _workflow.NotifyByFuncionarioIdAsync(
+            entity.SolicitanteId,
+            "Solicitação de vaga reprovada em cascata",
+            $"Sua solicitação \"{entity.Titulo}\" foi reprovada automaticamente. {observacao}",
+            "/gestao/solicitacoes",
+            ct,
+            "warning");
+    }
+
+    public async Task CancelarEmCascataAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return;
+
+        if (entity.Status == SolicitacaoVagaStatus.Reprovada ||
+            entity.Status == SolicitacaoVagaStatus.Cancelada ||
+            entity.Status == SolicitacaoVagaStatus.Concluida)
+            return;
+
+        entity.Status = SolicitacaoVagaStatus.Cancelada;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id
+                && (e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+                    || e.TipoFluxo == TipoFluxoAprovacao.AumentoHeadcount)
+                && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+        foreach (var etapa in etapasPendentes)
+        {
+            etapa.Status = StatusAprovacao.Cancelado;
+            etapa.DataUtc = DateTimeOffset.UtcNow;
+        }
+
+        if (entity.VagaId.HasValue)
+        {
+            var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
+            if (vaga is not null)
+            {
+                vaga.HeadcountPendente = 0;
+                if (vaga.Status == VagaStatus.Rascunho)
+                    vaga.Status = VagaStatus.Cancelada;
+                vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        await _workflow.NotifyByFuncionarioIdAsync(
+            entity.SolicitanteId,
+            "Solicitação de vaga cancelada em cascata",
+            $"Sua solicitação \"{entity.Titulo}\" foi cancelada automaticamente porque o desligamento vinculado foi cancelado.",
+            "/gestao/solicitacoes",
+            ct,
+            "info");
+    }
+
+    public async Task<SolicitacaoVagaResponse?> VincularCandidatoContratadoAsync(Guid id, Guid candidatoId, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        var candidato = await _db.Set<Candidato>().FirstOrDefaultAsync(c => c.Id == candidatoId, ct);
+        if (candidato is null)
+            throw new InvalidOperationException("Candidato não encontrado.");
+
+        entity.CandidatoContratadoId = candidatoId;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return await GetByIdAsync(id, ct);
+    }
+
     private static SolicitacaoVagaResponse MapToResponse(SolicitacaoVaga s, IReadOnlyList<EtapaFluxoInfo>? etapasFluxo = null) => new(
         s.Id,
         s.Titulo,
@@ -1481,6 +1799,15 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.DecisaoRH,
         s.DecisaoRHRevisadoPor?.Name,
         s.DecisaoRHEmUtc,
-        s.DecisaoRHPrazoMeses
+        s.DecisaoRHPrazoMeses,
+        // Dados desligamento
+        s.DataDesligamento,
+        s.TipoAvisoPrevioDesligamento,
+        s.DiasAvisoPrevioDesligamento,
+        s.PossuiEstabilidadeDesligamento,
+        s.MotivoDesligamentoTexto,
+        s.DesligamentoVinculadoId,
+        s.CandidatoContratadoId,
+        s.CandidatoContratado?.Nome
     );
 }

@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using RhPortal.Api.Application.Common;
 using RhPortal.Api.Application.EntrevistasSaida;
+using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.SolicitacoesDesligamento;
 using RhPortal.Api.Domain.Entities;
@@ -27,6 +29,18 @@ public interface ISolicitacaoDesligamentoService
     Task<SolicitacaoDesligamentoResponse?> AssumirAsync(Guid id, CancellationToken ct);
     Task<SolicitacaoDesligamentoResponse?> CancelAsync(Guid id, CancellationToken ct);
     Task<SolicitacaoDesligamentoResponse> CopyAsync(Guid id, CancellationToken ct);
+
+    /// <summary>
+    /// Propaga reprovação a partir da vaga origem. Não valida permissões do usuário.
+    /// Idempotente: ignora se o desligamento já está em estado terminal.
+    /// </summary>
+    Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct);
+
+    /// <summary>
+    /// Propaga cancelamento a partir da vaga origem. Não valida permissões do usuário.
+    /// Idempotente: ignora se o desligamento já está em estado terminal.
+    /// </summary>
+    Task CancelarEmCascataAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoService
@@ -38,6 +52,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
     private readonly IEmailQueueService _emailQueue;
     private readonly IEntrevistaSaidaService _entrevistaSaida;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IServiceProvider _serviceProvider;
 
     public SolicitacaoDesligamentoService(
         AppDbContext db,
@@ -46,7 +61,8 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         ApprovalWorkflowHelper workflow,
         IEmailQueueService emailQueue,
         IEntrevistaSaidaService entrevistaSaida,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IServiceProvider serviceProvider)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -55,6 +71,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         _emailQueue = emailQueue;
         _entrevistaSaida = entrevistaSaida;
         _httpContextAccessor = httpContextAccessor;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<IReadOnlyList<SolicitacaoDesligamentoGridRow>> ListAsync(
@@ -470,6 +487,16 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
                 null, false, "SolicitacaoDesligamento", ct);
         }
 
+        // Cascata: reprova a vaga origem, se houver
+        if (entity.SolicitacaoVagaOrigemId.HasValue)
+        {
+            var vagaService = _serviceProvider.GetRequiredService<ISolicitacaoVagaService>();
+            await vagaService.ReprovarEmCascataAsync(
+                entity.SolicitacaoVagaOrigemId.Value,
+                $"Reprovação automática: o desligamento vinculado foi reprovado.",
+                ct);
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -594,6 +621,14 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         }
 
         await _db.SaveChangesAsync(ct);
+
+        // Cascata: cancela a vaga origem, se houver
+        if (entity.SolicitacaoVagaOrigemId.HasValue)
+        {
+            var vagaService = _serviceProvider.GetRequiredService<ISolicitacaoVagaService>();
+            await vagaService.CancelarEmCascataAsync(entity.SolicitacaoVagaOrigemId.Value, ct);
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -630,6 +665,79 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         _db.SolicitacoesDesligamento.Add(copy);
         await _db.SaveChangesAsync(ct);
         return (await GetByIdAsync(copy.Id, ct))!;
+    }
+
+    public async Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return;
+
+        // Idempotente: não re-propaga se já está em estado terminal
+        if (entity.Status == SolicitacaoStatus.Reprovada ||
+            entity.Status == SolicitacaoStatus.Cancelada ||
+            entity.Status == SolicitacaoStatus.Concluida)
+            return;
+
+        entity.Status = SolicitacaoStatus.Reprovada;
+        entity.ObservacaoAprovador = observacao;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id
+                && e.TipoFluxo == TipoFluxoAprovacao.Desligamento
+                && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+        foreach (var etapa in etapasPendentes)
+        {
+            etapa.Status = StatusAprovacao.Cancelado;
+            etapa.DataUtc = DateTimeOffset.UtcNow;
+            etapa.Observacao = observacao;
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        await _workflow.NotifyByFuncionarioIdAsync(
+            entity.SolicitanteId,
+            "Solicitação de desligamento reprovada em cascata",
+            $"Sua solicitação de desligamento foi reprovada automaticamente. {observacao}",
+            "/gestao/solicitacoes",
+            ct,
+            "warning");
+    }
+
+    public async Task CancelarEmCascataAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return;
+
+        if (entity.Status == SolicitacaoStatus.Reprovada ||
+            entity.Status == SolicitacaoStatus.Cancelada ||
+            entity.Status == SolicitacaoStatus.Concluida)
+            return;
+
+        entity.Status = SolicitacaoStatus.Cancelada;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id
+                && e.TipoFluxo == TipoFluxoAprovacao.Desligamento
+                && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+        foreach (var etapa in etapasPendentes)
+        {
+            etapa.Status = StatusAprovacao.Cancelado;
+            etapa.DataUtc = DateTimeOffset.UtcNow;
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        await _workflow.NotifyByFuncionarioIdAsync(
+            entity.SolicitanteId,
+            "Solicitação de desligamento cancelada em cascata",
+            "Sua solicitação de desligamento foi cancelada automaticamente porque a vaga origem foi cancelada.",
+            "/gestao/solicitacoes",
+            ct,
+            "info");
     }
 
     private static bool IsProcessoStep(SolicitacaoAprovacaoEtapa e) =>
@@ -669,6 +777,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             s.ElegivelRecontratacao,
             s.SubstituirPosicao,
             s.SolicitacaoVagaGeradaId,
+            s.SolicitacaoVagaOrigemId,
             s.ObservacaoAprovador,
             s.Observacoes,
             s.CreatedAtUtc,

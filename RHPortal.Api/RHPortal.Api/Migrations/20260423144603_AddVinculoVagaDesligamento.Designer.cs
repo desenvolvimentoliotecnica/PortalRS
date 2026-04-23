@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RhPortal.Api.Infrastructure.Data;
 
 #nullable disable
 
-namespace RHPortal.Api.Migrations
+namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260423144603_AddVinculoVagaDesligamento")]
+    partial class AddVinculoVagaDesligamento
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -7805,9 +7808,6 @@ namespace RHPortal.Api.Migrations
                     b.Property<Guid?>("AreaId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("CandidatoContratadoId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid?>("CentroCustoId")
                         .HasColumnType("uuid");
 
@@ -7951,8 +7951,6 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("AprovadorId");
 
                     b.HasIndex("AreaId");
-
-                    b.HasIndex("CandidatoContratadoId");
 
                     b.HasIndex("CentroCustoId");
 
@@ -11044,10 +11042,6 @@ namespace RHPortal.Api.Migrations
                         .HasForeignKey("AreaId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("RhPortal.Api.Domain.Entities.Candidato", "CandidatoContratado")
-                        .WithMany()
-                        .HasForeignKey("CandidatoContratadoId");
-
                     b.HasOne("RhPortal.Api.Domain.Entities.CentroCusto", "CentroCusto")
                         .WithMany()
                         .HasForeignKey("CentroCustoId");
@@ -11088,8 +11082,6 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("Aprovador");
 
                     b.Navigation("Area");
-
-                    b.Navigation("CandidatoContratado");
 
                     b.Navigation("CentroCusto");
 

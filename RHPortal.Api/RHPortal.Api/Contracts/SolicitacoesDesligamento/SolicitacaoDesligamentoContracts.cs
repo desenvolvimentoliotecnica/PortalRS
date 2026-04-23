@@ -102,6 +102,7 @@ public sealed record SolicitacaoDesligamentoResponse(
     bool ElegivelRecontratacao,
     bool SubstituirPosicao,
     Guid? SolicitacaoVagaGeradaId,
+    Guid? SolicitacaoVagaOrigemId,
     string? ObservacaoAprovador,
     string? Observacoes,
     DateTimeOffset CreatedAtUtc,

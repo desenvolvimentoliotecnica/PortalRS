@@ -339,14 +339,14 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.ReservistaNumero, p.DocMilitarTipo, p.DocMilitarNumero, p.DocMilitarSerie, p.DocMilitarRegiao,
                     p.DocMilitarCircunscricao,
                     p.CnhNumero, p.CategoriaCnh, p.CnhUf, p.CnhOrgaoEmissor,
-                    cnhDataExpedicao = TotvsPayloadHelper.FormatIntDate(p.CnhDataExpedicao),
-                    cnhPrimeiraHabilitacao = TotvsPayloadHelper.FormatIntDate(p.CnhPrimeiraHabilitacao),
+                    cnhDataExpedicao = TotvsPayloadHelper.FormatDate(p.CnhDataExpedicao),
+                    cnhPrimeiraHabilitacao = TotvsPayloadHelper.FormatDate(p.CnhPrimeiraHabilitacao),
                     validadeCnh = TotvsPayloadHelper.FormatDate(p.ValidadeCnh),
                     p.CartaoSus, p.PossuiDeficiencia,
                     // Características físicas
                     p.GrauInstrucao, p.GrupoSanguineo, p.FatorRh, p.FuncDoador,
                     p.Altura,
-                    peso = TotvsPayloadHelper.PesoKgParaGramas(p.Peso),
+                    peso = p.Peso,
                     p.Cutis, p.Cabelo, p.Olhos, p.Manequim, p.Sapato,
                     // Endereço
                     p.Cep, p.Logradouro, p.Numero, p.Complemento, p.Bairro, p.Cidade, p.Uf,
@@ -449,10 +449,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     ? (TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(-s.DiasAvisoPrevio)) ?? "")
                     : "";
 
-                // datLimPgtoRecis (CLT art. 477 §6º): até o 10º dia, contado a partir
-                // do próprio desligamento — por isso +9 dias corridos, não +10.
-                var datLimPgto = TotvsPayloadHelper.FormatDate(s.DataDesligamento) ?? "";
-                var datPagto   = TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(9)) ?? "";
+                // datLimPgtoRecis (CLT art. 477 §6º): prazo legal até o 10º dia corrido,
+                // contado a partir do próprio desligamento — por isso +9 dias, não +10.
+                // datPagto: data efetiva de pagamento. Sem campo próprio na entidade,
+                // assume-se pagamento no limite legal (mesmo valor).
+                var datLimPgto = TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(9)) ?? "";
+                var datPagto   = datLimPgto;
 
                 return new
                 {

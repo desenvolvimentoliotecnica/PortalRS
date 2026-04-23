@@ -156,9 +156,9 @@ test("Desligamento: criar → aprovar → gerar payload TOTVS em Pendente TOTVS"
         cdnTipoAviso: 3,                              // Dispensado
         datDesligamento: "2026-04-16",
         datIniAviso: "",                              // vazio pra Dispensado
-        datPagto: "2026-04-25",                        // +9 dias
+        datPagto: "2026-04-25",                        // +9 dias (limite legal)
         datAviso: "",
-        datLimPgtoRecis: "2026-04-16",
+        datLimPgtoRecis: "2026-04-25",                 // CLT art. 477 §6º: +9 dias
         percMultaFGTS: 0,                              // PedidoDemissao
         codSaqueFGTS: "",
         cdnTipoJornada: 0,

@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
     Search,
-    Plus,
     RefreshCw,
     Eye,
     Pencil,
@@ -606,10 +605,6 @@ function SolicitacoesVagaContent() {
                     <Briefcase className="size-4 mr-1" />
                     Do Quadro de Vagas
                 </Button>
-                <Button size="sm" variant="outline" onClick={openNovaPosicao}>
-                    <Plus className="size-4 mr-1" />
-                    Nova Posição
-                </Button>
                 <div className="ml-auto flex items-center gap-2">
                     <Button
                         variant="outline"
@@ -962,8 +957,17 @@ function SolicitacoesVagaContent() {
                             )}
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="gap-2 sm:gap-2">
                         <Button variant="outline" onClick={() => setVagaPickerOpen(false)}>Cancelar</Button>
+                        <Button
+                            data-testid="btn-nova-posicao-picker"
+                            onClick={() => {
+                                setVagaPickerOpen(false);
+                                openNovaPosicao();
+                            }}
+                        >
+                            Nova posição
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
