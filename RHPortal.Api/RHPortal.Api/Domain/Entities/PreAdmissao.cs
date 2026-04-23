@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using RhPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Entities;
 
 namespace RhPortal.Api.Domain.Entities;
 
@@ -91,6 +92,21 @@ public sealed class PreAdmissao : ITenantEntity
     [StringLength(60)]
     public string? TipoVisto { get; set; }
 
+    // ── RIC (Registro Identidade Civil — novo documento que substitui o RG) ──
+    [StringLength(20)]
+    public string? RegIdentidCivilNumero { get; set; }
+
+    [StringLength(2)]
+    public string? RegIdentidCivilUf { get; set; }
+
+    [StringLength(120)]
+    public string? RegIdentidCivilCidade { get; set; }
+
+    [StringLength(20)]
+    public string? RegIdentidCivilOrgEmiss { get; set; }
+
+    public DateOnly? RegIdentidCivilDataExped { get; set; }
+
     // ── Endereço ──
 
     [StringLength(10)]
@@ -172,6 +188,10 @@ public sealed class PreAdmissao : ITenantEntity
 
     public Guid? RequisitoCategoriaId { get; set; }
     public RequisitoCategoria? RequisitoCategoria { get; set; }
+
+    /// <summary>Vaga de recrutamento que originou esta admissão. Usado na materialização para criar OcupacaoHistorico.</summary>
+    public Guid? VagaId { get; set; }
+    public Vaga? Vaga { get; set; }
 
     public DateOnly? DataAdmissao { get; set; }
 
@@ -463,6 +483,9 @@ public sealed class PreAdmissao : ITenantEntity
     public string? IntegracaoMensagem { get; set; }
 
     public DateTimeOffset? IntegradaEmUtc { get; set; }
+
+    public Guid? EfetivadoManualmentePorId { get; set; }
+    public DateTimeOffset? EfetivadoManualmenteEmUtc { get; set; }
 
     public int TentativasIntegracao { get; set; }
     public DateTimeOffset? UltimaTentativaUtc { get; set; }

@@ -107,7 +107,10 @@ public sealed class OpenAiProvider : IAiProvider
             if (hasImage)
             {
                 var imageBase64 = imgProp.GetString();
-                var imageMediaType = root.TryGetProperty("imageMediaType", out var mt) ? mt.GetString() : "image/jpeg";
+                var rawMediaType = root.TryGetProperty("imageMediaType", out var mt) ? mt.GetString() : null;
+                var imageMediaType = rawMediaType is "image/png" or "image/jpeg" or "image/gif" or "image/webp" or "application/pdf"
+                    ? rawMediaType
+                    : "image/jpeg";
                 var textContent = cvText ?? prompt ?? "";
 
                 var parts = new object[]

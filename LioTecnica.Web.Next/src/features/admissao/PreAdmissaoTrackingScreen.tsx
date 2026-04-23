@@ -423,14 +423,21 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => {
-                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `admissao-${data.nome.replace(/\s+/g, "_")}-${data.id}.json`;
-                        a.click();
-                        URL.revokeObjectURL(url);
+                    <Button variant="outline" size="sm" onClick={async () => {
+                        // Baixa o payload TOTVS exato (o mesmo que o sync-service consome).
+                        // Atualiza em tempo real conforme o sync callback roda (matriculaRM, resultado).
+                        try {
+                            const res = await apiFetch(`/api/integracao-totvs/1/${data.id}`);
+                            if (!res.ok) { toast.error("Não foi possível obter o payload TOTVS"); return; }
+                            const payload = await res.json();
+                            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `admissao-totvs-${data.nome.replace(/\s+/g, "_")}-${data.id}.json`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                        } catch { toast.error("Erro de conexão ao exportar"); }
                     }}>
                         <Download className="size-4 mr-1" /> Exportar JSON
                     </Button>

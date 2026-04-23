@@ -322,6 +322,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         if (!submitAllowed.Contains(pa.Status)) return false;
 
         pa.Status = PreAdmissaoStatus.Preenchido;
+        pa.PreenchidoPor = PreenchidoPor.Candidato; // Sinaliza ao RH que foi o candidato quem submeteu — aguardando conclusão RH
         pa.SubmittedAtUtc = DateTimeOffset.UtcNow;
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
         pa.LastActivityUtc = DateTimeOffset.UtcNow;

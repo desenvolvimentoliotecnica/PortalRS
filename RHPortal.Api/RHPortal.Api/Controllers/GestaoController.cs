@@ -161,7 +161,8 @@ public sealed class GestaoController : ControllerBase
 
     // ── MSS: Meu Time ──
 
-    /// <summary>Lista os subordinados diretos do gestor logado com indicadores de experiência e aniversário.</summary>
+    /// <summary>Lista os subordinados do gestor logado com indicadores de experiência e aniversário.
+    /// Inclui funcionários vinculados por GestorDiretoId e por unidades de lotação onde o gestor é responsável (e sub-unidades).</summary>
     [HttpGet("meu-time")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> MeuTime(CancellationToken ct)
@@ -172,10 +173,31 @@ public sealed class GestaoController : ControllerBase
 
         var today = DateOnly.FromDateTime(DateTime.Today);
 
+        // Resolve unidades de lotação cuja responsabilidade é do gestor (e sub-unidades recursivas)
+        var todasUnidades = await _db.UnidadesLotacao.AsNoTracking()
+            .Where(u => u.IsActive)
+            .Select(u => new { u.Id, u.ParentId, u.OwnerFuncionarioId })
+            .ToListAsync(ct);
+
+        var unidadesDoGestor = new HashSet<Guid>();
+        var fila = new Queue<Guid>(
+            todasUnidades.Where(u => u.OwnerFuncionarioId == gestorId).Select(u => u.Id));
+        while (fila.Count > 0)
+        {
+            var unitId = fila.Dequeue();
+            if (!unidadesDoGestor.Add(unitId)) continue;
+            foreach (var child in todasUnidades.Where(u => u.ParentId == unitId))
+                fila.Enqueue(child.Id);
+        }
+
         var subordinados = await _db.Funcionarios.AsNoTracking()
             .Include(f => f.JobPosition)
             .Include(f => f.Area)
-            .Where(f => f.GestorDiretoId == gestorId && f.Status == FuncionarioStatus.Active)
+            .Include(f => f.UnidadeLotacao)
+            .Where(f => f.Status == FuncionarioStatus.Active
+                && f.Id != gestorId
+                && (f.GestorDiretoId == gestorId
+                    || (f.UnidadeLotacaoId != null && unidadesDoGestor.Contains(f.UnidadeLotacaoId.Value))))
             .Select(f => new
             {
                 f.Id,
@@ -187,8 +209,10 @@ public sealed class GestaoController : ControllerBase
                 f.DataAdmissao,
                 f.PeriodoExperienciaDias,
                 f.Status,
-                // DataNascimento para aniversário
-                f.DataNascimento
+                f.DataNascimento,
+                unidadeLotacaoId = f.UnidadeLotacaoId,
+                unidadeLotacaoNome = f.UnidadeLotacao != null ? f.UnidadeLotacao.Description : null,
+                unidadeLotacaoParentId = f.UnidadeLotacao != null ? f.UnidadeLotacao.ParentId : null,
             })
             .ToListAsync(ct);
 
@@ -305,7 +329,7 @@ public sealed class GestaoController : ControllerBase
                 .Where(v => v.AreaId == areaId)
                 .Select(v => v.Id)
                 .ToListAsync(ct);
-            ocupadoQ = ocupadoQ.Where(h => vagaIds.Contains(h.VagaId));
+            ocupadoQ = ocupadoQ.Where(h => h.VagaId.HasValue && vagaIds.Contains(h.VagaId.Value));
         }
         var ocupado = await ocupadoQ.CountAsync(ct);
 

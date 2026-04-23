@@ -5,7 +5,6 @@
       "name": "next-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev"],
-      "cwd": "LioTecnica.Web.Next",
       "port": 3000
     }
   ]

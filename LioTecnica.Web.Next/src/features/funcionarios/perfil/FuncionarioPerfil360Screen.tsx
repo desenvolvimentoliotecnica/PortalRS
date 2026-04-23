@@ -153,8 +153,9 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 // ── Main ──
 
-export default function FuncionarioPerfil360Screen({ id }: { id: string }) {
+export default function FuncionarioPerfil360Screen({ id, onBack }: { id: string; onBack?: () => void }) {
     const router = useRouter();
+    const goBack = onBack ?? (() => goBack());
     const [perfil, setPerfil] = useState<Perfil360 | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -185,7 +186,7 @@ export default function FuncionarioPerfil360Screen({ id }: { id: string }) {
         return (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
                 <p className="text-muted-foreground">Funcionário não encontrado.</p>
-                <button onClick={() => router.back()} className="text-sm text-violet-600 hover:underline flex items-center gap-1">
+                <button onClick={() => goBack()} className="text-sm text-violet-600 hover:underline flex items-center gap-1">
                     <ArrowLeft className="size-3" /> Voltar
                 </button>
             </div>
@@ -201,7 +202,7 @@ export default function FuncionarioPerfil360Screen({ id }: { id: string }) {
         <div className="space-y-5">
             {/* ── Header ── */}
             <div className="flex items-start gap-4">
-                <button onClick={() => router.back()} className="mt-1 text-muted-foreground hover:text-foreground">
+                <button onClick={() => goBack()} className="mt-1 text-muted-foreground hover:text-foreground">
                     <ArrowLeft className="size-4" />
                 </button>
                 <div className="flex items-center gap-4 flex-1">

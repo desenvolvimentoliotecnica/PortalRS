@@ -30,6 +30,11 @@ export interface PreAdmissaoFormLike {
   naturalCidade?: string | null;
   grauInstrucao?: number | null;
   origemFuncionario?: number | null;
+  // RIC (Registro Identidade Civil) — obrigatório TOTVS
+  regIdentidCivilNumero?: string | null;
+  regIdentidCivilUf?: string | null;
+  regIdentidCivilCidade?: string | null;
+  regIdentidCivilOrgEmiss?: string | null;
   // Características físicas
   cutis?: number | null;
   cabelo?: number | null;
@@ -51,6 +56,7 @@ export interface PreAdmissaoFormLike {
   tipoFuncionario?: number | null;
   categoriaSalarial?: number | null;
   tipoEstatistica?: number | null;
+  codEmpresa?: string | null;
   estabelecimentoCodigo?: string | null;
   centroCusto?: string | null;
   unidadeLotacao?: string | null;
@@ -64,8 +70,60 @@ export interface PreAdmissaoFormLike {
   codLocalMarcacao?: number | null;
   codClassFuncPontoEletronico?: number | null;
   codLocalidade?: number | null;
+  // Selects TOTVS recém-adicionados ao wizard (obrigatórios Zod no sync-service)
+  formaPagamento?: number | null;
+  tipoAdmissaoFgts?: number | null;
+  paisLocalidade?: string | null;
+  // Documentos militares / CAGED (TOTVS rejeita < 1 mesmo para mulheres/brasileiros)
+  docMilitarTipo?: number | null;
+  docMilitarRegiao?: number | null;
+  docMilitarCircunscricao?: number | null;
+  ocorrenciaCAGED?: number | null;
+  // RG (conjunto — se algum, todos obrigatórios)
+  rg?: string | null;
+  rgOrgaoExpedidor?: string | null;
+  rgUfExpedidor?: string | null;
+  // Condicional: Estrangeiro (origemFuncionario === 3)
+  passaporte?: string | null;
+  rnmRne?: string | null;
+  validadeVisto?: string | null;
+  tipoVistoEstrangeiro?: number | null;
+  // Condicional: Naturalizado (origemFuncionario === 2)
+  portariaNaturalizacao?: string | null;
+  naturalizacao?: string | null;
+  // Condicional: Reside no exterior (resideExterior === "S")
+  resideExterior?: string | null;
+  codEnderecoPostalExterior?: string | null;
+  cidadeExterior?: string | null;
+  // Condicional: CLT prazo determinado (codVinculoEmpregaticio === 20)
+  dataTerminoContrato?: number | null;
   validacaoSalarioJustificativa?: string | null;
   validacaoSalarioOk?: boolean | null;
+
+  // ── Encargos e flags eSocial (antes eram default automático — agora obrigatórios) ──
+  // Flags S/N de FGTS/INSS/sindicato — Datasul exige preenchido.
+  optanteFgts?: string | null;
+  recolheFgts?: string | null;
+  recolheInss?: string | null;
+  sindicalizado?: string | null;
+  descContribSindical?: string | null;
+  // Flags S/N de cálculo folha
+  cargaAutomTurno?: string | null;
+  calcula13?: string | null;
+  recebeFerias?: string | null;
+  considEmissRAIS?: string | null;
+  // Flags S/N de adicionais (RH marca só se aplicar)
+  recebePericul?: string | null;
+  recebeInsalub?: string | null;
+  recebeAdiantamento?: string | null;
+  // eSocial — códigos TOTVS
+  tipoLogradouroESocial?: string | null;
+  categoriaTrabalhoESocial?: number | null;
+  indAdmissao?: number | null;
+  tipoAdmissaoESocial?: number | null;
+  regimeTrabalhista?: number | null;
+  regimePrevidenciario?: number | null;
+  regimeJornada?: number | null;
   [key: string]: unknown;
 }
 
@@ -76,14 +134,27 @@ export const STEP_INDEX = {
   contato: 2,
   bancario: 3,
   trabalhista: 4,
-  documentos: 5,
-  revisao: 6,
+  encargos: 5,      // FGTS/INSS/Sindicato + flags S/N + parâmetros eSocial
+  documentos: 6,
+  revisao: 7,
 } as const;
 
 function isBlank(v: unknown): boolean {
   if (v === null || v === undefined) return true;
   if (typeof v === "string") return v.trim() === "";
   if (typeof v === "number") return !Number.isFinite(v);
+  return false;
+}
+
+/**
+ * País TOTVS: obrigatório e deve estar no formato ISO 3166-1 alpha-3
+ * (3 letras maiúsculas, ex: BRA, USA). Datasul rejeita "Brasil" e nomes por extenso.
+ */
+function isIso3Invalid(v: unknown): boolean {
+  if (typeof v !== "string") return true;
+  const t = v.trim();
+  if (t.length !== 3) return true;
+  if (!/^[A-Z]{3}$/.test(t)) return true;
   return false;
 }
 
@@ -98,11 +169,19 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (isBlank(form.dataNascimento))   errors.push({ field: "dataNascimento",  label: "Data de Nascimento",stepIndex: STEP_INDEX.pessoal,    message: "Informe a data de nascimento." });
   if (!form.sexo || form.sexo === 0)  errors.push({ field: "sexo",            label: "Sexo",              stepIndex: STEP_INDEX.pessoal,    message: "Selecione o sexo." });
   if (!form.estadoCivil || form.estadoCivil === 0) errors.push({ field: "estadoCivil", label: "Estado Civil", stepIndex: STEP_INDEX.pessoal, message: "Selecione o estado civil." });
-  if (isBlank(form.paisNacionalidade)) errors.push({ field: "paisNacionalidade", label: "País (Nacionalidade)", stepIndex: STEP_INDEX.pessoal, message: "Informe o país de nacionalidade (ex: BRA)." });
-  if (isBlank(form.paisNascimento))   errors.push({ field: "paisNascimento",  label: "País Nascimento",   stepIndex: STEP_INDEX.pessoal,    message: "Informe o país de nascimento (ex: BRA)." });
+  if (isIso3Invalid(form.paisNacionalidade)) errors.push({ field: "paisNacionalidade", label: "País (Nacionalidade)", stepIndex: STEP_INDEX.pessoal, message: "Use código ISO de 3 letras (ex: BRA). TOTVS rejeita \"Brasil\" por extenso." });
+  if (isIso3Invalid(form.paisNascimento))    errors.push({ field: "paisNascimento",  label: "País Nascimento",    stepIndex: STEP_INDEX.pessoal, message: "Use código ISO de 3 letras (ex: BRA)." });
   if (isBlank(form.naturalUf))        errors.push({ field: "naturalUf",       label: "UF Nascimento",     stepIndex: STEP_INDEX.pessoal,    message: "Informe a UF de nascimento." });
   if (isBlank(form.naturalCidade))    errors.push({ field: "naturalCidade",   label: "Naturalidade",      stepIndex: STEP_INDEX.pessoal,    message: "Informe a cidade de nascimento." });
   if (!form.origemFuncionario || form.origemFuncionario === 0) errors.push({ field: "origemFuncionario", label: "Origem", stepIndex: STEP_INDEX.pessoal, message: "Selecione a origem (Brasileiro/Naturalizado/Estrangeiro)." });
+
+  // ── RIC — Registro Identidade Civil (obrigatório TOTVS) ───────────────────
+  if (isBlank(form.regIdentidCivilNumero))    errors.push({ field: "regIdentidCivilNumero",    label: "RIC (Nº Reg. Identidade Civil)", stepIndex: STEP_INDEX.pessoal, message: "Informe o número do RIC." });
+  else if (String(form.regIdentidCivilNumero).trim().length < 3) errors.push({ field: "regIdentidCivilNumero", label: "RIC (Nº Reg. Identidade Civil)", stepIndex: STEP_INDEX.pessoal, message: "Número do RIC muito curto (mín. 3 caracteres)." });
+  if (isBlank(form.regIdentidCivilOrgEmiss))  errors.push({ field: "regIdentidCivilOrgEmiss",  label: "Órgão Emissor RIC",              stepIndex: STEP_INDEX.pessoal, message: "Informe o órgão emissor do RIC (ex: SSP)." });
+  if (isBlank(form.regIdentidCivilUf))        errors.push({ field: "regIdentidCivilUf",        label: "UF RIC",                         stepIndex: STEP_INDEX.pessoal, message: "Selecione a UF do RIC." });
+  if (isBlank(form.regIdentidCivilCidade))    errors.push({ field: "regIdentidCivilCidade",    label: "Cidade RIC",                     stepIndex: STEP_INDEX.pessoal, message: "Informe a cidade de emissão do RIC." });
+  else if (String(form.regIdentidCivilCidade).trim().length < 3) errors.push({ field: "regIdentidCivilCidade", label: "Cidade RIC", stepIndex: STEP_INDEX.pessoal, message: "Nome da cidade muito curto (mín. 3 caracteres)." });
 
   // ── FP1440 Tipo Físico ────────────────────────────────────────────────────
   if (!form.cutis  || form.cutis  === 0) errors.push({ field: "cutis",  label: "Raça/Cor", stepIndex: STEP_INDEX.pessoal, message: "Selecione a raça/cor." });
@@ -118,6 +197,7 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (!form.municipioEnderecoIbge || form.municipioEnderecoIbge === 0) errors.push({ field: "municipioEnderecoIbge", label: "Município (cód. IBGE)", stepIndex: STEP_INDEX.endereco, message: "Informe o código IBGE do município." });
 
   // ── FP1500 Cadastral / TOTVS ──────────────────────────────────────────────
+  if (isBlank(form.codEmpresa))             errors.push({ field: "codEmpresa",            label: "Empresa",                stepIndex: STEP_INDEX.trabalhista, message: "Selecione a empresa no autocomplete." });
   if (isBlank(form.dataAdmissao))           errors.push({ field: "dataAdmissao",          label: "Data de Admissão",       stepIndex: STEP_INDEX.trabalhista, message: "Informe a data de admissão." });
   if (isBlank(form.salario))                errors.push({ field: "salario",               label: "Salário",                stepIndex: STEP_INDEX.trabalhista, message: "Informe o salário." });
   if (isBlank(form.codCargoTotvs))          errors.push({ field: "codCargoTotvs",         label: "Cargo TOTVS",            stepIndex: STEP_INDEX.trabalhista, message: "Selecione o cargo TOTVS." });
@@ -138,13 +218,84 @@ export function validatePreAdmissao(form: PreAdmissaoFormLike): ValidationError[
   if (isBlank(form.codClassFuncPontoEletronico)) errors.push({ field: "codClassFuncPontoEletronico", label: "Classif. Func. Ponto Eletrônico",   stepIndex: STEP_INDEX.trabalhista, message: "Informe a classificação funcional do ponto eletrônico." });
   if (isBlank(form.codLocalidade))               errors.push({ field: "codLocalidade",               label: "Cód. Localidade",                   stepIndex: STEP_INDEX.trabalhista, message: "Informe o código da localidade." });
 
-  // Regra existente: se salário fora da faixa, justificativa obrigatória.
-  if (form.validacaoSalarioOk === false && isBlank(form.validacaoSalarioJustificativa)) {
+  // ── Novos campos TOTVS obrigatórios (iFormaPagto, iTipoAdmissFGTS, cPaisLocalidade) ──
+  if (!form.formaPagamento || form.formaPagamento === 0)   errors.push({ field: "formaPagamento",   label: "Forma de Pagamento",  stepIndex: STEP_INDEX.trabalhista, message: "Selecione a forma de pagamento." });
+  if (!form.tipoAdmissaoFgts || form.tipoAdmissaoFgts === 0) errors.push({ field: "tipoAdmissaoFgts", label: "Tipo Admissão FGTS", stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de admissão do FGTS." });
+  if (isIso3Invalid(form.paisLocalidade))                  errors.push({ field: "paisLocalidade",   label: "País Localidade",    stepIndex: STEP_INDEX.trabalhista, message: "Use código ISO de 3 letras (ex: BRA)." });
+
+  // ── Doc Militar / Visto Estrangeiro / CAGED — obrigatórios sempre (TOTVS rejeita < 1) ──
+  // Datasul devolve "iDocMilitarTipo nao pode ser menor que 1" mesmo para mulheres/maiores
+  // de 45 anos, e "iTipoVistoEstrang" mesmo para brasileiros. Por isso exigimos sempre ≥ 1.
+  if (!form.docMilitarTipo || form.docMilitarTipo < 1)             errors.push({ field: "docMilitarTipo",         label: "Tipo Doc. Militar",        stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de documento militar (TOTVS exige ≥ 1)." });
+  if (!form.docMilitarRegiao || form.docMilitarRegiao < 1)          errors.push({ field: "docMilitarRegiao",       label: "Região Militar",           stepIndex: STEP_INDEX.trabalhista, message: "Informe a Região Militar (TOTVS exige ≥ 1)." });
+  if (!form.docMilitarCircunscricao || form.docMilitarCircunscricao < 1) errors.push({ field: "docMilitarCircunscricao", label: "Circunscrição Militar",    stepIndex: STEP_INDEX.trabalhista, message: "Informe a Circunscrição Militar (TOTVS exige ≥ 1)." });
+  if (!form.tipoVistoEstrangeiro || form.tipoVistoEstrangeiro < 1)  errors.push({ field: "tipoVistoEstrangeiro",    label: "Tipo Visto Estrangeiro",   stepIndex: STEP_INDEX.trabalhista, message: "Selecione o tipo de visto estrangeiro (TOTVS exige ≥ 1, use 1 para brasileiros)." });
+  if (!form.ocorrenciaCAGED || form.ocorrenciaCAGED < 1)            errors.push({ field: "ocorrenciaCAGED",         label: "Ocorrência CAGED",         stepIndex: STEP_INDEX.trabalhista, message: "Selecione a ocorrência CAGED (TOTVS exige ≥ 1, use 1 para admissão normal)." });
+
+  // ── Conjunto RG: se algum preenchido, todos obrigatórios ─────────────────
+  const rgAny = !isBlank(form.rg) || !isBlank(form.rgOrgaoExpedidor) || !isBlank(form.rgUfExpedidor);
+  if (rgAny) {
+    if (isBlank(form.rg))                errors.push({ field: "rg",                label: "RG",                        stepIndex: STEP_INDEX.pessoal, message: "RG obrigatório quando Órgão/UF foi informado." });
+    if (isBlank(form.rgOrgaoExpedidor))  errors.push({ field: "rgOrgaoExpedidor",  label: "Órgão Expedidor RG",        stepIndex: STEP_INDEX.pessoal, message: "Órgão Expedidor obrigatório quando RG/UF foi informado." });
+    if (isBlank(form.rgUfExpedidor))     errors.push({ field: "rgUfExpedidor",     label: "UF Expedidor RG",           stepIndex: STEP_INDEX.pessoal, message: "UF obrigatória quando RG/Órgão foi informado." });
+  }
+
+  // ── Condicional: Estrangeiro (origemFuncionario === 3) ───────────────────
+  if (form.origemFuncionario === 3) {
+    const hasPassaporte = !isBlank(form.passaporte);
+    const hasRnm = !isBlank(form.rnmRne);
+    if (!hasPassaporte && !hasRnm) {
+      errors.push({ field: "passaporte", label: "Passaporte ou RNM/RNE", stepIndex: STEP_INDEX.pessoal, message: "Para estrangeiros, informe Passaporte ou RNM/RNE." });
+    }
+    if (isBlank(form.validadeVisto))            errors.push({ field: "validadeVisto",        label: "Validade do Visto",      stepIndex: STEP_INDEX.pessoal, message: "Validade do visto obrigatória para estrangeiros." });
+  }
+
+  // ── Condicional: Naturalizado (origemFuncionario === 2) ──────────────────
+  if (form.origemFuncionario === 2) {
+    if (isBlank(form.portariaNaturalizacao))    errors.push({ field: "portariaNaturalizacao", label: "Portaria de Naturalização", stepIndex: STEP_INDEX.pessoal, message: "Portaria de naturalização obrigatória para naturalizados." });
+    if (isBlank(form.naturalizacao))            errors.push({ field: "naturalizacao",         label: "Data/Info Naturalização",   stepIndex: STEP_INDEX.pessoal, message: "Dados da naturalização obrigatórios para naturalizados." });
+  }
+
+  // ── Condicional: CLT Prazo Determinado (codVinculoEmpregaticio === 20) ───
+  if (form.codVinculoEmpregaticio === 20 && isBlank(form.dataTerminoContrato)) {
+    errors.push({ field: "dataTerminoContrato", label: "Data Término Contrato", stepIndex: STEP_INDEX.trabalhista, message: "Data de término obrigatória para CLT Prazo Determinado." });
+  }
+
+  // ── Encargos / FGTS / INSS / Sindicato — flags S/N obrigatórias ──
+  // RH escolhe "S" ou "N" explicitamente; Datasul rejeita vazio.
+  const requerSN = (valor: string | null | undefined) => isBlank(valor) || !["S", "N"].includes(valor!);
+  if (requerSN(form.optanteFgts))          errors.push({ field: "optanteFgts",          label: "Optante FGTS",              stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para optante FGTS.' });
+  if (requerSN(form.recolheFgts))          errors.push({ field: "recolheFgts",          label: "Recolhe FGTS",              stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para recolhe FGTS.' });
+  if (requerSN(form.recolheInss))          errors.push({ field: "recolheInss",          label: "Recolhe INSS",              stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para recolhe INSS.' });
+  if (requerSN(form.sindicalizado))        errors.push({ field: "sindicalizado",        label: "Sindicalizado",             stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para sindicalizado.' });
+  if (requerSN(form.descContribSindical))  errors.push({ field: "descContribSindical",  label: "Desconta Contribuição Sindical", stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N".' });
+  if (requerSN(form.resideExterior))       errors.push({ field: "resideExterior",       label: "Reside no Exterior",        stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para reside no exterior.' });
+  // Flags S/N de cálculo folha
+  if (requerSN(form.cargaAutomTurno))      errors.push({ field: "cargaAutomTurno",      label: "Carga Automática Turno",    stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N".' });
+  if (requerSN(form.calcula13))            errors.push({ field: "calcula13",            label: "Calcula 13º",               stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para calcula 13º.' });
+  if (requerSN(form.recebeFerias))         errors.push({ field: "recebeFerias",         label: "Recebe Férias",             stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para recebe férias.' });
+  if (requerSN(form.considEmissRAIS))      errors.push({ field: "considEmissRAIS",      label: "Considera Emissão RAIS",    stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para RAIS.' });
+  // Flags S/N de adicionais (RH informa se o funcionário recebe)
+  if (requerSN(form.recebePericul))        errors.push({ field: "recebePericul",        label: "Recebe Periculosidade",    stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para periculosidade.' });
+  if (requerSN(form.recebeInsalub))        errors.push({ field: "recebeInsalub",        label: "Recebe Insalubridade",     stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para insalubridade.' });
+  if (requerSN(form.recebeAdiantamento))   errors.push({ field: "recebeAdiantamento",   label: "Recebe Adiantamento",      stepIndex: STEP_INDEX.encargos, message: 'Selecione "S" ou "N" para adiantamento.' });
+
+  // ── eSocial — códigos TOTVS obrigatórios ──
+  if (isBlank(form.tipoLogradouroESocial))                       errors.push({ field: "tipoLogradouroESocial", label: "Tipo Logradouro eSocial", stepIndex: STEP_INDEX.encargos, message: "Selecione o tipo de logradouro (ex: R, AV)." });
+  if (!form.categoriaTrabalhoESocial || form.categoriaTrabalhoESocial < 1) errors.push({ field: "categoriaTrabalhoESocial", label: "Categoria Trabalhador eSocial", stepIndex: STEP_INDEX.encargos, message: "Selecione a categoria eSocial (101 = Empregado Geral)." });
+  if (!form.indAdmissao || form.indAdmissao < 1)                 errors.push({ field: "indAdmissao",           label: "Indicativo de Admissão",    stepIndex: STEP_INDEX.encargos, message: "Selecione o indicativo de admissão (1 = Normal)." });
+  if (!form.tipoAdmissaoESocial || form.tipoAdmissaoESocial < 1) errors.push({ field: "tipoAdmissaoESocial",   label: "Tipo Admissão eSocial",    stepIndex: STEP_INDEX.encargos, message: "Selecione o tipo de admissão eSocial." });
+  if (!form.regimeTrabalhista || form.regimeTrabalhista < 1)     errors.push({ field: "regimeTrabalhista",     label: "Regime Trabalhista",       stepIndex: STEP_INDEX.encargos, message: "Selecione o regime trabalhista (1 = CLT)." });
+  if (!form.regimePrevidenciario || form.regimePrevidenciario < 1) errors.push({ field: "regimePrevidenciario", label: "Regime Previdenciário",    stepIndex: STEP_INDEX.encargos, message: "Selecione o regime previdenciário (1 = RGPS)." });
+  if (!form.regimeJornada || form.regimeJornada < 1)             errors.push({ field: "regimeJornada",         label: "Regime de Jornada",        stepIndex: STEP_INDEX.encargos, message: "Selecione o regime de jornada." });
+
+  // Salário acima do teto da faixa → exige justificativa. Abaixo do mínimo passa silenciosamente.
+  if (form.salario && form.validacaoSalarioOk === false && isBlank(form.validacaoSalarioJustificativa)) {
     errors.push({
       field: "validacaoSalarioJustificativa",
       label: "Justificativa do Salário",
       stepIndex: STEP_INDEX.trabalhista,
-      message: "O salário está fora da faixa do cargo — informe uma justificativa.",
+      message: "Salário acima do teto da faixa do cargo — informe uma justificativa.",
     });
   }
 

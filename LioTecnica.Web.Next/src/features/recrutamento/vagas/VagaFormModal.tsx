@@ -837,12 +837,13 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
   // Headcount pendente de decisão RH
   const [headcountPendente, setHeadcountPendente] = useState(0);
+  const [headcountDisponivel, setHeadcountDisponivel] = useState(0);
   const [solicitacaoPendenteDecisaoId, setSolicitacaoPendenteDecisaoId] = useState<string | null>(null);
   const [decisaoRHFeita, setDecisaoRHFeita] = useState<{
     tipo: number; revisadoPorNome: string | null; emUtc: string | null; prazoMeses: number | null;
     expiresAtUtc: string | null;
   } | null>(null);
-  const [decisaoRHSelecionada, setDecisaoRHSelecionada] = useState<"1" | "2" | "">("");
+  const [decisaoRHSelecionada, setDecisaoRHSelecionada] = useState<"1" | "2" | "3" | "">("");
   const [prazoUnidade, setPrazoUnidade] = useState<"minutos" | "dias" | "meses" | "data">("meses");
   const [prazoValor, setPrazoValor] = useState(3);
   const [prazoDataEspecifica, setPrazoDataEspecifica] = useState("");
@@ -872,6 +873,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     if (!open) {
       loaded.current = false;
       setHeadcountPendente(0);
+      setHeadcountDisponivel(0);
       setSolicitacaoPendenteDecisaoId(null);
       setDecisaoRHFeita(null);
       setDecisaoRHSelecionada("");
@@ -1006,6 +1008,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
       // Headcount pendente de decisão RH
       setHeadcountPendente(typeof v.headcountPendente === "number" ? v.headcountPendente : 0);
+      const autorizado = typeof v.headcountAutorizado === "number" ? v.headcountAutorizado : 0;
+      const ocupado = typeof v.headcountOcupado === "number" ? v.headcountOcupado : 0;
+      setHeadcountDisponivel(Math.max(0, autorizado - ocupado));
       setSolicitacaoPendenteDecisaoId(v.solicitacaoPendenteDecisaoId ? String(v.solicitacaoPendenteDecisaoId) : null);
       if (v.decisaoRH != null) {
         setDecisaoRHFeita({
@@ -1068,6 +1073,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       if (decisaoRHSelecionada === "1") {
         const dtFmt = prazoDataAlvo ? new Date(prazoDataAlvo).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "";
         toast.success(`Substituição provisória registrada. Revisão prevista em ${dtFmt}.`);
+      } else if (decisaoRHSelecionada === "3") {
+        toast.success("Headcount existente consumido. A vaga está aberta para recrutamento.");
       } else {
         toast.success("Aumento de headcount encaminhado para aprovação da Diretoria.");
       }
@@ -1299,6 +1306,16 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                   <strong>Aumento definitivo de headcount</strong> — precisamos de mais uma pessoa; encaminha para aprovação da Diretoria
                 </span>
               </label>
+              {headcountDisponivel > 0 && (
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="radio" name="decisaoRH" value="3" checked={decisaoRHSelecionada === "3"} onChange={() => setDecisaoRHSelecionada("3")} className="mt-0.5" />
+                  <span className="text-sm text-amber-800 dark:text-amber-200">
+                    <strong>Consumir headcount disponível</strong> — já há{" "}
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">{headcountDisponivel} slot{headcountDisponivel > 1 ? "s" : ""} autorizado{headcountDisponivel > 1 ? "s" : ""} em aberto</span>;
+                    utiliza posições existentes sem aumentar o headcount
+                  </span>
+                </label>
+              )}
             </div>
             <Button
               size="sm"
@@ -1322,7 +1339,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                     : decisaoRHFeita.prazoMeses
                       ? ` (${decisaoRHFeita.prazoMeses} meses)`
                       : ""}`
-                : "Aumento definitivo (encaminhado para aprovação)"}
+                : decisaoRHFeita.tipo === 3
+                  ? "Headcount existente consumido — posição em aberto utilizada"
+                  : "Aumento definitivo (encaminhado para aprovação)"}
               {decisaoRHFeita.revisadoPorNome && ` — por ${decisaoRHFeita.revisadoPorNome}`}
               {decisaoRHFeita.emUtc && ` em ${new Date(decisaoRHFeita.emUtc).toLocaleDateString("pt-BR")}`}
             </p>

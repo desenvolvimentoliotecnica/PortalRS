@@ -183,6 +183,7 @@ public sealed class VagaService : IVagaService
             .Include(x => x.Requisitos)
             .Include(x => x.Etapas)
             .Include(x => x.PerguntasTriagem)
+            .Include(x => x.Ocupacoes)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (entity is null) return null;
@@ -712,6 +713,11 @@ public sealed class VagaService : IVagaService
             null, // SolicitanteNome - preenchido em GetByIdAsync
             null, // AprovadorNome
             null, // DataAprovacao
+            v.HeadcountAutorizado,
+            v.Ocupacoes?.Count(o => o.DataSaida == null) ?? 0,
+            v.IsEstrutural,
+            v.HeadcountProvisorio,
+            v.HeadcountProvisorio > 0 && v.HeadcountProvisorioExpiresAtUtc.HasValue && v.HeadcountProvisorioExpiresAtUtc.Value < DateTimeOffset.UtcNow,
             v.HeadcountPendente,
             null, // SolicitacaoPendenteDecisaoId - preenchido em GetByIdAsync
             null, // DecisaoRH
