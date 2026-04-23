@@ -3,17 +3,115 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.DescricaoCargo;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
 /// <summary>
-/// Cadastro de Descrições de Cargo.
-/// Mantém o conteúdo rico reutilizado na criação de vagas (épico Core Cadastros).
+/// Cadastro de Descrições de Cargo — segue o template DNALIO (Sessão 31.8).
+///
+/// Estrutura:
+/// - Cabeçalho: Code/Title/AreaTemplate/CboCodigo/Summary
+/// - Formação: mínima/desejável/área de estudo
+/// - Experiência: tempo mínimo/desejável/especificação
+/// - Itens (collection) com 8 categorias DNALIO (atividades, vivências,
+///   competências, requisitos)
+/// - Revisão: número/data/natureza/gestor
+/// - HTML legados (Responsibilities/Requirements/NiceToHave/Benefits) para
+///   apresentação pública
+///
+/// O matching consome os Itens estruturados; o RH cadastra usando essa tela.
 /// </summary>
 [ApiController]
 [Route("api/descricoes-cargo")]
 public sealed class DescricaoCargoController : ControllerBase
 {
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static string? NullIfBlank(string? s)
+        => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static DescricaoCargoItemResponse MapItem(DescricaoCargoItem i) =>
+        new(i.Id, i.Categoria, i.Texto, i.IsObrigatoria, i.NivelMinimo, i.Subcategoria, i.Ordem);
+
+    private static DescricaoCargoResponse MapToResponse(DescricaoCargo x) =>
+        new(
+            x.Id, x.Code, x.Title,
+            x.AreaTemplate, x.CboCodigo, x.Summary,
+            x.FormacaoMinima, x.FormacaoDesejavel, x.FormacaoAreaEstudo,
+            x.ExperienciaTempoMinimo, x.ExperienciaTempoDesejavel, x.ExperienciaEspecificacao,
+            x.RevisaoNumero, x.RevisaoData, x.RevisaoNatureza, x.GestorNome, x.GestorEmail,
+            x.Responsibilities, x.Requirements, x.NiceToHave, x.Benefits,
+            x.IsTemplate, x.IsActive,
+            x.CreatedAtUtc, x.UpdatedAtUtc,
+            x.NivelCargoId,
+            x.NivelCargo?.NomComplet,
+            x.Itens
+                .OrderBy(i => i.Categoria)
+                .ThenBy(i => i.Ordem)
+                .ThenBy(i => i.Texto)
+                .Select(MapItem)
+                .ToList());
+
+    /// <summary>Substitui todos os itens da descrição pelos recebidos no request (pattern replace).</summary>
+    private static void ReplaceItens(
+        DescricaoCargo entity,
+        IReadOnlyList<DescricaoCargoItemRequest>? itens,
+        string tenantId,
+        AppDbContext db)
+    {
+        foreach (var existing in entity.Itens.ToList())
+            db.Remove(existing);
+        entity.Itens.Clear();
+
+        if (itens is null) return;
+
+        foreach (var i in itens)
+        {
+            entity.Itens.Add(new DescricaoCargoItem
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                DescricaoCargoId = entity.Id,
+                Categoria = i.Categoria,
+                Texto = i.Texto.Trim(),
+                IsObrigatoria = i.IsObrigatoria,
+                NivelMinimo = NullIfBlank(i.NivelMinimo),
+                Subcategoria = NullIfBlank(i.Subcategoria),
+                Ordem = i.Ordem,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+            });
+        }
+    }
+
+    private static void ApplyHeaderFields(DescricaoCargo entity, dynamic request)
+    {
+        entity.AreaTemplate = NullIfBlank((string?)request.AreaTemplate);
+        entity.CboCodigo = NullIfBlank((string?)request.CboCodigo);
+        entity.Summary = NullIfBlank((string?)request.Summary);
+        entity.FormacaoMinima = NullIfBlank((string?)request.FormacaoMinima);
+        entity.FormacaoDesejavel = NullIfBlank((string?)request.FormacaoDesejavel);
+        entity.FormacaoAreaEstudo = NullIfBlank((string?)request.FormacaoAreaEstudo);
+        entity.ExperienciaTempoMinimo = NullIfBlank((string?)request.ExperienciaTempoMinimo);
+        entity.ExperienciaTempoDesejavel = NullIfBlank((string?)request.ExperienciaTempoDesejavel);
+        entity.ExperienciaEspecificacao = NullIfBlank((string?)request.ExperienciaEspecificacao);
+        entity.RevisaoNumero = NullIfBlank((string?)request.RevisaoNumero);
+        entity.RevisaoData = (DateOnly?)request.RevisaoData;
+        entity.RevisaoNatureza = NullIfBlank((string?)request.RevisaoNatureza);
+        entity.GestorNome = NullIfBlank((string?)request.GestorNome);
+        entity.GestorEmail = NullIfBlank((string?)request.GestorEmail);
+        entity.Responsibilities = NullIfBlank((string?)request.Responsibilities);
+        entity.Requirements = NullIfBlank((string?)request.Requirements);
+        entity.NiceToHave = NullIfBlank((string?)request.NiceToHave);
+        entity.Benefits = NullIfBlank((string?)request.Benefits);
+        entity.IsTemplate = (bool)request.IsTemplate;
+        entity.IsActive = (bool)request.IsActive;
+        entity.NivelCargoId = (Guid?)request.NivelCargoId;
+    }
+
+    // ── CRUD ─────────────────────────────────────────────────────────────────
+
     [HttpGet]
     [ProducesResponseType(typeof(List<DescricaoCargoResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<DescricaoCargoResponse>>> List(
@@ -25,7 +123,11 @@ public sealed class DescricaoCargoController : ControllerBase
         [FromQuery] int skip = 0,
         [FromQuery] int take = 2000)
     {
-        var query = db.DescricoesCargo.AsNoTracking();
+        var query = db.DescricoesCargo
+            .AsNoTracking()
+            .Include(x => x.NivelCargo)
+            .Include(x => x.Itens)
+            .AsQueryable();
 
         if (isTemplate.HasValue) query = query.Where(x => x.IsTemplate == isTemplate);
         if (nivelCargoId.HasValue) query = query.Where(x => x.NivelCargoId == nivelCargoId);
@@ -40,20 +142,14 @@ public sealed class DescricaoCargoController : ControllerBase
         }
 
         var total = await query.CountAsync(ct);
-        var items = await query
+        var entities = await query
             .OrderBy(x => x.Code)
             .Skip(skip)
             .Take(take)
-            .Select(x => new DescricaoCargoResponse(
-                x.Id, x.Code, x.Title, x.Summary,
-                x.Responsibilities, x.Requirements, x.NiceToHave, x.Benefits,
-                x.IsTemplate, x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
-                x.NivelCargoId,
-                x.NivelCargo != null ? x.NivelCargo.NomComplet : null))
             .ToListAsync(ct);
 
         Response.Headers["X-Total-Count"] = total.ToString();
-        return Ok(items);
+        return Ok(entities.Select(MapToResponse).ToList());
     }
 
     [HttpGet("lookup")]
@@ -91,18 +187,13 @@ public sealed class DescricaoCargoController : ControllerBase
         [FromServices] AppDbContext db,
         CancellationToken ct)
     {
-        var item = await db.DescricoesCargo
+        var entity = await db.DescricoesCargo
             .AsNoTracking()
-            .Where(x => x.Id == id)
-            .Select(x => new DescricaoCargoResponse(
-                x.Id, x.Code, x.Title, x.Summary,
-                x.Responsibilities, x.Requirements, x.NiceToHave, x.Benefits,
-                x.IsTemplate, x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
-                x.NivelCargoId,
-                x.NivelCargo != null ? x.NivelCargo.NomComplet : null))
-            .FirstOrDefaultAsync(ct);
+            .Include(x => x.NivelCargo)
+            .Include(x => x.Itens)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
 
-        return item is null ? NotFound() : Ok(item);
+        return entity is null ? NotFound() : Ok(MapToResponse(entity));
     }
 
     [HttpPost]
@@ -111,6 +202,7 @@ public sealed class DescricaoCargoController : ControllerBase
     public async Task<ActionResult<DescricaoCargoResponse>> Create(
         [FromBody] DescricaoCargoCreateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] ITenantContext tenantContext,
         CancellationToken ct)
     {
         if (request.NivelCargoId.HasValue &&
@@ -128,21 +220,21 @@ public sealed class DescricaoCargoController : ControllerBase
             Id = Guid.NewGuid(),
             Code = code,
             Title = request.Title.Trim(),
-            Summary = NullIfBlank(request.Summary),
-            Responsibilities = NullIfBlank(request.Responsibilities),
-            Requirements = NullIfBlank(request.Requirements),
-            NiceToHave = NullIfBlank(request.NiceToHave),
-            Benefits = NullIfBlank(request.Benefits),
-            IsTemplate = request.IsTemplate,
-            IsActive = request.IsActive,
-            NivelCargoId = request.NivelCargoId,
         };
+        ApplyHeaderFields(entity, request);
 
         db.DescricoesCargo.Add(entity);
+        ReplaceItens(entity, request.Itens, tenantContext.TenantId ?? string.Empty, db);
+
         await db.SaveChangesAsync(ct);
 
-        var created = await LoadResponse(db, entity.Id, ct);
-        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, created);
+        var created = await db.DescricoesCargo
+            .AsNoTracking()
+            .Include(x => x.NivelCargo)
+            .Include(x => x.Itens)
+            .FirstAsync(x => x.Id == entity.Id, ct);
+
+        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapToResponse(created));
     }
 
     [HttpPut("{id:guid}")]
@@ -153,9 +245,12 @@ public sealed class DescricaoCargoController : ControllerBase
         [FromRoute] Guid id,
         [FromBody] DescricaoCargoUpdateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] ITenantContext tenantContext,
         CancellationToken ct)
     {
-        var entity = await db.DescricoesCargo.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var entity = await db.DescricoesCargo
+            .Include(x => x.Itens)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
 
         if (request.NivelCargoId.HasValue &&
@@ -170,25 +265,26 @@ public sealed class DescricaoCargoController : ControllerBase
 
         entity.Code = code;
         entity.Title = request.Title.Trim();
-        entity.Summary = NullIfBlank(request.Summary);
-        entity.Responsibilities = NullIfBlank(request.Responsibilities);
-        entity.Requirements = NullIfBlank(request.Requirements);
-        entity.NiceToHave = NullIfBlank(request.NiceToHave);
-        entity.Benefits = NullIfBlank(request.Benefits);
-        entity.IsTemplate = request.IsTemplate;
-        entity.IsActive = request.IsActive;
-        entity.NivelCargoId = request.NivelCargoId;
+        ApplyHeaderFields(entity, request);
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        ReplaceItens(entity, request.Itens, tenantContext.TenantId ?? string.Empty, db);
 
         await db.SaveChangesAsync(ct);
 
-        var updated = await LoadResponse(db, id, ct);
-        return Ok(updated);
+        var updated = await db.DescricoesCargo
+            .AsNoTracking()
+            .Include(x => x.NivelCargo)
+            .Include(x => x.Itens)
+            .FirstAsync(x => x.Id == id, ct);
+
+        return Ok(MapToResponse(updated));
     }
 
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,
@@ -197,25 +293,20 @@ public sealed class DescricaoCargoController : ControllerBase
         var entity = await db.DescricoesCargo.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
 
+        // Pre-check: alguma vaga aponta para esta descrição?
+        var vagasUsando = await db.Vagas.CountAsync(v => v.DescricaoCargoId == id, ct);
+        if (vagasUsando > 0)
+        {
+            return Conflict(new
+            {
+                message = $"Não é possível excluir \"{entity.Code} - {entity.Title}\" — {vagasUsando} vaga(s) usam esta descrição. Desvincule as vagas antes.",
+                dependencies = new { vagas = vagasUsando }
+            });
+        }
+
+        // Itens da descrição morrem em Cascade pelo config do AppDbContext.
         db.DescricoesCargo.Remove(entity);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
-
-    private static async Task<DescricaoCargoResponse> LoadResponse(AppDbContext db, Guid id, CancellationToken ct)
-    {
-        return await db.DescricoesCargo
-            .AsNoTracking()
-            .Where(x => x.Id == id)
-            .Select(x => new DescricaoCargoResponse(
-                x.Id, x.Code, x.Title, x.Summary,
-                x.Responsibilities, x.Requirements, x.NiceToHave, x.Benefits,
-                x.IsTemplate, x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
-                x.NivelCargoId,
-                x.NivelCargo != null ? x.NivelCargo.NomComplet : null))
-            .FirstAsync(ct);
-    }
-
-    private static string? NullIfBlank(string? s)
-        => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 }
