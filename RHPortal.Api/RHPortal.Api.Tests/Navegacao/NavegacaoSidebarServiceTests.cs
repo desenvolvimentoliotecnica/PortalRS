@@ -71,7 +71,8 @@ public sealed class NavegacaoSidebarServiceTests
 
         var itens = resp.Grupos.SelectMany(g => g.Itens).ToList();
         Assert.Contains(itens, i => i.Href == "/vagas");
-        Assert.Contains(itens, i => i.Href == "/eixo-vaga"); // usa vagas.view também
+        // /sla-vagas (ex-/eixo-vaga) também usa vagas.view
+        Assert.Contains(itens, i => i.Href == "/sla-vagas");
         Assert.DoesNotContain(itens, i => i.Href == "/candidatos");
         Assert.DoesNotContain(itens, i => i.Href == "/admin/users");
     }
@@ -448,10 +449,11 @@ public sealed class NavegacaoSidebarServiceTests
     }
 
     [Fact]
-    public void Build_EixoVaga_VaiParaCadastrosPorOverride()
+    public void Build_SlaVagas_VaiParaCadastrosPorOverride()
     {
-        // Eixo de vaga tem permissão vagas.view (módulo recrutamento) mas pertence
-        // visualmente aos cadastros — via GrupoUiOverride="cadastros".
+        // SLA de Vagas (rota /sla-vagas, antes /eixo-vaga) tem permissão vagas.view
+        // (módulo recrutamento) mas pertence visualmente aos cadastros — via
+        // GrupoUiOverride="cadastros".
         var resp = NavegacaoSidebarService.Build(
             permissions: new[] { "vagas.view" },
             enabledModuleKeys: TodosModulosHabilitados(),
@@ -459,7 +461,7 @@ public sealed class NavegacaoSidebarServiceTests
 
         var cadastros = resp.Grupos.FirstOrDefault(g => g.Key == "cadastros");
         Assert.NotNull(cadastros);
-        Assert.Contains(cadastros!.Itens, i => i.Href == "/eixo-vaga");
+        Assert.Contains(cadastros!.Itens, i => i.Href == "/sla-vagas");
     }
 
     [Fact]

@@ -1,12 +1,15 @@
 "use client";
 
-import { AuthGuard } from "@/hooks/useAuth";
-import EixoVagaCadastroScreen from "@/features/cadastros/totvs/EixoVagaCadastroScreen";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function Page() {
-  return (
-    <AuthGuard>
-      <EixoVagaCadastroScreen />
-    </AuthGuard>
-  );
+// Redirect — a rota foi renomeada para /sla-vagas (label "SLA de Vagas").
+// Mantido como transitório para não quebrar bookmarks antigos. Remover em
+// sessão dedicada quando garantia de migração dos consumidores.
+export default function EixoVagaRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/sla-vagas");
+  }, [router]);
+  return null;
 }

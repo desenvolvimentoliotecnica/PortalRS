@@ -191,15 +191,15 @@ export default function EixoVagaCadastroScreen() {
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="text-lg font-bold">Eixos de Vaga</h4>
-          <div className="text-muted-foreground text-sm">Categorização estratégica de vagas (ex.: Tech, Comercial). Configure SLA por eixo para sobrepor o SLA global.</div>
+          <h4 className="text-lg font-bold">SLA de Vagas</h4>
+          <div className="text-muted-foreground text-sm">Cadastre o SLA de contratação (dias para fechamento) por eixo de vaga. Categorize estrategicamente (ex.: Tech, Comercial, Operacional) e configure o prazo-meta que sobrepõe o SLA global.</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={syncList} disabled={loading}>
             <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
           </Button>
           <Button size="sm" onClick={() => { setDraft({ ...emptyDraft }); setEditOpen(true); }}>
-            <Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo eixo</span>
+            <Plus className="size-4" /><span className="hidden sm:inline ml-1">Novo SLA</span>
           </Button>
         </div>
       </div>
@@ -221,8 +221,8 @@ export default function EixoVagaCadastroScreen() {
       <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="font-semibold">Lista de eixos</div>
-            <div className="text-muted-foreground text-sm">Vagas apontam para um eixo e usam seu SLA como override.</div>
+            <div className="font-semibold">Lista de SLAs</div>
+            <div className="text-muted-foreground text-sm">Cada vaga aponta para um eixo e usa este SLA como prazo-meta de fechamento.</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
@@ -293,8 +293,8 @@ export default function EixoVagaCadastroScreen() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{draft.id ? "Editar eixo" : "Novo eixo"}</DialogTitle>
-            <DialogDescription>Categorize vagas por eixo estratégico. SLA (opcional) sobrepõe o SLA global do tenant.</DialogDescription>
+            <DialogTitle>{draft.id ? "Editar SLA" : "Novo SLA de contratação"}</DialogTitle>
+            <DialogDescription>Cadastre o prazo-meta de fechamento de vagas por eixo estratégico. O SLA (dias) definido aqui sobrepõe o SLA global do tenant para as vagas deste eixo.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
