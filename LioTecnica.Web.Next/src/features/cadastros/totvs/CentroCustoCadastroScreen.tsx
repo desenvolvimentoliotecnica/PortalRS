@@ -619,7 +619,28 @@ export default function CentroCustoCadastroScreen() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={async () => { if (!deleteTarget) return; try { await fetchJson(`/api/centros-custo/${deleteTarget.id}`, { method: "DELETE" }); toast.success("Centro de custo removido"); setDeleteTarget(null); await syncList(); } catch { toast.error("Erro ao remover"); } }}>Excluir</Button>
+            <Button variant="destructive" onClick={async () => {
+              if (!deleteTarget) return;
+              try {
+                await fetchJson(`/api/centros-custo/${deleteTarget.id}`, { method: "DELETE" });
+                toast.success("Centro de custo removido");
+                setDeleteTarget(null);
+                await syncList();
+              } catch (err) {
+                // Extrai a mensagem do backend quando o endpoint retorna 409 Conflict
+                // com body { message, dependencies }. fetchJson joga Error cuja mensagem
+                // é "HTTP 409: {json}" — parseamos a parte após o primeiro ": ".
+                const raw = err instanceof Error ? err.message : String(err);
+                const bodyStart = raw.indexOf(": ");
+                const body = bodyStart >= 0 ? raw.slice(bodyStart + 2) : raw;
+                let friendly = raw;
+                try {
+                  const parsed = JSON.parse(body) as { message?: string };
+                  if (parsed?.message) friendly = parsed.message;
+                } catch { /* body não é JSON — usa raw */ }
+                toast.error(friendly, { duration: 8000 });
+              }
+            }}>Excluir</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

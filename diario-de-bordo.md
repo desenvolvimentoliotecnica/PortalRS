@@ -121,6 +121,25 @@ Idempotente nos dois cenários: DB antigo (coluna presente → normaliza nullabi
 
 Lição: refatorações que droppam colunas precisam varrer os "scripts órfãos" de migração em bancos existentes — esse bloco de `ApplyOrphanMigrationsAsync` tem 15+ chunks SQL e qualquer um pode cair na mesma armadilha. Varri a mão e `DepartmentId` era o único; se aumentar, vale um teste de integração que executa o método contra um DB recém-reseedado.
 
+### Bug de UX: DELETE de CC com vínculos não explicava motivo
+
+O usuário abriu `/centros-custo`, tentou deletar o CC "TI" e recebeu só *"Erro ao remover"* — sem saber por que. Olhei o endpoint: `CentroCustoController.Delete` só validava **filhos na hierarquia** (`ParentId`). Quando o CC tem qualquer outra referência — vaga, funcionário, cargo, solicitação de vaga/promoção, pré-admissão — o `SaveChanges` disparava `23503 foreign_key_violation` do Postgres e o EF jogava `DbUpdateException` **sem catch**. Resultado: 500 Internal Server Error no cliente, que o `fetchJson` agrupa como "HTTP 500: ..." e o handler original ignorava com `catch { toast.error("Erro ao remover"); }`.
+
+Refatorei o endpoint com pre-check de 7 FKs — `CentrosCusto.ParentId` + `Vagas.CentroCustoId` + `JobPositions.CentroCustoId` + `Funcionarios.CentroCustoId` + `SolicitacoesVaga.CentroCustoId` + `SolicitacoesPromocao.CentroCustoId` + `PreAdmissoes.CentroCustoId`. Se alguma contagem > 0, retorna 409 com:
+
+```json
+{
+  "message": "Não é possível excluir \"TI - Tecnologia\" — há vínculos: 2 vaga(s), 15 funcionário(s), 1 cargo(s). Remova ou transfira esses vínculos antes.",
+  "dependencies": { "centrosCustoFilhos": 0, "vagas": 2, "cargos": 1, "funcionarios": 15, ... }
+}
+```
+
+Safety net extra: `catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == "23503")` — se alguém adicionar uma FK nova sem atualizar o pre-check, não volta a dar 500; devolve 409 com o nome da constraint pra suporte localizar.
+
+Frontend: reescrevi o handler em `CentroCustoCadastroScreen.tsx` para parsear o body JSON do erro (`fetchJson` jogava `new Error("HTTP 409: {json}")`; agora extraio a parte depois do `": "` e faço `JSON.parse`). Exibo a mensagem literal do backend no toast com `duration: 8000` pra dar tempo de ler as listas longas.
+
+Cobertura: criei `RHPortal.Api.Tests/CentrosCusto/CentroCustoDeleteTests.cs` (namespace **plural** — o singular conflita com o tipo `CentroCusto` porque o C# trata `Tests.CentroCusto.CentroCusto` como ambíguo). 8 testes: 404 (CC inexistente), 204 (OK sem vínculos), 409 individual por tipo de FK (filhos, vagas, cargos, funcionários), 409 agregado (2 vagas + 3 funcionários + 1 cargo, confirmando que todos aparecem na mensagem), e 409 com inspeção do `dependencies` estruturado. Suite total: **770/770 verdes** (era 762).
+
 ### Gotchas documentados para sessões futuras
 
 - **Interface `SolicitacaoDetail` no frontend**: tinha campo `centroCustoId` colidindo de dois lados (rename do `areaId` + A.RH.013). Sempre confirmar que o nome da propriedade no TS bate com o JSON do backend (que usa camelCase de `CentroCustoNome` — ou seja, `centroCustoNome`, NÃO `centroCustoName`).

@@ -281,11 +281,66 @@ public sealed class CentroCustoController : ControllerBase
         var entity = await db.CentrosCusto.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
 
-        if (await db.CentrosCusto.AnyAsync(x => x.ParentId == id, ct))
-            return Conflict(new { message = "Não é possível excluir: existem centros de custo filhos." });
+        // Pre-check de todos os vínculos antes de chamar SaveChanges.
+        // Sem este bloco, o DELETE quebra com 23503 foreign_key_violation vindo do Postgres
+        // (JobPositions, Vagas, SolicitacoesVaga, SolicitacoesPromocao, Funcionarios,
+        // PreAdmissoes e a auto-ref ParentId). A mensagem bruta que o EF retorna é
+        // inútil para o usuário — aqui montamos uma lista humanamente legível com
+        // contagens, para que o front exiba exatamente o que impede a exclusão.
+        var filhosCc       = await db.CentrosCusto.CountAsync(x => x.ParentId == id, ct);
+        var vagas          = await db.Vagas.CountAsync(x => x.CentroCustoId == id, ct);
+        var cargos         = await db.Set<JobPosition>().CountAsync(x => x.CentroCustoId == id, ct);
+        var funcionarios   = await db.Set<Funcionario>().CountAsync(x => x.CentroCustoId == id, ct);
+        var solicVagas     = await db.Set<SolicitacaoVaga>().CountAsync(x => x.CentroCustoId == id, ct);
+        var solicPromocoes = await db.Set<SolicitacaoPromocao>().CountAsync(x => x.CentroCustoId == id, ct);
+        var preAdmissoes   = await db.Set<PreAdmissao>().CountAsync(x => x.CentroCustoId == id, ct);
 
-        db.CentrosCusto.Remove(entity);
-        await db.SaveChangesAsync(ct);
+        var blocos = new List<string>();
+        if (filhosCc       > 0) blocos.Add($"{filhosCc} centro(s) de custo filho(s) na hierarquia");
+        if (vagas          > 0) blocos.Add($"{vagas} vaga(s)");
+        if (cargos         > 0) blocos.Add($"{cargos} cargo(s)");
+        if (funcionarios   > 0) blocos.Add($"{funcionarios} funcionário(s)");
+        if (solicVagas     > 0) blocos.Add($"{solicVagas} solicitação(ões) de vaga");
+        if (solicPromocoes > 0) blocos.Add($"{solicPromocoes} solicitação(ões) de promoção");
+        if (preAdmissoes   > 0) blocos.Add($"{preAdmissoes} pré-admissão(ões)");
+
+        if (blocos.Count > 0)
+        {
+            return Conflict(new
+            {
+                message = $"Não é possível excluir \"{entity.Code} - {entity.Description}\" — há vínculos: "
+                          + string.Join(", ", blocos)
+                          + ". Remova ou transfira esses vínculos antes.",
+                dependencies = new
+                {
+                    centrosCustoFilhos = filhosCc,
+                    vagas,
+                    cargos,
+                    funcionarios,
+                    solicitacoesVaga = solicVagas,
+                    solicitacoesPromocao = solicPromocoes,
+                    preAdmissoes,
+                }
+            });
+        }
+
+        try
+        {
+            db.CentrosCusto.Remove(entity);
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == "23503")
+        {
+            // Safety net: outra FK foi adicionada e esqueci de incluir acima.
+            // Devolve mensagem clara em vez de 500. PG constraint name vai no detail
+            // para o log / suporte identificar qual tabela/coluna tocar.
+            return Conflict(new
+            {
+                message = "Não é possível excluir — existe um vínculo em outra tabela que não foi detectado. "
+                          + "Contate o suporte informando o centro de custo.",
+                detail = pg.ConstraintName,
+            });
+        }
 
         return NoContent();
     }
