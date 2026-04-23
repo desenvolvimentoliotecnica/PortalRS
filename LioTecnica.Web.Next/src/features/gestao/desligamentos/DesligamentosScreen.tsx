@@ -67,6 +67,7 @@ interface SolicitacaoDesligamentoGridRow {
     etapaPendenteCom: string | null;
     etapaPendenteIsQueue?: boolean;
     etapaPendenteCanAssume?: boolean;
+    etapaPendenteCanApprove?: boolean;
 }
 
 interface SolicitacaoDesligamentoResponse {
@@ -803,7 +804,39 @@ export default function DesligamentosScreen() {
                                                     </Button>
                                                 </>
                                             )}
-                                            {/* Pendente: ações inline se pode aprovar, senão editar */}
+                                            {/* Aguarda Fila (6): exibe "Assumir" se pode assumir, ou aprovação se já assumiu */}
+                                            {r.status === 6 && r.etapaPendenteCanAssume && (
+                                                <Button
+                                                    variant="default"
+                                                    size="xs"
+                                                    title="Assumir etapa para aprovação"
+                                                    className="gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                                    onClick={(e) => { e.stopPropagation(); void quickAssume(r.id); }}
+                                                >
+                                                    <UserCheck className="size-3" />
+                                                    Assumir
+                                                </Button>
+                                            )}
+                                            {r.status === 6 && r.etapaPendenteCanApprove && !r.etapaPendenteCanAssume && (
+                                                <>
+                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
+                                                        className="hover:text-emerald-600 hover:border-emerald-300"
+                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
+                                                        <CheckCircle2 />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
+                                                        className="hover:text-amber-600 hover:border-amber-300"
+                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
+                                                        <AlertTriangle />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
+                                                        className="hover:text-red-600 hover:border-red-300"
+                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
+                                                        <XCircle />
+                                                    </Button>
+                                                </>
+                                            )}
+                                            {/* Pendente (1): ações inline se pode aprovar, senão editar */}
                                             {r.status === 1 && r.etapaPendenteCanAssume ? (
                                                 <>
                                                     <Button variant="outline" size="icon-xs" title="Aprovar"
@@ -818,6 +851,24 @@ export default function DesligamentosScreen() {
                                                             <UserCheck />
                                                         </Button>
                                                     )}
+                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
+                                                        className="hover:text-amber-600 hover:border-amber-300"
+                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
+                                                        <AlertTriangle />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
+                                                        className="hover:text-red-600 hover:border-red-300"
+                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
+                                                        <XCircle />
+                                                    </Button>
+                                                </>
+                                            ) : r.status === 1 && r.etapaPendenteCanApprove ? (
+                                                <>
+                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
+                                                        className="hover:text-emerald-600 hover:border-emerald-300"
+                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
+                                                        <CheckCircle2 />
+                                                    </Button>
                                                     <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
                                                         className="hover:text-amber-600 hover:border-amber-300"
                                                         onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>

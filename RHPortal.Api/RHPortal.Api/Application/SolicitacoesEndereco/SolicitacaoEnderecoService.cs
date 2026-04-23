@@ -407,6 +407,10 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
             throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
 
         etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);

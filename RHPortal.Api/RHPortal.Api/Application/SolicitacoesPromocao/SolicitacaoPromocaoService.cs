@@ -644,6 +644,9 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         else
             throw new InvalidOperationException("Não foi possível identificar o usuário autenticado.");
 
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);

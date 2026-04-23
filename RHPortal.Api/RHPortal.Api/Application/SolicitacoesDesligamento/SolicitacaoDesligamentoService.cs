@@ -117,7 +117,8 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
                 r.TipoDesligamento, r.DataDesligamento, r.CreatedAtUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
                 ep?.AssumedByUserId,
-                ep?.CanAssume ?? false);
+                ep?.CanAssume ?? false,
+                ep?.CanApprove ?? false);
         }).ToList();
     }
 
@@ -593,6 +594,9 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             etapaAtual.AssumedByUserId = _currentUser.UserId;
         else
             throw new InvalidOperationException("Não foi possível identificar o usuário autenticado.");
+
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
 
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 

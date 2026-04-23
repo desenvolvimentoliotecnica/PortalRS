@@ -1232,8 +1232,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         }
 
         etapaAtual.Observacao = $"Assumida via consenso por {assumidoPorNome ?? "administrador"}";
+
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-        
+
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
