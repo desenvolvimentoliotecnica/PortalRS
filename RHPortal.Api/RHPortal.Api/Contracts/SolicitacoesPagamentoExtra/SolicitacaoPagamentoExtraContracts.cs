@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.SolicitacoesPagamentoExtra;
@@ -26,6 +27,9 @@ public sealed class SolicitacaoPagamentoExtraCreateRequest
 
     [MaxLength(2000)]
     public string? Observacoes { get; set; }
+
+    /// <summary>Preenchido pelo ImportarAsync para rastrear quem importou em lote.</summary>
+    public Guid? ImportadoPorId { get; set; }
 }
 
 public sealed class SolicitacaoPagamentoExtraUpdateRequest
@@ -59,16 +63,15 @@ public sealed class SolicitacaoPagamentoExtraApprovalRequest
 
 public sealed record SolicitacaoPagamentoExtraResponse(
     Guid Id, SolicitacaoStatus Status,
-    Guid SolicitanteId, string? SolicitanteNome,
+    Guid? SolicitanteId, string? SolicitanteNome,
+    Guid? ImportadoPorId, string? ImportadoPorNome, DateTimeOffset? ImportadaEmUtc,
     Guid FuncionarioId, string? FuncionarioNome,
     TipoPagamentoExtra TipoPagamentoExtra, decimal Valor,
     string Descricao, DateOnly DataPagamento, string? Competencia,
-    Guid? Aprovador1Id, string? Aprovador1Nome, StatusAprovacao Aprovador1Status, DateTimeOffset? Aprovador1DataUtc,
-    Guid? Aprovador2Id, string? Aprovador2Nome, StatusAprovacao? Aprovador2Status, DateTimeOffset? Aprovador2DataUtc,
-    bool Aprovador2Habilitado,
-    string? ObservacaoAprovador, string? Observacoes,
+    string? Observacoes,
     DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc, DateTimeOffset? ApprovedAtUtc,
-    IntegracaoResultado? IntegracaoResultado, string? IntegracaoMensagem, DateTimeOffset? IntegradaEmUtc
+    IntegracaoResultado? IntegracaoResultado, string? IntegracaoMensagem, DateTimeOffset? IntegradaEmUtc,
+    IReadOnlyList<EtapaAprovacaoResponse> Etapas
 );
 
 public sealed record SolicitacaoPagamentoExtraGridRow(
@@ -76,4 +79,72 @@ public sealed record SolicitacaoPagamentoExtraGridRow(
     string? FuncionarioNome, TipoPagamentoExtra TipoPagamentoExtra,
     decimal Valor, DateOnly DataPagamento,
     DateTimeOffset CreatedAtUtc
+);
+
+public sealed class ImportacaoPagamentoExtraConfirmarLinhaRequest
+{
+    [Required]
+    public Guid FuncionarioId { get; set; }
+
+    [Required]
+    public decimal Valor { get; set; }
+}
+
+public sealed class ImportacaoPagamentoExtraConfirmarRequest
+{
+    [Required]
+    public TipoPagamentoExtra TipoPagamentoExtra { get; set; }
+
+    [Required, MaxLength(500)]
+    public string Descricao { get; set; } = string.Empty;
+
+    [Required]
+    public DateOnly DataPagamento { get; set; }
+
+    [MaxLength(7)]
+    public string? Competencia { get; set; }
+
+    [MaxLength(2000)]
+    public string? Observacoes { get; set; }
+
+    [Required]
+    public List<ImportacaoPagamentoExtraConfirmarLinhaRequest> Linhas { get; set; } = [];
+}
+
+public sealed record ImportacaoPagamentoExtraConfirmarItemResponse(
+    Guid FuncionarioId,
+    string? FuncionarioNome,
+    Guid? SolicitacaoId,
+    string? Erro
+);
+
+public sealed record ImportacaoPagamentoExtraConfirmarResponse(
+    int TotalLinhas,
+    int Criados,
+    int Falhas,
+    IReadOnlyList<ImportacaoPagamentoExtraConfirmarItemResponse> Itens
+);
+
+public sealed record ImportacaoPagamentoExtraLinhaPreview(
+    int Linha,
+    string Empresa,
+    string Estabelecimento,
+    string Matricula,
+    string NomePlanilha,
+    string CargoPlanilha,
+    string CentroCustoPlanilha,
+    decimal? Valor,
+    decimal? PercentualDsr,
+    decimal? ValorDsr,
+    decimal? TotalReceber,
+    Guid? FuncionarioId,
+    string? FuncionarioNome,
+    string? Erro
+);
+
+public sealed record ImportacaoPagamentoExtraPreviewResponse(
+    int TotalLinhas,
+    int Encontrados,
+    int NaoEncontrados,
+    IReadOnlyList<ImportacaoPagamentoExtraLinhaPreview> Linhas
 );

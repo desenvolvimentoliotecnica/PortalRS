@@ -413,18 +413,99 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     .Include(x => x.Funcionario).Include(x => x.Solicitante)
                     .FirstOrDefaultAsync(x => x.Id == id, ct);
                 if (s is null) return null;
+
+                // ── Mapeamento para payload TOTVS Datasul (apisfrescisao.p) ─────────
+                // Campos c* (char), i* (int), dat* (ddMMyyyy string), log* (S/N string).
+                // Códigos baseados no manual Datasul Progress + enums internos RenderRH.
+
+                // cdnSitAfast: código situação afastamento Datasul. 86 é o padrão para
+                // extinção de relação de emprego (desligamento comum CLT).
+                const int SIT_AFAST_DESLIG = 86;
+
+                // cdnTipoAviso: Datasul usa 1=Trabalhado, 2=Indenizado, 3=Dispensado.
+                // Nossos enums: Indenizado=0, Trabalhado=1, Dispensado=2.
+                var cdnTipoAviso = s.TipoAvisoPrevio switch
+                {
+                    TipoAvisoPrevio.Trabalhado => 1,
+                    TipoAvisoPrevio.Indenizado => 2,
+                    TipoAvisoPrevio.Dispensado => 3,
+                    _ => 2,
+                };
+
+                // percMultaFGTS: CLT define % por tipo de desligamento.
+                var percMultaFGTS = s.TipoDesligamento switch
+                {
+                    TipoDesligamento.SemJustaCausa => 40,
+                    TipoDesligamento.AcordoMutuo   => 20,
+                    _                              => 0, // PedidoDemissao, JustaCausa, FimContrato
+                };
+
+                // Datas derivadas — TODAS em formato ISO (yyyy-MM-dd).
+                // Padrão de todos os payloads de integração do RenderRH — o sync-service
+                // converte pro formato que o Datasul aceita (ddMMyyyy) no mapper dele.
+                // - Aviso trabalhado: datIniAviso = datDesligamento - DiasAvisoPrevio
+                // - Aviso indenizado/dispensado: datIniAviso em branco ("" — Datasul aceita como N/A)
+                var datIniAviso = s.TipoAvisoPrevio == TipoAvisoPrevio.Trabalhado
+                    ? (TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(-s.DiasAvisoPrevio)) ?? "")
+                    : "";
+
+                // datLimPgtoRecis (CLT art. 477 §6º): até o 10º dia, contado a partir
+                // do próprio desligamento — por isso +9 dias corridos, não +10.
+                var datLimPgto = TotvsPayloadHelper.FormatDate(s.DataDesligamento) ?? "";
+                var datPagto   = TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(9)) ?? "";
+
                 return new
                 {
-                    s.Id, tipoIntegracao = (short)TipoIntegracao.Desligamento, tipoIntegracaoLabel = "Desligamento",
-                    nome = s.Funcionario?.Name ?? "—", funcionarioId = s.FuncionarioId,
-                    solicitante = s.Solicitante?.Name ?? "—",
-                    s.DataDesligamento, tipoDesligamento = s.TipoDesligamento.ToString(),
-                    s.MotivoDesligamento, tipoAvisoPrevio = s.TipoAvisoPrevio.ToString(), s.DiasAvisoPrevio,
-                    s.ElegivelRecontratacao, s.SubstituirPosicao, s.Observacoes,
+                    s.Id,
+                    tipoIntegracao = (short)TipoIntegracao.Desligamento,
+                    tipoIntegracaoLabel = "Desligamento",
+
+                    // ── Payload TOTVS Datasul (apisfrescisao.p) ──
+                    cdnEmpresaFunc    = s.Funcionario?.CdnEmpresa ?? "",
+                    cdnEstabFunc      = s.Funcionario?.CdnEstab ?? "",
+                    cdnFuncionario    = int.TryParse(s.Funcionario?.CdnFuncionario ?? "", out var cdnFunc) ? cdnFunc : 0,
+                    cdnTipoCheque     = 1, // 1 = cheque emitido (default)
+                    cdnSitAfast       = SIT_AFAST_DESLIG,
+                    cdnTipoAviso      = cdnTipoAviso,
+                    datDesligamento   = TotvsPayloadHelper.FormatDate(s.DataDesligamento) ?? "",
+                    datIniAviso       = datIniAviso,
+                    datPagto          = datPagto,
+                    datAviso          = datIniAviso,
+                    datLimPgtoRecis   = datLimPgto,
+                    percMultaFGTS     = percMultaFGTS,
+                    codSaqueFGTS      = "",
+                    cdnTipoJornada    = 0,
+                    // Flags lógicas — vazias por padrão (Datasul aceita "" como N/A).
+                    // Ajustar se regras específicas do cliente exigirem "S"/"N".
+                    logCalcAdicAdmitidos   = "",
+                    logGeraComEstabilidade = s.PossuiEstabilidade ? "S" : "",
+                    logValidaProgFerias    = "",
+                    logImprimeAviso        = s.TipoAvisoPrevio == TipoAvisoPrevio.Trabalhado ? "S" : "",
+                    logRecFeriasProporc    = "",
+                    logReceb13Proporc      = "",
+                    logFGTSAnteriorGRFP    = "",
+                    logGeraSemExameDemis   = "",
+                    logGeraEPIDevolver     = "",
+
+                    // ── Metadados RenderRH (não fazem parte do contrato TOTVS) ──
+                    nome              = s.Funcionario?.Name ?? "—",
+                    funcionarioId     = s.FuncionarioId,
+                    solicitante       = s.Solicitante?.Name ?? "—",
+                    tipoDesligamento  = s.TipoDesligamento.ToString(),
+                    motivoDesligamento = s.MotivoDesligamento,
+                    tipoAvisoPrevio   = s.TipoAvisoPrevio.ToString(),
+                    s.DiasAvisoPrevio,
+                    s.ElegivelRecontratacao,
+                    s.SubstituirPosicao,
+                    s.PossuiEstabilidade,
+                    s.Observacoes,
                     status = s.Status.ToString(),
-                    s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
-                    s.EfetivadoManualmentePorId, s.EfetivadoManualmenteEmUtc,
-                    s.ApprovedAtUtc, s.CreatedAtUtc,
+                    s.IntegracaoResultado, s.IntegracaoMensagem,
+                    integradaEmUtc            = TotvsPayloadHelper.FormatDate(s.IntegradaEmUtc),
+                    s.EfetivadoManualmentePorId,
+                    efetivadoManualmenteEmUtc = TotvsPayloadHelper.FormatDate(s.EfetivadoManualmenteEmUtc),
+                    approvedAtUtc             = TotvsPayloadHelper.FormatDate(s.ApprovedAtUtc),
+                    createdAtUtc              = TotvsPayloadHelper.FormatDate(s.CreatedAtUtc),
                 };
             }
             case TipoIntegracao.Promocao:
@@ -627,7 +708,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
 
                 if (request.Resultado == IntegracaoResultado.Sucesso)
                 {
-                    // Marcar como concluído e liberar o headcount da vaga
+                    // Marcar solicitação como concluída + liberar headcount da vaga
                     entity.Status = SolicitacaoStatus.Concluida;
                     entity.UpdatedAtUtc = now;
                     await _ocupacaoService.FecharOcupacaoAsync(
