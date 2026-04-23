@@ -7,8 +7,8 @@ namespace RhPortal.Api.Contracts.SolicitacoesVaga;
 
 public sealed record SolicitacaoVagaListQuery(
     string? Q,
-    SolicitacaoVagaStatus? Status,
-    SolicitacaoVagaStatus[]? Statuses,
+    SolicitacaoStatus? Status,
+    SolicitacaoStatus[]? Statuses,
     bool? ApenasMeus,
     int? Page,
     int? PageSize,
@@ -154,7 +154,7 @@ public sealed record SolicitacaoVagaResponse(
     string? Justificativa,
     int QtdPosicoes,
     SolicitacaoVagaUrgencia Urgencia,
-    SolicitacaoVagaStatus Status,
+    SolicitacaoStatus Status,
     Guid SolicitanteId,
     string? SolicitanteNome,
     Guid? AprovadorId,
@@ -210,7 +210,7 @@ public sealed record SolicitacaoVagaGridRow(
     Guid Id,
     string Titulo,
     SolicitacaoVagaUrgencia Urgencia,
-    SolicitacaoVagaStatus Status,
+    SolicitacaoStatus Status,
     Guid? SolicitanteId,
     string? SolicitanteNome,
     Guid? AprovadorId,

@@ -76,11 +76,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     private readonly IPessoaService _pessoaService;
     private readonly NotificationPublisher _notifications;
     private readonly ApprovalWorkflowHelper _workflow;
-    private readonly IWorkflowRHService _workflowRH;
     private readonly IEmailQueueService _emailQueue;
     private readonly IMagicLinkService _magicLink;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IServiceProvider _serviceProvider;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public SolicitacaoVagaService(
         AppDbContext db,
@@ -90,11 +90,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         IPessoaService pessoaService,
         NotificationPublisher notifications,
         ApprovalWorkflowHelper workflow,
-        IWorkflowRHService workflowRH,
         IEmailQueueService emailQueue,
         IMagicLinkService magicLink,
         IHttpContextAccessor httpContextAccessor,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -103,11 +103,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         _pessoaService = pessoaService;
         _notifications = notifications;
         _workflow = workflow;
-        _workflowRH = workflowRH;
         _emailQueue = emailQueue;
         _magicLink = magicLink;
         _httpContextAccessor = httpContextAccessor;
         _serviceProvider = serviceProvider;
+        _statusHistorico = statusHistorico;
     }
 
     public async Task<IReadOnlyList<SolicitacaoVagaGridRow>> ListAsync(
@@ -119,46 +119,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .AsQueryable();
 
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
-        {
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
-        }
-        else if (!_currentUser.IsAdmin)
-        {
-            // Non-admin sees: own requests OR requests with a pending approval step assigned to them
-            // (either directly via AprovadorId or via FilaDePerfil role queue)
-            var userRoleIds = _currentUser.UserId.HasValue
-                ? await _db.Set<ApplicationUserRole>().AsNoTracking()
-                    .Where(ur => ur.UserId == _currentUser.UserId.Value)
-                    .Select(ur => ur.RoleId)
-                    .ToListAsync(ct)
-                : new List<Guid>();
-
-            // IDs of solicitações where the current user is the pending approver (either flow)
-            var solicitacaoIdsComEtapaPendente = await _db.SolicitacoesAprovacaoEtapa
-                .AsNoTracking()
-                .Where(e => (e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
-                             || e.TipoFluxo == TipoFluxoAprovacao.AumentoHeadcount)
-                    && e.Status == StatusAprovacao.Pendente
-                    && (
-                        (e.AprovadorId.HasValue && e.AprovadorId == currentFuncionarioId)
-                        || (e.RoleFilaId.HasValue && userRoleIds.Contains(e.RoleFilaId.Value))
-                        || (e.AssumedByUserId.HasValue && e.AssumedByUserId == _currentUser.UserId)
-                    ))
-                .Select(e => e.SolicitacaoId)
-                .Distinct()
-                .ToListAsync(ct);
-
-            // Also apply VagasDataScope for "own" items
-            if (_currentUser.VagasDataScope == VagasDataScope.ByArea && _currentUser.AreaId.HasValue)
-                q = q.Where(s => s.AreaId == _currentUser.AreaId.Value
-                    || solicitacaoIdsComEtapaPendente.Contains(s.Id));
-            else if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador && currentFuncionarioId.HasValue)
-                q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value
-                    || solicitacaoIdsComEtapaPendente.Contains(s.Id));
-            else
-                q = q.Where(s => (currentFuncionarioId.HasValue && s.SolicitanteId == currentFuncionarioId.Value)
-                    || solicitacaoIdsComEtapaPendente.Contains(s.Id));
-        }
 
         if (query.Statuses is { Length: > 0 })
             q = q.Where(s => query.Statuses.Contains(s.Status));
@@ -199,7 +160,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         // Para itens em PendenteAprovacaoAumentoHC, o fluxo ativo é AumentoHeadcount — sobrescrever
         var idsHC = rawRows
-            .Where(r => r.Status == SolicitacaoVagaStatus.PendenteAprovacaoAumentoHC)
+            .Where(r => r.Status == SolicitacaoStatus.PendenteAprovacaoAumentoHC)
             .Select(r => r.Id).ToList();
         if (idsHC.Count > 0)
         {
@@ -346,7 +307,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             Justificativa = request.Justificativa,
             QtdPosicoes = Math.Max(request.QtdPosicoes, 1),
             Urgencia = request.Urgencia,
-            Status = SolicitacaoVagaStatus.Rascunho,
+            Status = SolicitacaoStatus.Rascunho,
             // Sprint 1
             TipoSolicitacao = request.TipoSolicitacao,
             IsConfidencial = request.IsConfidencial,
@@ -479,7 +440,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             Justificativa = source.Justificativa,
             QtdPosicoes = source.QtdPosicoes,
             Urgencia = source.Urgencia,
-            Status = SolicitacaoVagaStatus.Rascunho,
+            Status = SolicitacaoStatus.Rascunho,
             TipoSolicitacao = source.TipoSolicitacao,
             IsConfidencial = source.IsConfidencial,
             SubstituidoFuncionarioId = source.SubstituidoFuncionarioId,
@@ -586,15 +547,19 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (entity is null) return null;
 
         // Can edit in Draft, AjustesNecessarios or PendenteAprovacao (retracts and re-opens for editing)
-        if (entity.Status != SolicitacaoVagaStatus.Rascunho &&
-            entity.Status != SolicitacaoVagaStatus.AjustesNecessarios &&
-            entity.Status != SolicitacaoVagaStatus.PendenteAprovacao)
+        if (entity.Status != SolicitacaoStatus.Rascunho &&
+            entity.Status != SolicitacaoStatus.AjustesNecessarios &&
+            entity.Status != SolicitacaoStatus.PendenteAprovacao)
             throw new InvalidOperationException("Solicitação não pode ser editada no status atual.");
 
         // If pending approval, retract back to draft so it can be resubmitted
-        if (entity.Status == SolicitacaoVagaStatus.PendenteAprovacao)
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacao)
         {
-            entity.Status = SolicitacaoVagaStatus.Rascunho;
+            var statusAnteriorUpdate = entity.Status.ToString();
+            entity.Status = SolicitacaoStatus.Rascunho;
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                statusAnteriorUpdate, entity.Status.ToString(), _currentUser, null, ct);
         }
 
         entity.Titulo = request.Titulo;
@@ -723,8 +688,13 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
-        entity.Status = SolicitacaoVagaStatus.PendenteAprovacao;
+        var statusAnteriorSubmit = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            statusAnteriorSubmit, entity.Status.ToString(), _currentUser, null, ct);
 
         // Remove etapas anteriores (re-submit)
         var existingEtapas = _db.SolicitacoesAprovacaoEtapa
@@ -805,8 +775,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
+        var statusAnteriorApprove = entity.Status.ToString();
+
         // Determinar qual fluxo está ativo (normal ou escalação de HC)
-        var tipoFluxoAtivo = entity.Status == SolicitacaoVagaStatus.PendenteAprovacaoAumentoHC
+        var tipoFluxoAtivo = entity.Status == SolicitacaoStatus.PendenteAprovacaoAumentoHC
             ? TipoFluxoAprovacao.AumentoHeadcount
             : TipoFluxoAprovacao.RequisicaoPessoal;
 
@@ -846,7 +818,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
         while (proximaEtapa is not null
             && IsProcessoStep(proximaEtapa)
-            && entity.Status != SolicitacaoVagaStatus.AguardandoDecisaoRH)
+            && entity.Status != SolicitacaoStatus.AguardandoDecisaoRH)
         {
             await ExecutarAcaoEtapaAsync(proximaEtapa.AcaoEtapa, entity, ct);
             proximaEtapa.Status = StatusAprovacao.Aprovado;
@@ -858,8 +830,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         // Saída antecipada: VagaNova vinculada a vaga estrutural, aguardando decisão do RH
-        if (entity.Status == SolicitacaoVagaStatus.AguardandoDecisaoRH)
+        if (entity.Status == SolicitacaoStatus.AguardandoDecisaoRH)
         {
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
+
             await _db.SaveChangesAsync(ct);
 
             await _workflow.NotifyByFuncionarioIdAsync(
@@ -875,7 +851,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (proximaEtapa is not null)
         {
             // Há uma próxima etapa que precisa de aprovador
-            entity.Status = SolicitacaoVagaStatus.PendenteAprovacao;
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -920,7 +900,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                         vagaHC.UpdatedAtUtc = DateTimeOffset.UtcNow;
                     }
                 }
-                entity.Status = SolicitacaoVagaStatus.Concluida;
+                entity.Status = SolicitacaoStatus.Concluida;
+
+                await _statusHistorico.RegistrarAsync(
+                    TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                    statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
 
                 await _db.SaveChangesAsync(ct);
 
@@ -938,8 +922,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     await CriarVagaRascunhoAsync(entity, ct);
                 if (entity.VagaId.HasValue)
                     await AtivarHeadcountProvisorioAsync(entity, ct);
-                if (entity.Status != SolicitacaoVagaStatus.Aprovada)
-                    entity.Status = SolicitacaoVagaStatus.Aprovada;
+                if (entity.Status != SolicitacaoStatus.Aprovada)
+                    entity.Status = SolicitacaoStatus.Aprovada;
+
+                await _statusHistorico.RegistrarAsync(
+                    TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                    statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
 
                 await _db.SaveChangesAsync(ct);
 
@@ -963,7 +951,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     await ProvisionarHcPendenteAsync(entity, ct);
                 }
 
-                entity.Status = SolicitacaoVagaStatus.AguardandoDecisaoRH;
+                await CreateEtapaDecisaoRhAsync(entity, ct);
+                entity.Status = SolicitacaoStatus.AguardandoDecisaoRH;
+
+                await _statusHistorico.RegistrarAsync(
+                    TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                    statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
 
                 await _db.SaveChangesAsync(ct);
 
@@ -979,6 +972,29 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         }
 
         return await GetByIdAsync(id, ct);
+    }
+
+    private async Task CreateEtapaDecisaoRhAsync(SolicitacaoVaga entity, CancellationToken ct)
+    {
+        var rhRoleId = await _workflow.ResolveRhRoleIdAsync(TipoFluxoAprovacao.RequisicaoPessoal, ct);
+        var ordemAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == entity.Id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal)
+            .MaxAsync(e => (int?)e.Ordem, ct) ?? 0;
+
+        _db.SolicitacoesAprovacaoEtapa.Add(new SolicitacaoAprovacaoEtapa
+        {
+            Id = Guid.NewGuid(),
+            TenantId = _tenantContext.TenantId ?? "",
+            SolicitacaoId = entity.Id,
+            TipoFluxo = TipoFluxoAprovacao.RequisicaoPessoal,
+            Ordem = ordemAtual + 1,
+            Label = "Decisão de Headcount — RH",
+            AprovadorId = null,
+            RoleFilaId = rhRoleId,
+            AcaoEtapa = AcaoEtapa.Nenhuma,
+            MomentoAcao = MomentoAcao.AoChegar,
+            Status = StatusAprovacao.Pendente,
+        });
     }
 
     /// <summary>
@@ -1005,7 +1021,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                         await CriarVagaRascunhoAsync(entity, ct, headcountPendente: entity.QtdPosicoes);
                     }
                     entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
-                    entity.Status = SolicitacaoVagaStatus.AguardandoDecisaoRH;
+                    await CreateEtapaDecisaoRhAsync(entity, ct);
+                    var statusAnteriorAcaoCriar = entity.Status.ToString();
+                    entity.Status = SolicitacaoStatus.AguardandoDecisaoRH;
+                    await _statusHistorico.RegistrarAsync(
+                        TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                        statusAnteriorAcaoCriar, entity.Status.ToString(), _currentUser, null, ct);
                 }
                 else if (!entity.VagaId.HasValue)
                 {
@@ -1016,10 +1037,14 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
             case AcaoEtapa.EnviarIntegracao:
                 // Não sobrescrever AguardandoDecisaoRH (caso VagaNova aguardando decisão do RH)
-                if (entity.Status != SolicitacaoVagaStatus.AguardandoDecisaoRH)
+                if (entity.Status != SolicitacaoStatus.AguardandoDecisaoRH)
                 {
-                    entity.Status = SolicitacaoVagaStatus.Aprovada;
+                    var statusAnteriorAcaoEnviar = entity.Status.ToString();
+                    entity.Status = SolicitacaoStatus.Aprovada;
                     entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+                    await _statusHistorico.RegistrarAsync(
+                        TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                        statusAnteriorAcaoEnviar, entity.Status.ToString(), _currentUser, null, ct);
                 }
                 break;
         }
@@ -1094,10 +1119,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         );
 
         entity.VagaId = vagaId;
-
-        // Auto-criar workflow de triagem RH
-        await _workflowRH.CreateFromTemplateAsync(
-            TipoWorkflowRH.TriagemVaga, vagaId: vagaId, preAdmissaoId: null, ct);
     }
 
     private async Task ProvisionarHcPendenteAsync(SolicitacaoVaga entity, CancellationToken ct)
@@ -1132,9 +1153,15 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         }
 
-        entity.Status = SolicitacaoVagaStatus.Reprovada;
+        var statusAnteriorReject = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            statusAnteriorReject, entity.Status.ToString(), _currentUser, observacao, ct);
+
         await _db.SaveChangesAsync(ct);
 
         await _workflow.NotifyByFuncionarioIdAsync(
@@ -1178,9 +1205,14 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
-        entity.Status = SolicitacaoVagaStatus.AjustesNecessarios;
+        var statusAnteriorChanges = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            statusAnteriorChanges, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -1213,11 +1245,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        if (entity.Status == SolicitacaoVagaStatus.Rascunho)
+        if (entity.Status == SolicitacaoStatus.Rascunho)
             throw new InvalidOperationException("Rascunhos não podem ser cancelados — utilize Excluir.");
 
-        if (entity.Status == SolicitacaoVagaStatus.Aprovada ||
-            entity.Status == SolicitacaoVagaStatus.Cancelada)
+        if (entity.Status == SolicitacaoStatus.Aprovada ||
+            entity.Status == SolicitacaoStatus.Cancelada)
             throw new InvalidOperationException("Solicitação não pode ser cancelada no status atual.");
 
         // Admin e RH podem sempre cancelar fluxos travados (ex: AguardandoDecisaoRH sem vaga)
@@ -1238,8 +1270,13 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 throw new InvalidOperationException("Não é possível cancelar: já houve movimentação na solicitação. Contate o RH.");
         }
 
-        entity.Status = SolicitacaoVagaStatus.Cancelada;
+        var statusAnteriorCancel = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.Cancelada;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            statusAnteriorCancel, entity.Status.ToString(), _currentUser, null, ct);
 
         // Mark all pending approval steps as cancelled
         var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
@@ -1285,7 +1322,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
-        if (entity.Status != SolicitacaoVagaStatus.Rascunho)
+        if (entity.Status != SolicitacaoStatus.Rascunho)
             throw new InvalidOperationException("Só é possível excluir solicitações em rascunho.");
 
         _db.SolicitacoesVaga.Remove(entity);
@@ -1299,16 +1336,16 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (entity is null) return null;
 
         // Statuses que permitem assumir: qualquer um com etapa pendente, exceto estados terminais
-        if (entity.Status is SolicitacaoVagaStatus.Rascunho
-            or SolicitacaoVagaStatus.Aprovada
-            or SolicitacaoVagaStatus.Cancelada
-            or SolicitacaoVagaStatus.Reprovada
-            or SolicitacaoVagaStatus.Concluida
-            or SolicitacaoVagaStatus.EmIntegracao)
+        if (entity.Status is SolicitacaoStatus.Rascunho
+            or SolicitacaoStatus.Aprovada
+            or SolicitacaoStatus.Cancelada
+            or SolicitacaoStatus.Reprovada
+            or SolicitacaoStatus.Concluida
+            or SolicitacaoStatus.EmIntegracao)
             throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
 
         // Seleciona o TipoFluxo correto baseado no status atual
-        var tipoFluxo = entity.Status == SolicitacaoVagaStatus.PendenteAprovacaoAumentoHC
+        var tipoFluxo = entity.Status == SolicitacaoStatus.PendenteAprovacaoAumentoHC
             ? TipoFluxoAprovacao.AumentoHeadcount
             : TipoFluxoAprovacao.RequisicaoPessoal;
 
@@ -1396,8 +1433,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         }
 
         etapaAtual.Observacao = $"Assumida via consenso por {assumidoPorNome ?? "administrador"}";
+
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-        
+
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
@@ -1407,11 +1448,17 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        if (entity.Status != SolicitacaoVagaStatus.Aprovada)
+        if (entity.Status != SolicitacaoStatus.Aprovada)
             throw new InvalidOperationException($"Só é possível efetivar solicitações com status 'Aprovada' (atual: {entity.Status}).");
 
-        entity.Status = SolicitacaoVagaStatus.EmIntegracao;
+        var statusAnteriorEfetivar = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.EmIntegracao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            statusAnteriorEfetivar, entity.Status.ToString(), _currentUser, null, ct);
+
         await _db.SaveChangesAsync(ct);
 
         // TODO: quando TotvsEndpointUrl estiver configurado em TenantConfiguracao,
@@ -1462,7 +1509,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        if (entity.Status != SolicitacaoVagaStatus.AguardandoDecisaoRH)
+        if (entity.Status != SolicitacaoStatus.AguardandoDecisaoRH)
             throw new InvalidOperationException("Solicitação não está aguardando decisão do RH.");
 
         if (!entity.VagaId.HasValue)
@@ -1491,6 +1538,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         entity.DecisaoRHRevisadoPorId = _currentUser.FuncionarioId;
         entity.DecisaoRHEmUtc = DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        var statusAnteriorDecisao = entity.Status.ToString();
 
         if (request.Decisao == TipoDecisaoHeadcount.SubstituicaoProvisoria)
         {
@@ -1532,7 +1581,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 ProvisorioExpiresAtUtc = vaga.HeadcountProvisorioExpiresAtUtc,
             });
 
-            entity.Status = SolicitacaoVagaStatus.Concluida;
+            entity.Status = SolicitacaoStatus.Concluida;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                statusAnteriorDecisao, entity.Status.ToString(), _currentUser, null, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -1560,7 +1613,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             if (vaga.Status == VagaStatus.Preenchida)
                 vaga.Status = VagaStatus.Aberta;
 
-            entity.Status = SolicitacaoVagaStatus.Concluida;
+            entity.Status = SolicitacaoStatus.Concluida;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                statusAnteriorDecisao, entity.Status.ToString(), _currentUser, null, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -1605,7 +1662,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
             _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
 
-            entity.Status = SolicitacaoVagaStatus.PendenteAprovacaoAumentoHC;
+            entity.Status = SolicitacaoStatus.PendenteAprovacaoAumentoHC;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                statusAnteriorDecisao, entity.Status.ToString(), _currentUser, null, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -1643,12 +1704,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (entity is null) return;
 
         // Idempotente: não re-propaga se já está em estado terminal
-        if (entity.Status == SolicitacaoVagaStatus.Reprovada ||
-            entity.Status == SolicitacaoVagaStatus.Cancelada ||
-            entity.Status == SolicitacaoVagaStatus.Concluida)
+        if (entity.Status == SolicitacaoStatus.Reprovada ||
+            entity.Status == SolicitacaoStatus.Cancelada ||
+            entity.Status == SolicitacaoStatus.Concluida)
             return;
 
-        entity.Status = SolicitacaoVagaStatus.Reprovada;
+        entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
@@ -1695,12 +1756,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return;
 
-        if (entity.Status == SolicitacaoVagaStatus.Reprovada ||
-            entity.Status == SolicitacaoVagaStatus.Cancelada ||
-            entity.Status == SolicitacaoVagaStatus.Concluida)
+        if (entity.Status == SolicitacaoStatus.Reprovada ||
+            entity.Status == SolicitacaoStatus.Cancelada ||
+            entity.Status == SolicitacaoStatus.Concluida)
             return;
 
-        entity.Status = SolicitacaoVagaStatus.Cancelada;
+        entity.Status = SolicitacaoStatus.Cancelada;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa

@@ -24,7 +24,9 @@ import {
     Copy,
     Zap,
     Loader2,
+    CalendarDays,
 } from "lucide-react";
+import { AGING_BUCKETS, type AgingBucket, matchesAgingBucket } from "@/features/shared/urgencia";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
@@ -65,6 +67,7 @@ interface SolicitacaoDesligamentoGridRow {
     etapaPendenteCom: string | null;
     etapaPendenteIsQueue?: boolean;
     etapaPendenteCanAssume?: boolean;
+    etapaPendenteCanApprove?: boolean;
 }
 
 interface SolicitacaoDesligamentoResponse {
@@ -206,6 +209,9 @@ export default function DesligamentosScreen() {
     const [statusFilter, setStatusFilter] = useState("ativas");
     const [areaFilter, setAreaFilter] = useState("all");
     const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
+    const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
 
     /* ── bulk selection ── */
     const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -275,11 +281,14 @@ export default function DesligamentosScreen() {
             if (statusFilter === "aprovadas" && s !== "2") return false;
             if (statusFilter === "reprovadas"&& s !== "3") return false;
             if (statusFilter === "concluidas"&& s !== "8") return false;
+            if (dateFrom && r.createdAtUtc && new Date(r.createdAtUtc) < new Date(dateFrom)) return false;
+            if (dateTo && r.createdAtUtc && new Date(r.createdAtUtc) > new Date(`${dateTo}T23:59:59`)) return false;
+            if (!matchesAgingBucket(r.createdAtUtc, agingBucket)) return false;
             if (!term) return true;
             const blob = [r.funcionarioNome, r.solicitanteNome].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [q, rows, statusFilter]);
+    }, [q, rows, statusFilter, dateFrom, dateTo, agingBucket]);
 
     /* ── KPIs ── */
     const kpis = useMemo(() => {
@@ -580,16 +589,12 @@ export default function DesligamentosScreen() {
         <section className="space-y-4">
             {/* ── header ── */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                    <h4 className="text-lg font-bold">Solicitações de Desligamento</h4>
-                    <div className="text-muted-foreground text-sm">
-                        Gerencie solicitações de desligamento e acompanhe aprovações
-                    </div>
-                </div>
+                <div className="text-muted-foreground text-sm">Gerencie solicitações de desligamento e acompanhe aprovações</div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button
                         variant="outline"
                         size="sm"
+                        disabled={loading}
                         onClick={() => {
                             setLoading(true);
                             syncList()
@@ -597,7 +602,7 @@ export default function DesligamentosScreen() {
                                 .finally(() => setLoading(false));
                         }}
                     >
-                        <RefreshCw className="size-4" />
+                        <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
                         <span className="hidden sm:inline">Atualizar</span>
                     </Button>
                     <Button variant="outline" size="sm" onClick={exportCsv}>
@@ -609,28 +614,6 @@ export default function DesligamentosScreen() {
                         <span className="hidden sm:inline">Nova solicitação</span>
                     </Button>
                 </div>
-            </div>
-
-            {/* ── KPIs ── */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {[
-                    { label: "Total", value: kpis.total, color: "text-primary" },
-                    { label: "Pendentes", value: kpis.pendentes, color: "text-amber-600" },
-                    { label: "Aprovadas", value: kpis.aprovadas, color: "text-emerald-600" },
-                    { label: "Reprovadas", value: kpis.reprovadas, color: "text-red-600" },
-                ].map((k) => (
-                    <div
-                        key={k.label}
-                        className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur"
-                    >
-                        <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-                            {k.label}
-                        </div>
-                        <div className={`mt-1 text-2xl font-bold ${k.color}`}>
-                            {k.value}
-                        </div>
-                    </div>
-                ))}
             </div>
 
             {/* ── filters + table ── */}
@@ -668,7 +651,7 @@ export default function DesligamentosScreen() {
                     </div>
                 </div>
                 {/* Row 2: status chips */}
-                <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                <div className="mb-2 flex flex-wrap items-center gap-1.5">
                     {([
                         { key: "ativas",     label: "Ativas",      count: rows.filter(r => ATIVAS.has(String(r.status))).length,  cls: "data-[active=true]:bg-amber-500/15 data-[active=true]:text-amber-700 data-[active=true]:border-amber-400/50" },
                         { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => r.status === 2).length,                cls: "data-[active=true]:bg-emerald-500/15 data-[active=true]:text-emerald-700 data-[active=true]:border-emerald-400/50" },
@@ -685,6 +668,26 @@ export default function DesligamentosScreen() {
                             {label}
                             <span className="rounded-full bg-current/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none opacity-80">{count}</span>
                         </button>
+                    ))}
+                </div>
+                {/* Row 3: date range + aging */}
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <CalendarDays className="size-3.5" />
+                        <span>Criado em:</span>
+                    </div>
+                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data inicial" />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data final" />
+                    {(dateFrom || dateTo) && (
+                        <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground underline">Limpar</button>
+                    )}
+                    <div className="ml-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Clock className="size-3.5" />
+                        <span>Aging:</span>
+                    </div>
+                    {AGING_BUCKETS.map((b) => (
+                        <button key={b.value} type="button" onClick={() => setAgingBucket(prev => prev === b.value ? "" : b.value)} className={`inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-medium transition-colors ${agingBucket === b.value ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}>{b.label}</button>
                     ))}
                 </div>
 
@@ -801,7 +804,39 @@ export default function DesligamentosScreen() {
                                                     </Button>
                                                 </>
                                             )}
-                                            {/* Pendente: ações inline se pode aprovar, senão editar */}
+                                            {/* Aguarda Fila (6): exibe "Assumir" se pode assumir, ou aprovação se já assumiu */}
+                                            {r.status === 6 && r.etapaPendenteCanAssume && (
+                                                <Button
+                                                    variant="default"
+                                                    size="xs"
+                                                    title="Assumir etapa para aprovação"
+                                                    className="gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                                    onClick={(e) => { e.stopPropagation(); void quickAssume(r.id); }}
+                                                >
+                                                    <UserCheck className="size-3" />
+                                                    Assumir
+                                                </Button>
+                                            )}
+                                            {r.status === 6 && r.etapaPendenteCanApprove && !r.etapaPendenteCanAssume && (
+                                                <>
+                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
+                                                        className="hover:text-emerald-600 hover:border-emerald-300"
+                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
+                                                        <CheckCircle2 />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
+                                                        className="hover:text-amber-600 hover:border-amber-300"
+                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
+                                                        <AlertTriangle />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
+                                                        className="hover:text-red-600 hover:border-red-300"
+                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
+                                                        <XCircle />
+                                                    </Button>
+                                                </>
+                                            )}
+                                            {/* Pendente (1): ações inline se pode aprovar, senão editar */}
                                             {r.status === 1 && r.etapaPendenteCanAssume ? (
                                                 <>
                                                     <Button variant="outline" size="icon-xs" title="Aprovar"
@@ -816,6 +851,24 @@ export default function DesligamentosScreen() {
                                                             <UserCheck />
                                                         </Button>
                                                     )}
+                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
+                                                        className="hover:text-amber-600 hover:border-amber-300"
+                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
+                                                        <AlertTriangle />
+                                                    </Button>
+                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
+                                                        className="hover:text-red-600 hover:border-red-300"
+                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
+                                                        <XCircle />
+                                                    </Button>
+                                                </>
+                                            ) : r.status === 1 && r.etapaPendenteCanApprove ? (
+                                                <>
+                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
+                                                        className="hover:text-emerald-600 hover:border-emerald-300"
+                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
+                                                        <CheckCircle2 />
+                                                    </Button>
                                                     <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
                                                         className="hover:text-amber-600 hover:border-amber-300"
                                                         onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>

@@ -7,6 +7,7 @@ public sealed record SolicitacaoEnderecoListQuery(string? Q, SolicitacaoStatus? 
 
 public sealed class SolicitacaoEnderecoCreateRequest
 {
+    public Guid? FuncionarioId { get; set; }
     [Required, MaxLength(9)] public string Cep { get; set; } = string.Empty;
     [Required, MaxLength(300)] public string Logradouro { get; set; } = string.Empty;
     [MaxLength(20)] public string? Numero { get; set; }

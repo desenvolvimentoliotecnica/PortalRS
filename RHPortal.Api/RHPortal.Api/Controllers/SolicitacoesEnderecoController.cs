@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.SolicitacoesEndereco;
 using RhPortal.Api.Contracts.SolicitacoesEndereco;
@@ -52,7 +53,7 @@ public sealed class SolicitacoesEnderecoController : ControllerBase
     {
         try
         {
-            var created = await _service.CreateAsync(request, _userContext.FuncionarioId, ct);
+            var created = await _service.CreateAsync(request, request.FuncionarioId ?? _userContext.FuncionarioId, ct);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
@@ -148,8 +149,30 @@ public sealed class SolicitacoesEnderecoController : ControllerBase
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
     }
 
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromQuery] string? q,
+        [FromQuery] SolicitacaoStatus? status,
+        CancellationToken ct)
+    {
+        var apenasMeus = !_userContext.IsAdmin;
+        var query = new SolicitacaoEnderecoListQuery(q, status, null, apenasMeus, null, null);
+        var rows = await _service.ListAsync(query, _userContext.FuncionarioId, ct);
+        var csv = BuildCsv(rows);
+        return File(Encoding.UTF8.GetBytes(csv), "text/csv; charset=utf-8", "enderecos.csv");
+    }
+
     private Task<bool> CanApprove(Guid solicitacaoId, CancellationToken ct)
     {
         return Task.FromResult(true);
+    }
+
+    private static string BuildCsv(IReadOnlyList<SolicitacaoEnderecoGridRow> rows)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Colaborador;CEP;Cidade/UF;Status;Data");
+        foreach (var r in rows)
+            sb.AppendLine($"{r.SolicitanteNome};{r.Cep};{r.Cidade}/{r.Uf};{r.Status};{r.CreatedAtUtc:dd/MM/yyyy}");
+        return sb.ToString();
     }
 }

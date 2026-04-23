@@ -22,6 +22,12 @@ public sealed class ProjetoVaga : ITenantEntity
 
     public StatusProjeto Status { get; set; } = StatusProjeto.Ativo;
 
+    /// <summary>Data de início desta rodada/publicação (preenchida automaticamente ao abrir a vaga).</summary>
+    public DateOnly? DataInicio { get; set; }
+
+    /// <summary>Data de encerramento desta rodada/publicação (preenchida ao fechar/pausar/cancelar a vaga).</summary>
+    public DateOnly? DataEncerramento { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

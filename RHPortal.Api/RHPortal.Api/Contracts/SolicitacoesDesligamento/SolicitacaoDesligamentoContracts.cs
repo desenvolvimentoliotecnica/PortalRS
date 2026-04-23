@@ -127,5 +127,6 @@ public sealed record SolicitacaoDesligamentoGridRow(
     bool EtapaPendenteIsQueue,
     Guid? EtapaPendenteAprovadorId,
     Guid? EtapaPendenteAssumedByUserId,
-    bool EtapaPendenteCanAssume
+    bool EtapaPendenteCanAssume,
+    bool EtapaPendenteCanApprove
 );
