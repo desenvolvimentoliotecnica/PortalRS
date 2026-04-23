@@ -456,22 +456,22 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         };
         var tipoLabel = BlipDocumentoValidator.TipoDocumentoLabel(tipo);
 
-        bool valido;
-        string? mensagemErro;
-        try
-        {
-            (valido, _, mensagemErro) =
-                await _blipValidator.ValidarAsync(_tenantContext.TenantId, tipo, base64, mimeType, ct);
-        }
-        catch (Exception)
-        {
-            return (400, "Erro ao acessar o serviço de análise de documentos. Tente novamente.");
-        }
+        // Validação automática via GPT-4o (desativada — aceita qualquer documento enviado pelo usuário)
+        // bool valido;
+        // string? mensagemErro;
+        // try
+        // {
+        //     (valido, _, mensagemErro) =
+        //         await _blipValidator.ValidarAsync(_tenantContext.TenantId, tipo, base64, mimeType, ct);
+        // }
+        // catch (Exception)
+        // {
+        //     return (400, "Erro ao acessar o serviço de análise de documentos. Tente novamente.");
+        // }
+        // if (!valido)
+        //     return (400, mensagemErro ?? $"Documento inválido. Envie uma imagem nítida do {tipoLabel}.");
 
-        if (!valido)
-            return (400, mensagemErro ?? $"Documento inválido. Envie uma imagem nítida do {tipoLabel}.");
-
-        // 4. Salva o documento após validação bem-sucedida
+        // 4. Salva o documento sem validação automática
         var extFromMime = mimeType switch
         {
             "image/jpeg" => ".jpg",

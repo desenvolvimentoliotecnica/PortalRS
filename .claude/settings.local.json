@@ -68,6 +68,8 @@
       "Bash(dotnet test *)",
       "Bash(git add *)",
       "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git ls-tree *)",
       "Bash(grep -E \"\\(tsx|ts\\)$\")",
       "Bash(find /Users/victoralves/Projects/Voltage.RenderRH -path \"*Contracts*\" -name \"*.cs\" -exec grep -l \"Projeto\\\\|Rodada\" {} \\\\;)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/painel-rh)",

@@ -124,7 +124,6 @@ public sealed record PreAdmissaoDetailResponse(
 
     // TOTVS: Ponto
     string? EmitCartPonto, int? CodLocalMarcacao, int? CodClassFuncPontoEletronico,
-    int? TipoEstatistica,
 
     // Docs avulsos
     string? TituloEleitorNumero, string? TituloEleitorZona, string? TituloEleitorSecao,
@@ -287,7 +286,6 @@ public sealed record PreAdmissaoUpdateRequest(
 
     // TOTVS: Ponto
     string? EmitCartPonto, int? CodLocalMarcacao, int? CodClassFuncPontoEletronico,
-    int? TipoEstatistica,
 
     // Docs avulsos
     string? TituloEleitorNumero, string? TituloEleitorZona, string? TituloEleitorSecao,
