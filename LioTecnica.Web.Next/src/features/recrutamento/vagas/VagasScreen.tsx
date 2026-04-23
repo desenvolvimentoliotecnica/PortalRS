@@ -1208,7 +1208,7 @@ export default function VagasScreen() {
                                                             <div>
                                                                 <div className="text-sm font-medium">{vaga.titulo ?? "—"}</div>
                                                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                                                                    {vagaRaw.unidadeLotacaoCode && <><span className="font-mono">{vagaRaw.unidadeLotacaoCode as string}</span><span>·</span></>}
+                                                                    {(vagaRaw.unidadeLotacaoCode as string | undefined) && <><span className="font-mono">{vagaRaw.unidadeLotacaoCode as string}</span><span>·</span></>}
                                                                     <span>{vagaRaw.unidadeLotacaoName as string | undefined ?? "—"}</span>
                                                                     {location && <><span>·</span><span>{location}</span></>}
                                                                 </div>
