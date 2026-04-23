@@ -26,6 +26,7 @@ import {
   Users,
   Download,
   Plus,
+  LayoutList,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import {
@@ -57,6 +58,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import TodosScreen from "@/features/gestao/todos/TodosScreen";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
 import FeriasScreen from "@/features/gestao/ferias/FeriasScreen";
@@ -67,10 +69,11 @@ import PagamentoExtraScreen from "@/features/gestao/pagamento-extra/PagamentoExt
 
 /* ─── Tab config ─────────────────────────────────────────── */
 
-type PainelTab = "recrutamento" | "movimentacoes" | "desligamentos" | "ferias"
+type PainelTab = "todos" | "recrutamento" | "movimentacoes" | "desligamentos" | "ferias"
   | "dependentes" | "beneficios" | "enderecos" | "pagamento-extra";
 
 const PAINEL_TABS: { id: PainelTab; label: string; icon: React.ElementType }[] = [
+  { id: "todos",          label: "Todos",           icon: LayoutList  },
   { id: "recrutamento",   label: "Recrutamento",    icon: Briefcase   },
   { id: "movimentacoes",  label: "Movimentação",    icon: TrendingUp  },
   { id: "desligamentos",  label: "Desligamento",    icon: UserMinus   },
@@ -612,6 +615,7 @@ export default function WorkflowRHScreen() {
       </div>
 
       {/* Tab content */}
+      {activeTab === "todos"           && <TodosScreen />}
       {activeTab === "recrutamento"    && <RecrutamentoContent />}
       {activeTab === "movimentacoes"   && <PromocoesScreen />}
       {activeTab === "desligamentos"   && <DesligamentosScreen />}
