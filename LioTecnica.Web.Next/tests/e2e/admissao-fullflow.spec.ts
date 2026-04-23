@@ -42,9 +42,10 @@ function gerarCpf(): string {
 }
 
 function payloadCompleto(nome: string, cpf: string) {
-    // Baseado no payload de referência do Lucas Ferreira Pereira que integrou com
-    // Sucesso em QA (2026-04-20). Códigos TOTVS válidos: cargo 299, Santander 033
-    // ag 4196, centro custo 99999, plano lotação 101, turno/turma 1, sindicato 1.
+    // Baseado no mock TOTVS do Luiz Fernando Soares (validado pelo Datasul QA).
+    // Admissão retroativa 2016-05-16, cargo 299 nível 0 (admissional), Santander
+    // 033 ag 4196, provisões 13º/férias do funcionário migrado. Datas em ISO,
+    // peso em gramas — depende da API v2.6+ (AlterCnhDatesParaDateOnlyEPesoParaGramas).
     return {
         nome, nomeSocial: null, nomeAbreviado: nome.split(" ")[0],
         cpf,
@@ -65,7 +66,7 @@ function payloadCompleto(nome: string, cpf: string) {
         cidade: "Sao Paulo", uf: "SP",
         pontoReferencia: "Teste",
         tipoLogradouroESocial: "R", municipioEnderecoIbge: 3550308,
-        email: `lucas.qa.${cpf.slice(-6)}@qualiit-test.com.br`,
+        email: `luiz.qa.${cpf.slice(-6)}@qualiit-test.com.br`,
         emailAlternativo: `teste.qa.${cpf.slice(-6)}@qualiit-test.com.br`,
         telefone: "38341345", celular: "988224045",
         dddTelefone: 11, dddTelContato: 11,
@@ -77,7 +78,7 @@ function payloadCompleto(nome: string, cpf: string) {
         tipoConta: "ContaCorrente",
         estabelecimentoCodigo: "099", codEmpresa: "1",
         unitId: null, areaId: null, jobPositionId: null, requisitoCategoriaId: null,
-        dataAdmissao: "2026-05-01", salario: 3835,
+        dataAdmissao: "2016-05-16", salario: 3835,
         tipoContratacao: "CLT", cargaHorariaSemanal: 44,
         pisPasep: "38752119521",
         codCargoTotvs: 299, codVinculoEmpregaticio: 10,
@@ -85,42 +86,42 @@ function payloadCompleto(nome: string, cpf: string) {
         codTurno: 1,
         centroCusto: "99999", unidadeLotacao: "00001001",
         codPlanoLotacao: 101, codTurma: 1,
-        numCartaoPonto: 28101049, codNivel: 1,
+        numCartaoPonto: 28101049, codNivel: 0,
         tipoMaoDeObra: "ADM", formaPagamento: 1,
-        salarioSimulado: 3835,
+        salarioSimulado: 9918.20,
         origemFuncionario: 1, indFuncVinculado: 1, funcQualificado: "S",
-        optanteFgts: "S", dataOpcaoFgts: "2026-05-01",
+        optanteFgts: "S", dataOpcaoFgts: "2018-11-17",
         tipoAdmissaoFgts: 1, recolheFgts: "S", recolheInss: "S",
         sindicalizado: "N", descContribSindical: "N",
         contribSindicDia: "S", codSindicato: 1,
         cargaAutomTurno: "S", recebePericul: "N", recebeInsalub: "N",
         recebeAdiantamento: "S", considEmissRAIS: "S",
         calcula13: "S", recebeFerias: "S",
-        avos13SalCalcAnterior: 0, avos13SalCalc: 0,
-        provAcum13Sal: 0, provAcumInss13Sal: 0, provAcumFgts13Sal: 0,
-        diasProvFeriasMesAnterior: 0, diasProvFeriasMesAtual: 0,
-        provAcumFerias: 0, provAcumInssFerias: 0,
-        provAcumFgtsFerias: 0, provAcumFerias13: 0,
+        avos13SalCalcAnterior: 5, avos13SalCalc: 6,
+        provAcum13Sal: 2093.14, provAcumInss13Sal: 555.72, provAcumFgts13Sal: 167.45,
+        diasProvFeriasMesAnterior: 475, diasProvFeriasMesAtual: 500,
+        provAcumFerias: 6661.47, provAcumInssFerias: 2358.16,
+        provAcumFgtsFerias: 710.55, provAcumFerias13: 2220.49,
         emitCartPonto: "1",
         codLocalMarcacao: 1, codClassFuncPontoEletronico: 1,
         tituloEleitorNumero: "96215860116",
         tituloEleitorZona: "258", tituloEleitorSecao: "190",
         tituloEleitorCidade: "SAO PAULO", tituloEleitorUf: "SP",
         reservistaNumero: null,
-        categoriaCnh: "B", validadeCnh: "2029-08-15",
+        categoriaCnh: "B", validadeCnh: "2021-05-25",
         ctps: "30599", ctpsSerie: "272", ctpsUf: "SP",
         ctpsModelo: 3, ctpsSerieESocial: "272",
         cnhNumero: "5555685014", cnhUf: "SP", cnhOrgaoEmissor: "SSP",
-        cnhDataExpedicao: 25102018, cnhPrimeiraHabilitacao: 14062002,
+        cnhDataExpedicao: "2018-10-25", cnhPrimeiraHabilitacao: "2002-06-14",
         docMilitarTipo: 1, docMilitarNumero: "399855", docMilitarSerie: "A",
-        docMilitarRegiao: 2, docMilitarCircunscricao: 1,
+        docMilitarRegiao: 2, docMilitarCircunscricao: 0,
         grupoSanguineo: 1, fatorRh: 2,
         possuiDeficiencia: "N", funcDoador: "S",
         cartaoSus: "10000141200",
-        altura: 180, peso: 90,
+        altura: 180, peso: 900,
         cutis: 3, cabelo: 1, olhos: 1,
         manequim: 40, sapato: 42,
-        dataTerminoContrato: null,
+        dataTerminoContrato: "2021-08-30",
         paisLocalidade: "BRA", codLocalidade: 17, codFpas: null,
         categoriaTrabalhoESocial: 101,
         indAdmissao: 1, naturezaAtividade: 1,
@@ -147,7 +148,7 @@ async function loginViaUI(page: Page) {
 
 test("RH preenche admissão manual e integração TOTVS retorna Sucesso", async ({ page }) => {
     const cpf = gerarCpf();
-    const nome = `Lucas QA ${cpf.slice(-4)}`;
+    const nome = `Luiz QA ${cpf.slice(-4)}`;
 
     // 1. Login RH real
     await loginViaUI(page);
