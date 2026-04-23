@@ -245,6 +245,11 @@ public sealed class LookupController : ControllerBase
     public async Task<ActionResult<LookupResponse<FuncionarioLookupItem>>> Funcionarios(
         [FromQuery] string? q,
         [FromQuery] bool onlyActive = true,
+        [FromQuery] Guid? jobPositionId = null,
+        [FromQuery] Guid? unitId = null,
+        [FromQuery] Guid? empresaId = null,
+        [FromQuery] Guid? unidadeLotacaoId = null,
+        [FromQuery] Guid? vagaId = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
@@ -263,6 +268,56 @@ public sealed class LookupController : ControllerBase
         {
             query = query.Where(x => x.Status == FuncionarioStatus.Active);
         }
+
+        // Filtro "desligar alguém da vaga X". Regra de ouro: JAMAIS retornar "todos funcionários"
+        // — se não consegue identificar ocupantes, retorna vazio. Ordem de prioridade:
+        //   1) Ocupantes ativos confirmados em OcupacaoHistorico (FuncionarioId preenchido).
+        //   2) Estrutural: combina JobPositionId + UnidadeLotacaoId da vaga (exige ao menos um).
+        //   3) Sem critério possível → vazio.
+        if (vagaId.HasValue)
+        {
+            var vaga = await _db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == vagaId.Value)
+                .Select(v => new { v.JobPositionId, v.UnidadeLotacaoId, v.CentroCustoId })
+                .FirstOrDefaultAsync(ct);
+
+            var ocupantes = await _db.Set<OcupacaoHistorico>()
+                .AsNoTracking()
+                .Where(o => o.VagaId == vagaId.Value && o.DataSaida == null && o.FuncionarioId.HasValue)
+                .Select(o => o.FuncionarioId!.Value)
+                .ToListAsync(ct);
+
+            if (ocupantes.Count > 0)
+            {
+                // Prioridade 1: ocupantes ativos identificados
+                query = query.Where(x => ocupantes.Contains(x.Id));
+            }
+            else if (vaga is not null && (vaga.JobPositionId.HasValue || vaga.UnidadeLotacaoId.HasValue))
+            {
+                // Prioridade 2: estrutural — só aplica SE tivermos ao menos um critério útil (cargo OU lotação).
+                if (vaga.JobPositionId.HasValue)
+                    query = query.Where(x => x.JobPositionId == vaga.JobPositionId.Value);
+                if (vaga.UnidadeLotacaoId.HasValue)
+                    query = query.Where(x => x.UnidadeLotacaoId == vaga.UnidadeLotacaoId.Value);
+                if (vaga.CentroCustoId.HasValue)
+                    query = query.Where(x => x.CentroCustoId == vaga.CentroCustoId.Value);
+            }
+            else
+            {
+                // Vaga não existe OU não tem nenhum critério → retorna vazio (JAMAIS retornar todos)
+                query = query.Where(x => false);
+            }
+        }
+
+        if (jobPositionId.HasValue)
+            query = query.Where(x => x.JobPositionId == jobPositionId.Value);
+        if (unitId.HasValue)
+            query = query.Where(x => x.UnitId == unitId.Value);
+        if (empresaId.HasValue)
+            query = query.Where(x => x.Unit != null && x.Unit.EmpresaId == empresaId.Value);
+        if (unidadeLotacaoId.HasValue)
+            query = query.Where(x => x.UnidadeLotacaoId == unidadeLotacaoId.Value);
 
         if (!string.IsNullOrWhiteSpace(q))
         {

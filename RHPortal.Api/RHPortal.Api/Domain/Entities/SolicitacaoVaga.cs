@@ -115,6 +115,29 @@ public sealed class SolicitacaoVaga : ITenantEntity
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public DateTimeOffset? ApprovedAtUtc { get; set; }
 
+    // ── Dados de desligamento (quando MotivoRequisicao = PedidoDemissao ou DesligamentoSemJustaCausa) ──
+
+    /// <summary>Funcionário que será desligado — igual a SubstituidoFuncionarioId; campo semântico para o fluxo de desligamento.</summary>
+    public DateOnly? DataDesligamento { get; set; }
+
+    public TipoAvisoPrevio? TipoAvisoPrevioDesligamento { get; set; }
+
+    public int? DiasAvisoPrevioDesligamento { get; set; }
+
+    public bool? PossuiEstabilidadeDesligamento { get; set; }
+
+    [System.ComponentModel.DataAnnotations.MaxLength(2000)]
+    public string? MotivoDesligamentoTexto { get; set; }
+
+    /// <summary>Solicitação de desligamento gerada automaticamente na primeira aprovação desta vaga.</summary>
+    public Guid? DesligamentoVinculadoId { get; set; }
+
+    // ── Amarração com candidato contratado ──
+
+    /// <summary>Candidato contratado para esta vaga (amarrado quando a pré-admissão é efetivada).</summary>
+    public Guid? CandidatoContratadoId { get; set; }
+    public Candidato? CandidatoContratado { get; set; }
+
     // ── Integração TOTVS ──
 
     public IntegracaoResultado? IntegracaoResultado { get; set; }

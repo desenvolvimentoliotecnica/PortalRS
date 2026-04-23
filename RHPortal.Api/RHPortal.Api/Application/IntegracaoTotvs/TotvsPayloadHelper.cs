@@ -21,11 +21,6 @@ public static class TotvsPayloadHelper
     }
 
     /// <summary>
-    /// Peso é armazenado em kg (inteiro) pela UI, mas o TOTVS exige gramas.
-    /// </summary>
-    public static int? PesoKgParaGramas(int? pesoKg) => pesoKg.HasValue ? pesoKg.Value * 1000 : null;
-
-    /// <summary>
     /// Extrai apenas o número do telefone, removendo máscara e o DDD se vier junto.
     /// Brasileiro: 10 dígitos = DDD(2)+fixo(8); 11 dígitos = DDD(2)+celular(9).
     /// O DDD deve ir nos campos separados <c>dddTelefone</c>/<c>dddTelContato</c>.

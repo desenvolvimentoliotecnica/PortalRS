@@ -52,6 +52,15 @@ public sealed class SolicitacaoVagaCreateRequest
     public Guid? EmpresaId { get; set; }
     public Guid? CentroCustoId { get; set; }
     public Guid? UnidadeLotacaoId { get; set; }
+
+    // Dados do desligamento (quando MotivoRequisicao = PedidoDemissao ou DesligamentoSemJustaCausa)
+    public DateOnly? DataDesligamento { get; set; }
+    public TipoAvisoPrevio? TipoAvisoPrevioDesligamento { get; set; }
+    public int? DiasAvisoPrevioDesligamento { get; set; }
+    public bool? PossuiEstabilidadeDesligamento { get; set; }
+
+    [MaxLength(2000)]
+    public string? MotivoDesligamentoTexto { get; set; }
 }
 
 public sealed class SolicitacaoVagaUpdateRequest
@@ -89,6 +98,15 @@ public sealed class SolicitacaoVagaUpdateRequest
     public Guid? EmpresaId { get; set; }
     public Guid? CentroCustoId { get; set; }
     public Guid? UnidadeLotacaoId { get; set; }
+
+    // Dados do desligamento (quando MotivoRequisicao = PedidoDemissao ou DesligamentoSemJustaCausa)
+    public DateOnly? DataDesligamento { get; set; }
+    public TipoAvisoPrevio? TipoAvisoPrevioDesligamento { get; set; }
+    public int? DiasAvisoPrevioDesligamento { get; set; }
+    public bool? PossuiEstabilidadeDesligamento { get; set; }
+
+    [MaxLength(2000)]
+    public string? MotivoDesligamentoTexto { get; set; }
 }
 
 // ── Approval actions ──
@@ -98,6 +116,10 @@ public sealed class SolicitacaoVagaApprovalRequest
     [MaxLength(2000)]
     public string? Observacao { get; set; }
 }
+
+// ── Vincular candidato contratado ──
+
+public sealed record VincularCandidatoRequest(Guid CandidatoId);
 
 // ── Decisão de headcount pelo RH ──
 
@@ -171,7 +193,17 @@ public sealed record SolicitacaoVagaResponse(
     TipoDecisaoHeadcount? DecisaoRH,
     string? DecisaoRHRevisadoPorNome,
     DateTimeOffset? DecisaoRHEmUtc,
-    int? DecisaoRHPrazoMeses
+    int? DecisaoRHPrazoMeses,
+    // Dados do desligamento (quando MotivoRequisicao ∈ {PedidoDemissao, DesligamentoSemJustaCausa})
+    DateOnly? DataDesligamento,
+    TipoAvisoPrevio? TipoAvisoPrevioDesligamento,
+    int? DiasAvisoPrevioDesligamento,
+    bool? PossuiEstabilidadeDesligamento,
+    string? MotivoDesligamentoTexto,
+    Guid? DesligamentoVinculadoId,
+    // Amarração com candidato contratado (preenchido quando a pré-admissão vinculada à vaga é efetivada)
+    Guid? CandidatoContratadoId,
+    string? CandidatoContratadoNome
 );
 
 public sealed record SolicitacaoVagaGridRow(
