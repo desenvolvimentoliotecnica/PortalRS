@@ -61,6 +61,12 @@ public sealed class SolicitacaoVagaCreateRequest
 
     [MaxLength(2000)]
     public string? MotivoDesligamentoTexto { get; set; }
+
+    // Decisão de headcount — preenchida pelo gestor na criação.
+    // Obrigatória ao submeter (SubmitAsync valida).
+    public TipoDecisaoHeadcount? DecisaoRH { get; set; }
+    public int? DecisaoRHPrazoMeses { get; set; }
+    public DateTimeOffset? DecisaoRHPrazoDataAlvo { get; set; }
 }
 
 public sealed class SolicitacaoVagaUpdateRequest
@@ -107,6 +113,11 @@ public sealed class SolicitacaoVagaUpdateRequest
 
     [MaxLength(2000)]
     public string? MotivoDesligamentoTexto { get; set; }
+
+    // Decisão de headcount — pode ser editada no rascunho
+    public TipoDecisaoHeadcount? DecisaoRH { get; set; }
+    public int? DecisaoRHPrazoMeses { get; set; }
+    public DateTimeOffset? DecisaoRHPrazoDataAlvo { get; set; }
 }
 
 // ── Approval actions ──
@@ -120,19 +131,6 @@ public sealed class SolicitacaoVagaApprovalRequest
 // ── Vincular candidato contratado ──
 
 public sealed record VincularCandidatoRequest(Guid CandidatoId);
-
-// ── Decisão de headcount pelo RH ──
-
-public sealed record DecisaoHeadcountRequest(
-    TipoDecisaoHeadcount Decisao,
-    int? PrazoMeses,
-    /// <summary>
-    /// Data/hora alvo calculada pelo front-end para qualquer unidade de prazo
-    /// (minutos, dias, meses ou data específica). Quando presente, substitui PrazoMeses
-    /// no cálculo de HeadcountProvisorioExpiresAtUtc.
-    /// </summary>
-    DateTimeOffset? PrazoDataAlvo
-);
 
 // ── Workflow etapa snapshot ──
 

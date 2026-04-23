@@ -43,12 +43,6 @@ public interface ISolicitacaoVagaService
     Task<SolicitacaoVagaResponse?> EfetivarAsync(Guid id, CancellationToken ct);
 
     /// <summary>
-    /// RH toma a decisão de headcount sobre uma VagaNova aprovada:
-    /// substituição provisória (com prazo em meses) ou aumento definitivo (escalado à Diretoria).
-    /// </summary>
-    Task<SolicitacaoVagaResponse?> DecisaoRHAsync(Guid id, DecisaoHeadcountRequest request, CancellationToken ct);
-
-    /// <summary>
     /// Propaga reprovação a partir do desligamento vinculado. Não valida permissões do usuário.
     /// Idempotente: ignora se a vaga já está em estado terminal.
     /// </summary>
@@ -331,6 +325,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             DiasAvisoPrevioDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.DiasAvisoPrevioDesligamento : null,
             PossuiEstabilidadeDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.PossuiEstabilidadeDesligamento : null,
             MotivoDesligamentoTexto = IsMotivoDesligamento(request.MotivoRequisicao) ? request.MotivoDesligamentoTexto : null,
+            // Decisão de headcount escolhida pelo gestor na criação
+            DecisaoRH = request.DecisaoRH,
+            DecisaoRHPrazoMeses = request.DecisaoRHPrazoMeses,
+            DecisaoRHPrazoDataAlvo = request.DecisaoRHPrazoDataAlvo,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -451,6 +449,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             CnhObrigatoria = source.CnhObrigatoria,
             DisponibilidadeViagens = source.DisponibilidadeViagens,
             EscalaTrabalho = source.EscalaTrabalho,
+            // Decisão de headcount — copia pro rascunho, gestor pode alterar antes de submeter
+            DecisaoRH = source.DecisaoRH,
+            DecisaoRHPrazoMeses = source.DecisaoRHPrazoMeses,
+            DecisaoRHPrazoDataAlvo = source.DecisaoRHPrazoDataAlvo,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -618,6 +620,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         ValidarCamposDesligamento(entity);
 
+        // Decisão de headcount (escolhida pelo gestor)
+        entity.DecisaoRH = request.DecisaoRH;
+        entity.DecisaoRHPrazoMeses = request.DecisaoRHPrazoMeses;
+        entity.DecisaoRHPrazoDataAlvo = request.DecisaoRHPrazoDataAlvo;
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         // Sync do desligamento vinculado:
@@ -687,6 +694,21 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (entity is null) return false;
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
+
+        // Decisão de headcount passou a ser obrigatória na submissão: quem pede a vaga decide
+        // o tipo de headcount (consumir existente, provisório ou aumento definitivo).
+        // Substituicao pura segue o fluxo de provisório por padrão (sem exigir DecisaoRH explícito).
+        if (entity.TipoSolicitacao == TipoSolicitacaoVaga.VagaNova && !entity.DecisaoRH.HasValue)
+            throw new InvalidOperationException("Informe a decisão de headcount antes de submeter a solicitação.");
+
+        if (entity.DecisaoRH == TipoDecisaoHeadcount.SubstituicaoProvisoria
+            && !entity.DecisaoRHPrazoDataAlvo.HasValue
+            && !(entity.DecisaoRHPrazoMeses.HasValue && entity.DecisaoRHPrazoMeses.Value > 0))
+            throw new InvalidOperationException("Informe o prazo da substituição provisória (data alvo ou meses).");
+
+        // Snapshot de quem decidiu (gestor solicitante)
+        entity.DecisaoRHRevisadoPorId ??= entity.SolicitanteId;
+        entity.DecisaoRHEmUtc ??= DateTimeOffset.UtcNow;
 
         var statusAnteriorSubmit = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
@@ -814,11 +836,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             await ExecutarAcaoEtapaAsync(etapaAtual.AcaoEtapa, entity, ct);
 
         // Auto-avança por etapas de processo (sem aprovador, sem fila, com ação)
-        // Para quando AguardandoDecisaoRH (VagaNova com vaga estrutural já existente)
         var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
-        while (proximaEtapa is not null
-            && IsProcessoStep(proximaEtapa)
-            && entity.Status != SolicitacaoStatus.AguardandoDecisaoRH)
+        while (proximaEtapa is not null && IsProcessoStep(proximaEtapa))
         {
             await ExecutarAcaoEtapaAsync(proximaEtapa.AcaoEtapa, entity, ct);
             proximaEtapa.Status = StatusAprovacao.Aprovado;
@@ -828,25 +847,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-        // Saída antecipada: VagaNova vinculada a vaga estrutural, aguardando decisão do RH
-        if (entity.Status == SolicitacaoStatus.AguardandoDecisaoRH)
-        {
-            await _statusHistorico.RegistrarAsync(
-                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
-
-            await _db.SaveChangesAsync(ct);
-
-            await _workflow.NotifyByFuncionarioIdAsync(
-                entity.SolicitanteId,
-                "Solicitação de vaga aprovada — aguarda decisão do RH",
-                $"Sua solicitação \"{entity.Titulo}\" foi aprovada. O RH irá definir o tipo de headcount.",
-                $"/rs/solicitacoes/{entity.Id}",
-                ct);
-
-            return await GetByIdAsync(id, ct);
-        }
 
         if (proximaEtapa is not null)
         {
@@ -940,33 +940,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             }
             else
             {
-                // VagaNova: cria rascunho ou provisiona HC na vaga existente, aguarda decisão do RH
-                if (!entity.VagaId.HasValue)
-                {
-                    await CriarVagaRascunhoAsync(entity, ct, headcountPendente: entity.QtdPosicoes);
-                }
-                else
-                {
-                    // Vaga do quadro já vinculada: provisionar HC pendente na vaga existente
-                    await ProvisionarHcPendenteAsync(entity, ct);
-                }
-
-                await CreateEtapaDecisaoRhAsync(entity, ct);
-                entity.Status = SolicitacaoStatus.AguardandoDecisaoRH;
-
-                await _statusHistorico.RegistrarAsync(
-                    TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                    statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
-
-                await _db.SaveChangesAsync(ct);
-
-                await _workflow.NotifyByFuncionarioIdAsync(
-                    entity.SolicitanteId,
-                    "Solicitação de vaga aprovada — aguarda decisão do RH",
-                    $"Sua solicitação \"{entity.Titulo}\" foi aprovada. O RH irá definir o tipo de headcount.",
-                    $"/rs/solicitacoes/{entity.Id}",
-                    ct);
-
+                // VagaNova: aplica a decisão de headcount que o gestor escolheu na criação.
+                // A partir de agora o RH não decide mais — essa escolha já veio no payload.
+                await AplicarDecisaoHeadcountAsync(entity, statusAnteriorApprove, observacao, ct);
                 return await GetByIdAsync(id, ct);
             }
         }
@@ -974,27 +950,156 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         return await GetByIdAsync(id, ct);
     }
 
-    private async Task CreateEtapaDecisaoRhAsync(SolicitacaoVaga entity, CancellationToken ct)
+    /// <summary>
+    /// Aplica a decisão de headcount que o gestor escolheu na criação da solicitação de VagaNova.
+    /// Substitui o antigo método DecisaoRHAsync (que era chamado pelo RH pós-aprovação).
+    /// </summary>
+    private async Task AplicarDecisaoHeadcountAsync(
+        SolicitacaoVaga entity,
+        string statusAnterior,
+        string? observacao,
+        CancellationToken ct)
     {
-        var rhRoleId = await _workflow.ResolveRhRoleIdAsync(TipoFluxoAprovacao.RequisicaoPessoal, ct);
-        var ordemAtual = await _db.SolicitacoesAprovacaoEtapa
-            .Where(e => e.SolicitacaoId == entity.Id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal)
-            .MaxAsync(e => (int?)e.Ordem, ct) ?? 0;
+        if (!entity.DecisaoRH.HasValue)
+            throw new InvalidOperationException("VagaNova sem decisão de headcount — obrigatório ao submeter.");
 
-        _db.SolicitacoesAprovacaoEtapa.Add(new SolicitacaoAprovacaoEtapa
+        // Garante que a vaga vinculada exista
+        if (!entity.VagaId.HasValue)
+            await CriarVagaRascunhoAsync(entity, ct, headcountPendente: entity.QtdPosicoes);
+        else
+            await ProvisionarHcPendenteAsync(entity, ct);
+
+        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId!.Value, ct)
+            ?? throw new InvalidOperationException("Vaga vinculada não encontrada.");
+
+        entity.DecisaoRHEmUtc ??= DateTimeOffset.UtcNow;
+        entity.DecisaoRHRevisadoPorId ??= entity.SolicitanteId;
+
+        switch (entity.DecisaoRH.Value)
         {
-            Id = Guid.NewGuid(),
-            TenantId = _tenantContext.TenantId ?? "",
-            SolicitacaoId = entity.Id,
-            TipoFluxo = TipoFluxoAprovacao.RequisicaoPessoal,
-            Ordem = ordemAtual + 1,
-            Label = "Decisão de Headcount — RH",
-            AprovadorId = null,
-            RoleFilaId = rhRoleId,
-            AcaoEtapa = AcaoEtapa.Nenhuma,
-            MomentoAcao = MomentoAcao.AoChegar,
-            Status = StatusAprovacao.Pendente,
-        });
+            case TipoDecisaoHeadcount.SubstituicaoProvisoria:
+            {
+                var expiresAt = entity.DecisaoRHPrazoDataAlvo
+                    ?? (entity.DecisaoRHPrazoMeses.HasValue
+                        ? DateTimeOffset.UtcNow.AddMonths(entity.DecisaoRHPrazoMeses.Value)
+                        : throw new InvalidOperationException("Prazo da substituição provisória ausente."));
+
+                vaga.HeadcountProvisorio += entity.QtdPosicoes;
+                vaga.HeadcountProvisorioExpiresAtUtc = expiresAt;
+                vaga.HeadcountPendente = Math.Max(0, vaga.HeadcountPendente - entity.QtdPosicoes);
+                vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+                if (vaga.Status == VagaStatus.Preenchida)
+                    vaga.Status = VagaStatus.Aberta;
+
+                _db.OcupacoesHistorico.Add(new RhPortal.Api.Domain.Entities.OcupacaoHistorico
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId ?? "",
+                    VagaId = vaga.Id,
+                    FuncionarioId = null,
+                    DataEntrada = DateTime.UtcNow,
+                    SolicitacaoOrigemId = entity.Id,
+                    IsProvisorio = true,
+                    ProvisorioExpiresAtUtc = vaga.HeadcountProvisorioExpiresAtUtc,
+                });
+
+                entity.Status = SolicitacaoStatus.Aprovada;
+                await _statusHistorico.RegistrarAsync(TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                    statusAnterior, entity.Status.ToString(), _currentUser, observacao, ct);
+                await _db.SaveChangesAsync(ct);
+
+                await _workflow.NotifyByFuncionarioIdAsync(
+                    entity.SolicitanteId,
+                    "Solicitação de vaga aprovada — substituição provisória",
+                    $"Sua solicitação \"{entity.Titulo}\" foi aprovada com provisório até {expiresAt:dd/MM/yyyy}.",
+                    $"/rs/solicitacoes/{entity.Id}",
+                    ct);
+                break;
+            }
+
+            case TipoDecisaoHeadcount.ConsumirHeadcountExistente:
+            {
+                var ocupados = await _db.OcupacoesHistorico
+                    .CountAsync(o => o.VagaId == vaga.Id && o.DataSaida == null, ct);
+                var disponivel = vaga.HeadcountAutorizado - ocupados;
+
+                if (disponivel < entity.QtdPosicoes)
+                    throw new InvalidOperationException(
+                        $"Headcount insuficiente para consumo: {disponivel} slot(s) disponível(eis), {entity.QtdPosicoes} solicitado(s).");
+
+                vaga.HeadcountPendente = Math.Max(0, vaga.HeadcountPendente - entity.QtdPosicoes);
+                vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                if (vaga.Status == VagaStatus.Preenchida)
+                    vaga.Status = VagaStatus.Aberta;
+
+                entity.Status = SolicitacaoStatus.Aprovada;
+                await _statusHistorico.RegistrarAsync(TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                    statusAnterior, entity.Status.ToString(), _currentUser, observacao, ct);
+                await _db.SaveChangesAsync(ct);
+
+                await _workflow.NotifyByFuncionarioIdAsync(
+                    entity.SolicitanteId,
+                    "Solicitação de vaga aprovada — consumo de headcount existente",
+                    $"\"{entity.Titulo}\" utilizará headcount já autorizado.",
+                    $"/rs/solicitacoes/{entity.Id}",
+                    ct);
+                break;
+            }
+
+            case TipoDecisaoHeadcount.AumentoDefinitivo:
+            {
+                // Aumento permanente requer aprovação extra (Diretoria) via fluxo AumentoHeadcount
+                var etapasConfig = await _db.EtapasConfigAprovacao
+                    .AsNoTracking()
+                    .Where(e => e.TipoFluxo == TipoFluxoAprovacao.AumentoHeadcount)
+                    .OrderBy(e => e.Ordem)
+                    .ToListAsync(ct);
+
+                if (etapasConfig.Count == 0)
+                    throw new InvalidOperationException(
+                        "Fluxo de aprovação para Aumento de Headcount não configurado. Configure em Admin > Aprovações.");
+
+                var resolved = await _workflow.ResolveEtapasAsync(
+                    entity.SolicitanteId, null, TipoFluxoAprovacao.AumentoHeadcount, ct);
+
+                var novasEtapas = resolved.Select(r => new SolicitacaoAprovacaoEtapa
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = _tenantContext.TenantId ?? "",
+                    SolicitacaoId = entity.Id,
+                    TipoFluxo = TipoFluxoAprovacao.AumentoHeadcount,
+                    Ordem = r.Ordem,
+                    Label = r.Label,
+                    AprovadorId = r.AprovadorId,
+                    RoleFilaId = r.RoleFilaId,
+                    AcaoEtapa = r.AcaoEtapa,
+                    MomentoAcao = r.MomentoAcao,
+                    Status = StatusAprovacao.Pendente,
+                }).ToList();
+
+                _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
+
+                entity.Status = SolicitacaoStatus.PendenteAprovacaoAumentoHC;
+                await _statusHistorico.RegistrarAsync(TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                    statusAnterior, entity.Status.ToString(), _currentUser, observacao, ct);
+                await _db.SaveChangesAsync(ct);
+
+                var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
+                if (primeiraEtapa?.AprovadorId.HasValue == true)
+                {
+                    var solicitanteNome = (await _db.Set<Funcionario>().AsNoTracking()
+                        .FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct))?.Name ?? "Gestor";
+                    await _workflow.NotifyByFuncionarioIdAsync(
+                        primeiraEtapa.AprovadorId.Value,
+                        "Aumento de headcount aguarda sua aprovação",
+                        $"{solicitanteNome} solicitou aumento de headcount para \"{entity.Titulo}\". Aguarda sua aprovação.",
+                        $"/rs/solicitacoes/{entity.Id}",
+                        ct);
+                }
+                break;
+            }
+        }
     }
 
     /// <summary>
@@ -1012,21 +1117,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 if (entity.TipoSolicitacao == TipoSolicitacaoVaga.VagaNova)
                 {
                     if (entity.VagaId.HasValue)
-                    {
-                        // Vaga do quadro já vinculada: provisionar HC pendente na vaga existente
                         await ProvisionarHcPendenteAsync(entity, ct);
-                    }
                     else
-                    {
                         await CriarVagaRascunhoAsync(entity, ct, headcountPendente: entity.QtdPosicoes);
-                    }
                     entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
-                    await CreateEtapaDecisaoRhAsync(entity, ct);
-                    var statusAnteriorAcaoCriar = entity.Status.ToString();
-                    entity.Status = SolicitacaoStatus.AguardandoDecisaoRH;
-                    await _statusHistorico.RegistrarAsync(
-                        TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                        statusAnteriorAcaoCriar, entity.Status.ToString(), _currentUser, null, ct);
                 }
                 else if (!entity.VagaId.HasValue)
                 {
@@ -1036,16 +1130,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 break;
 
             case AcaoEtapa.EnviarIntegracao:
-                // Não sobrescrever AguardandoDecisaoRH (caso VagaNova aguardando decisão do RH)
-                if (entity.Status != SolicitacaoStatus.AguardandoDecisaoRH)
-                {
-                    var statusAnteriorAcaoEnviar = entity.Status.ToString();
-                    entity.Status = SolicitacaoStatus.Aprovada;
-                    entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
-                    await _statusHistorico.RegistrarAsync(
-                        TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                        statusAnteriorAcaoEnviar, entity.Status.ToString(), _currentUser, null, ct);
-                }
+                var statusAnteriorAcaoEnviar = entity.Status.ToString();
+                entity.Status = SolicitacaoStatus.Aprovada;
+                entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+                await _statusHistorico.RegistrarAsync(
+                    TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                    statusAnteriorAcaoEnviar, entity.Status.ToString(), _currentUser, null, ct);
                 break;
         }
     }
@@ -1252,7 +1342,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             entity.Status == SolicitacaoStatus.Cancelada)
             throw new InvalidOperationException("Solicitação não pode ser cancelada no status atual.");
 
-        // Admin e RH podem sempre cancelar fluxos travados (ex: AguardandoDecisaoRH sem vaga)
+        // Admin e RH podem sempre cancelar fluxos travados (ex: PendenteAprovacaoAumentoHC sem quórum)
         bool podeForcar = _currentUser.IsAdmin || _currentUser.IsRH;
 
         // Não-admin/não-RH só pode cancelar se for o solicitante E não houve movimentação
@@ -1502,192 +1592,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         });
     }
 
-    public async Task<SolicitacaoVagaResponse?> DecisaoRHAsync(Guid id, DecisaoHeadcountRequest request, CancellationToken ct)
-    {
-        var entity = await _db.SolicitacoesVaga
-            .Include(s => s.Solicitante)
-            .FirstOrDefaultAsync(x => x.Id == id, ct);
-        if (entity is null) return null;
-
-        if (entity.Status != SolicitacaoStatus.AguardandoDecisaoRH)
-            throw new InvalidOperationException("Solicitação não está aguardando decisão do RH.");
-
-        if (!entity.VagaId.HasValue)
-            throw new InvalidOperationException("Solicitação não possui vaga vinculada.");
-
-        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
-        if (vaga is null)
-            throw new InvalidOperationException("Vaga vinculada não encontrada.");
-
-        // Marcar etapa pendente do fluxo RequisicaoPessoal como aprovada
-        var etapaPendente = await _db.SolicitacoesAprovacaoEtapa
-            .Where(e => e.SolicitacaoId == entity.Id
-                     && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
-                     && e.Status == StatusAprovacao.Pendente)
-            .FirstOrDefaultAsync(ct);
-        if (etapaPendente is not null)
-        {
-            etapaPendente.Status = StatusAprovacao.Aprovado;
-            etapaPendente.DataUtc = DateTimeOffset.UtcNow;
-            if (_currentUser.FuncionarioId.HasValue)
-                etapaPendente.AprovadorId ??= _currentUser.FuncionarioId;
-        }
-
-        // Registrar quem revisou
-        entity.DecisaoRH = request.Decisao;
-        entity.DecisaoRHRevisadoPorId = _currentUser.FuncionarioId;
-        entity.DecisaoRHEmUtc = DateTimeOffset.UtcNow;
-        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-        var statusAnteriorDecisao = entity.Status.ToString();
-
-        if (request.Decisao == TipoDecisaoHeadcount.SubstituicaoProvisoria)
-        {
-            // Aceita data alvo calculada pelo front (qualquer unidade) ou fallback em meses
-            DateTimeOffset expiresAt;
-            if (request.PrazoDataAlvo.HasValue && request.PrazoDataAlvo.Value > DateTimeOffset.UtcNow)
-            {
-                expiresAt = request.PrazoDataAlvo.Value;
-            }
-            else if (request.PrazoMeses.HasValue && request.PrazoMeses.Value > 0)
-            {
-                expiresAt = DateTimeOffset.UtcNow.AddMonths(request.PrazoMeses.Value);
-            }
-            else
-            {
-                throw new InvalidOperationException("Informe o prazo para a substituição provisória.");
-            }
-
-            entity.DecisaoRHPrazoMeses = request.PrazoMeses;
-
-            vaga.HeadcountProvisorio += entity.QtdPosicoes;
-            vaga.HeadcountProvisorioExpiresAtUtc = expiresAt;
-            vaga.HeadcountPendente = Math.Max(0, vaga.HeadcountPendente - entity.QtdPosicoes);
-            vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-            if (vaga.Status == VagaStatus.Preenchida)
-                vaga.Status = VagaStatus.Aberta;
-
-            // Registrar slot provisório no histórico (sem funcionário específico ainda)
-            _db.OcupacoesHistorico.Add(new RhPortal.Api.Domain.Entities.OcupacaoHistorico
-            {
-                Id = Guid.NewGuid(),
-                TenantId = _tenantContext.TenantId ?? "",
-                VagaId = vaga.Id,
-                FuncionarioId = null,
-                DataEntrada = DateTime.UtcNow,
-                SolicitacaoOrigemId = entity.Id,
-                IsProvisorio = true,
-                ProvisorioExpiresAtUtc = vaga.HeadcountProvisorioExpiresAtUtc,
-            });
-
-            entity.Status = SolicitacaoStatus.Concluida;
-
-            await _statusHistorico.RegistrarAsync(
-                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                statusAnteriorDecisao, entity.Status.ToString(), _currentUser, null, ct);
-
-            await _db.SaveChangesAsync(ct);
-
-            await _workflow.NotifyByFuncionarioIdAsync(
-                entity.SolicitanteId,
-                "Decisão de headcount registrada — substituição provisória",
-                $"O RH definiu substituição provisória para \"{entity.Titulo}\", com revisão prevista em {expiresAt:dd/MM/yyyy}.",
-                $"/rs/solicitacoes/{entity.Id}",
-                ct);
-        }
-        else if (request.Decisao == TipoDecisaoHeadcount.ConsumirHeadcountExistente)
-        {
-            // Valida se há slots autorizados disponíveis para consumo
-            var ocupados = await _db.OcupacoesHistorico
-                .CountAsync(o => o.VagaId == vaga.Id && o.DataSaida == null, ct);
-            var disponivel = vaga.HeadcountAutorizado - ocupados;
-
-            if (disponivel < entity.QtdPosicoes)
-                throw new InvalidOperationException(
-                    $"Headcount insuficiente para consumo: {disponivel} slot(s) disponível(eis), {entity.QtdPosicoes} solicitado(s).");
-
-            vaga.HeadcountPendente = Math.Max(0, vaga.HeadcountPendente - entity.QtdPosicoes);
-            vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-            if (vaga.Status == VagaStatus.Preenchida)
-                vaga.Status = VagaStatus.Aberta;
-
-            entity.Status = SolicitacaoStatus.Concluida;
-
-            await _statusHistorico.RegistrarAsync(
-                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                statusAnteriorDecisao, entity.Status.ToString(), _currentUser, null, ct);
-
-            await _db.SaveChangesAsync(ct);
-
-            await _workflow.NotifyByFuncionarioIdAsync(
-                entity.SolicitanteId,
-                "Decisão de headcount registrada — consumo de headcount existente",
-                $"O RH confirmou que \"{entity.Titulo}\" utilizará headcount já autorizado ({disponivel} slot(s) disponível(eis)).",
-                $"/rs/solicitacoes/{entity.Id}",
-                ct);
-        }
-        else // AumentoDefinitivo
-        {
-            // Verificar se o fluxo de AumentoHeadcount está configurado
-            var etapasConfig = await _db.EtapasConfigAprovacao
-                .AsNoTracking()
-                .Where(e => e.TipoFluxo == TipoFluxoAprovacao.AumentoHeadcount)
-                .OrderBy(e => e.Ordem)
-                .ToListAsync(ct);
-
-            if (etapasConfig.Count == 0)
-                throw new InvalidOperationException(
-                    "Fluxo de aprovação para Aumento de Headcount não configurado. Configure em Admin > Aprovações.");
-
-            // Criar etapas de aprovação para o fluxo de escalação
-            var resolved = await _workflow.ResolveEtapasAsync(
-                entity.SolicitanteId, null, TipoFluxoAprovacao.AumentoHeadcount, ct);
-
-            var novasEtapas = resolved.Select(r => new SolicitacaoAprovacaoEtapa
-            {
-                Id = Guid.NewGuid(),
-                TenantId = _tenantContext.TenantId ?? "",
-                SolicitacaoId = entity.Id,
-                TipoFluxo = TipoFluxoAprovacao.AumentoHeadcount,
-                Ordem = r.Ordem,
-                Label = r.Label,
-                AprovadorId = r.AprovadorId,
-                RoleFilaId = r.RoleFilaId,
-                AcaoEtapa = r.AcaoEtapa,
-                MomentoAcao = r.MomentoAcao,
-                Status = StatusAprovacao.Pendente,
-            }).ToList();
-
-            _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
-
-            entity.Status = SolicitacaoStatus.PendenteAprovacaoAumentoHC;
-
-            await _statusHistorico.RegistrarAsync(
-                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                statusAnteriorDecisao, entity.Status.ToString(), _currentUser, null, ct);
-
-            await _db.SaveChangesAsync(ct);
-
-            // Notificar primeiro aprovador da escalação
-            var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
-            if (primeiraEtapa?.AprovadorId.HasValue == true)
-            {
-                var rhNome = _currentUser.FuncionarioId.HasValue
-                    ? (await _db.Set<Funcionario>().AsNoTracking().FirstOrDefaultAsync(f => f.Id == _currentUser.FuncionarioId.Value, ct))?.Name ?? "RH"
-                    : "RH";
-                await _workflow.NotifyByFuncionarioIdAsync(
-                    primeiraEtapa.AprovadorId.Value,
-                    "Aumento de headcount aguarda sua aprovação",
-                    $"{rhNome} escalou o aumento de headcount para \"{entity.Titulo}\". Aguarda sua aprovação.",
-                    $"/rs/solicitacoes/{entity.Id}",
-                    ct);
-            }
-        }
-
-        return await GetByIdAsync(id, ct);
-    }
 
     private Task<Guid?> ResolveUserIdByFuncionarioIdAsync(Guid funcionarioId, CancellationToken ct)
         => _db.Set<Funcionario>()

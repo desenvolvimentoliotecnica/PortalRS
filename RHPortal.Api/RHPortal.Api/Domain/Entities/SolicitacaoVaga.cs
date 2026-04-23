@@ -96,20 +96,23 @@ public sealed class SolicitacaoVaga : ITenantEntity
     /// <summary>Escala de trabalho (ex: Comercial, Turno A/B, 12x36).</summary>
     public string? EscalaTrabalho { get; set; }
 
-    // ── Decisão RH pós-aprovação (VagaNova) ──
+    // ── Decisão de headcount (escolhida pelo gestor na criação) ──
 
-    /// <summary>Decisão do RH: substituição provisória ou aumento definitivo de headcount.</summary>
+    /// <summary>Decisão de headcount: consumir existente, provisório por prazo, ou aumento definitivo (escala à Diretoria).</summary>
     public TipoDecisaoHeadcount? DecisaoRH { get; set; }
 
-    /// <summary>Funcionário do RH que tomou a decisão.</summary>
+    /// <summary>Funcionário que registrou a decisão (snapshot do solicitante ao submeter).</summary>
     public Guid? DecisaoRHRevisadoPorId { get; set; }
     public Funcionario? DecisaoRHRevisadoPor { get; set; }
 
-    /// <summary>Data/hora em que o RH tomou a decisão.</summary>
+    /// <summary>Data/hora em que a decisão foi consolidada (normalmente = UpdatedAtUtc do submit).</summary>
     public DateTimeOffset? DecisaoRHEmUtc { get; set; }
 
     /// <summary>Prazo em meses para a substituição provisória (quando DecisaoRH = SubstituicaoProvisoria).</summary>
     public int? DecisaoRHPrazoMeses { get; set; }
+
+    /// <summary>Data/hora alvo de expiração do provisório (preenchida pelo front em qualquer unidade). Fallback pra PrazoMeses.</summary>
+    public DateTimeOffset? DecisaoRHPrazoDataAlvo { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
