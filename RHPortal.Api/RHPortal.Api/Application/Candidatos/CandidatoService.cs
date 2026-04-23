@@ -609,6 +609,27 @@ public sealed class CandidatoService : ICandidatoService
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
+        // Pre-check das FKs configuradas como Restrict no AppDbContext — sem isso
+        // o SaveChanges lança DbUpdateException (Postgres 23503) com mensagem bruta
+        // que o frontend descarta, e o usuário fica sem saber por que "falhou ao
+        // excluir N candidato(s)". As demais FKs (Candidaturas, StatusHistory,
+        // MatchingScores, competências, educação, etc) são Cascade ou SetNull — não
+        // bloqueiam. Só PropostaVaga e ProjetoCandidato travam.
+        var propostas = await _db.Set<PropostaVaga>().CountAsync(p => p.CandidatoId == id, ct);
+        var projetos  = await _db.Set<ProjetoCandidato>().CountAsync(p => p.CandidatoId == id, ct);
+
+        if (propostas > 0 || projetos > 0)
+        {
+            var blocos = new List<string>();
+            if (propostas > 0) blocos.Add($"{propostas} proposta(s) de vaga");
+            if (projetos  > 0) blocos.Add($"{projetos} participação(ões) em projeto de seleção");
+            var nome = entity.Nome ?? entity.Email ?? id.ToString();
+            throw new InvalidOperationException(
+                $"Não é possível excluir o candidato \"{nome}\" — há vínculos: "
+                + string.Join(", ", blocos)
+                + ". Cancele ou remova esses vínculos antes.");
+        }
+
         var files = entity.Documentos
             .Where(d => !string.IsNullOrWhiteSpace(d.StorageFileName))
             .Select(d => d.StorageFileName!)

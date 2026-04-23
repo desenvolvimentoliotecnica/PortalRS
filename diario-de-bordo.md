@@ -140,6 +140,20 @@ Frontend: reescrevi o handler em `CentroCustoCadastroScreen.tsx` para parsear o 
 
 Cobertura: criei `RHPortal.Api.Tests/CentrosCusto/CentroCustoDeleteTests.cs` (namespace **plural** — o singular conflita com o tipo `CentroCusto` porque o C# trata `Tests.CentroCusto.CentroCusto` como ambíguo). 8 testes: 404 (CC inexistente), 204 (OK sem vínculos), 409 individual por tipo de FK (filhos, vagas, cargos, funcionários), 409 agregado (2 vagas + 3 funcionários + 1 cargo, confirmando que todos aparecem na mensagem), e 409 com inspeção do `dependencies` estruturado. Suite total: **770/770 verdes** (era 762).
 
+### Bug idêntico em DELETE de Candidato — "Falha ao excluir N candidato(s)"
+
+Usuário reportou: *"ao tentar excluir tudo de uma vaga tenho a mensagem — Falha ao excluir 4 candidato(s)"*. Mesmo padrão de UX ruim: toast genérico sem explicar porquê. Investigação revelou dois problemas compostos:
+
+1. **Backend**: `CandidatoService.DeleteAsync` só fazia `Remove + SaveChanges`. Olhei o `AppDbContext.OnModelCreating` e contei 21 entidades com FK para `Candidato`: a maioria é Cascade ou SetNull (Candidaturas, StatusHistory, MatchingScores, competências, educação, etc — somem/zeram junto), mas **duas têm `DeleteBehavior.Restrict`**: `PropostaVaga` (proposta salarial/carta de oferta) e `ProjetoCandidato` (participação em projeto de seleção). Quando qualquer uma dessas existia, o Postgres retornava 23503 `foreign_key_violation`, o EF jogava `DbUpdateException` cru, o controller não catchava, a API respondia 500.
+
+2. **Frontend**: `VagasScreen.tsx` no fluxo "Excluir tudo" fazia loop nos candidatos chamando DELETE individual e registrando falhas num `let failed = 0;` com `catch { failed++; }`. No final do loop, `toast.error(\`Falha ao excluir ${failed} candidato(s).\`)`. Descartava **completamente** a razão de cada falha.
+
+Correção dupla: service com pre-check de `PropostaVaga` e `ProjetoCandidato` lançando `InvalidOperationException` formatada; controller com `catch InvalidOperationException` → 409 + safety net `DbUpdateException when pg.SqlState == "23503"` → 409 com `ConstraintName` no `detail`; frontend reescrito para coletar `falhas: { nome, motivo }[]` parseando o `message` do body JSON e abrir `confirmDialog` com a lista completa ao invés do toast curto.
+
+Cobertura: `RHPortal.Api.Tests/Candidatos/CandidatoDeleteTests.cs` com 6 testes via controller + `IDeleteCandidatoHandler` mockado. Tentei inicialmente testar o service direto, mas o `CandidatoService` tem **11 parâmetros no ctor** (AppDbContext + ITenantContext + IHostEnvironment + IHttpContextAccessor + IStringLocalizer + NotificationPublisher (que precisa de AppDbContext + MasterDbContext + IHubContext de SignalR) + IMatchingService + ICvGptExtractor + 3 opcionais). Mockar tudo pra testar um método que só bate no `_db` é overkill — o teste de handler mockado cobre exatamente o contrato que o usuário vê via HTTP. Suite total: **776/776 verdes** (era 770).
+
+Lição: quando o backend lança exceção sem detalhe estruturado, o frontend **não pode** recuperar a razão — mesmo que "passe o message do Error", esse message tende a ser `"HTTP 500: ..."` genérico. A fronteira entre back e front precisa de um contrato claro: status 4xx com body JSON consistente (`{ message, dependencies?, detail? }`). Foi o mesmo padrão aplicado ao CC agora replicado pro Candidato — próximo DELETE com FK Restrict deve seguir a mesma receita.
+
 ### Gotchas documentados para sessões futuras
 
 - **Interface `SolicitacaoDetail` no frontend**: tinha campo `centroCustoId` colidindo de dois lados (rename do `areaId` + A.RH.013). Sempre confirmar que o nome da propriedade no TS bate com o JSON do backend (que usa camelCase de `CentroCustoNome` — ou seja, `centroCustoNome`, NÃO `centroCustoName`).

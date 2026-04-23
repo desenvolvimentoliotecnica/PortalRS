@@ -145,6 +145,7 @@ public sealed class CandidatosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] IDeleteCandidatoHandler handler,
@@ -152,8 +153,28 @@ public sealed class CandidatosController : ControllerBase
     {
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
             return Forbid();
-        var deleted = await handler.HandleAsync(id, ct);
-        return deleted ? NoContent() : NotFound();
+
+        try
+        {
+            var deleted = await handler.HandleAsync(id, ct);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Pre-check no CandidatoService.DeleteAsync lança InvalidOperationException
+            // quando há vínculos que bloqueiam o delete (PropostaVaga, ProjetoCandidato).
+            // Mensagem já vem formatada em PT: "Não é possível excluir ... — há vínculos: ...".
+            return Conflict(new { message = ex.Message });
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == "23503")
+        {
+            // Safety net: FK nova com Restrict que o service ainda não sabe contar.
+            return Conflict(new
+            {
+                message = "Não é possível excluir este candidato — existe um vínculo em outra tabela que não foi detectado. Contate o suporte.",
+                detail = pg.ConstraintName,
+            });
+        }
     }
 
     /// <summary>

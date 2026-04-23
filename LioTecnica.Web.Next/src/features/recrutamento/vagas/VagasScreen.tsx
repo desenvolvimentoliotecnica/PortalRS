@@ -711,17 +711,41 @@ export default function VagasScreen() {
                 });
                 if (!confirmaExcluir) return;
 
-                let failed = 0;
+                // Coleta falhas com razão estruturada em vez de só contar.
+                // Quando o backend retorna 409 com {message}, extraímos e mostramos
+                // a lista exata de candidatos que não puderam ser excluídos e o motivo
+                // de cada um — evita a experiência antiga de "Falha ao excluir 4
+                // candidato(s)" sem explicação. fetchJson joga Error("HTTP 409: {json}").
+                const falhas: { nome: string; motivo: string }[] = [];
                 for (const candidato of vinculados) {
                     try {
                         await fetchJson(`${BASE}/api/candidatos/${encodeURIComponent(candidato.id)}`, { method: "DELETE" });
-                    } catch {
-                        failed++;
+                    } catch (err) {
+                        const raw = err instanceof Error ? err.message : String(err);
+                        const bodyStart = raw.indexOf(": ");
+                        const body = bodyStart >= 0 ? raw.slice(bodyStart + 2) : raw;
+                        let motivo = raw;
+                        try {
+                            const parsed = JSON.parse(body) as { message?: string };
+                            if (parsed?.message) motivo = parsed.message;
+                        } catch { /* body não é JSON */ }
+                        const nome = (candidato as { nome?: string; email?: string }).nome
+                            ?? (candidato as { email?: string }).email
+                            ?? candidato.id;
+                        falhas.push({ nome, motivo });
                     }
                 }
 
-                if (failed > 0) {
-                    toast.error(`Falha ao excluir ${failed} candidato(s).`);
+                if (falhas.length > 0) {
+                    // Toast longo + confirm dialog com a lista detalhada.
+                    const detalhes = falhas.map((f) => `• ${f.nome}: ${f.motivo}`).join("\n");
+                    await confirmDialog({
+                        title: `${falhas.length} candidato(s) não puderam ser excluídos`,
+                        description: detalhes + "\n\nA vaga não foi excluída. Resolva os vínculos e tente novamente.",
+                        confirmText: "Entendi",
+                        cancelText: "",
+                        destructive: false,
+                    });
                     return;
                 }
 
