@@ -137,6 +137,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<Cargo> Cargos => Set<Cargo>();
     public DbSet<NivelCargo> NiveisCargo => Set<NivelCargo>();
     public DbSet<DescricaoCargo> DescricoesCargo => Set<DescricaoCargo>();
+    public DbSet<DescricaoCargoItem> DescricaoCargoItens => Set<DescricaoCargoItem>();
     public DbSet<EixoVaga> EixosVaga => Set<EixoVaga>();
     public DbSet<PropostaVaga> PropostasVaga => Set<PropostaVaga>();
     public DbSet<Candidatura> Candidaturas => Set<Candidatura>();
@@ -494,6 +495,19 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Code).HasMaxLength(30).IsRequired();
             b.Property(x => x.Title).HasMaxLength(200).IsRequired();
             b.Property(x => x.Summary).HasMaxLength(2000);
+            // Sessão 31.8 — campos do template DNALIO
+            b.Property(x => x.AreaTemplate).HasMaxLength(120);
+            b.Property(x => x.CboCodigo).HasMaxLength(20);
+            b.Property(x => x.FormacaoMinima).HasMaxLength(200);
+            b.Property(x => x.FormacaoDesejavel).HasMaxLength(200);
+            b.Property(x => x.FormacaoAreaEstudo).HasMaxLength(200);
+            b.Property(x => x.ExperienciaTempoMinimo).HasMaxLength(80);
+            b.Property(x => x.ExperienciaTempoDesejavel).HasMaxLength(80);
+            b.Property(x => x.ExperienciaEspecificacao).HasMaxLength(500);
+            b.Property(x => x.RevisaoNumero).HasMaxLength(10);
+            b.Property(x => x.RevisaoNatureza).HasMaxLength(200);
+            b.Property(x => x.GestorNome).HasMaxLength(200);
+            b.Property(x => x.GestorEmail).HasMaxLength(200);
 
             b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
             b.HasIndex(x => x.NivelCargoId);
@@ -504,6 +518,27 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
              .WithMany()
              .HasForeignKey(x => x.NivelCargoId)
              .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasMany(x => x.Itens)
+             .WithOne(x => x.DescricaoCargo!)
+             .HasForeignKey(x => x.DescricaoCargoId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DescricaoCargoItem>(b =>
+        {
+            b.ToTable("DescricaoCargoItens");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Texto).HasMaxLength(500).IsRequired();
+            b.Property(x => x.NivelMinimo).HasMaxLength(40);
+            b.Property(x => x.Subcategoria).HasMaxLength(80);
+            b.Property(x => x.Categoria).HasConversion<short>();
+
+            b.HasIndex(x => new { x.TenantId, x.DescricaoCargoId });
+            b.HasIndex(x => new { x.TenantId, x.DescricaoCargoId, x.Categoria });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
         modelBuilder.Entity<EixoVaga>(b =>
@@ -1245,6 +1280,14 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.SetNull);
 
             b.HasIndex(x => x.EixoVagaId);
+
+            // Sessão 31.8 — FK para DescricaoCargo (template DNALIO consumido pelo matching)
+            b.HasOne(x => x.DescricaoCargo)
+                .WithMany()
+                .HasForeignKey(x => x.DescricaoCargoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => x.DescricaoCargoId);
 
             // Relacionamentos (listas do modal)
             b.HasMany(x => x.Beneficios)
