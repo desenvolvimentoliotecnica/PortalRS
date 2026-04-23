@@ -246,12 +246,6 @@ const CATEGORIA_SALARIAL = [
     { value: 1, label: "A" }, { value: 2, label: "B" }, { value: 3, label: "C" },
     { value: 4, label: "D" }, { value: 5, label: "E" },
 ];
-const TIPO_ESTATISTICA = [
-    { value: 1, label: "Normal" },
-    { value: 2, label: "Afastado" },
-    { value: 3, label: "Cedido" },
-    { value: 4, label: "Pendente" },
-];
 const TIPO_DOC_ALL = [
     { value: 0, label: "RG" }, { value: 1, label: "CPF" }, { value: 2, label: "CNH" },
     { value: 5, label: "Comprovante Residência" }, { value: 14, label: "Comprovante Bancário" },
