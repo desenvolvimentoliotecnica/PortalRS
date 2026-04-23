@@ -391,8 +391,8 @@ public sealed class PreAdmissao : ITenantEntity
     public string? CnhUf { get; set; }
     [StringLength(20)]
     public string? CnhOrgaoEmissor { get; set; }
-    public int? CnhDataExpedicao { get; set; }
-    public int? CnhPrimeiraHabilitacao { get; set; }
+    public DateOnly? CnhDataExpedicao { get; set; }
+    public DateOnly? CnhPrimeiraHabilitacao { get; set; }
 
     // ── TOTVS: Nome Abreviado / Contrato ──
     [StringLength(20)]

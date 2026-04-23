@@ -77,7 +77,7 @@ public sealed record PortalDadosPessoais(
 
     // CNH
     string? CnhNumero, string? CategoriaCnh, string? CnhUf,
-    string? CnhOrgaoEmissor, int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+    string? CnhOrgaoEmissor, DateOnly? CnhDataExpedicao, DateOnly? CnhPrimeiraHabilitacao,
     string? ValidadeCnh,
 
     // Reservista / Doc Militar
@@ -132,7 +132,7 @@ public sealed record PortalSalvarDadosRequest(
 
     // CNH
     string? CnhNumero, string? CategoriaCnh, string? CnhUf,
-    string? CnhOrgaoEmissor, int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+    string? CnhOrgaoEmissor, DateOnly? CnhDataExpedicao, DateOnly? CnhPrimeiraHabilitacao,
     string? ValidadeCnh,
 
     // Reservista / Doc Militar

@@ -48,6 +48,12 @@ export interface SolicitacaoDraft {
     unidadeLotacaoId: string | null;
     /** Vaga pré-vinculada quando solicitação é criada a partir do painel de vagas */
     vagaId: string | null;
+    // Dados do desligamento (só preenchem quando motivoRequisicao ∈ {1, 2})
+    dataDesligamento: string | null; // yyyy-MM-dd
+    tipoAvisoPrevioDesligamento: number | null; // 0=Indenizado, 1=Trabalhado, 2=Dispensado
+    diasAvisoPrevioDesligamento: number | null;
+    possuiEstabilidadeDesligamento: boolean | null;
+    motivoDesligamentoTexto: string;
 }
 
 interface Props {
@@ -104,6 +110,11 @@ const emptyDraft: SolicitacaoDraft = {
     centroCustoId: null,
     unidadeLotacaoId: null,
     vagaId: null,
+    dataDesligamento: null,
+    tipoAvisoPrevioDesligamento: null,
+    diasAvisoPrevioDesligamento: 30,
+    possuiEstabilidadeDesligamento: null,
+    motivoDesligamentoTexto: "",
 };
 
 /* ──────────────────────────── AutocompleteSelect ──────────────────────────── */
@@ -213,11 +224,13 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
     const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
 
     const loadLookups = useCallback(async () => {
+        // Lookup de funcionários NÃO é carregado aqui — é responsabilidade do useEffect abaixo,
+        // que sabe se precisa aplicar filtros por vaga/cargo/lotação. Carregar aqui causava race
+        // condition que podia sobrescrever a lista filtrada.
         type OptionRes = { id: string; name: string; code?: string };
-        const [cargosRes, unidadesRes, funcsRes, empresasRes, ccRes, lotacaoRes] = await Promise.all([
+        const [cargosRes, unidadesRes, empresasRes, ccRes, lotacaoRes] = await Promise.all([
             fetchJson<OptionRes[]>("/api/lookup/job-positions").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/units").catch(() => []),
-            fetchJson<Record<string, unknown>>("/api/lookup/funcionarios?pageSize=200").catch(() => ({ items: [] })),
             fetchJson<OptionRes[]>("/api/lookup/empresas").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/centros-custo").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/unidades-lotacao").catch(() => []),
@@ -227,13 +240,6 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
         setEmpresas(Array.isArray(empresasRes) ? empresasRes : []);
         setCentrosCusto(Array.isArray(ccRes) ? ccRes : []);
         setUnidadesLotacao(Array.isArray(lotacaoRes) ? lotacaoRes : []);
-
-        const funcItems = Array.isArray(funcsRes)
-            ? funcsRes
-            : Array.isArray((funcsRes as Record<string, unknown>)?.items)
-                ? ((funcsRes as Record<string, unknown>).items as { id: string; nome: string }[]).map((f) => ({ id: f.id, name: f.nome }))
-                : [];
-        setFuncionarios(funcItems as LookupItem[]);
 
         try {
             const meRes = await fetchJson<Record<string, unknown>>("/api/me");
@@ -245,6 +251,42 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             }
         } catch { /* ignore */ }
     }, []);
+
+    /**
+     * Recarrega a lista de funcionários filtrada por Cargo + Lotação + Empresa quando
+     * a origem é "quadro" e algum desses campos muda. Para "nova posição" mantém a lista global.
+     */
+    useEffect(() => {
+        if (!open) return;
+        // Este useEffect é o ÚNICO dono da lista `funcionarios`. Sempre busca:
+        //  - Com filtro de vagaId quando disponível (vaga do quadro selecionada)
+        //  - Com filtros estruturais (jobPosition + lotação) como fallback
+        //  - Sem filtro (pageSize=200) quando for "Nova posição" ou ainda não há dados suficientes
+        const filters: string[] = [];
+        if (draft.origemVaga === "quadro" && draft.vagaId) {
+            filters.push(`vagaId=${encodeURIComponent(draft.vagaId)}`);
+        } else if (draft.origemVaga === "quadro") {
+            if (draft.jobPositionId) filters.push(`jobPositionId=${encodeURIComponent(draft.jobPositionId)}`);
+            if (draft.unidadeLotacaoId) filters.push(`unidadeLotacaoId=${encodeURIComponent(draft.unidadeLotacaoId)}`);
+            if (draft.empresaId) filters.push(`empresaId=${encodeURIComponent(draft.empresaId)}`);
+            if (draft.unitId) filters.push(`unitId=${encodeURIComponent(draft.unitId)}`);
+        }
+        const qs = ["pageSize=200", ...filters].join("&");
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetchJson<Record<string, unknown>>(`/api/lookup/funcionarios?${qs}`);
+                if (cancelled) return;
+                const items = Array.isArray((res as Record<string, unknown>)?.items)
+                    ? ((res as Record<string, unknown>).items as { id: string; nome: string }[]).map((f) => ({ id: f.id, name: f.nome }))
+                    : [];
+                setFuncionarios(items as LookupItem[]);
+            } catch {
+                if (!cancelled) setFuncionarios([]);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [open, draft.origemVaga, draft.vagaId, draft.jobPositionId, draft.unidadeLotacaoId, draft.empresaId, draft.unitId]);
 
     function parseDraft(d: Record<string, unknown>, titleSuffix = ""): SolicitacaoDraft {
         return {
@@ -270,6 +312,11 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             centroCustoId: d?.centroCustoId ? String(d.centroCustoId) : null,
             unidadeLotacaoId: d?.unidadeLotacaoId ? String(d.unidadeLotacaoId) : null,
             vagaId: d?.vagaId ? String(d.vagaId) : null,
+            dataDesligamento: d?.dataDesligamento ? String(d.dataDesligamento).slice(0, 10) : null,
+            tipoAvisoPrevioDesligamento: (() => { const m: Record<string, number> = { Indenizado: 0, Trabalhado: 1, Dispensado: 2 }; const v = d?.tipoAvisoPrevioDesligamento; return v == null ? null : typeof v === "number" ? v : (m[v as string] ?? null); })(),
+            diasAvisoPrevioDesligamento: d?.diasAvisoPrevioDesligamento != null ? Number(d.diasAvisoPrevioDesligamento) : 30,
+            possuiEstabilidadeDesligamento: d?.possuiEstabilidadeDesligamento == null ? null : Boolean(d.possuiEstabilidadeDesligamento),
+            motivoDesligamentoTexto: String(d?.motivoDesligamentoTexto ?? ""),
         };
     }
 
@@ -312,6 +359,15 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
         if (!draft.centroCustoId) errors.push("Centro de Custo");
         if (!draft.unidadeLotacaoId) errors.push("Lotação");
         if (draft.motivoRequisicao === null) errors.push("Motivo da Requisição");
+        const isDesligamentoMotivo = draft.motivoRequisicao === 1 || draft.motivoRequisicao === 2;
+        if (isDesligamentoMotivo && draft.origemVaga === "nova") {
+            toast.error("Nova posição não permite motivo de desligamento — esta vaga não existe ainda e não há funcionário para desligar. Selecione 'Do quadro de vagas' ou troque o motivo.");
+            return;
+        }
+        if (isDesligamentoMotivo) {
+            if (!draft.substituidoFuncionarioId) errors.push("Funcionário a desligar");
+            if (!draft.dataDesligamento) errors.push("Data de desligamento");
+        }
         if (errors.length > 0) {
             toast.error(`Campos obrigatórios: ${errors.join(", ")}.`);
             return;
@@ -340,6 +396,13 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             centroCustoId: draft.centroCustoId,
             unidadeLotacaoId: draft.unidadeLotacaoId,
             vagaId: draft.vagaId || null,
+            dataDesligamento: isDesligamentoMotivo ? draft.dataDesligamento : null,
+            tipoAvisoPrevioDesligamento: isDesligamentoMotivo && draft.tipoAvisoPrevioDesligamento !== null
+                ? (["Indenizado", "Trabalhado", "Dispensado"][draft.tipoAvisoPrevioDesligamento] ?? null)
+                : null,
+            diasAvisoPrevioDesligamento: isDesligamentoMotivo ? draft.diasAvisoPrevioDesligamento : null,
+            possuiEstabilidadeDesligamento: isDesligamentoMotivo ? draft.possuiEstabilidadeDesligamento : null,
+            motivoDesligamentoTexto: isDesligamentoMotivo ? (draft.motivoDesligamentoTexto.trim() || null) : null,
         };
 
         try {
@@ -566,7 +629,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                                     </div>
                                 )}
 
-                                {draft.tipoSolicitacao === 1 && (
+                                {draft.tipoSolicitacao === 1 && draft.motivoRequisicao !== 1 && draft.motivoRequisicao !== 2 && (
                                     <div className="col-span-2">
                                         <label className={L}>Funcionário Substituído</label>
                                         <AutocompleteSelect items={funcionarios} value={draft.substituidoFuncionarioId} onChange={(v) => setDraft((d) => ({ ...d, substituidoFuncionarioId: v }))} placeholder="funcionário substituído" required disabled={viewOnly} />
@@ -575,7 +638,21 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
 
                                 <div className="col-span-3">
                                     <label className={L}>Motivo da Requisição *</label>
-                                    <select className={S} value={draft.motivoRequisicao ?? ""} onChange={(e) => setDraft((d) => ({ ...d, motivoRequisicao: e.target.value !== "" ? Number(e.target.value) : null }))} disabled={viewOnly}>
+                                    <select
+                                        className={S}
+                                        value={draft.motivoRequisicao ?? ""}
+                                        onChange={(e) => {
+                                            const v = e.target.value !== "" ? Number(e.target.value) : null;
+                                            setDraft((d) => ({
+                                                ...d,
+                                                motivoRequisicao: v,
+                                                // Desligamento implica Substituicao: fica visível o campo de funcionário
+                                                tipoSolicitacao: v === 1 || v === 2 ? 1 : d.tipoSolicitacao,
+                                            }));
+                                        }}
+                                        disabled={viewOnly}
+                                        data-testid="select-motivo-requisicao"
+                                    >
                                         <option value="">Selecione...</option>
                                         <option value={0}>Atender Demanda</option>
                                         <option value={1}>Pedido de Demissão</option>
@@ -588,6 +665,108 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                                         <option value={8}>Afastamento</option>
                                     </select>
                                 </div>
+
+                                {(draft.motivoRequisicao === 1 || draft.motivoRequisicao === 2) && draft.origemVaga === "nova" && (
+                                    <div className="col-span-3 rounded-md border border-red-400 bg-red-50 p-3 text-sm text-red-800" data-testid="alerta-nova-posicao-desligamento">
+                                        <b>Não é possível criar desligamento para uma nova posição.</b>
+                                        <div className="mt-1">
+                                            Esta vaga não existe ainda — logo, não há funcionário para desligar.
+                                            Selecione <b>&quot;Do quadro de vagas&quot;</b> acima para vincular um funcionário existente,
+                                            ou escolha outro motivo da requisição.
+                                        </div>
+                                    </div>
+                                )}
+
+                                {(draft.motivoRequisicao === 1 || draft.motivoRequisicao === 2) && draft.origemVaga !== "nova" && (
+                                    <div className="col-span-3 rounded-md border border-dashed border-amber-400/70 bg-amber-50/40 p-3" data-testid="bloco-desligamento">
+                                        <div className="mb-2 text-xs font-semibold text-amber-800">
+                                            Dados do desligamento
+                                            <span className="ml-2 font-normal text-[11px] text-amber-700/80">
+                                                Esta requisição irá gerar uma solicitação de desligamento automaticamente.
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                                            <div className="col-span-3">
+                                                <label className={L}>Funcionário a desligar *</label>
+                                                <AutocompleteSelect
+                                                    items={funcionarios}
+                                                    value={draft.substituidoFuncionarioId}
+                                                    onChange={(v) => setDraft((d) => ({ ...d, substituidoFuncionarioId: v }))}
+                                                    placeholder={funcionarios.length === 0 ? "nenhum funcionário encontrado para este cargo/lotação" : "funcionário"}
+                                                    required
+                                                    disabled={viewOnly}
+                                                />
+                                                {funcionarios.length === 0 && (
+                                                    <div className="mt-1 text-[11px] text-muted-foreground" data-testid="hint-funcionario-vazio">
+                                                        Não há funcionários cadastrados com este cargo e lotação.
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <label className={L}>Data de desligamento *</label>
+                                                <Input
+                                                    type="date"
+                                                    value={draft.dataDesligamento ?? ""}
+                                                    onChange={(e) => setDraft((d) => ({ ...d, dataDesligamento: e.target.value || null }))}
+                                                    disabled={viewOnly}
+                                                    data-testid="input-data-desligamento"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className={L}>Tipo aviso prévio</label>
+                                                <select
+                                                    className={S}
+                                                    value={draft.tipoAvisoPrevioDesligamento ?? ""}
+                                                    onChange={(e) => setDraft((d) => ({ ...d, tipoAvisoPrevioDesligamento: e.target.value !== "" ? Number(e.target.value) : null }))}
+                                                    disabled={viewOnly}
+                                                    data-testid="select-tipo-aviso"
+                                                >
+                                                    <option value="">Selecione...</option>
+                                                    <option value={0}>Indenizado</option>
+                                                    <option value={1}>Trabalhado</option>
+                                                    <option value={2}>Dispensado</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={L}>Dias aviso prévio</label>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={90}
+                                                    value={draft.diasAvisoPrevioDesligamento ?? ""}
+                                                    onChange={(e) => setDraft((d) => ({ ...d, diasAvisoPrevioDesligamento: e.target.value === "" ? null : Number(e.target.value) }))}
+                                                    disabled={viewOnly}
+                                                />
+                                            </div>
+                                            <div className="col-span-3 flex items-center gap-2">
+                                                <input
+                                                    id="chk-estabilidade"
+                                                    type="checkbox"
+                                                    checked={draft.possuiEstabilidadeDesligamento === true}
+                                                    onChange={(e) => setDraft((d) => ({ ...d, possuiEstabilidadeDesligamento: e.target.checked }))}
+                                                    className="rounded border-input"
+                                                    disabled={viewOnly}
+                                                />
+                                                <label htmlFor="chk-estabilidade" className={`text-sm ${viewOnly ? "cursor-default" : "cursor-pointer"}`}>
+                                                    Funcionário possui estabilidade
+                                                </label>
+                                            </div>
+                                            <div className="col-span-3">
+                                                <label className={L}>Motivo do desligamento</label>
+                                                <textarea
+                                                    className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground resize-none disabled:bg-muted/40 disabled:text-muted-foreground disabled:cursor-default"
+                                                    rows={2}
+                                                    value={draft.motivoDesligamentoTexto}
+                                                    onChange={(e) => setDraft((d) => ({ ...d, motivoDesligamentoTexto: e.target.value }))}
+                                                    placeholder="Contexto/observações do desligamento (diferente da justificativa da vaga nova)"
+                                                    maxLength={2000}
+                                                    disabled={viewOnly}
+                                                    data-testid="textarea-motivo-desligamento"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="col-span-3 flex items-center gap-6 py-1">
                                     <label className={`flex items-center gap-2 ${viewOnly ? "cursor-default" : "cursor-pointer"}`}>

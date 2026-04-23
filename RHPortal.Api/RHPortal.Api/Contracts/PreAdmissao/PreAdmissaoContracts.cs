@@ -134,7 +134,7 @@ public sealed record PreAdmissaoDetailResponse(
 
     // CNH completo
     string? CnhNumero, string? CnhUf, string? CnhOrgaoEmissor,
-    int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+    DateOnly? CnhDataExpedicao, DateOnly? CnhPrimeiraHabilitacao,
 
     // Doc Militar
     int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie,
@@ -296,7 +296,7 @@ public sealed record PreAdmissaoUpdateRequest(
 
     // CNH completo
     string? CnhNumero, string? CnhUf, string? CnhOrgaoEmissor,
-    int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+    DateOnly? CnhDataExpedicao, DateOnly? CnhPrimeiraHabilitacao,
 
     // Doc Militar
     int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie,

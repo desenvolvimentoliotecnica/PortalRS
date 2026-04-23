@@ -295,7 +295,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Ponto
         e.EmitCartPonto = r.EmitCartPonto?.Trim(); e.CodLocalMarcacao = r.CodLocalMarcacao;
         e.CodClassFuncPontoEletronico = r.CodClassFuncPontoEletronico;
-        e.TipoEstatistica = r.TipoEstatistica;
 
         // Docs avulsos
         e.TituloEleitorNumero = r.TituloEleitorNumero?.Trim();
@@ -582,7 +581,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             DataAdmissao = pa.DataAdmissao,
             DataNascimento = pa.DataNascimento,
             Sexo = pa.Sexo == Sexo.Masculino ? "M" : pa.Sexo == Sexo.Feminino ? "F" : null,
-            Headcount = 1,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -638,6 +636,27 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         e.Status = PreAdmissaoStatus.EmIntegracao;
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Amarração: se a pré-admissão veio de um Candidato com VagaId, marca a SolicitacaoVaga
+        // correspondente como tendo esse candidato contratado. Suporta o cenário "saiu um analista,
+        // entrou outro analista" — a vaga original fica vinculada ao novo contratado.
+        if (e.CandidatoId.HasValue)
+        {
+            var cand = await _db.Set<Candidato>().FirstOrDefaultAsync(c => c.Id == e.CandidatoId.Value, ct);
+            if (cand is not null && cand.VagaId.HasValue)
+            {
+                var solVaga = await _db.SolicitacoesVaga
+                    .Where(s => s.VagaId == cand.VagaId.Value && !s.CandidatoContratadoId.HasValue)
+                    .OrderByDescending(s => s.ApprovedAtUtc ?? s.CreatedAtUtc)
+                    .FirstOrDefaultAsync(ct);
+                if (solVaga is not null)
+                {
+                    solVaga.CandidatoContratadoId = cand.Id;
+                    solVaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                }
+            }
+        }
+
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
